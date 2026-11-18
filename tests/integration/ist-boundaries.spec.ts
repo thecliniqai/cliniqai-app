@@ -5,11 +5,19 @@ import { ctxFor } from "../helpers/context";
 import { createVisit, getVisitsForDate } from "@/features/visits/service";
 import { checkInVisit, getQueueForDate } from "@/features/queue/service";
 import { uploadLabDocument } from "@/features/labs/service";
+import { formatAmendedFilename } from "@/features/labs/utils";
+import { getTenantToday } from "@/lib/datetime/server";
+import { psql } from "../helpers/sql";
 
 // V2-03 03-05 (P1-21): the clinic day at 00:00-05:30 IST. 2026-11-12T19:00:00Z is 00:30 IST on 13 Nov while the UTC
 // date is still 12 Nov. Only `Date` is faked (timers, promises and the network run normally), and only around the
 // service calls: seeding runs on the real clock. Rows written under the fake clock belong to the run's tenants and
 // are removed by the tenant cascade in teardown.
+//
+// V2-05 05-08: a queue token's day is no longer chosen by the app. `issue_queue_token` (05-11a; `next_queue_token` before) returns the clinic-local date
+// that SQL computes from the database clock (`tenant_local_date(tenant, now())`), so a faked app clock cannot move it;
+// the check-in cases below assert that date. The SQL/app parity of the clinic date at the IST boundary (18:30-24:00
+// UTC) is asserted at fixed instants in the last describe block.
 const AT_0030_IST_13_NOV = new Date("2026-11-12T19:00:00.000Z");
 const VISIT_0200_IST_13_NOV = "2026-11-12T20:30:00.000Z";
 
@@ -39,6 +47,18 @@ async function walkInVisit(t: SeededTenant, patientId: string): Promise<string> 
   });
   if (!res.success) throw new Error(`Failed to create visit: ${res.error}`);
   return res.visitId;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+
+/** `tenant_local_date(tenant, at)` from SQL; `at` defaults to the database's `now()`. */
+function sqlTenantDate(tenantId: string, at?: string): string {
+  if (!UUID.test(tenantId)) throw new Error("tenant id is not a uuid");
+  if (at !== undefined && !ISO_INSTANT.test(at)) throw new Error("instant is not an ISO UTC timestamp");
+  const instant = at === undefined ? "now()" : `'${at}'::timestamptz`;
+  const [date] = psql(`select public.tenant_local_date('${tenantId}', ${instant})::text`);
+  return date;
 }
 
 async function tokenDateOf(t: SeededTenant, visitId: string): Promise<string | undefined> {
@@ -75,26 +95,30 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
     vi.useRealTimers();
   });
 
-  it("check-in at 00:30 IST issues a queue token dated the IST day (13 Nov), listed on that day's queue", async () => {
+  it("check-in issues a queue token dated the clinic-local today from SQL, whatever the app clock says (05-08)", async () => {
     const visitId = await walkInVisit(ist, istPatientId);
 
+    const before = sqlTenantDate(ist.tenantId);
     useClinicClock(AT_0030_IST_13_NOV);
     const res = await checkInVisit(ctxFor(ist), visitId, "normal");
     vi.useRealTimers();
+    const after = sqlTenantDate(ist.tenantId);
 
     expect(res).toMatchObject({ success: true, tokenNumber: 1 });
-    expect(await tokenDateOf(ist, visitId)).toBe("2026-11-13");
+    expect([before, after]).toContain(await tokenDateOf(ist, visitId));
   });
 
-  it("the tenant's own zone decides: the same instant is still 12 Nov for an America/New_York clinic", async () => {
+  it("the tenant's own zone decides the token date: an America/New_York clinic gets its own clinic-local today", async () => {
     const visitId = await walkInVisit(newYork, nyPatientId);
 
+    const before = sqlTenantDate(newYork.tenantId);
     useClinicClock(AT_0030_IST_13_NOV);
     const res = await checkInVisit(ctxFor(newYork), visitId, "normal");
     vi.useRealTimers();
+    const after = sqlTenantDate(newYork.tenantId);
 
     expect(res.success).toBe(true);
-    expect(await tokenDateOf(newYork, visitId)).toBe("2026-11-12");
+    expect([before, after]).toContain(await tokenDateOf(newYork, visitId));
   });
 
   it("a visit at 02:00 IST on 13 Nov is in the 13 Nov list and not in the 12 Nov list", async () => {
@@ -143,6 +167,60 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
 
     if (!res.success) throw new Error(`Upload failed: ${res.error}`);
     expect(res.document.report_date).toBe("2026-11-13");
-    expect(res.document.storage_path).toContain("_2026-11-13.pdf");
+    // The date no longer travels in the storage key (ids only since V2-05 05-02c, R-45); the readable download name
+    // (formatAmendedFilename) carries the same clinic date.
+    expect(formatAmendedFilename("Synthetic", res.document.original_filename, res.document.report_date)).toMatch(/_2026-11-13\.pdf$/);
+  });
+});
+
+// V2-05 05-08 (V2-03 R-33, 03-05 note): SQL and the app agree on a clinic's "today". `tenant_local_date` (SQL, used by
+// issue_queue_token and the date-fill triggers) and `getTenantToday` (lib/datetime/server) are evaluated at the same
+// fixed instants, including 18:30-24:00 UTC where the IST date is already the next UTC day (before 05-08, SQL's
+// CURRENT_DATE gave the UTC date there), for the zone values a clinic row may hold.
+describe("clinic date parity: SQL tenant_local_date = app getTenantToday", () => {
+  let clinic: SeededTenant;
+
+  // 18:30 and 19:00 UTC are 00:00 and 00:30 IST on the next day; 23:59:59 UTC is 05:29:59 IST; 03:00 UTC is still the
+  // previous evening west of UTC.
+  const INSTANTS = ["2026-11-13T18:30:00.000Z", "2026-11-13T19:00:00.000Z", "2026-11-13T23:59:59.000Z", "2026-11-14T03:00:00.000Z"];
+  const ZONES = [
+    "Asia/Kolkata",
+    "America/New_York",
+    "asia/kolkata",
+    "america/new_york",
+    "Asia/Calcutta",
+    "UTC",
+    "Etc/GMT+5",
+    "Pacific/Kiritimati",
+    "+05:30",
+    "-05:00",
+    "-0500",
+    "+05",
+    "EST",
+    "IST",
+    "Not/AZone",
+    "",
+  ];
+
+  beforeAll(async () => {
+    clinic = await seedTenantWithOwner("Synthetic Date Parity Clinic");
+  });
+
+  it("an IST clinic between 18:30 and 24:00 UTC: SQL gives the next day, as the app does (before: the UTC date)", async () => {
+    // The clinic still has the default zone (Asia/Kolkata) here; the next test changes it.
+    for (const at of INSTANTS.slice(0, 3)) {
+      const app = await getTenantToday(getAdminClient(), clinic.tenantId, Date.parse(at));
+      expect({ at, sql: sqlTenantDate(clinic.tenantId, at) }).toEqual({ at, sql: app.today });
+      expect(app.today).toBe("2026-11-14");
+    }
+  });
+
+  it.each(ZONES)("zone %j: SQL and the app give the same clinic date at every instant", async (zone) => {
+    const { error } = await getAdminClient().from("tenants").update({ timezone: zone }).eq("id", clinic.tenantId);
+    if (error) throw new Error(`Failed to set the tenant zone: ${error.message}`);
+    for (const at of INSTANTS) {
+      const app = await getTenantToday(getAdminClient(), clinic.tenantId, Date.parse(at));
+      expect({ zone, at, sql: sqlTenantDate(clinic.tenantId, at) }).toEqual({ zone, at, sql: app.today });
+    }
   });
 });

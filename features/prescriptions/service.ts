@@ -18,6 +18,8 @@ import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -298,13 +300,22 @@ export async function removePrescriptionItem(
       return { success: false, error: "Prescription item not found." };
     }
 
+    // RLS may filter the delete to 0 rows (V2-05 05-04): ask for the deleted row and refuse a no-op, so no success and
+    // no audit row are reported for an item that is still there.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteErr } = await (supabase.from("prescription_items") as any)
+    const { data: deleted, error: deleteErr } = await (supabase.from("prescription_items") as any)
       .delete()
-      .eq("id", itemId);
+      .eq("id", itemId)
+      .eq("tenant_id", ctx.tenantId)
+      .select("id");
 
     if (deleteErr) {
       return { success: false, error: "Failed to delete prescription item." };
+    }
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "prescriptions.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     await recordAudit(ctx, {
@@ -534,7 +545,7 @@ export async function getPrescriptionPdfSignedUrl(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -550,15 +561,17 @@ export async function getPrescriptionPdfSignedUrl(
 
     // 2. Fetch visit record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, specialty, vitals, chief_complaints, clinical_notes, advice, investigations_advised, created_at, scheduled_at, signed_at")
+    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
+      .select(`id, status, specialty, created_at, scheduled_at, signed_at, ${clinicalNotesEmbed()}`)
       .eq("id", rx.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    if (visitErr || !visitRow) {
       return { success: false, error: "Visit encounter record not found." };
     }
+    // The clinical content comes from clinical_notes (V2-05 05-02a).
+    const visit = withClinicalNotes(visitRow);
 
     // 3. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -639,7 +652,7 @@ export async function getPrescriptionPdfSignedUrl(
       visit: {
         visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
         vitals: visit.vitals || null,
-        chief_complaints: visit.chief_complaints || [],
+        chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
         clinical_notes: visit.clinical_notes || null,
         specialty: visit.specialty || "general_physician",
       },
@@ -692,7 +705,7 @@ export async function sharePrescriptionViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PatientDirectoryTable } from "@/components/patients/patient-directory-table";
 import { UserPlus } from "lucide-react";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function PatientsPage() {
+async function PatientsPage() {
   const supabase = await createClient();
   const membership = await getActiveMembership();
 
@@ -66,3 +67,6 @@ export default async function PatientsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(PatientsPage);

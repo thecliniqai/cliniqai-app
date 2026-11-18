@@ -802,3 +802,15 @@ runner token, R-50/R-51 alerts) are in `04-PLAN.md`. Evidence, reviews and triag
 | Item | Ruling | Evidence |
 |---|---|---|
 | Product name vs AI-06 L1 copy rules (AI_STRATEGY §5.3) | The exact, case-sensitive string "CliniQ AI" is the brand name, not an AI feature claim: masked before L1-R5 (AI in UI copy) and L1-R6 (AI next to a price). Every other "AI" stays checked; AI features keep the AI-02 labels; pricing copy names the plan. Brand theme from Claude Design applied to the V2-DX branch (`d2e399f`) and supersedes the round-3 teal default for G2-D. | `scripts/ci/ai-l1-greps.mjs` (`BRAND_NAME`), `tests/ci/ai-l1-greps.spec.ts` (2 new cases, both fail on the old checker), fixtures `lint-fixtures/ai-l1/brand-name-*` |
+
+### PO ruling: delivery speed — review depth by risk, Lows to backlog, overlapping phases (2026-11-14)
+
+PO asked why delivery is slow; options 1, 3 and 4 accepted ("we should go ahead with 1,3 & 4 as we have V2-14 a full
+security audit anyways"). Applies from the 05a re-verification onward; nothing already fixed is reverted.
+
+| Item | Ruling |
+|---|---|
+| 1. Review depth by risk | Adversarial reviews and a fresh re-verification only for security-sensitive change (migrations, RLS, permissions, middleware, auth, billing, platform admin, PHI — CLAUDE.md DoD 6). UI and other non-sensitive work: one independent review; no re-check round when the review finds no High |
+| 3. Lows | A Low is fixed in the current round only if it is cheap and local; otherwise it goes to the backlog with an owner phase, without a second review pass. Highs and Mediums are unchanged (fix + test that fails without it) |
+| 4. Overlapping phases | V2-06 starts now alongside V2-05 (05a fixes, then 05b), in its own worktree, branched from the 05a tip and later merging the 05b tip (merge commits only). Plans that need 05b code (06-06; the locked-user leg of 06-05 spec 1) wait for 05b |
+| V2-14 | Remains the full security verification (adversarial review + scanners) and is the backstop for deferred Lows. It does not replace per-change review of security-sensitive code |

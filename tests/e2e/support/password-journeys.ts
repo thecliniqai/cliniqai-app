@@ -10,6 +10,8 @@ import { E2E_BASE_URL } from "./app-env";
 import { addMemberToTenant, seededUserPassword } from "../../helpers/tenants";
 import { LOCAL_MAILPIT_API_URL } from "../../setup/test-env";
 import { readRunData } from "./run-data";
+import { logOffset, readLogFrom, SERVER_STDERR_LOG, SERVER_STDOUT_LOG } from "./server-log";
+import { psql } from "../../helpers/sql";
 
 export { BREACHED_FIXTURE_PASSWORDS } from "./pwned-range-server";
 
@@ -73,9 +75,43 @@ export async function expectSignInRefused(browser: Browser, user: JourneyUser): 
 }
 
 /** True once `page`'s session is gone: a dashboard page sends it to /login. */
+/** Error-sink events of the e2e server for the "Unauthenticated" page error (rows are per fingerprint and day). */
+function unauthenticatedSinkEvents(): number {
+  const [n] = psql("select coalesce(sum(count), 0) from ops.error_events where environment = 'e2e' and message = 'Unauthenticated'");
+  return Number(n);
+}
+
+/**
+ * Opens a dashboard page and expects the sign-in page. V2-05 05-11c: with a session revoked elsewhere (its access token
+ * still valid), the page used to throw "Unauthenticated" while the layout redirected, so each such load wrote a
+ * `request.error` line and an error-sink event (root cause in the 05-02a record). The redirect must now be the only
+ * outcome: no `request.error` line for the page's requests and no new "Unauthenticated" sink event.
+ */
 export async function expectSignedOut(page: Page): Promise<void> {
-  await page.goto("/patients");
-  await expect(page).toHaveURL((url) => url.pathname === "/login");
+  const outOffset = logOffset(SERVER_STDOUT_LOG);
+  const errOffset = logOffset(SERVER_STDERR_LOG);
+  const sinkBefore = unauthenticatedSinkEvents();
+  const requestIds: string[] = [];
+  const onResponse = (res: { url(): string; headers(): Record<string, string> }) => {
+    if (new URL(res.url()).pathname !== "/patients") return;
+    const id = res.headers()["x-request-id"];
+    if (id) requestIds.push(id);
+  };
+  page.on("response", onResponse);
+  try {
+    await page.goto("/patients");
+    await expect(page).toHaveURL((url) => url.pathname === "/login");
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+  } finally {
+    page.off("response", onResponse);
+  }
+  expect(requestIds.length, "the /patients request carried a request id").toBeGreaterThan(0);
+  const printed = readLogFrom(SERVER_STDOUT_LOG, outOffset) + readLogFrom(SERVER_STDERR_LOG, errOffset);
+  for (const id of requestIds) {
+    const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+  }
+  expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
 }
 
 async function messagesTo(address: string): Promise<Array<{ ID: string }>> {

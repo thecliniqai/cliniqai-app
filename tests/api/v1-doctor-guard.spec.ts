@@ -13,6 +13,8 @@ import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../h
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
+import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 
 enableApiV1ForFile();
 
@@ -207,7 +209,6 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
           doctor_id: doctorA.userId,
           origin_type: "walk_in",
           reason_for_visit: "Seasonal Allergies",
-          chief_complaints: ["Sneezing", "Runny nose"],
         }),
       });
 
@@ -218,6 +219,8 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.id).toBeDefined();
       expect(json.data.origin_type).toBe("walk_in");
       expect(json.data.status).toBe("waiting");
+      // V2-05 05-11c (R-9): API keys carry no clinical content; complaints are refused (tests/api/v1-visits-no-clinical.spec.ts).
+      expect(json.data).not.toHaveProperty("chief_complaints");
       expect(json.data.doctor_id).toBe(doctorA.userId);
       expect(json.data.patient_id).toBe(patientA.id);
       expect(json.data.created_by).toBe(clinicA.userId);
@@ -283,7 +286,8 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       activeVisitId = v!.id;
     });
 
-    it("rejects transitioning status to 'completed' without diagnosis or clinical notes (T-06-07)", async () => {
+    // V2-05 05-11c (R-9, IND M4): completing signs the visit, a clinical act an API key may not perform.
+    it("rejects transitioning status to 'completed' with 403 CLINICAL_ACCESS_DENIED", async () => {
       const req = new NextRequest(`http://localhost/api/v1/visits/${activeVisitId}`, {
         method: "PATCH",
         headers: {
@@ -298,32 +302,10 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       const res = await patchVisitById(req, { params: Promise.resolve({ id: activeVisitId }) });
       const json = await res.json();
 
-      expect(res.status).toBe(422);
-      expect(json.error.code).toBe("CLINICAL_SAFETY_VIOLATION");
-      expect(json.error.message).toContain("diagnosis or clinical note");
-    });
-
-    it("permits completion when clinical notes are supplied in the patch body", async () => {
-      const req = new NextRequest(`http://localhost/api/v1/visits/${activeVisitId}`, {
-        method: "PATCH",
-        headers: {
-          authorization: `Bearer ${keyA.rawToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "completed",
-          clinical_notes: "Patient advised complete rest and adequate hydration.",
-        }),
-      });
-
-      const res = await patchVisitById(req, { params: Promise.resolve({ id: activeVisitId }) });
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.data.status).toBe("completed");
-      expect(json.data.clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
-      expect(json.data.signed_at).toBeDefined();
-      expect(json.data.signed_by).toBe(clinicA.userId);
+      expect(res.status).toBe(403);
+      expect(json.error.code).toBe("CLINICAL_ACCESS_DENIED");
+      const { data: after } = await getAdminClient().from("visits").select("status, signed_at").eq("id", activeVisitId).single();
+      expect(after).toEqual({ status: "in_consultation", signed_at: null });
     });
 
     // V2-01 01-05 (DB-13/API-04, R10): completed or signed visits are read-only through the API.
@@ -338,35 +320,48 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       });
     }
 
+    /** The visit's state with its clinical note (from clinical_notes since V2-05 05-02a). */
     async function readVisit(visitId: string) {
       const { data } = await getAdminClient()
         .from("visits")
-        .select("status, clinical_notes, signed_at, signed_by, updated_at")
+        .select("status, signed_at, signed_by, updated_at")
         .eq("id", visitId)
         .single();
-      return data;
+      const notes = await clinicalNotesOf(visitId);
+      return data ? { ...data, clinical_notes: notes.clinical_notes, notes_updated_at: notes.updated_at } : null;
     }
 
     it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged", async () => {
-      const before = await readVisit(activeVisitId);
+      // Completed (signed) in the app; an API key cannot complete a visit (05-11c).
+      const { data: done } = await getAdminClient()
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "completed",
+          signed_at: "2026-11-02T09:00:00.000Z",
+          signed_by: doctorA.userId,
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const completedId = done!.id;
+      await seedClinicalNotes(completedId, { clinical_notes: "Signed synthetic note." });
+      const before = await readVisit(completedId);
       expect(before?.status).toBe("completed");
 
-      for (const body of [
-        { clinical_notes: "tamper" },
-        { status: "waiting" },
-        { status: "completed", clinical_notes: "re-sign attempt" },
-        { status: "cancelled" },
-        {},
-      ]) {
-        const res = await patchVisitById(patchReq(activeVisitId, body), {
-          params: Promise.resolve({ id: activeVisitId }),
+      for (const body of [{ status: "waiting" }, { status: "cancelled" }, {}]) {
+        const res = await patchVisitById(patchReq(completedId, body), {
+          params: Promise.resolve({ id: completedId }),
         });
         const json = await res.json();
         expect(res.status).toBe(409);
         expect(json.error.code).toBe("VISIT_LOCKED");
       }
 
-      expect(await readVisit(activeVisitId)).toEqual(before);
+      expect(await readVisit(completedId)).toEqual(before);
     });
 
     it("rejects a PATCH of a signed visit reopened for amendment (signed_at set, in_consultation)", async () => {
@@ -380,7 +375,6 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
           doctor_id: doctorA.userId,
           origin_type: "walk_in",
           status: "in_consultation",
-          clinical_notes: "Signed synthetic note.",
           signed_at: signedAt,
           signed_by: doctorA.userId,
           created_by: clinicA.userId,
@@ -388,9 +382,10 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
         .select("id")
         .single();
       const reopenedId = v!.id;
+      await seedClinicalNotes(reopenedId, { clinical_notes: "Signed synthetic note." });
       const before = await readVisit(reopenedId);
 
-      const res = await patchVisitById(patchReq(reopenedId, { clinical_notes: "tamper" }), {
+      const res = await patchVisitById(patchReq(reopenedId, { status: "cancelled" }), {
         params: Promise.resolve({ id: reopenedId }),
       });
       const json = await res.json();
@@ -419,13 +414,12 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
         .single();
       const openId = v!.id;
 
-      const ok = await patchVisitById(patchReq(openId, { status: "in_consultation", clinical_notes: "Open note." }), {
+      const ok = await patchVisitById(patchReq(openId, { status: "in_consultation" }), {
         params: Promise.resolve({ id: openId }),
       });
       expect(ok.status).toBe(200);
       const after = await readVisit(openId);
       expect(after?.status).toBe("in_consultation");
-      expect(after?.clinical_notes).toBe("Open note.");
       expect(after?.signed_at).toBeNull();
 
       const bad = await patchVisitById(patchReq(openId, { status: "archived" }), {
@@ -581,6 +575,53 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(res.status).toBe(201);
       expect(json.data.version).toBe(2);
       expect(json.data.prescription_items).toHaveLength(1);
+    });
+
+    // V2-05 05-11e (NF-2): no new prescription header on a signed visit unless it is reopened for amendment (a decoy
+    // header would replace the signed medicines in the record and the PDF, which read the latest version).
+    it("refuses a prescription on a signed visit with 409 VISIT_LOCKED and writes no header", async () => {
+      const admin = getAdminClient();
+      const { data: v } = await admin
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "completed",
+          signed_at: "2026-11-03T09:00:00.000Z",
+          signed_by: doctorA.userId,
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const signedId = v!.id;
+      const body = (visitId: string) =>
+        new NextRequest("http://localhost/api/v1/prescriptions", {
+          method: "POST",
+          headers: { authorization: `Bearer ${keyA.rawToken}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            patient_id: patientA.id,
+            doctor_id: doctorA.userId,
+            visit_id: visitId,
+            items: [{ medicine_name: "Synthetic decoy", dosage: "1 tablet", timing: "sos", duration: "1 day" }],
+          }),
+        });
+
+      const res = await createPrescription(body(signedId));
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error.code).toBe("VISIT_LOCKED");
+      const { count } = await admin
+        .from("prescriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("visit_id", signedId);
+      expect(count).toBe(0);
+
+      // Reopened for amendment: a new prescription is accepted, as for a signed-in doctor.
+      await admin.from("visits").update({ status: "in_consultation" }).eq("id", signedId);
+      const reopened = await createPrescription(body(signedId));
+      expect(reopened.status).toBe(201);
     });
 
     it("GET /api/v1/prescriptions returns paginated list with nested items", async () => {
@@ -845,7 +886,40 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.error.message).toContain("patient consent");
     });
 
+    it("rejects an in-network referral to a clinic not in the referral directory with a fixed 422 (05-06)", async () => {
+      const req = new NextRequest("http://localhost/api/v1/referrals", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          referring_doctor_id: doctorA.userId,
+          referral_type: "in_network",
+          target_tenant_id: clinicB.tenantId,
+          referred_to_name: "Dr. Arvind Gupta",
+          reason_for_referral: "Persistent knee pain post trauma",
+          patient_consents_history_sharing: true,
+        }),
+      });
+
+      const res = await createReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(422);
+      expect(json.error.code).toBe("VALIDATION_ERROR");
+      expect(json.error.message).toBe("Field 'target_tenant_id' must name a clinic listed in the referral directory.");
+      const { count } = await getAdminClient()
+        .from("referrals")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", clinicA.tenantId)
+        .eq("target_tenant_id", clinicB.tenantId);
+      expect(count).toBe(0);
+    });
+
     it("creates in-network referral when patient consent is granted", async () => {
+      await listInReferralDirectory(clinicB.tenantId);
       const req = new NextRequest("http://localhost/api/v1/referrals", {
         method: "POST",
         headers: {

@@ -1,0 +1,106 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T03:36:20.732Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:36:20.792Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:36:20.804Z","level":"error","event":"api.v1.failed","requestId":"9e9dcffc-ec7e-43ef-8bd8-ae7247b7b7a1","reason":"database_error","status":500}
+{"ts":"2026-11-14T03:36:20.816Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:36:20.836Z","level":"error","event":"api.v1.failed","requestId":"fd38cedf-4561-48aa-95d0-9912894d508d","reason":"database_error","status":500}
+{"ts":"2026-11-14T03:36:20.845Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:36:20.865Z","level":"error","event":"api.v1.failed","requestId":"66b055d3-9dc3-41a1-a4a5-fbfa4fbfa9ee","reason":"database_error","status":500}
+{"ts":"2026-11-14T03:36:20.883Z","level":"error","event":"sharing.reschedule_consume.failed","code":"23P01"}
+ ❯ tests/api/v1-slot-conflict.spec.ts (4 tests | 4 failed) 542ms
+   × slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > POST /api/v1/visits: a second overlapping scheduled visit → 409 SLOT_CONFLICT (before: stored) 99ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > POST /api/v1/appointments: a slot overlapped by the previous evening's visit → 409 SLOT_CONFLICT (before: stored) 24ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > PATCH /api/v1/appointments/:id: rescheduling into that overlap → 409 SLOT_CONFLICT, the visit keeps its time 29ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > patient reschedule link: a longer visit missed by the link's own check → 409 slot taken; the link stays usable 18ms
+     → expected 404 to be 409 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/v1-slot-conflict.spec.ts > slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > POST /api/v1/visits: a second overlapping scheduled visit → 409 SLOT_CONFLICT (before: stored)
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-slot-conflict.spec.ts:126:27
+    124|     expect(first.status).toBe(201);
+    125|     const second = await postVisit(apiRequest("/api/v1/visits", "POST"…
+    126|     expect(second.status).toBe(409);
+       |                           ^
+    127|     expect((await second.json()).error.code).toBe("SLOT_CONFLICT");
+    128|     expect(await visitsAt(at)).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/api/v1-slot-conflict.spec.ts > slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > POST /api/v1/appointments: a slot overlapped by the previous evening's visit → 409 SLOT_CONFLICT (before: stored)
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-slot-conflict.spec.ts:138:24
+    136|       apiRequest("/api/v1/appointments", "POST", { patient_id: patient…
+    137|     );
+    138|     expect(res.status).toBe(409);
+       |                        ^
+    139|     expect((await res.json()).error.code).toBe("SLOT_CONFLICT");
+    140|     expect(await visitsAt(at)).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/api/v1-slot-conflict.spec.ts > slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > PATCH /api/v1/appointments/:id: rescheduling into that overlap → 409 SLOT_CONFLICT, the visit keeps its time
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-slot-conflict.spec.ts:152:24
+    150|       params: Promise.resolve({ id: visitId }),
+    151|     });
+    152|     expect(res.status).toBe(409);
+       |                        ^
+    153|     expect((await res.json()).error.code).toBe("SLOT_CONFLICT");
+    154|     const { data } = await admin.from("visits").select("scheduled_at")…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/api/v1-slot-conflict.spec.ts > slot writes outside the app's slot check answer the exclusion constraint with 409 (05-08) > patient reschedule link: a longer visit missed by the link's own check → 409 slot taken; the link stays usable
+AssertionError: expected 404 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 404[39m
+
+ ❯ tests/api/v1-slot-conflict.spec.ts:174:24
+    172|       { params: Promise.resolve({ token }) }
+    173|     );
+    174|     expect(res.status).toBe(409);
+       |                        ^
+    175|     const { data: unchanged } = await admin.from("visits").select("sch…
+    176|     expect(new Date(unchanged!.scheduled_at as string).toISOString()).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  09:06:19
+   Duration  1.13s (transform 154ms, setup 8ms, collect 242ms, tests 542ms, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

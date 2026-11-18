@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
+import { isSlotTakenError } from "@/features/visits/service";
+import { retryOnDeadlock } from "@/lib/db/retry";
+import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/duration";
 import { recordAudit } from "@/lib/audit/audit";
 
 /**
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     const total = count || 0;
@@ -89,8 +92,7 @@ export async function GET(req: NextRequest) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -139,9 +141,11 @@ export async function POST(req: NextRequest) {
     return apiError("VALIDATION_ERROR", "Field 'scheduled_at' must be a valid ISO 8601 date timestamp.", 422, undefined, rateHeaders);
   }
 
-  const duration = typeof estimated_duration_minutes === "number" && estimated_duration_minutes > 0
-    ? estimated_duration_minutes
-    : 15;
+  // The same bounds as the app and the database (`visits_duration_range`, V2-05 05-11a/05-11c M-DURATION).
+  const duration = apiVisitDuration(estimated_duration_minutes);
+  if (duration === null) {
+    return apiError("VALIDATION_ERROR", VISIT_DURATION_API_MESSAGE, 422, undefined, rateHeaders);
+  }
 
   try {
     // 1. Verify patient exists and belongs to active tenant
@@ -152,7 +156,13 @@ export async function POST(req: NextRequest) {
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (patientErr || !patient) {
+    if (patientErr) {
+
+      return apiDbError(patientErr, rateHeaders);
+
+    }
+
+    if (!patient) {
       return apiError("NOT_FOUND", "Patient not found in active clinic.", 404, undefined, rateHeaders);
     }
 
@@ -163,7 +173,10 @@ export async function POST(req: NextRequest) {
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
 
-    if (doctorErr || !doctor || !["doctor", "owner"].includes(doctor.role)) {
+    if (doctorErr) {
+      return apiDbError(doctorErr, rateHeaders);
+    }
+    if (!doctor || !["doctor", "owner"].includes(doctor.role)) {
       return apiError(
         "FORBIDDEN",
         "Assigned doctor is not a registered doctor or owner in this clinic.",
@@ -225,8 +238,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Insert into public.visits with origin_type = 'scheduled'
-    const { data: visit, error: insertErr } = await (admin.from("visits") as any)
+    // 4. Insert into public.visits with origin_type = 'scheduled'. A deadlock victim of a concurrent overlapping slot
+    // write is retried once (`retryOnDeadlock`, V2-05 05-11c); a residual deadlock counts as the taken slot.
+    const { data: visit, error: insertErr } = await retryOnDeadlock<{ data: any; error: any }>(() => (admin.from("visits") as any)
       .insert({
         tenant_id: session.tenantId,
         patient_id,
@@ -239,10 +253,20 @@ export async function POST(req: NextRequest) {
         created_by: session.userId,
       })
       .select()
-      .single();
+      .single());
 
+    if (isSlotTakenError(insertErr)) {
+      // Booked by someone else after the slot check above (V2-05 05-08: the visits_no_double_booking constraint).
+      return apiError(
+        "SLOT_CONFLICT",
+        "The requested appointment slot conflicts with an existing booking for this doctor.",
+        409,
+        undefined,
+        rateHeaders
+      );
+    }
     if (insertErr || !visit) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create appointment", 500, undefined, rateHeaders);
+      return apiDbError(insertErr, rateHeaders);
     }
 
     // 5. Record audit log
@@ -261,7 +285,6 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(visit, undefined, 201, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

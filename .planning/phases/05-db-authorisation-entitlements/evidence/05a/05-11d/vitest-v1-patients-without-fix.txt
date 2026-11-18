@@ -1,0 +1,91 @@
+# v1-patients-no-clinical.spec.ts against the pre-fix route (app/api/v1/patients/[id]/route.ts at HEAD 505d10e, the rest of the 05-11d tree in place); run 2026-11-14T06:44:02Z
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T06:44:04.536Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T06:44:04.577Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T06:44:04.603Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T06:44:04.617Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T06:44:04.634Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ❯ tests/api/v1-patients-no-clinical.spec.ts (5 tests | 5 failed) 286ms
+   × /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with allergies → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row 42ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with chronic_conditions → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row 30ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with allergies set to null → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row 13ms
+     → expected 422 to be 403 // Object.is equality
+   × /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with a clinical field next to a demographic change → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row 21ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with demographics only → 200; allergies and chronic conditions are untouched 13ms
+     → expected [ 'Synthetic sulfa' ] to deeply equal [ 'Synthetic penicillin' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/v1-patients-no-clinical.spec.ts > /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with allergies → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row
+ FAIL  tests/api/v1-patients-no-clinical.spec.ts > /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with chronic_conditions → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row
+ FAIL  tests/api/v1-patients-no-clinical.spec.ts > /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with a clinical field next to a demographic change → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row
+AssertionError: expected 200 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 200[39m
+
+ ❯ tests/api/v1-patients-no-clinical.spec.ts:90:24
+     88|     const auditsBefore = await auditCount();
+     89|     const res = await put(body);
+     90|     expect(res.status).toBe(403);
+       |                        ^
+     91|     const json = await res.json();
+     92|     expect(json.error.code).toBe("CLINICAL_ACCESS_DENIED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/api/v1-patients-no-clinical.spec.ts > /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with allergies set to null → 403 CLINICAL_ACCESS_DENIED, nothing written, no audit row
+AssertionError: expected 422 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 422[39m
+
+ ❯ tests/api/v1-patients-no-clinical.spec.ts:90:24
+     88|     const auditsBefore = await auditCount();
+     89|     const res = await put(body);
+     90|     expect(res.status).toBe(403);
+       |                        ^
+     91|     const json = await res.json();
+     92|     expect(json.error.code).toBe("CLINICAL_ACCESS_DENIED");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/api/v1-patients-no-clinical.spec.ts > /api/v1/patients/:id PUT carries no clinical fields (05-11d, N-6) > PUT with demographics only → 200; allergies and chronic conditions are untouched
+AssertionError: expected [ 'Synthetic sulfa' ] to deeply equal [ 'Synthetic penicillin' ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "Synthetic penicillin",[39m
+[31m+   "Synthetic sulfa",[39m
+[2m  ][22m
+
+ ❯ tests/api/v1-patients-no-clinical.spec.ts:103:29
+    101|     const after = await patientRow();
+    102|     expect(after.full_name).toBe("Synthetic Renamed Patient");
+    103|     expect(after.allergies).toEqual(["Synthetic penicillin"]);
+       |                             ^
+    104|     expect(after.chronic_conditions).toEqual(["Synthetic asthma"]);
+    105|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  12:14:03
+   Duration  705ms (transform 81ms, setup 8ms, collect 108ms, tests 286ms, environment 0ms, prepare 27ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain

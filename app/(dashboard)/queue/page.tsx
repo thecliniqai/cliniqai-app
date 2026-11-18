@@ -7,6 +7,7 @@ import { QueueView } from "@/components/queue/queue-view";
 import { DoctorOption } from "@/components/queue/walk-in-drawer";
 import { isYmd } from "@/lib/datetime";
 import { getTenantToday } from "@/lib/datetime/server";
+import { withPageAuth } from "@/lib/auth/page";
 
 interface QueuePageProps {
   searchParams: Promise<{
@@ -15,7 +16,7 @@ interface QueuePageProps {
   }>;
 }
 
-export default async function QueuePage(props: QueuePageProps) {
+async function QueuePage(props: QueuePageProps) {
   const searchParams = await props.searchParams;
   const supabase = await createClient();
 
@@ -58,3 +59,6 @@ export default async function QueuePage(props: QueuePageProps) {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(QueuePage);

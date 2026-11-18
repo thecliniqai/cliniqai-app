@@ -21,6 +21,12 @@ import { psql } from "../helpers/sql";
 const ROOT = path.resolve(__dirname, "../..");
 const BACKUP = path.join(ROOT, "ops/backup/backup.sh");
 const SRC_BUCKET = "backup-spec-src";
+/**
+ * The archive listing and the manifest name every Storage object of the stack (the backup copies all buckets), so
+ * their size grows with whatever else the local stack holds: Node's default 1 MiB `maxBuffer` failed this spec with
+ * ENOBUFS once the shared stack held ~3,300 objects (05a close, `evidence/05a/close/evidence-attempt-2-failures.txt`).
+ */
+const LISTING_BUFFER = 256 * 1024 * 1024;
 const TARGET_BUCKET = "backup-spec-target";
 const OBJECT_NAME = "spec/synthetic-object.bin";
 
@@ -151,7 +157,10 @@ describe("backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the 
     // An unrelated key opens nothing; each recipient key opens it (primary and break-glass, R-3).
     expect(spawnSync(AGE, ["-d", "-i", path.join(tmp, "unrelated.key"), archive]).status).not.toBe(0);
     for (const k of ["primary", "breakglass"]) {
-      const listing = execFileSync("sh", ["-c", `"$0" -d -i "$1" "$2" | tar -tf -`, AGE, path.join(tmp, `${k}.key`), archive], { encoding: "utf8" });
+      const listing = execFileSync("sh", ["-c", `"$0" -d -i "$1" "$2" | tar -tf -`, AGE, path.join(tmp, `${k}.key`), archive], {
+        encoding: "utf8",
+        maxBuffer: LISTING_BUFFER,
+      });
       for (const entry of ["manifest.json", "roles.sql", "schema.sql", "storage_policies.sql", "data.sql", "history_schema.sql", "history_data.sql"]) {
         expect(listing, `${k}: ${entry}`).toMatch(new RegExp(`(^|\\n)(\\./)?${entry.replace(".", "\\.")}\\n`));
       }
@@ -159,7 +168,10 @@ describe("backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the 
     }
 
     const manifest = JSON.parse(
-      execFileSync("sh", ["-c", `"$0" -d -i "$1" "$2" | tar -xOf - ./manifest.json`, AGE, path.join(tmp, "primary.key"), archive], { encoding: "utf8" }),
+      execFileSync("sh", ["-c", `"$0" -d -i "$1" "$2" | tar -xOf - ./manifest.json`, AGE, path.join(tmp, "primary.key"), archive], {
+        encoding: "utf8",
+        maxBuffer: LISTING_BUFFER,
+      }),
     );
     expect(manifest).toMatchObject({ format_version: 1, environment: "local", cli_version: "2.120.0", excluded_buckets: [TARGET_BUCKET] });
     expect(manifest.buckets[SRC_BUCKET].objects).toEqual([{ name: OBJECT_NAME, size: 4096, sha256: sha256(content) }]);

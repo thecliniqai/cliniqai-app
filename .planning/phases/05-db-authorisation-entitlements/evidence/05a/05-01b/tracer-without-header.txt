@@ -1,0 +1,12 @@
+   ✓ the app client carries the active clinic (R-42) > sends the header only for a UUID-shaped cookie 3ms
+   × the app client carries the active clinic (R-42) > (a) PostgREST: has_permission follows the active clinic, not every membership 20ms
+   × the app client carries the active clinic (R-42) > (b) Storage: a policy on authz.full_tenant_ids() sees the header 6ms
+   ✓ the app client carries the active clinic (R-42) > (c) two memberships and no cookie: nothing in either clinic 11ms
+   ✓ the app client carries the active clinic (R-42) > a cookie naming a clinic the user is not a member of selects nothing for a dual member 4ms
+   ✓ the app client carries the active clinic (R-42) > a single-clinic user needs no cookie (sole-membership fallback), and a stale cookie does not lock them out 17ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/authz/active-tenant-carrier.spec.ts > the app client carries the active clinic (R-42) > (a) PostgREST: has_permission follows the active clinic, not every membership
+AssertionError: expected false to be true // Object.is equality
+ FAIL  tests/authz/active-tenant-carrier.spec.ts > the app client carries the active clinic (R-42) > (b) Storage: a policy on authz.full_tenant_ids() sees the header
+AssertionError: expected false to be true // Object.is equality
+      Tests  2 failed | 4 passed (6)

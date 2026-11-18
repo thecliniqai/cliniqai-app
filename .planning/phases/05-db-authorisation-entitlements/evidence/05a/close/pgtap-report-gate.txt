@@ -1,0 +1,8 @@
+$ node scripts/ci/assert-pgtap-report.mjs evidence/05a/pgtap-run-1.tap
+pgtap-report-gate: files=31 tests=3343 passed=3343 failed=0 skipped/todo=0 floor=3343 required=31
+pgtap-report-gate: PASS
+exit=0
+$ node scripts/ci/assert-pgtap-report.mjs evidence/05a/pgtap-run-2.tap
+pgtap-report-gate: files=31 tests=3343 passed=3343 failed=0 skipped/todo=0 floor=3343 required=31
+pgtap-report-gate: PASS
+exit=0

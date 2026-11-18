@@ -19,8 +19,9 @@ import {
   Activity,
   Stethoscope,
 } from "lucide-react";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function DashboardPage() {
+async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -338,3 +339,6 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(DashboardPage);

@@ -5,6 +5,8 @@ export interface DoctorValidationResult {
   valid: boolean;
   doctorName?: string;
   error?: string;
+  /** Set when the membership lookup itself failed: the route maps it (`apiDbError`), never answers "not found". */
+  dbError?: unknown;
 }
 
 /**
@@ -46,7 +48,10 @@ export async function validateDoctorAssignment(
     .eq("user_id", doctorId.trim())
     .maybeSingle();
 
-  if (error || !membership) {
+  if (error) {
+    return { valid: false, error: "Assigned doctor could not be verified.", dbError: error };
+  }
+  if (!membership) {
     return {
       valid: false,
       error: "Assigned doctor not found in the active clinic.",

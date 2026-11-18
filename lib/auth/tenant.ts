@@ -10,6 +10,19 @@ export class NoClinicMembershipError extends Error {
   }
 }
 
+/**
+ * No signed-in user: the session is missing, or it was revoked elsewhere (sign-out, password reset or change) while its
+ * access token is still valid, which `proxy.ts` (local JWT check) admits and GoTrue then refuses. The message stays
+ * "Unauthenticated" (callers match it). Page loaders turn it into a redirect to sign-in (`lib/auth/page.ts`, V2-05
+ * 05-11c), never a server error.
+ */
+export class UnauthenticatedError extends Error {
+  constructor() {
+    super("Unauthenticated");
+    this.name = "UnauthenticatedError";
+  }
+}
+
 export class MultipleClinicsSelectionRequiredError extends Error {
   constructor(message = "Multiple clinics found. Please select an active clinic.") {
     super(message);
@@ -37,7 +50,7 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    throw new Error("Unauthenticated");
+    throw new UnauthenticatedError();
   }
 
   const { data: memberships, error: memError } = await supabase

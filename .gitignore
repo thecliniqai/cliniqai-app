@@ -8,6 +8,7 @@ node_modules
 # CI report outputs (V2-02 02-01), uploaded as artifacts, never committed
 /inventory.json
 /vitest-report.json
+/pgtap-report.tap
 /gitleaks.sarif
 /npm-audit-full.json
 /test-results

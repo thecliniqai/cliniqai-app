@@ -19,6 +19,7 @@ import { completeAndBillConsultation, SIGN_AND_BILL_ALREADY_DONE_MESSAGE } from 
 import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features/settings/service";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -81,7 +82,7 @@ async function seedClinic(label: string): Promise<Clinic> {
     doctor_id: doctor.userId,
     origin_type: "scheduled",
     status: "booked",
-    scheduled_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
     created_by: owner.userId,
   });
   const prescriptionId = await insertRow("prescriptions", {
@@ -160,8 +161,9 @@ describe("01-09 review round 2 fixes (000022)", () => {
         `tenants/${A.owner.tenantId}/patients/${A.patientId}//x.pdf`,
         `tenants/${A.owner.tenantId}/patients/${A.patientId}/`,
       ]) {
+        // The attacker holds labs:edit (since V2-05 05-02c the patient_documents rule; the receptionist no longer does).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (A.receptionist.client.from("patient_documents") as any)
+        const { error } = await (A.doctor.client.from("patient_documents") as any)
           .update({ storage_path })
           .eq("id", A.documentId);
         expect(error?.code, storage_path).toBe("23514");
@@ -170,7 +172,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
       expect((data as { storage_path: string }).storage_path).toBe(A.documentPath);
 
       // Nothing the attacker can mint signs B's object.
-      const token = await mint(A.receptionist.client as SupabaseClient, "patient_document", A.documentId);
+      const token = await mint(A.doctor.client as SupabaseClient, "patient_document", A.documentId);
       const res = await docGet(token, "?download=true");
       expect(decodeURIComponent(res.headers.get("location") ?? "")).not.toContain(B.owner.tenantId);
     });
@@ -241,9 +243,15 @@ describe("01-09 review round 2 fixes (000022)", () => {
       const token = await mint(A.doctor.client as SupabaseClient, "prescription", A.prescriptionId);
       expect(token).toMatch(/^[0-9a-f]{64}$/);
 
-      // Every column of every token row a receptionist can see: the raw token appears nowhere.
+      // Since V2-05 05-02c a member reads token rows by resource type (a prescription link: prescriptions:view).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rows, error } = await (A.receptionist.client.from("document_share_tokens") as any).select("*");
+      const desk = await (A.receptionist.client.from("document_share_tokens") as any).select("token_hash");
+      expect(desk.error).toBeNull();
+      expect((desk.data ?? []).filter((r: { token_hash: string }) => r.token_hash === shareTokenHash(token))).toEqual([]);
+
+      // Every column of every token row the doctor can see: the raw token appears nowhere.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rows, error } = await (A.doctor.client.from("document_share_tokens") as any).select("*");
       expect(error).toBeNull();
       const mine = (rows ?? []).filter((r: { token_hash: string }) => r.token_hash === shareTokenHash(token));
       expect(mine).toHaveLength(1);
@@ -253,7 +261,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
 
       // The raw column is gone, for members and for the service role.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = await (A.receptionist.client.from("document_share_tokens") as any).select("token").limit(1);
+      const raw = await (A.doctor.client.from("document_share_tokens") as any).select("token").limit(1);
       expect(raw.error?.code).toBe("42703");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawAdmin = await (admin.from("document_share_tokens") as any).select("token").limit(1);
@@ -278,7 +286,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
       expect(JSON.stringify(rows)).not.toContain(token);
       expect((rows ?? []).some((r: { token_hash: string }) => r.token_hash === shareTokenHash(token))).toBe(true);
 
-      const at = new Date(Date.now() + 4 * 86_400_000);
+      // Day 13: outside the seed-slot window of this file's other visits of A's doctor (2-4 days ahead plus 20 minutes
+      // per seed, tests/helpers/seed-slots.ts) and clear of the day-9/day-11 reschedules below. Day 4 at 05:00 UTC lay
+      // inside that window, so a high random seed base made a later freshVisit collide (23P01, 05-11d evidence run).
+      const at = new Date(Date.now() + 13 * 86_400_000);
       at.setUTCHours(5, 0, 0, 0);
       const post = (t: string) =>
         postRescheduleRoute(
@@ -305,7 +316,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
       doctor_id: c.doctor.userId,
       origin_type: "scheduled",
       status,
-      scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+      scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
       created_by: c.owner.userId,
       ...extra,
     });
@@ -452,7 +463,8 @@ describe("01-09 review round 2 fixes (000022)", () => {
             },
             error: null,
           });
-          chain.then = (resolve: (v: unknown) => unknown) => resolve({ error: null });
+          // The row delete asks for the deleted rows (V2-05 05-04: 0 rows is a refusal): report the one row deleted.
+          chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [{ id: docId }], error: null });
           chain.insert = async () => ({ error: null });
           void table;
           return chain;
@@ -633,8 +645,11 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
   });
 
+  // V2-05 05-11c (M-APINOTES, R-9): the v1 visit routes no longer write clinical content, so the body that used to
+  // provoke the database error (a non-array investigations_advised) is now refused before any write. Fixed texts for
+  // real database errors on every v1 route are proven in tests/api/v1-error-texts.spec.ts.
   describe("AR2-Info (I2): the v1 visit PATCH never returns or logs database text", () => {
-    it("a database error on update answers a fixed message and logs only the error code", async () => {
+    it("a clinical field is refused with 403 CLINICAL_ACCESS_DENIED before any write; nothing echoes the input", async () => {
       vi.stubEnv("API_V1_ENABLED", "true");
       try {
         const secret = createApiKeySecret();
@@ -649,7 +664,6 @@ describe("01-09 review round 2 fixes (000022)", () => {
         const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
-        // investigations_advised is text[]; a number is not an array literal, so PostgREST returns a 22P02 error.
         const res = await patchV1Visit(
           new NextRequest(`http://localhost/api/v1/visits/${visitId}`, {
             method: "PATCH",
@@ -658,14 +672,15 @@ describe("01-09 review round 2 fixes (000022)", () => {
           }),
           { params: Promise.resolve({ id: visitId }) }
         );
-        expect(res.status).toBe(500);
+        expect(res.status).toBe(403);
         const body = await res.text();
+        expect(JSON.parse(body).error.code).toBe("CLINICAL_ACCESS_DENIED");
         expect(body).not.toMatch(/malformed|array literal|12345/i);
-        // V2-03 03-09c: the server log is lib/log on stderr; it names the event and the code, never the message.
         const logged = JSON.stringify([...errSpy.mock.calls, ...stderrSpy.mock.calls]);
-        expect(logged).not.toMatch(/malformed|array literal/i);
-        expect(logged).toContain('\\"event\\":\\"api.visit_update.failed\\"');
-        expect(logged).toContain('\\"code\\":\\"22P02\\"');
+        expect(logged).not.toMatch(/malformed|array literal|12345/i);
+        expect(logged).not.toContain('\\"event\\":\\"api.visit_update.failed\\"');
+        const { data: notes } = await getAdminClient().from("clinical_notes").select("investigations_advised").eq("visit_id", visitId).single();
+        expect(notes?.investigations_advised).toEqual([]);
       } finally {
         vi.unstubAllEnvs();
       }

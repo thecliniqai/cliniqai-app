@@ -1,0 +1,40 @@
+# tests/security/cross-tenant-refs.spec.ts new case on the stack WITHOUT 05-03 (schema 000046; full Vitest run with TEST_KEEP_DATA=1 used as the data-producing run for diagnostics/before-05-03.json), 2026-11-14T00:10:07Z
+# (the readiness and hosted-dump failures in that run come from the then-unapplied 000047-000051 files in the tree)
+ FAIL  tests/security/cross-tenant-refs.spec.ts > P0-13: services refuse references to another clinic's patient, visit or user > direct PostgREST writes that bypass the services' check are stopped by the composite FKs (05-03, 23503)
+AssertionError: expected undefined to be '23503' // Object.is equality
+
+[32m- Expected:[39m 
+"23503"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/security/cross-tenant-refs.spec.ts:230:34
+    228|     const row = { tenant_id: ownerA.tenantId, origin_type: "walk_in", …
+    229|     const bPatient = await receptionistA.client.from("visits").insert(…
+    230|     expect(bPatient.error?.code).toBe("23503");
+       |                                  ^
+    231|     expect(bPatient.data).toBeNull();
+    232|     const bDoctor = await receptionistA.client.from("visits").insert({…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/security/cross-tenant-refs.spec.ts > P0-13: services refuse references to another clinic's patient, visit or user > no tenant A row references a tenant B id
+AssertionError: expected [ 'visits' ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "visits",[39m
+[31m+ ][39m
+
+ ❯ tests/security/cross-tenant-refs.spec.ts:242:39
+    240| 
+    241|   it("no tenant A row references a tenant B id", async () => {
+    242|     expect(await aRowsReferencingB()).toEqual([]);
+       |                                       ^
+    243|   });
+    244| });
+

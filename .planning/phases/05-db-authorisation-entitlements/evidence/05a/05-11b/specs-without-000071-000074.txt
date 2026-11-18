@@ -1,0 +1,462 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts (24 tests | 2 failed) 3154ms
+   ✓ public.enqueue_message (request path) > a receptionist enqueues for a patient of their clinic: one row by them and one message.send job 209ms
+   ✓ public.enqueue_message (request path) > a patient of another clinic → P0002 SUBJECT_MISMATCH, no row 68ms
+   ✓ public.enqueue_message (request path) > anon cannot execute it (42501) 2ms
+   ✓ public.enqueue_message (request path) > dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2)  307ms
+   ✓ public.enqueue_message (request path) > a non-member tenant id narrows nothing: a member of A naming B for A's patient is refused 10ms
+   ✓ public.enqueue_message (request path) > patient and visit that do not belong together → SUBJECT_MISMATCH 42ms
+   ✓ public.enqueue_message (request path) > the same dedupe key twice → one row; the second answer is deduped 109ms
+   ✓ public.enqueue_message (request path) > a user action retried five times at once enqueues exactly one row and one job for its dedupe key 110ms
+   ✓ public.enqueue_message (request path) > R-24: only the patient's or guardian's number; the template must be allow-listed for the channel 47ms
+   ✓ public.enqueue_message (request path) > the caller cannot claim a system actor through metadata (04-07a: any key outside the allow-list is refused) 64ms
+   ✓ public.enqueue_message (request path) > lib/jobs/enqueue maps a refusal to EnqueueError with a fixed message 8ms
+   ✓ public.enqueue_message_system > authenticated → 42501; anon → 42501 3ms
+   ✓ public.enqueue_message_system > the service role with an actor outside the closed set → ACTOR_INVALID 1ms
+   ✓ public.enqueue_message_system > the service role with a known actor: tenant from the subject, no creator, actor recorded 72ms
+   ✓ communication_queue contract (members only read status columns) > a member cannot insert, update or delete queue rows 45ms
+   ✓ communication_queue contract (members only read status columns) > a member cannot claim, finish or dead-letter a row (42501) 35ms
+   ✓ communication_queue contract (members only read status columns) > catalogue: no write privilege for API roles; writers not executable by API roles; definer + empty search_path  379ms
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only 49ms
+     → consultation_documents: expected 'doctor,nurse,owner' to be 'doctor,owner' // Object.is equality
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription; nurse: receipt) 46ms
+     → prescription_ready: expected null to match object { code: '42501', message: 'FORBIDDEN' }
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > bot replies, lifecycle follow-ups and SMS fallbacks are system-only: TEMPLATE_NOT_ALLOWED even for the owner 74ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > params: only the template's declared keys, scalar values of at most 256 characters; message_type is the template 76ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > metadata: only subject ids and up to three buttons; visit_id must be the message's visit; run_at at most 90 days ahead 94ms
+   ✓ 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > a member who queues the real cancellation key first does not suppress the system's cancellation message 110ms
+   ✓ 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > two members' equal keys are two rows; the system path refuses the member namespace; a key over 150 characters is refused 11ms
+ ❯ tests/auth/invite.spec.ts (8 tests | 3 failed) 1401ms
+   ✓ Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > allows Owner/Admin of tenant to insert an invitation row under RLS 7ms
+   ✓ Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > blocks non-admin/doctor of tenant from inserting an invitation row 132ms
+   ✓ Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > atomically consumes invitation and binds joining user to the correct tenant and role 141ms
+   ✓ Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > prevents replay: consuming an already-used invitation throws an error and creates no duplicate 265ms
+   ✓ Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > rejects expired invitations and creates no membership 135ms
+   × Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > an admin cannot read token_hash through the Data API, but still lists the pending invitations 150ms
+     → expected undefined to be '42501' // Object.is equality
+   × Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > a second account holding the hash cannot redeem an invitation addressed to someone else 168ms
+     → expected '33ff647a-25bd-432c-9879-ccc8134139a1' to be null
+   × Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > an invitee whose email is not confirmed cannot redeem yet 109ms
+     → expected 'ok' to contain 'INVITATION_EMAIL_UNCONFIRMED'
+ ❯ tests/billing/payment-actor-guards.spec.ts (9 tests | 3 failed) 753ms
+   × H-PAY: direct payments INSERT through PostgREST > a receptionist cannot insert a payment directly at all (05-11b: record_payment only), naming anyone 24ms
+     → expected undefined to be '42501' // Object.is equality
+   × H-PAY: direct payments INSERT through PostgREST > the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it 10ms
+     → expected 'COMMAND_ID_RPC_ONLY' to be 'permission denied for table payments' // Object.is equality
+   ✓ H-PAY: direct payments INSERT through PostgREST > record_payment does not replay another actor's row with the same command id (IDEMPOTENCY_MISMATCH) 20ms
+   ✓ H-PAY: direct payments INSERT through PostgREST > the RPC's own command still records and replays for its actor 18ms
+   ✓ Low: record_payment inside a savepoint (outbox subject check) > succeeds inside SAVEPOINT and writes its outbox row; the marker does not outlive the call 70ms
+   ✓ Low: record_payment inside a savepoint (outbox subject check) > succeeds inside a plpgsql exception block 56ms
+   × M-AUDITSYS: audit_logs writes through PostgREST > a nurse claiming the system (the reviewer's row) is refused, and log_audit refuses a payment event outside record_payment (05-11b) 10ms
+     → expected null to match object { code: '42501', …(1) }
+   ✓ M-AUDITSYS: audit_logs writes through PostgREST > a nurse naming another user, an API key and the owner role is refused, and no row is written 8ms
+   ✓ M-AUDITSYS: audit_logs writes through PostgREST > the service role (system path, /api/v1) keeps its actor_type and api key 4ms
+ ❯ tests/billing/invoice-totals-db.spec.ts (6 tests | 6 failed) 499ms
+   × M-INVOICE: invoices and payments are not writable through the Data API > the visit's doctor cannot mark its invoice paid or zero it (the reviewer's PATCH) 23ms
+     → expected [ Array(1) ] to be null
+   × M-INVOICE: invoices and payments are not writable through the Data API > a collector cannot change an invoice directly either 17ms
+     → expected undefined to be '42501' // Object.is equality
+   × M-INVOICE: invoices and payments are not writable through the Data API > a collector cannot insert a payment row directly (record_payment only) 8ms
+     → expected undefined to be '42501' // Object.is equality
+   × M-INVOICE: invoices and payments are not writable through the Data API > an invoice cannot be created already paid (Sign & Bill INSERT) 6ms
+     → expected null to match object { code: '42501', …(1) }
+   × M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment 17ms
+     → expected '0/0/issued' to be '800/800/issued' // Object.is equality
+   × M-INVOICE: the app's billing paths still work > a doctor's recordPayment is still refused (billing:collect), and nothing is written 11ms
+     → expected '0/0/issued' to be '300/300/issued' // Object.is equality
+ ❯ tests/audit/log-audit-allowlist.spec.ts (7 tests | 5 failed) 465ms
+   × log_audit allow-lists: SQL = app > the action allow-list is AUDIT_ACTIONS without the reserved prefixes, plus the two bound DPDP events 101ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select unnest(private.audit_client_actions())
+ERROR:  function private.audit_client_actions() does not exist
+LINE 1: select unnest(private.audit_client_actions())
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × log_audit allow-lists: SQL = app > the metadata key allow-list is AUDIT_METADATA_KEYS without the API-key-only keys 38ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select unnest(private.audit_metadata_keys())
+ERROR:  function private.audit_metadata_keys() does not exist
+LINE 1: select unnest(private.audit_metadata_keys())
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × log_audit allow-lists: SQL = app > no API role can call the list functions 35ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select r || ':' || has_function_privilege(r, 'private.audit_client_actions()', 'EXECUTE') || ':' || has_function_privilege(r, 'private.audit_metadata_keys()', 'EXECUTE') from unnest(array['anon','authenticated','service_role']) r order by 1
+ERROR:  function "private.audit_client_actions()" does not exist
+
+   × log_audit through PostgREST (INT L-5) > a receptionist cannot plant a completed DPDP export (the reviewer's row) 11ms
+     → expected null to match object { code: '42501', …(1) }
+   × log_audit through PostgREST (INT L-5) > nor an action the app never writes, nor free-text metadata 3ms
+     → expected null to match object { code: 'P0001', …(1) }
+   ✓ log_audit through PostgREST (INT L-5) > the owner's in-app DPDP export audit (exports:create) is still written 5ms
+   ✓ log_audit through PostgREST (INT L-5) > the app's recordAudit still writes as the caller, with filtered metadata 3ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 19 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/audit/log-audit-allowlist.spec.ts > log_audit allow-lists: SQL = app > the action allow-list is AUDIT_ACTIONS without the reserved prefixes, plus the two bound DPDP events
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select unnest(private.audit_client_actions())
+ERROR:  function private.audit_client_actions() does not exist
+LINE 1: select unnest(private.audit_client_actions())
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/audit/log-audit-allowlist.spec.ts:44:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/19]⎯
+
+ FAIL  tests/audit/log-audit-allowlist.spec.ts > log_audit allow-lists: SQL = app > the metadata key allow-list is AUDIT_METADATA_KEYS without the API-key-only keys
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select unnest(private.audit_metadata_keys())
+ERROR:  function private.audit_metadata_keys() does not exist
+LINE 1: select unnest(private.audit_metadata_keys())
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/audit/log-audit-allowlist.spec.ts:49:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/19]⎯
+
+ FAIL  tests/audit/log-audit-allowlist.spec.ts > log_audit allow-lists: SQL = app > no API role can call the list functions
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select r || ':' || has_function_privilege(r, 'private.audit_client_actions()', 'EXECUTE') || ':' || has_function_privilege(r, 'private.audit_metadata_keys()', 'EXECUTE') from unnest(array['anon','authenticated','service_role']) r order by 1
+ERROR:  function "private.audit_client_actions()" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/audit/log-audit-allowlist.spec.ts:55:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/19]⎯
+
+ FAIL  tests/audit/log-audit-allowlist.spec.ts > log_audit through PostgREST (INT L-5) > a receptionist cannot plant a completed DPDP export (the reviewer's row)
+AssertionError: expected null to match object { code: '42501', …(1) }
+
+- Expected: 
+{
+  "code": "42501",
+  "message": "AUDIT_ACTION_FORBIDDEN",
+}
+
++ Received: 
+null
+
+ ❯ tests/audit/log-audit-allowlist.spec.ts:77:19
+     75|     const entityId = randomUUID();
+     76|     const { error } = await call(receptionist, "dpdp.data_export", ent…
+     77|     expect(error).toMatchObject({ code: "42501", message: "AUDIT_ACTIO…
+       |                   ^
+     78|     expect(await rowsFor(entityId)).toEqual([]);
+     79|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/19]⎯
+
+ FAIL  tests/audit/log-audit-allowlist.spec.ts > log_audit through PostgREST (INT L-5) > nor an action the app never writes, nor free-text metadata
+AssertionError: expected null to match object { code: 'P0001', …(1) }
+
+- Expected: 
+{
+  "code": "P0001",
+  "message": "INPUT_INVALID",
+}
+
++ Received: 
+null
+
+ ❯ tests/audit/log-audit-allowlist.spec.ts:84:33
+     82|     const entityId = randomUUID();
+     83|     const unknownAction = await call(receptionist, "patient.exported_e…
+     84|     expect(unknownAction.error).toMatchObject({ code: "P0001", message…
+       |                                 ^
+     85|     const freeText = await call(receptionist, "patient.view", entityId…
+     86|     expect(freeText.error).toMatchObject({ code: "P0001", message: "IN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/19]⎯
+
+ FAIL  tests/auth/invite.spec.ts > Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > an admin cannot read token_hash through the Data API, but still lists the pending invitations
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/auth/invite.spec.ts:199:36
+    197| 
+    198|       const hashRead = await adminA.client.from("invitations").select(…
+    199|       expect(hashRead.error?.code).toBe("42501");
+       |                                    ^
+    200|       expect(hashRead.data).toBeNull();
+    201|       const starRead = await adminA.client.from("invitations").select(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/19]⎯
+
+ FAIL  tests/auth/invite.spec.ts > Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > a second account holding the hash cannot redeem an invitation addressed to someone else
+AssertionError: expected '33ff647a-25bd-432c-9879-ccc8134139a1' to be null
+
+- Expected: 
+null
+
++ Received: 
+"33ff647a-25bd-432c-9879-ccc8134139a1"
+
+ ❯ tests/auth/invite.spec.ts:226:20
+    224| 
+    225|       const { data, error } = await sockPuppet.client.rpc("consume_inv…
+    226|       expect(data).toBeNull();
+       |                    ^
+    227|       expect(error).toMatchObject({ code: "42501", message: "INVITATIO…
+    228|       const { data: mems } = await admin.from("memberships").select("i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/19]⎯
+
+ FAIL  tests/auth/invite.spec.ts > Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > H-INVITE: the invitation hash is not a bearer credential > an invitee whose email is not confirmed cannot redeem yet
+AssertionError: expected 'ok' to contain 'INVITATION_EMAIL_UNCONFIRMED'
+
+Expected: "INVITATION_EMAIL_UNCONFIRMED"
+Received: "ok"
+
+ ❯ tests/auth/invite.spec.ts:253:19
+    251|       // An unconfirmed user cannot sign in through the API, so call t…
+    252|       const out = psqlAs(created.user!.id, `select public.consume_invi…
+    253|       expect(out).toContain("INVITATION_EMAIL_UNCONFIRMED");
+       |                   ^
+    254|       const { data: mems } = await admin.from("memberships").select("i…
+    255|       expect(mems).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: invoices and payments are not writable through the Data API > the visit's doctor cannot mark its invoice paid or zero it (the reviewer's PATCH)
+AssertionError: expected [ Array(1) ] to be null
+
+- Expected: 
+null
+
++ Received: 
+[
+  {
+    "id": "f20a22c3-eb75-44a3-af9b-7c57f39f0483",
+  },
+]
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:87:18
+     85|       .eq("id", invoiceId)
+     86|       .select("id");
+     87|     expect(data).toBeNull();
+       |                  ^
+     88|     expect(error?.code).toBe("42501");
+     89|     expect(await invoiceState(invoiceId)).toBe("500/500/issued");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: invoices and payments are not writable through the Data API > a collector cannot change an invoice directly either
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:95:25
+     93|     const { invoiceId } = await seedBilledVisit(500);
+     94|     const { error } = await receptionist.client.from("invoices").updat…
+     95|     expect(error?.code).toBe("42501");
+       |                         ^
+     96|     expect(await invoiceState(invoiceId)).toBe("500/500/issued");
+     97|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: invoices and payments are not writable through the Data API > a collector cannot insert a payment row directly (record_payment only)
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:107:25
+    105|       payment_method: "cash",
+    106|     });
+    107|     expect(error?.code).toBe("42501");
+       |                         ^
+    108|     expect(await paymentCount(invoiceId)).toBe(0);
+    109|     expect(await invoiceState(invoiceId)).toBe("500/500/issued");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: invoices and payments are not writable through the Data API > an invoice cannot be created already paid (Sign & Bill INSERT)
+AssertionError: expected null to match object { code: '42501', …(1) }
+
+- Expected: 
+{
+  "code": "42501",
+  "message": "INVOICE_STATUS_RPC_ONLY",
+}
+
++ Received: 
+null
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:135:19
+    133|       status: "paid",
+    134|     });
+    135|     expect(error).toMatchObject({ code: "42501", message: "INVOICE_STA…
+       |                   ^
+    136|   });
+    137| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+AssertionError: expected '0/0/issued' to be '800/800/issued' // Object.is equality
+
+Expected: "800/800/issued"
+Received: "0/0/issued"
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:152:43
+    150|     });
+    151|     expect(added.success).toBe(true);
+    152|     expect(await invoiceState(invoiceId)).toBe("800/800/issued");
+       |                                           ^
+    153| 
+    154|     const paid = await recordPayment(ctx, { invoice_id: invoiceId, amo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/19]⎯
+
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > a doctor's recordPayment is still refused (billing:collect), and nothing is written
+AssertionError: expected '0/0/issued' to be '300/300/issued' // Object.is equality
+
+Expected: "300/300/issued"
+Received: "0/0/issued"
+
+ ❯ tests/billing/invoice-totals-db.spec.ts:179:43
+    177|     expect(res.success).toBe(false);
+    178|     expect(await paymentCount(invoiceId)).toBe(0);
+    179|     expect(await invoiceState(invoiceId)).toBe("300/300/issued");
+       |                                           ^
+    180|   });
+    181| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/19]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > H-PAY: direct payments INSERT through PostgREST > a receptionist cannot insert a payment directly at all (05-11b: record_payment only), naming anyone
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:92:27
+     90|         recorded_by: recordedBy,
+     91|       });
+     92|       expect(error?.code).toBe("42501");
+       |                           ^
+     93|       expect(error?.message).toBe("permission denied for table payment…
+     94|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/19]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > H-PAY: direct payments INSERT through PostgREST > the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it
+AssertionError: expected 'COMMAND_ID_RPC_ONLY' to be 'permission denied for table payments' // Object.is equality
+
+Expected: "permission denied for table payments"
+Received: "COMMAND_ID_RPC_ONLY"
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:112:28
+    110|     });
+    111|     expect(error?.code).toBe("42501");
+    112|     expect(error?.message).toBe("permission denied for table payments"…
+       |                            ^
+    113|     expect(await paymentsOf(invoiceId)).toEqual([]);
+    114| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/19]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > M-AUDITSYS: audit_logs writes through PostgREST > a nurse claiming the system (the reviewer's row) is refused, and log_audit refuses a payment event outside record_payment (05-11b)
+AssertionError: expected null to match object { code: '42501', …(1) }
+
+- Expected: 
+{
+  "code": "42501",
+  "message": "AUDIT_ACTION_FORBIDDEN",
+}
+
++ Received: 
+null
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:253:20
+    251|       p_metadata: { system_actor: "system:payment_webhook", invoice_id…
+    252|     });
+    253|     expect(forged).toMatchObject({ code: "42501", message: "AUDIT_ACTI…
+       |                    ^
+    254|     expect(await auditRow(entityId)).toEqual([]);
+    255|     // An allow-listed event goes through log_audit as the nurse, with…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/19]⎯
+
+ FAIL  tests/jobs/enqueue-message-rpc-db.spec.ts > 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only
+AssertionError: consultation_documents: expected 'doctor,nurse,owner' to be 'doctor,owner' // Object.is equality
+
+Expected: "doctor,owner"
+Received: "doctor,nurse,owner"
+
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts:416:31
+    414|       const perm = REQUEST_TEMPLATE_PERMISSION[template];
+    415|       const expected = perm ? ROLES.filter((r) => hasPerm(r, perm)).so…
+    416|       expect(roles, template).toBe(expected);
+       |                               ^
+    417|     }
+    418|     expect(Object.keys(REQUEST_TEMPLATE_PERMISSION).every((t) => t in …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/19]⎯
+
+ FAIL  tests/jobs/enqueue-message-rpc-db.spec.ts > 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription; nurse: receipt)
+AssertionError: prescription_ready: expected null to match object { code: '42501', message: 'FORBIDDEN' }
+
+- Expected: 
+{
+  "code": "42501",
+  "message": "FORBIDDEN",
+}
+
++ Received: 
+null
+
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts:435:36
+    433|     ] as const) {
+    434|       const { error } = await enqueue(who.client, ownerA.tenantId, { p…
+    435|       expect(error, `${template}`).toMatchObject({ code: "42501", mess…
+       |                                    ^
+    436|     }
+    437|     expect(rowsFor(patientA.patientId)).toHaveLength(before);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/19]⎯
+
+
+ Test Files  5 failed (5)
+      Tests  19 failed | 35 passed (54)
+   Start at  10:51:40
+   Duration  7.48s (transform 175ms, setup 33ms, collect 429ms, tests 6.27s, environment 0ms, prepare 124ms)
+
+[teardown] removed run data: 8 tenant(s), 27 auth user(s), 0 storage object(s); verified none remain

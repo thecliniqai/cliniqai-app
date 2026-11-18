@@ -1,13 +1,14 @@
 import { getMyProfile } from "@/features/settings/actions";
 import { UserProfileForm } from "@/components/profile/user-profile-form";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
   title: "My Profile · ClinicOS",
   description: "Manage your personal information and clinical practice credentials",
 };
 
-export default async function ProfilePage() {
+async function ProfilePage() {
   const { user, membership, tenant } = await getMyProfile();
 
   return (
@@ -33,3 +34,6 @@ export default async function ProfilePage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(ProfilePage);

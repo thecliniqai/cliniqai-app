@@ -1,0 +1,107 @@
+$ node acceptance-extract.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05a 2   (source: close/acceptance-extract.mjs.txt; run from the repo root at 4c46ec1)
+
+A1 pgTAP matrix covers 100% of tenant tables and passes (05a: roles x full)
+  pgTAP  authz_completeness.test.sql  run1=6/6  run2=6/6
+  pgTAP  authz_matrix.test.sql  run1=2376/2376  run2=2376/2376
+  pgTAP  authz_helpers.test.sql  run1=77/77  run2=77/77
+  pgTAP  delete_rules.test.sql  run1=35/35  run2=35/35
+  pgTAP  domain_policies.test.sql  run1=42/42  run2=42/42
+  pgTAP  admin_policies.test.sql  run1=32/32  run2=32/32
+  pgTAP  storage_policies.test.sql  run1=46/46  run2=46/46
+  pgTAP  grants.test.sql  run1=15/15  run2=15/15
+  pgTAP  definer_functions.test.sql  run1=40/40  run2=40/40
+  vitest tests/authz/table-matrix.spec.ts  run1=21/21  run2=21/21
+  vitest tests/authz/generator-drift.spec.ts  run1=4/4  run2=4/4
+  vitest tests/ci/pgtap-report.spec.ts  run1=13/13  run2=13/13
+
+A2 receptionist PostgREST read of clinical_notes denied (PO-3)
+  pgTAP  clinical_notes.test.sql  run1=53/53  run2=53/53
+  pgTAP  clinical_notes_backfill.test.sql  run1=9/9  run2=9/9
+  vitest tests/security/role-rls.spec.ts  run1=15/15  run2=15/15
+
+A3 cross-tenant child insert fails
+  pgTAP  composite_fks.test.sql  run1=105/105  run2=105/105
+  pgTAP  migration_edge_cases_fk.test.sql  run1=21/21  run2=21/21
+  vitest tests/security/cross-tenant-refs.spec.ts  run1=12/12  run2=12/12
+
+A5 receptionist can register a patient
+  pgTAP  authz_matrix.test.sql  run1=2376/2376  run2=2376/2376
+  vitest tests/patients/receptionist-registration.spec.ts  run1=7/7  run2=7/7
+
+A6 two overlapping non-overbooked appointments cannot both be inserted
+  pgTAP  scheduling_exclusion.test.sql  run1=26/26  run2=26/26
+  pgTAP  migration_edge_cases_overlap.test.sql  run1=9/9  run2=9/9
+  vitest tests/scheduling/no-double-booking.spec.ts  run1=4/4  run2=4/4
+  vitest tests/visits/create-visit-slot-race.spec.ts  run1=4/4  run2=4/4
+  vitest tests/api/v1-slot-conflict.spec.ts  run1=4/4  run2=4/4
+
+A7 50 parallel check-ins -> 50 distinct tokens with the IST date
+  pgTAP  queue_tokens.test.sql  run1=34/34  run2=34/34
+  pgTAP  tenant_local_dates.test.sql  run1=20/20  run2=20/20
+  vitest tests/integration/queue-token-concurrency.spec.ts  run1=2/2  run2=2/2
+
+Roadmap test: has_permission parity unit test
+  pgTAP  authz_helpers.test.sql  run1=77/77  run2=77/77
+  vitest tests/permissions/has-permission-parity.spec.ts  run1=8/8  run2=8/8
+
+Roadmap test: migration tests on a copy seeded with the diagnostics' edge cases (FK + overlap + visit integrity)
+  pgTAP  migration_edge_cases_fk.test.sql  run1=21/21  run2=21/21
+  pgTAP  migration_edge_cases_overlap.test.sql  run1=9/9  run2=9/9
+  pgTAP  migration_edge_cases_visit_integrity.test.sql  run1=17/17  run2=17/17
+  vitest tests/ci/diagnostics-script.spec.ts  run1=15/15  run2=15/15
+  vitest tests/ci/fk-edge-cases-inline.spec.ts  run1=1/1  run2=1/1
+  vitest tests/ci/visit-integrity-inline.spec.ts  run1=11/11  run2=11/11
+
+P1-08 RESTRICT + DELETE policies (05-04)
+  pgTAP  delete_rules.test.sql  run1=35/35  run2=35/35
+  pgTAP  composite_fks.test.sql  run1=105/105  run2=105/105
+  vitest tests/integration/delete-paths.spec.ts  run1=8/8  run2=8/8
+
+P1-10 / P1-11 referrals directory + consent, exports:create + minimal DTOs (05-06)
+  pgTAP  referrals_rules.test.sql  run1=48/48  run2=48/48
+  vitest tests/dpdp/export-dto.spec.ts  run1=7/7  run2=7/7
+  vitest tests/api/export-scope.spec.ts  run1=6/6  run2=6/6
+  vitest tests/referrals/referral-consent-write.spec.ts  run1=3/3  run2=3/3
+
+P1-04 trigger part + audit v2 (05-02c)
+  pgTAP  audit_v2.test.sql  run1=24/24  run2=24/24
+  pgTAP  actor_bindings_audit.test.sql  run1=34/34  run2=34/34
+  vitest tests/audit/audit-actor.spec.ts  run1=5/5  run2=5/5
+  vitest tests/audit/log-audit-allowlist.spec.ts  run1=7/7  run2=7/7
+
+V2-03 handovers: active-tenant binding (multi-membership), record_payment, lab keys, statement timeouts
+  pgTAP  definer_functions.test.sql  run1=40/40  run2=40/40
+  pgTAP  grants.test.sql  run1=15/15  run2=15/15
+  pgTAP  storage_policies.test.sql  run1=46/46  run2=46/46
+  pgTAP  billing_rpc_only.test.sql  run1=25/25  run2=25/25
+  vitest tests/authz/active-tenant-carrier.spec.ts  run1=7/7  run2=7/7
+  vitest tests/billing/record-payment-rpc.spec.ts  run1=36/36  run2=36/36
+  vitest tests/billing/collect-permission.spec.ts  run1=12/12  run2=12/12
+  vitest tests/labs/lab-storage-key.spec.ts  run1=4/4  run2=4/4
+  vitest tests/storage/storage-policies-jwt.spec.ts  run1=8/8  run2=8/8
+
+P2-08 FK indexes + V2-03 R-33 tenant-local dates (05-08)
+  pgTAP  fk_indexes.test.sql  run1=4/4  run2=4/4
+  pgTAP  tenant_local_dates.test.sql  run1=20/20  run2=20/20
+
+05a review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-1..5)
+  pgTAP  visit_integrity.test.sql  run1=45/45  run2=45/45
+  pgTAP  invitation_binding.test.sql  run1=14/14  run2=14/14
+  pgTAP  billing_rpc_only.test.sql  run1=25/25  run2=25/25
+  pgTAP  api_keys_notices_columns.test.sql  run1=26/26  run2=26/26
+  pgTAP  actor_bindings_audit.test.sql  run1=34/34  run2=34/34
+  pgTAP  reverify_integrity.test.sql  run1=61/61  run2=61/61
+  pgTAP  amendment_snapshot.test.sql  run1=60/60  run2=60/60
+  pgTAP  signed_visit_fields.test.sql  run1=26/26  run2=26/26
+  vitest tests/visits/signed-visit-integrity.spec.ts  run1=4/4  run2=4/4
+  vitest tests/billing/invoice-totals-db.spec.ts  run1=9/9  run2=9/9
+  vitest tests/api/v1-visits-no-clinical.spec.ts  run1=13/13  run2=13/13
+  vitest tests/api/v1-patients-no-clinical.spec.ts  run1=5/5  run2=5/5
+  vitest tests/auth/page-revoked-session.spec.ts  run1=13/13  run2=13/13
+
+run1: vitest files=950 tests=4876 passed=4876 failed=0 pending=0 todo=0 success=true; pgTAP files=31 tests=3343 passed=3343 gate=PASS
+
+run2: vitest files=950 tests=4876 passed=4876 failed=0 pending=0 todo=0 success=true; pgTAP files=31 tests=3343 passed=3343 gate=PASS
+
+acceptance-extract: every named spec and pgTAP file passed in every run
+exit=0

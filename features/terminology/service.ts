@@ -14,6 +14,7 @@ import {
 } from "./schema";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export type SearchDiagnosesResult =
@@ -276,13 +277,20 @@ export async function removeConsultationDiagnosis(
 
     // 2. Delete diagnosis row
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteErr } = await (supabase.from("consultation_diagnoses") as any)
+    const { data: deleted, error: deleteErr } = await (supabase.from("consultation_diagnoses") as any)
       .delete()
       .eq("id", diagnosisId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (deleteErr) {
       return { success: false, error: "Failed to delete diagnosis." };
+    }
+    // RLS may filter the delete to 0 rows (V2-05 05-04): refuse the no-op before touching the patient's profile.
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "terminology.diagnosis_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     // 3. If chronic, remove from patient profile if present

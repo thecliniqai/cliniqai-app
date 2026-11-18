@@ -1,0 +1,10 @@
+# authz_completeness.test.sql with public.invitations missing from tests/authz/table-matrix.ts (first generator run, 05-01b)
+1..4
+not ok 1 - every public table (tenant and global) has a row in tests/authz/table-matrix.ts, and nothing else
+# Failed test 1: "every public table (tenant and global) has a row in tests/authz/table-matrix.ts, and nothing else"
+#     Extra records:
+#         (invitations)
+ok 2 - every ops / billing_internal / platform table with a tenant_id has a row in the matrix, and nothing else
+ok 3 - every storage bucket has its path classes in the matrix, and nothing else
+ok 4 - RLS is enabled on every public table
+# Looks like you failed 1 test of 4

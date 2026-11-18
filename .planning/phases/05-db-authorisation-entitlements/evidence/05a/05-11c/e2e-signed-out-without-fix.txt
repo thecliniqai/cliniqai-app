@@ -1,0 +1,457 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 88ms
+[WebServer] ✓ Running next.config.ts took 60ms
+
+Running 21 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (679ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (399ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (762ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (451ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (541ms)
+[WebServer] {"ts":"2026-11-14T05:33:16.208Z","level":"info","event":"auth.password.rejected","userId":"15902766-a72f-43eb-83c7-35f3bb5004d5","action":"set_new_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:33:16.463Z","level":"info","event":"auth.password.changed","requestId":"36d5ae9c-0d7f-48b2-8276-3d567dec5a04","userId":"15902766-a72f-43eb-83c7-35f3bb5004d5","action":"set_new_password"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:17.080Z","level":"error","event":"request.error","requestId":"b76ad5bc-2b3d-4db7-867e-ba73a3180e3a","route":"/patients","code":"Error"}
+  ✘   6 [desktop-chrome] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out (2.3s)
+[WebServer] {"ts":"2026-11-14T05:33:19.002Z","level":"info","event":"auth.password.rejected","userId":"09f3ac70-c1a2-4121-8729-ec50e5e4c3eb","action":"change_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:33:19.231Z","level":"info","event":"auth.password.changed","requestId":"15981dbf-109e-4c26-929f-e497f3cce749","userId":"09f3ac70-c1a2-4121-8729-ec50e5e4c3eb","action":"change_password"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:19.435Z","level":"error","event":"request.error","requestId":"e8a7e844-4b0f-477d-81f8-04803cd299a8","route":"/patients","code":"Error"}
+  ✘   7 [desktop-chrome] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out (1.8s)
+[WebServer] {"ts":"2026-11-14T05:33:21.095Z","level":"info","event":"auth.signout.done","requestId":"337f0ac6-dce9-411a-8756-4f08056139c8","module":"auth.signout","reason":"local"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:21.313Z","level":"error","event":"request.error","requestId":"ed130eb0-3291-468c-ada3-7044ff24cc00","route":"/patients","code":"Error"}
+  ✘   8 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in (1.5s)
+[WebServer] {"ts":"2026-11-14T05:33:22.929Z","level":"info","event":"auth.signout.done","requestId":"35be303e-0ce6-44e7-98c9-943c4227d9be","module":"auth.signout","reason":"global"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:23.048Z","level":"error","event":"request.error","requestId":"4fd39417-7dae-4708-ba7a-5fdb48889659","route":"/patients","code":"Error"}
+  ✘   9 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends (1.3s)
+[WebServer] {"ts":"2026-11-14T05:33:24.342Z","level":"warn","event":"auth.signout.refused","requestId":"2be5a0c9-9735-4a41-bc43-6bf50a7fa626","module":"auth.signout","reason":"cross_origin","status":403}
+  ✓  10 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:137:5 › GET is 405 and a cross-origin POST is 403; the session survives both (785ms)
+  ✓  11 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 360px: both items visible, 0 serious/critical axe violations (520ms)
+  ✓  12 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 820px: both items visible, 0 serious/critical axe violations (604ms)
+  ✓  13 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 1280px: both items visible, 0 serious/critical axe violations (524ms)
+[WebServer] {"ts":"2026-11-14T05:33:27.340Z","level":"info","event":"auth.password.rejected","userId":"4553c293-bca0-4f8f-a79f-50c44d73dcee","action":"set_new_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:33:27.605Z","level":"info","event":"auth.password.changed","requestId":"9ba42d57-972d-4f44-a07b-e3343684ac20","userId":"4553c293-bca0-4f8f-a79f-50c44d73dcee","action":"set_new_password"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:28.399Z","level":"error","event":"request.error","requestId":"5faab0bb-ae54-4803-b5a8-93b92c16d7a3","route":"/patients","code":"Error"}
+  ✘  14 [pixel-7] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out (2.2s)
+[WebServer] {"ts":"2026-11-14T05:33:29.966Z","level":"info","event":"auth.password.rejected","userId":"4c13c738-b43b-4394-9f21-68ee1de7281a","action":"change_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:33:30.177Z","level":"info","event":"auth.password.changed","requestId":"116f1255-0274-4948-80e3-b20521759e31","userId":"4c13c738-b43b-4394-9f21-68ee1de7281a","action":"change_password"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:30.350Z","level":"error","event":"request.error","requestId":"98268c93-4115-4043-a730-802463b2e778","route":"/patients","code":"Error"}
+  ✘  15 [pixel-7] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out (1.6s)
+[WebServer] {"ts":"2026-11-14T05:33:31.798Z","level":"info","event":"auth.signout.done","requestId":"999ddc1d-06d8-45b9-b4c1-dbab7667d239","module":"auth.signout","reason":"local"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:31.933Z","level":"error","event":"request.error","requestId":"da917ea2-fc4f-41bd-a418-9540f8b38d80","route":"/patients","code":"Error"}
+  ✘  16 [pixel-7] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in (1.2s)
+[WebServer] {"ts":"2026-11-14T05:33:33.394Z","level":"info","event":"auth.signout.done","requestId":"0812bf96-88de-45e5-9e93-68f8c948602e","module":"auth.signout","reason":"global"}
+[WebServer] ⨯ Error: Unauthenticated | digest=1084611696
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__09s407y0pmz69._.js:1
+[WebServer]     at node:internal/process/task_queues:103
+[WebServer]     at .next/server/chunks/ssr/[root-of-the-server]__064oi9a_alybl._.js:1
+[WebServer] {"ts":"2026-11-14T05:33:33.503Z","level":"error","event":"request.error","requestId":"3cd522fb-ac0c-47dc-b83e-25bb1c8b8761","route":"/patients","code":"Error"}
+  ✘  17 [pixel-7] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends (1.2s)
+[WebServer] {"ts":"2026-11-14T05:33:34.522Z","level":"warn","event":"auth.signout.refused","requestId":"960ac876-8843-4b38-a6ac-74d318e558d9","module":"auth.signout","reason":"cross_origin","status":403}
+  ✓  18 [pixel-7] › tests/e2e/auth/signout.spec.ts:137:5 › GET is 405 and a cross-origin POST is 403; the session survives both (643ms)
+  -  19 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 360px: both items visible, 0 serious/critical axe violations
+  -  20 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 820px: both items visible, 0 serious/critical axe violations
+  -  21 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 1280px: both items visible, 0 serious/critical axe violations
+[e2e teardown] removed run data: 2 tenant(s), 16 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out 
+
+    Error: request.error for the signed-out /patients load b76ad5bc-2b3d-4db7-867e-ba73a3180e3a
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:17.080Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"b76ad5bc-2b3d-4db7-867e-ba73a3180e3a\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/j-a4-reset.spec.ts:66:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-desktop-chrome/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-desktop-chrome/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop-chrome] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out 
+
+    Error: request.error for the signed-out /patients load e8a7e844-4b0f-477d-81f8-04803cd299a8
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:19.435Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"e8a7e844-4b0f-477d-81f8-04803cd299a8\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/j-a5-change-password.spec.ts:58:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-desktop-chrome/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-desktop-chrome/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [desktop-chrome] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in 
+
+    Error: request.error for the signed-out /patients load ed130eb0-3291-468c-ada3-7044ff24cc00
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:21.313Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"ed130eb0-3291-468c-ada3-7044ff24cc00\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/signout.spec.ts:108:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [desktop-chrome] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends 
+
+    Error: request.error for the signed-out /patients load 4fd39417-7dae-4708-ba7a-5fdb48889659
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:23.048Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"4fd39417-7dae-4708-ba7a-5fdb48889659\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/signout.spec.ts:132:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-desktop-chrome/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-desktop-chrome/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [pixel-7] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out 
+
+    Error: request.error for the signed-out /patients load 5faab0bb-ae54-4803-b5a8-93b92c16d7a3
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:28.399Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"5faab0bb-ae54-4803-b5a8-93b92c16d7a3\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/j-a4-reset.spec.ts:66:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-pixel-7/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-pixel-7/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-pixel-7/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-pixel-7/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-j-a4-reset-J-A4-reset-6d791-one-signs-other-devices-out-pixel-7/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [pixel-7] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out 
+
+    Error: request.error for the signed-out /patients load 98268c93-4115-4043-a730-802463b2e778
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:30.350Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"98268c93-4115-4043-a730-802463b2e778\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/j-a5-change-password.spec.ts:58:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-pixel-7/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-pixel-7/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-pixel-7/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-pixel-7/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-j-a5-change-password--1fa34--signs-the-other-device-out-pixel-7/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [pixel-7] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in 
+
+    Error: request.error for the signed-out /patients load da917ea2-fc4f-41bd-a418-9540f8b38d80
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:31.933Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"da917ea2-fc4f-41bd-a418-9540f8b38d80\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/signout.spec.ts:108:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-signout-Sign-out-303--7d17d-ther-device-still-signed-in-pixel-7/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [pixel-7] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends 
+
+    Error: request.error for the signed-out /patients load 3cd522fb-ac0c-47dc-b83e-25bb1c8b8761
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "{\"ts\":\"2026-11-14T05:33:33.503Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"3cd522fb-ac0c-47dc-b83e-25bb1c8b8761\",\"route\":\"/patients\",\"code\":\"Error\"}",
+    + ]
+
+       at support/password-journeys.ts:112
+
+      110 |   for (const id of requestIds) {
+      111 |     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
+    > 112 |     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);
+          |                                                                                 ^
+      113 |   }
+      114 |   expect(unauthenticatedSinkEvents(), "no 'Unauthenticated' error-sink event").toBe(sinkBefore);
+      115 | }
+        at expectSignedOut (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/support/password-journeys.ts:112:81)
+        at /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old/tests/e2e/auth/signout.spec.ts:132:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-pixel-7/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-pixel-7/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-pixel-7/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-pixel-7/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth-signout-Sign-out-of-a-a9846-ry-session-of-the-user-ends-pixel-7/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8 failed
+    [desktop-chrome] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out 
+    [desktop-chrome] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out 
+    [desktop-chrome] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in 
+    [desktop-chrome] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends 
+    [pixel-7] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out 
+    [pixel-7] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out 
+    [pixel-7] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in 
+    [pixel-7] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends 
+  3 skipped
+  10 passed (27.3s)

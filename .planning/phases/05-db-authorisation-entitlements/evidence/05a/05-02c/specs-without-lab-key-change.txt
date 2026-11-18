@@ -1,0 +1,69 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T03:03:08.457Z","level":"error","event":"labs.upload.failed","tenantId":"c7e59245-ed49-4898-af2b-b8d226acbeb6","code":"Error"}
+ ❯ tests/labs/lab-storage-key.spec.ts (4 tests | 3 failed) 641ms
+   × lab storage keys hold ids only (R-45) > names the object by the document id, with nothing of the patient's name 103ms
+     → expected 'tenants/c7e59245-ed49-4898-af2b-b8d22…' to match /…/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\
+   × lab storage keys hold ids only (R-45) > two uploads of the same file name and date create two objects (no overwrite) 52ms
+     → expected 'tenants/c7e59245-ed49-4898-af2b-b8d22…' not to be 'tenants/c7e59245-ed49-4898-af2b-b8d22…' // Object.is equality
+   × lab storage keys hold ids only (R-45) > gives the readable name only as the signed URL's download name 30ms
+     → expected '/storage/v1/object/sign/clinic-record…' to contain '/labs/63f78374-5df5-4452-8c03-7bfc412…'
+   ✓ lab storage keys hold ids only (R-45) > refuses a receptionist's upload (labs:edit since 05-02c) 136ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > names the object by the document id, with nothing of the patient's name
+AssertionError: expected 'tenants/c7e59245-ed49-4898-af2b-b8d22…' to match /…/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\
+
+- Expected: 
+/^tenants\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/labs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,10}$/
+
++ Received: 
+"tenants/c7e59245-ed49-4898-af2b-b8d226acbeb6/patients/d1563540-bfb4-42d9-9515-bce7d01e0f5e/labs/Asha_Testpatient_Asha_Testpatient_CBC_2030-01-15.PDF"
+
+ ❯ tests/labs/lab-storage-key.spec.ts:53:17
+     51|     if (!res.success) throw new Error(`upload failed: ${res.error}`);
+     52|     const key = res.document.storage_path;
+     53|     expect(key).toMatch(KEY_SHAPE);
+       |                 ^
+     54|     expect(key).toBe(`tenants/${owner.tenantId}/patients/${patientId}/…
+     55|     expect(key).not.toMatch(/asha|testpatient|cbc/i);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > two uploads of the same file name and date create two objects (no overwrite)
+AssertionError: expected 'tenants/c7e59245-ed49-4898-af2b-b8d22…' not to be 'tenants/c7e59245-ed49-4898-af2b-b8d22…' // Object.is equality
+ ❯ tests/labs/lab-storage-key.spec.ts:72:45
+     70|     const second = await uploadLabDocument(ctxFor(doctor), form("same_…
+     71|     if (!first.success || !second.success) throw new Error("upload fai…
+     72|     expect(first.document.storage_path).not.toBe(second.document.stora…
+       |                                             ^
+     73|     for (const doc of [first.document, second.document]) {
+     74|       const { data } = await admin.storage.from("clinic-records").down…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > gives the readable name only as the signed URL's download name
+AssertionError: expected '/storage/v1/object/sign/clinic-record…' to contain '/labs/63f78374-5df5-4452-8c03-7bfc412…'
+
+Expected: "/labs/63f78374-5df5-4452-8c03-7bfc41229b3d.pdf"
+Received: "/storage/v1/object/sign/clinic-records/tenants/c7e59245-ed49-4898-af2b-b8d226acbeb6/patients/d1563540-bfb4-42d9-9515-bce7d01e0f5e/labs/Asha_Testpatient_lipid_panel_2030-01-15.pdf"
+
+ ❯ tests/labs/lab-storage-key.spec.ts:91:26
+     89|     expect(signed.success).toBe(true);
+     90|     const url = new URL(signed.signedUrl!);
+     91|     expect(url.pathname).toContain(`/labs/${res.document.id}.pdf`);
+       |                          ^
+     92|     expect(url.pathname).not.toMatch(/asha|testpatient|lipid/i);
+     93|     expect(url.searchParams.get("download")).toBe("Asha_Testpatient_li…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  08:33:07
+   Duration  1.12s (transform 80ms, setup 9ms, collect 101ms, tests 641ms, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 3 auth user(s), 3 storage object(s); verified none remain

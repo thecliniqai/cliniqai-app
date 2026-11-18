@@ -153,6 +153,20 @@ describe("drill-lib.sh: every drill session is restricted and archive values rea
     expect(psql("select count(*) from public.patients where full_name = 'Restore Drill Probe'")).toEqual(["0"]);
   }, 120_000);
 
+  it("drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind", () => {
+    const out = path.join(tmp, "authz.tap");
+    const r = lib(dbUrl, ["drill_authz_matrix", out]);
+    const tap = fs.readFileSync(out, "utf8").split("\n");
+    expect(r.status, tap.filter((l) => !l.startsWith("ok ")).slice(0, 10).join("\n")).toBe(0);
+    const planned = Number(/^1\.\.(\d+)$/m.exec(tap.join("\n"))?.[1]);
+    expect(planned).toBeGreaterThan(1000);
+    expect(tap.filter((l) => l.startsWith("ok "))).toHaveLength(planned);
+    expect(tap.filter((l) => l.startsWith("not ok"))).toEqual([]);
+    expect(tap.join("\n")).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
+    expect(psql("select count(*) from pg_extension where extname = 'pgtap'")).toEqual(["0"]);
+    expect(psql("select count(*) from public.tenants where id = 'a5a00000-0000-4000-8000-00000000000a'")).toEqual(["0"]);
+  }, 120_000);
+
   it("route 2: in a database whose own setting turns standard_conforming_strings off, the session runs with it on and a hostile table key is only a name", () => {
     // The scratch database really says off: a plain (non-wrapper) session sees it.
     expect(psql(`select setconfig from pg_db_role_setting s join pg_database d on d.oid = s.setdatabase where d.datname = '${scratch}'`)).toEqual([

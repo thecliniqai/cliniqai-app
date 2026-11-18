@@ -27,15 +27,22 @@ describe("Audit Logging & Patient Traceability (REQ-compliance-data-layer, REQ-n
     expect(pError).toBeNull();
     expect(newPatient?.id).toBeDefined();
 
-    // 2. Insert audit log
-    const { error: aError } = await (tenantA.client.from("audit_logs") as any).insert({
+    // 2. Write the audit row the way the app does since V2-05 05-02c (log_audit; direct INSERT is revoked, R-20)
+    const { error: directError } = await (tenantA.client.from("audit_logs") as any).insert({
       tenant_id: tenantA.tenantId,
       actor_id: tenantA.userId,
       actor_role: "owner",
       action: "patient.create",
       entity_type: "patient",
       entity_id: newPatient.id,
-      metadata: { fields_changed: ["created"] },
+    });
+    expect(directError?.code).toBe("42501");
+    const { error: aError } = await tenantA.client.rpc("log_audit", {
+      p_tenant: tenantA.tenantId,
+      p_action: "patient.create",
+      p_entity_type: "patient",
+      p_entity_id: newPatient.id,
+      p_metadata: { fields_changed: ["created"] },
     });
 
     expect(aError).toBeNull();
@@ -48,6 +55,8 @@ describe("Audit Logging & Patient Traceability (REQ-compliance-data-layer, REQ-n
 
     expect(auditRows?.length).toBe(1);
     expect(auditRows?.[0].action).toBe("patient.create");
+    expect(auditRows?.[0].actor_id).toBe(tenantA.userId);
+    expect(auditRows?.[0].actor_role).toBe("owner");
   });
 
   it("proves audit logs cannot be updated or deleted by tenant members (strictly append-only)", async () => {

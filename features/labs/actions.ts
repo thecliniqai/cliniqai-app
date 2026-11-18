@@ -23,7 +23,7 @@ function revalidate(path: string, type?: "page") {
  * Uploads a patient diagnostic lab report or document (auto-amended name, private storage, metadata row).
  */
 export async function uploadLabDocument(formData: FormData): Promise<UploadLabDocumentResult> {
-  const resolved = await resolveServiceContext("patients:edit");
+  const resolved = await resolveServiceContext("labs:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await labsService.uploadLabDocument(resolved.ctx, formData);
   if (result.success) revalidate(`/patients/${result.document.patient_id}`);
@@ -36,7 +36,7 @@ export async function uploadLabDocument(formData: FormData): Promise<UploadLabDo
 export async function getPatientDocuments(
   patientId: string
 ): Promise<{ success: boolean; documents: LabDocumentItem[]; error?: string }> {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, documents: [], error: resolved.error };
   return labsService.getPatientDocuments(resolved.ctx, patientId);
 }
@@ -47,7 +47,7 @@ export async function getPatientDocuments(
 export async function getDocumentSignedUrl(
   documentId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.getDocumentSignedUrl(resolved.ctx, documentId);
 }
@@ -56,7 +56,7 @@ export async function getDocumentSignedUrl(
  * Generates a 7-day patient share token for a document.
  */
 export async function generateDocumentShareToken(documentId: string): Promise<ShareTokenResult> {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.generateDocumentShareToken(resolved.ctx, documentId);
 }
@@ -65,7 +65,7 @@ export async function generateDocumentShareToken(documentId: string): Promise<Sh
  * Deletes a lab report document from storage and database under multi-tenant RLS checks.
  */
 export async function deleteLabDocument(documentId: string): Promise<DeleteLabDocumentResult> {
-  const resolved = await resolveServiceContext("patients:edit");
+  const resolved = await resolveServiceContext("labs:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await labsService.deleteLabDocument(resolved.ctx, documentId);
   // The patient id is not part of the result; revalidate every patient page (same data the old path refreshed).
@@ -79,7 +79,7 @@ export async function deleteLabDocument(documentId: string): Promise<DeleteLabDo
 export async function shareLabReportViaWhatsApp(
   documentId: string
 ): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.shareLabReportViaWhatsApp(resolved.ctx, documentId);
 }

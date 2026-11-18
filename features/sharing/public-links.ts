@@ -2,6 +2,7 @@ import "server-only";
 
 import { createPublicClient } from "@/lib/supabase/server";
 import type { DocumentShareResourceType } from "@/lib/db/types";
+import { isDeadlock, retryOnDeadlock } from "@/lib/db/retry";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -145,10 +146,20 @@ export type ConsumeRescheduleResult =
 export async function consumeRescheduleToken(token: string, newScheduledAt: string): Promise<ConsumeRescheduleResult> {
   if (!isPlausibleToken(token)) return { status: "not_found" };
 
-  const { data, error } = await publicRpc("consume_reschedule_token", {
-    p_token: token,
-    p_new_at: newScheduledAt,
-  });
+  // A concurrent write of an overlapping slot can make this call the deadlock victim (40P01) while the exclusion
+  // constraint is checked; the whole call rolled back (the token stays usable), so it is retried once (V2-05 05-11c).
+  const { data, error } = await retryOnDeadlock(() =>
+    publicRpc("consume_reschedule_token", {
+      p_token: token,
+      p_new_at: newScheduledAt,
+    })
+  );
+  // The function's own overlap check uses the doctor's default slot length; a visit longer than that can still overlap,
+  // and the visits_no_double_booking constraint (V2-05 05-08) then refuses the update (23P01). The transaction rolls
+  // back, so the token stays usable: report it as the taken slot it is. A deadlock that survived the retry is the same
+  // race (an overlapping write won it).
+  const code = (error as { code?: string } | null)?.code;
+  if (code === "23P01" || isDeadlock(error)) return { status: "slot_taken" };
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
     if (error) log.error({ event: "sharing.reschedule_consume.failed", code: errorTag(error), requestId: await getRequestId() });
     return { status: "not_found" };

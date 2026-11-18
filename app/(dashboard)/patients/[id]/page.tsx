@@ -5,8 +5,9 @@ import { getActiveMembership } from "@/lib/auth/tenant";
 import { PatientDetailView } from "@/components/patients/patient-detail-view";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { redirectIfUnauthenticated, withPageAuth } from "@/lib/auth/page";
 
-export default async function PatientDetailPage(props: {
+async function PatientDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
@@ -33,6 +34,8 @@ export default async function PatientDetailPage(props: {
     treatmentConsent = tConsent;
     dataSharingConsent = dConsent;
   } catch (err) {
+    // A missing or revoked session is a redirect to /login, not a load failure (05-11c).
+    redirectIfUnauthenticated(err);
     log.error({ event: "patients.detail_load.failed", code: errorTag(err), requestId: await getRequestId() });
     notFound();
   }
@@ -51,3 +54,6 @@ export default async function PatientDetailPage(props: {
     />
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(PatientDetailPage);

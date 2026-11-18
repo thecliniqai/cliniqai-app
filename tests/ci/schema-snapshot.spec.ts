@@ -35,7 +35,8 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
     }
     expect(baseline.some((l) => l.startsWith("relation ops.error_events "))).toBe(true);
     expect(baseline.some((l) => l.startsWith("function private.outbox_payment_recorded("))).toBe(true);
-    expect(baseline).toContain("grant column public.payments.amount INSERT to authenticated");
+    expect(baseline.some((l) => l.startsWith("function authz.active_tenant_id("))).toBe(true);
+    expect(baseline).toContain("grant column public.memberships.full_name UPDATE to authenticated");
     expect(baseline.some((l) => l.startsWith("policy storage.objects."))).toBe(true);
     // One fact per line, sorted, deterministic.
     expect(baseline.every((l) => /^(relation|column|constraint|index|trigger|policy|function|enum|view|grant|default-privilege) /.test(l))).toBe(true);
@@ -48,6 +49,11 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
       ["grant execute on function private.outbox_payment_recorded(uuid) to anon"],
       /^\+ grant function private\.outbox_payment_recorded\(p_payment_id uuid\) EXECUTE to anon$/,
     ],
+    [
+      "EXECUTE on an authz helper granted to anon (V2-05 05-01b: authz is a snapshot schema)",
+      ["grant usage on schema authz to anon", "grant execute on function authz.active_tenant_id() to anon"],
+      /^\+ grant function authz\.active_tenant_id\(\) EXECUTE to anon$/,
+    ],
     ["table-level INSERT on payments re-granted to authenticated", ["grant insert on public.payments to authenticated"], /^\+ grant table public\.payments INSERT to authenticated$/],
     ["a column added to ops.error_events", ["alter table ops.error_events add column drift_probe text"], /^\+ column ops\.error_events\.drift_probe text /],
     ["RLS switched off on patients", ["alter table public.patients disable row level security"], /^- relation public\.patients kind=r rls=t /],
@@ -55,6 +61,13 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
       "a permissive storage policy",
       ["create policy drift_probe on storage.objects for select to anon using (true)"],
       /^\+ policy storage\.objects\.drift_probe cmd=r permissive=t roles=anon using=true check=-$/,
+    ],
+    [
+      // V2-05 05-02c: a dashboard edit of an existing per-class storage policy (here: the Rx class opened to every
+      // signed-in user) is drift, line for line.
+      "a changed storage policy (the Rx class read rule loosened)",
+      ["alter policy prescriptions_rx_select on storage.objects using (bucket_id = 'prescriptions')"],
+      /^\+ policy storage\.objects\.prescriptions_rx_select cmd=r permissive=t roles=authenticated using=\(bucket_id = 'prescriptions'::text\) check=-$/,
     ],
   ])("%s is drift (exit 1, the line named)", (_label, changes, line) => {
     const changed = snapshotWith(changes);
@@ -88,12 +101,12 @@ describe("schema snapshot CLI (--input, the way a saved snapshot is judged)", ()
 
   it("a grant the migrations do not make fails, naming the line (exit 1)", () => {
     const extra = "grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to anon";
-    const withoutColumnGrant = committed.filter((l) => l !== "grant column public.payments.amount INSERT to authenticated");
+    const withoutColumnGrant = committed.filter((l) => l !== "grant column public.memberships.full_name UPDATE to authenticated");
     const r = run([...withoutColumnGrant, extra]);
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(`+ ${extra}`);
-    expect(r.stderr).toContain("- grant column public.payments.amount INSERT to authenticated");
-    expect(r.report).toMatchObject({ result: "fail", unexpected: [extra], missing: ["grant column public.payments.amount INSERT to authenticated"] });
+    expect(r.stderr).toContain("- grant column public.memberships.full_name UPDATE to authenticated");
+    expect(r.report).toMatchObject({ result: "fail", unexpected: [extra], missing: ["grant column public.memberships.full_name UPDATE to authenticated"] });
   });
 
   it("compareSnapshots reports both directions", () => {

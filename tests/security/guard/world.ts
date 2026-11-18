@@ -23,6 +23,8 @@ import { getAdminClient } from "../../helpers/supabase-admin";
 import { addMemberToTenant, createUnlinkedUser, seedTenantWithOwner, type SeededTenant } from "../../helpers/tenants";
 import { insertReturningId, type TestDb } from "../../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
+import { nextSeedSlotMinutes } from "../../helpers/seed-slots";
 
 /** One row id per table an entry point takes an id for, plus the tenant, a user and a membership. */
 export interface TenantRowIds {
@@ -43,6 +45,12 @@ export interface TenantRowIds {
   prescription: string;
   rxItem: string;
   referral: string;
+  /**
+   * A referral this clinic RECEIVES (target = this clinic), for the inbound-referral actions (acknowledge). Tenant A:
+   * sent by a third, unrelated clinic S (05-06: a clinic cannot refer to itself, and a B-originated row would change
+   * B's snapshot); tenant B: B's own referral (any B id is a valid forged reference).
+   */
+  inboundReferral: string;
   block: string;
   waitlist: string;
   notification: string;
@@ -121,8 +129,16 @@ interface RowSeed {
   membership: string;
   patientName: string;
   patientPhone: string;
-  /** Target clinic of the seeded referral (A: itself, so the inbound-referral actions have a row to act on). */
+  /** Target clinic of the seeded referral (null: out of network). */
   referralTarget: string | null;
+  /** When set, also seed a referral from this clinic to `tenantId` (listed in the directory first): `inboundReferral`. */
+  inboundFrom?: { tenantId: string; patientId: string; doctorUser: string };
+  /**
+   * False for a caller with no membership in `tenantId` (the `outsider` of the { authenticated } actions): the seeded
+   * schedule block then belongs to the clinic's doctor, because since V2-05 05-03 a block's doctor must be a member of
+   * its clinic (composite FK to memberships).
+   */
+  callerIsMember?: boolean;
 }
 
 /** One row in every table an entry point takes an id for, in `seed.tenantId`. */
@@ -130,8 +146,10 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
   const t = seed.tenantId;
   const u = seed.doctorUser;
   const tag = randomUUID().replace(/-/g, "").slice(0, 10);
-  // Random future minutes keep every seeded slot apart, so a booking control never collides with an earlier seed.
-  const offset = Math.floor(Math.random() * 20_000);
+  // Future minutes that keep every seeded slot apart (a random base, then a 20-minute step per seed): since V2-05 05-08
+  // two overlapping scheduled visits of the doctor are refused (visits_no_double_booking), and a booking control never
+  // collides with an earlier seed.
+  const offset = nextSeedSlotMinutes();
   // The block sits on a known UTC date (5 days ahead, 06:00-11:00 UTC start, same date in IST), so a by-date read finds it.
   const now = new Date();
   const blockStart = new Date(
@@ -175,6 +193,8 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       storage_path: `tenants/${t}/patients/${patient}/labs/synthetic_${tag}.pdf`,
       file_size_bytes: 12,
       mime_type: "application/pdf",
+      // Explicit since 05-08 (no SQL default; the fill trigger would give the same clinic date).
+      report_date: todayInTz(DEFAULT_CLINIC_TZ),
       uploaded_by: u,
     }),
     insertRow(admin, "referrals", {
@@ -188,7 +208,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     }),
     insertRow(admin, "schedule_blocks", {
       tenant_id: t,
-      doctor_id: seed.caller.userId,
+      doctor_id: seed.callerIsMember === false ? u : seed.caller.userId,
       start_time: blockStart.toISOString(),
       end_time: new Date(blockStart.getTime() + 3_600_000).toISOString(),
       reason: "Synthetic block",
@@ -259,6 +279,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       total_price: 500,
     }),
     insertRow(admin, "prescription_items", {
+      tenant_id: t,
       prescription_id: prescription,
       medicine_name: "Synthetic Tablet 500",
       dosage: "1-0-1",
@@ -274,6 +295,21 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     .eq("id", referral);
   if (refErr) throw new Error(`guard world: referral letter marker failed: ${refErr.message}`);
 
+  let inboundReferral = referral;
+  if (seed.inboundFrom) {
+    const { error: listErr } = await admin.from("tenants").update({ referral_directory_listed: true }).eq("id", t);
+    if (listErr) throw new Error(`guard world: listing the inbound target failed: ${listErr.code ?? "unknown"}`);
+    inboundReferral = await insertRow(admin, "referrals", {
+      tenant_id: seed.inboundFrom.tenantId,
+      patient_id: seed.inboundFrom.patientId,
+      referral_type: "in_network",
+      target_tenant_id: t,
+      referring_doctor_id: seed.inboundFrom.doctorUser,
+      referred_to_name: "Synthetic Partner Clinic",
+      reason_for_referral: "Synthetic reason",
+    });
+  }
+
   return {
     tenant: t,
     ownerUser: u,
@@ -288,6 +324,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     prescription,
     rxItem,
     referral,
+    inboundReferral,
     block,
     waitlist,
     notification,
@@ -322,6 +359,15 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
   if (scheduleErr) throw new Error(`guard world: doctor schedule failed: ${scheduleErr.message}`);
 
   const ownerB = await seedTenantWithOwner(`Guard ${label} B ${tag}`);
+  // S: an unrelated clinic that refers patients to A, so A's inbound-referral actions have a row (05-06: no
+  // self-referral; not B, whose snapshot the legs compare).
+  const ownerS = await seedTenantWithOwner(`Guard ${label} S ${tag}`);
+  const patientS = await insertRow(admin, "patients", {
+    tenant_id: ownerS.tenantId,
+    full_name: `Synthetic Guard Patient S ${tag}`,
+    phone: syntheticPhone(),
+    created_by: ownerS.userId,
+  });
   const t = ownerB.tenantId;
   const u = ownerB.userId;
   const patientName = `Synthetic Guard Patient B ${tag}`;
@@ -365,21 +411,25 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
   const memberships = new Map<string, string>();
   const aRows = async (caller: Caller): Promise<TenantRowIds> => {
     let own = memberships.get(caller.userId);
+    const isMember = Object.values(roles).some((r) => r.userId === caller.userId) ||
+      Object.values(dual).some((r) => r.userId === caller.userId);
     if (!own) {
       // A caller without an A membership (the `outsider` of the { authenticated } actions) gets the owner's.
-      const isMember = Object.values(roles).some((r) => r.userId === caller.userId) ||
-        Object.values(dual).some((r) => r.userId === caller.userId);
       own = await membershipId(admin, ownerA.tenantId, isMember ? caller.userId : ownerA.userId);
       memberships.set(caller.userId, own);
     }
     return seedTenantRows(admin, {
       tenantId: ownerA.tenantId,
-      doctorUser: roles.doctor.userId,
+      // A calling doctor gets rows of their OWN visits (05-02b, R-7: a doctor reads and bills only the visits they are
+      // the doctor of), so the positive control of a doctor acting in A (leg 3b's dual doctor) is a legitimate call.
+      doctorUser: isMember && caller.role === "doctor" ? caller.userId : roles.doctor.userId,
       caller,
       membership: own,
       patientName: `Synthetic Guard Patient A ${randomUUID().slice(0, 8)}`,
       patientPhone: syntheticPhone(),
-      referralTarget: ownerA.tenantId,
+      referralTarget: null,
+      inboundFrom: { tenantId: ownerS.tenantId, patientId: patientS, doctorUser: ownerS.userId },
+      callerIsMember: isMember,
     });
   };
 

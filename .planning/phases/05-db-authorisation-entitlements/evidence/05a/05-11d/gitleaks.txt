@@ -1,0 +1,12 @@
+# gitleaks (zricethezav/gitleaks, repo config .gitleaks.toml) over 505d10e..7972f89, 2026-11-14T07:16:06Z
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+7:16AM INF 5 commits scanned.
+7:16AM INF scanned ~79611 bytes (79.61 KB) in 239ms
+7:16AM INF no leaks found
+exit=0

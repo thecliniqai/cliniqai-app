@@ -20,7 +20,9 @@ import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { createVisit } from "./service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import type { AppErrorCode } from "@/lib/errors/app-error";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
@@ -159,14 +161,21 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: delError } = await (supabase.from("schedule_blocks") as any)
+    const { data: deleted, error: delError } = await (supabase.from("schedule_blocks") as any)
       .delete()
       .eq("id", blockId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (delError) {
       log.error({ event: "visits.schedule_block_delete_query.failed", code: errorTag(delError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to delete schedule block." };
+    }
+    // RLS may filter the delete to 0 rows (V2-05 05-04): never report a block that is still there as deleted.
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "visits.schedule_block_delete.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     await recordAudit(ctx, {
@@ -393,6 +402,9 @@ export type BookAppointmentResult =
       isBlocked?: boolean;
       conflictingVisit?: Visit | null;
       error: string;
+      /** CONFLICT with reason VISITS_NO_DOUBLE_BOOKING when the database refused the slot (V2-05 05-08). */
+      code?: AppErrorCode;
+      reason?: string;
     };
 
 /**
@@ -473,6 +485,12 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
   });
 
   if (!visitRes.success) {
+    if (visitRes.conflict) {
+      // The slot was free at the check above but another booking won the race: the `visits_no_double_booking`
+      // exclusion constraint refused this insert (V2-05 05-08, acceptance 6). Reported like an occupied slot, so the
+      // booking drawer offers the overbook confirmation.
+      return { success: false, conflict: true, error: visitRes.error, code: visitRes.code, reason: visitRes.reason };
+    }
     return {
       success: false,
       error: visitRes.error,

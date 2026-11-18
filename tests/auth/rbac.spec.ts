@@ -39,12 +39,23 @@ describe("RBAC Matrix & Pure Permission Verification (REQ-nfr-security)", () => 
     // Receptionist can view appointments and patients, but Doctor is not a superset
     // Let's verify distinct separation:
     expect(hasPerm("receptionist", "appointments:view")).toBe(true);
-    expect(hasPerm("receptionist", "patients:edit")).toBe(false);
+    // PO-3 (V2-05 05-01b, R-6): receptionists register patients and collect.
+    expect(hasPerm("receptionist", "patients:edit")).toBe(true);
     expect(hasPerm("receptionist", "prescriptions:view")).toBe(false);
 
     // Nurse has vitals but receptionist does not:
     expect(hasPerm("nurse", "vitals:edit")).toBe(true);
     expect(hasPerm("receptionist", "vitals:edit")).toBe(false);
+  });
+
+  it("verifies the PO-3 collection keys: owner, admin and receptionist collect; doctors and nurses do not (R-6)", () => {
+    expect(hasPerm("owner", "billing:collect")).toBe(true);
+    expect(hasPerm("admin", "billing:collect")).toBe(true);
+    expect(hasPerm("receptionist", "billing:collect")).toBe(true);
+    expect(hasPerm("receptionist", "billing:view")).toBe(true);
+    expect(hasPerm("doctor", "billing:collect")).toBe(false);
+    expect(hasPerm("nurse", "billing:collect")).toBe(false);
+    expect(() => assertPerm("doctor", "billing:collect")).toThrow(PermissionDeniedError);
   });
 
   it("verifies Nurse has triage, appointments, and vitals permissions but not prescribing or administrative capabilities", () => {

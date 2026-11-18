@@ -1,0 +1,22 @@
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1236ms
+   × slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500) 1211ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500)  1203ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found)  1203ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict  1231ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/scheduling/slot-deadlock-retry.spec.ts > slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500)
+      Tests  1 failed | 4 passed (5)
+ ✓ tests/scheduling/slot-deadlock-retry.spec.ts (5 tests) 6507ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1204ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1182ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500)  1187ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found)  1257ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict  1197ms
+      Tests  5 passed (5)
+ ✓ tests/scheduling/slot-deadlock-retry.spec.ts (5 tests) 6452ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1193ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1220ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500)  1206ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found)  1216ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict  1206ms
+      Tests  5 passed (5)

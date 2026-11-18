@@ -1,0 +1,183 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T04:56:03.081Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.104Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.118Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.126Z","level":"error","event":"api.v1.failed","requestId":"743a1605-460e-429c-9eaa-9f060371e4e7","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.127Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.135Z","level":"error","event":"api.v1.failed","requestId":"70ae5cec-7d2d-4dbe-a9bf-194ee1250916","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.135Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.143Z","level":"error","event":"api.v1.failed","requestId":"d3db24b9-4225-4df3-903e-866a2203db89","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.143Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.151Z","level":"error","event":"api.v1.failed","requestId":"e0cc4220-8e9c-49a2-9c9e-2bd5582449aa","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.151Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.162Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.174Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.185Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.198Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.210Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.219Z","level":"error","event":"api.v1.failed","requestId":"48ced461-2253-4bde-9534-e3d060187571","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.220Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.229Z","level":"error","event":"api.v1.failed","requestId":"4b4754b2-18dc-4085-b935-a6ef50d15cd9","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.229Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.241Z","level":"error","event":"api.v1.failed","requestId":"cb1cb4ea-8709-420b-aa4a-41a6f13f5fe2","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:56:03.241Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.250Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.264Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:56:03.277Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ❯ tests/visits/duration-bounds.spec.ts (18 tests | 16 failed) 674ms
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > app schemas > bookAppointmentSchema accepts 5 and 480 and refuses 4, 481 and a fraction 23ms
+     → expected false to be true // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > app schemas > createVisit books a 480-minute visit (before: refused above 180) and refuses 481 with a field error 2ms
+     → expected { success: false, …(2) } to match object { success: true }
+(3 matching properties omitted from actual)
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > zero duration → 422 VALIDATION_ERROR, nothing stored 25ms
+     → expected 201 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > negative duration → 422 VALIDATION_ERROR, nothing stored 14ms
+     → expected 201 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > below the minimum duration → 422 VALIDATION_ERROR, nothing stored 9ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > fractional duration → 422 VALIDATION_ERROR, nothing stored 8ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > above the maximum duration → 422 VALIDATION_ERROR, nothing stored 8ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > about 1,900 years duration → 422 VALIDATION_ERROR, nothing stored 8ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > a numeric string duration → 422 VALIDATION_ERROR, nothing stored 10ms
+     → expected 201 to be 422 // Object.is equality
+   ✓ visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > 480 is stored as given; an omitted duration defaults to 15 23ms
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > zero duration → 422 VALIDATION_ERROR, nothing stored 14ms
+     → expected 201 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > negative duration → 422 VALIDATION_ERROR, nothing stored 12ms
+     → expected 201 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > below the minimum duration → 422 VALIDATION_ERROR, nothing stored 10ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > fractional duration → 422 VALIDATION_ERROR, nothing stored 10ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > above the maximum duration → 422 VALIDATION_ERROR, nothing stored 12ms
+     → expected 500 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > about 1,900 years duration → 422 VALIDATION_ERROR, nothing stored 9ms
+     → expected 409 to be 422 // Object.is equality
+   × visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > a numeric string duration → 422 VALIDATION_ERROR, nothing stored 14ms
+     → expected 201 to be 422 // Object.is equality
+   ✓ visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > 480 is stored as given; an omitted duration defaults to 15 34ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > app schemas > bookAppointmentSchema accepts 5 and 480 and refuses 4, 481 and a fraction
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/visits/duration-bounds.spec.ts:108:127
+    106|     it("bookAppointmentSchema accepts 5 and 480 and refuses 4, 481 and…
+    107|       const base = { patient_id: patientId ?? "00000000-0000-4000-8000…
+    108|       for (const ok of [5, 480]) expect(bookAppointmentSchema.safePars…
+       |                                                                                                                               ^
+    109|       for (const bad of [4, 481, 7.5]) expect(bookAppointmentSchema.sa…
+    110|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > app schemas > createVisit books a 480-minute visit (before: refused above 180) and refuses 481 with a field error
+AssertionError: expected { success: false, …(2) } to match object { success: true }
+(3 matching properties omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "success": true,[39m
+[31m+   "success": false,[39m
+[2m  }[22m
+
+ ❯ tests/visits/duration-bounds.spec.ts:122:18
+    120|         is_overbooked: false,
+    121|       });
+    122|       expect(ok).toMatchObject({ success: true });
+       |                  ^
+    123|       expect(await visitsAt(at)).toEqual([480]);
+    124| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > zero duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > negative duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > a numeric string duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > zero duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > negative duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > a numeric string duration → 422 VALIDATION_ERROR, nothing stored
+AssertionError: expected 201 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 201[39m
+
+ ❯ tests/visits/duration-bounds.spec.ts:151:28
+    149|           apiRequest(path, { patient_id: patientId, doctor_id: doctor.…
+    150|         );
+    151|         expect(res.status).toBe(422);
+       |                            ^
+    152|         const body = await res.json();
+    153|         expect(body.error.code).toBe("VALIDATION_ERROR");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > below the minimum duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > fractional duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > above the maximum duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/visits > about 1,900 years duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > below the minimum duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > fractional duration → 422 VALIDATION_ERROR, nothing stored
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > above the maximum duration → 422 VALIDATION_ERROR, nothing stored
+AssertionError: expected 500 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 500[39m
+
+ ❯ tests/visits/duration-bounds.spec.ts:151:28
+    149|           apiRequest(path, { patient_id: patientId, doctor_id: doctor.…
+    150|         );
+    151|         expect(res.status).toBe(422);
+       |                            ^
+    152|         const body = await res.json();
+    153|         expect(body.error.code).toBe("VALIDATION_ERROR");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  tests/visits/duration-bounds.spec.ts > visit duration bounds 5–480 on every writer (05-11c, M-DURATION) > POST /api/v1/appointments > about 1,900 years duration → 422 VALIDATION_ERROR, nothing stored
+AssertionError: expected 409 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 409[39m
+
+ ❯ tests/visits/duration-bounds.spec.ts:151:28
+    149|           apiRequest(path, { patient_id: patientId, doctor_id: doctor.…
+    150|         );
+    151|         expect(res.status).toBe(422);
+       |                            ^
+    152|         const body = await res.json();
+    153|         expect(body.error.code).toBe("VALIDATION_ERROR");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  16 failed | 2 passed (18)
+   Start at  10:26:02
+   Duration  1.20s (transform 147ms, setup 9ms, collect 131ms, tests 674ms, environment 0ms, prepare 28ms)
+
+[teardown] removed run data: 1 tenant(s), 3 auth user(s), 0 storage object(s); verified none remain

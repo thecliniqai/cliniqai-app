@@ -27,13 +27,14 @@ import {
   type DualMemberUser,
   type SeededTenant,
 } from "../helpers/tenants";
-import { psql } from "../helpers/sql";
+import { plantLegacyRow, psql } from "../helpers/sql";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { getOrCreateDraftPrescription } from "@/features/prescriptions/service";
 import { completeAndSignConsultation, saveConsultationDraft } from "@/features/consultation/service";
 import { anonClient, letters } from "./helpers";
 import { seedPatient, type SeededPatient } from "./message-helpers";
 import { deliveriesFor, deliveryPayload, subscribe, webhookJobsFor, type Subscription } from "./webhook-helpers";
+import { signInActingIn } from "../helpers/active-tenant";
 
 let ownerA: SeededTenant;
 let adminA: SeededTenant;
@@ -177,11 +178,17 @@ describe("tenant binding (R-6 revised; 03-07 D1 finding 2)", () => {
 
   it("a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row", async () => {
     const rxB = await prescriptionFor(ownerB, ownerB.userId);
-    const refused = await enqueue(dual.client, ownerA.tenantId, "prescription.issued", rxB);
+    // The app's client names the active clinic (x-clinicos-tenant, R-42); since 05-02c the RPC binds p_tenant_id to it.
+    const inA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+    const inB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+    const refused = await enqueue(inA, ownerA.tenantId, "prescription.issued", rxB);
     expect(refused.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
+    // 05-02c: acting in A, naming B as the tenant is refused too (before: any membership of B passed this check).
+    const namedB = await enqueue(inA, ownerB.tenantId, "prescription.issued", rxB);
+    expect(namedB.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
     expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`)).toEqual([]);
 
-    const allowed = await enqueue(dual.client, ownerB.tenantId, "prescription.issued", rxB);
+    const allowed = await enqueue(inB, ownerB.tenantId, "prescription.issued", rxB);
     expect(allowed.error).toBeNull();
     expect(allowed.data?.queued).toBe(1);
     const rows = deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`);
@@ -494,14 +501,20 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
   it("lab_result.ready: a document whose visit is another patient's, or whose patient is another clinic's, is refused", async () => {
     const other = await seedPatient(ownerA.tenantId, ownerA.userId);
     const foreign = await seedPatient(ownerB.tenantId, ownerB.userId);
-    const doc = (tenant: string, patient: string, visit: string | null) =>
-      psql(
+    const doc = (tenant: string, patient: string, visit: string | null, run: (sql: string) => string[] = psql) =>
+      run(
         `insert into public.patient_documents (tenant_id, patient_id, visit_id, title, storage_path, original_filename, mime_type, ` +
-          `file_size_bytes, uploaded_by) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
-          `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}') returning id`
+          `file_size_bytes, uploaded_by, report_date) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
+          `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}', ` +
+          // Explicit: plantLegacyRow (session_replication_role = replica) skips every trigger, including the 05-08
+          // report_date fill trigger, and the column has no default since 05-08.
+          `current_date) returning id`
       )[0];
     const mismatchedVisit = doc(ownerA.tenantId, patientA.patientId, other.visitId);
-    const foreignPatient = doc(ownerA.tenantId, foreign.patientId, null);
+    // Since 05-03 the composite FK refuses another clinic's patient outright; the row is planted as one from before
+    // 05-03 (FK triggers off) to prove the RPC's own consistency check still holds.
+    expect(() => doc(ownerA.tenantId, foreign.patientId, null)).toThrow(/patient_documents_tenant_patient_fkey/);
+    const foreignPatient = doc(ownerA.tenantId, foreign.patientId, null, plantLegacyRow);
     for (const id of [mismatchedVisit, foreignPatient]) {
       expect((await enqueue(receptionistA.client, receptionistA.tenantId, "lab_result.ready", id)).error).toMatchObject({
         code: "P0001",

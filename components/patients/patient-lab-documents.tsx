@@ -25,6 +25,8 @@ import {
 } from "@/features/labs/actions";
 import { LabDocumentItem, ShareTokenResult } from "@/features/labs/types";
 import { todayInTz } from "@/lib/datetime";
+import { hasPerm } from "@/lib/permissions";
+import type { UserRole } from "@/lib/db/types";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 
 interface PatientLabDocumentsProps {
@@ -84,9 +86,17 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
   // Filter state
   const [filterAbnormalOnly, setFilterAbnormalOnly] = useState(false);
 
-  const canEdit = ["owner", "admin", "doctor", "nurse"].includes(userRole);
+  // V2-05 05-02c: lab reports follow labs:view / labs:edit (the database rule since 000057/000058); receptionists and
+  // admins hold neither, so they see a notice instead of an error from a refused read.
+  const canView = hasPerm(userRole as UserRole, "labs:view");
+  const canEdit = hasPerm(userRole as UserRole, "labs:edit");
 
   const loadDocuments = useCallback(async () => {
+    if (!canView) {
+      setIsLoading(false);
+      setError("Lab reports are available to clinical staff only.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -101,7 +111,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
     } finally {
       setIsLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, canView]);
 
   useEffect(() => {
     loadDocuments();

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { DEFAULT_VISIT_DURATION_MINUTES, visitDurationSchema } from "./duration";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -9,6 +10,7 @@ import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit, VisitStatus } from "@/lib/db/types";
+import { clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   visitsFilterSchema,
   VisitsFilterInput,
@@ -21,6 +23,9 @@ import { recordVitalsInputSchema, type RecordVitalsInput, type Vitals } from "@/
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { mapDbError, type DbErrorLike } from "@/lib/db/errors";
+import { isDeadlock, retryOnDeadlock } from "@/lib/db/retry";
+import type { AppErrorCode } from "@/lib/errors/app-error";
 
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
@@ -30,16 +35,42 @@ const createVisitSchema = z.object({
   doctor_id: z.string().uuid("Invalid doctor ID"),
   origin_type: z.enum(["scheduled", "walk_in"]),
   scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
-  estimated_duration_minutes: z.number().int().min(5).max(180).default(15),
+  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
   reason_for_visit: z.string().max(500).nullable().optional(),
   is_overbooked: z.boolean().default(false),
 });
 
 export type CreateVisitInput = z.infer<typeof createVisitSchema>;
 
+/**
+ * The reason a visit insert carries when the doctor's slot was taken between the slot check and the insert: the
+ * `visits_no_double_booking` exclusion constraint (V2-05 05-08, DB-08) refuses a second overlapping, non-overbooked
+ * scheduled visit with SQLSTATE 23P01, which `mapDbError` maps to CONFLICT with the constraint name as the reason.
+ */
+export const SLOT_TAKEN_REASON = "VISITS_NO_DOUBLE_BOOKING";
+export const SLOT_TAKEN_MESSAGE =
+  "This slot was just booked for the doctor. Pick another time, or confirm the overbooking.";
+
+/**
+ * True when a visit write was refused because the doctor's slot is taken ({@link SLOT_TAKEN_REASON}). A deadlock (40P01)
+ * that survived the one {@link retryOnDeadlock} retry counts as taken too: only a concurrent write of an overlapping slot
+ * produces one on a slot write, and that write went on (V2-05 05-11c).
+ */
+export function isSlotTakenError(err: DbErrorLike | null | undefined): boolean {
+  return isDeadlock(err) || mapDbError(err).reason === SLOT_TAKEN_REASON;
+}
+
 export type CreateVisitResult =
   | { success: true; visitId: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+  | {
+      success: false;
+      error: string;
+      fieldErrors?: Record<string, string[]>;
+      /** Set when the slot was taken (CONFLICT, reason {@link SLOT_TAKEN_REASON}). */
+      conflict?: true;
+      code?: AppErrorCode;
+      reason?: string;
+    };
 
 export async function createVisit(ctx: ServiceContext, input: CreateVisitInput): Promise<CreateVisitResult> {
   const supabase = ctx.db;
@@ -72,12 +103,15 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       return { success: false, error: "Doctor not found in this clinic." };
     }
 
-    // Insert visit under RLS
-    const { data: newVisit, error: insertError } = await (
+    // Insert visit under RLS. Two concurrent inserts of conflicting slots can both find the other's not-yet-committed
+    // row while checking `visits_no_double_booking`; PostgreSQL then aborts one of them as a deadlock (40P01) instead
+    // of 23P01. The other transaction goes on and commits, so one retry answers definitively: 23P01 (the slot is
+    // taken) or, if the other failed, the booking itself (V2-05 05-08; the shared helper since 05-11c).
+    const insertVisit = () => (
       supabase.from("visits") as unknown as {
         insert: (row: Record<string, unknown>) => {
           select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+            single: () => Promise<{ data: { id: string } | null; error: { code?: string; message: string } | null }>;
           };
         };
       }
@@ -96,8 +130,13 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       })
       .select("id")
       .single();
+    const { data: newVisit, error: insertError } = await retryOnDeadlock(insertVisit);
 
     if (insertError || !newVisit) {
+      if (isSlotTakenError(insertError)) {
+        // Expected under concurrency (two desks booking one slot): not an error to alert on.
+        return { success: false, error: SLOT_TAKEN_MESSAGE, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON };
+      }
       log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to schedule visit in database." };
     }
@@ -348,15 +387,26 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
       return { success: false, error: "Visit is already cancelled." };
     }
 
-    // 2. Mark visit cancelled
+    // A signed consultation is never cancelled (V2-05 05-11a, H-VISIT: the database refuses it too).
+    if (existing.signed_at) {
+      return { success: false, error: "A signed consultation cannot be cancelled." };
+    }
+
+    // 2. Mark visit cancelled. A refused or failed write stops here: no audit row and no waitlist promotion for a
+    // visit that is still booked.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: cancelError } = await (supabase.from("visits") as any)
       .update({
         status: "cancelled",
         updated_at: new Date().toISOString(),
       })
       .eq("id", visitId)
       .eq("tenant_id", session.tenantId);
+
+    if (cancelError) {
+      log.error({ event: "visits.cancel.failed", code: errorTag(cancelError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to cancel visit." };
+    }
 
     // 3. Audit cancellation
     await recordAudit(ctx, {
@@ -556,7 +606,7 @@ export async function getClinicVisitsRegister(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase.from("visits") as any)
       .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, vitals, chief_complaints, clinical_notes, specialty, investigations_advised, advice, created_at, updated_at"
+        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, specialty, created_at, updated_at, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`
       )
       .eq("tenant_id", session.tenantId)
       .gte("created_at", startIso)
@@ -819,8 +869,9 @@ export async function getClinicVisitsRegister(
     }
 
     // 7. Assemble items
+    // Clinical content from clinical_notes (05-02a): null for a role that may not read it.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mappedVisits: ClinicVisitRegisterItem[] = paginatedRows.map((v: any) => {
+    const mappedVisits: ClinicVisitRegisterItem[] = paginatedRows.map(withClinicalNotes).map((v: any) => {
       const pat = patientMap.get(v.patient_id) || {
         id: v.patient_id,
         full_name: "Patient",
@@ -942,17 +993,19 @@ export async function recordVisitVitals(
       recorded_by: session.userId,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase.from("visits") as any)
-      .update({
-        vitals: vitalsToSave,
-        updated_at: nowIso,
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
+    // Vitals live in clinical_notes (V2-05 05-02a, R-3): a nurse may change `vitals` only (guard trigger); a visit the
+    // caller may not change (another clinic, a role without vitals:edit) affects 0 rows and is refused, never reported
+    // as recorded.
+    const { error: updateError, raw } = await updateClinicalNotes(supabase, session.tenantId, visitId, {
+      vitals: vitalsToSave as Record<string, unknown>,
+    });
 
     if (updateError) {
-      log.error({ event: "visits.vitals_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      if (updateError.code === "FORBIDDEN") {
+        log.warn({ event: "visits.vitals_update.refused", reason: updateError.reason === "ROW_NOT_AFFECTED" ? "row_not_affected" : "forbidden", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: updateError.message };
+      }
+      log.error({ event: "visits.vitals_update.failed", code: errorTag(raw), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record patient vitals." };
     }
 

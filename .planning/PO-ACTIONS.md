@@ -30,6 +30,8 @@ The PO asked for only the items that need a decision or money; Claude handles th
   already uses Resend, which domain does it send from? (If the plan has no free slot, either upgrade or send staging
   mail from the domain v1 already verified.)
 - **D-1 · Design sign-off (G2-D).** **Done on 2026-11-13: theme A + Inter.**
+- **05-P6 · Approve the V2-05a gate** (2026-11-14): `05a-VERIFICATION.md` and `05a-SUMMARY.md` in
+  `.planning/phases/05-db-authorisation-entitlements/`. Decision only; nothing to pay or configure.
 
 **Clicks only, after B-1…B-4 (exact steps are in each item below):**
 03-E1a dump the v1 schema → 03-E2 staging Supabase project (Mumbai) → 03-E6R Resend domain auth.thecliniqai.com →
@@ -557,7 +559,7 @@ local backup self-test and drill, the template and its policy checks, the workfl
 
 ## V2-05 Database authorisation & entitlements
 
-Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). Plans written; not started.
+Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). **05a code-complete (2026-11-14): gate awaits your approval (05-P6), see `05a-VERIFICATION.md`.** 05b not started.
 
 The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-05 Database authorisation, integrity &
 entitlements". No secret value appears here. Nothing below blocks local work; 05-P1 blocks the merges; 05-P2…05-P5
@@ -632,6 +634,16 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 
 - [ ] **05-P6 · Gate approvals** — approve the 05a gate and then the 05b gate (reviews, evidence and
   `05a-VERIFICATION.md` / `05-VERIFICATION.md` links). *Verify:* recorded in VERIFICATION_LOG.
+
+- [d] **05-P8 · Staging migrate of 05a: diagnostics first (no decision, no cost)** — delegated to the CTO (05a close,
+  2026-11-14). Some 05a migrations VALIDATE or stop on bad legacy rows (000069 on D5s, 000076 on D7i) and 000070 must
+  follow the app that checks in through `issue_queue_token`. Claude runs the counts-only diagnostics on staging through
+  the PO-approved staging workflow before 05-P2 and follows the deploy order in `05a-SUMMARY.md` § Deploy notes; you only
+  approve the Environment run as in 05-P2. A non-zero blocking count is raised to you before the migrate.
+- [d] **05-P9 · Keep "Confirm email" ON in hosted Auth (staging and production)** — no new step: already set by 03-E3
+  and checked by the drift `auth-config` job (`supabase/auth-policy.json` row `email_confirmations`). Since 05a it is
+  also a security dependency: invitation redemption binds to the caller's **confirmed** email (H-INVITE). Do not turn it
+  off; if a drift run reports it, that is a blocker.
 
 - [ ] **05-P7 · Turnstile secret for the app on staging (05-07b, R-46)**
   - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables (Production scope only, as 03-E4):

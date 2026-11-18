@@ -1,0 +1,7 @@
+# 05a gate negative proof 1: one required file removed (signed_visit_fields.test.sql moved out of supabase/tests/database for one real `npm run test:pgtap` run, then restored; git tree clean afterwards)
+# gate commit: 13217bb
+$ node scripts/ci/assert-pgtap-report.mjs <that run's report>
+pgtap-report-gate: files=30 tests=3317 passed=3317 failed=0 skipped/todo=0 floor=3343 required=31
+FAIL total 3317 is below the floor 3343 (suite shrank?)
+FAIL required pgTAP file missing: supabase/tests/database/signed_visit_fields.test.sql
+exit=1

@@ -1,0 +1,6 @@
+# npm run e2e:pr at 7b884a9
+  ✓   15 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget failed: 0 serious/critical (609ms)
+  ✓   16 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget failed: 0 serious/critical (607ms)
+  9 skipped
+  196 passed (2.0m)
+exit=0

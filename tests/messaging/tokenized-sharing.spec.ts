@@ -74,7 +74,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await sharePrescriptionViaWhatsApp(mockCtx(db, session), "rx-100");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "prescription", p_resource_id: "rx-100" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -106,7 +108,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareLabReportViaWhatsApp(mockCtx(db, session), "doc-200");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "patient_document", p_resource_id: "doc-200" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -137,7 +141,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareReferralLetterViaWhatsApp(mockCtx(db, session), "ref-300");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "referral", p_resource_id: "ref-300" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -165,7 +171,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareReceiptViaWhatsApp(mockCtx(db, session), "inv-400");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "invoice", p_resource_id: "inv-400" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -297,7 +305,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     expect(res.success).toBe(true);
     expect(res.rxShareUrl).toContain("/r/");
     expect(res.invoiceShareUrl).toContain("/r/");
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "prescription", p_resource_id: "rx-100" } },
       { name: "create_share_token", args: { p_resource_type: "invoice", p_resource_id: "inv-200" } },
     ]);

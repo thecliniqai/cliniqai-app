@@ -14,6 +14,7 @@ import type {
 } from "./constants";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export type {
@@ -197,12 +198,13 @@ export async function deleteWebhookSubscription(
     const session = ctx;
     const supabase = ctx.db;
 
-    const { error: deleteErr } = await (
+    const { data: deleted, error: deleteErr } = await (
       supabase.from("webhook_subscriptions") as any
     )
       .delete()
       .eq("id", subscriptionId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (deleteErr) {
       log.error({ event: "webhooks.subscription_delete_query.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
@@ -210,6 +212,11 @@ export async function deleteWebhookSubscription(
         success: false,
         error: "Failed to delete webhook subscription.",
       };
+    }
+    // 0 rows (V2-05 05-04): an unknown id, or one RLS filters out; no success and no audit row for a no-op delete.
+    if (unaffectedRowsError(deleted)) {
+      log.warn({ event: "webhooks.subscription_delete.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Webhook subscription not found." };
     }
 
     try {

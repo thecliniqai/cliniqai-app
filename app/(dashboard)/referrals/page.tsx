@@ -6,13 +6,14 @@ import {
   getInboundReferrals,
 } from "@/features/referrals/actions";
 import { ReferralsRegister } from "@/components/referrals/referrals-register";
+import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata: Metadata = {
   title: "Referrals Register | ClinicOS",
   description: "Manage outbound specialist referrals and inbound transfer records",
 };
 
-export default async function ReferralsPage() {
+async function ReferralsPage() {
   await requirePermission("patients:view");
 
   const [outboundRes, inboundRes] = await Promise.all([
@@ -29,3 +30,6 @@ export default async function ReferralsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(ReferralsPage);

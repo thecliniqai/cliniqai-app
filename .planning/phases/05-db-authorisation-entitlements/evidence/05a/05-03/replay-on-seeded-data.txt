@@ -1,0 +1,41 @@
+# 05-03 expand -> validate -> contract replayed on the kept, data-carrying local DB (V0 in diagnostics/before-05-03.json)
+# 2026-11-13T23:55:57Z  migrations applied with psql -1 (single transaction each) on top of 000046; counts only
+## prescription_items before 000048: rows, rows whose prescription exists
+689|689
+## apply 000047_tenant_parent_keys
+exit 0
+## apply 000048_prescription_items_tenant_id
+exit 0
+## apply 000049_composite_fks_expand
+exit 0
+## prescription_items after 000048: rows, tenant_id null, tenant_id <> prescription's
+689|0|0
+## composite FKs NOT VALID after 000049
+38
+
+## apply 000050_composite_fks_validate while the negative-test fixture rows are present (expected: refused, rolled back)
+psql:<stdin>:13: ERROR:  insert or update on table "visits" violates foreign key constraint "visits_tenant_patient_fkey"
+DETAIL:  Key (tenant_id, patient_id)=(<ids redacted>) is not present in table "patients".
+psql exit 3 (re-run without the redaction pipe; the pipe above reported sed's status)
+## NOT VALID composite FKs after the refused VALIDATE
+38
+
+## remove the negative-test fixture rows (attributed in 05-03-COMPOSITE-FKS.md; run data a normal teardown deletes): rows deleted per check
+visits.patient_id|1
+follow_ups.visit_id|1
+document_share_tokens.document_id|1
+patient_documents.patient_id|1
+communication_queue.appointment_id|1
+webhook_delivery_queue.subscription_id|3
+schedule_blocks.doctor_id|12
+exit 0
+
+## diagnostics/after-expand-05-03.json: D1, D1x, D5, D5x all 0 (remaining D2 = share-token fixtures, polymorphic, no FK; D4b = multi-owner test clinics)
+## apply 000050_composite_fks_validate
+exit 0
+## apply 000051_composite_fks_contract
+exit 0
+## select count(*) from pg_constraint where contype='f' and not convalidated (whole database)
+0
+## composite FKs in public / single-column FKs left to tenant parents (patients, visits, invoices, prescriptions, patient_documents, api_keys, webhook_subscriptions)
+38|0

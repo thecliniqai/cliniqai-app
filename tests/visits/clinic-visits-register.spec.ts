@@ -19,8 +19,10 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 
 function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
   return insertReturningId(getAdminClient(), table, row);
@@ -177,8 +179,10 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         created_by: ownerB.userId,
       });
 
-      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v1, token_number: 1 });
-      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v2, token_number: 2 });
+      // The token date is explicit since 05-08 (no SQL default; the fill trigger would give the same clinic date).
+      const tokenDate = todayInTz(DEFAULT_CLINIC_TZ);
+      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v1, token_number: 1, date: tokenDate });
+      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v2, token_number: 2, date: tokenDate });
       await insertRow("consultation_diagnoses", {
         tenant_id: ownerA.tenantId,
         visit_id: v1,
@@ -197,6 +201,7 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         signed_at: minutesAgo(25),
       });
       await insertRow("prescription_items", {
+        tenant_id: ownerA.tenantId,
         prescription_id: rxId,
         medicine_name: "Azithromycin 500mg",
         dosage: "1-0-0",
@@ -252,12 +257,18 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
     });
 
     it("scopes the register to the context's tenant even for a user whose RLS reaches both tenants", async () => {
-      const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: dual.client });
-      const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: dual.client });
+      // Each context's client names its clinic in x-clinicos-tenant, as the app's createClient() does (R-42; the
+      // policies are bound to the active clinic since 05-02b).
+      const clientInA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+      const clientInB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+      const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: clientInA });
+      const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: clientInB });
 
       const asA = await getClinicVisitsRegister(inA, filter);
       expect(asA.visits.map((v) => v.id)).toEqual([v3, v2, v1]);
-      expect(asA.metrics.totalBilledRevenue).toBe(1000);
+      // A doctor reads only the invoices of their own visits (05-02b, PO-3 / R-7): none of these are theirs.
+      expect(asA.metrics.totalBilledRevenue).toBe(0);
+      expect(asA.visits.every((v) => v.invoice === null || v.invoice === undefined)).toBe(true);
 
       // The same JWT does reach B's rows when acting in B, so A's result is the service's tenant scoping.
       const asB = await getClinicVisitsRegister(inB, filter);

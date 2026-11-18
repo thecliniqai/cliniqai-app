@@ -85,8 +85,10 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   await ux.click(page.getByRole("button", { name: /Complete & Sign/ }).first(), "Complete & Sign");
   const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
   await expect(dialog).toBeVisible();
-  // The v1 toggle is a visually hidden checkbox inside its label (no accessible name; one checkbox in the dialog).
-  await ux.uncheck(dialog.getByRole("checkbox"), "Collect fee at desk: off", { force: true });
+  // PO-3 (V2-05 05-02b): a doctor does not collect. The "collect at desk" toggle is not offered; the bill goes to
+  // reception (the server refuses a doctor's collection regardless: tests/billing/collect-permission.spec.ts).
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await expect(dialog.getByRole("note")).toContainText("Payment at reception");
   await ux.click(dialog.getByRole("button", { name: /Sign & Route to Reception/ }), "Sign & Route to Reception");
   await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
   ux.done();

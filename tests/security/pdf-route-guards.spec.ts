@@ -1,7 +1,7 @@
 /**
  * PDF route guards (V2-01 F1, F3). The prescription and receipt PDF routes authenticate from the session, require
- * the same permission as their in-app equivalents (`consultations:view` for prescriptions, `appointments:view` for
- * receipts) and accept only a UUID where the id reaches a PostgREST filter string.
+ * the same permission as their in-app equivalents (`prescriptions:view` for prescriptions since V2-05 05-02b, the
+ * prescriptions RLS key; `appointments:view` for receipts) and accept only a UUID where the id reaches a PostgREST filter string.
  *
  * Runs on the local stack: `createClient()` from `@/lib/supabase/server` is replaced by a seeded user's own JWT
  * client, so `getActiveMembership()` resolves through the real `auth.getUser()` and memberships RLS.
@@ -30,11 +30,13 @@ describe("PDF route guards (F1, F3)", () => {
   let owner: SeededTenant;
   let receptionist: SeededTenant;
   let nurse: SeededTenant;
+  let doctor: SeededTenant;
 
   beforeAll(async () => {
     owner = await seedTenantWithOwner("PDF Guard Clinic");
     receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
     nurse = await addMemberToTenant(owner.tenantId, "nurse");
+    doctor = await addMemberToTenant(owner.tenantId, "doctor");
   });
 
   it("rejects an unauthenticated caller on both routes with 401", async () => {
@@ -45,13 +47,16 @@ describe("PDF route guards (F1, F3)", () => {
     expect((await call(getReceiptPdf, MISSING_ID)).status).toBe(401);
   });
 
-  it("refuses the prescription PDF to a role without consultations:view (receptionist → 403)", async () => {
+  it("refuses the prescription PDF to a role without prescriptions:view (receptionist, nurse → 403)", async () => {
     mockState.client = receptionist.client;
+    expect((await call(getPrescriptionPdf, MISSING_ID)).status).toBe(403);
+    // A nurse reads consultations but not prescriptions (PO-3, matrix.ts; RLS would hide the Rx anyway).
+    mockState.client = nurse.client;
     expect((await call(getPrescriptionPdf, MISSING_ID)).status).toBe(403);
   });
 
-  it("lets a role with consultations:view past the gate (nurse → 404 for a missing visit, not 403)", async () => {
-    mockState.client = nurse.client;
+  it("lets a role with prescriptions:view past the gate (doctor → 404 for a missing visit, not 403)", async () => {
+    mockState.client = doctor.client;
     expect((await call(getPrescriptionPdf, MISSING_ID)).status).toBe(404);
   });
 

@@ -1,0 +1,32 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/signed_visit_fields.test.sql .. 
+1..26
+ok 1 - NF-4 repro: the receptionist cannot move a signed visit's date
+ok 2 - NF-4 repro: the receptionist cannot relabel a signed visit's specialty
+ok 3 - NF-4: the owner cannot move a signed visit's date either
+ok 4 - NF-4: the signing doctor cannot relabel the signed visit without reopening it
+ok 5 - NF-4: another doctor cannot change both in one statement
+ok 6 - NF-4: the signed visit keeps its date
+ok 7 - NF-4: the signed visit keeps its specialty
+ok 8 - NF-4 control: re-sending the same date and specialty is not a change
+ok 9 - the doctor writes an amendment row of the signed visit
+ok 10 - NF-4: the amendment snapshot records the signed visit date
+ok 11 - the amendment snapshot records the signed specialty
+ok 12 - NF-4: the reopen statement cannot change the specialty in the same write
+ok 13 - the doctor reopens the visit with the amendment row
+ok 14 - NF-4 control: while reopened, the doctor corrects the specialty and the date
+ok 15 - and finalizes the amendment
+ok 16 - NF-4: the re-signed visit is locked again
+ok 17 - NF-4 control: the receptionist reschedules an unsigned booked visit
+ok 18 - NF-4 control: the doctor sets the specialty of an open consultation
+ok 19 - the system path (no caller) is unchanged by 000078 (N-9, V2-09a)
+ok 20 - NF-5: the doctor signs, sending a backdated signature time
+ok 21 - NF-5 repro: the stored signature time is the database clock, not the backdated value
+ok 22 - NF-5: the doctor signs another visit, sending a future signature time
+ok 23 - NF-5 repro: a forward-dated signature time is replaced by the database clock
+ok 24 - NF-5: another doctor amends the visit and re-signs it with a backdated time
+ok 25 - NF-5 repro: the finalize re-sign stores the database clock and the new signer
+ok 26 - NF-5 control: a sign-off without a signature time is still refused before the clock is applied
+ok
+All tests successful.
+Files=1, Tests=26,  1 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: PASS

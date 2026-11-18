@@ -1,0 +1,129 @@
+# Re-check probes of reviews/v205a-review-recheck-05-11d.md re-run at HEAD 2c01544, 2026-11-14T07:57:40Z
+# Scripts: scratchpad fx.sql + n1, n2, n2b, n2c, n2d, n3, legit (unchanged), each in BEGIN ... ROLLBACK as postgres with PostgREST-style claims
+# db: 000077
+=== n1.sql
+N1a move item|denied:PRESCRIPTION_ITEM_KEY_IMMUTABLE
+N1b move diag|denied:DIAGNOSIS_KEY_IMMUTABLE
+N1c move diag+pt|denied:DIAGNOSIS_KEY_IMMUTABLE
+N1d edit signed item|denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+N1e delete signed item|denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+N1f edit signed diag|denied:DIAGNOSIS_VISIT_SIGNED
+N1g delete signed diag|denied:DIAGNOSIS_VISIT_SIGNED
+N1h insert item on signed rx|denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+N1i insert diag on signed visit|denied:DIAGNOSIS_VISIT_SIGNED
+R1 item insert with explicit tenant_id NULL into signed rx|denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+R2 rx header re-key|denied:PRESCRIPTION_KEY_IMMUTABLE
+R3 decoy rx on signed visit by other doctor (v2)|denied:PRESCRIPTION_VISIT_SIGNED
+R3b latest rx of V1 now|e0de0000-0000-4000-8000-000000003001 v1 doctor=e0de0000-0000-4000-8000-000000000102 items=1
+R4 lower signed rx version|ok (rows=1)
+R5 reception edit signed item|none (rows=0)
+R6 nurse edit signed item|none (rows=0)
+R7 follow_up re-key to P2/V3|denied:FOLLOW_UP_KEY_IMMUTABLE
+R7b follow_up edit date of signed visit (rc)|denied:FOLLOW_UP_VISIT_SIGNED
+R8 diag insert patient null on open V3|denied:DIAGNOSIS_PATIENT_MISMATCH
+R9 system move item|1
+SAVEPOINT
+ERROR:  PRESCRIPTION_ITEM_KEY_IMMUTABLE
+CONTEXT:  PL/pgSQL function private.prescription_items_integrity_guard() line 9 at RAISE
+ROLLBACK
+L1 dr edit item on open V4|ok (rows=1)
+L2 dr add diag on open V4|ok (rows=1)
+ROLLBACK
+=== n2.sql
+N2a insert rev snapshot {} + number squat|1 captured_by=database note=Synthetic signed note items=1 dx=1 (rows=1)
+N2b update rev snapshot|denied:permission denied for table visit_revisions
+N2c delete rev|denied:permission denied for table visit_revisions
+N2d receptionist insert rev|denied:AMENDMENT_FORBIDDEN
+N2e amended_by forged|denied:AMENDMENT_AUTHOR_NOT_CALLER
+A1 dr2 inserts amendment on UNSIGNED V4|denied:AMENDMENT_VISIT_NOT_SIGNED
+A2 dr writes final note on V4|ok (rows=1)
+A3 dr signs V4|ok (rows=1)
+A4 dr2 reopens V4 with NO new amendment row|denied:VISIT_REOPEN_NEEDS_AMENDMENT
+A5 dr2 rewrites note|denied:CLINICAL_NOTES_VISIT_SIGNED
+A5b dr2 deletes item|denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+A6 dr2 finalizes|denied:VISIT_SIGNOFF_FORBIDDEN
+A7 any snapshot of V4 holding the FINAL signed note?|0
+A7b revisions of V4|
+A8 audit rows for V4|0
+ROLLBACK
+=== n2b.sql
+L1 rev1|1 note=Synthetic signed note signed=2030-01-01T04:30:00+00:00 (rows=1)
+L2 reopen|cur=2 (rows=1)
+L3 edit note|ok (rows=1)
+L3b edit item|ok (rows=1)
+L3c edit dx|ok (rows=1)
+B1 dr2 inserts rev during open amendment|denied:AMENDMENT_VISIT_NOT_SIGNED
+L3d DR final edit after squat|ok (rows=1)
+L4 finalize|ok (rows=1)
+B2 dr2 reopens without new rev|denied:VISIT_REOPEN_NEEDS_AMENDMENT
+B3 any snapshot holding amended FINAL?|0
+B4 revs|1:e0de0000-0000-4000-8000-000000000102:completed:Synthetic signed note:1-0-1
+ROLLBACK
+=== n2c.sql
+L1|1 (rows=1)
+L2|cur=2 (rows=1)
+L3|ok (rows=1)
+L3b|ok (rows=1)
+L3c rx header bump (app finalize)|ok (rows=1)
+L4|ok (rows=1)
+L5 rev2|2 (rows=1)
+L6|cur=3 (rows=1)
+L7|ok (rows=1)
+L8 revs|1:completed:Synthetic signed note:dose=1-0-1:rxv=1 | 2:completed:Synthetic amended note 2:dose=1-1-1:rxv=2
+ROLLBACK
+=== n2d.sql
+C1 dr2 decoy Rx v99 on signed V1|denied:PRESCRIPTION_VISIT_SIGNED
+C2 dr2 amendment row|1 snap_rx_version=1 snap_items=1 (rows=1)
+C3 reopen|ok (rows=1)
+C4 delete signed medicines of RX1|ok (rows=1)
+C5 any snapshot containing Amoxicillin|1
+ROLLBACK
+=== n3.sql
+CREATE FUNCTION
+P0|500.00/500.00/issued/paid=0
+P1 rc advance 200 on I1|{"replayed": false, "paid_total": 200, "payment_id": "8f73529d-7b95-4edb-b67a-a6ed878f063f", "balance_due": 300.00, "total_amount": 500.00, "invoice_status": "issued"} (rows=1)
+MI5 dr lowers item to 200 (=paid)|denied:INVOICE_BELOW_COLLECTED
+MI5b dr lowers to 150 (<paid)|denied:INVOICE_BELOW_COLLECTED
+MI5c dr quantity trick unit 500 qty 0|denied:INVOICE_BELOW_COLLECTED
+MI5d dr forged total_price 0|500.00 (rows=1)
+MI6 dr negative item|error:23514:new row for relation "invoice_items" violates check constraint "invoice_items_unit_price_nonnegative"
+MI6b dr forged negative total|0.00 (rows=1)
+R1 rc deletes item to below paid|denied:INVOICE_BELOW_COLLECTED
+R2 dr moves item to other invoice|denied:INVOICE_ITEM_KEY_IMMUTABLE
+R3 dr2 (not own visit) lowers|none (rows=0)
+R4 direct invoice status update|denied:permission denied for table invoices
+R5 direct payment insert|denied:permission denied for table payments
+R6 payment update/delete|denied:permission denied for table payments|denied:permission denied for table payments
+P2 state|500.00/500.00/issued/paid=200.00
+L1 dr adds charge 100 while balance due|ok (rows=1)
+P3 state|600.00/600.00/issued/paid=200.00
+R7 rc lowers both items in one stmt to 100 each (total 200 = paid)|denied:INVOICE_BELOW_COLLECTED
+L2 rc lowers 500 item to 300 (total 400 > paid 200)|ok (rows=1)
+P4 state|400.00/400.00/issued/paid=200.00
+L3 owner pays remaining 200|{"replayed": false, "paid_total": 400.00, "payment_id": "22763b7a-9fad-4426-afa6-d3757f60a836", "balance_due": 0.00, "total_amount": 400.00, "invoice_status": "paid"} (rows=1)
+P5 state|400.00/400.00/paid/paid=400.00
+R8 rc adds item to paid invoice|denied:INVOICE_ITEMS_LOCKED
+R9 dr lowers on paid invoice|denied:INVOICE_ITEMS_LOCKED
+Z1 dr zeroes I4 (no payment)|ok (rows=1)
+Z2 I4 state|0.00/0.00/issued/paid=0
+Z3 rc pays 1 on zero I4|error:P0001:OVERPAYMENT
+ROLLBACK
+=== legit.sql
+CREATE FUNCTION
+S1 sign V3|ok (rows=1)
+S2 seal Rx|ok (rows=1)
+S3 invoice|ok (rows=1)
+S4 items|2 (rows=1)
+S5 state|650.00/600.00/issued/paid=0
+S6 doctor (no billing:collect) tries to collect|denied:FORBIDDEN
+S7 rc advance 100|issued (rows=1)
+S8 dr adds charge while balance due|ok (rows=1)
+S9 state|850.00/800.00/issued/paid=100.00
+S10 rc collects rest 700|paid (rows=1)
+S11 state|850.00/800.00/paid/paid=800.00
+O1 owner pays I4 300|paid (rows=1)
+O2 state|300.00/300.00/paid/paid=300.00
+O3 rc adds charge to PAID I4 (post-pay add)|denied:INVOICE_ITEMS_LOCKED
+ROLLBACK
+=== leftover fixture rows
+0 users, 0 tenants

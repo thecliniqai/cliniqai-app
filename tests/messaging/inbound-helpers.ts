@@ -21,6 +21,7 @@ import { psql } from "../helpers/sql";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { letters } from "../jobs/helpers";
 import { syntheticMobile } from "../jobs/message-helpers";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 export const WEBHOOK_SECRET = ["wh", randomBytes(16).toString("hex")].join("-");
 
@@ -92,7 +93,8 @@ export async function seedConversation(label: string, owner?: SeededTenant): Pro
       patient_id: patient.id,
       doctor_id: o.userId,
       origin_type: "scheduled",
-      scheduled_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      // A slot of its own (05-08: overlapping scheduled visits of one doctor are refused).
+      scheduled_at: seedSlotIso(),
       status: "booked",
       created_by: o.userId,
     })

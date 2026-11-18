@@ -14,8 +14,9 @@ export interface SubscriptionOverview {
 export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
   const supabase = await createClient();
 
-  // 1. Enforce RBAC guard: Owner and Admin only
-  const session = await requirePermission(supabase, "billing:view");
+  // 1. Enforce RBAC guard: Owner and Admin only. SaaS billing is clinic management (SUB §7.1); `billing:view` is the
+  //    patient-billing key, which receptionists hold since PO-3 (V2-05 05-01b).
+  const session = await requirePermission(supabase, "clinic:manage");
 
   // 2. Fetch subscription under RLS (RLS ensures only owner/admin of session.tenantId can read)
   const { data: subData, error: subError } = await supabase

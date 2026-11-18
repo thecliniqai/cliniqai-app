@@ -1,8 +1,9 @@
 import { getClinicProfileWithMembership } from "@/features/clinics/profile";
 import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function ClinicSettingsPage() {
+async function ClinicSettingsPage() {
   const { tenant: profile, membership } = await getClinicProfileWithMembership();
 
   if (!profile) {
@@ -34,3 +35,6 @@ export default async function ClinicSettingsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(ClinicSettingsPage);

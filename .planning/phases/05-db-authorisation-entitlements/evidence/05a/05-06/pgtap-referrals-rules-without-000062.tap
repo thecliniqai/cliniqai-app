@@ -1,0 +1,111 @@
+1..40
+not ok 1 - a referral to a clinic not in the directory is refused (before: inserted)
+# Failed test 1: "a referral to a clinic not in the directory is refused (before: inserted)"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_NOT_LISTED
+ok 2 - a referral to a listed clinic is inserted
+not ok 3 - a referral to the referring clinic itself is refused
+# Failed test 3: "a referral to the referring clinic itself is refused"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_NOT_LISTED
+not ok 4 - a self-referral is refused even when the clinic itself is listed
+# Failed test 4: "a self-referral is refused even when the clinic itself is listed"
+#         have: ok
+#         want: P0001:REFERRAL_TARGET_NOT_LISTED
+not ok 5 - every writer is checked: postgres is refused too
+# Failed test 5: "every writer is checked: postgres is refused too"
+#         have: ok
+#         want: P0001:REFERRAL_TARGET_NOT_LISTED
+not ok 6 - a target that is no clinic at all is refused by the guard before the FK
+# Failed test 6: "a target that is no clinic at all is refused by the guard before the FK"
+#         have: 23503:insert or update on table "referrals" violates foreign key constraint "referrals_target_tenant_id_fkey"
+#         want: P0001:REFERRAL_TARGET_NOT_LISTED
+ok 7 - an out-of-network referral (no target clinic) is unaffected
+not ok 8 - a history snapshot without consent is refused (before: inserted)
+# Failed test 8: "a history snapshot without consent is refused (before: inserted)"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 9 - a history snapshot without consent is refused without a target too
+# Failed test 9: "a history snapshot without consent is refused without a target too"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+ok 10 - a history snapshot with consent is inserted
+ok 11 - a JSON null snapshot counts as no snapshot
+not ok 12 - withdrawing the consent flag while the snapshot stays is refused
+# Failed test 12: "withdrawing the consent flag while the snapshot stays is refused"
+#         have: ok
+#         want: P0001:REFERRAL_CONSENT_REQUIRED
+not ok 13 - adding a snapshot to a referral without consent is refused
+# Failed test 13: "adding a snapshot to a referral without consent is refused"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 14 - re-targeting a referral to an unlisted clinic is refused
+# Failed test 14: "re-targeting a referral to an unlisted clinic is refused"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_NOT_LISTED
+ok 15 - re-targeting a referral to another listed clinic is allowed
+ok 16 - after the target leaves the directory, an update that keeps the same target still works
+ok 17 - clearing the target is allowed
+ok 18 - the receiving clinic still cannot change the clinical summary
+ok 19 - the receiving clinic still acknowledges
+ok 20 - the receiving clinic cannot forward the referral to another clinic
+not ok 21 - referral_directory_search returns id and name only
+# Failed test 21: "referral_directory_search returns id and name only"
+#         have: NULL
+#         want: TABLE(id uuid, name text)
+not ok 22 - referral_directory_search is SECURITY DEFINER (the caller cannot read other clinics' tenants rows)
+# Failed test 22: "referral_directory_search is SECURITY DEFINER (the caller cannot read other clinics' tenants rows)"
+#         have: NULL
+#         want: true
+not ok 23 - a doctor finds the listed clinics only (not C, not A)
+# Failed test 23: "a doctor finds the listed clinics only (not C, not A)"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: Synthetic Referral Clinic B,Synthetic Referral Clinic D
+not ok 24 - the caller's own clinic is never listed (B searching)
+# Failed test 24: "the caller's own clinic is never listed (B searching)"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: Synthetic Referral Clinic D
+not ok 25 - at most 20 rows (25 listed clinics match; case-insensitive)
+# Failed test 25: "at most 20 rows (25 listed clinics match; case-insensitive)"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: 20
+not ok 26 - a lone % is a short query: nothing
+# Failed test 26: "a lone % is a short query: nothing"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: 0
+not ok 27 - LIKE wildcards are literal (no name contains "%Clinic")
+# Failed test 27: "LIKE wildcards are literal (no name contains "%Clinic")"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: 0
+not ok 28 - an underscore is literal too
+# Failed test 28: "an underscore is literal too"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: 0
+not ok 29 - a query shorter than 2 characters returns nothing
+# Failed test 29: "a query shorter than 2 characters returns nothing"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: 0
+not ok 30 - a nurse (consultations:view only) is refused
+# Failed test 30: "a nurse (consultations:view only) is refused"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: denied:forbidden
+not ok 31 - a receptionist is refused
+# Failed test 31: "a receptionist is refused"
+#         have: error:42883:function public.referral_directory_search(unknown) does not exist
+#         want: denied:forbidden
+not ok 32 - anon cannot execute it
+# Failed test 32: "anon cannot execute it"
+#                   'error:42883:function public.referral_directory_search(unknown) does not exist'
+#    doesn't match: 'denied:permission denied for function%'
+not ok 33 - authenticated may execute it (the check is inside)
+# Failed test 33: "authenticated may execute it (the check is inside)"
+#         have: false
+#         want: true
+ok 34 - tenants.referral_directory_listed is NOT NULL
+ok 35 - a clinic starts unlisted
+ok 36 - the owner (clinic:manage) lists the clinic
+ok 37 - a doctor cannot list the clinic (no clinic:manage: 0 rows)
+ok 38 - another clinic's owner cannot list it
+ok 39 - an API key has no scope by default
+ok 40 - an unknown scope is refused (closed set)
+# Looks like you failed 23 tests of 40
