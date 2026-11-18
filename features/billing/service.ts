@@ -11,6 +11,8 @@ import { Invoice, InvoiceItem, Payment } from "@/lib/db/types";
 import {
   createInvoiceSchema,
   CreateInvoiceInput,
+  collectPaymentSchema,
+  CollectPaymentInput,
   recordPaymentSchema,
   RecordPaymentInput,
   completeAndBillSchema,
@@ -26,6 +28,7 @@ import {
   compileAndArchiveReceiptPdf,
   generateAndArchiveReceiptPdf,
 } from "./pdf/generator";
+import { callCommand } from "@/lib/commands/call-command";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
@@ -83,32 +86,71 @@ export type CreateInvoiceResult =
     }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
-/** The unique violation raised by invoices_one_live_per_visit (000024). */
-function isLiveInvoiceConflict(err: { code?: string; message?: string } | null | undefined): boolean {
-  return err?.code === "23505" && (err.message ?? "").includes("invoices_one_live_per_visit");
-}
-
-/** The visit's live (not cancelled) invoice and its items, read in the caller's tenant. */
-async function liveInvoiceForVisit(
+/** An invoice and its items by id, read in the caller's tenant (RLS applies). */
+async function invoiceWithItems(
   ctx: ServiceContext,
-  visitId: string
+  invoiceId: string
 ): Promise<{ invoice: Invoice; items: InvoiceItem[] } | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: invoice } = await (ctx.db.from("invoices") as any)
     .select("*")
-    .eq("visit_id", visitId)
+    .eq("id", invoiceId)
     .eq("tenant_id", ctx.tenantId)
-    .neq("status", "cancelled")
     .maybeSingle();
   if (!invoice) return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: items } = await (ctx.db.from("invoice_items") as any)
     .select("*")
-    .eq("invoice_id", invoice.id)
-    .eq("tenant_id", ctx.tenantId);
+    .eq("invoice_id", invoiceId)
+    .eq("tenant_id", ctx.tenantId)
+    .order("created_at", { ascending: true });
   return { invoice: invoice as Invoice, items: (items || []) as InvoiceItem[] };
 }
 
+/** Fixed, data-free texts by reason or code for `create_invoice` and `collect_payment` (V2-07 07-02). The driver message never reaches the caller. */
+export const INVOICE_COMMAND_MESSAGES = {
+  NOT_FOUND: "Visit not found or access denied.",
+  FORBIDDEN: BILLING_COLLECT_FORBIDDEN_MESSAGE,
+  VALIDATION_FAILED: "Validation failed for invoice items.",
+  AMOUNT_INVALID: "Payment amount must be greater than zero.",
+  METHOD_INVALID: "Invalid payment details.",
+  OVERPAYMENT: "The amount is more than the balance due on this invoice.",
+  INVOICE_NOT_PAYABLE: "This invoice is already settled or cancelled.",
+  LOCK_TIMEOUT: "This bill is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  CONFLICT: "The invoice changed while saving. Refresh and try again.",
+  INTERNAL: "Failed to create invoice.",
+} as const satisfies DbErrorMessages;
+
+const createInvoiceRpcResultSchema = z.object({
+  invoice_id: z.string().uuid(),
+  invoice_number: z.string(),
+  status: z.enum(["draft", "issued", "paid", "cancelled"]),
+  total_amount: z.number(),
+  existing: z.boolean(),
+  replayed: z.boolean().optional(),
+});
+
+/** What `collect_payment` returns to the checkout (V2-07 07-02). */
+export interface CollectPaymentValue {
+  invoiceId: string;
+  invoiceNumber: string;
+  /** True when this command created the visit's invoice (false: it paid the invoice that already existed). */
+  invoiceCreated: boolean;
+  paymentId: string;
+  status: "paid" | "issued";
+  totalPaid: number;
+  balanceDue: number;
+  /** True when this client_request_id was already collected: nothing new was written. */
+  replayed: boolean;
+}
+
+/**
+ * Creates the visit's invoice as one atomic command (V2-07 07-02): `public.create_invoice` locks the visit, takes the
+ * number from `generate_tenant_invoice_number` (no fallback: a failure fails the command), inserts the invoice and its
+ * items and writes the `invoice.create` audit row in one transaction. A visit that already has a live invoice gets it
+ * back (`existing: true`, nothing written, AR3-N2).
+ */
 export async function createVisitInvoice(
   ctx: ServiceContext,
   input: CreateInvoiceInput
@@ -128,13 +170,10 @@ export async function createVisitInvoice(
     };
   }
 
-  const supabase = ctx.db;
-
   try {
-    const session = ctx;
     const data = parseResult.data;
 
-    // PO-3: a collector, or the visit's own doctor (Sign & Bill). Checked before any write; RLS repeats it.
+    // PO-3: a collector, or the visit's own doctor (Sign & Bill). Checked before any write; the command repeats it.
     if (!(await mayInvoiceVisit(ctx, data.visit_id))) {
       return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
     }
@@ -144,124 +183,29 @@ export async function createVisitInvoice(
       return { success: false, error: "Visit not found or access denied." };
     }
 
-    // 1. Calculate item totals with decimal precision (avoiding float drift)
-    const processedItems = data.items.map((item) => {
-      const unit =
-        Math.round((Number(item.unit_price) + Number.EPSILON) * 100) / 100;
-      const qty = Number(item.quantity) || 1;
-      const total = Math.round((unit * qty + Number.EPSILON) * 100) / 100;
-      return {
-        ...item,
-        unit_price: unit,
-        quantity: qty,
-        total_price: total,
-      };
-    });
-
-    const subtotal =
-      Math.round(
-        (processedItems.reduce((acc, curr) => acc + curr.total_price, 0) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const discount =
-      Math.round((Number(data.discount || 0) + Number.EPSILON) * 100) / 100;
-    const tax =
-      Math.round((Number(data.tax || 0) + Number.EPSILON) * 100) / 100;
-    const totalAmount = Math.max(
-      0,
-      Math.round((subtotal - discount + tax + Number.EPSILON) * 100) / 100
-    );
-
-    // 2. Generate sequential invoice number via Postgres RPC
-    let invoiceNumber: string;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: numData, error: rpcErr } = await (supabase as any).rpc(
-        "generate_tenant_invoice_number",
-        { p_tenant_id: session.tenantId }
-      );
-      if (rpcErr || !numData) {
-        throw new Error(rpcErr?.message || "RPC returned null");
-      }
-      invoiceNumber = numData;
-    } catch {
-      const year = new Date().getFullYear();
-      invoiceNumber = `INV-${year}-${Date.now().toString().slice(-5)}`;
-    }
-
-    // 3. Insert Invoice
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newInvoice, error: invoiceErr } = await (
-      supabase.from("invoices") as any
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        visit_id: data.visit_id,
-        patient_id: data.patient_id,
-        invoice_number: invoiceNumber,
-        subtotal,
-        discount,
-        tax,
-        total_amount: totalAmount,
-        status: "issued",
-      })
-      .select("*")
-      .single();
-
-    if (invoiceErr && isLiveInvoiceConflict(invoiceErr)) {
-      // AR3-N2: one live invoice per visit (000024). A retry or a concurrent request gets the existing invoice back.
-      const existing = await liveInvoiceForVisit(ctx, data.visit_id);
-      if (existing) {
-        return { success: true, invoice: existing.invoice, items: existing.items, existing: true };
-      }
-      return { success: false, error: "Failed to create invoice." };
-    }
-
-    if (invoiceErr || !newInvoice) {
-      log.error({ event: "billing.invoice_insert.failed", code: errorTag(invoiceErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to create invoice." };
-    }
-
-    // 4. Insert Invoice Items
-    const itemsToInsert = processedItems.map((item) => ({
-      tenant_id: session.tenantId,
-      invoice_id: newInvoice.id,
-      item_type: item.item_type,
-      description: item.description,
-      unit_price: item.unit_price,
-      quantity: item.quantity,
-      total_price: item.total_price,
-    }));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: insertedItems, error: itemsErr } = await (
-      supabase.from("invoice_items") as any
-    )
-      .insert(itemsToInsert)
-      .select("*");
-
-    if (itemsErr) {
-      log.error({ event: "billing.invoice_items_insert.failed", code: errorTag(itemsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to record invoice items." };
-    }
-
-    // 5. Record Audit
-    await recordAudit(ctx, {
-      action: "invoice.create",
-      entityType: "invoice",
-      entityId: newInvoice.id,
-      metadata: {
-        invoice_number: invoiceNumber,
-        total_amount: totalAmount,
+    const outcome = await callCommand(
+      ctx,
+      "create_invoice",
+      {
+        p_visit_id: data.visit_id,
+        p_items: invoiceItemsPayload(data.items),
+        p_discount: toPaise(data.discount),
+        p_tax: toPaise(data.tax),
+        p_client_request_id: data.client_request_id,
       },
-    });
+      createInvoiceRpcResultSchema,
+      INVOICE_COMMAND_MESSAGES,
+      { event: "billing.invoice_create.failed" }
+    );
+    if (!outcome.ok) return { success: false, error: outcome.error.message };
 
+    const loaded = await invoiceWithItems(ctx, outcome.value.invoice_id);
+    if (!loaded) return { success: false, error: INVOICE_COMMAND_MESSAGES.INTERNAL };
     return {
       success: true,
-      invoice: newInvoice as Invoice,
-      items: (insertedItems || []) as InvoiceItem[],
+      invoice: loaded.invoice,
+      items: loaded.items,
+      ...(outcome.value.existing ? { existing: true } : {}),
     };
   } catch (err: unknown) {
     return {
@@ -269,6 +213,88 @@ export async function createVisitInvoice(
       error: clientErrorMessage(err, "Failed to create visit invoice.", "billing.invoice_create.failed"),
     };
   }
+}
+
+/** The item list the command takes: the schema's fields only, prices at 2 decimals (the old service rounded the same way). */
+function invoiceItemsPayload(items: CreateInvoiceInput["items"]) {
+  return items.map((item) => ({
+    item_type: item.item_type,
+    description: item.description,
+    unit_price: toPaise(item.unit_price),
+    quantity: Number(item.quantity) || 1,
+  }));
+}
+
+/**
+ * Desk checkout as one atomic command (V2-07 07-02, R-7): `public.collect_payment` gets or creates the visit's invoice
+ * (from `items`, only when there is none) and records the payment in one transaction. Nothing persists unless both
+ * succeed; the same `client_request_id` replays the first result.
+ */
+export async function collectPayment(
+  ctx: ServiceContext,
+  input: CollectPaymentInput
+): Promise<Result<CollectPaymentValue>> {
+  const parseResult = collectPaymentSchema.safeParse(input);
+  if (!parseResult.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parseResult.error.issues) {
+      const field = issue.path[0]?.toString() || "form";
+      fieldErrors[field] = fieldErrors[field] || [];
+      fieldErrors[field].push(issue.message);
+    }
+    return {
+      ok: false,
+      error: appError("VALIDATION_FAILED", {
+        message: parseResult.error.issues[0]?.message || "Invalid payment details.",
+        fieldErrors,
+      }),
+    };
+  }
+  // PO-3: only collectors (owner, admin, receptionist) collect; the command repeats it.
+  if (!hasPerm(ctx.role, "billing:collect")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: BILLING_COLLECT_FORBIDDEN_MESSAGE }) };
+  }
+  const data = parseResult.data;
+
+  // The visit must be this clinic's visit of the invoiced patient (P0-13), as for the invoice command.
+  if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
+    return { ok: false, error: appError("NOT_FOUND", { message: INVOICE_COMMAND_MESSAGES.NOT_FOUND }) };
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "collect_payment",
+    {
+      p_visit_id: data.visit_id,
+      p_items: invoiceItemsPayload(data.items),
+      p_amount: toPaise(data.amount),
+      p_method: data.payment_method,
+      p_reference: data.reference_number ?? "",
+      p_notes: data.notes ?? "",
+      p_discount: toPaise(data.discount),
+      p_tax: toPaise(data.tax),
+      p_client_request_id: data.client_request_id,
+    },
+    collectPaymentRpcResultSchema,
+    { ...INVOICE_COMMAND_MESSAGES, INTERNAL: RECORD_PAYMENT_MESSAGES.INTERNAL },
+    { event: "billing.collect_payment.failed" }
+  );
+  if (!outcome.ok) return outcome;
+
+  const v = outcome.value;
+  return {
+    ok: true,
+    value: {
+      invoiceId: v.invoice_id,
+      invoiceNumber: v.invoice_number,
+      invoiceCreated: v.invoice_created,
+      paymentId: v.payment_id,
+      status: v.invoice_status === "paid" ? "paid" : "issued",
+      totalPaid: v.paid_total,
+      balanceDue: v.balance_due,
+      replayed: v.replayed ?? false,
+    },
+  };
 }
 
 export type RecordPaymentResult =
@@ -293,6 +319,13 @@ export const recordPaymentRpcResultSchema = z.object({
   replayed: z.boolean(),
 });
 export type RecordPaymentRpcResult = z.infer<typeof recordPaymentRpcResultSchema>;
+
+const collectPaymentRpcResultSchema = recordPaymentRpcResultSchema.omit({ replayed: true }).extend({
+  invoice_id: z.string().uuid(),
+  invoice_number: z.string(),
+  invoice_created: z.boolean(),
+  replayed: z.boolean().optional(),
+});
 
 /** Fixed, data-free texts by reason or code. The driver message never reaches the caller (AD-7). */
 export const RECORD_PAYMENT_MESSAGES = {
@@ -780,6 +813,9 @@ export async function completeAndBillConsultation(
       items,
       discount: data.discount,
       tax: 0,
+      // Not rewired in 07-02: 07-03's complete_and_bill replaces this chain. A fresh id per call keeps today's
+      // behaviour (a repeat finds the live invoice and returns alreadyBilled).
+      client_request_id: randomUUID(),
     });
 
     if (!invoiceResult.success) {

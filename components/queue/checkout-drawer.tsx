@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { QueueItem } from "./queue-card";
 import {
   createVisitInvoice,
-  recordPayment,
+  collectPayment,
   getVisitBillingDetails,
   addInvoiceItem,
   deleteInvoiceItem,
@@ -34,18 +34,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
-
-/**
- * A UUID v4 for the payment command (V2-03 03-07). `randomUUID` needs a secure context; `getRandomValues` does not.
- */
-function newCommandId(): string {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const b = crypto.getRandomValues(new Uint8Array(16));
-  b[6] = (b[6] & 0x0f) | 0x40;
-  b[8] = (b[8] & 0x3f) | 0x80;
-  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
-}
+import { useCommand } from "@/lib/commands/use-command";
+import { appError } from "@/lib/errors/app-error";
 
 interface CheckoutDrawerProps {
   isOpen: boolean;
@@ -94,10 +84,10 @@ export function CheckoutDrawer({
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
-  // Idempotency key of the payment being collected: created on the first submit attempt, resent when that attempt is
-  // retried after an error (a lost response replays the recorded payment instead of paying twice), cleared once the
-  // checkout completes or the drawer opens again.
-  const paymentCommandId = useRef<string | null>(null);
+  // One client_request_id per checkout submit (V2-07 R-10): created on the first attempt, resent when that attempt is
+  // retried after an error (a lost response replays the recorded checkout instead of paying twice), rotated once it
+  // succeeds, reset when the drawer opens again or the user changes what is being collected.
+  const { run: runCommand, reset: resetCommand } = useCommand();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -111,7 +101,7 @@ export function CheckoutDrawer({
   // Load existing billing details whenever drawer opens
   useEffect(() => {
     if (isOpen && visit?.id) {
-      paymentCommandId.current = null;
+      resetCommand();
       setError(null);
       setSuccessNotice(null);
       setWhatsAppStatus(null);
@@ -138,7 +128,12 @@ export function CheckoutDrawer({
           setLoadingBilling(false);
         });
     }
-  }, [isOpen, visit?.id, defaultFee]);
+  }, [isOpen, visit?.id, defaultFee, resetCommand]);
+
+  // A changed bill or payment after an error is a new request, not a retry of the failed one.
+  useEffect(() => {
+    resetCommand();
+  }, [resetCommand, amountToPay, paymentMethod, referenceNumber, paymentNotes, consultationFee, additionalItems, discount]);
 
   const invoice = billingData?.success ? billingData.invoice : null;
   const items = billingData?.success ? billingData.items : [];
@@ -248,54 +243,61 @@ export function CheckoutDrawer({
 
     startTransition(async () => {
       try {
-        let activeInvoiceId = invoice ? invoice.id : null;
+        // The visit's invoice and its payment are one command (V2-07 07-02): nothing persists unless both succeed.
+        // The items and discount are used only when the visit has no invoice yet.
+        const itemsPayload = invoice
+          ? []
+          : [
+              {
+                item_type: "consultation" as const,
+                description: "OPD Consultation Fee",
+                unit_price: consultationFee,
+                quantity: 1,
+              },
+              ...additionalItems.map((item) => ({
+                item_type: "procedure" as const,
+                description: item.description,
+                unit_price: item.unit_price,
+                quantity: item.quantity,
+              })),
+            ];
 
-        // 1. If invoice does not exist, create it
-        if (!activeInvoiceId) {
-          const itemsPayload = [
-            {
-              item_type: "consultation" as const,
-              description: "OPD Consultation Fee",
-              unit_price: consultationFee,
-              quantity: 1,
-            },
-            ...additionalItems.map((item) => ({
-              item_type: "procedure" as const,
-              description: item.description,
-              unit_price: item.unit_price,
-              quantity: item.quantity,
-            })),
-          ];
-
-          const invRes = await createVisitInvoice({
-            visit_id: visit.id,
-            patient_id: patient.id,
-            items: itemsPayload,
-            discount,
-            tax: 0,
-          });
-
-          if (!invRes.success) {
-            setError(invRes.error || "Failed to generate invoice.");
+        if (amountToPay > 0) {
+          const res = await runCommand((clientRequestId) =>
+            collectPayment({
+              visit_id: visit.id,
+              patient_id: patient.id,
+              items: itemsPayload,
+              discount,
+              tax: 0,
+              amount: amountToPay,
+              payment_method: paymentMethod,
+              reference_number: referenceNumber.trim() || undefined,
+              notes: paymentNotes.trim() || undefined,
+              client_request_id: clientRequestId,
+            })
+          );
+          if (!res.ok) {
+            setError(res.error.message || "Failed to record payment.");
             return;
           }
-          activeInvoiceId = invRes.invoice.id;
-        }
-
-        // 2. Record payment if amount > 0
-        if (amountToPay > 0 && activeInvoiceId) {
-          paymentCommandId.current ??= newCommandId();
-          const payRes = await recordPayment({
-            invoice_id: activeInvoiceId,
-            amount: amountToPay,
-            payment_method: paymentMethod,
-            reference_number: referenceNumber.trim() || undefined,
-            notes: paymentNotes.trim() || undefined,
-            commandId: paymentCommandId.current,
+        } else if (!invoice) {
+          // Nothing to collect (a fully discounted bill): the invoice alone, still one command.
+          const res = await runCommand(async (clientRequestId) => {
+            const created = await createVisitInvoice({
+              visit_id: visit.id,
+              patient_id: patient.id,
+              items: itemsPayload,
+              discount,
+              tax: 0,
+              client_request_id: clientRequestId,
+            });
+            return created.success
+              ? { ok: true as const, value: created.invoice.id }
+              : { ok: false as const, error: appError("CONFLICT", { message: created.error }) };
           });
-
-          if (!payRes.success) {
-            setError(payRes.error || "Failed to record payment.");
+          if (!res.ok) {
+            setError(res.error.message || "Failed to generate invoice.");
             return;
           }
         }
@@ -309,7 +311,6 @@ export function CheckoutDrawer({
         // 4. Reload updated billing details
         const updated = await getVisitBillingDetails(visit.id);
         setBillingData(updated);
-        paymentCommandId.current = null;
         setIsCompleted(true);
         setSuccessNotice(
           `Payment of ₹${amountToPay} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`

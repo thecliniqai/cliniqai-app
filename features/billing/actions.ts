@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
-import { CreateInvoiceInput, RecordPaymentInput, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
+import { CreateInvoiceInput, CollectPaymentInput, RecordPaymentInput, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
+import { contextFailureToAppError } from "@/lib/commands/context-error";
+import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as billingService from "./service";
 import type {
   CreateInvoiceResult,
@@ -50,6 +52,18 @@ export async function recordPayment(input: RecordPaymentInput): Promise<RecordPa
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await billingService.recordPayment(resolved.ctx, input);
   if (result.success) revalidate("/queue", "/cabin", "/billing");
+  return result;
+}
+
+/**
+ * Desk checkout as one atomic command (V2-07 07-02): the visit's invoice and its payment in one transaction. Returns a
+ * `Result` (with the `AppError` code the client's `useCommand` needs); `client_request_id` is required.
+ */
+export async function collectPayment(input: CollectPaymentInput): Promise<CommandResult<billingService.CollectPaymentValue>> {
+  const resolved = await resolveServiceContext("billing:collect");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await billingService.collectPayment(resolved.ctx, input);
+  if (result.ok) revalidate("/queue", "/cabin", "/billing", `/consultation/${input.visit_id}`);
   return result;
 }
 

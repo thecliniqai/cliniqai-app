@@ -14,6 +14,23 @@ export const createInvoiceSchema = z.object({
   items: z.array(invoiceItemSchema).min(1, "At least one invoice item is required"),
   discount: z.coerce.number().min(0).default(0),
   tax: z.coerce.number().min(0).default(0),
+  /** One id per logical submit (V2-07, PWA-06a): the same id replays the first result and writes nothing new. */
+  client_request_id: z.string().uuid("Invalid request ID"),
+});
+
+/** Desk checkout (V2-07 07-02, R-7): the visit's invoice (created from `items` when there is none) and its payment. */
+export const collectPaymentSchema = z.object({
+  visit_id: z.string().uuid("Invalid visit ID"),
+  patient_id: z.string().uuid("Invalid patient ID"),
+  /** Used only when the visit has no live invoice yet; may be empty when one exists. */
+  items: z.array(invoiceItemSchema).max(50).default([]),
+  discount: z.coerce.number().min(0).default(0),
+  tax: z.coerce.number().min(0).default(0),
+  amount: z.coerce.number().positive("Payment amount must be greater than zero"),
+  payment_method: z.enum(["cash", "upi", "card"]),
+  reference_number: z.string().max(100).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  client_request_id: z.string().uuid("Invalid request ID"),
 });
 
 export const recordPaymentSchema = z.object({
@@ -47,6 +64,7 @@ export const addInvoiceItemSchema = z.object({
 
 export type InvoiceItemInput = z.infer<typeof invoiceItemSchema>;
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+export type CollectPaymentInput = z.infer<typeof collectPaymentSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
 export type CompleteAndBillInput = z.infer<typeof completeAndBillSchema>;
 export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;

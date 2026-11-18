@@ -107,6 +107,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/auth/actions.ts#setNewPasswordAction":
     { self: "Forgot-password final step on the session user's own fresh recovery session (A00-5); FT-05 applies." },
   "features/billing/actions.ts#addInvoiceItem": "billing:collect",
+  "features/billing/actions.ts#collectPayment": "billing:collect",
   "features/billing/actions.ts#completeAndBillConsultation": "consultations:edit",
   "features/billing/actions.ts#createVisitInvoice": "billing:collect",
   "features/billing/actions.ts#deleteInvoiceItem": "billing:collect",
