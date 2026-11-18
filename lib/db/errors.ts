@@ -102,6 +102,11 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // is 42501 (→ FORBIDDEN by SQLSTATE).
   AI_RESERVATION_EXPIRED: "CONFLICT",
   AI_QUOTA_NOT_CONFIGURED: "PRECONDITION_FAILED",
+  // V2-07 07-00 (migration 000095, R-2): private.command_claim / command_complete. A write command needs its
+  // client_request_id (PWA-06a; IDEMPOTENCY_MISMATCH above covers the same id used for another request); completing a
+  // claim this transaction did not make is a programming fault.
+  CLIENT_REQUEST_ID_REQUIRED: "VALIDATION_FAILED",
+  COMMAND_NOT_CLAIMED: "INTERNAL",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
