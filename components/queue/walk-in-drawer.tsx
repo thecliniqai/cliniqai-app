@@ -9,6 +9,7 @@ import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { createPatient, searchPatients } from "@/features/patients/actions";
 import { createVisit } from "@/features/visits/actions";
 import { checkInVisit } from "@/features/queue/actions";
+import { newClientRequestId } from "@/lib/commands/use-command";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
@@ -131,9 +132,10 @@ export function WalkInDrawer({
       }
 
       // 2. Check into queue
-      const queueRes = await checkInVisit(visitRes.visitId);
-      if (!queueRes.success) {
-        setError(queueRes.error);
+      // 07-03 replaces this client chain with one command; until then each check-in is its own submit.
+      const queueRes = await checkInVisit(visitRes.visitId, "normal", newClientRequestId());
+      if (!queueRes.ok) {
+        setError(queueRes.error.message);
         setLoading(false);
         return;
       }
@@ -193,9 +195,10 @@ export function WalkInDrawer({
       }
 
       // 3. Issue Token & Check In
-      const queueRes = await checkInVisit(visitRes.visitId);
-      if (!queueRes.success) {
-        setError(queueRes.error);
+      // 07-03 replaces this client chain with one command; until then each check-in is its own submit.
+      const queueRes = await checkInVisit(visitRes.visitId, "normal", newClientRequestId());
+      if (!queueRes.ok) {
+        setError(queueRes.error.message);
         setLoading(false);
         return;
       }

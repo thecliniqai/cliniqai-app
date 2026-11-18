@@ -13,97 +13,85 @@ import { getTenantDoctorMap } from "@/features/staff/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { callCommand } from "@/lib/commands/call-command";
+import { clientRequestIdSchema } from "@/lib/commands/request-id";
+import type { AppError } from "@/lib/errors/app-error";
+import type { DbErrorMessages } from "@/lib/db/errors";
+import { z } from "zod";
 
 // Queue use-cases (check-in, state transitions, day board). Tenant and actor come only from `ctx` (ADR-0005 D1);
 // each use-case checks the permission its server action checked before the move.
 
-export type CheckInResult =
-  | { success: true; tokenNumber: number; queueTokenId: string }
-  | { success: false; error: string };
+/** Fixed, data-free texts by reason or code for `check_in_visit` (V2-07 07-01). The driver message never reaches the caller. */
+export const CHECK_IN_COMMAND_MESSAGES = {
+  NOT_FOUND: "Visit record not found.",
+  FORBIDDEN: "You do not have permission to check in visits.",
+  VALIDATION_FAILED: "Invalid check-in request.",
+  VISIT_NOT_CHECKABLE: "This visit can no longer be checked in.",
+  LOCK_TIMEOUT: "The queue is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to generate queue token.",
+} as const satisfies DbErrorMessages;
 
+const checkInRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  queue_token_id: z.string().uuid(),
+  token_number: z.number().int(),
+  priority: z.string(),
+  reused: z.boolean(),
+  status_repaired: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export type CheckInResult =
+  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean }
+  | { success: false; error: string; code?: AppError["code"]; reason?: string };
+
+/**
+ * Checks a visit in as one atomic command (`public.check_in_visit`, V2-07 07-01): the visit's queue token (its existing
+ * one, or the next of the clinic-local day), the visit moved to `waiting` (a visit that already holds a token but was
+ * left without the status is repaired) and the `queue.check_in` audit row, all in one transaction. The same
+ * `client_request_id` replays the first result.
+ */
 export async function checkInVisit(
   ctx: ServiceContext,
   visitId: string,
-  priority: QueuePriority = "normal"
+  priority: QueuePriority,
+  clientRequestId: string
 ): Promise<CheckInResult> {
-  const supabase = ctx.db;
-
   try {
     assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    // 1. Verify visit belongs to tenant and get current state
-    // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
-    // one must not reach the other's visit by id (AR-M2b).
-    const { data: visit, error: visitError } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("visits") as any
-    )
-      .select("*")
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId)
-      .single()) as { data: Visit | null; error: { message: string } | null };
-
-    if (visitError || !visit) {
-      return { success: false, error: "Visit record not found." };
-    }
-
-    // 2. The visit's token (V2-05 05-11a, M-TOKEN): `issue_queue_token` takes the clinic from the visit, checks
-    // appointments:edit in the active clinic and, under a lock on the visit, either returns the token the visit already
-    // has (`reused`: a repeat check-in) or advances the per-clinic, per-day counter and writes the `queue_tokens` row
-    // itself. Members hold no INSERT privilege on `queue_tokens` and cannot write `token_number` or `date`, so a forged
-    // token can no longer stop the clinic's check-ins. The day is the clinic-local date computed in SQL
-    // (`tenant_local_date`, the same zone rules as lib/datetime).
-    const { data: tokenRows, error: rpcError } = await supabase.rpc("issue_queue_token", {
-      p_visit_id: visitId,
-      p_priority: priority,
-    });
-    const issued = Array.isArray(tokenRows) ? tokenRows[0] : undefined;
-
-    if (rpcError || !issued || issued.token_number == null || !issued.queue_token_id) {
-      log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to generate queue token." };
-    }
-    const tokenNumber = issued.token_number;
-
-    // A repeat check-in returns the visit's existing token unchanged (no status move, no second audit row).
-    if (issued.reused) {
-      return { success: true, tokenNumber, queueTokenId: issued.queue_token_id };
-    }
-    const newToken = { id: issued.queue_token_id };
-
-    // 3. Update visit status to 'waiting'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
-      .update({
-        status: "waiting",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
-
-    // 4. Record audit log
-    await recordAudit(ctx, {
-      action: "queue.check_in",
-      entityType: "queue_token",
-      entityId: newToken.id,
-      metadata: {
-        token_number: tokenNumber,
-        priority,
-      },
-    });
-
-    return {
-      success: true,
-      tokenNumber,
-      queueTokenId: newToken.id,
-    };
   } catch (err: unknown) {
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to check in visit.", "queue.check_in_visit.failed"),
     };
   }
+
+  const input = z
+    .object({ visit: z.string().uuid(), priority: z.enum(["normal", "urgent", "vip"]), request: clientRequestIdSchema })
+    .safeParse({ visit: visitId, priority, request: clientRequestId });
+  if (!input.success) {
+    return { success: false, error: CHECK_IN_COMMAND_MESSAGES.VALIDATION_FAILED, code: "VALIDATION_FAILED" };
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "check_in_visit",
+    { p_visit_id: visitId, p_priority: priority, p_client_request_id: clientRequestId },
+    checkInRpcResultSchema,
+    CHECK_IN_COMMAND_MESSAGES,
+    { event: "queue.check_in_visit.failed" }
+  );
+  if (!outcome.ok) {
+    return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
+  }
+  return {
+    success: true,
+    tokenNumber: outcome.value.token_number,
+    queueTokenId: outcome.value.queue_token_id,
+    replayed: outcome.value.replayed,
+  };
 }
 
 export type TransitionStateResult =

@@ -790,7 +790,9 @@ export async function completeAndBillConsultation(
       return { success: false, error: SIGN_AND_BILL_ALREADY_DONE_MESSAGE };
     }
     if (resume !== "resume") {
-      const signResult = await completeAndSignConsultation(ctx, data.visit_id);
+      // Not rewired in 07-01: 07-03's complete_and_bill replaces this chain. A fresh id per call keeps today's behaviour
+      // (a repeat of a signed visit is refused as already signed).
+      const signResult = await completeAndSignConsultation(ctx, data.visit_id, randomUUID());
       if (!signResult.success) {
         return { success: false, error: signResult.error };
       }

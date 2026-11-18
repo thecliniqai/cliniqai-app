@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Visit } from "@/lib/db/types";
 import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
 import { Button } from "@/components/ui/button";
+import { useCommand } from "@/lib/commands/use-command";
 import { CheckCircle2, UserCheck, Stethoscope, ArrowRight } from "lucide-react";
 
 export interface StatusActionsProps {
@@ -17,14 +18,16 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One client_request_id per check-in submit: a retry after an error re-sends it (the server replays or runs fresh).
+  const checkIn = useCommand();
 
   const handleCheckIn = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await checkInVisit(visit.id);
-      if (!res.success) {
-        setError(res.error);
+      const res = await checkIn.run((clientRequestId) => checkInVisit(visit.id, "normal", clientRequestId));
+      if (!res.ok) {
+        setError(res.error.message);
       } else {
         onStatusChanged?.();
       }

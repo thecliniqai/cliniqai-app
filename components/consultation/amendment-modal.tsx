@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { AlertTriangle, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reopenVisitForAmendment } from "@/features/consultation/actions";
+import { useCommand } from "@/lib/commands/use-command";
 
 export interface AmendmentModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export function AmendmentModal({
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One client_request_id per amendment submit: a retry after an error re-sends it (the server replays or runs fresh).
+  const reopen = useCommand();
 
   // Reset form state on open, during render rather than in an effect (same trigger; React Compiler
   // `set-state-in-effect`, V2-06 06-08).
@@ -34,6 +37,7 @@ export function AmendmentModal({
     if (isOpen) {
       setReason("");
       setError(null);
+      reopen.reset();
       setSubmitting(false);
     }
   }
@@ -70,12 +74,12 @@ export function AmendmentModal({
     setError(null);
 
     try {
-      const res = await reopenVisitForAmendment(visitId, reason);
-      if (res.success) {
+      const res = await reopen.run((clientRequestId) => reopenVisitForAmendment(visitId, reason, clientRequestId));
+      if (res.ok) {
         onSuccess?.();
         onClose();
       } else {
-        setError(res.error || "Failed to reopen consultation for amendment.");
+        setError(res.error.message || "Failed to reopen consultation for amendment.");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -138,8 +142,13 @@ export function AmendmentModal({
             <textarea
               id="amendment-reason"
               rows={4}
+              maxLength={500}
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => {
+                setReason(e.target.value);
+                // Edited after a failed attempt: the next submit is a new request.
+                if (reopen.error) reopen.reset();
+              }}
               placeholder="e.g. Added antibiotic following patient's callback regarding persistent high fever"
               disabled={submitting}
               className={`w-full p-3 text-sm rounded-xl border transition-colors outline-none resize-none focus:ring-2 focus:ring-ring/20 ${
