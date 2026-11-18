@@ -1,0 +1,8 @@
+# 05-09a static checks (tree before the 05-09a code commit; exit codes from the tools)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2497 lines equal the committed snapshot)
+authz:gen exit=0; generated outputs equal the generator (tests/authz/generator-drift.spec.ts 4/4, tests/authz/table-matrix.spec.ts 26/26 in the targeted run)
+migration-immutability: migration-immutability: PASS (base d670b62 @ d670b62 [--base]; 78 applied unchanged; 6 new above 78)

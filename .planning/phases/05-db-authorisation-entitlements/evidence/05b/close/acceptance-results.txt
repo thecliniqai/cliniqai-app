@@ -1,0 +1,107 @@
+$ node acceptance-extract.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b 2   (source: close/acceptance-extract.mjs.txt; run from the repo root at 8c1f20117d38)
+
+A1 pgTAP matrix covers 100% of tenant tables and passes (05b: status x access levels; roles x full in 05a)
+  pgTAP  authz_completeness.test.sql  run1=6/6  run2=6/6
+  pgTAP  authz_matrix.test.sql  run1=6240/6240  run2=6240/6240
+  pgTAP  authz_helpers.test.sql  run1=77/77  run2=77/77
+  pgTAP  definer_functions.test.sql  run1=71/71  run2=71/71
+  pgTAP  access_lock_rls.test.sql  run1=26/26  run2=26/26
+  pgTAP  remove_member.test.sql  run1=81/81  run2=81/81
+  pgTAP  grants.test.sql  run1=15/15  run2=15/15
+  vitest tests/authz/table-matrix.spec.ts  run1=32/32  run2=32/32
+  vitest tests/authz/generator-drift.spec.ts  run1=5/5  run2=5/5
+  vitest tests/ci/pgtap-report.spec.ts  run1=13/13  run2=13/13
+
+A4 a removed member reads 0 rows with a still-valid JWT
+  pgTAP  remove_member.test.sql  run1=81/81  run2=81/81
+  pgTAP  authz_matrix.test.sql  run1=6240/6240  run2=6240/6240
+  vitest tests/integration/auth/remove-member.spec.ts  run1=15/15  run2=15/15
+  vitest tests/security/membership-guard.spec.ts  run1=26/26  run2=26/26
+
+A8 p_now past access_ends_at -> 0 rows from every clinical table and storage bucket
+  pgTAP  billing_access.test.sql  run1=45/45  run2=45/45
+  pgTAP  access_lock_rls.test.sql  run1=26/26  run2=26/26
+  pgTAP  authz_matrix.test.sql  run1=6240/6240  run2=6240/6240
+  pgTAP  definer_functions.test.sql  run1=71/71  run2=71/71
+  vitest tests/subscriptions/lock-enforcement.spec.ts  run1=13/13  run2=13/13
+  vitest tests/subscriptions/locked-redirects.spec.ts  run1=48/48  run2=48/48
+
+A9 authenticated cannot execute any billing_internal.* function
+  pgTAP  billing_grants.test.sql  run1=24/24  run2=24/24
+
+A10 one invite sends exactly one email under retry
+  pgTAP  invitations_v2.test.sql  run1=75/75  run2=75/75
+  pgTAP  invitation_accept_context.test.sql  run1=17/17  run2=17/17
+  pgTAP  invitation_binding.test.sql  run1=14/14  run2=14/14
+  vitest tests/integration/auth/invite-delivery.spec.ts  run1=5/5  run2=5/5
+  vitest tests/jobs/email-invite-handler.spec.ts  run1=5/5  run2=5/5
+  vitest tests/integration/auth/accept-invite.spec.ts  run1=9/9  run2=9/9
+  vitest tests/auth/turnstile-verify.spec.ts  run1=12/12  run2=12/12
+  vitest tests/auth/invite.spec.ts  run1=8/8  run2=8/8
+  vitest tests/security/invite-token-lockout.spec.ts  run1=4/4  run2=4/4
+  vitest tests/staff/reinvite-role.spec.ts  run1=2/2  run2=2/2
+  vitest tests/staff/invite-dedupe-role.spec.ts  run1=2/2  run2=2/2
+
+A11 after 05-10 every existing DB suite stays green; test tenants trialing or comped (whole-suite counts below)
+  pgTAP  subscription_invariant.test.sql  run1=14/14  run2=14/14
+  pgTAP  drop_v1_subscriptions.test.sql  run1=4/4  run2=4/4
+  vitest tests/helpers/subscription.spec.ts  run1=10/10  run2=10/10
+  vitest tests/integration/subscription.spec.ts  run1=5/5  run2=5/5
+  vitest tests/integration/demo-clinic-seed.spec.ts  run1=5/5  run2=5/5
+  vitest tests/security/cross-tenant.spec.ts  run1=21/21  run2=21/21
+
+A12 seeded Standard price: base 149900 at 1800 bp -> 176882 paise
+  pgTAP  billing_catalogue.test.sql  run1=30/30  run2=30/30
+
+A13 only Standard purchasable; set_product_availability refuses without an active provider price; trialing has ai.scribe 1,500, active Standard none
+  pgTAP  billing_catalogue.test.sql  run1=30/30  run2=30/30
+  pgTAP  platform_rpcs.test.sql  run1=80/80  run2=80/80
+  pgTAP  billing_entitlements.test.sql  run1=30/30  run2=30/30
+  pgTAP  ai_gating_l2.test.sql  run1=115/115  run2=115/115
+
+Note: create_clinic_with_owner creates incomplete tenants; seeds set a subscription row
+  pgTAP  subscription_invariant.test.sql  run1=14/14  run2=14/14
+  vitest tests/helpers/subscription.spec.ts  run1=10/10  run2=10/10
+
+Roadmap test: generated matrix roles x access levels; has_permission parity
+  pgTAP  authz_matrix.test.sql  run1=6240/6240  run2=6240/6240
+  pgTAP  authz_helpers.test.sql  run1=77/77  run2=77/77
+  vitest tests/permissions/has-permission-parity.spec.ts  run1=8/8  run2=8/8
+
+Roadmap test: time-travel pgTAP for trial, grace, expiry and archive
+  pgTAP  billing_access.test.sql  run1=45/45  run2=45/45
+
+Roadmap test: concurrency for ai_reserve (and ai_commit, N-1)
+  pgTAP  ai_quota.test.sql  run1=41/41  run2=41/41
+  pgTAP  gate_close_05b.test.sql  run1=12/12  run2=12/12
+  vitest tests/ai/ai-reserve-concurrency.spec.ts  run1=4/4  run2=4/4
+  vitest tests/ai/ai-commit-expiry-race.spec.ts  run1=2/2  run2=2/2
+
+Roadmap test: invite pgTAP cases
+  pgTAP  invitations_v2.test.sql  run1=75/75  run2=75/75
+  pgTAP  invitation_accept_context.test.sql  run1=17/17  run2=17/17
+
+05-b0 contract of 05a (clinical columns, legacy helpers, link_url VALIDATE) + v1 subscription tables dropped (05-09c)
+  pgTAP  contract_05a.test.sql  run1=18/18  run2=18/18
+  pgTAP  drop_v1_subscriptions.test.sql  run1=4/4  run2=4/4
+  pgTAP  clinical_notes.test.sql  run1=53/53  run2=53/53
+  vitest tests/security/role-rls.spec.ts  run1=15/15  run2=15/15
+
+05b review fixes (05-12: H-AITZ, M-AIEXP, M-CANCEL, M-REINVITE, Lows) and gate close (000094: N-1, N-2, objection ruling)
+  pgTAP  review_fixes_05b.test.sql  run1=42/42  run2=42/42
+  pgTAP  gate_close_05b.test.sql  run1=12/12  run2=12/12
+  pgTAP  tenant_local_dates.test.sql  run1=20/20  run2=20/20
+  vitest tests/staff/reinvite-role.spec.ts  run1=2/2  run2=2/2
+  vitest tests/messaging/msg91-webhook.spec.ts  run1=22/22  run2=22/22
+  vitest tests/integration/ist-boundaries.spec.ts  run1=21/21  run2=21/21
+  vitest tests/utils/datetime.spec.ts  run1=18/18  run2=18/18
+  vitest tests/ai/ai-commit-expiry-race.spec.ts  run1=2/2  run2=2/2
+  vitest tests/staff/invite-dedupe-role.spec.ts  run1=2/2  run2=2/2
+  vitest tests/security/share-path-encoding.spec.ts  run1=22/22  run2=22/22
+
+run1: vitest files=992 tests=5080 passed=5080 failed=0 pending=0 todo=0 success=true; pgTAP files=47 tests=7892 passed=7892 gate=PASS
+
+run2: vitest files=992 tests=5080 passed=5080 failed=0 pending=0 todo=0 success=true; pgTAP files=47 tests=7892 passed=7892 gate=PASS
+
+acceptance-extract: every named spec and pgTAP file passed in every run
+exit 0

@@ -1,0 +1,36 @@
+{
+  "commit": "1621d40",
+  "note": "full Vitest on the committed tree 1621d40",
+  "files": 248,
+  "tests": 4887,
+  "passed": 4887,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/api/readiness-probe-db.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/authz/generator-drift.spec.ts": {
+      "tests": 4,
+      "passed": 4
+    },
+    "tests/authz/table-matrix.spec.ts": {
+      "tests": 26,
+      "passed": 26
+    },
+    "tests/ci/pgtap-report.spec.ts": {
+      "tests": 13,
+      "passed": 13
+    },
+    "tests/db/error-map.spec.ts": {
+      "tests": 48,
+      "passed": 48
+    },
+    "tests/setup/teardown.spec.ts": {
+      "tests": 5,
+      "passed": 5
+    }
+  }
+}

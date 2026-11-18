@@ -163,7 +163,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       );
     });
 
-    it("getSignedUrl validates path and defaults to 3600s expiration", async () => {
+    it("getSignedUrl validates path and clamps the lifetime to 300 s for a view (R-29, 05-10a)", async () => {
       const mockProvider: StorageProvider = {
         name: "mock",
         upload: vi.fn(),
@@ -183,10 +183,11 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       );
 
       expect(result.signedUrl).toContain("signed-url");
+      // Asked for 3600 s; a view is signed for at most 300 s (SUB §7.2, R-29).
       expect(mockProvider.createSignedUrl).toHaveBeenCalledWith(
         expect.objectContaining({
           path: "tenants/tenant-1/referrals/ref-1/letter.pdf",
-          expiresInSeconds: 3600,
+          expiresInSeconds: 300,
         })
       );
     });

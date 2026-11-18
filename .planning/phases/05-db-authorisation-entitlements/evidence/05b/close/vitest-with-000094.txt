@@ -1,0 +1,15 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/ai/ai-commit-expiry-race.spec.ts (2 tests) 4885ms
+   ✓ ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500  3271ms
+   ✓ ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > control: a commit that waits on the lock and gets it while the reservation is still live lands exactly one unit  1185ms
+ ✓ tests/staff/invite-dedupe-role.spec.ts (2 tests) 2574ms
+   ✓ a deduped invitation names the stored role (re-verification N-2) > owner 1 invites as admin (open transaction) while owner 2 invites as receptionist: owner 2 is told admin  2191ms
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  08:41:04
+   Duration  8.17s (transform 96ms, setup 16ms, collect 143ms, tests 7.46s, environment 0ms, prepare 58ms)
+
+[teardown] removed run data: 2 tenant(s), 4 auth user(s), 0 storage object(s); verified none remain

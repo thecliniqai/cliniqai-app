@@ -1,0 +1,40 @@
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  261 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › admin session › admin opens the app on its landing page @golden (280ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  262 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › doctor session › doctor opens the app on its landing page @golden (340ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  263 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › nurse session › nurse opens the app on its landing page @golden (282ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  264 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › receptionist session › receptionist opens the app on its landing page @golden (279ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  265 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:113:9 › locked-owner (/billing/locked) › @golden opening / or a deep link lands on /billing/locked (1.0s)
+  ✓  266 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:134:9 › locked-owner (/billing/locked) › @golden health, its own page and the PWA asset paths answer without a redirect (180ms)
+  ✓  267 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:113:9 › locked-receptionist (/billing/locked/staff) › @golden opening / or a deep link lands on /billing/locked/staff (879ms)
+  ✓  268 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:134:9 › locked-receptionist (/billing/locked/staff) › @golden health, its own page and the PWA asset paths answer without a redirect (192ms)
+  ✓  269 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:113:9 › onboarding-owner (/onboarding/billing) › @golden opening / or a deep link lands on /onboarding/billing (792ms)
+  ✓  270 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:134:9 › onboarding-owner (/onboarding/billing) › @golden health, its own page and the PWA asset paths answer without a redirect (184ms)
+[WebServer] {"ts":"2026-11-15T03:34:48.862Z","level":"info","event":"auth.signout.done","requestId":"16f7fb22-ad11-4e2d-8dd0-fa742f20acd5","module":"auth.signout","reason":"local"}
+  ✓  271 [iphone-15] › tests/e2e/subscriptions/locked.spec.ts:173:7 › sign-out from a locked page › @golden a locked receptionist signs out from the staff page and lands on /login (623ms)
+[e2e teardown] removed run data: 10 tenant(s), 30 auth user(s), 6 storage object(s); verified none remain
+
+  9 skipped
+  262 passed (2.7m)

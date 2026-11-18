@@ -7,9 +7,17 @@
  * (`buildAppServerEnv`) pass in their own tiers (K-6). No value here is real.
  */
 import { describe, expect, it } from "vitest";
-import { EnvConfigError, isLoopbackHost, parseEnv, SECRET_ENV_NAMES, type EnvSource } from "@/lib/env";
+import {
+  EnvConfigError,
+  isLoopbackHost,
+  parseEnv,
+  SECRET_ENV_NAMES,
+  TURNSTILE_VERIFY_PUBLIC_URL,
+  turnstileTestSecretKeys,
+  type EnvSource,
+} from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
-import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
+import { E2E_TURNSTILE_VERIFY_URL, LOCAL_SEND_EMAIL_HOOK_SECRET, TURNSTILE_PASS_SECRET_KEY } from "../setup/test-env";
 
 /** Unsigned JWT with the given payload (the schema reads `iss`; it never verifies signatures). */
 function fakeJwt(payload: Record<string, unknown>): string {
@@ -31,6 +39,8 @@ function hookSecret(key: string): string {
 const SES_KEY_ID = ["AKIA", "MARKERSYNTH00000"].join("");
 const SES_SECRET = "MARKER-ses-secret-access-key-value-0123456789";
 const HOOK_SECRET = hookSecret("MARKER-hook-key-for-prod-0123456");
+/** 05-07b (R-46): a synthetic Turnstile secret (Cloudflare's shape), assembled at runtime. */
+const TURNSTILE_SECRET = ["0x", "MARKER-turnstile-secret-key"].join("");
 /** 04-00b: a synthetic Resend key (`re_` + body), assembled at runtime. */
 const RESEND_KEY = ["re", "MARKERschemaResendKey0000"].join("_");
 /** 04-00b: the PO's launch configuration (Resend until go-live): SES names unset, Resend key set. */
@@ -71,6 +81,8 @@ const PRODUCTION: EnvSource = {
   PWNED_CHECK: "on",
   // 03-12c: production shows a real Turnstile widget on sign-in and reset (C43). Synthetic, key-shaped.
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-turnstile-site-key",
+  // 05-07b (R-46): production verifies invite acceptance's Turnstile token server-side.
+  TURNSTILE_SECRET_KEY: TURNSTILE_SECRET,
 };
 
 const STAGING: EnvSource = { ...PRODUCTION, APP_ENV: "staging", MESSAGING_PROVIDER: "disabled" };
@@ -1026,5 +1038,82 @@ describe("env schema: loopback forms and bare origins (04-00, review A L-2)", ()
     ["notlocalhost", false],
   ])("isLoopbackHost(%s) = %s", (host, expected) => {
     expect(isLoopbackHost(host)).toBe(expected);
+  });
+});
+
+describe("env schema: Turnstile secret and siteverify URL (05-07b, R-46)", () => {
+  const local = { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const tests = turnstileTestSecretKeys();
+
+  it("production requires a secret, naming the key and never the value", () => {
+    expect(parseEnv(PRODUCTION).TURNSTILE_SECRET_KEY).toBe(TURNSTILE_SECRET);
+    expect(parseEnv(PRODUCTION).TURNSTILE_VERIFY_URL).toBe(TURNSTILE_VERIFY_PUBLIC_URL);
+    expect(issuesOf({ ...PRODUCTION, TURNSTILE_SECRET_KEY: undefined })).toContain("TURNSTILE_SECRET_KEY: required in production (R-46)");
+    expect(issuesOf({ ...PRODUCTION, TURNSTILE_SECRET_KEY: "" })).toContain("TURNSTILE_SECRET_KEY: required in production (R-46)");
+  });
+
+  it("staging may run without a secret (invite acceptance then refuses), and with a real one", () => {
+    expect(parseEnv({ ...STAGING, TURNSTILE_SECRET_KEY: undefined }).TURNSTILE_SECRET_KEY).toBeUndefined();
+    expect(parseEnv(STAGING).TURNSTILE_SECRET_KEY).toBe(TURNSTILE_SECRET);
+  });
+
+  it("a Cloudflare test secret is refused in staging and production", () => {
+    for (const key of tests) {
+      expect(issuesOf({ ...PRODUCTION, TURNSTILE_SECRET_KEY: key })).toContain(
+        "TURNSTILE_SECRET_KEY: must not be a Cloudflare test secret in production",
+      );
+      expect(issuesOf({ ...STAGING, TURNSTILE_SECRET_KEY: key })).toContain(
+        "TURNSTILE_SECRET_KEY: must not be a Cloudflare test secret in staging",
+      );
+    }
+  });
+
+  it("development, test, e2e and ci accept only Cloudflare's test secrets (and default to none)", () => {
+    const profiles: Array<[string, EnvSource]> = [
+      ["development", local],
+      ["test", { ...local, NODE_ENV: "test" }],
+      ["ci", CI_BUILD],
+      ["e2e", { ...CI_BUILD, APP_ENV: "e2e" }],
+    ];
+    for (const [tier, profile] of profiles) {
+      expect(parseEnv(profile).TURNSTILE_SECRET_KEY, tier).toBeUndefined();
+      for (const key of tests) expect(parseEnv({ ...profile, TURNSTILE_SECRET_KEY: key }).TURNSTILE_SECRET_KEY, tier).toBe(key);
+      expect(issuesOf({ ...profile, TURNSTILE_SECRET_KEY: TURNSTILE_SECRET }), tier).toContain(
+        `TURNSTILE_SECRET_KEY: must be one of Cloudflare's test secrets in ${tier}`,
+      );
+    }
+  });
+
+  it("a value that is not secret-key shaped throws in every tier, without the value", () => {
+    for (const profile of [PRODUCTION, STAGING, CI_BUILD]) {
+      expectRejected({ ...profile, TURNSTILE_SECRET_KEY: "LEAK-not-a-turnstile-secret" }, "TURNSTILE_SECRET_KEY");
+    }
+  });
+
+  it("TURNSTILE_VERIFY_URL: only a loopback URL, only in test and e2e", () => {
+    const test = { ...local, NODE_ENV: "test" };
+    const e2e = { ...CI_BUILD, APP_ENV: "e2e" };
+    expect(parseEnv({ ...test, TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL }).TURNSTILE_VERIFY_URL).toBe(E2E_TURNSTILE_VERIFY_URL);
+    expect(parseEnv({ ...e2e, TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL }).TURNSTILE_VERIFY_URL).toBe(E2E_TURNSTILE_VERIFY_URL);
+    expect(issuesOf({ ...test, TURNSTILE_VERIFY_URL: "https://siteverify.example.org/verify" })).toContain(
+      "TURNSTILE_VERIFY_URL: must be a loopback URL in test",
+    );
+    expect(issuesOf({ ...e2e, TURNSTILE_VERIFY_URL: "https://siteverify.example.org/verify" })).toContain(
+      "TURNSTILE_VERIFY_URL: must be a loopback URL in e2e",
+    );
+    for (const [tier, profile] of [["production", PRODUCTION], ["staging", STAGING], ["ci", CI_BUILD], ["development", local]] as const) {
+      expect(issuesOf({ ...profile, TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL }), tier).toContain(
+        `TURNSTILE_VERIFY_URL: must not be set in ${tier} (Cloudflare's siteverify is fixed)`,
+      );
+    }
+  });
+
+  it("the e2e app server verifies with the always-pass test secret against the loopback fake", () => {
+    const env = buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } });
+    expect(env.TURNSTILE_SECRET_KEY).toBe(TURNSTILE_PASS_SECRET_KEY);
+    expect(env.TURNSTILE_VERIFY_URL).toBe(E2E_TURNSTILE_VERIFY_URL);
+    const parsed = parseEnv(env);
+    expect(parsed.TURNSTILE_SECRET_KEY).toBe(TURNSTILE_PASS_SECRET_KEY);
+    expect(parsed.TURNSTILE_VERIFY_URL).toBe(E2E_TURNSTILE_VERIFY_URL);
   });
 });

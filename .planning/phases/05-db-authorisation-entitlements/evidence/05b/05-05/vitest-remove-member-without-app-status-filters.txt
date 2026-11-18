@@ -1,0 +1,47 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/integration/auth/remove-member.spec.ts (13 tests | 1 failed) 1499ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > removes the member through the action and reports the revocation counts 1ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > before the removal the admin read clinic data (control) 0ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > the still-valid JWT now reads 0 rows from every tenant table of the matrix 37ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > session_is_live() is false and the refresh token is dead (sessions deleted inside remove_member) 6ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > their API key answers 401 and their pending invitation is revoked 4ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > writes one staff.removed audit row with counts only 2ms
+   ✓ AUTH-05: a removed member is cut off at once (acceptance 4, R-43) > signing in again lands on 'no clinic' 77ms
+   × AUTH-05: a removed doctor is not offered or assignable, but stays on past records > drops out of the directory and memberOfTenant, keeps the name map 272ms
+     → expected true to be false // Object.is equality
+   ✓ removeStaff refusals (fixed texts, nothing removed) > a receptionist (no staff:invite) is refused before any database call 19ms
+   ✓ removeStaff refusals (fixed texts, nothing removed) > an admin removing the owner gets the owner-only text 19ms
+   ✓ removeStaff refusals (fixed texts, nothing removed) > the sole owner cannot remove themself 20ms
+   ✓ removeStaff refusals (fixed texts, nothing removed) > refuses a malformed id or an empty reason before the database 32ms
+   ✓ removeStaff refusals (fixed texts, nothing removed) > another clinic's membership id is not found 138ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/auth/remove-member.spec.ts > AUTH-05: a removed doctor is not offered or assignable, but stays on past records > drops out of the directory and memberOfTenant, keeps the name map
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/integration/auth/remove-member.spec.ts:212:54
+    210|     expect(removed.success).toBe(true);
+    211| 
+    212|     expect(await memberOfTenant(ctx, doctor.userId)).toBe(false);
+       |                                                      ^
+    213|     expect((await getTenantDoctorDirectory(ctx)).map((d) => d.id)).not…
+    214|     expect((await getTenantDoctorMap(ctx))[doctor.userId]).toBeDefined…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  03:40:22
+   Duration  2.01s (transform 104ms, setup 9ms, collect 139ms, tests 1.50s, environment 0ms, prepare 26ms)
+
+[teardown] removed run data: 4 tenant(s), 8 auth user(s), 0 storage object(s); verified none remain

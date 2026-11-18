@@ -10,6 +10,7 @@ import type { HandlerResult, JobHandler } from "@/lib/jobs/internal/types";
 import { publicEnv } from "@/lib/env";
 import { z } from "zod";
 import { psql } from "../helpers/sql";
+import { trialingSubscriptionSql } from "../helpers/tenants";
 
 /** Lower-case letters only: valid in a job kind and safe to interpolate into SQL. */
 export function letters(n = 10): string {
@@ -32,13 +33,17 @@ function safe(value: string): string {
   return value;
 }
 
-/** Inserts a synthetic tenant and returns its id. */
+/**
+ * Inserts a synthetic tenant and returns its id. Its subscription is seeded `trialing` on the Standard price (V2-05
+ * 05-09c, R-25), so the clinic stays `full` once the job claim skips non-full clinics (05-10a, R-27).
+ */
 export function insertTenant(label: string): string {
   if (!/^[a-z0-9 ]+$/.test(label))
     throw new Error("helpers: tenant labels are lower-case words");
   const [id] = psql(
     `insert into public.tenants (name) values ('Jobs spec ${label}') returning id`
   );
+  psql(trialingSubscriptionSql(id));
   return id;
 }
 

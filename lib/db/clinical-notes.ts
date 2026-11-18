@@ -10,8 +10,8 @@ import type { ClinicalNotes } from "@/lib/db/types";
  * The column names are the ones `visits` had (R-4), so mappers keep their field names. RLS: SELECT needs
  * `consultations:view`; UPDATE needs `consultations:edit`, or `vitals:edit` for `vitals` only (guard trigger).
  *
- * The six `visits` columns are cleared and blocked by the `visits_clinical_content_moved` CHECK until 05-b0 drops them:
- * never read or write clinical content through `visits`.
+ * The six `visits` columns were cleared and blocked by a CHECK (000053) and are dropped since 05-b0 (000079): clinical
+ * content is read and written only through `clinical_notes`.
  *
  * Reads embed the row in the visit select with {@link clinicalNotesEmbed} and flatten it with
  * {@link withClinicalNotes}; when RLS hides the row (receptionist, admin) the embed is `null` and every field reads as

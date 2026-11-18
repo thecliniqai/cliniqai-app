@@ -37,15 +37,59 @@ export interface RunTenant {
   visitId: string;
 }
 
+/**
+ * V2-05 05-10b (SUB-02): users of the run's two non-`full` clinics. `locked`: an expired subscription (access ended 30
+ * days ago) with an owner and a receptionist; `onboarding`: an `incomplete` subscription with an owner. The setup
+ * project signs each one in through the login UI (landing on its {@link ACCESS_LANDING} page) and saves its storage
+ * state at {@link accessStatePath}, for 05-10b's `subscriptions/locked.spec.ts` and V2-06's PWA specs (06-05 spec 1
+ * locked-user leg). Never sign these sessions out in a spec: they are shared by every device project.
+ */
+export const ACCESS_USERS = ["locked-owner", "locked-receptionist", "onboarding-owner"] as const;
+export type AccessUser = (typeof ACCESS_USERS)[number];
+
+/** Where each access user lands after sign-in (`lib/auth/access-redirect.ts`). */
+export const ACCESS_LANDING: Record<AccessUser, "/billing/locked" | "/billing/locked/staff" | "/onboarding/billing"> = {
+  "locked-owner": "/billing/locked",
+  "locked-receptionist": "/billing/locked/staff",
+  "onboarding-owner": "/onboarding/billing",
+};
+
+export interface RunAccessClinic {
+  id: string;
+  name: string;
+}
+
 export interface RunData {
   runTag: string;
   tenantA: RunTenant & { users: Record<E2eRole, RunUser> };
   /** `invoiceId`: an invoice of tenant B's visit, for the receipt-PDF isolation probe (02-06, IR-F9). */
   tenantB: RunTenant & { owner: RunUser; invoiceId: string };
+  /** 05-10b: the locked and the onboarding clinic of the run (no patient data; see {@link ACCESS_USERS}). */
+  access: {
+    locked: RunAccessClinic & { owner: RunUser; receptionist: RunUser };
+    onboarding: RunAccessClinic & { owner: RunUser };
+  };
 }
 
 export function storageStatePath(role: E2eRole): string {
   return path.join(AUTH_DIR, `${role}.json`);
+}
+
+/** The saved storage state of an access user (written by the setup project). */
+export function accessStatePath(user: AccessUser): string {
+  return path.join(AUTH_DIR, `${user}.json`);
+}
+
+/** The run user behind an access user. */
+export function accessRunUser(run: RunData, user: AccessUser): RunUser {
+  switch (user) {
+    case "locked-owner":
+      return run.access.locked.owner;
+    case "locked-receptionist":
+      return run.access.locked.receptionist;
+    case "onboarding-owner":
+      return run.access.onboarding.owner;
+  }
 }
 
 export function readRunData(): RunData {
@@ -68,5 +112,10 @@ export function tenantDataMarkers(run: RunData): string[] {
     run.tenantB.name,
     run.tenantB.patientName,
     run.tenantB.owner.email,
+    run.access.locked.name,
+    run.access.locked.owner.email,
+    run.access.locked.receptionist.email,
+    run.access.onboarding.name,
+    run.access.onboarding.owner.email,
   ];
 }

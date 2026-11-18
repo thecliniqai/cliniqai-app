@@ -9,6 +9,78 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_quota_reservations: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          expires_at: string;
+          feature: string;
+          id: string;
+          period: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at: string;
+          feature: string;
+          id?: string;
+          period: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at?: string;
+          feature?: string;
+          id?: string;
+          period?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_quota_reservations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ai_usage_monthly: {
+        Row: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units: number;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Update: {
+          feature?: string;
+          period?: string;
+          tenant_id?: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_monthly_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       api_key_usage_daily: {
         Row: {
           api_key_id: string;
@@ -871,6 +943,42 @@ export type Database = {
           },
         ];
       };
+      entitlement_keys: {
+        Row: {
+          created_at: string;
+          description: string;
+          key: string;
+          kind: string;
+          owner_doc: string;
+          quota_key: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          description: string;
+          key: string;
+          kind: string;
+          owner_doc: string;
+          quota_key?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          key?: string;
+          kind?: string;
+          owner_doc?: string;
+          quota_key?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_keys_quota_key_fkey";
+            columns: ["quota_key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+        ];
+      };
       follow_ups: {
         Row: {
           created_at: string;
@@ -1003,9 +1111,14 @@ export type Database = {
           expires_at: string;
           id: string;
           invited_address: string;
+          last_sent_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
           role: string;
+          send_count: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash: string | null;
+          token_version: number;
         };
         ComputedFields: never;
         Insert: {
@@ -1016,9 +1129,14 @@ export type Database = {
           expires_at: string;
           id?: string;
           invited_address: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role: string;
+          send_count?: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Update: {
           consumed_at?: string | null;
@@ -1028,9 +1146,14 @@ export type Database = {
           expires_at?: string;
           id?: string;
           invited_address?: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role?: string;
+          send_count?: number;
           tenant_id?: string;
-          token_hash?: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Relationships: [
           {
@@ -1173,8 +1296,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1189,8 +1315,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1204,8 +1333,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role?: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id?: string;
           user_id?: string;
         };
@@ -1338,6 +1470,7 @@ export type Database = {
           abha_id: string | null;
           address: Json | null;
           age: number | null;
+          ai_processing_objected: boolean;
           allergies: string[] | null;
           chronic_conditions: string[] | null;
           created_at: string;
@@ -1354,6 +1487,8 @@ export type Database = {
           id: string;
           is_deleted: boolean;
           national_health_id: string | null;
+          objected_at: string | null;
+          objection_recorded_by: string | null;
           phone: string;
           preferred_language: string;
           sex: string | null;
@@ -1367,6 +1502,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1383,6 +1519,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1395,6 +1533,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1411,6 +1550,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone?: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1422,45 +1563,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "patients_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      payment_records: {
-        Row: {
-          amount_inr: number;
-          created_at: string;
-          id: string;
-          method: string;
-          paid_at: string;
-          reference: string;
-          tenant_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          amount_inr: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference: string;
-          tenant_id: string;
-        };
-        Update: {
-          amount_inr?: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference?: string;
-          tenant_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "payment_records_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -1525,6 +1627,280 @@ export type Database = {
             referencedColumns: ["tenant_id", "id"];
           },
         ];
+      };
+      plan_entitlements: {
+        Row: {
+          enabled: boolean;
+          key: string;
+          limit_value: number | null;
+          plan_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          enabled?: boolean;
+          key: string;
+          limit_value?: number | null;
+          plan_id: string;
+        };
+        Update: {
+          enabled?: boolean;
+          key?: string;
+          limit_value?: number | null;
+          plan_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_entitlements_key_fkey";
+            columns: ["key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+          {
+            foreignKeyName: "plan_entitlements_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plan_prices: {
+        Row: {
+          active_from: string;
+          active_until: string | null;
+          base_amount_paise: number;
+          billing_model: string;
+          charge_amount_paise: number | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          included_units: number | null;
+          interval: string | null;
+          interval_count: number | null;
+          overage_unit_amount_paise: number | null;
+          plan_id: string;
+          provider: string;
+          provider_plan_id: string | null;
+          tax_inclusive: boolean;
+          tax_rate_bp: number;
+          tiers: Json | null;
+          unit: string | null;
+          unit_amount_paise: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active_from?: string;
+          active_until?: string | null;
+          base_amount_paise: number;
+          billing_model: string;
+          charge_amount_paise?: never;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          included_units?: number | null;
+          interval?: string | null;
+          interval_count?: number | null;
+          overage_unit_amount_paise?: number | null;
+          plan_id: string;
+          provider?: string;
+          provider_plan_id?: string | null;
+          tax_inclusive?: boolean;
+          tax_rate_bp: number;
+          tiers?: Json | null;
+          unit?: string | null;
+          unit_amount_paise?: number | null;
+        };
+        Update: {
+          active_from?: string;
+          active_until?: string | null;
+          base_amount_paise?: number;
+          billing_model?: string;
+          charge_amount_paise?: never;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          included_units?: number | null;
+          interval?: string | null;
+          interval_count?: number | null;
+          overage_unit_amount_paise?: number | null;
+          plan_id?: string;
+          provider?: string;
+          provider_plan_id?: string | null;
+          tax_inclusive?: boolean;
+          tax_rate_bp?: number;
+          tiers?: Json | null;
+          unit?: string | null;
+          unit_amount_paise?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_prices_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plans: {
+        Row: {
+          category: string;
+          code: string;
+          created_at: string;
+          description: string | null;
+          first_charge_grace_days: number;
+          id: string;
+          kind: string;
+          name: string;
+          purchasable: boolean;
+          renewal_grace_days: number;
+          status: string;
+          trial_days: number | null;
+          trial_plan_id: string | null;
+          updated_at: string;
+          visibility: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          category: string;
+          code: string;
+          created_at?: string;
+          description?: string | null;
+          first_charge_grace_days?: number;
+          id?: string;
+          kind: string;
+          name: string;
+          purchasable?: boolean;
+          renewal_grace_days?: number;
+          status?: string;
+          trial_days?: number | null;
+          trial_plan_id?: string | null;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Update: {
+          category?: string;
+          code?: string;
+          created_at?: string;
+          description?: string | null;
+          first_charge_grace_days?: number;
+          id?: string;
+          kind?: string;
+          name?: string;
+          purchasable?: boolean;
+          renewal_grace_days?: number;
+          status?: string;
+          trial_days?: number | null;
+          trial_plan_id?: string | null;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plans_trial_plan_id_fkey";
+            columns: ["trial_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      platform_admins: {
+        Row: {
+          granted_at: string;
+          granted_by: string | null;
+          revoked_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      platform_audit_log: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          channel: string;
+          id: string;
+          occurred_at: string;
+          payload: NonNullable<Json>;
+          target_tenant_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          channel: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          channel?: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          ai_features: NonNullable<Json>;
+          gst_retention_months: number;
+          id: boolean;
+          lock_window_days: number;
+          log_retention_days: number;
+          pending_charge_buffer_hours: number;
+          purge_after_days: number;
+          sac: string;
+          supplier_gstin: string | null;
+          supplier_state: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          ai_features?: NonNullable<Json>;
+          gst_retention_months?: number;
+          id?: boolean;
+          lock_window_days?: number;
+          log_retention_days?: number;
+          pending_charge_buffer_hours?: number;
+          purge_after_days?: number;
+          sac?: string;
+          supplier_gstin?: string | null;
+          supplier_state?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          ai_features?: NonNullable<Json>;
+          gst_retention_months?: number;
+          id?: boolean;
+          lock_window_days?: number;
+          log_retention_days?: number;
+          pending_charge_buffer_hours?: number;
+          purge_after_days?: number;
+          sac?: string;
+          supplier_gstin?: string | null;
+          supplier_state?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       prescription_items: {
         Row: {
@@ -1941,43 +2317,143 @@ export type Database = {
           },
         ];
       };
-      subscriptions: {
+      subscription_events: {
         Row: {
-          amount_inr: number;
-          created_at: string;
-          current_period_end: string;
+          actor_id: string | null;
+          actor_type: string;
+          from_status: string | null;
           id: string;
-          plan: string;
-          status: string;
+          occurred_at: string;
+          payload: NonNullable<Json>;
+          provider_event_id: string | null;
+          reason: string | null;
+          subject: string;
+          tenant_id: string;
+          to_status: string | null;
+          type: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor_id?: string | null;
+          actor_type: string;
+          from_status?: string | null;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          provider_event_id?: string | null;
+          reason?: string | null;
+          subject?: string;
+          tenant_id: string;
+          to_status?: string | null;
+          type: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          actor_type?: string;
+          from_status?: string | null;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          provider_event_id?: string | null;
+          reason?: string | null;
+          subject?: string;
+          tenant_id?: string;
+          to_status?: string | null;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_ai_settings: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
           tenant_id: string;
           updated_at: string;
         };
         ComputedFields: never;
         Insert: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
           tenant_id: string;
           updated_at?: string;
         };
         Update: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
           tenant_id?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "subscriptions_tenant_id_fkey";
+            foreignKeyName: "tenant_ai_settings_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_entitlement_overrides: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          expires_at: string | null;
+          granted_by: string | null;
+          id: string;
+          key: string;
+          limit_value: number | null;
+          reason: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          enabled: boolean;
+          expires_at?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          key: string;
+          limit_value?: number | null;
+          reason: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          expires_at?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          key?: string;
+          limit_value?: number | null;
+          reason?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_entitlement_overrides_key_fkey";
+            columns: ["key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+          {
+            foreignKeyName: "tenant_entitlement_overrides_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
@@ -2045,6 +2521,127 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tenant_messaging_config_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_subscriptions: {
+        Row: {
+          access_ends_at: string | null;
+          archive_at: string | null;
+          archived_at: string | null;
+          cancel_at_period_end: boolean;
+          cancel_source: string | null;
+          canceled_at: string | null;
+          comp_until: string | null;
+          created_at: string;
+          current_period_end: string | null;
+          current_period_start: string | null;
+          expired_at: string | null;
+          grace_until: string | null;
+          halted_at: string | null;
+          mandate_authenticated_at: string | null;
+          mandate_display: string | null;
+          mandate_max_paise: number | null;
+          mandate_method: string | null;
+          mandate_revoked_at: string | null;
+          past_due_since: string | null;
+          plan_price_id: string | null;
+          provider: string;
+          provider_customer_id: string | null;
+          provider_subscription_id: string | null;
+          purge_at: string | null;
+          purged_at: string | null;
+          status: string;
+          tenant_id: string;
+          trial_consumed: boolean;
+          trial_end: string | null;
+          trial_start: string | null;
+          updated_at: string;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          access_ends_at?: string | null;
+          archive_at?: string | null;
+          archived_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancel_source?: string | null;
+          canceled_at?: string | null;
+          comp_until?: string | null;
+          created_at?: string;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          expired_at?: string | null;
+          grace_until?: string | null;
+          halted_at?: string | null;
+          mandate_authenticated_at?: string | null;
+          mandate_display?: string | null;
+          mandate_max_paise?: number | null;
+          mandate_method?: string | null;
+          mandate_revoked_at?: string | null;
+          past_due_since?: string | null;
+          plan_price_id?: string | null;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          purge_at?: string | null;
+          purged_at?: string | null;
+          status?: string;
+          tenant_id: string;
+          trial_consumed?: boolean;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string;
+          version?: number;
+        };
+        Update: {
+          access_ends_at?: string | null;
+          archive_at?: string | null;
+          archived_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancel_source?: string | null;
+          canceled_at?: string | null;
+          comp_until?: string | null;
+          created_at?: string;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          expired_at?: string | null;
+          grace_until?: string | null;
+          halted_at?: string | null;
+          mandate_authenticated_at?: string | null;
+          mandate_display?: string | null;
+          mandate_max_paise?: number | null;
+          mandate_method?: string | null;
+          mandate_revoked_at?: string | null;
+          past_due_since?: string | null;
+          plan_price_id?: string | null;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          purge_at?: string | null;
+          purged_at?: string | null;
+          status?: string;
+          tenant_id?: string;
+          trial_consumed?: boolean;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_plan_price_id_fkey";
+            columns: ["plan_price_id"];
+            isOneToOne: false;
+            referencedRelation: "plan_prices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: true;
             referencedRelation: "tenants";
@@ -2182,16 +2779,12 @@ export type Database = {
       };
       visits: {
         Row: {
-          advice: string[] | null;
-          chief_complaints: Json | null;
-          clinical_notes: string | null;
           created_at: string;
           created_by: string;
           current_revision: number;
           doctor_id: string;
           estimated_duration_minutes: number;
           id: string;
-          investigations_advised: string[] | null;
           is_overbooked: boolean;
           metadata: NonNullable<Json>;
           origin_type: string;
@@ -2201,24 +2794,18 @@ export type Database = {
           signed_at: string | null;
           signed_by: string | null;
           specialty: string;
-          specialty_data: Json | null;
           status: string;
           tenant_id: string;
           updated_at: string;
-          vitals: Json | null;
         };
         ComputedFields: never;
         Insert: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by: string;
           current_revision?: number;
           doctor_id: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type: string;
@@ -2228,23 +2815,17 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Update: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by?: string;
           current_revision?: number;
           doctor_id?: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type?: string;
@@ -2254,11 +2835,9 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id?: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Relationships: [
           {
@@ -2489,6 +3068,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_commit: { Args: { p_reservation: string }; Returns: number };
+      ai_preflight: {
+        Args: { p_feature: string; p_visit_id: string };
+        Returns: string;
+      };
+      ai_release: { Args: { p_reservation: string }; Returns: boolean };
+      ai_reserve: {
+        Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
+        Returns: string;
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -2501,8 +3090,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -2598,6 +3190,10 @@ export type Database = {
         Returns: boolean;
       };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
+      consume_invitation_for: {
+        Args: { p_token_hash: string; p_user_id: string };
+        Returns: string;
+      };
       consume_reschedule_token: {
         Args: { p_new_at: string; p_token: string };
         Returns: Json;
@@ -2613,14 +3209,6 @@ export type Database = {
           expires_at: string;
           token: string;
         }[];
-      };
-      current_user_has_role: {
-        Args: { p_roles: string[]; p_tenant_id: string };
-        Returns: boolean;
-      };
-      current_user_is_admin_or_owner: {
-        Args: { p_tenant_id: string };
-        Returns: boolean;
       };
       current_user_tenant_ids: {
         Args: Record<PropertyKey, never>;
@@ -2705,10 +3293,6 @@ export type Database = {
         };
         Returns: string;
       };
-      generate_daily_queue_token: {
-        Args: { p_date: string; p_tenant_id: string };
-        Returns: number;
-      };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
         Returns: string;
@@ -2741,6 +3325,19 @@ export type Database = {
         Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
         Returns: undefined;
       };
+      invitation_accept_context: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      invitation_issue_token: {
+        Args: { p_invitation_id: string; p_token_version: number };
+        Returns: string;
+      };
+      invite_staff: {
+        Args: { p_email: string; p_role: string; p_tenant: string };
+        Returns: Json;
+      };
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
         Args: { p_schedule: Json };
@@ -2781,6 +3378,15 @@ export type Database = {
         };
         Returns: number;
       };
+      my_entitlements: {
+        Args: { p_tenant: string };
+        Returns: {
+          enabled: boolean;
+          key: string;
+          limit_value: number;
+        }[];
+      };
+      my_tenant_access: { Args: { p_tenant: string }; Returns: string };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
         Returns: string;
@@ -2798,6 +3404,7 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
       permission_matrix: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -2841,11 +3448,17 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      remove_member: {
+        Args: { p_membership_id: string; p_reason: string };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
+      resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
         Returns: Json;
       };
+      revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
       search_medicines: {
         Args: {
@@ -2865,6 +3478,24 @@ export type Database = {
           is_favorite: boolean;
           medicine_name: string;
         }[];
+      };
+      session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
+      set_ai_opt_in: {
+        Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };
+        Returns: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "tenant_ai_settings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       share_object_path: {
         Args: {
@@ -2895,6 +3526,7 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: number;
       };
+      tenant_access_for_system: { Args: { p_tenant: string }; Returns: string };
       tenant_local_date: {
         Args: { p_at: string; p_tenant: string };
         Returns: string;

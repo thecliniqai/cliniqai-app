@@ -1,0 +1,10 @@
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > a Turnstile token the siteverify rejects is refused before any account change 73ms
+     → expected { ok: true } to deeply equal { ok: false, …(1) }
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > TURNSTILE_SECRET_KEY unset (staging before 05-P7): refused, never skipped, no siteverify request 69ms
+     → expected { ok: true } to deeply equal { ok: false, …(1) }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > a Turnstile token the siteverify rejects is refused before any account change
+AssertionError: expected { ok: true } to deeply equal { ok: false, …(1) }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > TURNSTILE_SECRET_KEY unset (staging before 05-P7): refused, never skipped, no siteverify request
+AssertionError: expected { ok: true } to deeply equal { ok: false, …(1) }
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)

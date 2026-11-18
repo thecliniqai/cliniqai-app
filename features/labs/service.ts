@@ -259,7 +259,7 @@ export async function getDocumentSignedUrl(
       {
         path: doc.storage_path,
         bucket: "clinic-records",
-        expiresInSeconds: 3600,
+        expiresInSeconds: 300, // R-29 (05-10a): a view
         // The readable name (R-45) is only the download name; the key holds ids only.
         downloadFilename: formatAmendedFilename(doc.patient?.full_name ?? "Patient", doc.original_filename, doc.report_date),
       },

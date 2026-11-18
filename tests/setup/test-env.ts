@@ -85,6 +85,18 @@ export const E2E_TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 /** Cloudflare's visible always-blocks test key (the stub fails the widget and issues no token, as Cloudflare does). */
 export const TURNSTILE_ALWAYS_FAIL_SITE_KEY = "2x00000000000000000000AB";
 
+/**
+ * V2-05 05-07b (R-46): Cloudflare's documented Turnstile test SECRET keys (always passes, always fails, "token already
+ * spent"), built at run time (gitleaks rule; the same list as `turnstileTestSecretKeys()` in lib/env.ts,
+ * tests/setup/test-env-guard.spec.ts keeps them equal). A test lane may set only these; the server-side check then
+ * reaches only the loopback fake siteverify (`TURNSTILE_VERIFY_URL`, tests/e2e/support/turnstile-verify-server.ts).
+ */
+export const TURNSTILE_TEST_SECRET_KEYS: readonly string[] = ["1", "2", "3"].map((d) => `${d}x${"0".repeat(31)}AA`);
+/** Always passes (the e2e server's secret; the fake siteverify decides the outcome by the widget token). */
+export const TURNSTILE_PASS_SECRET_KEY = TURNSTILE_TEST_SECRET_KEYS[0];
+export const E2E_TURNSTILE_VERIFY_PORT = 3102;
+export const E2E_TURNSTILE_VERIFY_URL = `http://127.0.0.1:${E2E_TURNSTILE_VERIFY_PORT}/turnstile/v0/siteverify`;
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -166,6 +178,8 @@ const URL_VARS = [
   "MAILPIT_API_URL",
   // 03-12a: the range API of the breached-password check is a loopback fake in every test lane.
   "PWNED_API_BASE_URL",
+  // 05-07b (R-46): so is the Turnstile siteverify of invite acceptance.
+  "TURNSTILE_VERIFY_URL",
 ];
 
 /**
@@ -360,6 +374,10 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   // 03-09b: unset or the local synthetic key only; the value is never echoed (it would be a secret if it were real).
   if (env.ERROR_INGEST_KEY && env.ERROR_INGEST_KEY !== LOCAL_ERROR_INGEST_KEY) {
     problems.push("ERROR_INGEST_KEY must be unset or the local synthetic key (LOCAL_ERROR_INGEST_KEY) in the test lane");
+  }
+  // 05-07b (R-46): the Turnstile secret is unset or one of Cloudflare's test secrets; the value is never echoed.
+  if (env.TURNSTILE_SECRET_KEY && !TURNSTILE_TEST_SECRET_KEYS.includes(env.TURNSTILE_SECRET_KEY)) {
+    problems.push("TURNSTILE_SECRET_KEY must be unset or one of Cloudflare's test secrets (TURNSTILE_TEST_SECRET_KEYS) in the test lane");
   }
   // 03-11b: same rule for the Send Email hook secret.
   if (env.SEND_EMAIL_HOOK_SECRET && env.SEND_EMAIL_HOOK_SECRET !== LOCAL_SEND_EMAIL_HOOK_SECRET) {

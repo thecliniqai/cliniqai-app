@@ -16,7 +16,9 @@ export type EmailTag =
   | "auth-email-change"
   | "auth-password-changed"
   /** V2-04 04-04: an ops alert from the `alert.notify` job to `OPS_ALERT_EMAIL` (no PHI). */
-  | "ops-alert";
+  | "ops-alert"
+  /** V2-05 05-07b (AUTH-06): a staff invitation from the `email.invite` job: clinic, role, link, expiry; no PHI. */
+  | "staff-invite";
 
 export interface EmailMessage {
   /** One recipient. */

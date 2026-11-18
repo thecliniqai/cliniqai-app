@@ -30,8 +30,36 @@
  *          + 05-11b invitation_binding 14, billing_rpc_only 25, api_keys_notices_columns 26, actor_bindings_audit 34
  *          + 05-11d reverify_integrity 61 + 05-11e amendment_snapshot 60 + 05a close signed_visit_fields 26
  *          = 3343. The floor is the measured total (not 95 %): one dropped test, or one dropped file, fails the gate.
- * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); 05b appends its files at
- * the 05b close.
+ *   3355 — V2-05 05b 05-b0 (000079 contract_05a): 3343 − 6 definer_functions legs of the three dropped functions
+ *          (generate_daily_queue_token, current_user_has_role, current_user_is_admin_or_owner; 40 → 34)
+ *          + contract_05a 18 = 3355 (32 files).
+ *   3850 — V2-05 05b 05-09a (000080-000084 SUB-01): 3355 + authz_matrix 352 (2376 → 2728: 8 new tables x 4 ops x 11
+ *          principals) + billing_access 45 + billing_entitlements 30 + billing_catalogue 30 + billing_grants 24
+ *          + subscription_invariant 14 = 3850 (37 files).
+ *   4018 — V2-05 05b 05-09b (000085 platform_admin_rpcs): 3850 + authz_matrix 88 (2728 → 2816: platform_admins and
+ *          platform_audit_log x 4 ops x 11 principals) + platform_rpcs 80 = 4018 (38 files).
+ *   3934 — V2-05 05b 05-09c (000086 drop_v1_subscription_tables): 4018 − authz_matrix 88 (2816 → 2728: the dropped
+ *          subscriptions and payment_records x 4 ops x 11 principals) + drop_v1_subscriptions 4 = 3934 (39 files).
+ *   4513 — V2-05 05b 05-05 (000087 membership_status): 3934 + authz_matrix 496 (2728 → 3224: 62 targets x 4 ops x 2 new
+ *          principals, removed and suspended) + definer_functions 2 (34 → 36: remove_member legs) + remove_member 81
+ *          = 4513 (40 files).
+ *   4592 — V2-05 05b 05-07a (000088 invitations_v2): 4513 + definer_functions 4 (36 → 40: invite_staff, resend and
+ *          revoke legs) + invitations_v2 75 = 4592 (41 files; the matrix keeps 3224 cells, invitations INSERT → rpc_only).
+ *   4609 — V2-05 05b 05-07b (000089 invitation_accept_context): 4592 + invitation_accept_context 17 = 4609 (42 files;
+ *          definer_functions keeps 40 cases, its classification and grant lists gain the new service-role function).
+ *   7388 — V2-05 05b 05-10a (000090 access_enforcement): 4609 + authz_matrix 2728 (3224 → 5952: 62 targets x 4 ops x 11
+ *          access-level principals, every A role locked and onboarding plus the dual member acting in a locked A)
+ *          + definer_functions 25 (40 → 65: the access classification and its legs) + access_lock_rls 26 = 7388 (43 files).
+ *   7838 — V2-05 05b 05-10c (000091 ai_gating): 7388 + authz_matrix 288 (5952 → 6240: 3 new targets x 4 ops x 24
+ *          principals) + definer_functions 6 (65 → 71: 2 dual-member and 4 access-level legs for the AI RPCs)
+ *          + ai_gating_l2 115 + ai_quota 41 = 7838 (45 files).
+ *   7880 — V2-05 05b 05-12 (000092 review fixes, 000093 time-zone contract): 7838 + review_fixes_05b 42 = 7880 (46 files;
+ *          ai_quota, definer_functions, invitations_v2, remove_member and tenant_local_dates keep their counts).
+ *   7892 — V2-05 05b gate close (000094 gate_close_05b): 7880 + gate_close_05b 12 = 7892 (47 files, every one required;
+ *          review_fixes_05b and invitations_v2 keep their counts: two expectations follow the answer's new `role` key and
+ *          the objection ruling). The floor is the measured total: one dropped test, or one dropped file, fails the gate.
+ * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
+ * files and raises the floor in the same commit (05b execution rule).
  *
  * Usage: node scripts/ci/assert-pgtap-report.mjs <report.tap> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -41,7 +69,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3343;
+export const FLOOR = 7892;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -90,6 +118,32 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/amendment_snapshot.test.sql",
   // 05a gate close (000078)
   "supabase/tests/database/signed_visit_fields.test.sql",
+  // V2-05 05b, per plan.
+  // 05-b0
+  "supabase/tests/database/contract_05a.test.sql",
+  // 05-09a
+  "supabase/tests/database/billing_access.test.sql",
+  "supabase/tests/database/billing_entitlements.test.sql",
+  "supabase/tests/database/billing_catalogue.test.sql",
+  "supabase/tests/database/billing_grants.test.sql",
+  "supabase/tests/database/subscription_invariant.test.sql",
+  "supabase/tests/database/platform_rpcs.test.sql",
+  "supabase/tests/database/drop_v1_subscriptions.test.sql",
+  // 05-05
+  "supabase/tests/database/remove_member.test.sql",
+  // 05-07a
+  "supabase/tests/database/invitations_v2.test.sql",
+  // 05-07b
+  "supabase/tests/database/invitation_accept_context.test.sql",
+  // 05-10a
+  "supabase/tests/database/access_lock_rls.test.sql",
+  // 05-10c
+  "supabase/tests/database/ai_gating_l2.test.sql",
+  "supabase/tests/database/ai_quota.test.sql",
+  // 05-12
+  "supabase/tests/database/review_fixes_05b.test.sql",
+  // 05b gate close (000094: re-verification N-1, N-2; objection ruling)
+  "supabase/tests/database/gate_close_05b.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

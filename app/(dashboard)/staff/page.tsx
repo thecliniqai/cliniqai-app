@@ -22,6 +22,7 @@ async function StaffPage() {
     .from("memberships")
     .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at")
     .eq("tenant_id", membership.tenantId)
+    .eq("status", "active")
     .order("created_at", { ascending: true })
     .returns<Membership[]>();
 
@@ -33,6 +34,7 @@ async function StaffPage() {
       .select("id, invited_address, role, expires_at, consumed_at")
       .eq("tenant_id", membership.tenantId)
       .is("consumed_at", null)
+      .is("revoked_at", null)
       .order("created_at", { ascending: false })
       .returns<Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }>>();
 

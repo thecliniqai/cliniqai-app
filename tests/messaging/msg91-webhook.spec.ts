@@ -16,8 +16,10 @@ import {
   botReplies,
   buttonReply,
   deleteInboundEvents,
+  deleteReplyJobs,
   keyFor,
   messageJobCount,
+  replyJob,
   postMsg91,
   seedConversation,
   seedSentMessage,
@@ -26,6 +28,7 @@ import {
   visitStatus,
 } from "./inbound-helpers";
 import { psql } from "../helpers/sql";
+import { seedTenantSubscription } from "../helpers/tenants";
 
 // MSG91 webhook (REQ-reminders-notifications, D-04, D-05, D-06). Section 1 (secret) and section 6 (parsers) are pure
 // unit tests. V2-04 04-03c (P0-12, R-25): sections 2-5 run against the local stack through the real route, because the
@@ -53,6 +56,7 @@ function msg91Request(payload: unknown, headers: Record<string, string> = SECRET
 }
 
 const keys: string[] = [];
+const unmatchedKeys: string[] = [];
 function track<T>(body: T): T {
   const raw = JSON.stringify(body);
   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
@@ -62,6 +66,7 @@ function track<T>(body: T): T {
 
 afterAll(() => {
   deleteInboundEvents(keys);
+  deleteReplyJobs(unmatchedKeys);
 });
 
 describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04, D-05, D-06)", () => {
@@ -159,6 +164,25 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         expect(await visitStatus(c.visitId)).toBe("cancelled");
         expect(await auditCount(c.visitId, "appointment_cancelled_whatsapp")).toBe(1);
         expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["appointment_cancelled_ack"]);
+      });
+
+      // V2-05 05-12 (ACC L-3, SUB-02): a clinic that is not `full` takes no patient action through a reply.
+      it("[Locked clinic] a confirm or cancel reply changes nothing and is answered like an unmatched reply", async () => {
+        const c = await seedConversation("unit-locked");
+        await seedTenantSubscription(c.tenantId, { status: "expired" });
+        const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
+        for (const action of ["btn_cancel", "btn_confirm"]) {
+          const body = track(buttonReply(c, action));
+          expect(await postMsg91(body)).toEqual(OK);
+          const replyKey = `bot:${keyFor(body)}:bot_not_found`;
+          unmatchedKeys.push(replyKey);
+          expect(replyJob(replyKey)).toMatchObject({ status: "pending" });
+        }
+        expect(cancelSpy).not.toHaveBeenCalled();
+        expect(await visitStatus(c.visitId)).toBe("booked");
+        expect(await botReplies(c.visitId)).toEqual([]);
+        expect(await auditCount(c.visitId, "appointment_cancelled_whatsapp")).toBe(0);
+        expect(await auditCount(c.visitId, "appointment_confirmed_whatsapp")).toBe(0);
       });
 
       it("[Reschedule] queues the tokenized URL to the recipient only (never in the response) and alerts the front desk", async () => {

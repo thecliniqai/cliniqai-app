@@ -28,45 +28,41 @@ describe("Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security)", 
     tenantB = await seedTenantWithOwner("Beta Diagnostics");
   });
 
-  it("allows Owner/Admin of tenant to insert an invitation row under RLS", async () => {
-    const { rawToken, tokenHash, expiresAt } = generateInviteToken(7);
-
-    // Insert invitation using tenant A owner's authenticated client
-    const { data, error } = await tenantA.client
-      .from("invitations")
-      .insert({
-        tenant_id: tenantA.tenantId,
-        role: "doctor",
-        invited_address: "dr.smith@alpha.com",
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        created_by: tenantA.userId,
-      })
-      .select("id")
-      .single();
-
+  // V2-05 05-07a (000088): invite_staff is the only way a member creates an invitation; it stores no token (minted at
+  // send time, R-30) and a direct INSERT is refused for everyone, the owner included.
+  it("the owner invites through invite_staff; the row holds no token yet; a direct INSERT is refused", async () => {
+    const { data, error } = await tenantA.client.rpc("invite_staff", {
+      p_tenant: tenantA.tenantId,
+      p_email: "dr.smith@alpha.com",
+      p_role: "doctor",
+    });
     expect(error).toBeNull();
-    expect(data?.id).toBeDefined();
+    const id = (data as { id: string; deduped: boolean }).id;
+    expect((data as { deduped: boolean }).deduped).toBe(false);
+    const { data: row } = await admin.from("invitations").select("token_hash, token_version, created_by").eq("id", id).single();
+    expect(row).toEqual({ token_hash: null, token_version: 1, created_by: tenantA.userId });
+
+    const { tokenHash, expiresAt } = generateInviteToken(7);
+    const direct = await tenantA.client.from("invitations").insert({
+      tenant_id: tenantA.tenantId,
+      role: "doctor",
+      invited_address: "dr.direct@alpha.com",
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      created_by: tenantA.userId,
+    });
+    expect(direct.error?.code).toBe("42501");
   });
 
-  it("blocks non-admin/doctor of tenant from inserting an invitation row", async () => {
+  it("blocks a doctor (no staff:invite) from inviting", async () => {
     const doctorA = await addMemberToTenant(tenantA.tenantId, "doctor");
-    const { tokenHash, expiresAt } = generateInviteToken(7);
-
-    // Doctor attempting to insert invite directly into DB
-    const { error } = await doctorA.client
-      .from("invitations")
-      .insert({
-        tenant_id: tenantA.tenantId,
-        role: "doctor",
-        invited_address: "another.doc@alpha.com",
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        created_by: doctorA.userId,
-      });
-
-    // RLS policy denies insert for non-owner/non-admin
-    expect(error).not.toBeNull();
+    const { error } = await doctorA.client.rpc("invite_staff", {
+      p_tenant: tenantA.tenantId,
+      p_email: "another.doc@alpha.com",
+      p_role: "doctor",
+    });
+    expect(error?.code).toBe("42501");
+    expect(error?.message).toBe("STAFF_INVITE_FORBIDDEN");
   });
 
   it("atomically consumes invitation and binds joining user to the correct tenant and role", async () => {

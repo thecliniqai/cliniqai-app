@@ -1,0 +1,18 @@
+{
+  "first_run_at_5f81f67": {
+    "startTime": "2026-11-14T23:34:27.828Z",
+    "duration": 158468.971,
+    "expected": 223,
+    "skipped": 9,
+    "unexpected": 5,
+    "flaky": 0
+  },
+  "after_e2e_spec_fix_0e3c895": {
+    "startTime": "2026-11-14T23:38:25.793Z",
+    "duration": 145710.087,
+    "expected": 228,
+    "skipped": 9,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

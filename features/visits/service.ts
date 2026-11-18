@@ -539,6 +539,7 @@ export async function getActiveClinicDoctors(ctx: ServiceContext): Promise<Activ
     const { data: rows, error } = await (supabase.from("memberships") as any)
       .select("id, user_id, full_name, qualifications, default_specialty, role")
       .eq("tenant_id", session.tenantId)
+      .eq("status", "active")
       .in("role", ["doctor", "owner", "admin"])
       .order("created_at", { ascending: true });
 

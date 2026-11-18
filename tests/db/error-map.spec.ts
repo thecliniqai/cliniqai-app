@@ -50,6 +50,23 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
     // 05-11b (000074): the referral target-doctor guard.
     ["P0001 REFERRAL_TARGET_DOCTOR_INVALID", { code: "P0001", message: "REFERRAL_TARGET_DOCTOR_INVALID" }, "VALIDATION_FAILED", "REFERRAL_TARGET_DOCTOR_INVALID"],
+    ["P0001 ENTITLEMENT_KEY_UNKNOWN (05-09b)", { code: "P0001", message: "ENTITLEMENT_KEY_UNKNOWN" }, "VALIDATION_FAILED", "ENTITLEMENT_KEY_UNKNOWN"],
+    ["P0001 PRODUCT_PRICE_REQUIRED (05-09b)", { code: "P0001", message: "PRODUCT_PRICE_REQUIRED" }, "PRECONDITION_FAILED", "PRODUCT_PRICE_REQUIRED"],
+    ["P0001 PRODUCT_STATE_INVALID (05-09b)", { code: "P0001", message: "PRODUCT_STATE_INVALID" }, "CONFLICT", "PRODUCT_STATE_INVALID"],
+    ["42501 PLATFORM_ADMIN_REQUIRED (05-09b)", { code: "42501", message: "PLATFORM_ADMIN_REQUIRED" }, "FORBIDDEN", undefined],
+    // V2-05 05-05 (000087): remove_member and the revoked-invitation refusal.
+    ["P0001 SELF_REMOVAL (05-05)", { code: "P0001", message: "SELF_REMOVAL" }, "VALIDATION_FAILED", "SELF_REMOVAL"],
+    ["P0001 LAST_OWNER (05-05)", { code: "P0001", message: "LAST_OWNER" }, "CONFLICT", "LAST_OWNER"],
+    ["P0001 MEMBER_NOT_ACTIVE (05-05)", { code: "P0001", message: "MEMBER_NOT_ACTIVE" }, "CONFLICT", "MEMBER_NOT_ACTIVE"],
+    ["P0001 INVITATION_REVOKED (05-05)", { code: "P0001", message: "INVITATION_REVOKED" }, "CONFLICT", "INVITATION_REVOKED"],
+    ["P0002 MEMBER_NOT_FOUND (05-05)", { code: "P0002", message: "MEMBER_NOT_FOUND" }, "NOT_FOUND", "MEMBER_NOT_FOUND"],
+    ["42501 OWNER_REQUIRED (05-05)", { code: "42501", message: "OWNER_REQUIRED" }, "FORBIDDEN", undefined],
+    // V2-05 05-07a (000088): invitations v2.
+    ["P0001 ALREADY_MEMBER (05-07a)", { code: "P0001", message: "ALREADY_MEMBER" }, "CONFLICT", "ALREADY_MEMBER"],
+    ["P0001 INVITATION_NOT_PENDING (05-07a)", { code: "P0001", message: "INVITATION_NOT_PENDING" }, "CONFLICT", "INVITATION_NOT_PENDING"],
+    ["P0001 INVITATION_ACCOUNT_AMBIGUOUS (05-07b)", { code: "P0001", message: "INVITATION_ACCOUNT_AMBIGUOUS" }, "CONFLICT", "INVITATION_ACCOUNT_AMBIGUOUS"],
+    ["P0002 INVITATION_NOT_FOUND (05-07a)", { code: "P0002", message: "INVITATION_NOT_FOUND" }, "NOT_FOUND", "INVITATION_NOT_FOUND"],
+    ["42501 SYSTEM_ONLY (05-07a)", { code: "42501", message: "SYSTEM_ONLY" }, "FORBIDDEN", undefined],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],
@@ -90,6 +107,15 @@ describe("mapDbError: SQLSTATE table", () => {
     const mapped = mapDbError(err);
     expect(mapped).toEqual({ code: "INTERNAL", message: DEFAULT_APP_ERROR_MESSAGES.INTERNAL });
     expect(Object.keys(mapped).sort()).toEqual(["code", "message"]);
+  });
+
+  it("05-12 reasons: an expired AI reservation is a CONFLICT, an unmetered AI feature a PRECONDITION_FAILED", () => {
+    expect(mapDbError({ code: "P0001", message: "AI_RESERVATION_EXPIRED" })).toMatchObject({ code: "CONFLICT", reason: "AI_RESERVATION_EXPIRED" });
+    expect(mapDbError({ code: "P0001", message: "AI_QUOTA_NOT_CONFIGURED" })).toMatchObject({
+      code: "PRECONDITION_FAILED",
+      reason: "AI_QUOTA_NOT_CONFIGURED",
+    });
+    expect(mapDbError({ code: "42501", message: "AI_OBJECTION_CLEAR_FORBIDDEN" })).toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("every registered RPC reason maps to its registered code", () => {

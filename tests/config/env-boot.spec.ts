@@ -67,6 +67,8 @@ const COMPLETE_PRODUCTION = {
   SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
   PWNED_CHECK: "on",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-boot-turnstile-key",
+  // 05-07b (R-46): assembled at run time.
+  TURNSTILE_SECRET_KEY: ["0x", "MARKER-boot-turnstile-secret"].join(""),
 };
 
 const CI_BUILD = {
@@ -94,6 +96,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stderr).toContain("PWNED_CHECK: must be on in production");
     // 03-12c: production must show a real Turnstile widget (C43).
     expect(res.stderr).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production");
+    // 05-07b (R-46): production verifies invite acceptance's Turnstile token server-side.
+    expect(res.stderr).toContain("TURNSTILE_SECRET_KEY: required in production (R-46)");
     for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.includes("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);

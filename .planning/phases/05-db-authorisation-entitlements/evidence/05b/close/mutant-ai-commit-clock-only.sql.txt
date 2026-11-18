@@ -1,0 +1,39 @@
+-- Mutant: 000092 ai_commit with only the clock half of N-1 (reservation locked first, expiry at clock_timestamp()).
+CREATE OR REPLACE FUNCTION public.ai_commit(p_reservation uuid)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+SET lock_timeout = '5s'
+AS $$
+DECLARE
+    v_system boolean := private.ai_system_caller();
+    v_uid uuid := (SELECT auth.uid());
+    v_tenant uuid;
+    v_row public.ai_quota_reservations;
+    v_units integer;
+BEGIN
+    IF NOT v_system THEN
+        v_tenant := private.ai_reservation_tenant();
+    END IF;
+    -- 05-12 (IND L-6): the caller's own reservation in the active clinic, or any reservation on the system path.
+    SELECT * INTO v_row
+      FROM public.ai_quota_reservations r
+     WHERE r.id = p_reservation
+       AND (v_system OR (r.tenant_id = v_tenant AND r.created_by = v_uid))
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'AI_RESERVATION_NOT_FOUND' USING ERRCODE = 'P0002';
+    END IF;
+    -- 05-12 (M-AIEXP): an expired reservation no longer counts against the quota, so it cannot become a unit either.
+    IF v_row.expires_at <= clock_timestamp() THEN
+        RAISE EXCEPTION 'AI_RESERVATION_EXPIRED' USING ERRCODE = 'P0001';
+    END IF;
+    DELETE FROM public.ai_quota_reservations r WHERE r.id = v_row.id;
+    INSERT INTO public.ai_usage_monthly AS u (tenant_id, period, feature, units)
+    VALUES (v_row.tenant_id, v_row.period, v_row.feature, 1)
+    ON CONFLICT (tenant_id, period, feature) DO UPDATE SET units = u.units + 1, updated_at = now()
+    RETURNING u.units INTO v_units;
+    RETURN v_units;
+END;
+$$;

@@ -1,0 +1,27 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql .. 
+# Failed test 1: "H-AITZ: 1,500 trial drafts used; the OWNER moves the clinic to UTC−12 mid-trial: still over_quota (no new pool)"
+#         have: ok
+#         want: over_quota
+# Failed test 2: "H-AITZ: the ADMIN moves the zone mid-trial: ai_reserve still raises AI_OVER_QUOTA"
+#         have: d5ce2550-b2f8-4376-911a-ff45ba287a6c
+#         want: error:P0001:AI_OVER_QUOTA
+# Failed test 3: "H-AITZ: after a zone change the reservation is booked to the IST date of the stored trial start"
+#         have: trial:2026-11-13
+#         want: trial:2026-11-14
+# Failed test 4: "H-AITZ: at 20:00 UTC on 30 Nov (1 Dec IST) a UTC−12 clinic is metered in the IST month 2026-12"
+#         have: 2026-11
+#         want: 2026-12
+# Failed test 5: "H-AITZ: at 17:00 UTC on 30 Nov (still 30 Nov IST) a UTC+14 clinic is metered in the IST month 2026-11"
+#         have: 2026-12
+#         want: 2026-11
+# Looks like you failed 5 tests of 42
+Failed 5/42 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql (Wstat: 0 Tests: 42 Failed: 5)
+  Failed tests:  1-5
+Files=1, Tests=42,  1 wallclock secs ( 0.01 usr  0.01 sys +  0.00 cusr  0.01 csys =  0.03 CPU)
+Result: FAIL
+error running container: exit 1

@@ -1,0 +1,18 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql ...... 
+# Failed test 12: "with a leaked grant a JWT caller is still refused: the session role must be service_role (R-38)"
+#         have: 006346ff080fb2fd4e2b3ecac3a4a0affeddd614e518f26febfc4413c65d4ab6|denied:INVITATION_EMAIL_MISMATCH
+#         want: denied:SYSTEM_ONLY|denied:SYSTEM_ONLY
+# Looks like you failed 1 test of 75
+Failed 1/75 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql ... ok
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql ...... ok
+/Users/sid/Code/clinicOS/supabase/tests/database/invitation_binding.test.sql .. ok
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql    (Wstat: 0 Tests: 75 Failed: 1)
+  Failed test:  12
+Files=4, Tests=161,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.01 cusr  0.01 csys =  0.05 CPU)
+Result: FAIL
+error running container: exit 1

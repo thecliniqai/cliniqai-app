@@ -1,0 +1,16 @@
+   × seedTenantWithOwner: a trialing Standard clinic by default (R-25) > is trialing on the Standard price with full access 13ms
+   × seedTenantWithOwner: a trialing Standard clinic by default (R-25) > has the Standard trial entitlements: Smart Assist and core on, ai.scribe on with 1,500 drafts (PO-21) 8ms
+   × seedTenantWithOwner: a trialing Standard clinic by default (R-25) > ends access at trial end + 24 h, 14 days out 4ms
+   ✓ seedTenantSubscription variants > comp on an incomplete clinic: full access, status stays incomplete, Standard keys present (Pitfall 8) 14ms
+   ✓ seedTenantSubscription variants > active: full access with the Standard keys and no ai.scribe (PO-25 default) 5ms
+   ✓ seedTenantSubscription variants > expired: locked, no keys 5ms
+   ✓ seedTenantSubscription variants > trialing with a past accessEndsAt: locked (time travel for lock tests) 4ms
+   ✓ seedTenantSubscription variants > incomplete: onboarding, no price, and re-seeding clears every earlier lifecycle field 6ms
+   ✓ seedTenantSubscription variants > refuses a clinic without a subscription row instead of silently doing nothing 2ms
+   ✓ onboarding clinics are not seeded > a clinic made through create_clinic_with_owner stays incomplete (onboarding) until a test seeds it 141ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/helpers/subscription.spec.ts > seedTenantWithOwner: a trialing Standard clinic by default (R-25) > is trialing on the Standard price with full access
+ FAIL  tests/helpers/subscription.spec.ts > seedTenantWithOwner: a trialing Standard clinic by default (R-25) > has the Standard trial entitlements: Smart Assist and core on, ai.scribe on with 1,500 drafts (PO-21)
+ FAIL  tests/helpers/subscription.spec.ts > seedTenantWithOwner: a trialing Standard clinic by default (R-25) > ends access at trial end + 24 h, 14 days out
+ Test Files  1 failed (1)
+      Tests  3 failed | 7 passed (10)

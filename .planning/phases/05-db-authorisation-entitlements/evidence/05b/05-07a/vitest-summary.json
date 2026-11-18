@@ -1,0 +1,36 @@
+{
+  "commit": "bb9de1d",
+  "note": "05-07a final full Vitest on the committed tree",
+  "files": 250,
+  "tests": 4933,
+  "passed": 4933,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/api/readiness-probe-db.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/auth/invite.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/db/error-map.spec.ts": {
+      "tests": 58,
+      "passed": 58
+    },
+    "tests/security/guard-actions.spec.ts": {
+      "tests": 631,
+      "passed": 631
+    },
+    "tests/security/invite-token-lockout.spec.ts": {
+      "tests": 4,
+      "passed": 4
+    },
+    "tests/security/membership-guard.spec.ts": {
+      "tests": 26,
+      "passed": 26
+    }
+  }
+}

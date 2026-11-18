@@ -1,0 +1,15 @@
+{
+  "commit": "bb9de1d",
+  "projects": [
+    "desktop-chrome",
+    "pixel-7",
+    "iphone-15"
+  ],
+  "retries": 0,
+  "expected": 222,
+  "skipped": 9,
+  "unexpected": 0,
+  "flaky": 0,
+  "retried_tests": 0,
+  "duration_ms": 137143
+}

@@ -100,27 +100,19 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
       expect(data).toEqual([]);
     });
 
-    it("a receptionist still reads the visit row, whose legacy clinical columns hold only empty values", async () => {
-      const { data, error } = await receptionist.client
-        .from("visits")
-        .select("id, status, clinical_notes, vitals, chief_complaints, specialty_data, investigations_advised, advice")
-        .eq("id", visitId);
+    it("a receptionist still reads the visit row, which no longer has any clinical column (05-b0 dropped them)", async () => {
+      const { data, error } = await receptionist.client.from("visits").select("*").eq("id", visitId);
       expect(error).toBeNull();
       expect(data).toHaveLength(1);
-      const row = data![0];
+      const row = data![0] as Record<string, unknown>;
       expect(row.status).toBe("waiting");
-      expect(row.clinical_notes).toBeNull();
-      for (const [col, empty] of [
-        ["vitals", {}],
-        ["chief_complaints", []],
-        ["specialty_data", {}],
-        ["investigations_advised", []],
-        ["advice", []],
-      ] as const) {
-        const value = (row as Record<string, unknown>)[col];
-        if (value !== null) expect(value, col).toEqual(empty);
+      for (const col of ["clinical_notes", "vitals", "chief_complaints", "specialty_data", "investigations_advised", "advice"]) {
+        expect(Object.keys(row), col).not.toContain(col);
       }
       expect(JSON.stringify(data)).not.toContain(NOTE);
+      // Naming a dropped column is an error, never a silent empty value.
+      const named = await receptionist.client.from("visits").select("id, clinical_notes" as "id").eq("id", visitId);
+      expect(named.error?.code).toBe("42703");
     });
 
     it("the embed of clinical_notes in a visit select is null for a receptionist and the note for the doctor", async () => {
@@ -134,13 +126,19 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
   });
 
   describe("writes", () => {
-    it("nobody can put clinical content back into visits (the CHECK refuses it, 23514)", async () => {
+    it("nobody can put clinical content back into visits (05-b0 dropped the columns: PGRST204)", async () => {
       for (const member of [owner, doctor]) {
-        const { error } = await member.client.from("visits").update({ clinical_notes: "Injected" }).eq("id", visitId);
-        expect(error?.code, member.role).toBe("23514");
+        const { error } = await member.client
+          .from("visits")
+          .update({ clinical_notes: "Injected" } as never)
+          .eq("id", visitId);
+        expect(error?.code, member.role).toBe("PGRST204");
       }
-      const { error } = await admin.from("visits").update({ vitals: { pulse: 99 } }).eq("id", visitId);
-      expect(error?.code).toBe("23514");
+      const { error } = await admin
+        .from("visits")
+        .update({ vitals: { pulse: 99 } } as never)
+        .eq("id", visitId);
+      expect(error?.code).toBe("PGRST204");
     });
 
     it("a nurse updates vitals through PostgREST, and nothing else", async () => {
@@ -193,8 +191,8 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
         origin_type: "walk_in",
         created_by: receptionist.userId,
         clinical_notes: "Injected at booking",
-      });
-      expect(injected.error?.code).toBe("23514");
+      } as never);
+      expect(injected.error?.code).toBe("PGRST204");
 
       const { data, error } = await receptionist.client
         .from("visits")

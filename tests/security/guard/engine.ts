@@ -81,9 +81,10 @@ export const TENANT_TABLES = [
   "api_key_usage_daily", "api_keys", "audit_logs", "communication_queue", "consent_records", "consultation_diagnoses",
   "consultations", "doctor_custom_diagnoses", "doctor_custom_medicines", "doctor_prescription_templates",
   "document_share_tokens", "follow_ups", "in_app_notifications", "invitations", "invoice_items", "invoices",
-  "memberships", "patient_documents", "patients", "payment_records", "payments", "prescriptions", "queue_tokens",
-  "referrals", "schedule_blocks", "subscriptions", "tenant_messaging_config", "visit_revisions", "visits",
-  "waitlist_entries", "webhook_delivery_queue", "webhook_subscriptions",
+  "memberships", "patient_documents", "patients", "payments", "prescriptions", "queue_tokens",
+  "referrals", "schedule_blocks", "subscription_events", "tenant_entitlement_overrides", "tenant_messaging_config",
+  "tenant_subscriptions", "visit_revisions", "visits", "waitlist_entries", "webhook_delivery_queue",
+  "webhook_subscriptions",
 ] as const;
 
 /** Every table a guarded entry point could write: the tenant tables plus `tenants` and `prescription_items`. */
@@ -138,7 +139,7 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
     if (g.permission !== null) return v(`manifest says membership-only but ${g.call} checks ${g.permission}`);
     return [];
   }
-  const kind = "self" in guard ? "self-only" : "authenticated-only";
+  const kind = "self" in guard ? "self-only" : "publicToken" in guard ? "public token-gated" : "authenticated-only";
   if (g) return v(`manifest says ${kind} but the body reaches ${g.call}(${g.permission ?? ""})`);
   return [];
 }
@@ -407,14 +408,16 @@ export async function unauthenticatedActionLeg(
   slot: RequestSlot,
   c: ActionCase,
   fn: (...args: unknown[]) => unknown,
-  b: GuardWorld["b"]
+  b: GuardWorld["b"],
+  opts: { publicToken?: boolean } = {}
 ): Promise<Violation[]> {
   const o = await invokeAction(slot, anonClient(), fn, argsFor(c, b));
   const out: Violation[] = [];
   const leg = "unauthenticated";
   if (!o.threw && !isFailureShape(o.value)) out.push({ key: c.key, leg, detail: `not refused: returned ${brief(serialise(o.value))}` });
   const msg = messageOf(o);
-  if (msg !== undefined && !GENERIC_FAILURE_MESSAGE.has(c.name) && !AUTH_FAILURE.test(msg)) {
+  // A public token-gated action (05-07b) refuses a forged token with its own fixed text, not a sign-in prompt.
+  if (msg !== undefined && !opts.publicToken && !GENERIC_FAILURE_MESSAGE.has(c.name) && !AUTH_FAILURE.test(msg)) {
     out.push({ key: c.key, leg, detail: `failure is not an authentication failure: ${brief(msg)}` });
   }
   if (o.access.length > 0) out.push({ key: c.key, leg, detail: `data access without a session: ${o.access.join(", ")}` });

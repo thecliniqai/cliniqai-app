@@ -1,0 +1,12 @@
+gitleaks 8.30.1 (repo config .gitleaks.toml, --redact)
+== git range 1612ff6..be23a60 (01e07c4, be23a60)
+8:20AM INF 2 commits scanned.
+8:20AM INF scanned ~139281 bytes (139.28 KB) in 123ms
+8:20AM INF no leaks found
+== dir: the 05-12 record, wave notes and evidence (the docs commit, before committing)
+8:20AM INF scanned ~23772 bytes (23.77 KB) in 5.34ms
+8:20AM INF no leaks found
+8:20AM INF scanned ~87627 bytes (87.63 KB) in 17.7ms
+8:20AM INF no leaks found
+8:20AM INF scanned ~763285 bytes (763.28 KB) in 35.3ms
+8:20AM INF no leaks found

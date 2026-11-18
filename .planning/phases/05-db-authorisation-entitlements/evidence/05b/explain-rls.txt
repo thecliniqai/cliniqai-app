@@ -1,0 +1,54 @@
+# explain-rls (05-10a): RLS helper evaluation per statement, local stack, demo clinic access level = full
+# simulated principal: a doctor of "Synthetic Demo Clinic" (role authenticated, JWT sub only); plans only, no row data
+
+## patient list (patients:view)
+sql: select id, full_name from public.patients order by created_at desc limit 50
+assert: helper authz.tenant_ids_with('patients:view'…) in SubPlan 1, evaluated with loops=1: PASS
+
+Limit (actual rows=33 loops=1)
+  Output: patients.id, patients.full_name, patients.created_at
+  Buffers: shared hit=202
+  ->  Sort (actual rows=33 loops=1)
+        Output: patients.id, patients.full_name, patients.created_at
+        Sort Key: patients.created_at DESC
+        Sort Method: quicksort  Memory: 29kB
+        Buffers: shared hit=202
+        ->  Seq Scan on public.patients (actual rows=33 loops=1)
+              Output: patients.id, patients.full_name, patients.created_at
+              Filter: (ANY (patients.tenant_id = (hashed SubPlan 1).col1))
+              Buffers: shared hit=199
+              SubPlan 1
+                ->  ProjectSet (actual rows=1 loops=1)
+                      Output: authz.tenant_ids_with('patients:view'::text)
+                      Buffers: shared hit=197
+                      ->  Result (actual rows=1 loops=1)
+Query Identifier: 8329093055369832673
+Planning:
+  Buffers: shared hit=12
+
+## visit list (appointments:view)
+sql: select id, status, scheduled_at from public.visits order by scheduled_at desc nulls last limit 100
+assert: helper authz.tenant_ids_with('appointments:view'…) in SubPlan 1, evaluated with loops=1: PASS
+
+Limit (actual rows=30 loops=1)
+  Output: visits.id, visits.status, visits.scheduled_at
+  Buffers: shared hit=203
+  ->  Sort (actual rows=30 loops=1)
+        Output: visits.id, visits.status, visits.scheduled_at
+        Sort Key: visits.scheduled_at DESC NULLS LAST
+        Sort Method: quicksort  Memory: 27kB
+        Buffers: shared hit=203
+        ->  Seq Scan on public.visits (actual rows=30 loops=1)
+              Output: visits.id, visits.status, visits.scheduled_at
+              Filter: (ANY (visits.tenant_id = (hashed SubPlan 1).col1))
+              Buffers: shared hit=200
+              SubPlan 1
+                ->  ProjectSet (actual rows=1 loops=1)
+                      Output: authz.tenant_ids_with('appointments:view'::text)
+                      Buffers: shared hit=197
+                      ->  Result (actual rows=1 loops=1)
+Query Identifier: -4090869184570282481
+Planning:
+  Buffers: shared hit=9
+
+explain-rls: PASS

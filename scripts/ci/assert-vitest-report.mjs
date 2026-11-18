@@ -30,6 +30,19 @@
  *   4633 — V2-05 05a gate close: the full suite at 13217bb (000078, the 05a fixes and gates) had 4876 tests in 248 files,
  *          0 skipped; 4876 × 0.95 = 4632.2 → 4633. REQUIRED_FILES gains every spec 05a added outside tests/e2e
  *          (37 files; 155 in total).
+ *   4804 — V2-05 05-10b (05b wave 9): the full suite at the 05-10b tree had 5056 tests in 256 files, 0 skipped;
+ *          5056 × 0.95 = 4803.2 → 4804. REQUIRED_FILES gains every spec 05b added so far outside tests/e2e (7 files; 162
+ *          in total).
+ *   4810 — V2-05 05-10c (05b wave 10): the full suite at the 05-10c tree had 5063 tests in 257 files, 0 skipped;
+ *          5063 × 0.95 = 4809.85 → 4810. REQUIRED_FILES + tests/ai/ai-reserve-concurrency.spec.ts (163 in total).
+ *   4823 — V2-05 05-12 (05b review fixes): the full suite at the 05-12 tree had 5076 tests in 258 files, 0 skipped;
+ *          5076 × 0.95 = 4822.2 → 4823. REQUIRED_FILES + tests/staff/reinvite-role.spec.ts (164 in total).
+ *   4826 — V2-05 05b gate close (000094): the full suite at the gate tree has 5080 tests in 260 files, 0 skipped (5076 + the
+ *          4 tests of the two new specs; measured by both evidence runs in evidence/05b/summary.json);
+ *          5080 × 0.95 = 4826. REQUIRED_FILES gains every remaining spec 05b added or rewrote for its own acceptance
+ *          (tests/helpers/subscription.spec.ts, the rewritten tests/integration/subscription.spec.ts, auth/invite,
+ *          cross-tenant, share-path-encoding, invite-token-lockout, msg91-webhook) and the two gate-close specs
+ *          (ai-commit-expiry-race, invite-dedupe-role): 173 in total.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -38,7 +51,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 4633;
+const FLOOR = 4826;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -235,6 +248,32 @@ const REQUIRED_FILES = [
   "tests/dpdp/export-routes-audit.spec.ts",
   "tests/dpdp/export-fail-closed.spec.ts",
   "tests/auth/page-revoked-session.spec.ts",
+  // 05b: 05-05 membership removal (acceptance 4); 05-07b invitations (acceptance 10), invite acceptance, Turnstile.
+  "tests/integration/auth/remove-member.spec.ts",
+  "tests/integration/auth/invite-delivery.spec.ts",
+  "tests/integration/auth/accept-invite.spec.ts",
+  "tests/jobs/email-invite-handler.spec.ts",
+  "tests/auth/turnstile-verify.spec.ts",
+  // 05-10a SUB-02 enforcement (acceptance 8 app half).
+  "tests/subscriptions/lock-enforcement.spec.ts",
+  // 05-10b layout redirects and locked/onboarding pages (SUB-02 UX).
+  "tests/subscriptions/locked-redirects.spec.ts",
+  // 05-10c AI-03 database part: the ai_reserve concurrency test (roadmap V2-05).
+  "tests/ai/ai-reserve-concurrency.spec.ts",
+  // 05-12 (M-REINVITE: a re-invite with another role yields the new role)
+  "tests/staff/reinvite-role.spec.ts",
+  // 05b gate close: the remaining specs 05b added or rewrote for its acceptance (05-09a subscription helper, 05-09c
+  // rewritten subscription and cross-tenant specs, 05-07a invitations, 05-10a share links, 05-12 locked-clinic replies)
+  // and the gate-close fixes (000094: re-verification N-1 and N-2).
+  "tests/helpers/subscription.spec.ts",
+  "tests/integration/subscription.spec.ts",
+  "tests/security/cross-tenant.spec.ts",
+  "tests/auth/invite.spec.ts",
+  "tests/security/invite-token-lockout.spec.ts",
+  "tests/security/share-path-encoding.spec.ts",
+  "tests/messaging/msg91-webhook.spec.ts",
+  "tests/ai/ai-commit-expiry-race.spec.ts",
+  "tests/staff/invite-dedupe-role.spec.ts",
 ];
 
 const file = process.argv[2];

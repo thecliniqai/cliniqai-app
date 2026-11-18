@@ -16,6 +16,8 @@ export const APP_ERROR_CODES = [
   "IDEMPOTENCY_MISMATCH",
   "DEPENDENCY_FAILED",
   "INTERNAL",
+  /** V2-05 05-10a (SUB-02): the active clinic's access level is not `full` (locked or onboarding). */
+  "SUBSCRIPTION_LOCKED",
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
@@ -42,6 +44,7 @@ export const DEFAULT_APP_ERROR_MESSAGES: Readonly<Record<AppErrorCode, string>> 
   IDEMPOTENCY_MISMATCH: "This request was already submitted with different details.",
   DEPENDENCY_FAILED: "A service is unavailable. Try again shortly.",
   INTERNAL: "Something went wrong. Try again.",
+  SUBSCRIPTION_LOCKED: "Your clinic's subscription is not active. The clinic owner can renew it from Billing.",
 };
 
 /** A machine reason: upper snake case, at most 64 characters. Anything else is dropped, never echoed. */

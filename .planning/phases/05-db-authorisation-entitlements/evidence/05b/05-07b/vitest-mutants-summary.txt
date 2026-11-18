@@ -1,0 +1,22 @@
+# 05-07b Vitest mutants (each applied to the source, the named spec run, the source restored by copy)
+handler-unregistered exit=1
+   Test Files  1 failed (1)
+        Tests  3 failed | 2 passed (5)
+handler-any-version exit=1
+   Test Files  1 failed | 1 passed (2)
+        Tests  1 failed | 9 passed (10)
+flow-no-turnstile exit=1
+   Test Files  1 failed (1)
+        Tests  2 failed | 7 passed (9)
+flow-pwned-after-redeem exit=1
+   Test Files  1 failed (1)
+        Tests  3 failed | 6 passed (9)
+system-overwrite-confirmed exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 8 passed (9)
+turnstile-fail-open exit=1
+   Test Files  1 failed (1)
+        Tests  3 failed | 7 passed (10)
+turnstile-skip-unset exit=1
+   Test Files  2 failed (2)
+        Tests  2 failed | 17 passed (19)

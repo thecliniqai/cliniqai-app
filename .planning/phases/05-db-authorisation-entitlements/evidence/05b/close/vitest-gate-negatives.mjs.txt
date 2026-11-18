@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// 05b gate close: negative proofs for the Vitest report gate, derived from a REAL full-run report (phase-evidence
+// full-run-1.json). Each variant removes or alters entries of that report exactly as a lost spec file, a skipped test or
+// a shrunken suite would appear in a real run, writes it to a temp file and runs the repo's gate on it. Counts only.
+// Usage (from the repo root): node vitest-gate-negatives.mjs <full-run-1.json>
+import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+
+const base = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const dir = mkdtempSync(join(tmpdir(), "vgate-"));
+const clone = () => JSON.parse(JSON.stringify(base));
+const recount = (r) => {
+  let total = 0, passed = 0, failed = 0, pending = 0;
+  for (const f of r.testResults) for (const t of f.assertionResults) {
+    total++; if (t.status === "passed") passed++; else if (t.status === "failed") failed++; else pending++;
+  }
+  Object.assign(r, { numTotalTests: total, numPassedTests: passed, numFailedTests: failed, numPendingTests: pending, numTotalTestSuites: r.testResults.length });
+  return r;
+};
+let seq = 0;
+const gate = (name, report) => {
+  const file = join(dir, `variant-${seq++}.json`);
+  writeFileSync(file, JSON.stringify(report));
+  const r = spawnSync("node", ["scripts/ci/assert-vitest-report.mjs", file], { encoding: "utf8" });
+  console.log(`\n### ${name}: exit ${r.status}`);
+  console.log((r.stdout + r.stderr).trim().split("\n").filter((l) => !l.includes(dir)).join("\n"));
+};
+
+gate("baseline (the real report, unchanged)", clone());
+
+const REQ = "tests/staff/invite-dedupe-role.spec.ts";
+const a = clone();
+a.testResults = a.testResults.filter((f) => !f.name.endsWith(`/${REQ}`));
+gate(`required file removed (${REQ})`, recount(a));
+
+const b = clone();
+const fb = b.testResults.find((f) => f.name.endsWith("/tests/ai/ai-commit-expiry-race.spec.ts"));
+fb.assertionResults[0].status = "skipped";
+gate("one test dropped by it.skip (tests/ai/ai-commit-expiry-race.spec.ts, first test)", recount(b));
+
+const c = clone();
+const fc = c.testResults.find((f) => f.name.endsWith("/tests/ai/ai-commit-expiry-race.spec.ts"));
+fc.assertionResults = [];
+gate("every test of a required file dropped (tests/ai/ai-commit-expiry-race.spec.ts)", recount(c));
+
+const d = clone();
+let need = d.numTotalTests - 4825; // one below the floor 4826
+for (const f of d.testResults) {
+  if (need <= 0) break;
+  const take = Math.min(need, Math.max(0, f.assertionResults.length - 1));
+  f.assertionResults = f.assertionResults.slice(take);
+  need -= take;
+}
+gate("suite shrinks to one test below the floor (tests removed from many files, each file keeps one)", recount(d));
+
+const e = clone();
+const fe = e.testResults.find((f) => f.name.endsWith("/tests/staff/reinvite-role.spec.ts"));
+fe.assertionResults = fe.assertionResults.slice(1);
+gate("one passing test removed from a required file that keeps others (95 % rule: not a gate failure by design)", recount(e));

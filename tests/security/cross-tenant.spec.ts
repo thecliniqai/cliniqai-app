@@ -60,21 +60,44 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
       expect(data).toHaveLength(0);
     });
 
-    it("proves Tenant A cannot read Tenant B rows from 'subscriptions'", async () => {
+    // V2-05 05-09c: the v1 `subscriptions` / `payment_records` are dropped (000086); the clinic's SaaS subscription is
+    // `tenant_subscriptions` (one row per clinic) with its `subscription_events` log, readable by the owner/admin of the
+    // active clinic only (authz.billing_tenant_ids). Each case reads its own row first, so a 0 is never vacuous.
+    it("proves Tenant A cannot read Tenant B rows from 'tenant_subscriptions'", async () => {
+      const own = await ecosystem.tenantA.owner.client
+        .from("tenant_subscriptions")
+        .select("tenant_id, status")
+        .eq("tenant_id", ecosystem.tenantA.tenantId);
+      expect(own.error).toBeNull();
+      expect(own.data).toEqual([{ tenant_id: ecosystem.tenantA.tenantId, status: "trialing" }]);
+
       const { data, error } = await ecosystem.tenantA.owner.client
-        .from("subscriptions")
+        .from("tenant_subscriptions")
         .select("*")
-        .eq("id", ecosystem.tenantB.subscriptionId);
+        .eq("tenant_id", ecosystem.tenantB.tenantId);
 
       expect(error).toBeNull();
       expect(data).toHaveLength(0);
     });
 
-    it("proves Tenant A cannot read Tenant B rows from 'payment_records'", async () => {
+    it("proves Tenant A cannot read Tenant B rows from 'subscription_events'", async () => {
+      const { error: seedErr } = await admin.from("subscription_events").insert([
+        { tenant_id: ecosystem.tenantA.tenantId, type: "test.cross_tenant", actor_type: "system" },
+        { tenant_id: ecosystem.tenantB.tenantId, type: "test.cross_tenant", actor_type: "system" },
+      ]);
+      expect(seedErr).toBeNull();
+
+      const own = await ecosystem.tenantA.owner.client
+        .from("subscription_events")
+        .select("tenant_id")
+        .eq("type", "test.cross_tenant");
+      expect(own.error).toBeNull();
+      expect(own.data).toEqual([{ tenant_id: ecosystem.tenantA.tenantId }]);
+
       const { data, error } = await ecosystem.tenantA.owner.client
-        .from("payment_records")
+        .from("subscription_events")
         .select("*")
-        .eq("id", ecosystem.tenantB.paymentRecordId);
+        .eq("tenant_id", ecosystem.tenantB.tenantId);
 
       expect(error).toBeNull();
       expect(data).toHaveLength(0);

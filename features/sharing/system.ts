@@ -43,7 +43,8 @@ function systemRpc(db: SystemDb, name: "share_token_object" | "reschedule_token_
   return rpc.rpc(name, args);
 }
 
-const SIGNED_URL_TTL_SECONDS = 600;
+/** R-29 (05-10a): share views are views (SUB §7.2): 300 s. */
+const SIGNED_URL_TTL_SECONDS = 300;
 const BUCKETS = new Set(["clinic-records", "prescriptions"]);
 
 async function shareTokenObject(
@@ -55,7 +56,16 @@ async function shareTokenObject(
   if (error || !data || typeof data !== "object" || Array.isArray(data)) return null;
   const t = data as unknown as ShareObjectTarget;
   if (!t.tenant_id || !t.resource_id || !t.bucket || !t.storage_path) return null;
+  // V2-05 05-10a (SUB-02, R-28): nothing of a clinic whose access level is not `full` is signed or rendered. The RPC
+  // refuses such a token too (000090); this second check uses the service-role access function, never billing_internal.
+  if (!(await clinicIsFull(db, t.tenant_id))) return null;
   return t;
+}
+
+/** R-28: the clinic's access level through `tenant_access_for_system` (service role only); fail closed. */
+export async function clinicIsFull(db: SystemDb, tenantId: string): Promise<boolean> {
+  const { data, error } = await db.rpc("tenant_access_for_system", { p_tenant: tenantId });
+  return !error && data === "full";
 }
 
 /**

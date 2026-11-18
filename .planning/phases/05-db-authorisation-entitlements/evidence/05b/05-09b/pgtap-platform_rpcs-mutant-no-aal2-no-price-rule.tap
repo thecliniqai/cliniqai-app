@@ -1,0 +1,75 @@
+NotFound: FileSystem.readFile (/Users/sid/.supabase/profile)
+Connecting to local database...
+psql:/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql:297: ERROR:  more than one row returned by a subquery used as an expression
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql .. 
+1..80
+ok 1 - RLS is on for platform_admins and platform_audit_log
+ok 2 - neither platform table has a policy (no tenant role reads or writes them)
+ok 3 - anon and authenticated hold no privilege on either platform table
+ok 4 - service_role reads both platform tables and writes neither (audit trail append-only by grants)
+ok 5 - platform has exactly the five RPCs: SECURITY DEFINER, search_path '', EXECUTE for authenticated and service_role only
+ok 6 - is_platform_admin: SECURITY DEFINER, search_path '', EXECUTE for authenticated only
+ok 7 - the actor, reason and admin-audit helpers are executable by no API role
+ok 8 - an active admin with an aal2 session is a platform admin
+not ok 9 - the same admin at aal1 is not (MFA required)
+# Failed test 9: "the same admin at aal1 is not (MFA required)"
+#         have: true
+#         want: false
+ok 10 - a revoked admin at aal2 is not
+ok 11 - an ordinary user at aal2 is not
+ok 12 - anon cannot call is_platform_admin
+ok 13 - control: every RPC succeeds as postgres with an active admin as p_actor
+ok 14 - a non-admin authenticated caller is refused by every RPC (forbidden)
+not ok 15 - an admin at aal1 is refused by every RPC (forbidden)
+# Failed test 15: "an admin at aal1 is refused by every RPC (forbidden)"
+#     Unexpected records:
+#         ("create_plan_price ok")
+#         ("extend_trial ok")
+#         ("grant_override ok")
+#         ("set_comp ok")
+#         ("set_product_availability ok")
+ok 16 - a non-admin JWT caller naming a real admin in p_actor is still refused by every RPC (p_actor is ignored for JWT callers)
+ok 17 - a revoked admin at aal2 is refused by every RPC
+ok 18 - postgres with a null p_actor is refused by every RPC
+ok 19 - postgres with a revoked admin as p_actor is refused by every RPC
+ok 20 - postgres with a non-admin user as p_actor is refused by every RPC
+ok 21 - service_role with a null p_actor is refused by every RPC
+ok 22 - service_role with an active admin as p_actor succeeds on every RPC
+ok 23 - anon cannot reach the platform schema
+ok 24 - no refused (or rolled-back) call left an audit row
+ok 25 - an aal2 admin may call set_comp
+ok 26 - the audit row records the CALLER (not the p_actor they passed) and channel ui
+ok 27 - the subscription event records the caller too
+not ok 28 - set_product_availability(ai_assist, true, public) as postgres is refused: no active price with a provider plan id (acceptance 13)
+# Failed test 28: "set_product_availability(ai_assist, true, public) as postgres is refused: no active price with a provider plan id (acceptance 13)"
+#         have: ok
+#         want: error:P0001:PRODUCT_PRICE_REQUIRED
+not ok 29 - ai_assist is unchanged by the refused call
+# Failed test 29: "ai_assist is unchanged by the refused call"
+#         have: true:public
+#         want: false:coming_soon
+ok 30 - a price without a provider plan id may be prepared
+not ok 31 - a price without a provider plan id does not make the product purchasable
+# Failed test 31: "a price without a provider plan id does not make the product purchasable"
+#         have: ok
+#         want: error:P0001:PRODUCT_PRICE_REQUIRED
+ok 32 - a provider price scheduled for later is created
+not ok 33 - a provider price that is not active yet does not count
+# Failed test 33: "a provider price that is not active yet does not count"
+#         have: ok
+#         want: error:P0001:PRODUCT_PRICE_REQUIRED
+ok 34 - the scheduled version closed the prepared one (one open version per model)
+ok 35 - after create_plan_price with a provider plan id (active now), the product can be made purchasable
+ok 36 - ai_assist is now purchasable and public
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 50/80 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql (Wstat: 768 (exited 3) Tests: 36 Failed: 6)
+  Failed tests:  9, 15, 28-29, 31, 33
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 80 tests but ran 36.
+Files=1, Tests=36,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL
+error running container: exit 1

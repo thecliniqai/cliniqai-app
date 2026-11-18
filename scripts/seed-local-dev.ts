@@ -25,7 +25,14 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalTestEnv, loadLocalStackKeys, loadTestEnv } from "../tests/setup/test-env";
-import { DEMO_CLINIC_NAME, DEMO_PATIENTS, resetDemoClinic, seedDemoClinic } from "./seed/demo-clinic";
+import {
+  accessSummary,
+  DEMO_CLINIC_NAME,
+  DEMO_PATIENTS,
+  formatAccessSummary,
+  resetDemoClinic,
+  seedDemoClinic,
+} from "./seed/demo-clinic";
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -60,6 +67,8 @@ async function seed(admin: SupabaseClient): Promise<void> {
   } else {
     console.log("[seed:local] password: the value of LOCAL_DEV_SEED_PASSWORD in your shell.");
   }
+  // V2-05 05-09c: the demo clinic is comped `active` on Standard; one line of counts per access level (no names).
+  console.log(`[seed:local] ${formatAccessSummary(await accessSummary(admin))}`);
 }
 
 async function reset(admin: SupabaseClient): Promise<void> {

@@ -1,0 +1,21 @@
+HEAD be23a6029f05d16c72e6adb5b401cabec36df7a6
+== typecheck
+exit 0
+== eslint --quiet
+exit 0
+== inventory
+inventory: 25 "use server" modules, 116 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted
+== ai-l1
+ai-l1: PASS
+== env-example --check
+env-example: .env.example matches lib/env.ts
+== schema-snapshot --check
+schema-snapshot: PASS (local: 2650 lines equal the committed snapshot)
+== db:drift:local
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+== authz:gen --check
+exit 0
+== migration immutability
+migration-immutability: PASS (base 1612ff6 @ 1612ff6 [--base]; 91 applied unchanged; 2 new above 91)
+== no-doc-grep-tests
+doc-grep: PASS (351 test files scanned; none reads docs/)

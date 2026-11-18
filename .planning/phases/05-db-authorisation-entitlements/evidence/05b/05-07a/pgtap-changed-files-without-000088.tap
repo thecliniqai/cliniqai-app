@@ -1,0 +1,74 @@
+Connecting to local database...
+psql:/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql:68: ERROR:  null value in column "token_hash" of relation "invitations" violates not-null constraint
+DETAIL:  Failing row contains (c5070000-0000-4000-8000-00000000f001, c5070000-0000-4000-8000-00000000000a, nurse, c507-late@example.test, null, 2026-11-14 21:40:31.523602+00, null, null, c5070000-0000-4000-8000-000000000101, 2026-11-10 22:40:31.523602+00, null, null).
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql ...... 
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 75/75 subtests 
+psql:/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql:153: ERROR:  null value in column "token_hash" of relation "invitations" violates not-null constraint
+DETAIL:  Failing row contains (c2c00000-0000-4000-8000-000000004101, c2c00000-0000-4000-8000-00000000000b, nurse, c2c-pending-b@example.test, null, 2026-11-15 22:40:31.540463+00, null, null, c2c00000-0000-4000-8000-000000000201, 2026-11-14 22:40:31.540463+00, null, null).
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql ... 
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 40/40 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql ...... 
+# Failed test 1: "the admin/system tables have exactly the S/I/U policies of 000057/000060 (the v1 subscriptions/payment_records were dropped in 000086, 05-09c)"
+#     Extra records:
+#         (invitations.invitations_insert)
+# Failed test 13: "an admin invites a doctor (staff:invite)"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: 1
+# Failed test 14: "an admin cannot invite an admin (owner only)"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: denied:OWNER_REQUIRED
+# Failed test 15: "the owner invites an admin"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: 1
+# Failed test 16: "a receptionist cannot invite"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 17: "B's owner acting in A cannot invite into B"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 18: "the same owner acting in B invites an admin into B"
+#         have: error:42883:function public.invite_staff(unknown, unknown, unknown) does not exist
+#         want: 1
+# Looks like you failed 7 tests of 32
+Failed 7/32 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql ........ 
+# Failed test 118: "public.invitations insert: owner of A"
+#         have: ok
+#         want: denied
+# Failed test 119: "public.invitations insert: admin of A"
+#         have: ok
+#         want: denied
+# Looks like you failed 2 tests of 3224
+Failed 2/3224 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_completeness.test.sql .. 
+# Failed test 6: "every public table grants anon nothing and authenticated exactly the operations its matrix row needs"
+#     Extra records:
+#         (invitations:authenticated:INSERT)
+# Looks like you failed 1 test of 6
+Failed 1/6 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/invitation_binding.test.sql .. 
+# Failed test 5: "catalogue: no SELECT on token_hash for authenticated, no INSERT (invite_staff only since 05-07a), nothing for anon"
+# Looks like you failed 1 test of 14
+Failed 1/14 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql    (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 75 tests but ran 0.
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 40 tests but ran 0.
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql    (Wstat: 0 Tests: 32 Failed: 7)
+  Failed tests:  1, 13-18
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql      (Wstat: 0 Tests: 3224 Failed: 2)
+  Failed tests:  118-119
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_completeness.test.sql (Wstat: 0 Tests: 6 Failed: 1)
+  Failed test:  6
+/Users/sid/Code/clinicOS/supabase/tests/database/invitation_binding.test.sql (Wstat: 0 Tests: 14 Failed: 1)
+  Failed test:  5
+Files=6, Tests=3276,  1 wallclock secs ( 0.08 usr  0.01 sys +  0.04 cusr  0.04 csys =  0.17 CPU)
+Result: FAIL
+error running container: exit 1

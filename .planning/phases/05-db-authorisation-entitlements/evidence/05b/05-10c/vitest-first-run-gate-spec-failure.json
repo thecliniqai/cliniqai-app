@@ -1,0 +1,13 @@
+{
+  "numTotalTests": 5063,
+  "numPassedTests": 5062,
+  "numFailedTests": 1,
+  "failed": [
+    {
+      "file": "tests/ci/vitest-report-gate.spec.ts",
+      "tests": [
+        "vitest report gate fails when the suite shrinks below the recorded floor (default 4633, 95% of the suite, IR-F5)"
+      ]
+    }
+  ]
+}

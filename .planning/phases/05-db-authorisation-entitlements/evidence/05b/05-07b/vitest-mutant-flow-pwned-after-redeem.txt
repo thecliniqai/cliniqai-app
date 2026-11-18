@@ -1,0 +1,14 @@
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > a new invitee sets a password: account created and confirmed, membership exists, sign-in works 78ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true }
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > an unconfirmed existing account: its password is replaced, it is confirmed, the membership exists 138ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true }
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > a Pwned-corpus password is refused before any account change 116ms
+     → expected 'e2cdf297-4879-4456-b42f-5e6b798ce018' to be null
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > a new invitee sets a password: account created and confirmed, membership exists, sign-in works
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > an unconfirmed existing account: its password is replaced, it is confirmed, the membership exists
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > a Pwned-corpus password is refused before any account change
+AssertionError: expected 'e2cdf297-4879-4456-b42f-5e6b798ce018' to be null
+ Test Files  1 failed (1)
+      Tests  3 failed | 6 passed (9)

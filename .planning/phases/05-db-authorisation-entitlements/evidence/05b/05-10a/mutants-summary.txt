@@ -1,0 +1,60 @@
+# 05-10a mutants (pgTAP: one function replaced in the local DB under the test-run lock, restored from 000090's text; Vitest app mutants: source changed and restored by copy)
+pgtap full-any-level exit=1
+  Failed 20/26 subtests 
+  Failed 642/5952 subtests 
+  Failed 17/65 subtests 
+  /Users/sid/Code/clinicOS/supabase/tests/database/access_lock_rls.test.sql  (Wstat: 0 Tests: 26 Failed: 20)
+    Failed tests:  3-6, 8-11, 13-16, 18-21, 23-26
+  /Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql     (Wstat: 0 Tests: 5952 Failed: 642)
+    Failed tests:  62-63, 67-68, 110-120, 158-159, 163-164
+  /Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 65 Failed: 17)
+    Failed tests:  42-58
+  Result: FAIL
+vitest full-any-level exit=0
+   Test Files  1 passed (1)
+        Tests  10 passed (10)
+pgtap billing-full-only exit=1
+  Failed 4/26 subtests 
+  Failed 8/5952 subtests 
+  /Users/sid/Code/clinicOS/supabase/tests/database/access_lock_rls.test.sql (Wstat: 0 Tests: 26 Failed: 4)
+    Failed tests:  3-4, 8-9
+  /Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql   (Wstat: 0 Tests: 5952 Failed: 8)
+    Failed tests:  3758-3759, 3763-3764, 3854-3855, 3859-3860
+  Result: FAIL
+vitest billing-full-only exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)
+vitest claim-no-cancel exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)
+pgtap resolve-no-access exit=1
+  Failed 1/65 subtests 
+  /Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 65 Failed: 1)
+    Failed test:  62
+  Result: FAIL
+vitest resolve-no-access exit=1
+   Test Files  1 failed (1)
+        Tests  2 failed | 8 passed (10)
+pgtap share-object-no-access exit=1
+  Failed 1/65 subtests 
+  /Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 65 Failed: 1)
+    Failed test:  64
+  Result: FAIL
+vitest share-object-no-access exit=0
+   Test Files  1 passed (1)
+        Tests  10 passed (10)
+vitest app-guard-no-access: first run NOT applied (the pattern predated the async change); re-run below
+vitest app-context-no-access: first run NOT applied (the pattern predated the async change); re-run below
+vitest app-api-no-402 exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)
+vitest app-storage-no-clamp exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)
+snapshot 0
+vitest app-guard-no-access exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)
+vitest app-context-no-access exit=1
+   Test Files  1 failed (1)
+        Tests  1 failed | 9 passed (10)

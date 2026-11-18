@@ -5,7 +5,7 @@ import { getActiveMembership } from "@/lib/auth/tenant";
 import { PatientDetailView } from "@/components/patients/patient-detail-view";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { redirectIfUnauthenticated, withPageAuth } from "@/lib/auth/page";
+import { redirectIfTenantLocked, redirectIfUnauthenticated, withPageAuth } from "@/lib/auth/page";
 
 async function PatientDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -36,6 +36,8 @@ async function PatientDetailPage(props: {
   } catch (err) {
     // A missing or revoked session is a redirect to /login, not a load failure (05-11c).
     redirectIfUnauthenticated(err);
+    // A clinic that is not `full` goes to its locked/onboarding page, not a logged load failure (05-10b).
+    await redirectIfTenantLocked(err);
     log.error({ event: "patients.detail_load.failed", code: errorTag(err), requestId: await getRequestId() });
     notFound();
   }

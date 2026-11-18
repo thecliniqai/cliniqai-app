@@ -93,8 +93,9 @@ export interface TableTarget {
   /** The tenant-A fixture row, inserted as `postgres` before the cells (the rules are evaluated against it). */
   fixture: Row;
   /**
-   * The fixture row already exists: the base fixtures (tenants, principals' memberships) hold it, or a trigger on an
-   * earlier target's fixture created it (clinical_notes: one row per visit). Do not insert it again.
+   * The fixture row already exists: the base fixtures (tenants, principals' memberships) hold it, a trigger on an
+   * earlier target's fixture created it (clinical_notes: one row per visit; tenant_subscriptions: one row per clinic,
+   * 05-09a), or a migration seeded it (platform_settings, 05-09a). Do not insert it again.
    */
   inBase?: true;
   /** More tenant-A rows inserted right after the fixture (parents other fixtures or INSERT cells need). */
@@ -105,6 +106,11 @@ export interface TableTarget {
   update: string;
   /** SQL run as `postgres` inside the INSERT cell's subtransaction first (e.g. free a one-row-per-tenant slot). */
   insertSetup?: string;
+  /**
+   * SQL run as `postgres` right after the fixture rows exist (e.g. to shape a row a trigger created: 05-09a sets the
+   * `tenant_subscriptions` rows of clinics A and B to `trialing`, so the 05-10a access level is `full` for both).
+   */
+  fixtureSql?: Sql;
   /** The row's tenant when the table has no `tenant_id` column. */
   tenant?: Sql;
   rules: Rules;
@@ -148,6 +154,10 @@ export const FX = {
     doctor2A: id(0x104),
     nurseA: id(0x105),
     receptionistA: id(0x106),
+    /** 05-05: an owner of A whose membership is `removed` (still holding a valid JWT). */
+    removedA: id(0x107),
+    /** 05-05: a doctor of A whose membership is `suspended`. */
+    suspendedA: id(0x108),
     ownerB: id(0x201),
     dual: id(0x301),
   },
@@ -177,6 +187,8 @@ export const TENANT_IDS: Record<TenantKey, string> = { A: FX.tenantA, B: FX.tena
 
 export type DbRole = "authenticated" | "anon";
 export type MemberRole = "owner" | "admin" | "doctor" | "nurse" | "receptionist";
+/** `memberships.status` (05-05, AUTH-05): only `active` counts in the authz helpers. */
+export type MemberStatus = "active" | "suspended" | "removed";
 
 export interface Principal {
   id: string;
@@ -184,8 +196,44 @@ export interface Principal {
   dbRole: DbRole;
   userId: string | null;
   memberships: Partial<Record<TenantKey, MemberRole>>;
+  /** Membership status per clinic (05-05); a clinic not listed is `active`. */
+  statuses?: Partial<Record<TenantKey, Exclude<MemberStatus, "active">>>;
   /** The `x-clinicos-tenant` header (R-42); null = no header (the sole-membership fallback applies). */
   header: TenantKey | null;
+  /**
+   * 05-10a (SUB-02): the clinic's access level while the cell runs; a clinic not listed is `full` (the fixture clinics
+   * are `trialing`). The cell sets it as `postgres` inside its own rolled-back subtransaction (ACCESS_SQL).
+   */
+  access?: Partial<Record<TenantKey, Exclude<AccessLevel, "full">>>;
+}
+
+/** `billing_internal.tenant_access_level` (05-09a): what the RLS helpers read from 05-10a on. */
+export type AccessLevel = "full" | "locked" | "onboarding";
+
+/** The principal's view of a clinic's access level (05-10a). */
+export function accessOf(p: Principal, tenant: TenantKey): AccessLevel {
+  return p.access?.[tenant] ?? "full";
+}
+
+/**
+ * 05-10a: the statement (run as `postgres` in the cell's subtransaction, before the principal's statement) that puts a
+ * fixture clinic in a level. `locked`: the trial's access ended before the transaction started (now() is frozen per
+ * transaction, Pitfall 10), i.e. "p_now past access_ends_at"; `onboarding`: an `incomplete` subscription, no comp.
+ */
+export function accessSql(tenant: TenantKey, level: Exclude<AccessLevel, "full">): Sql {
+  const id = q(TENANT_IDS[tenant]);
+  return level === "locked"
+    ? `update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = ${id}`
+    : `update public.tenant_subscriptions set status = 'incomplete', comp_until = null where tenant_id = ${id}`;
+}
+
+/** The principal's ACTIVE memberships: what the helpers see (05-05). A removed or suspended row counts as none. */
+export function activeMemberships(p: Principal): Partial<Record<TenantKey, MemberRole>> {
+  const out: Partial<Record<TenantKey, MemberRole>> = {};
+  for (const [tenant, role] of Object.entries(p.memberships) as [TenantKey, MemberRole][]) {
+    if (!p.statuses?.[tenant]) out[tenant] = role;
+  }
+  return out;
 }
 
 export const PRINCIPALS: readonly Principal[] = [
@@ -201,6 +249,24 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.receptionistA,
     memberships: { A: "receptionist" },
     header: null,
+  },
+  {
+    id: "removed_a",
+    label: "removed member of A (owner role, status removed, valid JWT)",
+    dbRole: "authenticated",
+    userId: FX.users.removedA,
+    memberships: { A: "owner" },
+    statuses: { A: "removed" },
+    header: null,
+  },
+  {
+    id: "suspended_a",
+    label: "suspended member of A (doctor role, status suspended, header A)",
+    dbRole: "authenticated",
+    userId: FX.users.suspendedA,
+    memberships: { A: "doctor" },
+    statuses: { A: "suspended" },
+    header: "A",
   },
   { id: "owner_b", label: "owner of B", dbRole: "authenticated", userId: FX.users.ownerB, memberships: { B: "owner" }, header: null },
   { id: "anon", label: "anon", dbRole: "anon", userId: null, memberships: {}, header: null },
@@ -227,6 +293,36 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.dual,
     memberships: { A: "doctor", B: "receptionist" },
     header: null,
+  },
+  // 05-10a (SUB-02, acceptance 8): every role of A with A locked, and with A onboarding; the dual member acting in a
+  // locked A. Only the access level differs from the full principals above (same users and memberships).
+  ...(["locked", "onboarding"] as const).flatMap((level): Principal[] => [
+    ...(
+      [
+        ["owner", FX.users.ownerA],
+        ["admin", FX.users.adminA],
+        ["doctor", FX.users.doctorA],
+        ["nurse", FX.users.nurseA],
+        ["receptionist", FX.users.receptionistA],
+      ] as const
+    ).map(([role, userId]): Principal => ({
+      id: `${role}_a_${level}`,
+      label: `${role} of A, A ${level === "locked" ? "locked (access ended before the transaction)" : "onboarding (incomplete)"}`,
+      dbRole: "authenticated",
+      userId,
+      memberships: { A: role },
+      header: null,
+      access: { A: level },
+    })),
+  ]),
+  {
+    id: "dual_hdr_a_locked",
+    label: "dual member, header A, A locked",
+    dbRole: "authenticated",
+    userId: FX.users.dual,
+    memberships: { A: "doctor", B: "receptionist" },
+    header: "A",
+    access: { A: "locked" },
   },
 ];
 
@@ -334,13 +430,13 @@ export const TARGETS: readonly Target[] = [
     update: "invited_address",
     rules: {
       select: perm("staff:invite"),
-      insert: all(self("created_by"), perm("staff:invite")),
+      insert: rpcOnly,
       update: rpcOnly,
       delete: rpcOnly,
     },
     note:
-      "INSERT: staff:invite, created_by = caller; owner/admin roles only by an owner (admin_policies.test.sql; RPC " +
-      "only after 05-07a)",
+      "SELECT staff:invite (token_hash not readable, 000071); INSERT only through invite_staff (05-07a, 000088: " +
+      "staff:invite in the active clinic, owner/admin invitations by owners only, one pending per address)",
   },
   {
     kind: "table",
@@ -904,28 +1000,171 @@ export const TARGETS: readonly Target[] = [
     rules: selectOnly(perm("clinic:manage")),
     note: "V2-04 000036: SELECT only (delivery logs); writes by enqueue RPCs and the runner",
   },
+  // SUB-01 (05-09a, migrations 000081-000084): the catalogue, the clinic's subscription, events, overrides, settings.
   {
     kind: "table",
     schema: "public",
-    table: "subscriptions",
+    table: "plans",
     key: ["id"],
-    fixture: { id: q(FX.row(49)), tenant_id: A },
-    insert: { id: q(FX.row(50)), tenant_id: A },
-    insertSetup: `delete from public.subscriptions where tenant_id = ${A}`,
-    update: "status",
-    rules: selectOnly(perm("clinic:manage")),
-    note: "v1 table, dropped in 05-09c",
+    fixture: {
+      id: q(FX.row(63)),
+      code: "'authz_fixture'",
+      kind: "'addon'",
+      category: "'core'",
+      name: "'Synthetic fixture plan'",
+      visibility: "'public'",
+    },
+    insert: {
+      id: q(FX.row(64)),
+      code: "'authz_insert'",
+      kind: "'addon'",
+      category: "'core'",
+      name: "'Synthetic insert plan'",
+      visibility: "'public'",
+    },
+    update: "name",
+    rules: catalogueRules,
+    note: "product catalogue: SELECT for signed-in users where visibility <> 'hidden' (hidden rows: billing_catalogue.test.sql); writes by migrations, the service role and platform RPCs (05-09b)",
   },
   {
     kind: "table",
     schema: "public",
-    table: "payment_records",
+    table: "plan_prices",
     key: ["id"],
-    fixture: { id: q(FX.row(51)), tenant_id: A, amount_inr: "1000", reference: "'SYN-1'" },
-    insert: { id: q(FX.row(52)), tenant_id: A, amount_inr: "1000", reference: "'SYN-2'" },
-    update: "reference",
-    rules: selectOnly(perm("clinic:manage")),
-    note: "v1 table, dropped in 05-09c",
+    fixture: { id: q(FX.row(65)), plan_id: q(FX.row(63)), billing_model: "'metered'", base_amount_paise: "0", tax_rate_bp: "0" },
+    insert: { id: q(FX.row(66)), plan_id: q(FX.row(63)), billing_model: "'metered'", base_amount_paise: "0", tax_rate_bp: "0" },
+    update: "unit",
+    rules: catalogueRules,
+    note: "versioned prices: SELECT where the plan is not hidden; never written by an API role (AI §4.6)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "entitlement_keys",
+    key: ["key"],
+    fixture: { key: "'authz.fixture'", kind: "'boolean'", description: "'Synthetic key'", owner_doc: "'tests/authz/table-matrix.ts'" },
+    insert: { key: "'authz.insert'", kind: "'boolean'", description: "'Synthetic key'", owner_doc: "'tests/authz/table-matrix.ts'" },
+    update: "description",
+    rules: catalogueRules,
+    note: "feature and limit keys (AI §6.2): readable by signed-in users",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "plan_entitlements",
+    key: ["plan_id", "key"],
+    fixture: { plan_id: q(FX.row(63)), key: "'authz.fixture'", enabled: "true" },
+    insert: { plan_id: q(FX.row(63)), key: "'core.*'", enabled: "true" },
+    update: "enabled",
+    rules: catalogueRules,
+    note: "which plan enables which key: SELECT where the plan is not hidden",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_entitlement_overrides",
+    key: ["id"],
+    fixture: { id: q(FX.row(67)), tenant_id: A, key: "'authz.fixture'", enabled: "true", reason: "'Synthetic override'" },
+    insert: { id: q(FX.row(68)), tenant_id: A, key: "'core.*'", enabled: "true", reason: "'Synthetic override'" },
+    update: "reason",
+    rules: opsRules,
+    note: "per-clinic grants: no tenant access at all (SUB §7.1); platform.grant_override (05-09b) or the service role",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_subscriptions",
+    key: ["tenant_id"],
+    fixture: { tenant_id: A },
+    inBase: true,
+    fixtureSql:
+      "update public.tenant_subscriptions set status = 'trialing', " +
+      "plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id where p.code = 'standard' order by pp.active_from limit 1), " +
+      "trial_start = now() - interval '1 day', trial_end = now() + interval '13 days', access_ends_at = now() + interval '14 days', " +
+      `trial_consumed = true where tenant_id in (${A}, ${q(FX.tenantB)})`,
+    insert: { tenant_id: q(FX.tenantB), status: "'incomplete'" },
+    update: "status",
+    rules: selectOnly(billing),
+    note: "one row per clinic, created `incomplete` by the tenants trigger (R-24; fixture clinics A and B set `trialing`); SELECT: owner/admin of the active clinic (authz.billing_tenant_ids, R-26); written only by transition RPCs",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "subscription_events",
+    key: ["id"],
+    fixture: { id: q(FX.row(69)), tenant_id: A, type: "'authz.fixture'", actor_type: "'system'" },
+    insert: { id: q(FX.row(70)), tenant_id: A, type: "'authz.insert'", actor_type: "'system'" },
+    update: "reason",
+    rules: selectOnly(billing),
+    note: "append-only by grants (Pitfall 5): SELECT for owner/admin of the active clinic; no API role writes",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_settings",
+    key: ["id"],
+    fixture: { id: "true" },
+    inBase: true,
+    insert: { id: "false" },
+    update: "sac",
+    rules: opsRules,
+    note: "the single settings row (seeded by 000084): no tenant access",
+  },
+  // V2-05 05-10c (AI-03 database part, AI §4.6 "write protection of gating tables"; R-33).
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_ai_settings",
+    key: ["tenant_id"],
+    fixture: { tenant_id: A, enabled: "false" },
+    insert: { tenant_id: q(FX.tenantB), enabled: "false" },
+    update: "enabled",
+    rules: selectOnly(perm("clinic:view")),
+    note: "the owner's AI opt-in (05-10c): SELECT clinic:view of the active clinic; written only by set_ai_opt_in (owner of the active, full clinic, R-33)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "ai_usage_monthly",
+    key: ["tenant_id", "period", "feature"],
+    fixture: { tenant_id: A, period: "'2030-01'", feature: "'ai.scribe'", units: "1" },
+    insert: { tenant_id: A, period: "'2030-02'", feature: "'ai.scribe'", units: "1" },
+    update: "units",
+    rules: opsRules,
+    note: "AI units per clinic, period and feature (05-10c): no tenant access; written only by ai_reserve/ai_commit (definer)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "ai_quota_reservations",
+    key: ["id"],
+    fixture: { id: q(FX.row(73)), tenant_id: A, feature: "'ai.scribe'", period: "'2030-01'", expires_at: "now() + interval '1 minute'" },
+    insert: { id: q(FX.row(74)), tenant_id: A, feature: "'ai.scribe'", period: "'2030-01'", expires_at: "now() + interval '1 minute'" },
+    update: "expires_at",
+    rules: opsRules,
+    note: "in-flight AI calls (05-10c): no tenant access; written only by ai_reserve/ai_commit/ai_release (definer)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_admins",
+    key: ["user_id"],
+    fixture: { user_id: U.ownerB },
+    insert: { user_id: U.adminA },
+    update: "revoked_at",
+    rules: opsRules,
+    note: "platform admins (SUB §9.2, 05-09b): not a tenant role; no API-role access (granted and revoked in SQL, audited by trigger); read through is_platform_admin()",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_audit_log",
+    key: ["id"],
+    fixture: { id: q(FX.row(71)), actor_id: U.ownerB, channel: "'sql'", action: "'authz.fixture'" },
+    insert: { id: q(FX.row(72)), actor_id: U.ownerB, channel: "'ui'", action: "'authz.insert'" },
+    update: "action",
+    rules: opsRules,
+    note: "platform audit trail (SUB §9.2, 05-09b): append-only by grants, written only by the platform.* RPCs and the platform_admins trigger; no API-role access",
   },
   cdci("cdci_brands", "brand_name"),
   cdci("cdci_drug_forms", "form_name"),

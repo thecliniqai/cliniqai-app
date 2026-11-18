@@ -90,6 +90,8 @@ const API_DB_STATUS: Readonly<Record<AppErrorCode, { code: string; status: numbe
   UNAUTHENTICATED: { code: "UNAUTHORIZED", status: 401 },
   DEPENDENCY_FAILED: { code: "SERVICE_UNAVAILABLE", status: 503 },
   INTERNAL: { code: "DATABASE_ERROR", status: 500 },
+  // V2-05 05-10a (SUB-02): the key's clinic is not `full` (also answered by authenticateApiKey before any handler).
+  SUBSCRIPTION_LOCKED: { code: "SUBSCRIPTION_LOCKED", status: 402 },
 };
 
 /** The fixed `/api/v1` texts for a database error, keyed by reason (checked first) or by code. */

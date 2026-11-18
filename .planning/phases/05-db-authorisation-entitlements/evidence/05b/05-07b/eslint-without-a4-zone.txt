@@ -1,0 +1,7 @@
+
+/Users/sid/Code/clinicOS/features/auth/invite-flows.ts
+  9:1  error  '@/features/auth/system' import is restricted from being used by a pattern. P1-34: a features/<domain>/system module runs on the service role and is importable only from lib/jobs/internal/**, features/<domain>/system.ts, app/api/{jobs,webhooks}/** and the ADR-0005 exception register; features/sharing/system also from the five ADR-0005 A1 share routes, features/auth/system also from the Send Email hook route (proposed A3) and invite acceptance (proposed A4)  @typescript-eslint/no-restricted-imports
+
+✖ 1 problem (1 error, 0 warnings)
+
+exit 1

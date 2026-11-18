@@ -1,6 +1,13 @@
 import React from "react";
-import { DOCUMENT_LINK_KINDS, isPlausibleToken, resolveShareToken } from "@/features/sharing/public-links";
+import {
+  CLINIC_UNAVAILABLE_MESSAGE,
+  DOCUMENT_LINK_KINDS,
+  isPlausibleToken,
+  resolveShareToken,
+  type PrescriptionVerification,
+} from "@/features/sharing/public-links";
 import { signSharedObject } from "@/features/sharing/system";
+import { isYmd, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import {
   FileText,
   Download,
@@ -15,6 +22,69 @@ import {
 
 interface PublicDocumentPageProps {
   params: Promise<{ token: string }>;
+}
+
+/** V2-05 05-10a (SUB-02): the neutral page of a clinic whose access level is not `full`. */
+function ClinicUnavailable() {
+  return (
+    <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
+      <div className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-6 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center mx-auto mb-4">
+          <Building2 className="w-6 h-6" aria-hidden="true" />
+        </div>
+        <h1 className="text-lg font-semibold text-[#111827] mb-2">{CLINIC_UNAVAILABLE_MESSAGE}</h1>
+        <p className="text-sm text-[#4B5563] leading-relaxed">Please contact the clinic directly.</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * V2-05 05-12 (SUB-D6, IND L-4): an expired clinic's prescription link shows the verification metadata only (clinic
+ * name, doctor name and registration number, issue date, valid or not). No patient name, no document, no download.
+ */
+function PrescriptionVerificationCard({ verification: v }: { verification: PrescriptionVerification }) {
+  // The clinic's date (YYYY-MM-DD) shown as-is: noon of that date in UTC lies in the same calendar day everywhere.
+  const issued =
+    v.issuedOn && isYmd(v.issuedOn)
+      ? new Date(zonedDateTimeToUtcIso(v.issuedOn, "12:00", "UTC")).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        })
+      : null;
+  return (
+    <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
+      <main className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-6 shadow-xs space-y-4" data-testid="share-restricted">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-[#1769E0]" aria-hidden="true" />
+          <h1 className="text-lg font-bold text-[#111827]">{v.clinicName ?? "Clinic"}</h1>
+        </div>
+        <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#111827]" data-testid="share-verification-status">
+          <ShieldCheck className={`w-4 h-4 ${v.valid ? "text-[#16A34A]" : "text-[#DC2626]"}`} aria-hidden="true" />
+          {v.valid ? "Valid prescription" : "This prescription is no longer valid"}
+        </p>
+        <dl className="divide-y divide-[#F3F4F6] text-sm">
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-[#4B5563]">Doctor</dt>
+            <dd className="font-medium text-[#111827] text-right">{v.doctorName ?? "Not available"}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-[#4B5563]">Registration number</dt>
+            <dd className="font-medium text-[#111827] text-right break-all">{v.doctorRegistrationNumber ?? "Not available"}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-[#4B5563]">Issued on</dt>
+            <dd className="font-medium text-[#111827] text-right tabular-nums">{issued ?? "Not available"}</dd>
+          </div>
+        </dl>
+        <p className="rounded-lg border border-[#E5E7EB] bg-gray-50 p-4 text-sm text-[#374151]">
+          {CLINIC_UNAVAILABLE_MESSAGE} The document cannot be viewed or downloaded here; please contact the clinic.
+        </p>
+      </main>
+    </div>
+  );
 }
 
 export default async function PublicDocumentViewerPage({ params }: PublicDocumentPageProps) {
@@ -39,6 +109,8 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
   // Token-scoped resolution (P0-04, ADR-0005 D3): bound to the token's tenant and to document kinds only.
   const resolved = await resolveShareToken(token, DOCUMENT_LINK_KINDS);
   const isRevoked = resolved.status === "revoked";
+  if (resolved.status === "clinic_unavailable") return <ClinicUnavailable />;
+  if (resolved.status === "restricted") return <PrescriptionVerificationCard verification={resolved.verification} />;
 
   if (resolved.status !== "ok") {
     const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;

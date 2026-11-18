@@ -1,0 +1,11 @@
+# 05-10c static checks (exit codes from the tools; 05-10c tree before its commit, db at 000091)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+ai-l1: PASS
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2629 lines equal the committed snapshot)
+authz:gen --check exit=0
+migration-immutability: PASS (base 643c589 @ 643c589 [--base]; 90 applied unchanged; 1 new above 90)
+env-example: .env.example matches lib/env.ts
+seed:local after the 000091 reset: [seed:local] access summary: full=1 locked=0 onboarding=0

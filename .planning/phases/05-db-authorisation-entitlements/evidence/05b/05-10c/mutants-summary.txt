@@ -1,0 +1,68 @@
+# 05-10c mutants (database objects of 000091 replaced in the local DB under the test-run lock, restored from the migration text)
+pgtap gate-no-objection exit=1
+  Failed 4/115 subtests
+  Failed 1/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 4)
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  Result: FAIL
+pgtap gate-kill-switch-open-when-missing exit=1
+  Failed 1/115 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 1)
+  Result: FAIL
+pgtap gate-any-clinic exit=1
+  Failed 1/115 subtests
+  Failed 1/71 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 1)
+  /Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql                   (Wstat: 0 Tests: 71 Failed: 1)
+  Result: FAIL
+pgtap gate-no-access-level exit=1
+  Failed 32/115 subtests
+  Failed 1/41 subtests
+  Failed 2/71 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 32)
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  /Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql                   (Wstat: 0 Tests: 71 Failed: 2)
+  Result: FAIL
+pgtap gate-role-unchecked exit=1
+  Failed 3/115 subtests
+  Failed 1/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 3)
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  Result: FAIL
+pgtap gate-expired-reservations-count exit=1
+  Failed 1/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  Result: FAIL
+pgtap gate-month-during-trial exit=1
+  Failed 3/115 subtests
+  Failed 4/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 3)
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 4)
+  Result: FAIL
+pgtap opt-in-any-role exit=1
+  Failed 2/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 2)
+  Result: FAIL
+pgtap commit-any-clinic exit=1
+  Failed 1/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  Result: FAIL
+pgtap objection-trigger-dropped exit=1
+  Failed 48/115 subtests
+  Failed 3/41 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_gating_l2.test.sql                        (Wstat: 0 Tests: 115 Failed: 48)
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 3)
+  Result: FAIL
+pgtap usage-writable-by-authenticated exit=1
+  Failed 1/41 subtests
+  Failed 1/6 subtests
+  /Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql                            (Wstat: 0 Tests: 41 Failed: 1)
+  /Users/sid/Code/clinicOS/supabase/tests/database/authz_completeness.test.sql                  (Wstat: 0 Tests: 6 Failed: 1)
+  Result: FAIL
+vitest reserve-no-row-lock exit=1
+  × ai_reserve under concurrency (05-10c) > at limit − 1, two parallel reservations give exactly one id and one AI_OVER_QUOTA (8 rounds) 355ms
+  Test Files  1 failed (1)
+  Tests  1 failed | 3 passed (4)
+vitest control-row-lock-with-sleep exit=0
+  Test Files  1 passed (1)
+  Tests  4 passed (4)

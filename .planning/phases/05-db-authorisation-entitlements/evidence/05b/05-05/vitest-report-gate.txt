@@ -1,0 +1,3 @@
+vitest-report-gate: files=250 tests=4929 passed=4929 failed=0 skipped/todo=0 floor=4633 required=155
+vitest-report-gate: PASS
+[teardown] removed run data: 215 tenant(s), 427 auth user(s), 1421 storage object(s); verified none remain

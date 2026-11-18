@@ -1,0 +1,19 @@
+{
+  "commit": "33108451566aa3363b2153ebf8f345f3b2ffe515",
+  "stats": {
+    "startTime": "2026-11-14T20:05:08.928Z",
+    "duration": 139014.95500000002,
+    "expected": 220,
+    "skipped": 9,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "retried": 0,
+  "flaky": 0,
+  "tests_by_project": {
+    "setup": 5,
+    "desktop-chrome": 136,
+    "pixel-7": 79,
+    "iphone-15": 9
+  }
+}

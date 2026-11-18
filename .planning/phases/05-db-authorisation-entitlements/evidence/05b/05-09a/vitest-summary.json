@@ -1,0 +1,48 @@
+{
+  "commit": "88ac443",
+  "note": "run on the working tree that was then committed unchanged as 88ac443",
+  "files": 248,
+  "tests": 4881,
+  "passed": 4881,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/api/readiness-probe-db.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/ci/pgtap-report.spec.ts": {
+      "tests": 13,
+      "passed": 13
+    },
+    "tests/authz/generator-drift.spec.ts": {
+      "tests": 4,
+      "passed": 4
+    },
+    "tests/authz/table-matrix.spec.ts": {
+      "tests": 26,
+      "passed": 26
+    },
+    "tests/db/error-map.spec.ts": {
+      "tests": 44,
+      "passed": 44
+    },
+    "tests/integration/multi-tenancy.spec.ts": {
+      "tests": 6,
+      "passed": 6
+    },
+    "tests/integration/subscription.spec.ts": {
+      "tests": 3,
+      "passed": 3
+    },
+    "tests/security/cross-tenant.spec.ts": {
+      "tests": 21,
+      "passed": 21
+    },
+    "tests/setup/teardown.spec.ts": {
+      "tests": 3,
+      "passed": 3
+    }
+  }
+}

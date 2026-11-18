@@ -5,6 +5,7 @@ import {
   ageInYears,
   dayWindowUtc,
   isValidTimeZone,
+  isIanaZoneName,
   isYmd,
   nextNDays,
   rangeWindowUtc,
@@ -158,6 +159,16 @@ describe("lib/datetime: calendar arithmetic", () => {
     expect(resolveTimeZone("Not/AZone")).toBe(IST);
     expect(resolveTimeZone(null)).toBe(IST);
     expect(resolveTimeZone("Asia/Dubai")).toBe("Asia/Dubai");
+  });
+
+  // V2-05 05-12 (H-AITZ): what a clinic may store (the database CHECK tenants_timezone_iana enforces the same rule).
+  it("a clinic zone must be an IANA zone name: offsets, unknown names and blanks are refused", () => {
+    for (const ok of ["Asia/Kolkata", "asia/kolkata", "America/New_York", "UTC", "Etc/GMT+12", "Pacific/Kiritimati"]) {
+      expect(isIanaZoneName(ok), ok).toBe(true);
+    }
+    for (const bad of ["+05:30", "-05:00", "-0500", "+05", "Not/AZone", "", " ", null, 5]) {
+      expect(isIanaZoneName(bad), String(bad)).toBe(false);
+    }
   });
 });
 

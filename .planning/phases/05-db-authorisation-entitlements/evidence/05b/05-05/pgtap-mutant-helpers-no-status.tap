@@ -1,0 +1,547 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql ... 
+# Failed test 7: "public.tenants select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 8: "public.tenants select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 33: "public.tenants update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 59: "public.memberships select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 60: "public.memberships select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 85: "public.memberships update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 111: "public.invitations select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 124: "public.invitations insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 163: "public.patients select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 164: "public.patients select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 176: "public.patients insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 177: "public.patients insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 189: "public.patients update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 190: "public.patients update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 215: "public.visits select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 216: "public.visits select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 228: "public.visits insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 229: "public.visits insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 241: "public.visits update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 242: "public.visits update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 267: "public.clinical_notes select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 268: "public.clinical_notes select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 293: "public.clinical_notes update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 294: "public.clinical_notes update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 319: "public.visit_revisions select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 320: "public.visit_revisions select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 332: "public.visit_revisions insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 333: "public.visit_revisions insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 371: "public.consultations select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 372: "public.consultations select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 384: "public.consultations insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 385: "public.consultations insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 397: "public.consultations update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 398: "public.consultations update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 423: "public.consultation_diagnoses select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 424: "public.consultation_diagnoses select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 436: "public.consultation_diagnoses insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 437: "public.consultation_diagnoses insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 449: "public.consultation_diagnoses update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 450: "public.consultation_diagnoses update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 462: "public.consultation_diagnoses delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 463: "public.consultation_diagnoses delete: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 475: "public.prescriptions select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 476: "public.prescriptions select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 488: "public.prescriptions insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 489: "public.prescriptions insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 501: "public.prescriptions update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 502: "public.prescriptions update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 527: "public.prescription_items select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 528: "public.prescription_items select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 540: "public.prescription_items insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 541: "public.prescription_items insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 553: "public.prescription_items update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 554: "public.prescription_items update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 566: "public.prescription_items delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 567: "public.prescription_items delete: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 579: "public.invoices select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 592: "public.invoices insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 631: "public.invoice_items select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 644: "public.invoice_items insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 657: "public.invoice_items update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 670: "public.invoice_items delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 683: "public.payments select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 735: "public.queue_tokens select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 736: "public.queue_tokens select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 761: "public.queue_tokens update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 762: "public.queue_tokens update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 839: "public.waitlist_entries select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 840: "public.waitlist_entries select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 852: "public.waitlist_entries insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 853: "public.waitlist_entries insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 865: "public.waitlist_entries update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 866: "public.waitlist_entries update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 891: "public.schedule_blocks select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 892: "public.schedule_blocks select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 904: "public.schedule_blocks insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 917: "public.schedule_blocks update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 930: "public.schedule_blocks delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 943: "public.follow_ups select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 944: "public.follow_ups select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 956: "public.follow_ups insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 957: "public.follow_ups insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 969: "public.follow_ups update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 970: "public.follow_ups update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 982: "public.follow_ups delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 983: "public.follow_ups delete: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 995: "public.consent_records select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 996: "public.consent_records select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1008: "public.consent_records insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1009: "public.consent_records insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 1047: "public.patient_documents select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1048: "public.patient_documents select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1060: "public.patient_documents insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1061: "public.patient_documents insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 1073: "public.patient_documents update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1074: "public.patient_documents update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1086: "public.patient_documents delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1087: "public.patient_documents delete: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1099: "public.document_share_tokens select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1100: "public.document_share_tokens select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1151: "public.referrals select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1152: "public.referrals select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1164: "public.referrals insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1165: "public.referrals insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 1177: "public.referrals update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1178: "public.referrals update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1203: "public.doctor_custom_diagnoses select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1204: "public.doctor_custom_diagnoses select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1255: "public.doctor_custom_medicines select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1256: "public.doctor_custom_medicines select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1307: "public.doctor_prescription_templates select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1308: "public.doctor_prescription_templates select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1359: "public.communication_queue select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1360: "public.communication_queue select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1463: "public.tenant_messaging_config select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1464: "public.tenant_messaging_config select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 1476: "public.tenant_messaging_config insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1489: "public.tenant_messaging_config update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1515: "public.audit_logs select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1567: "public.api_keys select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1580: "public.api_keys insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1593: "public.api_keys update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1619: "public.api_key_usage_daily select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1632: "public.api_key_usage_daily insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1645: "public.api_key_usage_daily update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1658: "public.api_key_usage_daily delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1671: "public.webhook_subscriptions select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1684: "public.webhook_subscriptions insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 1697: "public.webhook_subscriptions update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1710: "public.webhook_subscriptions delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 1723: "public.webhook_delivery_queue select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2035: "public.tenant_subscriptions select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2087: "public.subscription_events select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2867: "storage:prescriptions/rx select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2868: "storage:prescriptions/rx select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 2880: "storage:prescriptions/rx insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 2881: "storage:prescriptions/rx insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 2893: "storage:prescriptions/rx update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2894: "storage:prescriptions/rx update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 2919: "storage:prescriptions/receipt select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 2932: "storage:prescriptions/receipt insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 2945: "storage:prescriptions/receipt update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3023: "storage:clinic-records/lab select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3024: "storage:clinic-records/lab select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 3036: "storage:clinic-records/lab insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 3037: "storage:clinic-records/lab insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 3049: "storage:clinic-records/lab update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3050: "storage:clinic-records/lab update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 3062: "storage:clinic-records/lab delete: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3063: "storage:clinic-records/lab delete: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 3075: "storage:clinic-records/referral_letter select: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3076: "storage:clinic-records/referral_letter select: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Failed test 3088: "storage:clinic-records/referral_letter insert: removed member of A (owner role, status removed, valid JWT)"
+#         have: ok
+#         want: denied
+# Failed test 3089: "storage:clinic-records/referral_letter insert: suspended member of A (doctor role, status suspended, header A)"
+#         have: ok
+#         want: denied
+# Failed test 3101: "storage:clinic-records/referral_letter update: removed member of A (owner role, status removed, valid JWT)"
+#         have: 1
+#         want: 0
+# Failed test 3102: "storage:clinic-records/referral_letter update: suspended member of A (doctor role, status suspended, header A)"
+#         have: 1
+#         want: 0
+# Looks like you failed 156 tests of 3224
+Failed 156/3224 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/remove_member.test.sql .. 
+# Failed test 49: "removed member: no active clinic"
+#         have: c5050000-0000-4000-8000-00000000000a
+#         want: none
+# Failed test 50: "removed member naming her clinic in the header: still no active clinic"
+#         have: c5050000-0000-4000-8000-00000000000a
+#         want: none
+# Failed test 51: "removed member: no member clinic (switcher, my_tenant_access)"
+#         have: 1
+#         want: 0
+# Failed test 52: "removed member reads 0 patients"
+#         have: 1
+#         want: 0
+# Failed test 53: "removed member reads 0 visits"
+#         have: 1
+#         want: 0
+# Failed test 54: "removed member does not even see her own membership row"
+#         have: 11
+#         want: 0
+# Failed test 55: "removed member resolves no clinic (tenants)"
+#         have: 1
+#         want: 0
+# Failed test 56: "removed member cannot write a patient"
+#                   '1'
+#    doesn't match: 'denied:%'
+# Failed test 57: "removed member cannot write an audit row (log_audit)"
+#         have: 36
+#         want: denied:ACTOR_INVALID
+# Failed test 58: "removed member cannot check a patient in (issue_queue_token)"
+#         have: 1
+#         want: denied:forbidden
+# Failed test 59: "removed member: has_permission is false"
+#         have: true
+#         want: false
+# Failed test 60: "removed member: my_tenant_access answers nothing for the clinic"
+#         have: full
+#         want: none
+# Failed test 61: "suspended member (header A): no active clinic, 0 patients"
+#         have: c5050000-0000-4000-8000-00000000000a/1
+#         want: none/0
+# Failed test 62: "suspended member: has_permission is false"
+#         have: true
+#         want: false
+# Failed test 63: "removed in A, active in B: the header naming A falls back to B (the sole active clinic) and A reads nothing"
+#         have: c5050000-0000-4000-8000-00000000000a/1
+#         want: c5050000-0000-4000-8000-00000000000b/0
+# Looks like you failed 15 tests of 81
+Failed 15/81 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql (Wstat: 0 Tests: 3224 Failed: 156)
+  Failed tests:  7-8, 33, 59-60, 85, 111, 124, 163-164, 176-177
+                189-190, 215-216, 228-229, 241-242, 267-268
+                293-294, 319-320, 332-333, 371-372, 384-385
+                397-398, 423-424, 436-437, 449-450, 462-463
+                475-476, 488-489, 501-502, 527-528, 540-541
+                553-554, 566-567, 579, 592, 631, 644, 657
+                670, 683, 735-736, 761-762, 839-840, 852-853
+                865-866, 891-892, 904, 917, 930, 943-944
+                956-957, 969-970, 982-983, 995-996, 1008-1009
+                1047-1048, 1060-1061, 1073-1074, 1086-1087
+                1099-1100, 1151-1152, 1164-1165, 1177-1178
+                1203-1204, 1255-1256, 1307-1308, 1359-1360
+                1463-1464, 1476, 1489, 1515, 1567, 1580
+                1593, 1619, 1632, 1645, 1658, 1671, 1684
+                1697, 1710, 1723, 2035, 2087, 2867-2868
+                2880-2881, 2893-2894, 2919, 2932, 2945
+                3023-3024, 3036-3037, 3049-3050, 3062-3063
+                3075-3076, 3088-3089, 3101-3102
+/Users/sid/Code/clinicOS/supabase/tests/database/remove_member.test.sql (Wstat: 0 Tests: 81 Failed: 15)
+  Failed tests:  49-63
+Files=2, Tests=3305,  1 wallclock secs ( 0.07 usr  0.02 sys +  0.02 cusr  0.04 csys =  0.15 CPU)
+Result: FAIL
+error running container: exit 1

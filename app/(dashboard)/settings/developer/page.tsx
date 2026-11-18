@@ -3,7 +3,7 @@ import { listApiKeys } from "@/features/api-keys/actions";
 import { listWebhookSubscriptions } from "@/features/webhooks/actions";
 import { DeveloperSettingsView } from "@/components/settings/developer/developer-settings-view";
 import { Card, CardContent } from "@/components/ui/card";
-import { withPageAuth } from "@/lib/auth/page";
+import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
   title: "Developer Settings | ClinicQ",
@@ -13,7 +13,9 @@ export const metadata = {
 async function DeveloperSettingsPage() {
   try {
     await requirePermission("clinic:manage");
-  } catch {
+  } catch (err) {
+    // 05-10b: a clinic that is not `full` goes to its locked/onboarding page, not "Access Denied".
+    await redirectIfTenantLocked(err);
     return (
       <Card className="max-w-2xl border-rose-200 bg-rose-50/50">
         <CardContent className="p-6">

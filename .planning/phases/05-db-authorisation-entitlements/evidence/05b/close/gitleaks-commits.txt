@@ -1,0 +1,74 @@
+gitleaks 8.30.1 (docker ghcr.io/gitleaks/gitleaks:v8.30.1, repo config .gitleaks.toml, --redact)
+== git range 3b869a9..8c1f201 (43bce16, 8c1f201)
+[90m3:35AM[0m [32mINF[0m [1m2 commits scanned.[0m
+[90m3:35AM[0m [32mINF[0m [1mscanned ~44069 bytes (44.07 KB) in 338ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/close (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~7359329 bytes (7.36 MB) in 4.69s[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/05b-SUMMARY.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~17967 bytes (17.97 KB) in 17.1ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/05b-VERIFICATION.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~15984 bytes (15.98 KB) in 9.67ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/05-WAVE-NOTES.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~90494 bytes (90.49 KB) in 83.9ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/summary.json (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~42989 bytes (42.99 KB) in 26.8ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/static-checks.json (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~2592 bytes (2.59 KB) in 2.69ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/diagnostics (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~3171 bytes (3.17 KB) in 5.09ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: docs/adr/0005-confine-service-role-client.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~17828 bytes (17.83 KB) in 9.73ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: docs/v2/SUBSCRIPTIONS_AND_PLANS.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~152859 bytes (152.86 KB) in 78.1ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: docs/v2/VERIFICATION_LOG.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~134908 bytes (134.91 KB) in 103ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/PO-ACTIONS.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~60971 bytes (60.97 KB) in 67ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/full-run-1.json (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~2055924 bytes (2.06 MB) in 979ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/full-run-2.json (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~2055988 bytes (2.06 MB) in 930ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/pgtap-run-1.tap (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~601706 bytes (601.71 KB) in 370ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/pgtap-run-2.tap (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~601706 bytes (601.71 KB) in 304ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/evidence/05b/commit.txt (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~41 bytes (41 bytes) in 2.67ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0
+== dir: .planning/phases/05-db-authorisation-entitlements/reviews/v205b-review-reverify.md (docs commit, before committing)
+[90m3:35AM[0m [32mINF[0m [1mscanned ~13579 bytes (13.58 KB) in 28ms[0m
+[90m3:35AM[0m [32mINF[0m [1mno leaks found[0m
+exit 0

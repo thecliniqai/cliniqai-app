@@ -16,7 +16,7 @@
 --   D5x  every doctor reference that 000049 binds to memberships(user_id, tenant_id)
 -- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last). Fix plan 05-11a adds D6d, D9t
 -- and D5s (the legacy rows 000069 clamps, renumbers or refuses); fix plan 05-11d adds D7i, D1p, D11n and D11r;
--- 05-11e adds D1f.
+-- 05-11e adds D1f; fix plan 05-12 adds D12z and D12c.
 -- `prescription_items` has no tenant_id before 000048: its D1x row reads the column through to_jsonb, so it is 0
 -- (not an error) on a database that predates the column.
 
@@ -224,6 +224,29 @@ select count(*) from public.visit_revisions where revision_number > 10000;
 select count(*) from public.follow_ups f
 join public.visits v on v.tenant_id = f.tenant_id and v.id = f.visit_id
 where v.patient_id is distinct from f.patient_id;
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- Additions for fix plan 05-12 (000092 / 000093).
+-- ---------------------------------------------------------------------------------------------------------------
+
+\echo '@@ D12z count'
+-- D12z. Clinics whose time zone is not an IANA zone name (000093 stops on any; the zone is confirmed with the clinic
+-- and the row corrected first). Same test as private.is_iana_timezone, written inline so it also runs before 000092.
+select count(*) from public.tenants t
+where t.timezone is null
+   or (t.timezone <> 'Asia/Kolkata'
+       and not exists (select 1 from pg_catalog.pg_timezone_names z where lower(z.name) = lower(t.timezone)));
+
+\echo '@@ D12c pairs'
+-- D12c. Delivery rows left open by a cancelled job (000092's migrate step closes them; 0 after it).
+select 'communication_queue' t, count(*) from public.communication_queue q
+  join ops.jobs j on j.dedupe_key = 'msg:' || q.id::text
+ where j.status = 'cancelled' and q.status in ('pending', 'processing', 'failed')
+union all
+select 'webhook_delivery_queue', count(*) from public.webhook_delivery_queue w
+  join ops.jobs j on j.dedupe_key = 'wh:' || w.id::text
+ where j.status = 'cancelled'
+   and (w.status in ('pending', 'processing') or (w.status = 'failed' and w.last_error = 'outcome_unknown'));
 
 \echo '@@ FKNV count'
 -- Composite-FK state: foreign keys in the app schemas still NOT VALID (0 after 000050).

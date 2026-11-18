@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clampSignedUrlTtl } from "./types";
 import type { Database } from "@/lib/db/types";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { isWellFormedStorageKey } from "./tenant-path";
@@ -110,7 +111,8 @@ export async function getSignedUrl(
 ): Promise<{ signedUrl: string }> {
   validateStoragePath(options.path);
   const activeProvider = provider || getStorageProvider();
-  return activeProvider.createSignedUrl(options);
+  // R-29 (05-10a): every signed URL is short-lived, whatever the caller asked for (view 300 s, export 900 s).
+  return activeProvider.createSignedUrl({ ...options, expiresInSeconds: clampSignedUrlTtl(options.expiresInSeconds, options.purpose) });
 }
 
 /**

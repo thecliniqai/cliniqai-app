@@ -112,6 +112,31 @@ describe("the expected outcomes", () => {
     expect(visible).toEqual(["public.tenants select"]);
   });
 
+  // V2-05 05-05 (AUTH-05, acceptance 4): a removed or suspended member keeps a valid JWT but no active membership.
+  it("gives a removed or suspended member no active clinic, even with the header naming it", () => {
+    expect(activeTenant(principal("removed_a"))).toBeNull();
+    expect(activeTenant({ ...principal("removed_a"), header: "A" })).toBeNull();
+    expect(activeTenant(principal("suspended_a"))).toBeNull();
+    // Only the status differs from the live owner/doctor principals: the same principal with an active row is bound to A.
+    expect(activeTenant({ ...principal("removed_a"), statuses: {} })).toBe("A");
+    expect(activeTenant({ ...principal("suspended_a"), statuses: {} })).toBe("A");
+  });
+
+  it("denies a removed or suspended member every tenant cell of every table and storage class (only global data)", () => {
+    for (const id of ["removed_a", "suspended_a"]) {
+      const admittedCells = all
+        .filter((c) => c.principal.id === id && admitted(c.expected))
+        .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
+        .map((c) => `${targetName(c.target)} ${c.op}`);
+      expect(admittedCells, id).toEqual([]);
+    }
+    // The same principals with an active membership are admitted widely (the status is what denies them).
+    const live = (id: string) =>
+      TARGETS.flatMap((t) => OPS.map((op) => expectedOutcome(t, op, { ...principal(id), statuses: {} }))).filter(admitted).length;
+    expect(live("removed_a")).toBeGreaterThan(100);
+    expect(live("suspended_a")).toBeGreaterThan(50);
+  });
+
   it("uses no `none` rule on a table (05-02c grants hardening: an operation no policy admits holds no privilege)", () => {
     const withNone = TARGETS.filter((t) => t.kind === "table")
       .flatMap((t) => OPS.filter((op) => kinds(t.rules[op]).includes("none")).map((op) => `${targetName(t)} ${op}`));
@@ -159,8 +184,19 @@ const FINAL_DELETE: Record<string, string> = {
   "public.api_key_usage_daily": "perm(clinic:manage)",
   "public.webhook_subscriptions": "perm(clinic:manage)",
   "public.webhook_delivery_queue": "rpc_only",
-  "public.subscriptions": "rpc_only",
-  "public.payment_records": "rpc_only",
+  "public.plans": "rpc_only",
+  "public.plan_prices": "rpc_only",
+  "public.entitlement_keys": "rpc_only",
+  "public.plan_entitlements": "rpc_only",
+  "public.tenant_entitlement_overrides": "rpc_only",
+  "public.tenant_subscriptions": "rpc_only",
+  "public.subscription_events": "rpc_only",
+  "public.platform_settings": "rpc_only",
+  "public.platform_admins": "rpc_only",
+  "public.platform_audit_log": "rpc_only",
+  "public.tenant_ai_settings": "rpc_only",
+  "public.ai_usage_monthly": "rpc_only",
+  "public.ai_quota_reservations": "rpc_only",
   "public.cdci_brands": "rpc_only",
   "public.cdci_drug_forms": "rpc_only",
   "public.cdci_generics": "rpc_only",
@@ -327,7 +363,8 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
     "full AND (self(user_id) OR perm(clinic:manage))",
     "rpc_only",
   ],
-  "public.invitations": ["perm(staff:invite)", "self(created_by) AND perm(staff:invite)", "rpc_only", "rpc_only"],
+  // 05-07a (000088): invitations are created only by invite_staff.
+  "public.invitations": ["perm(staff:invite)", "rpc_only", "rpc_only", "rpc_only"],
   "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
   "public.document_share_tokens": ["perm(labs:view)", "rpc_only", "rpc_only", "rpc_only"],
   "public.in_app_notifications": [
@@ -342,8 +379,6 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.subscriptions": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.payment_records": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
   "storage:prescriptions/rx": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)", "none"],
   "storage:prescriptions/receipt": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
@@ -403,3 +438,158 @@ describe("the admin/system tables and the storage classes (target since 05-02c)"
     expect(outcome("public.tenants", "select", "dual_no_hdr")).toBe("1");
   });
 });
+
+/**
+ * SUB-01 (05-09a, migrations 000081-000084; 05-PLAN "Target policy matrix" rows for the subscription tables, R-10,
+ * R-26, R-40; AI_STRATEGY.md §4.6 write protection): the catalogue is readable by signed-in users and written by no API
+ * role; the clinic's subscription and its events are readable by the owner and admin of the active clinic only;
+ * overrides and platform settings have no tenant access.
+ */
+const TARGET_05_09A: Record<string, [string, string, string, string]> = {
+  "public.plans": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.plan_prices": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.entitlement_keys": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.plan_entitlements": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.tenant_entitlement_overrides": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.tenant_subscriptions": ["billing", "rpc_only", "rpc_only", "rpc_only"],
+  "public.subscription_events": ["billing", "rpc_only", "rpc_only", "rpc_only"],
+  "public.platform_settings": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  // 05-09b (000085): the platform admin list and its audit trail; written only in SQL / by the platform.* RPCs.
+  "public.platform_admins": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.platform_audit_log": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+};
+
+describe("the subscription tables (SUB-01, since 05-09a)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each its planned rule for every operation", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_05_09A).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, OPS.map((op) => ruleText(t.rules[op]))];
+      }),
+    );
+    expect(actual).toEqual(TARGET_05_09A);
+  });
+
+  it("lets only the owner and admin of the active clinic read its subscription and events, at every access level", () => {
+    // 05-10a (Pitfall 7): a locked or onboarding owner/admin still reads the subscription (authz.billing_tenant_ids).
+    for (const target of ["public.tenant_subscriptions", "public.subscription_events"]) {
+      const readers = PRINCIPALS.filter((p) => outcome(target, "select", p.id) === "1").map((p) => p.id);
+      expect(readers, target).toEqual(["owner_a", "admin_a", "owner_a_locked", "admin_a_locked", "owner_a_onboarding", "admin_a_onboarding"]);
+    }
+  });
+
+  it("05-10a: with clinic A locked or onboarding, no role of A reads or writes any tenant target (only member/billing rules admit)", () => {
+    const levelPrincipals = PRINCIPALS.filter((p) => p.access?.A);
+    expect(levelPrincipals.map((p) => p.id)).toEqual([
+      "owner_a_locked", "admin_a_locked", "doctor_a_locked", "nurse_a_locked", "receptionist_a_locked",
+      "owner_a_onboarding", "admin_a_onboarding", "doctor_a_onboarding", "nurse_a_onboarding", "receptionist_a_onboarding",
+      "dual_hdr_a_locked",
+    ]);
+    const admitted = new Set<string>();
+    for (const t of TARGETS) {
+      for (const op of OPS) {
+        // Global reference data (catalogue rule: every signed-in user) is not tenant data.
+        if (t.rules[op].kind === "catalogue") continue;
+        for (const p of levelPrincipals) {
+          const o = outcome(targetName(t), op, p.id);
+          if (o === "1" || o === "ok") admitted.add(`${targetName(t)}:${op}`);
+        }
+      }
+    }
+    // memberships: the fixture row is another member's, which only staff:view (full) reveals; the caller's OWN row stays
+    // visible at every level (member helper), proven over the live catalogue by access_lock_rls.test.sql.
+    expect([...admitted].sort()).toEqual([
+      "public.subscription_events:select",
+      "public.tenant_subscriptions:select",
+      "public.tenants:select",
+    ]);
+  });
+
+  it("lets every signed-in user, and no anon caller, read the visible catalogue; nobody writes it", () => {
+    for (const target of ["public.plans", "public.plan_prices", "public.entitlement_keys", "public.plan_entitlements"]) {
+      expect(outcome(target, "select", "owner_b"), target).toBe("1");
+      expect(outcome(target, "select", "receptionist_a"), target).toBe("1");
+      expect(outcome(target, "select", "anon"), target).toBe("denied");
+      for (const op of ["insert", "update", "delete"] as const) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("gives no principal any access to overrides, platform settings, platform admins or the platform audit trail", () => {
+    for (const target of [
+      "public.tenant_entitlement_overrides",
+      "public.platform_settings",
+      "public.platform_admins",
+      "public.platform_audit_log",
+    ]) {
+      for (const op of OPS) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("seeds the fixture clinics' subscriptions as trialing (05-10a evaluates the access level against them)", () => {
+    const t = byName.get("public.tenant_subscriptions");
+    if (!t || t.kind !== "table") throw new Error("public.tenant_subscriptions missing");
+    expect(t.inBase).toBe(true);
+    expect(t.fixtureSql).toMatch(/set status = 'trialing'/);
+    expect(cellSql(t, "select").sql).toContain("public.tenant_subscriptions");
+  });
+});
+
+/**
+ * AI-03 database part (05-10c, migration 000091; AI_STRATEGY.md §4.6 "write protection of gating tables", R-33): the
+ * owner's opt-in is readable by every role of the active, full clinic (clinic:view) and written by no API role (only
+ * the owner-only RPC); usage and reservations have no tenant access at all (only the definer RPCs write them).
+ */
+const TARGET_05_10C: Record<string, [string, string, string, string]> = {
+  "public.tenant_ai_settings": ["perm(clinic:view)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.ai_usage_monthly": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.ai_quota_reservations": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+};
+
+describe("the AI gating tables (AI-03, since 05-10c)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each its planned rule for every operation", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_05_10C).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, OPS.map((op) => ruleText(t.rules[op]))];
+      }),
+    );
+    expect(actual).toEqual(TARGET_05_10C);
+  });
+
+  it("lets no principal (anon or any role, at any access level) insert, update or delete any of them", () => {
+    for (const target of Object.keys(TARGET_05_10C)) {
+      for (const op of ["insert", "update", "delete"] as const) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("lets no principal read usage or reservations, and only members acting in a full clinic A read A's opt-in (a dual member without a header reads nothing, R-42)", () => {
+    for (const target of ["public.ai_usage_monthly", "public.ai_quota_reservations"]) {
+      for (const p of PRINCIPALS) expect(outcome(target, "select", p.id), `${target} ${p.id}`).toBe("denied");
+    }
+    const readers = PRINCIPALS.filter((p) => outcome("public.tenant_ai_settings", "select", p.id) === "1").map((p) => p.id);
+    expect(readers).toEqual(["owner_a", "admin_a", "doctor_a", "doctor2_a", "nurse_a", "receptionist_a", "dual_hdr_a"]);
+  });
+});
+

@@ -1,0 +1,39 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/ai/ai-commit-expiry-race.spec.ts (2 tests | 1 failed) 4689ms
+   × ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500 3111ms
+     → expected null to match object { code: 'P0001', …(1) }
+   ✓ ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > control: a commit that waits on the lock and gets it while the reservation is still live lands exactly one unit  1173ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ai/ai-commit-expiry-race.spec.ts > ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500
+AssertionError: expected null to match object { code: 'P0001', …(1) }
+
+[32m- Expected:[39m 
+{
+  "code": "P0001",
+  "message": "AI_RESERVATION_EXPIRED",
+}
+
+[31m+ Received:[39m 
+null
+
+ ❯ tests/ai/ai-commit-expiry-race.spec.ts:132:26
+    130|     await holder;
+    131|     const result = await commit;
+    132|     expect(result.error).toMatchObject({ code: "P0001", message: "AI_R…
+       |                          ^
+    133|     expect(mapDbError(result.error!)).toMatchObject({ code: "CONFLICT"…
+    134|     expect(units()).toBe(String(TRIAL_LIMIT - 1));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  08:41:50
+   Duration  5.09s (transform 55ms, setup 9ms, collect 42ms, tests 4.69s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

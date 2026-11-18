@@ -1,0 +1,8 @@
+$ (gate_close_05b.test.sql moved out of supabase/tests/database) npm run test:pgtap -- <report>; node scripts/ci/assert-pgtap-report.mjs <report>
+All tests successful.
+Files=46, Tests=7880,  4 wallclock secs ( 0.20 usr  0.05 sys +  0.20 cusr  0.15 csys =  0.60 CPU)
+Result: PASS
+pgtap-report-gate: files=46 tests=7880 passed=7880 failed=0 skipped/todo=0 floor=7892 required=47
+FAIL total 7880 is below the floor 7892 (suite shrank?)
+FAIL required pgTAP file missing: supabase/tests/database/gate_close_05b.test.sql
+gate exit 1

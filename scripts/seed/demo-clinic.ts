@@ -12,6 +12,10 @@
  *
  * Idempotent: users are matched by their fixed emails, the clinic by name + its owner's membership, memberships and
  * patients by natural keys. Every run sets the given password on all five users.
+ *
+ * Subscription (V2-05 05-09c, R-25): the demo clinic is `active` on the Standard price with a one-year comp
+ * (`comp_until`), refreshed by every run, so it keeps full access and the Standard keys once access is enforced
+ * (05-10a). `accessSummary` counts clinics by access level for the seeds' one-line report (counts only).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 // Relative import: tsx runs the seeds without the `@/` alias. The messaging guard's own constant, so the seed cannot
@@ -126,6 +130,8 @@ export async function seedDemoClinic(
   );
   if (memError) throw new Error(`upserting memberships failed: ${memError.message}`);
 
+  await compDemoClinic(admin, clinicId);
+
   const { data: existingPatients, error: pErr } = await admin
     .from("patients")
     .select("phone")
@@ -142,6 +148,105 @@ export async function seedDemoClinic(
   }
 
   return { clinicId, staff, patientsCreated: missing.length };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Subscription (V2-05 05-09c; SUB-01 `comp_until` for dev and staging; ruling R-25; research Pitfall 8)
+// ---------------------------------------------------------------------------------------------------------------------
+
+const DAY_MS = 86_400_000;
+
+/** The Standard plan's price active now, by plan code (never a fixed id). */
+async function standardPriceId(admin: SupabaseClient): Promise<string> {
+  const { data: plan, error } = await admin.from("plans").select("id").eq("code", "standard").single();
+  if (error || !plan) throw new Error(`finding the Standard plan failed: ${error?.message ?? "no row"}`);
+  const now = new Date().toISOString();
+  const { data: price, error: priceError } = await admin
+    .from("plan_prices")
+    .select("id")
+    .eq("plan_id", plan.id)
+    .lte("active_from", now)
+    .or(`active_until.is.null,active_until.gt.${now}`)
+    .order("active_from", { ascending: false })
+    .limit(1)
+    .single();
+  if (priceError || !price) throw new Error(`finding the Standard price failed: ${priceError?.message ?? "no row"}`);
+  return price.id as string;
+}
+
+/**
+ * The demo clinic is a comped, `active` Standard clinic: full access for a year from each seed run, whatever happens
+ * to billing, with the Standard keys (a comp without a price has none, Pitfall 8). The row exists from the clinic's
+ * creation (`tenants_create_subscription`, `incomplete`); the seed shapes it with the service role.
+ */
+async function compDemoClinic(admin: SupabaseClient, clinicId: string): Promise<void> {
+  const price = await standardPriceId(admin);
+  const now = Date.now();
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const { data, error } = await admin
+    .from("tenant_subscriptions")
+    .update({
+      status: "active",
+      plan_price_id: price,
+      current_period_start: iso(now),
+      current_period_end: iso(now + 30 * DAY_MS),
+      access_ends_at: iso(now + 31 * DAY_MS),
+      cancel_at_period_end: false,
+      canceled_at: null,
+      cancel_source: null,
+      past_due_since: null,
+      grace_until: null,
+      halted_at: null,
+      expired_at: null,
+      comp_until: iso(now + 365 * DAY_MS),
+      updated_at: iso(now),
+    })
+    .eq("tenant_id", clinicId)
+    .select("tenant_id");
+  if (error) throw new Error(`setting the demo clinic's subscription failed: ${error.message}`);
+  if (!data || data.length !== 1) throw new Error("setting the demo clinic's subscription failed: no subscription row");
+}
+
+export interface AccessSummary {
+  full: number;
+  locked: number;
+  onboarding: number;
+  /** `none` (purged) or no subscription row at all (never expected: every clinic gets one at creation). */
+  other: number;
+}
+
+/**
+ * Counts clinics by access level at the current time (`public.tenant_access_for_system`, service role only; R-28).
+ * Counts only: no clinic name or id is returned or printed.
+ */
+export async function accessSummary(admin: SupabaseClient): Promise<AccessSummary> {
+  const ids: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await admin.from("tenants").select("id").order("id").range(from, from + 999);
+    if (error) throw new Error(`listing clinics failed: ${error.message}`);
+    ids.push(...(data ?? []).map((t) => t.id as string));
+    if (!data || data.length < 1000) break;
+  }
+  const summary: AccessSummary = { full: 0, locked: 0, onboarding: 0, other: 0 };
+  for (let i = 0; i < ids.length; i += 20) {
+    const levels = await Promise.all(
+      ids.slice(i, i + 20).map(async (id) => {
+        const { data, error } = await admin.rpc("tenant_access_for_system", { p_tenant: id });
+        if (error) throw new Error(`reading a clinic's access level failed: ${error.message}`);
+        return data as string | null;
+      }),
+    );
+    for (const level of levels) {
+      if (level === "full" || level === "locked" || level === "onboarding") summary[level] += 1;
+      else summary.other += 1;
+    }
+  }
+  return summary;
+}
+
+/** The one line both seeds print (counts only). */
+export function formatAccessSummary(s: AccessSummary): string {
+  return `access summary: full=${s.full} locked=${s.locked} onboarding=${s.onboarding}${s.other ? ` other=${s.other}` : ""}`;
 }
 
 /** Deletes the demo clinic (every tenant table cascades from tenants) and its five users; nothing else. */
