@@ -5,7 +5,7 @@
  *
  * Factored from tests/setup/teardown.spec.ts (V2-03 03-07). Synthetic SQL only; never interpolate row data.
  */
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -53,4 +53,32 @@ export function psqlSession(statements: string[]): string[] {
   for (const s of statements) args.push("-c", s);
   const out = execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   return out.trim().split("\n").filter(Boolean);
+}
+
+export interface PsqlFileOptions {
+  /** Container to run in (default: the primary stack's `localDbContainer()`). */
+  container?: string;
+  /** Statements run first in the same session, each its own `-c` (e.g. `begin` and a fault to install). */
+  before?: string[];
+}
+
+export interface PsqlFileResult {
+  status: number;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Runs a SQL file (e.g. supabase/tests/restore_drill_checks.sql, V2-04 04-05a) as the local superuser with psql
+ * variables (`-v name=value`), feeding the file on stdin so it need not exist inside the container. Statements in
+ * `before` run first in the same session: wrap with `begin` there and the file's own `rollback` (or the session's end
+ * on an error) undoes them. Never throws on a SQL failure: returns psql's exit status and output (ON_ERROR_STOP on).
+ */
+export function psqlFile(file: string, vars: Record<string, string | number> = {}, options: PsqlFileOptions = {}): PsqlFileResult {
+  const args = ["exec", "-i", options.container ?? localDbContainer(), "psql", "-U", "postgres", "-X", "-qAt", "-v", "ON_ERROR_STOP=1"];
+  for (const [name, value] of Object.entries(vars)) args.push("-v", `${name}=${value}`);
+  for (const s of options.before ?? []) args.push("-c", s);
+  args.push("-f", "-");
+  const r = spawnSync("docker", args, { input: fs.readFileSync(file), encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }

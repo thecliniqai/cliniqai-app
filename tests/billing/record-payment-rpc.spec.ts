@@ -128,7 +128,7 @@ async function auditByInvoice(invoiceId: string) {
 async function outboxOf(paymentId: string) {
   const { data, error } = await admin
     .from("webhook_delivery_queue")
-    .select("tenant_id, subscription_id, event_type, payload, status")
+    .select("id, tenant_id, subscription_id, event_type, payload, status, event_key")
     .eq("event_type", "payment.recorded")
     .like("payload", `%${paymentId}%`);
   if (error) throw new Error(error.message);
@@ -188,6 +188,16 @@ describe("record_payment: one transaction under the caller's RLS", () => {
     expect(Object.keys(envelope.data).sort()).toEqual(
       ["amount", "invoice_id", "invoice_status", "paid_total", "payment_id", "payment_method", "recorded_at"].sort()
     );
+
+    // V2-04 04-03b (03-07 handover): the writer sets the event key, and the row's trigger gives it a webhook.deliver job
+    // (record_payment itself is unchanged).
+    expect(outbox[0].event_key).toBe(`payment.recorded:${paymentId}`);
+    expect(
+      psql(
+        `select status || '|' || dedupe_key || '|' || tenant_id from ops.jobs where kind = 'webhook.deliver' ` +
+          `and payload ->> 'delivery_id' = '${outbox[0].id}'`
+      )
+    ).toEqual([`pending|wh:${outbox[0].id}|${tenantA.tenantId}`]);
   });
 
   it("a partial payment keeps the invoice issued; the remainder settles it", async () => {

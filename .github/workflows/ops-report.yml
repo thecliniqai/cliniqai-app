@@ -1,0 +1,73 @@
+# Staging ops report (V2-04 plan 04-06; ruling R-28; threats T-04-15, T-04-17). Runbook: docs/runbooks/jobs.md §13.
+# Read-only: the job runs in the GitHub Environment `staging-readonly` (no reviewer, deployment branch feature/v2,
+# read-only credentials only) with the `clinicos_drift_ro` database URL. The role holds the 04-P10 grant on
+# `ops.report_all(integer)` (counts, timestamps, kinds, rule names and codes only) and nothing that can write.
+#
+#   1. target guard: STAGING_DB_URL_RO must be the staging project; the password is masked in every later line;
+#   2. scripts/ops/ops-report.mjs: refuses any user but clinicos_drift_ro, then psql 17 from the digest-pinned image
+#      (ops/bin/pins.env) runs, in one read-only transaction, a guard that refuses a role able to write anything and
+#      then `select ops.report_all(48)`; the connection reaches the container by variable name only;
+#   3. scripts/ops/check-ops-report.ts: schema and PII check; the acceptance requirements (lag, heartbeat, quota,
+#      alert drill, backups) are data in the summary. The job fails only on a refusal, a schema or a PII violation.
+#   4. artifact `ops-report` (the report and the summary). Claude reads it with `gh run download <id> -n ops-report`.
+#
+# Same rules as drift.yml (scripts/ci/workflow-policy.mjs): no PR triggers, Environment on the job, secrets only in the
+# step that needs them, `npm ci --ignore-scripts` without a cache restore, read-only token, SHA-pinned actions. The
+# policy also requires (04-06) that every job here runs in `staging-readonly`, that a `staging-readonly` job reads only
+# `*_RO` secrets, and that every staging job is limited to feature/v2. Schedules run only from the default branch, so
+# the daily run fires once the default branch is feature/v2 (RL-3).
+name: Staging ops report
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 10:30 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-ops-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: report
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-readonly
+    steps:
+      # 04-07c (L-3): GitHub's `==` ignores case, bash `=` does not; first, before any secret (staging-exact-ref-step).
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref: staging jobs run from feature/v2 only" >&2; exit 1; }'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Target guard (the staging project only; masks the database password)
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL_RO --mask
+      # Exit 0 = report written, 2 = refused (not the read-only role, or a role that can write) or unreadable (no 04-P10
+      # grant). Prints the file name and size only.
+      - name: Ops report (read-only role, read-only transaction, counts only)
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/ops/ops-report.mjs --out ops-report/ops-report.json --hours 48
+      # No secret in this step. Exit 1 only on a schema or PII violation (no --require: acceptance results are data).
+      - name: Check the report (schema, PII; requirements as data)
+        run: npx tsx scripts/ops/check-ops-report.ts ops-report/ops-report.json --out ops-report/check.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: ops-report
+          path: ops-report/
+          if-no-files-found: warn
+          retention-days: 30

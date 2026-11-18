@@ -37,6 +37,17 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   INVOICE_NOT_PAYABLE: "CONFLICT",
   OVERPAYMENT: "CONFLICT",
   OUTBOX_SUBJECT_INVALID: "INTERNAL",
+  // V2-04 04-03a (migration 000035): the message enqueue RPCs. A subject outside the caller's active clinic is raised
+  // as P0002 (not found); a patient that is not the visit's patient as P0001, mapped to the same code.
+  SUBJECT_MISMATCH: "NOT_FOUND",
+  TEMPLATE_NOT_ALLOWED: "VALIDATION_FAILED",
+  RECIPIENT_NOT_ALLOWED: "VALIDATION_FAILED",
+  // V2-04 04-03b (migration 000036): the webhook enqueue RPCs. An event outside the closed set (or a subject not in the
+  // event's state) and the test-ping limit (5 per clinic per 60 s).
+  EVENT_NOT_ALLOWED: "VALIDATION_FAILED",
+  RATE_LIMITED: "RATE_LIMITED",
+  // V2-04 04-03c (migration 000037): ops.replay_job refuses a job that is missing, not dead, or an erased unmatched reply.
+  JOB_NOT_REPLAYABLE: "CONFLICT",
 };
 
 /** Fixed texts keyed by reason (checked first) or by code. */

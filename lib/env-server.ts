@@ -1,5 +1,6 @@
 import "server-only";
-import { ENV_SOURCE_NAMES, parseEnv, type Env, type EnvSource } from "./env";
+import { createHash } from "node:crypto";
+import { ENV_SOURCE_NAMES, EnvConfigError, isDeployTier, parseEnv, type Env, type EnvSource } from "./env";
 
 /**
  * Typed server-side environment (V2-03 03-01, P1-15). Server code reads configuration only through `serverEnv()`;
@@ -11,6 +12,54 @@ import { ENV_SOURCE_NAMES, parseEnv, type Env, type EnvSource } from "./env";
  */
 let cached: { fingerprint: string; env: Env } | null = null;
 
+/**
+ * V2-04 04-00 (review A L-3, R-47): SHA-256 (hex) of the two fixed opaque keys the pinned Supabase CLI (2.120.0, see
+ * `package.json`) prints for every local stack (`npx supabase status -o env`, its publishable and its secret key). They
+ * pass the prefix rules (they carry the hosted prefixes), so the deploy tiers refuse them by digest; no key literal
+ * enters the source. Computed by piping the status output straight into `shasum -a 256` (never printed). A CLI upgrade
+ * that changes the defaults updates these in the same commit: `tests/config/env-boot.spec.ts` reads the live local
+ * keys and fails otherwise. Server only (`node:crypto`): `lib/env.ts` is also bundled for the browser.
+ */
+export const LOCAL_STACK_OPAQUE_DIGESTS: readonly string[] = [
+  "9705102db0d5f99ee08daa19a73e510d9877a2a9add9369da247cbbe6c2a0140",
+  "c85debb55f2f204d868cc1552c42faa143b4c675f61363ab040dd50b5b5304cd",
+];
+
+const LOCAL_KEY_CHECKED_NAMES = ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY"] as const;
+
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/** `KEY: rule` issues for a local-stack opaque key in a deploy tier (no value is ever included). */
+export function localStackKeyIssues(env: Pick<Env, "APP_ENV" | (typeof LOCAL_KEY_CHECKED_NAMES)[number]>): string[] {
+  if (!isDeployTier(env.APP_ENV)) return [];
+  const issues: string[] = [];
+  for (const name of LOCAL_KEY_CHECKED_NAMES) {
+    const value = env[name];
+    if (value && LOCAL_STACK_OPAQUE_DIGESTS.includes(sha256Hex(value.trim()))) {
+      issues.push(`${name}: must not be a local-stack key in ${env.APP_ENV}`);
+    }
+  }
+  return issues;
+}
+
+/**
+ * The server parse: {@link parseEnv} plus the checks that need Node (04-00 L-3, the local-stack opaque keys). What
+ * `serverEnv()` and the boot check in `instrumentation.ts` `register()` run; throws {@link EnvConfigError}.
+ */
+export function parseServerEnv(source: EnvSource): Env {
+  const env = parseEnv(source);
+  const issues = localStackKeyIssues(env);
+  if (issues.length > 0) throw new EnvConfigError(issues, env.APP_ENV);
+  return env;
+}
+
+/** The boot check of every server instance (`instrumentation.ts`): {@link parseServerEnv} on the given source. */
+export function assertServerEnv(source: EnvSource): Env {
+  return parseServerEnv(source);
+}
+
 function currentSource(): { source: EnvSource; fingerprint: string } {
   const source: EnvSource = {};
   for (const name of ENV_SOURCE_NAMES) source[name] = process.env[name];
@@ -20,7 +69,7 @@ function currentSource(): { source: EnvSource; fingerprint: string } {
 export function serverEnv(): Env {
   const { source, fingerprint } = currentSource();
   if (cached && cached.fingerprint === fingerprint) return cached.env;
-  const env = parseEnv(source);
+  const env = parseServerEnv(source);
   cached = { fingerprint, env };
   return env;
 }

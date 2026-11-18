@@ -26,7 +26,7 @@ const DIGIT_RUN = /\d{6,}/;
 export const WORD_PATTERN = /^[a-z0-9_.:-]{1,64}$/;
 export const MAX_WORD = 64;
 /**
- * `module` may also be a lower-case module path (`app/api/cron/webhooks`, `features/sharing/system`: the owners
+ * `module` may also be a lower-case module path (`app/api/jobs/run`, `features/sharing/system`: the owners
  * `getSystemDb` names in `REASON_OWNER`): words of {@link WORD_PATTERN}'s alphabet joined by `/`, at most 64 characters.
  */
 export const MODULE_PATTERN = /^(?=.{1,64}$)[a-z0-9_.:-]+(?:\/[a-z0-9_.:-]+)*$/;

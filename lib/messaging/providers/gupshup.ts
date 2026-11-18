@@ -3,6 +3,7 @@ import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
+  SendOptions,
 } from "../types";
 import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 import { errorTag } from "@/lib/errors/error-tag";
@@ -40,7 +41,8 @@ export class GupshupProvider implements MessagingProvider {
     to: string,
     templateId: string,
     params: Record<string, string>,
-    buttons?: InteractiveButton[]
+    buttons?: InteractiveButton[],
+    options?: SendOptions
   ): Promise<MessagingSendResult> {
     const synthetic = syntheticRecipientRefusal(to, "whatsapp");
     if (synthetic) return synthetic;
@@ -82,7 +84,7 @@ export class GupshupProvider implements MessagingProvider {
 
       const res = await fetch("https://api.gupshup.io/sm/api/v1/msg", {
         method: "POST",
-        signal: providerSignal(),
+        signal: providerSignal(options?.signal),
         headers: {
           apikey: this.apiKey,
           "Content-Type": "application/x-www-form-urlencoded",

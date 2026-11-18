@@ -75,7 +75,7 @@ Abbreviations: C = CONFIRMED, PC = PARTIALLY_CONFIRMED. Cr = Critical, H = High,
 | D13 | There is no visit state machine. Front desk can mark a visit completed. | C | Confirmed. Check-in does not validate status or date. | **H / P1** | `features/queue/actions.ts:24-252`; `components/queue/checkout-drawer.tsx:285` |
 | D14 | Paid invoices stay mutable, overpayment is allowed, and there is no cancel or refund. | C | Confirmed, and worse: editing items un-cancels a cancelled invoice. | **H / P1** | `features/billing/actions.ts:184-628`; `features/billing/schema.ts:19-25` |
 | D15 | Silent fallbacks to the dev messaging provider and a mock AI. | PC | Confirmed for messaging, SOAP drafts and catch-up summaries. The copilot routes fail rather than mock. | **H / P1** | `lib/messaging/index.ts:20-30`; `lib/ai/client.ts:43-225` |
-| D16 | Inline `dispatchPendingQueue` processes all tenants with a non-atomic claim, causing double sends and latency. | PC | Confirmed. "All tenants" applies only to the service-role paths, though those are common (appointments). | **H / P0** (with F-3b) | `lib/messaging/dispatcher.ts:33-148`; `features/appointments/actions.ts:10-22` |
+| D16 | Inline `dispatchPendingQueue` processes all tenants with a non-atomic claim, causing double sends and latency. | PC | Confirmed. "All tenants" applies only to the service-role paths, though those are common (appointments). | **H / P0** (with F-3b). **Fixed in V2-04 (awaiting PO gate):** request paths only enqueue; the runner claims atomically per tenant (`tests/jobs/parallel-dispatch-db.spec.ts`, `tests/jobs/claim-grants-db.spec.ts`, `tests/security/p0-12-lint-gates.spec.ts`) | `lib/messaging/dispatcher.ts:33-148`; `features/appointments/actions.ts:10-22` |
 
 ### 1.3 Backend (ARCHITECTURE_ASSESSMENT.md, DATABASE_ASSESSMENT.md, API_ASSESSMENT.md)
 
@@ -133,8 +133,8 @@ Abbreviations: C = CONFIRMED, PC = PARTIALLY_CONFIRMED. Cr = Critical, H = High,
 | E-4 | RLS tests cover only 8 of 43 tables, and clinical tables have none. | PC | The catalog check covers 8 tables, but **cross-tenant tests exist** for visits, prescriptions, invoices, documents, referrals and API keys. The real gaps: no role-within-tenant DB tests, and no tests for comms, share tokens or API keys. | **H / P1** | `tests/helpers/rls.ts:3-12`; `tests/integration/*.spec.ts` |
 | TEST-ES-3 | All safety-critical tests need the DB, and a no-DB run looks green. | PC | Mostly true. Some security tests run without a DB. The run is **not** green (27 files fail, non-zero exit). | **H / P0** (CI DB lane) | `tests/security/ai-rbac.spec.ts`; `vitest.config.ts:14` |
 | E-13 / F-2 | No CI/CD. | PC | Confirmed (no `.github/`, no hooks). Vercel's build may catch type errors (hosted configuration not verifiable). | **H / P0** | repo root |
-| F-3a | No scheduler, so queued messages are never sent. | PC | No scheduler confirmed. Immediate messages *are* sent inline. Delayed, retried and webhook-retry traffic is lost. | **H / P0** | `lib/messaging/dispatcher.ts:103-110`; `lib/webhooks/outbox.ts:116-129` |
-| F-3b | Non-atomic job claim, and stuck `processing` rows. | C | Confirmed. Inline dispatch makes overlap likely. | **H / P0** | `lib/messaging/dispatcher.ts:103-149` |
+| F-3a | No scheduler, so queued messages are never sent. | PC | No scheduler confirmed. Immediate messages *are* sent inline. Delayed, retried and webhook-retry traffic is lost. | **H / P0**. **Fixed in V2-04 (awaiting PO gate):** pg_cron → pg_net → `/api/jobs/run` every minute (`tests/jobs/scheduler-migration-db.spec.ts`, `tests/jobs/run-route.spec.ts`, `.planning/phases/04-jobs-reliability/evidence/scheduler-local-e2e.json`); staging confirmation pending PO (04-P1, P9) | `lib/messaging/dispatcher.ts:103-110`; `lib/webhooks/outbox.ts:116-129` |
+| F-3b | Non-atomic job claim, and stuck `processing` rows. | C | Confirmed. Inline dispatch makes overlap likely. | **H / P0**. **Fixed in V2-04 (awaiting PO gate):** atomic claim with lease and fencing, reaper for expired leases and stuck delivery rows (`tests/jobs/parallel-dispatch-db.spec.ts`, `tests/jobs/reaper-db.spec.ts`, `tests/jobs/delivery-reap-db.spec.ts`) | `lib/messaging/dispatcher.ts:103-149` |
 | F-4 | Residency, plan and PITR are unverified. The runbooks contradict each other. No dump job. The drill is open. | PC | Confirmed, except the "KMS vs AES contradiction" (not contradictory). The backup test only greps a document. | **H / P0** (verify before GA) | `docs/ops/backup-restore.md`; `docs/operations/backups.md`; `tests/ops/backup-restore.spec.ts:17-30` |
 | G-1 | `allow_default_branch_commits: true`, and no branching strategy. | C | Confirmed. 297 of 298 commits are on `main`. | **H / P0** (process gate before the first GSD execute; the verifier suggested P1) | `.planning/config.json`; `git rev-list` |
 | W-02 | No Claude Code deny rules for `.env`. | C | Confirmed at project and user level. | **H / P0** (process gate) | `ls .claude`; `~/.claude/settings.json` |
@@ -182,7 +182,7 @@ The verifiers could not settle these points statically. They are tracked as deci
 |---|---|---|
 | OI-1 | Is the Supabase project in `.env` production? Does it hold real patient data? Is v1 live? | SEC-25, E-1, E-2, F-4 |
 | OI-2 | What are the project's region, plan tier and PITR status? | F-4, I-01 |
-| OI-3 | Is any external or dashboard cron calling `/api/cron/*`? Is `CRON_SECRET` set? | F5, F-3a |
+| OI-3 | Is any external or dashboard cron calling `/api/cron/*`? Is `CRON_SECRET` set? (V2-04: the `/api/cron/*` routes are deleted and answer 404; `CRON_SECRET` stays for the diag route, R-27. Answer pending PO, 04-P9.) | F5, F-3a |
 | OI-4 | Does the hosted schema drift from `supabase/migrations`? Does an `auth.users` row with the nil UUID exist? | F7, BACKEND B1 |
 | OI-5 | Do Supabase default privileges give `anon` EXECUTE on the SECURITY DEFINER functions? | SEC-09 |
 | OI-6 | Does the production build expose server-only-imported or unimported actions (`getPatient`, `getPatients`, `notifyPrescriptionIssued`)? Answer with a production build's server-reference manifest, not a dev build. | ARC-01, D4, SEC-01 (C31) |
@@ -234,6 +234,12 @@ Source: the consistency review. "Roadmap ref" points to `V2_MASTER_ROADMAP.md`.
 | C32 | Roadmap §15.6 required all 10 e2e journeys at both viewports, but TEST_STRATEGY T-14 (journeys 2, 3, 5, 7, 10) is P2 | **T-14 raised to P1** as backlog item P1-42 (V2-08 to V2-11, each journey with its workflow). §15.6 stands. TEST_STRATEGY T-14 receives an erratum. | §10 P1-42, §15 |
 
 Missing content noted by the consistency review: TARGET_ARCHITECTURE has no §10 rows for frontend, design system, testing or security tooling; the roadmap §5, §8 and §6 cover these. SECURITY findings SEC-08 to SEC-33 lack the Component, Impact and Verification fields. UX has only ASCII wireframes and no design-skill exercise. The documentation items are recorded as debt (roadmap §10, P2-DOC). The design gap is now closed by phase V2-DX and the design sub-gate G2-D before any primitives are built (revised after review). None of these blocks G1.
+
+**Erratum (V2-04, 2026-11-14): staging backup target.** The roadmap's V2-04 dependencies, expected changes and
+acceptance named an AWS `ap-south-1` bucket written by AWS CodeBuild. Staging backups instead go to a **Cloudflare R2**
+bucket, written by the GitHub Actions workflow `.github/workflows/backup.yml` in the GitHub Environment
+`staging-backup` (PO decision B-3, 2026-11-13, `.planning/PO-ACTIONS.md`; ruling R-48). The AWS `ap-south-1` design
+moves to the production backups (V2-15). Applied in `V2_MASTER_ROADMAP.md` §12 V2-04 by 04-07c (`838d4bd`).
 
 ---
 
@@ -759,3 +765,40 @@ Evidence, reviews and triage: `.planning/phases/03-platform-hygiene/` (`03-SUMMA
 `03-13-REVIEW-TRIAGE.md`, `evidence/`, `reviews/`). Rulings A00-1…5, R-1…R-36 and R-K were taken by the agent as CTO
 under PO delegation. Doc errata (R-24) are proposed in `03-SUMMARY.md`, not applied. Merge waits on 03-E13 (rulings,
 incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged packages) and 03-E15 (Next 16 outcome).
+
+### V2-04 gate evidence (2026-11-14) — awaiting PO gate
+V2-04 Jobs reliability verified locally at `2260c64`. Vitest ran twice locally: 211 files / 4399 tests, 0 skipped, 0
+failed. The report gate passed with floor 4180 and 118 required security/acceptance specs. Playwright PR lane: 196
+passed (10 KNOWN-BUG expected failures), 9 skipped by design, 0 failed, 0 retried. ESLint: 0 errors; every boundary
+message id 0 incl. P0-12; 1 service-role factory; the ADR-0005 exception register holds only `app/api/v1/**` and
+`lib/api/**`; 0 cron route files. Local drift PASS (0 statements), schema snapshot PASS. Restore drill self-test: pass,
+RPO 18 s, RTO 32 s. Typecheck, inventory, AI-06 L1, the audit gate and the workflow policy are green. CI run link:
+recorded by the orchestrator in `04-VERIFICATION.md` (`ci_run`).
+
+Roadmap acceptance 1 and 2 are met. 3, 4, 7 and 8 are met locally with their staging halves pending PO; 5 and 6 are
+code-complete / drilled locally and pending PO (04-P1, P7…P13, 04-R2, 04-P17; post-merge, R-19 pattern). D16, F-3a and
+F-3b are fixed in V2-04 (rows in §1 updated); OI-3's answer comes with 04-P9.
+
+Four isolated reviews found 1 High (H-SMS) and 10 distinct Mediums; all were fixed in 04-07a…c with regression tests.
+Three re-verification rounds followed: the first closed H-SMS and 8 Mediums and found M-FAIR and M-BACKUPAUTH partly
+open (N-1, N-2; fixed in 04-07d), the second reopened both through new routes (N-1b, N-2b; fixed in 04-07e), and the
+third found both CLOSED with one Info (I-1, fixed at close). Three independent-review Lows (L1, L5, L6) have no triage
+row and await an owner.
+
+ADR-0005 amendments A2 and A3 were accepted by the agent as CTO under PO delegation (2026-11-13) and applied to
+`docs/adr/0005-confine-service-role-client.md` at close. Rulings R-1…R-51 (incl. R-48 staging backups on R2, R-49 HMAC
+runner token, R-50/R-51 alerts) are in `04-PLAN.md`. Evidence, reviews and triage:
+`.planning/phases/04-jobs-reliability/` (`04-SUMMARY.md`, `04-VERIFICATION.md`, `04-07-REVIEW-TRIAGE.md`,
+`evidence/`, `reviews/`). No merge blocker is open (04-P14 and 04-P15 delegated to the CTO).
+
+### G2-D design sign-off (2026-11-13)
+
+| Item | Result | Evidence |
+|---|---|---|
+| V2-DX direction | **Approved by the PO**: direction A "Calm Confidence — Botanical Teal", typeface Inter, round-3 component system and consult structure; kept tokenised for later change | PR #7, branch `v2/phase-dx-design-exploration` at `e95b8b5`; `.planning/sketches/V2-DX-PROPOSAL.md` (round 3 + PO decision); evidence `.planning/sketches/v2-dx-evidence/` (axe 107 runs 0 serious/critical; contrast 139/139) |
+
+### PO ruling: "CliniQ AI" is a fixed brand name (2026-11-14)
+
+| Item | Ruling | Evidence |
+|---|---|---|
+| Product name vs AI-06 L1 copy rules (AI_STRATEGY §5.3) | The exact, case-sensitive string "CliniQ AI" is the brand name, not an AI feature claim: masked before L1-R5 (AI in UI copy) and L1-R6 (AI next to a price). Every other "AI" stays checked; AI features keep the AI-02 labels; pricing copy names the plan. Brand theme from Claude Design applied to the V2-DX branch (`d2e399f`) and supersedes the round-3 teal default for G2-D. | `scripts/ci/ai-l1-greps.mjs` (`BRAND_NAME`), `tests/ci/ai-l1-greps.spec.ts` (2 new cases, both fail on the old checker), fixtures `lint-fixtures/ai-l1/brand-name-*` |

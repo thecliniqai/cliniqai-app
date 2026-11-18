@@ -15,7 +15,7 @@
  * Prints nothing sensitive: no env values, no test data.
  */
 import { execFileSync, execSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { p134Counters } from "./ci/p1-34-counters.mjs";
 
@@ -102,6 +102,10 @@ const inventory = spawnSync("node_modules/.bin/tsx", ["scripts/inventory-server-
   maxBuffer: 64 * 1024 * 1024,
 });
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+// V2-04 04-03c (RL-23, P0-12): the cron routes are deleted (the job runner sends and delivers); expected 0.
+const cronRouteFiles = existsSync("app/api/cron")
+  ? readdirSync("app/api/cron", { recursive: true }).filter((f) => /(^|\/)route\.[cm]?[jt]sx?$/.test(String(f))).length
+  : 0;
 const installedNext = JSON.parse(readFileSync("node_modules/next/package.json", "utf8")).version;
 
 const checks = {
@@ -120,6 +124,7 @@ const checks = {
   // V2-03 acceptance 2 and 5 (03-04): computed by ESLint over app code. Expected: p1_34_boundary_messages 0,
   // service_role_factories ["lib/supabase/system.ts"], utc_today_messages 0.
   ...(await p134Counters()),
+  cron_route_files: cronRouteFiles,
   dependencies: { next_declared: pkg.dependencies?.next, next_installed: installedNext },
 };
 writeFileSync(join(dir, "static-checks.json"), `${JSON.stringify(checks, null, 1)}\n`);
@@ -131,5 +136,5 @@ for (const r of summary.runs) {
 }
 console.log(`typecheck exit=${checks.typecheck.exit_code} eslint exit=${checks.eslint.exit_code} inventory exit=${checks.inventory.exit_code}`);
 console.log(
-  `p1_34_boundary_messages=${checks.p1_34_boundary_messages} utc_today_messages=${checks.utc_today_messages} service_role_factories=${JSON.stringify(checks.service_role_factories)}`,
+  `p1_34_boundary_messages=${checks.p1_34_boundary_messages} utc_today_messages=${checks.utc_today_messages} service_role_factories=${JSON.stringify(checks.service_role_factories)} exception_register_entries=${checks.exception_register_entries} cron_route_files=${checks.cron_route_files}`,
 );

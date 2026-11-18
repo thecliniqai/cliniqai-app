@@ -1,0 +1,240 @@
+# 04-00 BEFORE run (b): staging-scripts.spec.ts against base 118b3ae plus only the new scripts/staging/migration-plan.mjs, 2026-11-13T05:19:34Z
+# Shows the L-6 and L-7 cases failing on the pre-plan wait-for-release / target-guard / schema-drift (fixture password redacted).
+
+
+ RUN  v3.2.7 <scratch>/before
+
+ ❯ tests/ci/staging-scripts.spec.ts (67 tests | 8 failed) 1310ms
+   ✓ target-guard > refuses the local API (127.0.0.1) 1ms
+   ✓ target-guard > refuses localhost 0ms
+   ✓ target-guard > refuses the local database 0ms
+   ✓ target-guard > refuses an IPv6 loopback 0ms
+   ✓ target-guard > refuses a docker-internal host 0ms
+   ✓ target-guard > refuses another project's API 0ms
+   ✓ target-guard > refuses another project's direct database 0ms
+   ✓ target-guard > refuses the pooler with another project's user 0ms
+   ✓ target-guard > refuses a look-alike host 0ms
+   ✓ target-guard > refuses an API URL with a path 0ms
+   ✓ target-guard > refuses an unknown scheme 0ms
+   ✓ target-guard > refuses a database URL with ?host= pointing at loopback 0ms
+   ✓ target-guard > refuses a database URL with ?host= pointing at another project 0ms
+   ✓ target-guard > refuses a database URL with ?user= naming another project's pooler tenant 0ms
+   ✓ target-guard > refuses a database URL with sslmode=disable 0ms
+   ✓ target-guard > refuses a database URL with sslmode=prefer 0ms
+   ✓ target-guard > refuses a database URL with sslmode twice 0ms
+   ✓ target-guard > refuses a database URL with port, dbname and options overrides 0ms
+   ✓ target-guard > refuses a database URL with an upper-case HOST parameter 0ms
+   ✓ target-guard > refuses a database URL with a fragment 0ms
+   ✓ target-guard > refuses a database URL with a multi-segment path 0ms
+   ✓ target-guard > accepts sslmode=require / verify-full and re-serialises the URL with TLS required (the CLI never sees the raw secret) 0ms
+   ✓ target-guard > CLI --print-db-url prints only the canonical URL on stdout; refuses a re-targeting URL with nothing on stdout 79ms
+   × target-guard > 04-00 L-7: --print-db-url --no-password prints the URL without its password; --print-pgpassword prints only the password 27ms
+     → expected 'postgresql://postgres.abcdefghijklmno…' to be 'postgresql://postgres.abcdefghijklmno…' // Object.is equality
+   × target-guard > 04-00 L-7: canonicalDbUrl({ password: false }) keeps every checked part but the password 1ms
+     → expected 'postgresql://postgres:<fixture-pw…>' to be 'postgresql://postgres@db.abcdefghijkl…' // Object.is equality
+   ✓ target-guard > refuses a missing or malformed ref and a missing URL 0ms
+   ✓ target-guard > accepts the staging API origin 0ms
+   ✓ target-guard > accepts the direct database host 0ms
+   ✓ target-guard > accepts the session pooler (ref in the user name) 0ms
+   ✓ target-guard > accepts the postgres:// scheme 0ms
+   ✓ target-guard > enforces the kind: a database URL is not an API target and vice versa 0ms
+   ✓ target-guard > CLI: --mask on a GitHub runner masks the password and prints it nowhere else; a refusal prints no password 44ms
+   ✓ target-guard > redactUrl removes the URL and its password (raw and percent-decoded) 0ms
+   ✓ wait-for-release > exits 0 once /api/health reports the SHA and /api/ready is ready with the schema current 1ms
+   ✓ wait-for-release > exits 1 on timeout when the release never appears, without calling /api/ready 0ms
+   ✓ wait-for-release > exits 1 when /api/ready answers 503, or does not report the schema current 0ms
+   × wait-for-release > 04-00 L-6: exits 0 when /api/health reports a release that descends from the SHA and /api/ready is current 1ms
+     → expected 1 to be +0 // Object.is equality
+   × wait-for-release > 04-00 L-6: a descendant release whose own migration is pending still fails readiness (schema behind) 1ms
+     → expected 'wait-for-release: TIMEOUT after 5 att…' to contain 'checks.schema is behind, not current'
+   × wait-for-release > 04-00 L-6: a release that does not descend (a rollback) keeps waiting and times out, asking git once per release 0ms
+     → expected 'wait-for-release: TIMEOUT after 5 att…' to match /TIMEOUT after 5 attempt\(s\).*last: r…/
+   × wait-for-release > 04-00 L-6: the equal SHA passes without asking git; a malformed release is never handed to git or echoed 0ms
+     → expected 'wait-for-release: TIMEOUT after 5 att…' not to contain 'LEAK'
+   × wait-for-release > 04-00 L-6: gitIsAncestor answers from this repository's real history (git merge-base --is-ancestor) 24ms
+     → (0 , gitIsAncestor) is not a function
+   ✓ wait-for-release > exits 2 for a non-https or non-bare origin and a short SHA, before any request 0ms
+   ✓ check-region (FT-01) > vercel.json pins exactly the bom1 (Mumbai) function region 0ms
+   ✓ check-region (FT-01) > refuses a vercel.json without a single pinned region 1ms
+   ✓ check-region (FT-01) > passes when /api/health reports the pinned region and shows the x-vercel-id regions only 0ms
+   ✓ check-region (FT-01) > fails on another region (or none) and says to record the deviation (FT-01) 0ms
+   ✓ schema-drift (staging, read-only) > refuses a loopback database URL without running the CLI 0ms
+   ✓ schema-drift (staging, read-only) > refuses a re-targeting query parameter without running the CLI (03-13 M-GUARD) 0ms
+   × schema-drift (staging, read-only) > runs the read-only diff against the given URL with --schema public,ops,private and passes on no drift 26ms
+     → expected [ 'npx', 'supabase', 'db', …(9) ] to deeply equal [ 'npx', 'supabase', 'db', …(9) ]
+   ✓ schema-drift (staging, read-only) > fails with the statement when staging differs from the migrations 24ms
+   ✓ schema-drift (staging, read-only) > exits 2 when the CLI fails, showing its stderr with the URL and password redacted 0ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > two files ahead: both names listed with the count, exit 0, and the job summary holds names only 1ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > none ahead: 0 pending, exit 0 1ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > an applied version with no file is history drift: exit 1, naming the version 1ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > a pending file older than the newest applied version is drift too (db push would refuse it): exit 1 1ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > the database URL and password never appear in psql's argv or the output; psql gets PATH and PG* only 1ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > refuses a loopback or re-targeting URL without running psql (exit 2) 0ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > a psql failure (e.g. the 04-P16 grant missing) exits 2 with stderr redacted; non-version rows exit 2 0ms
+   ✓ migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role) > reads the repository's real migrations with the CLI's file rule 0ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with APP_ENV unset 141ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with APP_ENV=test 127ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with the local API URL 134ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with a localhost URL 131ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with another project's URL 128ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with a local-stack JWT key 134ms
+   ✓ seed scripts refuse the wrong target before any request > seed-staging refuses with a short password 137ms
+   ✓ seed scripts refuse the wrong target before any request > seed-local-dev still refuses a non-loopback Supabase URL (its guard is unchanged) 138ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > 04-00 L-7: --print-db-url --no-password prints the URL without its password; --print-pgpassword prints only the password
+AssertionError: expected 'postgresql://postgres.abcdefghijklmno…' to be 'postgresql://postgres.abcdefghijklmno…' // Object.is equality
+
+- Expected
++ Received
+
+- postgresql://postgres.abcdefghijklmnopqrst@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
++ postgresql://postgres.abcdefghijklmnopqrst:<fixture-pw, redacted in evidence>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+
+
+ ❯ tests/ci/staging-scripts.spec.ts:122:24
+    120|     const url = runWithEnv(process.execPath, [guard, "--var", "STAGING…
+    121|     expect(url.status).toBe(0);
+    122|     expect(url.stdout).toBe(`postgresql://postgres.${REF}@aws-0-ap-sou…
+       |                        ^
+    123|     expect(new URL(url.stdout.trim()).password).toBe("");
+    124|     for (const text of [url.stdout, url.stderr]) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > 04-00 L-7: canonicalDbUrl({ password: false }) keeps every checked part but the password
+AssertionError: expected 'postgresql://postgres:<fixture-pw…>' to be 'postgresql://postgres@db.abcdefghijkl…' // Object.is equality
+
+Expected: "postgresql://postgres@db.abcdefghijklmnopqrst.supabase.co:5432/postgres?sslmode=verify-full"
+Received: "postgresql://postgres:<fixture-pw, redacted in evidence>@db.abcdefghijklmnopqrst.supabase.co:5432/postgres?sslmode=verify-full"
+
+ ❯ tests/ci/staging-scripts.spec.ts:149:82
+    147|   it("04-00 L-7: canonicalDbUrl({ password: false }) keeps every check…
+    148|     const direct = dbUrl("postgres", `db.${REF}.supabase.co`);
+    149|     expect(canonicalDbUrl(`${direct}?sslmode=verify-full`, { password:…
+       |                                                                                  ^
+    150|     expect(canonicalDbUrl(direct)).toContain(encodeURIComponent(PW));
+    151|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > 04-00 L-6: exits 0 when /api/health reports a release that descends from the SHA and /api/ready is current
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/ci/staging-scripts.spec.ts:280:24
+    278|     const s = fakeStaging([NEWER], READY);
+    279|     const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAnces…
+    280|     expect(r.exitCode).toBe(0);
+       |                        ^
+    281|     expect(r.lines).toContain(`wait-for-release: /api/health reports r…
+    282|     expect(r.lines.at(-1)).toBe(`wait-for-release: PASS release ${NEWE…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > 04-00 L-6: a descendant release whose own migration is pending still fails readiness (schema behind)
+AssertionError: expected 'wait-for-release: TIMEOUT after 5 att…' to contain 'checks.schema is behind, not current'
+
+Expected: "checks.schema is behind, not current"
+Received: "wait-for-release: TIMEOUT after 5 attempt(s): https://staging.clinicos.example/api/health never reported release 0123456789abcdef0123456789abcdef01234567 (last: release 89abcdef0123456789abcdef0123456789abcdef)"
+
+ ❯ tests/ci/staging-scripts.spec.ts:291:28
+    289|     const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAnces…
+    290|     expect(r.exitCode).toBe(1);
+    291|     expect(r.lines.at(-1)).toContain("checks.schema is behind, not cur…
+       |                            ^
+    292|   });
+    293| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > 04-00 L-6: a release that does not descend (a rollback) keeps waiting and times out, asking git once per release
+AssertionError: expected 'wait-for-release: TIMEOUT after 5 att…' to match /TIMEOUT after 5 attempt\(s\).*last: r…/
+
+- Expected: 
+/TIMEOUT after 5 attempt\(s\).*last: release fedcba9876543210fedcba9876543210fedcba98 \(not a descendant\)/
+
++ Received: 
+"wait-for-release: TIMEOUT after 5 attempt(s): https://staging.clinicos.example/api/health never reported release 0123456789abcdef0123456789abcdef01234567 (last: release fedcba9876543210fedcba9876543210fedcba98)"
+
+ ❯ tests/ci/staging-scripts.spec.ts:299:28
+    297|     const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAnces…
+    298|     expect(r.exitCode).toBe(1);
+    299|     expect(r.lines.at(-1)).toMatch(new RegExp(`TIMEOUT after 5 attempt…
+       |                            ^
+    300|     expect(asks).toBe(1);
+    301|     expect(s.urls.some((u) => u.endsWith("/api/ready"))).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > 04-00 L-6: the equal SHA passes without asking git; a malformed release is never handed to git or echoed
+AssertionError: expected 'wait-for-release: TIMEOUT after 5 att…' not to contain 'LEAK'
+
+Expected: "LEAK"
+Received: "wait-for-release: TIMEOUT after 5 attempt(s): https://staging.clinicos.example/api/health never reported release 0123456789abcdef0123456789abcdef01234567 (last: release --upload-pack=LEAK)"
+
+ ❯ tests/ci/staging-scripts.spec.ts:313:38
+    311|     const odd = await waitForRelease({ origin: ORIGIN, sha: SHA, isAnc…
+    312|     expect(odd.exitCode).toBe(1);
+    313|     expect(odd.lines.join("\n")).not.toContain("LEAK");
+       |                                      ^
+    314|   });
+    315| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > 04-00 L-6: gitIsAncestor answers from this repository's real history (git merge-base --is-ancestor)
+TypeError: (0 , gitIsAncestor) is not a function
+ ❯ tests/ci/staging-scripts.spec.ts:320:12
+    318|     const head = git("rev-parse", "HEAD");
+    319|     const parent = git("rev-parse", "HEAD~1");
+    320|     expect(gitIsAncestor(parent, head)).toBe(true);
+       |            ^
+    321|     expect(gitIsAncestor(head, parent)).toBe(false);
+    322|     // A commit the checkout does not hold is not a descendant; non-SH…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts > schema-drift (staging, read-only) > runs the read-only diff against the given URL with --schema public,ops,private and passes on no drift
+AssertionError: expected [ 'npx', 'supabase', 'db', …(9) ] to deeply equal [ 'npx', 'supabase', 'db', …(9) ]
+
+- Expected
++ Received
+
+@@ -2,11 +2,11 @@
+    "npx",
+    "supabase",
+    "db",
+    "diff",
+    "--db-url",
+-   "postgresql://clinicos_drift_ro.abcdefghijklmnopqrst@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require",
++   "postgresql://clinicos_drift_ro.abcdefghijklmnopqrst:<fixture-pw, redacted in evidence>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require",
+    "--schema",
+    "public,ops,private",
+    "--agent",
+    "no",
+    "--output-format",
+
+ ❯ tests/ci/staging-scripts.spec.ts:416:26
+    414|     // password, which travels as PGPASSWORD in the CLI's environment …
+    415|     const passwordFree = `postgresql://clinicos_drift_ro.${REF}@aws-0-…
+    416|     expect(cli.calls[0]).toEqual(["npx", ...diffArgs(passwordFree)]);
+       |                          ^
+    417|     expect(cli.calls[0].join(" ")).not.toContain(encodeURIComponent(PW…
+    418|     expect(cli.calls[0].join(" ")).not.toContain(PW);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 59 passed (67)
+   Start at  10:49:09
+   Duration  1.63s (transform 53ms, setup 8ms, collect 32ms, tests 1.31s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

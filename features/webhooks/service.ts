@@ -5,8 +5,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { validateWebhookEndpoint } from "@/lib/webhooks/ssrf";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
-import { dispatchWebhookQueueItem } from "@/lib/webhooks/dispatcher";
+import { enqueueWebhookEvent, EnqueueError } from "@/lib/jobs/enqueue";
 
 import type {
   WebhookSubscriptionItem,
@@ -14,7 +13,6 @@ import type {
   AllowedWebhookEvent,
 } from "./constants";
 import { errorTag, log } from "@/lib/log";
-import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -26,7 +24,11 @@ export type {
 
 // Webhook subscription use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
 
-/** Test pings per tenant per {@link TEST_PING_WINDOW_MS} (03-13d; review E-8). */
+/**
+ * Test pings per tenant per {@link TEST_PING_WINDOW_MS} (03-13d; review E-8). Enforced inside
+ * `public.enqueue_webhook_event` (migration 000036, counted from the tenant's ping rows across instances); these
+ * constants document the SQL values.
+ */
 export const TEST_PING_LIMIT = 5;
 export const TEST_PING_WINDOW_MS = 60_000;
 
@@ -235,79 +237,39 @@ export async function deleteWebhookSubscription(
 }
 
 /**
- * Sends an immediate synthetic test ping to an active webhook endpoint and returns result.
+ * Queues a synthetic test ping to one of the clinic's webhook endpoints (V2-04 04-03b, R-26). Nothing is sent from the
+ * request: the ping becomes a delivery row with a `webhook.deliver` job, and its result appears in the delivery logs.
+ * Owner/admin only, 5 per clinic per minute (both enforced by the RPC); the subscription must belong to `ctx.tenantId`.
  */
 export async function testPingWebhook(
   ctx: ServiceContext,
   subscriptionId: string
 ): Promise<{
   success: boolean;
-  responseStatus?: number | null;
-  durationMs?: number;
+  queued?: boolean;
   error?: string;
 }> {
   try {
     assertPerm(ctx.role, "clinic:manage");
-    const session = ctx;
-    const supabase = ctx.db;
 
-    // Verify subscription ownership
-    const { data: sub, error: subErr } = await (
-      supabase.from("webhook_subscriptions") as any
-    )
-      .select("id, endpoint_url")
-      .eq("id", subscriptionId)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (subErr || !sub) {
-      return { success: false, error: "Webhook subscription not found." };
-    }
-
-    // Rate limit (03-13d M-SSRF-DNS; review E-8): each ping is a synchronous outbound connect whose status and timing
-    // the caller sees. Counted from the tenant's own ping rows, so it holds across server instances.
-    const since = new Date(Date.now() - TEST_PING_WINDOW_MS).toISOString();
-    const { count: recentPings, error: countErr } = await (supabase.from("webhook_delivery_queue") as any)
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", session.tenantId)
-      .eq("event_type", "ping")
-      .gte("created_at", since);
-    if (countErr) {
-      log.error({ event: "webhooks.test_ping_count.failed", code: errorTag(countErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Test ping failed." };
-    }
-    if ((recentPings ?? 0) >= TEST_PING_LIMIT) {
-      log.warn({ event: "webhooks.test_ping.rate_limited", requestId: await getRequestId(), tenantId: ctx.tenantId, count: recentPings ?? 0 });
-      return { success: false, error: DEFAULT_APP_ERROR_MESSAGES.RATE_LIMITED };
-    }
-
-    // Enqueue ping item targeting this subscription
-    const enqueued = await enqueueWebhookEvent(
-      supabase,
-      session.tenantId,
-      "ping",
-      {
-        type: "test_ping",
-        message: "Webhook verification ping from ClinicQ Developer Settings",
-        timestamp: new Date().toISOString(),
-      },
-      { subscriptionId }
-    );
-
-    if (!enqueued || enqueued.length === 0) {
+    const enqueued = await enqueueWebhookEvent(ctx, "ping", subscriptionId);
+    // 0 rows: the subscription is inactive.
+    if (enqueued.queued === 0) {
       return { success: false, error: "Failed to queue test ping event." };
     }
-
-    // Immediately dispatch
-    const result = await dispatchWebhookQueueItem(supabase, enqueued[0].id);
-
-    return {
-      success: result.success,
-      responseStatus: result.responseStatus,
-      durationMs: result.durationMs,
-      error: result.error,
-    };
+    return { success: true, queued: true };
   } catch (err: unknown) {
+    if (err instanceof EnqueueError) {
+      if (err.appError.code === "RATE_LIMITED") {
+        log.warn({ event: "webhooks.test_ping.rate_limited", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      } else if (err.appError.code !== "NOT_FOUND") {
+        log.warn({ event: "webhooks.test_ping.refused", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      }
+      return {
+        success: false,
+        error: err.appError.code === "NOT_FOUND" ? "Webhook subscription not found." : err.appError.message,
+      };
+    }
     log.error({ event: "webhooks.test_ping.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,

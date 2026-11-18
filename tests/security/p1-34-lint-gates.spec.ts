@@ -90,8 +90,21 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["the cookie-client module importing the factory", "factory-import.ts", "lib/supabase/server.ts", [imp(1)]],
   // 03-13c M-ALLOWLIST: the enqueue surface is not the allow-list (ADR-0005 D2); only lib/jobs/internal/** is.
   ["the lib/jobs enqueue surface wrapping the factory", "factory-import.ts", "lib/jobs/x.ts", [imp(1)]],
+  // V2-04 04-02: the enqueue module itself (04-03a) and the runner auth module never get the system client.
+  ["lib/jobs/enqueue.ts importing the system factory", "factory-import.ts", "lib/jobs/enqueue.ts", [imp(1)]],
+  ["lib/jobs/auth.ts importing the system factory", "factory-import.ts", "lib/jobs/auth.ts", [imp(1)]],
   ["a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/", "tooling-import.ts", "features/patients/service.ts", TOOLING_LINES],
-  ["a register zone importing the tooling trees", "tooling-import.ts", "lib/webhooks/x.ts", TOOLING_LINES],
+  ["a register zone importing the tooling trees", "tooling-import.ts", "app/api/v1/x/route.ts", TOOLING_LINES],
+  // V2-04 04-03c: the V2-04 register entries are deleted; the factory there now fails like any request path.
+  ["the factory in lib/webhooks (V2-04 register entry deleted)", "factory-import.ts", "lib/webhooks/x.ts", [imp(1)]],
+  ["the factory in lib/messaging/dispatcher.ts (V2-04 register entry deleted)", "factory-import.ts", "lib/messaging/dispatcher.ts", [imp(1)]],
+  ["the factory in an app/api/cron route (V2-04 register entry deleted)", "factory-import.ts", "app/api/cron/x/route.ts", [imp(1)]],
+  // Proposed ADR-0005 A3 (04-03c): features/auth/system from the Send Email hook route only; nothing else there.
+  ["features/auth/system from another auth route", "auth-system-import.ts", "app/api/auth/other/route.ts", [imp(1)]],
+  ["features/auth/system from a feature service", "auth-system-import.ts", "features/patients/service.ts", [imp(1)]],
+  ["the factory itself in the Send Email hook route", "factory-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
+  ["another domain's system module in the Send Email hook route", "other-feature-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
+  ["features/sharing/system in the Send Email hook route", "sharing-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
   ["a relative path to the factory", "traversal-factory-import.ts", "features/patients/service.ts", [imp(1)]],
   ["a re-export of the factory", "reexport-factory.ts", "lib/db/system-reexport.ts", [imp(1)]],
   // features/*/system and ADR-0005 A1.
@@ -135,6 +148,8 @@ const FAILING: Array<[string, string, string, Expected]> = [
   // P1-15 / P1-25 / P1-21.
   ["process.env in a feature", "process-env.ts", "features/patients/service.ts", ENV_LINES],
   ["process.env in the system factory", "process-env.ts", "lib/supabase/system.ts", ENV_LINES],
+  // V2-04 04-05a: the ops/** tooling allowance does not leak into lib/.
+  ["process.env in lib (outside the ops/** tooling zone)", "process-env.ts", "lib/x.ts", ENV_LINES],
   ["console in a feature", "console.ts", "features/billing/service.ts", CONSOLE_LINES],
   ["console in the server logger", "console.ts", "lib/log/index.ts", CONSOLE_LINES],
   ["console in the env module", "console.ts", "lib/env.ts", CONSOLE_LINES],
@@ -153,12 +168,11 @@ const PASSING: Array<[string, string]> = [
   ["factory-import.ts", "app/api/jobs/run/route.ts"],
   ["factory-import.ts", "lib/jobs/internal/runner.ts"],
   ["factory-import.ts", "features/x/system.ts"],
-  // Exception register (ADR-0005): P1-37 and V2-04 entries.
+  // Exception register (ADR-0005): since V2-04 04-03c only the P1-37 entry.
   ["factory-import.ts", "app/api/v1/x/route.ts"],
   ["factory-import.ts", "lib/api/x.ts"],
-  ["factory-import.ts", "app/api/cron/x/route.ts"],
-  ["factory-import.ts", "lib/messaging/dispatcher.ts"],
-  ["factory-import.ts", "lib/webhooks/x.ts"],
+  // Proposed ADR-0005 A3 (V2-04 04-03c, R-43).
+  ["auth-system-import.ts", "app/api/auth/send-email/route.ts"],
   ["other-feature-system-import.ts", "features/sharing/system.ts"],
   ["other-feature-system-import.ts", "app/api/webhooks/messaging/x/route.ts"],
   ["second-factory.ts", "lib/supabase/system.ts"],
@@ -187,6 +201,9 @@ const PASSING: Array<[string, string]> = [
   ["console.ts", "scripts/fixture.ts"],
   ["raw-stream.ts", "scripts/fixture.ts"],
   ["process-env.ts", "tests/fixture/x.spec.ts"],
+  // V2-04 04-05a: ops/** (backup and restore-drill tooling) has the scripts/** exceptions.
+  ["process-env.ts", "ops/x.ts"],
+  ["console.ts", "ops/x.ts"],
   // 03-13c: the env modules may build env names; tooling may import its own trees and use require.
   ["computed-secret-key.ts", "lib/env.ts"],
   ["computed-secret-key.ts", "lib/env-server.ts"],
@@ -205,6 +222,37 @@ describe("P1-34 boundary lint gates: bypass fixtures fail lint", () => {
 describe("P1-34 boundary lint gates: allowed paths stay clean", () => {
   it.each(PASSING)("%s at %s", async (fixture, relPath) => {
     expect(await boundaryAt(fixture, relPath)).toEqual([]);
+  }, 60_000);
+});
+
+/**
+ * V2-04 04-02: the real runner route and registry (they import the system factory and the jobs internals) lint clean
+ * where they live, and the same source fails when it is moved to a request-path zone: the pass comes from the
+ * `app/api/jobs/**` / `lib/jobs/internal/**` zones, not from the content.
+ */
+describe("P1-34 boundary lint gates: the real jobs runner files (04-02)", () => {
+  const real = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
+  async function boundaryOfSourceAt(source: string, relPath: string) {
+    const [result] = await eslint.lintText(source, { filePath: path.join(ROOT, relPath) });
+    return boundaryMessages(result.messages).map((m) => [boundaryId(m.message), m.ruleId]);
+  }
+
+  it.each(["app/api/jobs/run/route.ts", "lib/jobs/internal/registry.ts", "lib/jobs/internal/handlers/drill.ts", "lib/jobs/auth.ts"])(
+    "%s lints clean where it lives",
+    async (rel) => {
+      expect(await boundaryOfSourceAt(real(rel), rel)).toEqual([]);
+    },
+    60_000,
+  );
+
+  it.each([
+    ["a server action (the factory and two jobs internals)", "features/patients/actions.ts", 3],
+    ["a register route (the two jobs internals; the register may hold the factory until P1-37)", "app/api/v1/x/route.ts", 2],
+    ["the enqueue surface (the factory and two jobs internals)", "lib/jobs/enqueue.ts", 3],
+  ])("the runner route's source fails as %s", async (_label, relPath, count) => {
+    expect(await boundaryOfSourceAt(real("app/api/jobs/run/route.ts"), relPath)).toEqual(
+      Array.from({ length: count }, () => ["P1-34:", IMPORTS]),
+    );
   }, 60_000);
 });
 
@@ -232,12 +280,12 @@ describe("P1-34 boundary lint gates: zones keep the base gates", () => {
   // P0-13 bans still fire there, tooling included.
   const ZONE_PATHS = [
     "app/api/v1/x/route.ts",
-    "app/api/cron/x/route.ts",
+    "app/api/auth/send-email/route.ts",
     "app/api/webhooks/x/route.ts",
     "app/api/jobs/run/route.ts",
     "lib/api/x.ts",
     "lib/webhooks/x.ts",
-    "lib/messaging/dispatcher.ts",
+    "lib/messaging/x.ts",
     "lib/jobs/internal/runner.ts",
     "features/x/system.ts",
     "lib/supabase/system.ts",
@@ -278,12 +326,15 @@ describe("P1-34 boundary lint gates: the real tree", () => {
 
 type Counters = {
   files_linted: number;
-  boundary_messages: Record<"P1-34" | "P1-21" | "P1-25" | "P1-15", number> & { flagged: string[] };
+  boundary_messages: Record<"P1-34" | "P1-21" | "P1-25" | "P1-15" | "P0-12", number> & { flagged: string[] };
   boundary_directives: string[];
   p1_34_boundary_messages: number;
   utc_today_messages: number;
   service_role_factories: string[];
   system_module_importers: { factory: string[]; feature_system: string[]; non_canonical: string[] };
+  exception_register: string[];
+  exception_register_entries: number;
+  exception_register_importers: string[];
 };
 
 // The ADR-0005 allow-list and exception register, written out independently of eslint.config.mjs.
@@ -293,10 +344,11 @@ const ALLOWED_IMPORTER = [
   /^app\/api\/(jobs|webhooks)\//,
   /^app\/api\/v1\//, // register, P1-37
   /^lib\/api\//, // register, P1-37
-  /^app\/api\/cron\//, // register, V2-04
-  /^lib\/messaging\/dispatcher\.ts$/, // register, V2-04
-  /^lib\/webhooks\//, // register, V2-04
 ];
+// Proposed ADR-0005 A3 (V2-04 04-03c): a feature_system importer only (never the factory).
+const A3_ROUTE = "app/api/auth/send-email/route.ts";
+// The V2-03 register (03-02/03-04): the P1-37 entry plus three V2-04 entries, five globs. 04-03c deleted the V2-04 ones.
+const V2_03_REGISTER = ["app/api/v1/**", "lib/api/**", "app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"];
 
 describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json)", () => {
   it("the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed", async () => {
@@ -305,16 +357,29 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.service_role_factories).toEqual(["lib/supabase/system.ts"]);
     expect(c.p1_34_boundary_messages).toBe(0);
     expect(c.utc_today_messages).toBe(0);
-    expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-25": 0, "P1-15": 0, flagged: [] });
+    expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-25": 0, "P1-15": 0, "P0-12": 0, flagged: [] });
     expect(c.boundary_directives).toEqual([]);
     expect(c.system_module_importers.factory.length).toBeGreaterThan(0);
     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IMPORTER.some((re) => re.test(f)))).toEqual([]);
     expect(
       c.system_module_importers.feature_system.filter(
-        (f) => !A1_ROUTES.includes(f) && !ALLOWED_IMPORTER.some((re) => re.test(f)),
+        (f) => !A1_ROUTES.includes(f) && f !== A3_ROUTE && !ALLOWED_IMPORTER.some((re) => re.test(f)),
       ),
     ).toEqual([]);
     expect(c.system_module_importers.non_canonical).toEqual([]);
+    expect(c.system_module_importers.factory).not.toContain(A3_ROUTE);
+    // No importer is left on a deleted register path (the files are gone or moved to the job runner).
+    const all = [...c.system_module_importers.factory, ...c.system_module_importers.feature_system];
+    expect(all.filter((f) => /^(app\/api\/cron\/|lib\/webhooks\/|lib\/messaging\/)/.test(f))).toEqual([]);
+  }, 180_000);
+
+  it("04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's)", async () => {
+    const c = (await p134Counters({ cwd: ROOT })) as Counters;
+    expect(c.exception_register).toEqual(["app/api/v1/**", "lib/api/**"]);
+    expect(c.exception_register_entries).toBe(2);
+    expect(c.exception_register_entries).toBeLessThan(V2_03_REGISTER.length);
+    expect(c.exception_register_importers.length).toBeGreaterThan(0);
+    expect(c.exception_register_importers.every((f) => /^(app\/api\/v1\/|lib\/api\/)/.test(f))).toBe(true);
   }, 180_000);
 
   it("the counters see the fixtures' second factories, system importers, directives and UTC patterns", async () => {
@@ -341,6 +406,7 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
       "lint-fixtures/p1-34/inline-disable.ts:2 P1-34 @typescript-eslint/no-restricted-imports",
     );
     expect(names(c.system_module_importers.feature_system)).toEqual([
+      "auth-system-import.ts",
       "other-feature-system-import.ts",
       "sharing-system-import.ts",
     ]);

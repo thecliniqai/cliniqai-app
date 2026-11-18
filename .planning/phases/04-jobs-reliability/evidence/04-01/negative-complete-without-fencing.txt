@@ -1,0 +1,16 @@
+# 04-01 negative proof: complete_job WITHOUT the lease-token predicate (temporarily replaced on the local stack, then restored from 000031)
+# command: npx vitest run tests/jobs/reaper-db.spec.ts
+   × lease expiry and fencing > an expired lease is re-claimed with attempts = 2 and a new token; the stale holder cannot complete it 156ms
+     → expected true to be false // Object.is equality
+   ✓ lease expiry and fencing > the reaper dead-letters an expired lease with no attempts left, and it is never re-claimed 157ms
+   ✓ lease expiry and fencing > the reaper leaves a live lease and an expired lease with attempts left alone 120ms
+   ✓ fail_job: attempts, backoff and dead letters > retryable on attempt 1 → pending, run_at 15–30 s later (30 s × [0.5, 1] jitter), lease cleared 124ms
+   ✓ fail_job: attempts, backoff and dead letters > a handler's retry time is honoured (capped at one day) 186ms
+   ✓ fail_job: attempts, backoff and dead letters > retryable on the last attempt → dead with finished_at 88ms
+   ✓ fail_job: attempts, backoff and dead letters > non-retryable → dead at once with attempts left 62ms
+   ✓ fail_job: attempts, backoff and dead letters > attempts count up across retries until max_attempts, then dead (poison-pill bound) 129ms
+   ✓ fail_job: attempts, backoff and dead letters > stores a free-text error code as invalid_error_code (no message or number reaches last_error) 95ms
+   ✓ release_job > hands an unstarted job back: pending, attempt returned, re-claimable at once; the stale token is refused 91ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)

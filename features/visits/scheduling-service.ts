@@ -4,7 +4,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant } from "@/lib/auth/tenant-refs";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { isDateOnly, isUuid } from "@/lib/utils/filter-values";
 import { dayWindowUtc, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
@@ -505,12 +505,14 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
 
       const doctorName = formatDoctorDisplayName(doctorMember?.full_name);
 
+      // V2-04 04-03a: queued through the enqueue RPC (tenant from the visit, constrained to ctx.tenantId); the job runner
+      // sends it. One booking message per visit, even when the action is retried (R-24).
       await enqueueMessage(
-        supabase,
+        ctx,
         {
-          tenantId: session.tenantId,
           patientId: data.patient_id,
-          appointmentId: visitRes.visitId,
+          visitId: visitRes.visitId,
+          dedupeKey: `appointment_booked:${visitRes.visitId}`,
           channel: "whatsapp",
           messageType: "appointment_booked",
           templateId: "appointment_booked",

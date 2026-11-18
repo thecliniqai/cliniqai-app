@@ -9,9 +9,12 @@ permissions:
   contents: read
 jobs:
   deploy:
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
     runs-on: ubuntu-24.04
     environment: staging
     steps:
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

@@ -1,0 +1,473 @@
+[stack start-up lines (local key output) omitted]
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/security/guard-actions.spec.ts (620 tests) 35174ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > every inventoried export is a runtime function of its module  353ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getFrequentPrescriptionsAction  675ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getPatientCatchUpSummaryAction  458ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#completeAndBillConsultation  436ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  676ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/clinics/actions.ts#createClinic  365ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/notifications/actions.ts#getInAppNotifications  365ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateStatutorySettings  376ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/terminology/actions.ts#searchDiagnoses  367ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#getClinicVisitsRegister  632ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#recordVisitVitals  477ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getFrequentPrescriptionsAction  491ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getPatientCatchUpSummaryAction  368ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#completeAndBillConsultation  392ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  616ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/notifications/actions.ts#getInAppNotifications  355ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/settings/actions.ts#updateStatutorySettings  375ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/terminology/actions.ts#searchDiagnoses  385ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#getClinicVisitsRegister  597ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#recordVisitVitals  402ms
+ ✓ tests/ops/backup-roundtrip-db.spec.ts (2 tests) 29109ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > uploads an age archive that only the two recipients' keys open, holding the dump, the objects and the manifest  14005ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > a failed step exits non-zero, records a `failed` row with a machine code and uploads nothing  7869ms
+ ✓ tests/security/p1-34-lint-gates.spec.ts (143 tests) 16706ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  641ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4333ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed  11192ms
+ ✓ tests/security/p0-12-lint-gates.spec.ts (27 tests) 12763ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts  597ms
+   ✓ P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)  11948ms
+ ✓ tests/ci/hosted-dump-diff.spec.ts (3 tests) 12674ms
+   ✓ hosted dump drift tool > reports no drift for a schema-only dump of the local database  6163ms
+   ✓ hosted dump drift tool > names a column the dump has and the migrations do not  5109ms
+ ✓ tests/integration/auth/password-auth.spec.ts (12 tests) 9060ms
+   ✓ AUTH-04a password sign-in (local stack) > a normal login, and a failed one, send 0 emails (Mailpit)  1646ms
+   ✓ AUTH-04a password sign-in (local stack) > self-service signup is disabled: no user is created and no email is sent  1542ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > sends exactly one code-only email for an existing account and none for an unknown one  3207ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions  572ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code  369ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session  456ms
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 7298ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5092ms
+ ✓ tests/integration/auth/mailpit-sender.spec.ts (7 tests) 6109ms
+   ✓ Send Email hook path → Mailpit (local stack) > recovery: exactly one code email reaches Mailpit for the user, carrying the payload's code and no link  1532ms
+   ✓ Send Email hook path → Mailpit (local stack) > magiclink: 200 and zero emails in Mailpit (A00-1)  1512ms
+   ✓ Send Email hook path → Mailpit (local stack) > password_changed_notification: exactly one code-free notice in Mailpit  1522ms
+   ✓ Send Email hook path → Mailpit (local stack) > a bad signature sends nothing to Mailpit  1514ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 5501ms
+ ❯ tests/jobs/run-route.spec.ts (29 tests | 1 failed) 5238ms
+   × POST /api/jobs/run: the tracer > runs a drill.noop job seeded by ops.drill_enqueue to done, inside the budget, counts only 390ms
+     → expected { ok: true, claimed: 37, …(4) } to match object { ok: true, claimed: 1, done: 1, …(2) }
+(1 matching property omitted from actual)
+   ✓ POST /api/jobs/run: the tracer > drains several due jobs in one pass; an empty body is a manual run 182ms
+   ✓ POST /api/jobs/run: the tracer > accepts the rotation slot JOBS_RUNNER_SECRET_NEXT next to the current secret 101ms
+   ✓ POST /api/jobs/run: the tracer > accepts a token minted 100 s ago or 100 s ahead (inside the ±120 s window, R-49) 212ms
+   ✓ POST /api/jobs/run: the tracer > claims no drill kind while JOBS_DRILL_ENABLED is off (the job stays pending) 96ms
+   ✓ POST /api/jobs/run: refusals before any database access > no configured secret: even `Bearer undefined` and the old secret are refused  637ms
+   ✓ POST /api/jobs/run: refusals before any database access > an environment the schema refuses authenticates nothing 178ms
+   ✓ POST /api/jobs/run: refusals before any database access > no header → 401 179ms
+   ✓ POST /api/jobs/run: refusals before any database access > a wrong raw bearer → 401 179ms
+   ✓ POST /api/jobs/run: refusals before any database access > a different-length bearer → 401 172ms
+   ✓ POST /api/jobs/run: refusals before any database access > a longer bearer → 401 172ms
+   ✓ POST /api/jobs/run: refusals before any database access > the raw secret as bearer (the 000033 form, R-49) → 401 178ms
+   ✓ POST /api/jobs/run: refusals before any database access > a stale token (−125 s) → 401 174ms
+   ✓ POST /api/jobs/run: refusals before any database access > a future token (+125 s) → 401 178ms
+   ✓ POST /api/jobs/run: refusals before any database access > a token of another secret → 401 177ms
+   ✓ POST /api/jobs/run: refusals before any database access > a token without the scheme → 401 205ms
+   ✓ POST /api/jobs/run: refusals before any database access > a lower-case scheme → 401 190ms
+   ✓ POST /api/jobs/run: refusals before any database access > the token in another header → 401 173ms
+   ✓ POST /api/jobs/run: refusals before any database access > a signed-in clinic owner's session cookie without the bearer → 401 (no role is a runner)  490ms
+   ✓ POST /api/jobs/run: refusals before any database access > GET → 405 with Allow: POST, even with the bearer, and runs nothing 98ms
+   ✓ POST /api/jobs/run: refusals before any database access > PUT → 405 with Allow: POST, even with the bearer, and runs nothing 91ms
+   ✓ POST /api/jobs/run: refusals before any database access > PATCH → 405 with Allow: POST, even with the bearer, and runs nothing 92ms
+   ✓ POST /api/jobs/run: refusals before any database access > DELETE → 405 with Allow: POST, even with the bearer, and runs nothing 91ms
+   ✓ POST /api/jobs/run: body and failure handling > refuses a body that is more than 1 KB (nothing runs) 92ms
+   ✓ POST /api/jobs/run: body and failure handling > refuses a body that is not JSON (nothing runs) 88ms
+   ✓ POST /api/jobs/run: body and failure handling > refuses a body that is an unknown key (nothing runs) 87ms
+   ✓ POST /api/jobs/run: body and failure handling > refuses a body that is an unknown source (nothing runs) 88ms
+   ✓ POST /api/jobs/run: body and failure handling > refuses a body that is a JSON array (nothing runs) 88ms
+   ✓ POST /api/jobs/run: body and failure handling > a thrown error is 500 { ok: false } with one jobs.run.failed line carrying a code only 88ms
+ ✓ tests/security/guard-routes.spec.ts (58 tests) 2918ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3583ms
+   ✓ 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the 3500 ms budget: 500 well inside GoTrue's 5000 ms hook timeout  3506ms
+ ✓ tests/ci/migration-immutability.spec.ts (20 tests) 3043ms
+ ✓ tests/auth/send-email-hook-resend.spec.ts (6 tests) 3044ms
+   ✓ Send Email hook with EMAIL_PROVIDER=resend (04-00b) > a hung Resend answers 500 (resend_timeout) inside the hook budget, before GoTrue's timeout  3010ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2709ms
+ ✓ tests/security/guard-canary.spec.ts (6 tests) 2333ms
+ ✓ tests/config/env-boot.spec.ts (12 tests) 2730ms
+   ✓ boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)  948ms
+   ✓ boot: instrumentation.ts register() (every server instance) > the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)  776ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2475ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a second recovery request for the same address within 60 s is refused with over_email_send_rate_limit  1674ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a password change sends the code-free 'password changed' security notification  327ms
+ ✓ tests/ci/ai-l1-greps.spec.ts (16 tests) 2420ms
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 1906ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged  317ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays  533ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  343ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > with the check off (the lane default) a fixture password is not looked up  313ms
+ ✓ tests/auth/session-age-token-hook-db.spec.ts (53 tests) 2018ms
+ ✓ tests/security/review2-fixes-db.spec.ts (21 tests) 1875ms
+ ✓ tests/security/review-fixes-db.spec.ts (19 tests) 1758ms
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1638ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions  645ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user  365ms
+ ✓ tests/jobs/scheduler-migration-db.spec.ts (29 tests) 1678ms
+   ✓ 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > no API role may execute the scheduler functions or use cron; anon and authenticated cannot read Vault  368ms
+ ✓ tests/jobs/reaper-db.spec.ts (10 tests) 1335ms
+ ✓ tests/jobs/enqueue-message-rpc-db.spec.ts (17 tests) 1540ms
+ ✓ tests/ci/inventory-gate.spec.ts (3 tests) 1538ms
+   ✓ inventory gate (F14) > exits 1 and names the module when a "use server" export takes an override or an acting tenant  552ms
+   ✓ inventory gate (F14) > exits 1 on entry points it cannot inventory: inline "use server", route.{js,jsx,tsx,mjs}, a JS action module (02-06)  498ms
+   ✓ inventory gate (F14) > exits 0 on an action that takes only target ids  486ms
+ ✓ tests/api/v1-doctor-guard.spec.ts (33 tests) 1372ms
+ ✓ tests/ci/staging-scripts.spec.ts (67 tests) 1428ms
+ ✓ tests/security/p0-01-forged-overrides.spec.ts (14 tests) 1326ms
+ ✓ tests/security/review3-fixes-db.spec.ts (16 tests) 1606ms
+ ✓ tests/jobs/parallel-dispatch-db.spec.ts (4 tests) 1171ms
+   ✓ 8 parallel runners over 200 queued messages (04-03a, real message.send handler) > send each message exactly once: 200 provider calls, 200 distinct rows, 0 duplicates  538ms
+ ✓ tests/integration/auth/session-age-token-hook.spec.ts (4 tests) 1238ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s  309ms
+ ✓ tests/jobs/delivery-reap-db.spec.ts (4 tests) 946ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 961ms
+ ✓ tests/jobs/message-send-handler-db.spec.ts (6 tests) 1061ms
+   ✓ message.send handler > an eligible WhatsApp booking failing twice queues exactly one SMS fallback; the last failure dead-letters once  303ms
+ ✓ tests/security/dpdp-export-route.spec.ts (5 tests) 1038ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1053ms
+   ✓ the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)  649ms
+ ✓ tests/ops/restore-drill-checks-db.spec.ts (4 tests) 1031ms
+ ✓ tests/setup/teardown.spec.ts (3 tests) 964ms
+   ✓ teardown leak check > flags a run user's row in a tenant outside the run, and only that  926ms
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 1044ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:145:9[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at _handleRequest [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:239:5[90m)[39m
+    at _request [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:200:16[90m)[39m
+    at [90m/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/GoTrueClient.ts:4790:18
+    at [90m/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/helpers.ts:242:26 {
+  __isAuthError: [33mtrue[39m,
+  status: [33m400[39m,
+  code: [32m'validation_failed'[39m
+}
+AuthApiError: Refresh token is not valid
+    at handleError [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:145:9[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m
+    at _handleRequest [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:239:5[90m)[39m
+    at _request [90m(/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/fetch.ts:200:16[90m)[39m
+    at [90m/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/GoTrueClient.ts:4790:18
+    at [90m/Users/sid/Code/clinicOS/[39mnode_modules/[4m@supabase/auth-js[24m/src/lib/helpers.ts:242:26 {
+  __isAuthError: [33mtrue[39m,
+  status: [33m400[39m,
+  code: [32m'validation_failed'[39m
+}
+
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 1003ms
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)  381ms
+ ✓ tests/integration/demo-clinic-seed.spec.ts (3 tests) 956ms
+   ✓ demo clinic seeding core (local stack) > creates the clinic, five staff with the five roles and three synthetic patients  399ms
+   ✓ demo clinic seeding core (local stack) > is idempotent: a second run keeps the clinic, adds no patients and sets the new password  430ms
+ ✓ tests/security/membership-guard.spec.ts (26 tests) 910ms
+ ✓ tests/integration/consultation-service-guards.spec.ts (9 tests) 959ms
+ ✓ tests/auth/invite.spec.ts (5 tests) 902ms
+ ✓ tests/patients/visit-history.spec.ts (4 tests) 820ms
+ ✓ tests/ci/inventory-guards.spec.ts (11 tests) 875ms
+   ✓ inventory: route handler methods > finds every app route module in the default scan  874ms
+ ✓ tests/visits/clinic-visits-register.spec.ts (8 tests) 913ms
+ ✓ tests/security/cross-tenant-refs.spec.ts (11 tests) 787ms
+ ✓ tests/jobs/claim-grants-db.spec.ts (11 tests) 891ms
+ ✓ tests/security/p0-13-lint-gates.spec.ts (7 tests) 817ms
+   ✓ P0-13 lint gates > fails lint on an inline "use server" action  744ms
+ ✓ tests/ci/recheck-args.spec.ts (12 tests) 682ms
+   ✓ re-check dispatch inputs reach the kit's arguments > in-range values become --stale-wait-seconds / --email-cap-probe (CLI: the kit's argv, no shell)  514ms
+ ✓ tests/ops/backup-runs-db.spec.ts (12 tests) 717ms
+ ✓ tests/security/webhook-lockdown.spec.ts (47 tests) 737ms
+ ✓ tests/security/cross-tenant.spec.ts (20 tests) 724ms
+ ✓ tests/integration/prescription-versioning.spec.ts (6 tests) 679ms
+ ✓ tests/compliance/dpdp-rights.spec.ts (16 tests) 674ms
+ ✓ tests/api/v1-crud.spec.ts (17 tests) 711ms
+ ✓ tests/security/multi-clinic-tenant-filters.spec.ts (7 tests) 642ms
+ ✓ tests/ops/backup-evidence.spec.ts (9 tests) 688ms
+   ✓ evidence --check > CLI: --listing writes the artifact; --check exits 0 on it and 1 on a tampered copy  685ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 633ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 585ms
+ ✓ tests/api/webhooks-outbox.spec.ts (27 tests) 561ms
+ ✓ tests/scheduling/schedule-block-guards.spec.ts (4 tests) 563ms
+ ✓ tests/security/pdf-route-guards.spec.ts (5 tests) 524ms
+ ✓ tests/ci/tests-typecheck.spec.ts (3 tests) 561ms
+   ✓ test type-checking (RL-13) > fails a deliberately mistyped spec and passes a well-typed one using the Vitest globals  529ms
+ ✓ tests/security/share-tokens.spec.ts (22 tests) 553ms
+ ✓ tests/security/override-lint-gates.spec.ts (19 tests) 741ms
+   ✓ P0-01 lint gates: "use server" exports > fails lint on client-override.ts (a clientOverride parameter)  597ms
+ ✓ tests/integration/multi-tenancy.spec.ts (6 tests) 559ms
+ ✓ tests/api/webhook-dispatch-hardening.spec.ts (7 tests) 520ms
+ ✓ tests/labs/lab-documents.spec.ts (12 tests) 447ms
+ ✓ tests/ops/manifest-compare.spec.ts (6 tests) 380ms
+   ✓ compare-manifest.ts CLI and parsers > hashes the storage dir, parses the psql TSVs, exits 0 on a match and 1 naming the table on a mismatch  377ms
+ ✓ tests/security/auth-lint-gates.spec.ts (6 tests) 453ms
+   ✓ AUTH-01 lint gates > fails lint on otp-create-user.ts (OTP sign-in with user creation)  406ms
+ ✓ tests/integration/receipt-reports.spec.ts (4 tests) 455ms
+ ✓ tests/auth/resend-sender.spec.ts (24 tests) 457ms
+   ✓ ResendEmailSender: timeouts and aborts > over real HTTP: a hung Resend answer becomes resend_timeout after the configured deadline, not later  306ms
+ ✓ tests/security/p0-01-action-sweep.spec.ts (114 tests) 424ms
+ ✓ tests/referrals/referrals-flow.spec.ts (13 tests) 462ms
+ ✓ tests/integration/consultation-flow.spec.ts (10 tests) 458ms
+ ✓ tests/integration/subscription.spec.ts (3 tests) 412ms
+ ✓ tests/audit/audit-logging.spec.ts (4 tests) 409ms
+ ✓ tests/ci/schema-snapshot.spec.ts (13 tests) 419ms
+ ✓ tests/integration/ist-boundaries.spec.ts (4 tests) 393ms
+ ✓ tests/ci/ci-scripts.spec.ts (7 tests) 323ms
+ ✓ tests/integration/visits.spec.ts (6 tests) 339ms
+ ✓ tests/integration/cabin-consultation-launch.spec.ts (2 tests) 360ms
+ ✓ tests/api/v1-auth.spec.ts (7 tests) 331ms
+ ✓ tests/ci/env-example.spec.ts (3 tests) 340ms
+ ✓ tests/security/review-fixes-app.spec.ts (14 tests) 363ms
+ ✓ tests/api/v1-performance.spec.ts (5 tests) 339ms
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)
+✓ Seeded 200 OPD drugs fixture in 8ms
+
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy) > 4. Drug search latency benchmark executes under 100ms on database tier
+Drug search roundtrip latency: 2.5ms
+
+ ✓ tests/integration/cdci-search.spec.ts (6 tests) 339ms
+ ✓ tests/integration/per-visit-billing.spec.ts (5 tests) 335ms
+ ✓ tests/messaging/provider-selection.spec.ts (7 tests) 296ms
+ ✓ tests/api/readiness-probe-db.spec.ts (7 tests) 330ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 272ms
+ ✓ tests/compliance/consent.spec.ts (3 tests) 288ms
+ ✓ tests/referrals/referral-source-clinics.spec.ts (7 tests) 254ms
+ ✓ tests/api/rate-limiting.spec.ts (5 tests) 248ms
+ ✓ tests/scheduling/calendar-waitlist.spec.ts (5 tests) 226ms
+ ✓ tests/ops/backup-script-guards.spec.ts (12 tests) 238ms
+ ✓ tests/labs/tokenized-sharing.spec.ts (6 tests) 192ms
+ ✓ tests/ci/workflow-policy.spec.ts (42 tests) 210ms
+ ✓ tests/integration/queue-flow.spec.ts (4 tests) 233ms
+ ✓ tests/security/no-raw-error-responses.spec.ts (24 tests) 220ms
+ ✓ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests) 203ms
+ ✓ tests/ci/vitest-report-gate.spec.ts (9 tests) 191ms
+ ✓ tests/security/system-db.spec.ts (12 tests) 180ms
+ ✓ tests/patients/dedup.spec.ts (6 tests) 168ms
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 162ms
+ ✓ tests/setup/test-env-guard.spec.ts (82 tests) 185ms
+ ✓ tests/ci/local-drift.spec.ts (8 tests) 148ms
+ ✓ tests/ci/env-files-gate.spec.ts (5 tests) 141ms
+stderr | tests/messaging/msg91-contract.spec.ts > the lane stays offline around MSW > a request MSW does not handle never reaches MSG91 (its socket dials 127.0.0.1); other hosts stay refused
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • POST https://control.msg91.com/api/v5/flow/
+
+  • Request body: {"template_id":"flow_template_1","sender":"synthetic-sender","short_url":"0","mobiles":"919812300045"}
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ tests/messaging/msg91-contract.spec.ts (19 tests) 143ms
+ ✓ tests/ci/audit-gate.spec.ts (7 tests) 137ms
+ ✓ tests/api/v1-system-client-order.spec.ts (4 tests) 111ms
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 114ms
+ ✓ tests/api/api-v1-switch.spec.ts (57 tests) 104ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 91ms
+ ✓ tests/ci/playwright-summary.spec.ts (3 tests) 64ms
+ ✓ tests/jobs/runner.spec.ts (9 tests) 57ms
+ ✓ tests/api/health-probes.spec.ts (14 tests) 91ms
+ ✓ tests/setup/next-env-flag.spec.ts (2 tests) 41ms
+ ✓ tests/setup/e2e-app-env.spec.ts (14 tests) 33ms
+ ✓ tests/config/env-schema.spec.ts (254 tests) 30ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 28ms
+ ✓ tests/observability/logger.spec.ts (26 tests) 22ms
+ ✓ tests/messaging/msg91-webhook.spec.ts (23 tests) 15ms
+ ✓ tests/utils/datetime.spec.ts (17 tests) 14ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 13ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 13ms
+ ✓ tests/security/ai-containment.spec.ts (18 tests) 12ms
+ ✓ tests/scheduling/availability-blocks.spec.ts (24 tests) 12ms
+ ✓ tests/integration/calendar-scheduling-ux.spec.ts (12 tests) 12ms
+ ✓ tests/patients/phone-search.spec.ts (11 tests) 11ms
+ ✓ tests/visits/visit-service-guards.spec.ts (6 tests) 11ms
+ ✓ tests/ai/prescription-suggestions.spec.ts (6 tests) 10ms
+ ✓ tests/api/proxy-matcher.spec.ts (24 tests) 9ms
+ ✓ tests/billing/billing-error-messages.spec.ts (5 tests) 10ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 8ms
+ ✓ tests/components/phone-input.spec.ts (16 tests) 8ms
+ ✓ tests/api/webhook-ssrf.spec.ts (61 tests) 8ms
+ ✓ tests/observability/no-raw-error-logging.spec.ts (5 tests) 7ms
+ ✓ tests/components/doctor-availability.spec.ts (11 tests) 7ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 7ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 6ms
+ ✓ tests/ai/ai-gateway.spec.ts (20 tests) 6ms
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/observability/console-scrub.spec.ts (6 tests) 5ms
+ ❯ tests/messaging/messaging-provider.spec.ts (10 tests | 1 failed) 7ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns DevLoggerProvider by default when MESSAGING_PROVIDER is unset 1ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns DevLoggerProvider when MESSAGING_PROVIDER=dev 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns Msg91Provider when overrideName is 'msg91' 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns TwilioProvider when overrideName is 'twilio' 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns GupshupProvider when overrideName is 'gupshup' 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 2. DevLogger Local Delivery & File Appending (T-05-01) > sendDirectSms writes one PHI-free log line and appends the message to .planning/dev-messages.txt 1ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 2. DevLogger Local Delivery & File Appending (T-05-01) > sendDirectWhatsApp formats buttons without simulated webhook callback URLs 0ms
+   × Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > Msg91Provider gracefully reports error when MSG91_AUTH_KEY is missing 3ms
+     → expected 'msg91_not_configured' to contain 'MSG91_AUTH_KEY is not configured'
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > TwilioProvider gracefully reports error when credentials are missing 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > GupshupProvider reports error on SMS request 0ms
+ ❯ tests/messaging/msg91-provider.spec.ts (26 tests | 3 failed) 8ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps appointment_booked to body_1..body_4 positional variables 1ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps prescription_ready with dynamic CTA button_1 token 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps lab_report_uploaded with button_1 token 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps referral_letter_issued with button_1 token 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps receipt_issued with button_1 token 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 1. Positional Variable Mapping > maps all 12 pre-approved templates in whatsapp-templates.json without error 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps appointment_rescheduled caller passing new_date_time to body_4 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps lab_report_uploaded caller passing document_title to body_2 (test_name) 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps referral_letter_issued caller passing specialist_name to body_3 (referred_to_name) 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps appointment_cancelled caller passing reason to body_3 (cancellation_reason) 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps consultation_documents caller passing prescription_url and receipt_url to button_1 token 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 2. Real Caller Parameter Aliases > maps appointment_booked caller passing date_time to body_4 (appointment_time) 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 3. Parameter Sanitization Engine > replaces newlines with spaces and collapses whitespace 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 3. Parameter Sanitization Engine > enforces Meta maximum length limits 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 3. Parameter Sanitization Engine > returns deterministic non-empty fallback strings when parameter is empty or null 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 4. CTA URL Button Token Extraction > extracts token from full URLs like /r/[token] and /share/[token] 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 4. CTA URL Button Token Extraction > passes through bare tokens cleanly 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 4. CTA URL Button Token Extraction > handles empty or invalid inputs with fallback 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 5. Provider Sender ID Resolution > resolves sender ID from options.integratedNumber 1ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 5. Provider Sender ID Resolution > resolves sender ID from process.env.MSG91_INTEGRATED_NUMBER 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 5. Provider Sender ID Resolution > falls back to process.env.MSG91_SENDER_ID if integrated number is not set 0ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 6. Msg91Provider Outbound template-bulk Request Structure > dispatches to template-bulk endpoint with to_and_components and deterministic policy 1ms
+   ✓ MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 7. Active Session Text Endpoint Fallback > routes non-catalogue templates to active session text endpoint 0ms
+   × MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > returns error when MSG91_AUTH_KEY is not configured 2ms
+     → expected 'msg91_not_configured' to contain 'MSG91_AUTH_KEY is not configured'
+   × MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > handles HTTP 400 validation error from MSG91 API 0ms
+     → expected 'msg91_http_400' to contain 'Template variable count mismatch'
+   × MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > handles HTTP 401 unauthorized from MSG91 API 0ms
+     → expected 'msg91_http_401' to contain 'Invalid Auth Key'
+ ✓ tests/ops/drill-evidence-and-workflows.spec.ts (8 tests) 5ms
+ ✓ tests/notifications/in-app-notifications.spec.ts (12 tests) 5ms
+ ✓ tests/api/openapi.spec.ts (3 tests) 5ms
+ ✓ tests/messaging/outbox-queue.spec.ts (10 tests) 4ms
+ ✓ tests/messaging/msg91-sync-templates.spec.ts (14 tests) 5ms
+ ✓ tests/security/invite-token-lockout.spec.ts (4 tests) 4ms
+ ✓ tests/security/share-path-encoding.spec.ts (21 tests) 4ms
+ ✓ tests/messaging/sink-provider.spec.ts (2 tests) 3ms
+ ✓ tests/storage/storage-provider.spec.ts (14 tests) 4ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 4ms
+ ✓ tests/auth/public-paths.spec.ts (61 tests) 3ms
+ ✓ tests/dental/odontogram.spec.ts (7 tests) 3ms
+ ✓ tests/db/error-map.spec.ts (34 tests) 3ms
+ ✓ tests/consultation/schemas.spec.ts (11 tests) 3ms
+ ✓ tests/settings/settings-service-guards.spec.ts (6 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/settings/profile-and-credentials.spec.ts (8 tests) 3ms
+ ✓ tests/prescriptions/dosage.spec.ts (13 tests) 3ms
+ ✓ tests/jobs/runner-auth.spec.ts (31 tests) 3ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+ ✓ tests/patients/schema.spec.ts (7 tests) 2ms
+ ✓ tests/billing/schemas.spec.ts (4 tests) 2ms
+ ✓ tests/storage/no-service-role-fallback.spec.ts (5 tests) 2ms
+ ✓ tests/utils/phone.spec.ts (28 tests) 2ms
+ ✓ tests/security/pii-scrubber.spec.ts (8 tests) 2ms
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 1ms
+ ✓ tests/auth/rbac.spec.ts (6 tests) 2ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/messaging/two-way-bot.spec.ts (4 tests) 1ms
+ ✓ tests/utils/synthetic-phones.spec.ts (2 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/jobs/run-route.spec.ts > POST /api/jobs/run: the tracer > runs a drill.noop job seeded by ops.drill_enqueue to done, inside the budget, counts only
+AssertionError: expected { ok: true, claimed: 37, …(4) } to match object { ok: true, claimed: 1, done: 1, …(2) }
+(1 matching property omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "claimed": 1,[39m
+[31m+   "claimed": 37,[39m
+[2m    "dead": 0,[22m
+[32m-   "done": 1,[39m
+[31m+   "done": 37,[39m
+[2m    "ok": true,[22m
+[2m    "retried": 0,[22m
+[2m  }[22m
+
+ ❯ tests/jobs/run-route.spec.ts:127:18
+    125|     expect(res.status).toBe(200);
+    126|     expect(Object.keys(json!).sort()).toEqual(SIX_KEYS);
+    127|     expect(json).toMatchObject({ ok: true, claimed: 1, done: 1, retrie…
+       |                  ^
+    128|     expect(json!.durationMs as number).toBeLessThan(25_000);
+    129|     expect(elapsed).toBeLessThan(25_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/messaging/messaging-provider.spec.ts > Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > Msg91Provider gracefully reports error when MSG91_AUTH_KEY is missing
+AssertionError: expected 'msg91_not_configured' to contain 'MSG91_AUTH_KEY is not configured'
+
+Expected: [32m"[7mMSG91_AUTH_KEY is [27mnot[7m [27mconfigured"[39m
+Received: [31m"[7mmsg91_[27mnot[7m_[27mconfigured"[39m
+
+ ❯ tests/messaging/messaging-provider.spec.ts:148:28
+    146|       const result = await provider.sendSms("+919999999999", "temp_1",…
+    147|       expect(result.success).toBe(false);
+    148|       expect(result.error).toContain("MSG91_AUTH_KEY is not configured…
+       |                            ^
+    149|     });
+    150| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/messaging/msg91-provider.spec.ts > MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > returns error when MSG91_AUTH_KEY is not configured
+AssertionError: expected 'msg91_not_configured' to contain 'MSG91_AUTH_KEY is not configured'
+
+Expected: [32m"[7mMSG91_AUTH_KEY is [27mnot[7m [27mconfigured"[39m
+Received: [31m"[7mmsg91_[27mnot[7m_[27mconfigured"[39m
+
+ ❯ tests/messaging/msg91-provider.spec.ts:474:28
+    472| 
+    473|       expect(result.success).toBe(false);
+    474|       expect(result.error).toContain("MSG91_AUTH_KEY is not configured…
+       |                            ^
+    475|     });
+    476| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/messaging/msg91-provider.spec.ts > MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > handles HTTP 400 validation error from MSG91 API
+AssertionError: expected 'msg91_http_400' to contain 'Template variable count mismatch'
+
+Expected: [32m"Template variable count mismatch"[39m
+Received: [31m"msg91_http_400"[39m
+
+ ❯ tests/messaging/msg91-provider.spec.ts:496:28
+    494|       const result = await provider.sendWhatsApp("919876543210", "appo…
+    495|       expect(result.success).toBe(false);
+    496|       expect(result.error).toContain("Template variable count mismatch…
+       |                            ^
+    497|       expect(result.statusCode).toBe(400);
+    498|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/messaging/msg91-provider.spec.ts > MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1-01, T-05.1-02) > 8. Error & Missing Credentials Handling > handles HTTP 401 unauthorized from MSG91 API
+AssertionError: expected 'msg91_http_401' to contain 'Invalid Auth Key'
+
+Expected: [32m"Invalid Auth Key"[39m
+Received: [31m"msg91_http_401"[39m
+
+ ❯ tests/messaging/msg91-provider.spec.ts:519:28
+    517|       const result = await provider.sendWhatsApp("919876543210", "appo…
+    518|       expect(result.success).toBe(false);
+    519|       expect(result.error).toContain("Invalid Auth Key");
+       |                            ^
+    520|       expect(result.statusCode).toBe(401);
+    521|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  3 failed | 181 passed (184)
+      Tests  5 failed | 3882 passed (3887)
+   Start at  16:06:47
+   Duration  261.55s (transform 1.33s, setup 847ms, collect 12.57s, tests 232.31s, environment 9ms, prepare 3.59s)
+
+[teardown] removed run data: 128 tenant(s), 268 auth user(s), 1398 storage object(s); verified none remain
+exit=1

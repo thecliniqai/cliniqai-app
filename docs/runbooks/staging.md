@@ -50,7 +50,21 @@ Then set the password yourself in the SQL editor with a value from your password
 (`alter role clinicos_drift_ro with password '…';`). Do not paste it anywhere else. The role gets no table grants, so
 it cannot read rows. `supabase db diff` and the privilege snapshot (`scripts/drift/schema-snapshot.mjs`) only read
 the catalog, which every role can read. `default_transaction_read_only` is only a session default (any role can turn
-it off); the real control is that the role holds no grants beyond `connect` and `usage`.
+it off); the real control is that the role holds no grants beyond `connect` and `usage`, plus the one read below.
+
+**Migration history read (PO action 04-P16, V2-04 04-00).** The `plan` job of `staging.yml` (§6) lists the pending
+migrations from this role before you approve `migrate`. It reads only the applied version numbers, so the role needs
+these two statements, and nothing else changes for it (still no table or function grant in `public`, `ops` or
+`private`). Run them once in the staging SQL editor; they contain no password:
+
+```sql
+grant usage on schema supabase_migrations to clinicos_drift_ro;
+grant select on supabase_migrations.schema_migrations to clinicos_drift_ro;
+```
+
+The table holds migration versions, names and statements (the SQL of `supabase/migrations`, already in the
+repository); no patient or user data. Without the grant the `plan` job fails ("does clinicos_drift_ro hold the 04-P16
+grant?") and `migrate` does not start.
 
 ## 4. Vercel project (PO action E4)
 
@@ -93,6 +107,20 @@ job) fails the build if a staging workflow gains any trigger other than `push`, 
 `${{ … }}` inside a `run:` script; and in every workflow if a `uses:` is not pinned to a commit SHA. YAML it cannot
 read completely fails closed (03-13b M-POLICY).
 
+Since V2-04 04-07c (review C M-1, L-2, L-3) it also refuses: an `environment:` that is computed (`${{ vars.X }}`,
+`${{ matrix.e }}`) or not exactly one of `staging`, `staging-readonly`, `staging-backup` in lower case (GitHub matches
+Environment names case-insensitively, so `Staging-Backup` would be the reviewer-free backup Environment); a computed
+index into `secrets` (`secrets[matrix.n]`, `secrets[format(…)]`); and any trigger but push/schedule/dispatch in a
+workflow where **any** job has an Environment. Every job in an Environment must start with the step
+`[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "…" >&2; exit 1; }`: GitHub's `==` in the job `if:` ignores case
+(a branch `Feature/V2` passes it), bash `=` does not, and the step runs before any step that holds a secret. A
+`workflow_run` workflow (only `backup-alert.yml`) must require the triggering run's path, head repository and a
+schedule/dispatch event in its `if:` (the trigger matches by the copyable workflow `name:`).
+
+**Never share secrets across environments.** Staging and production get separately generated values for every secret
+(runner secret, database passwords, keys); `docs/runbooks/jobs.md` §2 explains why for the runner secret (its tokens are
+not bound to an environment).
+
 ## 6. Deploying (migrations)
 
 **Order: expand, then migrate, then contract.** Vercel deploys a push to `feature/v2` straight away, while
@@ -106,20 +134,64 @@ old schema, or the old app against the new schema. That window is safe only when
 `supabase/migrations` is append-only (`scripts/ci/migration-immutability.mjs`), so there are no down migrations.
 
 **Run:** a push to `feature/v2` that touches `supabase/migrations/**` starts `staging.yml`. You can also start it
-yourself: Actions → Staging → Run workflow → branch `feature/v2`, task `migrate`. Approve the `staging` deployment.
-The `migrate` job then:
+yourself: Actions → Staging → Run workflow → branch `feature/v2`, task `migrate`.
+
+**Plan first (V2-04 04-00, review A L-5).** The `plan` job runs at once in Environment `staging-readonly` (no
+reviewer, the read-only role of §3): `scripts/staging/migration-plan.mjs` checks `STAGING_DB_URL_RO` with the target
+guard, reads the applied versions from `supabase_migrations.schema_migrations` in one read-only transaction (psql gets
+the connection as `PG*` variables, never a URL on its command line) and compares them with `supabase/migrations`. Its
+log and the run's **Summary** page list the pending file names and the count (names only). Read it **before** you
+approve `staging`: `migrate` `needs: plan`, so it waits for the plan and then for your approval.
+
+| `plan` exit | Meaning | Action |
+|---|---|---|
+| 0 | the list is what `migrate` will apply (`0 pending` is possible: a re-run) | approve `staging` if the list is what you merged |
+| 1 | history drift: staging holds a version with no file in `supabase/migrations` (applied outside the repository), or a pending file is older than the newest applied one (`db push` refuses it) | do not approve; find who applied it, then capture or reverse it in a new migration |
+| 2 | refused (URL, ref) or the history could not be read: usually the 04-P16 grant (§3) is missing, or the project is paused (§9) | fix the grant or restore the project, then re-run |
+
+Approve the `staging` deployment. The `migrate` job then:
 
 1. checks `STAGING_DB_URL` with the target guard (and masks the password for the rest of the job);
-2. `supabase db push --db-url … --dry-run` (lists what would be applied), then the same without `--dry-run`. It never
-   uses `--include-seed`;
+2. `supabase db push --db-url … --dry-run` (lists what would be applied, a second listing after `plan`), then the
+   same without `--dry-run`. It never uses `--include-seed`. The CLI gets the URL rebuilt by the guard **without the
+   password** (`--print-db-url --no-password`) and the password as `PGPASSWORD` (`--print-pgpassword`), so no password
+   sits on a command line (04-00, review A L-7; `scripts/ci/workflow-policy.mjs` refuses `--print-db-url` without
+   `--no-password` in a staging workflow). `schema-drift.mjs` (nightly) does the same for `db diff`;
 3. `scripts/staging/wait-for-release.mjs`: polls `/api/health` until `release` equals the commit (10 minutes at
    most), then requires `/api/ready` to answer 200, `status: "ready"`, with `checks.schema: "current"`. The probe
    returns no version number (03-13c M-PROBE): the build asks the database whether its own `EXPECTED_MIGRATION`
    (`app/api/ready/expected-migration.ts`, bumped with every new migration and pinned to the newest file by a spec)
    is applied, and step 1 proved the deployed build is this commit.
+   **A newer deploy (04-00, review A L-6):** if another commit reached `feature/v2` (and Vercel) while this run waited
+   for your approval, `/api/health` reports that newer SHA. The job checks out the full history (`fetch-depth: 0`) and
+   accepts a release that **descends** from this run's commit (`git merge-base --is-ancestor`); the readiness check is
+   unchanged, so if the newer commit carries its own migration that is still pending, this run fails on
+   `checks.schema` until that commit's own run applies it. A release that does not descend from this commit (an
+   Instant Rollback, §11) keeps the wait going until the timeout, as before.
 
 A green run, together with the Vercel deployment link for the same commit, is the evidence for "staging deploys from
 CI" (acceptance item 7). Record both in `docs/v2/VERIFICATION_LOG.md`.
+
+**Migrate before promote: a merge whose code needs its own migrations (V2-04 is the first, R-38).** From V2-04 on,
+the app code of a merge can require the migrations in the same merge (the job runner and the enqueue RPCs; V2-04 ships
+its expand and contract migrations together, R-38, because staging holds synthetic data and production is created
+fresh in V2-15). For such a merge:
+
+1. Approve the `staging.yml` `migrate` run for the merge commit **immediately** (after reading `plan`, above). Vercel
+   has already deployed the new code; until the migrations are applied that code runs against the old schema.
+2. Until `scripts/staging/wait-for-release.mjs` passes, `/api/ready` answers **503** with `checks.schema: "behind"`
+   (the build's `EXPECTED_MIGRATION` is not applied yet) and staging counts as **down**: do not test on it, do not
+   record evidence from it, and expect queued work to wait (messages and webhooks are only sent by the job runner).
+3. **Never promote or roll back** a Vercel deployment across a migration boundary without checking the schema first.
+   Promoting a build **newer** than the applied schema: read `checks.schema` on `/api/ready`; `behind` means approve
+   the pending `migrate` run first. Rolling back to a build **older** than the applied schema: the probe cannot warn
+   you (it only asks whether the build's own `EXPECTED_MIGRATION` is applied, 03-13c M-PROBE, so an older build reads
+   `current`); compare that build's `EXPECTED_MIGRATION` with the files after it in `supabase/migrations/`, and if any
+   of them is a contract step (a drop or revoke, such as V2-04's `000038_queue_contract.sql`: members can no longer
+   write the queues, so a pre-V2-04 build cannot queue a message) do not roll back: roll forward with a fix (§11).
+
+No code change backs this step: the readiness gate already exists (03-13c) and `tests/api/readiness-probe-db.spec.ts`
+proves the `behind` answer.
 
 ## 7. Seeding and demo-data reset
 
@@ -181,6 +253,7 @@ or record the deviation (FT-01) in `docs/v2/VERIFICATION_LOG.md`.
 | `auth-config` | 2 | refused (token, ref or origin missing or malformed) or an API error (status only) | check `staging-readonly` secrets/variables; renew the token |
 | `schema` | 1 | the staging `public`/`ops`/`private` schema differs from what `supabase/migrations` builds, or a grant, policy or RLS flag differs from `scripts/drift/schema-snapshot.txt` (lines `+` = only on staging, `-` = missing on staging) | find who changed staging outside a migration; reverse it, or capture it in a new migration. A platform-owned difference (e.g. on the first run) is recorded and fixed in a reviewed change; the snapshot has no allowlist |
 | `schema` | 2 | target refused, or the CLI could not connect | check `STAGING_DB_URL_RO`, the role password, the pause state |
+| `plan` (`staging.yml`) | 1 / 2 | history drift / refused or history unreadable | §6 "Plan first" table |
 | `region` | 1 | functions are not in `bom1` | §10 |
 
 Reports are uploaded as workflow artifacts (`auth-config-drift`, `schema-drift`). They contain field names, policy

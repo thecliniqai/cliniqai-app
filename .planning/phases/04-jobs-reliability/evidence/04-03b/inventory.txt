@@ -1,0 +1,5856 @@
+
+> clinicos@0.1.0 inventory
+> tsx scripts/inventory-server-actions.ts
+
+{
+  "tool": "scripts/inventory-server-actions.ts",
+  "commit": "c9611ce583995eace5070eed98e80ab9063593ca",
+  "rules": {
+    "useServerBanned": "Override$|^(actorSession|session|client|actorId|actor_id|createdBy|created_by|recordedBy|recorded_by|signedBy|signed_by|tenantId|tenant_id)$",
+    "nonActionBanned": "Override$|^actorSession$",
+    "nonActionNoted": "^(session|client|db|supabase|tenantId|actorId|createdBy|recordedBy|signedBy)$",
+    "schemaBanned": "^(created_by|recorded_by|signed_by|actor_id|tenant_id|createdBy|recordedBy|signedBy|actorId|tenantId)$"
+  },
+  "counts": {
+    "useServerModules": 25,
+    "useServerExports": 112,
+    "useServerFunctionExports": 112,
+    "nonActionModules": 15,
+    "nonActionModulesPresent": 14,
+    "schemaFiles": 9,
+    "routeModules": 28,
+    "routeMethods": 50,
+    "unguardedUseServerFunctionExports": 4,
+    "flagged": 0,
+    "noted": 6
+  },
+  "flagged": [],
+  "noted": [
+    {
+      "file": "features/billing/pdf/generator.ts",
+      "export": "compileAndGenerateReceiptPdf",
+      "where": "param 1",
+      "name": "supabase",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    },
+    {
+      "file": "features/billing/pdf/generator.ts",
+      "export": "compileAndGenerateReceiptPdf",
+      "where": "param 2",
+      "name": "tenantId",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    },
+    {
+      "file": "lib/api/auth.ts",
+      "export": "apiKeyServiceContext",
+      "where": "param 0",
+      "name": "session",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    },
+    {
+      "file": "lib/api/auth.ts",
+      "export": "apiKeyServiceContext",
+      "where": "param 1",
+      "name": "db",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    },
+    {
+      "file": "lib/api/doctor-guard.ts",
+      "export": "validateDoctorAssignment",
+      "where": "param 0",
+      "name": "db",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    },
+    {
+      "file": "lib/api/doctor-guard.ts",
+      "export": "validateDoctorAssignment",
+      "where": "param 1",
+      "name": "tenantId",
+      "rule": "D1 non-action: required context/db (allowed: typed ctx or register path)"
+    }
+  ],
+  "useServerModules": [
+    {
+      "file": "app/(dashboard)/settings/clinic/actions.ts",
+      "exports": [
+        {
+          "name": "updateClinicProfileAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "formData",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FormData",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "delegated:updateClinicProfile",
+            "permission": "clinic:manage"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/ai/actions.ts",
+      "exports": [
+        {
+          "name": "generateSoapAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ shorthand: string; patientContext?: AnonymizedPatientContext | undefined; }",
+                "typeFields": [
+                  "shorthand",
+                  "patientContext",
+                  "patientContext.age",
+                  "patientContext.sex",
+                  "patientContext.existing_conditions",
+                  "patientContext.vitals"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "getFrequentPrescriptionsAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ diagnosis: string; doctorId?: string | undefined; limit?: number | undefined; }",
+                "typeFields": [
+                  "diagnosis",
+                  "doctorId",
+                  "limit"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "getPatientCatchUpSummaryAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patientId: string; }",
+                "typeFields": [
+                  "patientId"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "consultations:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/api-keys/actions.ts",
+      "exports": [
+        {
+          "name": "createApiKey",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "name",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "listApiKeys",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "revokeApiKey",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "keyId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/auth/actions.ts",
+      "exports": [
+        {
+          "name": "changePasswordAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ currentPassword: string; newPassword: string; }",
+                "typeFields": [
+                  "currentPassword",
+                  "newPassword"
+                ]
+              }
+            ]
+          ],
+          "guard": null
+        },
+        {
+          "name": "setNewPasswordAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ newPassword: string; }",
+                "typeFields": [
+                  "newPassword"
+                ]
+              }
+            ]
+          ],
+          "guard": null
+        }
+      ]
+    },
+    {
+      "file": "features/billing/actions.ts",
+      "exports": [
+        {
+          "name": "addInvoiceItem",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ description: string; invoice_id: string; item_type: \"consultation\" | \"procedure\" | \"medicine\" | \"other\"; quantity: number; unit_price: number; }",
+                "typeFields": [
+                  "description",
+                  "invoice_id",
+                  "item_type",
+                  "quantity",
+                  "unit_price"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "completeAndBillConsultation",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patient_id: string; visit_id: string; discount: number; payment_method: \"cash\" | \"upi\" | \"card\"; consultation_fee: number; additional_items: { description: string; item_type: \"consultation\" | \"procedure\" | \"medicine\" | \"other\"; quantity: number; unit_price: number; total_price?: number | undefined; }[]; payment_collected: boolean; reference_number?: string | null | undefined; }",
+                "typeFields": [
+                  "patient_id",
+                  "visit_id",
+                  "discount",
+                  "payment_method",
+                  "consultation_fee",
+                  "additional_items",
+                  "payment_collected",
+                  "reference_number"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "createVisitInvoice",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patient_id: string; visit_id: string; items: { description: string; item_type: \"consultation\" | \"procedure\" | \"medicine\" | \"other\"; quantity: number; unit_price: number; total_price?: number | undefined; }[]; discount: number; tax: number; }",
+                "typeFields": [
+                  "patient_id",
+                  "visit_id",
+                  "items",
+                  "discount",
+                  "tax"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "deleteInvoiceItem",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "itemId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getInvoiceReceiptPdfSignedUrl",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "invoiceId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "getVisitBillingDetails",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "recordPayment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ invoice_id: string; amount: number; payment_method: \"cash\" | \"upi\" | \"card\"; notes?: string | null | undefined; reference_number?: string | null | undefined; commandId?: string | undefined; }",
+                "typeFields": [
+                  "invoice_id",
+                  "amount",
+                  "payment_method",
+                  "notes",
+                  "reference_number",
+                  "commandId"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "sendConsolidatedConsultationWhatsApp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "SendConsolidatedConsultationWhatsAppInput",
+                "typeFields": [
+                  "visitId",
+                  "invoiceId",
+                  "patientId"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "shareReceiptViaWhatsApp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "invoiceId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "billing:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/billing/reports-actions.ts",
+      "exports": [
+        {
+          "name": "getDailyCollectionReport",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "startDateStr",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "endDateStr",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "billing:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/billing/subscription.ts",
+      "exports": [
+        {
+          "name": "getSubscriptionOverview",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "billing:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/clinics/actions.ts",
+      "exports": [
+        {
+          "name": "createClinic",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "formData",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FormData",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": null
+        }
+      ]
+    },
+    {
+      "file": "features/clinics/profile.ts",
+      "exports": [
+        {
+          "name": "getClinicProfile",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "clinic:view"
+          }
+        },
+        {
+          "name": "getClinicProfileWithMembership",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "clinic:view"
+          }
+        },
+        {
+          "name": "updateClinicProfile",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ name: string; specialties: string[]; timezone: string; working_hours: Record<string, { open: string; close: string; closed?: boolean | undefined; }>; address?: string | null | undefined; }",
+                "typeFields": [
+                  "name",
+                  "specialties",
+                  "timezone",
+                  "working_hours",
+                  "address"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "clinic:manage"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/consultation/actions.ts",
+      "exports": [
+        {
+          "name": "completeAndSignConsultation",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "finalizeVisitAmendment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "getPatientConsultationHistory",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "currentVisitId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "recordFollowUp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "RecordFollowUpInput",
+                "typeFields": [
+                  "visitId",
+                  "patientId",
+                  "doctorId",
+                  "followUpDate",
+                  "notes"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "reopenVisitForAmendment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "reason",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "saveConsultationDraft",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ visit_id: string; specialty: \"general_physician\" | \"dental\" | \"pediatrics\"; investigations_advised: string[]; advice: string[]; chief_complaints: { symptom: string; duration_val: number; duration_unit: \"days\" | \"weeks\" | \"months\" | \"years\"; id?: string | undefined; notes?: string | null | undefined; }[]; metadata?: Record<string, unknown> | null | undefined; clinical_notes?: string | null | undefined; specialty_data?: Record<string, unknown> | { specialty: \"general_physician\"; general_exam?: { pallor: boolean; icterus: boolean; cyanosis: boolean; clubbing: boolean; lymphadenopathy: boolean; edema: boolean; } | undefined; systemic?: { cvs?: string | null | undefined; rs?: string | null | undefined; pa?: string | null | undefined; cns?: string | null | undefined; } | undefined; } | { specialty: \"dental\"; odontogram: { tooth_number: number; condition_tags: (\"decay\" | \"crown\" | \"missing\" | \"rct\" | \"filled\" | \"extraction\")[]; notes?: string | null | undefined; }[]; general_notes?: string | null | undefined; } | { specialty: \"pediatrics\"; immunizations_given: string[]; birth_history?: { gestational_age_weeks?: number | null | undefined; birth_weight_kg?: number | null | undefined; delivery_type?: \"normal\" | \"c_section\" | \"assisted\" | null | undefined; complications?: string | null | undefined; } | undefined; head_circumference_cm?: number | null | undefined; } | null | undefined; vitals?: { recorded_at?: string | null | undefined; systolic?: number | null | undefined; diastolic?: number | null | undefined; pulse?: number | null | undefined; temperature?: number | null | undefined; spo2?: number | null | undefined; weight?: number | null | undefined; height?: number | null | undefined; respiratory_rate?: number | null | undefined; bmi?: number | null | undefined; } | null | undefined; follow_up?: { notes?: string | null | undefined; follow_up_date?: string | null | undefined; interval?: \"custom\" | \"none\" | \"3_days\" | \"5_days\" | \"1_week\" | \"2_weeks\" | undefined; } | null | undefined; }",
+                "typeFields": [
+                  "visit_id",
+                  "specialty",
+                  "investigations_advised",
+                  "advice",
+                  "chief_complaints",
+                  "metadata",
+                  "clinical_notes",
+                  "specialty_data",
+                  "specialty_data.specialty",
+                  "specialty_data.general_exam",
+                  "specialty_data.general_exam.pallor",
+                  "specialty_data.general_exam.icterus",
+                  "specialty_data.general_exam.cyanosis",
+                  "specialty_data.general_exam.clubbing",
+                  "specialty_data.general_exam.lymphadenopathy",
+                  "specialty_data.general_exam.edema",
+                  "specialty_data.systemic",
+                  "specialty_data.systemic.cvs",
+                  "specialty_data.systemic.rs",
+                  "specialty_data.systemic.pa",
+                  "specialty_data.systemic.cns",
+                  "specialty_data.odontogram",
+                  "specialty_data.general_notes",
+                  "specialty_data.immunizations_given",
+                  "specialty_data.birth_history",
+                  "specialty_data.birth_history.gestational_age_weeks",
+                  "specialty_data.birth_history.birth_weight_kg",
+                  "specialty_data.birth_history.delivery_type",
+                  "specialty_data.birth_history.complications",
+                  "specialty_data.head_circumference_cm",
+                  "vitals",
+                  "vitals.recorded_at",
+                  "vitals.systolic",
+                  "vitals.diastolic",
+                  "vitals.pulse",
+                  "vitals.temperature",
+                  "vitals.spo2",
+                  "vitals.weight",
+                  "vitals.height",
+                  "vitals.respiratory_rate",
+                  "vitals.bmi",
+                  "follow_up",
+                  "follow_up.notes",
+                  "follow_up.follow_up_date",
+                  "follow_up.interval"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/labs/actions.ts",
+      "exports": [
+        {
+          "name": "deleteLabDocument",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "documentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "generateDocumentShareToken",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "documentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getDocumentSignedUrl",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "documentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getPatientDocuments",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "shareLabReportViaWhatsApp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "documentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "uploadLabDocument",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "formData",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FormData",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/notifications/actions.ts",
+      "exports": [
+        {
+          "name": "getInAppNotifications",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "options",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "GetNotificationsOptions",
+                "typeFields": [
+                  "category",
+                  "limit",
+                  "unreadOnly"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "getUnreadNotificationCount",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "markAllNotificationsRead",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "category",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationCategory",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "markNotificationRead",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "notificationId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/patients/actions.ts",
+      "exports": [
+        {
+          "name": "createPatient",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ age: number | null; date_of_birth: string | null; full_name: string; phone: string; abha_id: string | null; address?: { line1?: string | undefined; city?: string | undefined; state?: string | undefined; pincode?: string | undefined; } | null | undefined; allergies?: string[] | undefined; chronic_conditions?: string[] | undefined; emergency_contact?: Record<string, unknown> | null | undefined; sex?: \"other\" | \"male\" | \"female\" | null | undefined; }",
+                "typeFields": [
+                  "age",
+                  "date_of_birth",
+                  "full_name",
+                  "phone",
+                  "abha_id",
+                  "address",
+                  "address.line1",
+                  "address.city",
+                  "address.state",
+                  "address.pincode",
+                  "allergies",
+                  "chronic_conditions",
+                  "emergency_contact",
+                  "sex"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "getPatient",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "includeErased",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "boolean",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getPatients",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getPatientVisitHistory",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "searchPatients",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "query",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "updatePatient",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ age: number | null; date_of_birth: string | null; full_name: string; phone: string; abha_id: string | null; address?: { line1?: string | undefined; city?: string | undefined; state?: string | undefined; pincode?: string | undefined; } | null | undefined; allergies?: string[] | undefined; chronic_conditions?: string[] | undefined; emergency_contact?: Record<string, unknown> | null | undefined; sex?: \"other\" | \"male\" | \"female\" | null | undefined; }",
+                "typeFields": [
+                  "age",
+                  "date_of_birth",
+                  "full_name",
+                  "phone",
+                  "abha_id",
+                  "address",
+                  "address.line1",
+                  "address.city",
+                  "address.state",
+                  "address.pincode",
+                  "allergies",
+                  "chronic_conditions",
+                  "emergency_contact",
+                  "sex"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/patients/consent.ts",
+      "exports": [
+        {
+          "name": "getCurrentConsent",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "consentType",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "grantConsent",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "consentType",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "note",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "toggleGlobalConsent",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "targetStatus",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "\"granted\" | \"withdrawn\"",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "note",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "withdrawConsent",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "consentType",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "reason",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/patients/dedup.ts",
+      "exports": [
+        {
+          "name": "findPotentialDuplicates",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "params",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FindDuplicatesParams",
+                "typeFields": [
+                  "phone",
+                  "fullName",
+                  "age",
+                  "dob"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/prescriptions/actions.ts",
+      "exports": [
+        {
+          "name": "addPrescriptionItem",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ medicine_name: string; dosage: string; duration: string; id?: string | undefined; generic_name?: string | null | undefined; dose_form?: string | null | undefined; cdci_brand_id?: string | null | undefined; cdci_generic_id?: string | null | undefined; sort_order?: number | undefined; special_instructions?: string | null | undefined; timing?: string | null | undefined; }",
+                "typeFields": [
+                  "medicine_name",
+                  "dosage",
+                  "duration",
+                  "id",
+                  "generic_name",
+                  "dose_form",
+                  "cdci_brand_id",
+                  "cdci_generic_id",
+                  "sort_order",
+                  "special_instructions",
+                  "timing"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "getDoctorProtocolTemplates",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "specialty",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "getOrCreateDraftPrescription",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "getPrescriptionPdfSignedUrl",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "prescriptionId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "letterheadMode",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "\"blank_paper\" | \"preprinted_letterhead\"",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "getVisitPrescription",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "removePrescriptionItem",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "itemId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "saveDoctorProtocolTemplate",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ items: { medicine_name: string; dosage: string; duration: string; sort_order: number; id?: string | undefined; generic_name?: string | null | undefined; dose_form?: string | null | undefined; cdci_brand_id?: string | null | undefined; cdci_generic_id?: string | null | undefined; special_instructions?: string | null | undefined; timing?: string | null | undefined; }[]; template_name: string; specialty?: string | null | undefined; }",
+                "typeFields": [
+                  "items",
+                  "template_name",
+                  "specialty"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "searchMedicines",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "query",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "limit",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "number",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "sharePrescriptionViaWhatsApp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "prescriptionId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/queue/actions.ts",
+      "exports": [
+        {
+          "name": "checkInVisit",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "priority",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "QueuePriority",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getQueueForDate",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "dateStr",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "doctorId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "transitionQueueState",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "targetState",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "\"in_consultation\" | \"completed\"",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/referrals/actions.ts",
+      "exports": [
+        {
+          "name": "acknowledgeReferral",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "referralId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "closeReferralLoop",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "CloseReferralLoopInput",
+                "typeFields": [
+                  "referral_id",
+                  "closure_notes",
+                  "return_date"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "createReferral",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "CreateReferralInput",
+                "typeFields": [
+                  "patient_id",
+                  "visit_id",
+                  "referral_type",
+                  "referred_to_name",
+                  "referred_to_facility",
+                  "referred_to_specialty",
+                  "referred_to_contact",
+                  "target_tenant_id",
+                  "target_doctor_id",
+                  "reason_for_referral",
+                  "provisional_diagnosis",
+                  "urgency",
+                  "clinical_summary",
+                  "active_medications_snapshot",
+                  "investigations_advised",
+                  "patient_consents_history_sharing",
+                  "letterhead_mode"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:edit"
+          }
+        },
+        {
+          "name": "getInboundReferrals",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getOutboundReferrals",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getPatientReferrals",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "getReferralSignedUrl",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "referralId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requireServiceContext",
+            "permission": "patients:view"
+          }
+        },
+        {
+          "name": "shareReferralLetterViaWhatsApp",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "referralId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "patients:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/settings/actions.ts",
+      "exports": [
+        {
+          "name": "deleteDoctorScheduleBlock",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "blockId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getDoctorScheduleBlocks",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "doctorId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "getMyProfile",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "getActiveMembership",
+            "permission": null
+          }
+        },
+        {
+          "name": "updateClinicSettings",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ name: string; default_specialty: string; specialties: string[]; accepted_payment_methods: (\"cash\" | \"upi\" | \"card\")[]; default_consultation_fee: number; default_followup_fee: number; owner_is_practicing_doctor: boolean; timezone: string; medical_council_reg_no?: string | null | undefined; qualifications?: string | null | undefined; address?: string | null | undefined; clinical_establishment_reg_no?: string | null | undefined; drug_license_no?: string | null | undefined; gstin?: string | null | undefined; state_medical_council_reg_no?: string | null | undefined; doctor_name?: string | null | undefined; doctor_phone?: string | null | undefined; }",
+                "typeFields": [
+                  "name",
+                  "default_specialty",
+                  "specialties",
+                  "accepted_payment_methods",
+                  "default_consultation_fee",
+                  "default_followup_fee",
+                  "owner_is_practicing_doctor",
+                  "timezone",
+                  "medical_council_reg_no",
+                  "qualifications",
+                  "address",
+                  "clinical_establishment_reg_no",
+                  "drug_license_no",
+                  "gstin",
+                  "state_medical_council_reg_no",
+                  "doctor_name",
+                  "doctor_phone"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "updateDoctorAvailability",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "UpdateDoctorAvailabilityInput",
+                "typeFields": [
+                  "membership_id",
+                  "availability_schedule"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "updateDoctorSlotDuration",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "UpdateDoctorSlotDurationInput",
+                "typeFields": [
+                  "membership_id",
+                  "default_slot_duration_minutes"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "updateStaffMember",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ role: \"owner\" | \"admin\" | \"doctor\" | \"receptionist\" | \"nurse\"; default_specialty: string; full_name: string; membership_id: string; availability_schedule?: { monday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; tuesday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; wednesday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; thursday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; friday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; saturday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; sunday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; } | null | undefined; default_slot_duration_minutes?: number | undefined; medical_council_reg_no?: string | null | undefined; phone?: string | null | undefined; qualifications?: string | null | undefined; }",
+                "typeFields": [
+                  "role",
+                  "default_specialty",
+                  "full_name",
+                  "membership_id",
+                  "availability_schedule",
+                  "availability_schedule.monday",
+                  "availability_schedule.monday.enabled",
+                  "availability_schedule.monday.shifts",
+                  "availability_schedule.tuesday",
+                  "availability_schedule.tuesday.enabled",
+                  "availability_schedule.tuesday.shifts",
+                  "availability_schedule.wednesday",
+                  "availability_schedule.wednesday.enabled",
+                  "availability_schedule.wednesday.shifts",
+                  "availability_schedule.thursday",
+                  "availability_schedule.thursday.enabled",
+                  "availability_schedule.thursday.shifts",
+                  "availability_schedule.friday",
+                  "availability_schedule.friday.enabled",
+                  "availability_schedule.friday.shifts",
+                  "availability_schedule.saturday",
+                  "availability_schedule.saturday.enabled",
+                  "availability_schedule.saturday.shifts",
+                  "availability_schedule.sunday",
+                  "availability_schedule.sunday.enabled",
+                  "availability_schedule.sunday.shifts",
+                  "default_slot_duration_minutes",
+                  "medical_council_reg_no",
+                  "phone",
+                  "qualifications"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "updateStatutorySettings",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ clinical_establishment_reg_no?: string | null | undefined; drug_license_no?: string | null | undefined; gstin?: string | null | undefined; state_medical_council_reg_no?: string | null | undefined; }",
+                "typeFields": [
+                  "clinical_establishment_reg_no",
+                  "drug_license_no",
+                  "gstin",
+                  "state_medical_council_reg_no"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "updateUserProfile",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ default_specialty: string; full_name: string; availability_schedule?: { monday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; tuesday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; wednesday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; thursday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; friday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; saturday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; sunday: { enabled: boolean; shifts: { start: string; end: string; }[]; }; } | null | undefined; default_slot_duration_minutes?: number | undefined; medical_council_reg_no?: string | null | undefined; phone?: string | null | undefined; qualifications?: string | null | undefined; }",
+                "typeFields": [
+                  "default_specialty",
+                  "full_name",
+                  "availability_schedule",
+                  "availability_schedule.monday",
+                  "availability_schedule.monday.enabled",
+                  "availability_schedule.monday.shifts",
+                  "availability_schedule.tuesday",
+                  "availability_schedule.tuesday.enabled",
+                  "availability_schedule.tuesday.shifts",
+                  "availability_schedule.wednesday",
+                  "availability_schedule.wednesday.enabled",
+                  "availability_schedule.wednesday.shifts",
+                  "availability_schedule.thursday",
+                  "availability_schedule.thursday.enabled",
+                  "availability_schedule.thursday.shifts",
+                  "availability_schedule.friday",
+                  "availability_schedule.friday.enabled",
+                  "availability_schedule.friday.shifts",
+                  "availability_schedule.saturday",
+                  "availability_schedule.saturday.enabled",
+                  "availability_schedule.saturday.shifts",
+                  "availability_schedule.sunday",
+                  "availability_schedule.sunday.enabled",
+                  "availability_schedule.sunday.shifts",
+                  "default_slot_duration_minutes",
+                  "medical_council_reg_no",
+                  "phone",
+                  "qualifications"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/staff/actions.ts",
+      "exports": [
+        {
+          "name": "acceptInvite",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "rawToken",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": null
+        },
+        {
+          "name": "getTenantDoctorDirectory",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "getTenantDoctorMap",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "getTenantStaffDirectory",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": null
+          }
+        },
+        {
+          "name": "inviteStaff",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FormData | { email: string; role: string; }",
+                "typeFields": [
+                  "email",
+                  "role"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "staff:invite"
+          }
+        },
+        {
+          "name": "inviteStaffMemberAction",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FormData | { email: string; role: string; }",
+                "typeFields": [
+                  "email",
+                  "role"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "requirePermission",
+            "permission": "staff:invite"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/terminology/actions.ts",
+      "exports": [
+        {
+          "name": "addConsultationDiagnosis",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patient_id: string; diagnosis_name: string; is_chronic: boolean; is_custom: boolean; visit_id: string; icd11_code?: string | null | undefined; notes?: string | null | undefined; snomed_concept_id?: string | null | undefined; }",
+                "typeFields": [
+                  "patient_id",
+                  "diagnosis_name",
+                  "is_chronic",
+                  "is_custom",
+                  "visit_id",
+                  "icd11_code",
+                  "notes",
+                  "snomed_concept_id"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "getVisitDiagnoses",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "removeConsultationDiagnosis",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "diagnosisId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        },
+        {
+          "name": "searchDiagnoses",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ query: string; limit: number; specialty?: string | undefined; }",
+                "typeFields": [
+                  "query",
+                  "limit",
+                  "specialty"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:view"
+          }
+        },
+        {
+          "name": "updateDiagnosisNote",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "diagnosisId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "notes",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "consultations:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/visits/actions.ts",
+      "exports": [
+        {
+          "name": "cancelVisit",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "confirmAppointment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "createVisit",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patient_id: string; doctor_id: string; estimated_duration_minutes: number; is_overbooked: boolean; origin_type: \"scheduled\" | \"walk_in\"; reason_for_visit?: string | null | undefined; scheduled_at?: string | null | undefined; }",
+                "typeFields": [
+                  "patient_id",
+                  "doctor_id",
+                  "estimated_duration_minutes",
+                  "is_overbooked",
+                  "origin_type",
+                  "reason_for_visit",
+                  "scheduled_at"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getActiveClinicDoctors",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "getClinicVisitsRegister",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Partial<{ status: string; specialty: string; datePreset: \"custom\" | \"today\" | \"yesterday\" | \"last_7_days\" | \"this_month\"; doctorId: string; searchQuery: string; page: number; pageSize: number; startDate?: string | null | undefined; endDate?: string | null | undefined; }>",
+                "typeFields": [
+                  "status",
+                  "specialty",
+                  "datePreset",
+                  "doctorId",
+                  "searchQuery",
+                  "page",
+                  "pageSize",
+                  "startDate",
+                  "endDate"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "getVisitsForDate",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "dateStr",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "doctorId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "recordVisitVitals",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "vitalsInput",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ recorded_at?: string | null | undefined; systolic?: number | null | undefined; diastolic?: number | null | undefined; pulse?: number | null | undefined; temperature?: number | null | undefined; spo2?: number | null | undefined; weight?: number | null | undefined; height?: number | null | undefined; respiratory_rate?: number | null | undefined; bmi?: number | null | undefined; }",
+                "typeFields": [
+                  "recorded_at",
+                  "systolic",
+                  "diastolic",
+                  "pulse",
+                  "temperature",
+                  "spo2",
+                  "weight",
+                  "height",
+                  "respiratory_rate",
+                  "bmi"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "vitals:edit"
+          }
+        },
+        {
+          "name": "updateVisitStatus",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "visitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "newStatus",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "VisitStatus",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/visits/scheduling.ts",
+      "exports": [
+        {
+          "name": "bookAppointment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ patient_id: string; doctor_id: string; scheduled_at: string; estimated_duration_minutes?: number | undefined; is_overbooked?: boolean | undefined; reason_for_visit?: string | null | undefined; override_off_duty?: boolean | undefined; override_block?: boolean | undefined; }",
+                "typeFields": [
+                  "patient_id",
+                  "doctor_id",
+                  "scheduled_at",
+                  "estimated_duration_minutes",
+                  "is_overbooked",
+                  "reason_for_visit",
+                  "override_off_duty",
+                  "override_block"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "checkSlotAvailability",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "doctorId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "scheduledAt",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "durationMinutes",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "number",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "createScheduleBlock",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ end_time: string; start_time: string; doctor_id?: string | null | undefined; all_day?: boolean | undefined; reason?: string | null | undefined; }",
+                "typeFields": [
+                  "end_time",
+                  "start_time",
+                  "doctor_id",
+                  "all_day",
+                  "reason"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "deleteScheduleBlock",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "blockId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getScheduleBlocksForDate",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "dateStr",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "doctorId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/waitlist/actions.ts",
+      "exports": [
+        {
+          "name": "addToWaitlist",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ priority: number; patient_id: string; target_date: string; notes?: string | null | undefined; doctor_id?: string | null | undefined; time_window?: string | null | undefined; }",
+                "typeFields": [
+                  "priority",
+                  "patient_id",
+                  "target_date",
+                  "notes",
+                  "doctor_id",
+                  "time_window"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        },
+        {
+          "name": "getWaitlistForDate",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "targetDate",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "doctorId",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:view"
+          }
+        },
+        {
+          "name": "promoteWaitlistEntry",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "entryId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "scheduledAt",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "appointments:edit"
+          }
+        }
+      ]
+    },
+    {
+      "file": "features/webhooks/actions.ts",
+      "exports": [
+        {
+          "name": "createWebhookSubscription",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "data",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ endpointUrl: string; eventTypes: string[]; }",
+                "typeFields": [
+                  "endpointUrl",
+                  "eventTypes"
+                ]
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "deleteWebhookSubscription",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "subscriptionId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "listDeliveryLogs",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "subscriptionId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "listWebhookSubscriptions",
+          "kind": "function",
+          "signatures": [
+            []
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        },
+        {
+          "name": "testPingWebhook",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "subscriptionId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ],
+          "guard": {
+            "call": "resolveServiceContext",
+            "permission": "clinic:manage"
+          }
+        }
+      ]
+    }
+  ],
+  "nonActionModules": [
+    {
+      "file": "features/appointments/system.ts",
+      "exports": [
+        {
+          "name": "cancelAppointment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "sys",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "AppointmentSystemContext",
+                "typeFields": [
+                  "db",
+                  "reason"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "CancelAppointmentInput",
+                "typeFields": [
+                  "appointmentId",
+                  "reason",
+                  "isClinicInitiated",
+                  "onlyFromStatuses"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "generateRescheduleToken",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "sys",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "AppointmentSystemContext",
+                "typeFields": [
+                  "db",
+                  "reason"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "appointmentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyAppointmentRescheduled",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "sys",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "AppointmentSystemContext",
+                "typeFields": [
+                  "db",
+                  "reason"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "appointmentId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/prescriptions/pdf/generator.ts",
+      "exports": [
+        {
+          "name": "generateAndArchivePrescriptionPdf",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "payload",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "PrescriptionPdfPayload",
+                "typeFields": [
+                  "tenant_id",
+                  "visit_id",
+                  "prescription_id",
+                  "version",
+                  "letterhead_mode",
+                  "amended_at",
+                  "amendment_reason",
+                  "signed_at",
+                  "clinic",
+                  "clinic.name",
+                  "clinic.address",
+                  "clinic.phone",
+                  "clinic.registration_number",
+                  "clinic.logo_url",
+                  "clinic.clinical_establishment_reg_no",
+                  "clinic.state_medical_council_reg_no",
+                  "clinic.gstin",
+                  "clinic.drug_license_no",
+                  "doctor",
+                  "doctor.name",
+                  "doctor.qualifications",
+                  "doctor.medical_council_reg_no",
+                  "doctor.signature_url",
+                  "patient",
+                  "patient.full_name",
+                  "patient.age",
+                  "patient.sex",
+                  "patient.phone",
+                  "patient.address",
+                  "patient.abha_id",
+                  "patient.uhid",
+                  "visit",
+                  "visit.visit_date",
+                  "visit.vitals",
+                  "visit.vitals.systolic",
+                  "visit.vitals.diastolic",
+                  "visit.vitals.pulse",
+                  "visit.vitals.temperature",
+                  "visit.vitals.spo2",
+                  "visit.vitals.weight",
+                  "visit.vitals.height",
+                  "visit.vitals.bmi",
+                  "visit.chief_complaints",
+                  "visit.clinical_notes",
+                  "visit.specialty",
+                  "visit.specialty_notes",
+                  "diagnoses",
+                  "medications",
+                  "investigations_advised",
+                  "advice",
+                  "follow_up_date"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/billing/pdf/generator.ts",
+      "exports": [
+        {
+          "name": "compileAndArchiveReceiptPdf",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "invoiceIdOrVisitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        },
+        {
+          "name": "compileAndGenerateReceiptPdf",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "invoiceIdOrVisitId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "supabase",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "any",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "tenantId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        },
+        {
+          "name": "generateAndArchiveReceiptPdf",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "payload",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ReceiptPdfPayload",
+                "typeFields": [
+                  "tenant_id",
+                  "invoice_id",
+                  "invoice_number",
+                  "receipt_number",
+                  "date",
+                  "clinic",
+                  "clinic.name",
+                  "clinic.address",
+                  "clinic.phone",
+                  "clinic.registration_number",
+                  "clinic.gstin",
+                  "clinic.logo_url",
+                  "clinic.timezone",
+                  "patient",
+                  "patient.full_name",
+                  "patient.age",
+                  "patient.sex",
+                  "patient.phone",
+                  "patient.uhid",
+                  "patient.address",
+                  "doctor",
+                  "doctor.name",
+                  "doctor.qualifications",
+                  "doctor.registration_no",
+                  "items",
+                  "subtotal",
+                  "discount",
+                  "tax",
+                  "total_amount",
+                  "payments",
+                  "total_paid",
+                  "balance_due",
+                  "status"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/referrals/pdf/generator.ts",
+      "exports": [
+        {
+          "name": "generateAndArchiveReferralPdf",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "payload",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ReferralPdfPayload",
+                "typeFields": [
+                  "referral_id",
+                  "tenant_id",
+                  "letterhead_mode",
+                  "urgency",
+                  "sent_at",
+                  "clinic",
+                  "clinic.name",
+                  "clinic.address",
+                  "clinic.phone",
+                  "clinic.email",
+                  "clinic.registration_number",
+                  "referring_doctor",
+                  "referring_doctor.name",
+                  "referring_doctor.qualifications",
+                  "referring_doctor.medical_council_reg_no",
+                  "recipient",
+                  "recipient.name",
+                  "recipient.facility",
+                  "recipient.specialty",
+                  "recipient.contact",
+                  "patient",
+                  "patient.full_name",
+                  "patient.age",
+                  "patient.sex",
+                  "patient.phone",
+                  "patient.uhid",
+                  "patient.address",
+                  "clinical",
+                  "clinical.reason_for_referral",
+                  "clinical.provisional_diagnosis",
+                  "clinical.clinical_summary",
+                  "clinical.vitals",
+                  "clinical.vitals.systolic",
+                  "clinical.vitals.diastolic",
+                  "clinical.vitals.pulse",
+                  "clinical.vitals.temperature",
+                  "clinical.vitals.spo2",
+                  "clinical.vitals.weight",
+                  "clinical.vitals.height",
+                  "clinical.medications",
+                  "clinical.investigations_advised"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/dpdp/erasure.ts",
+      "exports": [
+        {
+          "name": "erasePatientRecord",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "reason",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/dpdp/export.ts",
+      "exports": [
+        {
+          "name": "DPDP_EXPORT_PERMISSION",
+          "kind": "value",
+          "signatures": []
+        },
+        {
+          "name": "dpdpExportPermission",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Pick<ServiceContext, \"actorType\">",
+                "typeFields": [
+                  "actorType"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "exportPatientDpdpArchive",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ServiceContext",
+                "typeFields": [
+                  "userId",
+                  "tenantId",
+                  "role",
+                  "actorType",
+                  "apiKeyId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "patientId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "options",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ExportPatientDpdpArchiveOptions",
+                "typeFields": [
+                  "format",
+                  "skipAudit"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "features/notifications/triggers.ts",
+      "exports": [
+        {
+          "name": "notifyDoctorLabReportReady",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "DoctorLabReportReadyInput",
+                "typeFields": [
+                  "doctorId",
+                  "patientName",
+                  "documentTitle",
+                  "documentId"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyDoctorPatientArrived",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "DoctorPatientArrivedInput",
+                "typeFields": [
+                  "doctorId",
+                  "patientName",
+                  "tokenNumber",
+                  "visitId"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyDoctorScheduleConflict",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "DoctorScheduleConflictInput",
+                "typeFields": [
+                  "doctorId",
+                  "appointmentTime",
+                  "conflictingPatientName",
+                  "visitId"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyDoctorVitalsRecorded",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "DoctorVitalsRecordedInput",
+                "typeFields": [
+                  "doctorId",
+                  "patientName",
+                  "vitalsSummary",
+                  "visitId"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyEndOfDayDigest",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "EndOfDayDigestInput",
+                "typeFields": [
+                  "totalVisits",
+                  "totalRevenue"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyFrontDeskNoShow",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FrontDeskNoShowInput",
+                "typeFields": [
+                  "patientName",
+                  "appointmentTime",
+                  "visitId"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyFrontDeskWhatsAppReply",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "FrontDeskWhatsAppReplyInput",
+                "typeFields": [
+                  "patientName",
+                  "patientPhone",
+                  "messageText"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyOutboxFailure",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "OutboxFailureInput",
+                "typeFields": [
+                  "messageType",
+                  "recipient",
+                  "error"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyQuotaWarning",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "QuotaWarningInput",
+                "typeFields": [
+                  "sentCount",
+                  "quotaLimit"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyStaffInviteAccepted",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "StaffInviteAcceptedInput",
+                "typeFields": [
+                  "staffName",
+                  "role"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "notifyWaitlistSlotFreed",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "target",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NotificationTarget",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "WaitlistSlotFreedInput",
+                "typeFields": [
+                  "doctorName",
+                  "slotTime",
+                  "freedCount"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/ai/catch-up-summary.ts",
+      "exports": [
+        {
+          "name": "generatePatientCatchUpSummary",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Pick<ServiceContext, \"tenantId\" | \"db\">",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "GenerateCatchUpSummaryInput",
+                "typeFields": [
+                  "patientId"
+                ]
+              },
+              {
+                "index": 2,
+                "name": "deps",
+                "optional": false,
+                "hasDefault": true,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "CatchUpSummaryDeps",
+                "typeFields": [
+                  "aiClient",
+                  "aiClient.chatCompletion"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/ai/prescription-suggestions.ts",
+      "exports": [
+        {
+          "name": "getDoctorFrequentPrescriptions",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Pick<ServiceContext, \"tenantId\" | \"db\">",
+                "typeFields": [
+                  "tenantId",
+                  "db"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "GetFrequentPrescriptionsInput",
+                "typeFields": [
+                  "doctorId",
+                  "diagnosis",
+                  "limit"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/ai/soap-generator.ts",
+      "exports": [
+        {
+          "name": "generateSoapFromShorthand",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "{ shorthand: string; patientContext?: Record<string, unknown> | undefined; }",
+                "typeFields": [
+                  "shorthand",
+                  "patientContext"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "aiClient",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "AiChatClient",
+                "typeFields": [
+                  "chatCompletion"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "sanitizePatientContextForPrompt",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "rawContext",
+                "optional": true,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Record<string, unknown>",
+                "typeFields": []
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/ai/tools/clinical-tools.ts",
+      "present": false,
+      "exports": []
+    },
+    {
+      "file": "lib/api/auth.ts",
+      "exports": [
+        {
+          "name": "apiKeyServiceContext",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "session",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "AuthenticatedApiKeySession",
+                "typeFields": [
+                  "apiKeyId",
+                  "tenantId",
+                  "userId",
+                  "name",
+                  "role"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "db",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "ApiDb",
+                "typeFields": []
+              }
+            ]
+          ]
+        },
+        {
+          "name": "apiV1NotFound",
+          "kind": "function",
+          "signatures": [
+            []
+          ]
+        },
+        {
+          "name": "authenticateApiKey",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "req",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "NextRequest",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "acquireDb",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "() => ApiDb",
+                "typeFields": []
+              }
+            ]
+          ]
+        },
+        {
+          "name": "createApiKeySecret",
+          "kind": "function",
+          "signatures": [
+            []
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/api/doctor-guard.ts",
+      "exports": [
+        {
+          "name": "validateDoctorAssignment",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "db",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "SupabaseClient<Database, any, any, any, any>",
+                "typeFields": []
+              },
+              {
+                "index": 1,
+                "name": "tenantId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              },
+              {
+                "index": 2,
+                "name": "doctorId",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "string",
+                "typeFields": []
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/audit/audit.ts",
+      "exports": [
+        {
+          "name": "recordAudit",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "ctx",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "Pick<ServiceContext, \"role\" | \"actorType\" | \"tenantId\" | \"db\" | \"userId\" | \"apiKeyId\">",
+                "typeFields": [
+                  "role",
+                  "actorType",
+                  "tenantId",
+                  "db",
+                  "userId",
+                  "apiKeyId"
+                ]
+              },
+              {
+                "index": 1,
+                "name": "params",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "RecordAuditParams",
+                "typeFields": [
+                  "action",
+                  "entityType",
+                  "entityId",
+                  "metadata"
+                ]
+              }
+            ]
+          ]
+        }
+      ],
+      "present": true
+    },
+    {
+      "file": "lib/webhooks/dispatcher.ts",
+      "exports": [
+        {
+          "name": "deliverWebhook",
+          "kind": "function",
+          "signatures": [
+            [
+              {
+                "index": 0,
+                "name": "input",
+                "optional": false,
+                "hasDefault": false,
+                "rest": false,
+                "destructuredFields": [],
+                "typeText": "DeliverWebhookInput",
+                "typeFields": [
+                  "endpointUrl",
+                  "signingSecret",
+                  "rawBody",
+                  "signal",
+                  "allowHttp",
+                  "resolve",
+                  "request",
+                  "fetch"
+                ]
+              }
+            ]
+          ]
+        },
+        {
+          "name": "WEBHOOK_TIMEOUT_MS",
+          "kind": "value",
+          "signatures": []
+        }
+      ],
+      "present": true
+    }
+  ],
+  "schemaFiles": [
+    {
+      "file": "features/billing/schema.ts",
+      "keys": [
+        {
+          "key": "item_type",
+          "line": 4,
+          "schema": "invoiceItemSchema"
+        },
+        {
+          "key": "description",
+          "line": 5,
+          "schema": "invoiceItemSchema"
+        },
+        {
+          "key": "unit_price",
+          "line": 6,
+          "schema": "invoiceItemSchema"
+        },
+        {
+          "key": "quantity",
+          "line": 7,
+          "schema": "invoiceItemSchema"
+        },
+        {
+          "key": "total_price",
+          "line": 8,
+          "schema": "invoiceItemSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 12,
+          "schema": "createInvoiceSchema"
+        },
+        {
+          "key": "patient_id",
+          "line": 13,
+          "schema": "createInvoiceSchema"
+        },
+        {
+          "key": "items",
+          "line": 14,
+          "schema": "createInvoiceSchema"
+        },
+        {
+          "key": "discount",
+          "line": 15,
+          "schema": "createInvoiceSchema"
+        },
+        {
+          "key": "tax",
+          "line": 16,
+          "schema": "createInvoiceSchema"
+        },
+        {
+          "key": "invoice_id",
+          "line": 20,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "amount",
+          "line": 21,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "payment_method",
+          "line": 22,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "reference_number",
+          "line": 23,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "notes",
+          "line": 24,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "commandId",
+          "line": 26,
+          "schema": "recordPaymentSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 30,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "patient_id",
+          "line": 31,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "consultation_fee",
+          "line": 32,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "additional_items",
+          "line": 33,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "discount",
+          "line": 34,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "payment_collected",
+          "line": 35,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "payment_method",
+          "line": 36,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "reference_number",
+          "line": 37,
+          "schema": "completeAndBillSchema"
+        },
+        {
+          "key": "invoice_id",
+          "line": 41,
+          "schema": "addInvoiceItemSchema"
+        },
+        {
+          "key": "item_type",
+          "line": 42,
+          "schema": "addInvoiceItemSchema"
+        },
+        {
+          "key": "description",
+          "line": 43,
+          "schema": "addInvoiceItemSchema"
+        },
+        {
+          "key": "unit_price",
+          "line": 44,
+          "schema": "addInvoiceItemSchema"
+        },
+        {
+          "key": "quantity",
+          "line": 45,
+          "schema": "addInvoiceItemSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/consultation/schema.ts",
+      "keys": [
+        {
+          "key": "systolic",
+          "line": 10,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "diastolic",
+          "line": 11,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "pulse",
+          "line": 12,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "temperature",
+          "line": 13,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "spo2",
+          "line": 14,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "weight",
+          "line": 15,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "height",
+          "line": 16,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "respiratory_rate",
+          "line": 17,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "bmi",
+          "line": 18,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "recorded_at",
+          "line": 19,
+          "schema": "vitalsFieldsSchema"
+        },
+        {
+          "key": "id",
+          "line": 52,
+          "schema": "chiefComplaintItemSchema"
+        },
+        {
+          "key": "symptom",
+          "line": 53,
+          "schema": "chiefComplaintItemSchema"
+        },
+        {
+          "key": "duration_val",
+          "line": 54,
+          "schema": "chiefComplaintItemSchema"
+        },
+        {
+          "key": "duration_unit",
+          "line": 55,
+          "schema": "chiefComplaintItemSchema"
+        },
+        {
+          "key": "notes",
+          "line": 56,
+          "schema": "chiefComplaintItemSchema"
+        },
+        {
+          "key": "tooth_number",
+          "line": 93,
+          "schema": "dentalToothSchema"
+        },
+        {
+          "key": "condition_tags",
+          "line": 96,
+          "schema": "dentalToothSchema"
+        },
+        {
+          "key": "notes",
+          "line": 97,
+          "schema": "dentalToothSchema"
+        },
+        {
+          "key": "specialty",
+          "line": 106,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "general_exam",
+          "line": 107,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "systemic",
+          "line": 117,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "pallor",
+          "line": 109,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "icterus",
+          "line": 110,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "cyanosis",
+          "line": 111,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "clubbing",
+          "line": 112,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "lymphadenopathy",
+          "line": 113,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "edema",
+          "line": 114,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "cvs",
+          "line": 119,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "rs",
+          "line": 120,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "pa",
+          "line": 121,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "cns",
+          "line": 122,
+          "schema": "gpSpecialtySchema"
+        },
+        {
+          "key": "specialty",
+          "line": 128,
+          "schema": "dentalSpecialtySchema"
+        },
+        {
+          "key": "odontogram",
+          "line": 129,
+          "schema": "dentalSpecialtySchema"
+        },
+        {
+          "key": "general_notes",
+          "line": 130,
+          "schema": "dentalSpecialtySchema"
+        },
+        {
+          "key": "specialty",
+          "line": 134,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "birth_history",
+          "line": 135,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "head_circumference_cm",
+          "line": 143,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "immunizations_given",
+          "line": 144,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "gestational_age_weeks",
+          "line": 137,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "birth_weight_kg",
+          "line": 138,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "delivery_type",
+          "line": 139,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "complications",
+          "line": 140,
+          "schema": "pediatricsSpecialtySchema"
+        },
+        {
+          "key": "interval",
+          "line": 163,
+          "schema": "followUpSchema"
+        },
+        {
+          "key": "follow_up_date",
+          "line": 164,
+          "schema": "followUpSchema"
+        },
+        {
+          "key": "notes",
+          "line": 165,
+          "schema": "followUpSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 174,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "vitals",
+          "line": 175,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "chief_complaints",
+          "line": 176,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "clinical_notes",
+          "line": 177,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "specialty",
+          "line": 178,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "specialty_data",
+          "line": 179,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "investigations_advised",
+          "line": 183,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "advice",
+          "line": 184,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "follow_up",
+          "line": 185,
+          "schema": "saveConsultationDraftSchema"
+        },
+        {
+          "key": "metadata",
+          "line": 186,
+          "schema": "saveConsultationDraftSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/labs/schema.ts",
+      "keys": [
+        {
+          "key": "patient_id",
+          "line": 4,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 5,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "title",
+          "line": 6,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "document_type",
+          "line": 7,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "report_date",
+          "line": 10,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "notes",
+          "line": 11,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "is_abnormal",
+          "line": 12,
+          "schema": "uploadLabDocumentSchema"
+        },
+        {
+          "key": "document_id",
+          "line": 20,
+          "schema": "generateShareTokenSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/patients/schema.ts",
+      "keys": [
+        {
+          "key": "full_name",
+          "line": 32,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "phone",
+          "line": 37,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "date_of_birth",
+          "line": 45,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "age",
+          "line": 50,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "sex",
+          "line": 57,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "address",
+          "line": 58,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "allergies",
+          "line": 67,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "chronic_conditions",
+          "line": 68,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "emergency_contact",
+          "line": 69,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "abha_id",
+          "line": 70,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "line1",
+          "line": 60,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "city",
+          "line": 61,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "state",
+          "line": 62,
+          "schema": "patientSchema"
+        },
+        {
+          "key": "pincode",
+          "line": 63,
+          "schema": "patientSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/prescriptions/schema.ts",
+      "keys": [
+        {
+          "key": "id",
+          "line": 83,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "medicine_name",
+          "line": 84,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "generic_name",
+          "line": 85,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "dose_form",
+          "line": 86,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "dosage",
+          "line": 87,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "timing",
+          "line": 88,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "duration",
+          "line": 89,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "special_instructions",
+          "line": 90,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "cdci_brand_id",
+          "line": 91,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "cdci_generic_id",
+          "line": 92,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "sort_order",
+          "line": 93,
+          "schema": "prescriptionItemSchema"
+        },
+        {
+          "key": "medicine_name",
+          "line": 102,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "generic_name",
+          "line": 103,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "dose_form",
+          "line": 104,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "default_dosage",
+          "line": 105,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "default_timing",
+          "line": 106,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "default_duration",
+          "line": 107,
+          "schema": "saveCustomMedicineSchema"
+        },
+        {
+          "key": "template_name",
+          "line": 116,
+          "schema": "protocolTemplateSchema"
+        },
+        {
+          "key": "specialty",
+          "line": 117,
+          "schema": "protocolTemplateSchema"
+        },
+        {
+          "key": "items",
+          "line": 118,
+          "schema": "protocolTemplateSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/referrals/schema.ts",
+      "keys": [
+        {
+          "key": "patient_id",
+          "line": 5,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 6,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referral_type",
+          "line": 7,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referred_to_name",
+          "line": 8,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referred_to_facility",
+          "line": 9,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referred_to_specialty",
+          "line": 10,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referred_to_contact",
+          "line": 11,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "target_tenant_id",
+          "line": 12,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "target_doctor_id",
+          "line": 13,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "reason_for_referral",
+          "line": 14,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "provisional_diagnosis",
+          "line": 15,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "urgency",
+          "line": 16,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "clinical_summary",
+          "line": 17,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "active_medications_snapshot",
+          "line": 18,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "investigations_advised",
+          "line": 19,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "patient_consents_history_sharing",
+          "line": 20,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "letterhead_mode",
+          "line": 21,
+          "schema": "createReferralSchema"
+        },
+        {
+          "key": "referral_id",
+          "line": 37,
+          "schema": "closeReferralLoopSchema"
+        },
+        {
+          "key": "closure_notes",
+          "line": 38,
+          "schema": "closeReferralLoopSchema"
+        },
+        {
+          "key": "return_date",
+          "line": 39,
+          "schema": "closeReferralLoopSchema"
+        },
+        {
+          "key": "referral_id",
+          "line": 43,
+          "schema": "acknowledgeReferralSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/settings/schema.ts",
+      "keys": [
+        {
+          "key": "clinical_establishment_reg_no",
+          "line": 42,
+          "schema": "statutorySettingsSchema"
+        },
+        {
+          "key": "state_medical_council_reg_no",
+          "line": 43,
+          "schema": "statutorySettingsSchema"
+        },
+        {
+          "key": "gstin",
+          "line": 44,
+          "schema": "statutorySettingsSchema"
+        },
+        {
+          "key": "drug_license_no",
+          "line": 45,
+          "schema": "statutorySettingsSchema"
+        },
+        {
+          "key": "name",
+          "line": 51,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "address",
+          "line": 52,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "specialties",
+          "line": 53,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "timezone",
+          "line": 54,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "owner_is_practicing_doctor",
+          "line": 55,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "default_consultation_fee",
+          "line": 56,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "default_followup_fee",
+          "line": 57,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "accepted_payment_methods",
+          "line": 58,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "clinical_establishment_reg_no",
+          "line": 61,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "state_medical_council_reg_no",
+          "line": 62,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "gstin",
+          "line": 63,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "drug_license_no",
+          "line": 64,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "doctor_name",
+          "line": 67,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "doctor_phone",
+          "line": 68,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "medical_council_reg_no",
+          "line": 69,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "qualifications",
+          "line": 70,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "default_specialty",
+          "line": 71,
+          "schema": "clinicSettingsSchema"
+        },
+        {
+          "key": "start",
+          "line": 93,
+          "schema": "shiftSchema"
+        },
+        {
+          "key": "end",
+          "line": 94,
+          "schema": "shiftSchema"
+        },
+        {
+          "key": "enabled",
+          "line": 104,
+          "schema": "dayAvailabilitySchema"
+        },
+        {
+          "key": "shifts",
+          "line": 105,
+          "schema": "dayAvailabilitySchema"
+        },
+        {
+          "key": "monday",
+          "line": 124,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "tuesday",
+          "line": 125,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "wednesday",
+          "line": 126,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "thursday",
+          "line": 127,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "friday",
+          "line": 128,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "saturday",
+          "line": 129,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "sunday",
+          "line": 130,
+          "schema": "doctorWeeklyScheduleSchema"
+        },
+        {
+          "key": "full_name",
+          "line": 136,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "phone",
+          "line": 137,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "medical_council_reg_no",
+          "line": 138,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "qualifications",
+          "line": 139,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "default_specialty",
+          "line": 140,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "default_slot_duration_minutes",
+          "line": 141,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "availability_schedule",
+          "line": 142,
+          "schema": "userProfileSchema"
+        },
+        {
+          "key": "membership_id",
+          "line": 148,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "full_name",
+          "line": 149,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "phone",
+          "line": 150,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "role",
+          "line": 151,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "medical_council_reg_no",
+          "line": 152,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "qualifications",
+          "line": 153,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "default_specialty",
+          "line": 154,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "default_slot_duration_minutes",
+          "line": 155,
+          "schema": "staffEditSchema"
+        },
+        {
+          "key": "availability_schedule",
+          "line": 156,
+          "schema": "staffEditSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/terminology/schema.ts",
+      "keys": [
+        {
+          "key": "query",
+          "line": 7,
+          "schema": "searchDiagnosesSchema"
+        },
+        {
+          "key": "specialty",
+          "line": 8,
+          "schema": "searchDiagnosesSchema"
+        },
+        {
+          "key": "limit",
+          "line": 9,
+          "schema": "searchDiagnosesSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 33,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "patient_id",
+          "line": 34,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "diagnosis_name",
+          "line": 35,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "snomed_concept_id",
+          "line": 36,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "icd11_code",
+          "line": 37,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "is_custom",
+          "line": 38,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "is_chronic",
+          "line": 39,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "notes",
+          "line": 40,
+          "schema": "addConsultationDiagnosisSchema"
+        },
+        {
+          "key": "diagnosis_id",
+          "line": 49,
+          "schema": "updateDiagnosisNoteSchema"
+        },
+        {
+          "key": "visit_id",
+          "line": 50,
+          "schema": "updateDiagnosisNoteSchema"
+        },
+        {
+          "key": "notes",
+          "line": 51,
+          "schema": "updateDiagnosisNoteSchema"
+        }
+      ]
+    },
+    {
+      "file": "features/visits/schema.ts",
+      "keys": [
+        {
+          "key": "datePreset",
+          "line": 15,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "startDate",
+          "line": 16,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "endDate",
+          "line": 17,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "doctorId",
+          "line": 18,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "status",
+          "line": 19,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "specialty",
+          "line": 20,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "searchQuery",
+          "line": 21,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "page",
+          "line": 22,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "pageSize",
+          "line": 23,
+          "schema": "visitsFilterSchema"
+        },
+        {
+          "key": "patient_id",
+          "line": 154,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "doctor_id",
+          "line": 155,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "scheduled_at",
+          "line": 156,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "estimated_duration_minutes",
+          "line": 157,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "reason_for_visit",
+          "line": 158,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "is_overbooked",
+          "line": 159,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "override_off_duty",
+          "line": 160,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "override_block",
+          "line": 161,
+          "schema": "bookAppointmentSchema"
+        },
+        {
+          "key": "doctor_id",
+          "line": 167,
+          "schema": "createScheduleBlockSchema"
+        },
+        {
+          "key": "start_time",
+          "line": 168,
+          "schema": "createScheduleBlockSchema"
+        },
+        {
+          "key": "end_time",
+          "line": 169,
+          "schema": "createScheduleBlockSchema"
+        },
+        {
+          "key": "reason",
+          "line": 170,
+          "schema": "createScheduleBlockSchema"
+        },
+        {
+          "key": "all_day",
+          "line": 171,
+          "schema": "createScheduleBlockSchema"
+        }
+      ]
+    }
+  ],
+  "routeHandlers": [
+    {
+      "file": "app/api/auth/send-email/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/diag/error/route.ts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/health/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/invoices/[id]/receipt-pdf/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/jobs/run/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST",
+        "PUT"
+      ]
+    },
+    {
+      "file": "app/api/patients/[id]/export/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/r/[token]/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/ready/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/reports/view/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/reschedule/[token]/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/appointments/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ]
+    },
+    {
+      "file": "app/api/v1/appointments/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/docs/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/v1/lab-orders/[id]/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/v1/lab-orders/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/openapi.json/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/v1/patients/[id]/export/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/v1/patients/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ]
+    },
+    {
+      "file": "app/api/v1/patients/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/prescriptions/[id]/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/v1/prescriptions/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/referrals/[id]/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ]
+    },
+    {
+      "file": "app/api/v1/referrals/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/v1/visits/[id]/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ]
+    },
+    {
+      "file": "app/api/v1/visits/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "file": "app/api/visits/[id]/prescription-pdf/route.ts",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "file": "app/api/webhooks/messaging/[provider]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PUT"
+      ]
+    },
+    {
+      "file": "app/auth/signout/route.ts",
+      "methods": [
+        "POST"
+      ]
+    }
+  ]
+}
+inventory: 25 "use server" modules, 112 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted

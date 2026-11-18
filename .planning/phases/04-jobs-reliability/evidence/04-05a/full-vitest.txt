@@ -1,0 +1,11 @@
+exit=0
+
+ Test Files  175 passed (175)
+      Tests  3686 passed (3686)
+   Start at  13:48:22
+   Duration  258.26s (transform 1.48s, setup 914ms, collect 14.24s, tests 226.99s, environment 10ms, prepare 3.98s)
+
+JSON report written to /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vitest-full.json
+[teardown] removed run data: 121 tenant(s), 259 auth user(s), 1398 storage object(s); verified none remain
+
+[exited with code 0]

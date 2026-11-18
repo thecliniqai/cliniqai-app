@@ -44,6 +44,19 @@ export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
  * may carry no other value; the env schema refuses it in staging and production.
  */
 export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-send-email-hook-secret!").toString("base64")}`;
+/**
+ * V2-04 04-02 (RL-23, R-18): the synthetic `/api/jobs/run` bearer of every local lane (64 printable characters, built
+ * at run time). The e2e app server runs with it; Vitest leaves the name unset (the route then refuses every call) and
+ * specs stub random secrets after this guard ran. A test lane may carry no other value (a real one would mean hosted
+ * config leaked in); the rotation slot JOBS_RUNNER_SECRET_NEXT is never set from the shell.
+ */
+export const LOCAL_JOBS_RUNNER_SECRET = ["not", "real", "jobs", "runner", "secret", "0123"].join("-").repeat(2);
+/**
+ * V2-04 04-04 (R-1): the synthetic ops alert inbox of every local lane (the reserved `.test` TLD; Mailpit catches it).
+ * The e2e app server runs with it; Vitest leaves the name unset and the alert specs stub it after this guard ran. A test
+ * lane may carry no other value (a real inbox would mean hosted config leaked in).
+ */
+export const LOCAL_OPS_ALERT_EMAIL = "ops-alerts@example.test";
 /** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
 export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
 
@@ -82,6 +95,8 @@ const PINNED_IF_SET: Record<string, string[]> = {
   // exercise the switch stub it per test (`vi.stubEnv`), after this guard has run.
   AI_ENABLED: ["false", "0"],
   // V2-03 03-11b: auth email never goes to SES from a test lane; specs stub `ses` only with an injected client.
+  // V2-04 04-00b: nor to Resend; specs stub `resend` after this guard ran, with a synthetic key built at run time and
+  // a transport that reaches only a loopback fake (tests/auth/resend-sender.spec.ts, send-email-hook-resend.spec.ts).
   EMAIL_PROVIDER: ["disabled", "mailpit"],
   // V2-03 03-12c: no real Turnstile widget from a test lane (a real key would load Cloudflare's challenge).
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: [...TURNSTILE_TEST_SITE_KEYS],
@@ -136,6 +151,10 @@ export const FORBIDDEN_VARS = [
   "AWS_SESSION_TOKEN",
   "SES_ACCESS_KEY_ID",
   "SES_SECRET_ACCESS_KEY",
+  // V2-04 04-00b: no Resend key in a test lane (specs build a synthetic one at run time, after the guard), and never a
+  // public name for it.
+  "RESEND_API_KEY",
+  "NEXT_PUBLIC_RESEND_API_KEY",
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
@@ -149,8 +168,29 @@ const URL_VARS = [
   "PWNED_API_BASE_URL",
 ];
 
-/** Fragments that identify hosted services anywhere in any variable's value. */
-export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
+/**
+ * V2-04 04-00 (review A L-8, R-47): every name of the staging lane (`STAGING_DB_URL`, `STAGING_DB_URL_RO`,
+ * `STAGING_SECRET_KEY`, `STAGING_SEED_PASSWORD`, `STAGING_PUBLISHABLE_KEY` and any later one) is refused by prefix: a
+ * staging credential never belongs in a test lane, whatever its value looks like.
+ */
+export const FORBIDDEN_VAR_PREFIXES = ["STAGING_"] as const;
+
+/**
+ * Fragments that identify hosted services anywhere in any variable's value. 04-00 (L-8): the opaque hosted key
+ * prefixes too: the lane loads the local stack's `supabase-demo` JWT keys, never an `sb_…` key (specs that need a
+ * deploy-tier profile build prefixed keys at run time, after this guard has run).
+ */
+export const HOSTED_MARKERS = [
+  ".supabase.co",
+  ".supabase.in",
+  ".supabase.net",
+  "r2.cloudflarestorage.com",
+  "pooler.supabase",
+  // V2-04 04-00b: the Resend API is a constant in lib/email/resend.ts; no test-lane value may name it.
+  "api.resend.com",
+  ["sb", "secret", ""].join("_"),
+  ["sb", "publishable", ""].join("_"),
+];
 
 /**
  * The environment the guard reads and fills: `process.env` or a plain map in the guard's own tests. Wider than
@@ -273,6 +313,13 @@ export interface TestEnvRuleOptions {
    * lane keeps it off and specs stub it per test (`vi.stubEnv`) after this guard has run.
    */
   pwnedCheck?: boolean;
+  /** 04-02 (R-32): the e2e app server runs the drill job kinds; the Vitest lane keeps them off (specs stub them). */
+  drillJobs?: boolean;
+  /**
+   * 04-03a (R-9): the e2e app server's messaging provider is `sink` (a runner pass sends nothing and writes no
+   * `.planning/dev-messages.txt`); the Vitest lane stays on `dev` and specs inject a recording provider.
+   */
+  sinkMessaging?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -282,7 +329,11 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     ...PINNED_IF_SET,
     NODE_ENV: [...PINNED_IF_SET.NODE_ENV, ...(options.allowNodeEnv ?? [])],
   };
-  const pinned: Record<string, string[]> = { ...PINNED, APP_ENV: [options.appEnv ?? TEST_APP_ENV] };
+  const pinned: Record<string, string[]> = {
+    ...PINNED,
+    ...(options.sinkMessaging ? { MESSAGING_PROVIDER: ["sink"] } : {}),
+    APP_ENV: [options.appEnv ?? TEST_APP_ENV],
+  };
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
 
@@ -319,6 +370,20 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     problems.push(`DIAG_ERROR_ROUTE_ENABLED must be unset or ${diagAllowed.join(" or ")} in this lane`);
   }
 
+  // 04-02: the runner bearer is unset or the local synthetic one; the rotation slot is never set from the shell.
+  if (env.JOBS_RUNNER_SECRET && env.JOBS_RUNNER_SECRET !== LOCAL_JOBS_RUNNER_SECRET) {
+    problems.push("JOBS_RUNNER_SECRET must be unset or the local synthetic secret (LOCAL_JOBS_RUNNER_SECRET) in the test lane");
+  }
+  if (env.JOBS_RUNNER_SECRET_NEXT) problems.push("JOBS_RUNNER_SECRET_NEXT must not be set in the test lane");
+  // 04-04: the ops alert inbox is unset or the local synthetic one; the value is never echoed.
+  if (env.OPS_ALERT_EMAIL && env.OPS_ALERT_EMAIL !== LOCAL_OPS_ALERT_EMAIL) {
+    problems.push("OPS_ALERT_EMAIL must be unset or the local synthetic inbox (LOCAL_OPS_ALERT_EMAIL) in the test lane");
+  }
+  const drillAllowed = options.drillJobs ? ["true", "false"] : ["false"];
+  if (env.JOBS_DRILL_ENABLED && !drillAllowed.includes(env.JOBS_DRILL_ENABLED)) {
+    problems.push(`JOBS_DRILL_ENABLED must be unset or ${drillAllowed.join(" or ")} in this lane`);
+  }
+
   const pwnedAllowed = options.pwnedCheck ? ["on", "off"] : ["off"];
   if (env.PWNED_CHECK && !pwnedAllowed.includes(env.PWNED_CHECK)) {
     problems.push(`PWNED_CHECK must be unset or ${pwnedAllowed.join(" or ")} in this lane`);
@@ -340,6 +405,11 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
 
   for (const key of FORBIDDEN_VARS) {
     if (env[key] !== undefined && env[key] !== "") problems.push(`${key} must not be set in the test lane`);
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined && value !== "" && FORBIDDEN_VAR_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+      problems.push(`${key} must not be set in the test lane (staging names never reach a test lane)`);
+    }
   }
 
   for (const [key, role] of [
@@ -389,6 +459,8 @@ export function findAppServerEnvProblems(env: EnvMap): string[] {
     appEnv: E2E_APP_ENV,
     diagRoute: true,
     pwnedCheck: true,
+    drillJobs: true,
+    sinkMessaging: true,
   });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");

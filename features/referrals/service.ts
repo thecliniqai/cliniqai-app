@@ -13,7 +13,7 @@ import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
@@ -594,10 +594,10 @@ export async function shareReferralLetterViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #8 (referral_letter_issued)
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
     await enqueueMessage(
-      supabase,
+      ctx,
       {
-        tenantId: session.tenantId,
         patientId: ref.patient_id,
         channel: "whatsapp",
         messageType: "referral_letter_issued",

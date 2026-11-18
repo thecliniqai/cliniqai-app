@@ -1,0 +1,58 @@
+# Restore-drill stack (V2-04 04-05a, FT-02): a second local Supabase stack that a backup archive is restored into.
+# Started only by ops/restore-drill/run.sh (`npx supabase start --workdir ops/restore-drill -x …`) and stopped with
+# `--no-backup` at the end of every run, so no restored data outlives the drill. Its own project id and the 553xx ports
+# keep it apart from the primary stack (`clinicos`, 543xx). No migrations folder: the schema comes from the dump.
+# Only db, auth (GoTrue migrates the auth schema), storage (storage-api migrates the storage schema) and realtime (it
+# creates the supabase_realtime_admin role that hosted role dumps grant to) run; the rest is excluded at start. If a COPY into auth/storage fails on a hosted dump because of service-version skew, align
+# supabase/.temp/*-version in this folder with the hosted project's versions (docs/runbooks/backup-restore.md, K-6).
+project_id = "clinicos-drill"
+
+[api]
+enabled = true
+port = 55321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55322
+shadow_port = 55320
+major_version = 17
+
+[db.pooler]
+enabled = false
+port = 55329
+
+[db.seed]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = false
+port = 55323
+
+[local_smtp]
+enabled = false
+port = 55324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:55321"
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false
+port = 55327

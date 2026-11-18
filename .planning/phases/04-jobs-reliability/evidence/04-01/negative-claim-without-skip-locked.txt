@@ -1,0 +1,13 @@
+# 04-01 negative proof: claim_jobs WITHOUT 'FOR UPDATE OF j SKIP LOCKED' (temporarily replaced on the local stack, then restored from 000031)
+# command: npx vitest run tests/jobs/parallel-dispatch-db.spec.ts
+   ✓ runJobs over the live queue > tracer: a job enqueued in SQL is claimed by runJobs and ends done with attempts = 1 135ms
+   × runJobs over the live queue > 8 parallel runners over 200 jobs in 3 tenants handle each job exactly once 293ms
+     → expected [ …(300) ] to have a length of 200 but got 300
+   ✓ claim_jobs tenant fairness > one tenant's older backlog does not starve another: batch 10, per tenant 5 → 5 of A and all 5 of B 150ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts > runJobs over the live queue > 8 parallel runners over 200 jobs in 3 tenants handle each job exactly once
+AssertionError: expected [ …(300) ] to have a length of 200 but got 300
+- Expected
++ Received
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)

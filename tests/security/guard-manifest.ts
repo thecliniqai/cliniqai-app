@@ -43,6 +43,14 @@ export type RouteGuard =
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
   /**
+   * V2-04 04-02 (RL-23, R-18, R-49): the job runner. `POST`: JOBS_RUNNER_SECRET unset 401, no header 401, wrong bearer
+   * 401, different-length bearer 401, the raw secret 401, another secret's token 401, a stale token 401, a scheme-less
+   * token 401, a signed-in member's session 401, all before any data access; the control with a valid token 200 with
+   * counts only. Every other method (`post: false`) 405 with `Allow: POST`,
+   * with or without the bearer.
+   */
+  | { kind: "runner-secret"; post: boolean }
+  /**
    * Standard Webhooks signed call (03-11b: the Supabase Auth Send Email hook): secret unset, no signature headers, a
    * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
    */
@@ -206,8 +214,6 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
-  "features/webhooks/actions.ts#testPingWebhook":
-    "Delivers the ping over outbound HTTP at once (dispatchWebhookQueueItem); the test lane's network guard refuses every non-loopback host, so no input can succeed.",
 };
 
 const SESSION_RECEIPT: RouteGuard = { kind: "session", permission: "appointments:view", resource: "invoice" };
@@ -215,6 +221,7 @@ const CRON: RouteGuard = { kind: "cron-secret" };
 const V1_KEY: RouteGuard = { kind: "api-v1", key: true };
 const V1_PUBLIC_DOCS: RouteGuard = { kind: "api-v1", key: false };
 const WEBHOOK_OTHER_METHOD: RouteGuard = { kind: "webhook-secret", acceptsPost: false };
+const RUNNER_OTHER_METHOD: RouteGuard = { kind: "runner-secret", post: false };
 
 export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
@@ -222,17 +229,20 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
   // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
   "app/auth/signout/route.ts#POST": { kind: "signout" },
-  "app/api/cron/dispatch-communications/route.ts#GET": CRON,
-  "app/api/cron/dispatch-communications/route.ts#POST": CRON,
-  "app/api/cron/webhooks/route.ts#GET": CRON,
-  "app/api/cron/webhooks/route.ts#POST": CRON,
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
   "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
+  "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
+  "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PUT": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PATCH": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#DELETE": RUNNER_OTHER_METHOD,
   "app/api/ready/route.ts#GET": {
     kind: "public-health",
-    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.
-    keys: ["status", "checks", "outbox", "providers", "correlationId", "timestamp"],
+    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller. 04-04 (R-41): `jobs` holds four
+    // booleans (backlog, dead24h, runnerStale, alertsCriticalOpen).
+    keys: ["status", "checks", "outbox", "jobs", "providers", "correlationId", "timestamp"],
     access: ["rpc:readiness_probe"],
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,

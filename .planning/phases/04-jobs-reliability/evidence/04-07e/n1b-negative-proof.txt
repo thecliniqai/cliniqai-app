@@ -1,0 +1,30 @@
+# 04-07e N-1b negative proofs (local stack only). Command: npx vitest run tests/jobs/parallel-dispatch-db.spec.ts -t "04-07e"
+# Base for both: the 04-07e spec as committed.
+
+## A. lib/jobs/internal/claim.ts as at HEAD 3947174 (04-07b fairOrder: batch re-sorted by oldest work), migration 000045 applied
+   ↓ tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches
+   × hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > re-checker's probe #8: 10 tenants × 40 jobs + a victim, 12 s bound, 1.5 s per job (8 of 10 fit a pass) → the victim runs within 2 passes 1408ms
+     → expected -1 to be greater than or equal to 0
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > the same at 1.0 s per job (11 fit a pass, so batch 2 is cut short): the victim runs within 2 passes  781ms
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > release_job puts the row's previous claim stamp back; a started job keeps its stamp, also through defer_job 268ms
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > claim_jobs returns its fair order: claim_order 1..n, a never-served tenant with the newest work first 287ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts > hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > re-checker's probe #8: 10 tenants × 40 jobs + a victim, 12 s bound, 1.5 s per job (8 of 10 fit a pass) → the victim runs within 2 passes
+AssertionError: expected -1 to be greater than or equal to 0
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed | 8 skipped (12)
+
+## B. 04-07e claim.ts, database reset to 000044 (000045 moved out of supabase/migrations for the run, under the test-run lock; then restored and reset again, schema-snapshot --check PASS)
+   ↓ tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > re-checker's probe #8: 10 tenants × 40 jobs + a victim, 12 s bound, 1.5 s per job (8 of 10 fit a pass) → the victim runs within 2 passes  810ms
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > the same at 1.0 s per job (11 fit a pass, so batch 2 is cut short): the victim runs within 2 passes  729ms
+   × hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > release_job puts the row's previous claim stamp back; a started job keeps its stamp, also through defer_job 133ms
+     → expected '2026-11-13 21:16:47.35315+00' to be 'null' // Object.is equality
+   × hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > claim_jobs returns its fair order: claim_order 1..n, a never-served tenant with the newest work first 272ms
+     → expected [ undefined, undefined, …(8) ] to deeply equal [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed | 8 skipped (12)
+
+# Reading: the runner-level probe (#8) fails with the 04-07b batch order even when hand-backs restore the stamp (A);
+# the hand-back restore and the returned fair order fail on 000044 (B). With both fixes all 4 pass (vitest-full.txt).

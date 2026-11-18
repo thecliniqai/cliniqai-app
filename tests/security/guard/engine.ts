@@ -25,6 +25,7 @@ import { Webhook } from "standardwebhooks";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
 import { publicEnv } from "@/lib/env";
+import { mintRunnerToken } from "@/lib/jobs/auth";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
@@ -907,6 +908,64 @@ export async function cronRouteLeg(
 ): Promise<Violation[]> {
   const r = await callRoute(slot, anonClient(), c, { headers });
   return [...expectStatus(c, leg, r, [401]), ...expectNoIds(c, leg, r)];
+}
+
+/**
+ * V2-04 04-02 `runner-secret` route (`/api/jobs/run`, RL-23, R-18, R-49: the bearer is a token minted from the secret). `setSecret` stubs JOBS_RUNNER_SECRET (undefined =
+ * unset); `member` is a signed-in clinic member's request client. POST: every refusal is 401 `{"ok":false}` with no
+ * ids and no request-client access; the control with the right bearer is 200 with exactly the six count keys. Any other
+ * method: 405 with `Allow: POST` and an empty body, with or without the bearer.
+ */
+export async function runnerRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "runner-secret" }>,
+  setSecret: (value: string | undefined) => void,
+  member: object,
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const secret = randomBytes(32).toString("hex");
+  const refused = async (leg: string, headers: Record<string, string>, client: object = anonClient()) => {
+    const r = await callRoute(slot, client, c, { headers });
+    if (!guard.post) {
+      out.push(...expectStatus(c, leg, r, [405]));
+      if (r.headers.get("allow") !== "POST") out.push(routeV(c, leg, `Allow is ${r.headers.get("allow")}, expected POST`));
+      if (r.body !== "") out.push(routeV(c, leg, `405 has a body: ${brief(r.body)}`));
+      return;
+    }
+    out.push(...expectStatus(c, leg, r, [401]), ...expectNoIds(c, leg, r), ...expectNoAccess(c, leg, r));
+    if (r.body !== '{"ok":false}') out.push(routeV(c, leg, `401 body is not {"ok":false}: ${brief(r.body)}`));
+  };
+
+  setSecret(undefined);
+  await refused("JOBS_RUNNER_SECRET unset, no header", {});
+  await refused("JOBS_RUNNER_SECRET unset, 'Bearer undefined'", { authorization: "Bearer undefined" });
+  await refused("JOBS_RUNNER_SECRET unset, empty bearer", { authorization: "Bearer " });
+  setSecret(secret);
+  const now = () => Math.floor(Date.now() / 1000);
+  await refused("no header", {});
+  await refused("wrong bearer", { authorization: `Bearer ${randomBytes(32).toString("hex")}` });
+  await refused("different-length bearer", { authorization: `Bearer ${secret.slice(0, 8)}` });
+  await refused("the raw secret as bearer (R-49)", { authorization: `Bearer ${secret}` });
+  await refused("a token of another secret", { authorization: `Bearer ${mintRunnerToken(randomBytes(32).toString("hex"))}` });
+  await refused("a stale token", { authorization: `Bearer ${mintRunnerToken(secret, now() - 300)}` });
+  await refused("token without Bearer", { authorization: mintRunnerToken(secret) });
+  await refused("a signed-in member, no bearer", {}, member);
+
+  if (!guard.post) {
+    await refused("other method with a valid token", { authorization: `Bearer ${mintRunnerToken(secret)}` });
+    return out;
+  }
+  const control = await callRoute(slot, anonClient(), c, { headers: { authorization: `Bearer ${mintRunnerToken(secret)}` } });
+  out.push(...expectStatus(c, "control: right bearer", control, [200]), ...expectNoIds(c, "control", control));
+  try {
+    const keys = Object.keys(JSON.parse(control.body) as Record<string, unknown>).sort();
+    const want = ["claimed", "dead", "done", "durationMs", "ok", "retried"];
+    if (keys.join(",") !== want.join(",")) out.push(routeV(c, "control", `keys ${keys.join(",")}, expected ${want.join(",")}`));
+  } catch {
+    out.push(routeV(c, "control", "body is not JSON"));
+  }
+  return out;
 }
 
 /** `/api/v1` with the switch in the given state. */

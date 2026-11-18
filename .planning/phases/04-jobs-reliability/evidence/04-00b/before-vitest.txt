@@ -1,0 +1,648 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-04-00b
+
+ ❯ tests/setup/test-env-guard.spec.ts (77 tests | 1 failed) 229ms
+   ✓ test-env guard rules > accepts the local stack configuration 1ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.co 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.in 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://db.example.com 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: http://10.0.0.5:54321 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: http://127.0.0.1.nip.io:54321 0ms
+   ✓ test-env guard rules > rejects a missing or malformed Supabase URL 0ms
+   ✓ test-env guard rules > rejects a hosted URL hidden in any other variable 0ms
+   ✓ test-env guard rules > rejects keys that were not issued by the local stack 0ms
+   ✓ test-env guard rules > requires offline providers 0ms
+   ✓ test-env guard rules > rejects real-credential variable NEXT_PUBLIC_SUPABASE_ANON_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_SERVICE_ROLE_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable MESSAGING_WEBHOOK_SECRET 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_ACCESS_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_ACCESS_TOKEN_STAGING_RO 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_DB_PASSWORD 0ms
+   ✓ test-env guard rules > rejects real-credential variable DATABASE_URL 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_ACCOUNT_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_SECRET_ACCESS_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_BUCKET_NAME 0ms
+   ✓ test-env guard rules > rejects real-credential variable AI_BASE_URL 0ms
+   ✓ test-env guard rules > rejects real-credential variable GEMINI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GOOGLE_GENERATIVE_AI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable OPENAI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable ANTHROPIC_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_APP_NAME 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_SRC_PHONE 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_ACCOUNT_SID 1ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_AUTH_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_FROM_PHONE 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_WHATSAPP_FROM 0ms
+   ✓ test-env guard rules > rejects real-credential variable MSG91_DLT_TE_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable MSG91_SENDER_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_SECRET_ACCESS_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_SESSION_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable SES_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable SES_SECRET_ACCESS_KEY 0ms
+   ✓ test-env guard rules > rejects the staging name STAGING_SECRET_KEY, never echoing its value (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects the staging name STAGING_SEED_PASSWORD, never echoing its value (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects the staging name STAGING_PUBLISHABLE_KEY, never echoing its value (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects the staging name STAGING_DB_URL_RO, never echoing its value (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects the staging name STAGING_ANY_LATER_NAME, never echoing its value (04-00 L-8) 0ms
+   ✓ test-env guard rules > an empty staging name is not a value (the shell may export it blank); a name merely containing STAGING passes 0ms
+   ✓ test-env guard rules > rejects an sb_secret_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects an sb_publishable_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects an upper-case SB_SECRET_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+   ✓ test-env guard rules > rejects a key with the wrong role claim (anon key in the service-role slot) 0ms
+   ✓ test-env guard rules > allows only placeholders for MSG91_AUTH_KEY 0ms
+   ✓ test-env guard rules > allows only placeholders for AI_API_KEY 0ms
+   ✓ test-env guard rules > refuses proxy variable HTTPS_PROXY 0ms
+   ✓ test-env guard rules > refuses proxy variable http_proxy 0ms
+   ✓ test-env guard rules > refuses proxy variable NODE_USE_ENV_PROXY 0ms
+   ✓ test-env guard rules > pins the env-schema tier: APP_ENV=test for the lane, e2e for the app server (03-01, R-11) 0ms
+   ✓ test-env guard rules > refuses dev auth logging and a hosted Playwright base URL 0ms
+   ✓ test-env guard rules > pins the AI kill switch off (V2-02 02-03a) 0ms
+   ✓ test-env guard rules > allows NODE_ENV=production only when the caller opts in (the e2e app server) 0ms
+   ✓ test-env guard rules > pins the error-sink key to the local synthetic key and never echoes another value (03-09b) 0ms
+   ✓ test-env guard rules > keeps the diagnostic error route off in the Vitest lane; the e2e app server may turn it on (03-09b) 0ms
+   ✓ test-env guard rules > pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b) 0ms
+   ✓ test-env guard rules > keeps the breached-password check off in the Vitest lane; the e2e server may turn it on, loopback only (03-12a) 0ms
+   ✓ test-env guard rules > allows auth email only as disabled or the loopback Mailpit, never SES (03-11b) 0ms
+   × test-env guard rules > never lets a test lane select Resend or carry a Resend key, by any name (04-00b) 4ms
+     → expected [] to include 'RESEND_API_KEY must not be set in the…'
+   ✓ test-env guard rules > allows only Cloudflare's Turnstile test site keys in a test lane (03-12c, R-22) 0ms
+   ✓ test-env guard rules > never echoes secret values in its messages 0ms
+   ✓ local stack key loading > fills keys from `supabase status` output and nothing else 0ms
+   ✓ local stack key loading > fails closed when the local stack is not running 0ms
+   ✓ local stack key loading > parses dotenv content without interpolation 0ms
+   ✓ worker network block > rejects fetch to a non-loopback host before any request is made 4ms
+   ✓ worker network block > refuses raw sockets to non-loopback hosts (node:https, AWS SDK, etc.) 10ms
+   ✓ worker network block > answers DNS for non-loopback names offline with a fixed public address 2ms
+   ✓ worker network block > refuses resolver queries and UDP to non-loopback hosts without sending them (AR-L5) 2ms
+   ✓ worker network block > refuses to load .env files in workers 0ms
+   ✓ worker network block > still allows the local stack 9ms
+   ✓ end to end: a vitest run pointed at a hosted URL > aborts at config load with a non-zero exit and collects no tests 189ms
+ ❯ tests/api/health-probes.spec.ts (13 tests | 1 failed) 72ms
+   ✓ GET /api/health (liveness) > returns 200 with status, uptime, and null region/release when the platform sets none 3ms
+   ✓ GET /api/health (liveness) > reports Vercel's region and the deployed commit (R-26, R-30) 0ms
+   ✓ GET /api/health (liveness) > drops platform values that are not a region or a SHA 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws) 37ms
+   ✓ GET /api/ready (readiness RPC, no service role) > asks for the build's expected migration through the cookie-less client, never the cookie session 1ms
+   ✓ GET /api/ready (readiness RPC, no service role) > is not ready (503, schema behind) when the expected migration is not applied 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > refuses an answer carrying counts instead of booleans (the 000025 shape) 1ms
+   × GET /api/ready (readiness RPC, no service role) > reports AI, messaging and email from the env schema, never by calling a provider 27ms
+     → expected 'disabled' to be 'configured' // Object.is equality
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 503 with no error text when the RPC fails, logging only an error code 1ms
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 503 when the client throws, and when the RPC answers an unexpected shape 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > bypasses Supabase auth session refresh for /api/v1 routes when the API is on 1ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/health straight through 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/ready straight through 0ms
+ ❯ tests/config/env-schema.spec.ts (241 tests | 11 failed) 34ms
+   ✓ env schema: complete profiles pass > a complete synthetic production profile parses, flags as booleans 1ms
+   ✓ env schema: complete profiles pass > staging may run MESSAGING_PROVIDER=disabled until the accounts exist (R-16) 0ms
+   ✓ env schema: complete profiles pass > production with AI on and a complete provider configuration parses 0ms
+   ✓ env schema: complete profiles pass > the ci build profile parses as tier ci (K-6) 0ms
+   ✓ env schema: complete profiles pass > the e2e app server environment parses as tier e2e (K-6) 0ms
+   ✓ env schema: complete profiles pass > development and test default the app URL and the offline messaging provider 0ms
+   ✓ env schema: complete profiles pass > blank values count as unset 0ms
+   ✓ env schema: the tier > NODE_ENV=production without APP_ENV throws 0ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=development (it would switch the rules off) 0ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=test (it would switch the rules off) 0ms
+   ✓ env schema: the tier > an unknown APP_ENV throws without echoing it 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > production refuses the disabled messaging provider (staging allows it) 0ms
+   ✓ env schema: staging and production are fail-closed > lists every broken rule at once, never a value 0ms
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret 3ms
+     → Environment configuration error (tier production):
+  - EMAIL_PROVIDER: must be one of mailpit | ses | disabled
+  - EMAIL_PROVIDER: must be ses in production
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret 0ms
+     → Environment configuration error (tier staging):
+  - EMAIL_PROVIDER: must be one of mailpit | ses | disabled
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without RESEND_API_KEY (no silent fallback), naming the key 2ms
+     → expected [ …(2) ] to deeply equal [ Array(1) ]
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without RESEND_API_KEY (no silent fallback), naming the key 0ms
+     → expected [ Array(1) ] to deeply equal [ Array(1) ]
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without the sender address or the hook secret 1ms
+     → expected [ …(2) ] to include 'EMAIL_FROM: required when EMAIL_PROVI…'
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without the sender address or the hook secret 0ms
+     → expected [ Array(1) ] to include 'EMAIL_FROM: required when EMAIL_PROVI…'
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > resend needs its key, the sender address and the hook secret in the local tiers too 0ms
+     → expected [ 'EMAIL_PROVIDER' ] to deeply equal [ Array(3) ]
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender) 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender) 0ms
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a value that is not a Resend key is refused in every tier, never echoed 0ms
+     → expected [ …(2) ] to include 'RESEND_API_KEY: must be a Resend API …'
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > the key is server only: a NEXT_PUBLIC_ name for it, or a Resend key in any public name, is refused in every tier 0ms
+     → expected false to be true // Object.is equality
+   × env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a padded Resend key is refused naming the key, never the value 0ms
+     → expected [ …(2) ] to deeply equal [ Array(1) ]
+   × env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be a real provider 0ms
+     → expected [ Array(1) ] to include 'EMAIL_PROVIDER: required in productio…'
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production requires the hook secret even if the provider were not ses 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > staging must choose: disabled parses until the SES account exists (R-16), mailpit is refused 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > ses needs the sender address, the IAM key pair and the hook secret in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the SES key pair has the IAM user shape; values are never echoed 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the hook secret must be v1,whsec_<base64> of at least 24 bytes 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the local synthetic hook secret parses in the local tiers and is refused in staging and production 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > mailpit needs a loopback API URL and a sender address; a non-loopback Mailpit URL is refused in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > EMAIL_FROM must be an address (the message says so, without the value) 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > defaults to disabled in development, test and ci; the e2e server runs Mailpit with the local secret 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > names no email value in the Error message (04-00b: the Resend key too) 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > names no SES value in the Error message 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > production without ERROR_INGEST_KEY throws; staging and the local tiers may leave it unset 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in production, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in staging, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in ci, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in production 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in staging 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15) 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true parses in staging (PO action E9) and e2e; it defaults to false 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a non-boolean DIAG_ERROR_ROUTE_ENABLED throws 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > production must have PWNED_CHECK=on (unset and off throw) 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > defaults to off with the public API everywhere else; staging may run either way until the PO sets it 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > a value other than on|off throws 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in production 1ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in staging 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in ci 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > test and e2e accept only a loopback override; development accepts any URL 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > on in a loopback tier needs the loopback override (a test lane never reaches the public API) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production requires a key (unset throws) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000AA 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000AB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 3x00000000000000000000FF 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > staging is optional: unset, a test key or a real key all parse (PO action E7 sets the real one) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > development, test, e2e and ci accept only Cloudflare's test keys (and default to no widget) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > a value that is not site-key shaped throws in every tier 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > the e2e app server builds with the always-pass test key (R-22) 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > e2e with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback app URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > test with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci requires an explicit app URL and messaging provider (no development defaults) 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_API_KEY throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_MODEL_NAME throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_BASE_URL throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true with the mock provider throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > outside a production build an incomplete AI config parses (the AI layer fails closed at runtime) 0ms
+   ✓ env schema: every tier > MESSAGING_PROVIDER=msg91 without MSG91_AUTH_KEY throws (no fallback to the dev logger) 0ms
+   ✓ env schema: every tier > an old key name alone says where the value went 0ms
+   ✓ env schema: every tier > shape errors name the key and the allowed values, never the received value 0ms
+   ✓ env schema: every tier > names no value in the Error message either (the whole text) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local service_role JWT as the publishable key, naming the key and no value 1ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > the local stack's own keys parse in the local tiers 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > production refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses any branch but feature/v2; production is not bound to a branch here 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11) 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > SUPABASE_SECRET_KEY=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > MSG91_AUTH_KEY=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > MSG91_WEBHOOK_SECRET=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid CRON_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SUPABASE_SECRET_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_AUTH_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_WEBHOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SEND_EMAIL_HOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid ERROR_INGEST_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SES_SECRET_ACCESS_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > the padding rule holds in every tier (a padded secret in the test tier is refused too) 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > the rule covers every credential-shaped schema name and no public or non-secret one 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://localhost./ as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://0.0.0.0 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.0.0.2 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.1 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://app.localhost. as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://localhost./ as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://0.0.0.0 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://127.0.0.2 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo, a path and a query as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo only as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a path as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a query as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a lone ? as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a fragment as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > the app URL must be a bare origin too (staging) 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > a bare hosted origin passes, with or without the trailing slash 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > the test, e2e and ci tiers still accept the local stack (and refuse a non-loopback host) 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.0.0.1) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.255.255.254) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(0.0.0.0) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::1]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7f00:1]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7fff:ffff]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:0:0]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost.) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(128.0.0.1) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::2]) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:8000:1]) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.example.org) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(notlocalhost) = false 0ms
+ ❯ tests/setup/e2e-app-env.spec.ts (14 tests | 1 failed) 40ms
+   ✓ buildAppServerEnv > builds a new env from an allowlist: nothing else is inherited 1ms
+   ✓ buildAppServerEnv > refuses hosted keys 0ms
+   ✓ assertLocalAppServerEnv > accepts the built env and rejects a non-loopback Supabase URL 1ms
+   ✓ assertLocalAppServerEnv > requires the no-.env flag and disabled telemetry 0ms
+   ✓ build stamp > authorises serving only the build it stamped, with the same public env 0ms
+   ✓ build output scan > flags a concrete hosted host and ignores templates and library placeholders 0ms
+   ✓ build output scan > flags hosted keys, and a service_role key in a browser bundle only 0ms
+   × build output scan > flags a Resend-key-shaped literal in any bundle, and not the provider's name or URL (04-00b) 3ms
+     → expected [] to deeply equal [ { file: 'l.js', …(1) } ]
+   ✓ build output scan > never echoes a key value in a finding 0ms
+   ✓ build output scan over the Next 16 Turbopack layout (V2-03 03-06) > finds a hosted marker in a Turbopack browser chunk and in a nested server chunk 2ms
+   ✓ build output scan over the Next 16 Turbopack layout (V2-03 03-06) > refuses a build whose .next/static/chunks holds no JavaScript 2ms
+   ✓ build output scan over the Next 16 Turbopack layout (V2-03 03-06) > refuses a build whose .next/server/chunks holds no JavaScript 1ms
+   ✓ build output scan over the Next 16 Turbopack layout (V2-03 03-06) > refuses a build whose .next/server/app holds no JavaScript 1ms
+   ✓ server-side socket guard (as NODE_OPTIONS=--require loads it into next start) > blocks fetch, raw sockets and real DNS to non-loopback hosts, and allows loopback 26ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/resend-sender.spec.ts [ tests/auth/resend-sender.spec.ts ]
+Error: Cannot find module '@/lib/email/resend' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-04-00b/tests/auth/resend-sender.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/auth/resend-sender.spec.ts:14:1
+     12| import { HOOK_SEND_BUDGET_MS } from "@/app/api/auth/send-email/route";
+     13| import { EmailConfigError, EmailSendError, getEmailSender, type EmailM…
+     14| import { RESEND_API_URL, RESEND_REQUEST_TIMEOUT_MS, ResendEmailSender …
+       | ^
+     15| import { parseEnv, type Env } from "@/lib/env";
+     16| import { fetchVia, startFakeResend, type FakeResendServer } from "../h…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/16]⎯
+
+ FAIL  tests/auth/send-email-hook-resend.spec.ts [ tests/auth/send-email-hook-resend.spec.ts ]
+Error: Cannot find module '@/lib/email/resend' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-04-00b/tests/auth/send-email-hook-resend.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/auth/send-email-hook-resend.spec.ts:27:1
+     25|   resetHookDedupeForTests,
+     26| } from "@/app/api/auth/send-email/route";
+     27| import { RESEND_API_URL, RESEND_REQUEST_TIMEOUT_MS } from "@/lib/email…
+       | ^
+     28| import { fetchVia, startFakeResend, type FakeResendServer } from "../h…
+     29| import { signedWebhookHeaders } from "../security/guard/engine";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/16]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > reports AI, messaging and email from the env schema, never by calling a provider
+AssertionError: expected 'disabled' to be 'configured' // Object.is equality
+
+Expected: [32m"[7mconfigur[27med"[39m
+Received: [31m"[7mdisabl[27med"[39m
+
+ ❯ tests/api/health-probes.spec.ts:164:52
+    162|     vi.stubEnv("SEND_EMAIL_HOOK_SECRET", `v1,whsec_${Buffer.from("synt…
+    163|     const resendText = await (await getReady()).text();
+    164|     expect(JSON.parse(resendText).providers.email).toBe("configured");
+       |                                                    ^
+    165|     expect(resendText).not.toContain(resendKey);
+    166|     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret
+EnvConfigError: Environment configuration error (tier production):
+  - EMAIL_PROVIDER: must be one of mailpit | ses | disabled
+  - EMAIL_PROVIDER: must be ses in production
+ ❯ parseEnv lib/env.ts:627:11
+    625|   const unique = [...new Set(issues)];
+    626|   if (unique.length > 0 || !shaped.success || !tier) {
+    627|     throw new EnvConfigError(unique.length > 0 ? unique : ["APP_ENV: i…
+       |           ^
+    628|   }
+    629| 
+ ❯ tests/config/env-schema.spec.ts:253:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret
+EnvConfigError: Environment configuration error (tier staging):
+  - EMAIL_PROVIDER: must be one of mailpit | ses | disabled
+ ❯ parseEnv lib/env.ts:627:11
+    625|   const unique = [...new Set(issues)];
+    626|   if (unique.length > 0 || !shaped.success || !tier) {
+    627|     throw new EnvConfigError(unique.length > 0 ? unique : ["APP_ENV: i…
+       |           ^
+    628|   }
+    629| 
+ ❯ tests/config/env-schema.spec.ts:253:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without RESEND_API_KEY (no silent fallback), naming the key
+AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "RESEND_API_KEY: required when EMAIL_PROVIDER=resend",[39m
+[31m+   "EMAIL_PROVIDER: must be one of mailpit | ses | disabled",[39m
+[31m+   "EMAIL_PROVIDER: must be ses in production",[39m
+[2m  ][22m
+
+ ❯ tests/config/env-schema.spec.ts:263:20
+    261|   ])("%s refuses resend without RESEND_API_KEY (no silent fallback), n…
+    262|     const issues = issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_…
+    263|     expect(issues).toEqual(["RESEND_API_KEY: required when EMAIL_PROVI…
+       |                    ^
+    264|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: " "…
+    265|     void tier;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without RESEND_API_KEY (no silent fallback), naming the key
+AssertionError: expected [ Array(1) ] to deeply equal [ Array(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "RESEND_API_KEY: required when EMAIL_PROVIDER=resend",[39m
+[31m+   "EMAIL_PROVIDER: must be one of mailpit | ses | disabled",[39m
+[2m  ][22m
+
+ ❯ tests/config/env-schema.spec.ts:263:20
+    261|   ])("%s refuses resend without RESEND_API_KEY (no silent fallback), n…
+    262|     const issues = issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_…
+    263|     expect(issues).toEqual(["RESEND_API_KEY: required when EMAIL_PROVI…
+       |                    ^
+    264|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: " "…
+    265|     void tier;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without the sender address or the hook secret
+AssertionError: expected [ …(2) ] to include 'EMAIL_FROM: required when EMAIL_PROVI…'
+ ❯ tests/config/env-schema.spec.ts:272:78
+    270|     ["staging", STAGING],
+    271|   ])("%s refuses resend without the sender address or the hook secret"…
+    272|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, EMAIL_FROM: undefin…
+       |                                                                              ^
+    273|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, SEND_EMAIL_HOOK_SEC…
+    274|       "SEND_EMAIL_HOOK_SECRET: required when EMAIL_PROVIDER=resend",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without the sender address or the hook secret
+AssertionError: expected [ Array(1) ] to include 'EMAIL_FROM: required when EMAIL_PROVI…'
+ ❯ tests/config/env-schema.spec.ts:272:78
+    270|     ["staging", STAGING],
+    271|   ])("%s refuses resend without the sender address or the hook secret"…
+    272|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, EMAIL_FROM: undefin…
+       |                                                                              ^
+    273|     expect(issuesOf({ ...profile, ...RESEND_EMAIL, SEND_EMAIL_HOOK_SEC…
+    274|       "SEND_EMAIL_HOOK_SECRET: required when EMAIL_PROVIDER=resend",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > resend needs its key, the sender address and the hook secret in the local tiers too
+AssertionError: expected [ 'EMAIL_PROVIDER' ] to deeply equal [ Array(3) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "EMAIL_FROM",[39m
+[32m-   "RESEND_API_KEY",[39m
+[32m-   "SEND_EMAIL_HOOK_SECRET",[39m
+[31m+   "EMAIL_PROVIDER",[39m
+[2m  ][22m
+
+ ❯ tests/config/env-schema.spec.ts:280:55
+    278|   it("resend needs its key, the sender address and the hook secret in …
+    279|     const issues = issuesOf({ ...local, EMAIL_PROVIDER: "resend" });
+    280|     expect(issues.map((i) => i.split(":")[0]).sort()).toEqual(["EMAIL_…
+       |                                                       ^
+    281|   });
+    282| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a value that is not a Resend key is refused in every tier, never echoed
+AssertionError: expected [ …(2) ] to include 'RESEND_API_KEY: must be a Resend API …'
+ ❯ tests/config/env-schema.spec.ts:295:22
+    293|     for (const bad of ["MARKER-not-a-resend-key-000000", ["re", "MARKE…
+    294|       const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND…
+    295|       expect(issues).toContain("RESEND_API_KEY: must be a Resend API k…
+       |                      ^
+    296|       expect(issues.join("\n")).not.toContain(bad);
+    297|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > the key is server only: a NEXT_PUBLIC_ name for it, or a Resend key in any public name, is refused in every tier
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/config/env-schema.spec.ts:306:129
+    304|     for (const profile of [PRODUCTION, STAGING, local, CI_BUILD]) {
+    305|       const named = issuesOf({ ...profile, NEXT_PUBLIC_RESEND_API_KEY:…
+    306|       expect(named.some((i) => i.startsWith("NEXT_PUBLIC_RESEND_API_KE…
+       |                                                                                                                                 ^
+    307|       expect(named.join("\n")).not.toContain(RESEND_KEY);
+    308|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a padded Resend key is refused naming the key, never the value
+AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "RESEND_API_KEY: must not have leading or trailing whitespace",[39m
+[31m+   "EMAIL_PROVIDER: must be one of mailpit | ses | disabled",[39m
+[31m+   "EMAIL_PROVIDER: must be ses in production",[39m
+[2m  ][22m
+
+ ❯ tests/config/env-schema.spec.ts:321:20
+    319|   it("a padded Resend key is refused naming the key, never the value",…
+    320|     const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND_A…
+    321|     expect(issues).toEqual(["RESEND_API_KEY: must not have leading or …
+       |                    ^
+    322|   });
+    323| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/16]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be a real provider
+AssertionError: expected [ Array(1) ] to include 'EMAIL_PROVIDER: required in productio…'
+ ❯ tests/config/env-schema.spec.ts:330:92
+    328|   it("production parses with SES and the hook secret; EMAIL_PROVIDER i…
+    329|     expect(parseEnv(PRODUCTION).EMAIL_PROVIDER).toBe("ses");
+    330|     expect(expectRejected({ ...PRODUCTION, EMAIL_PROVIDER: undefined }…
+       |                                                                                            ^
+    331|       "EMAIL_PROVIDER: required in production (resend or ses, or disab…
+    332|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/16]⎯
+
+ FAIL  tests/setup/e2e-app-env.spec.ts > build output scan > flags a Resend-key-shaped literal in any bundle, and not the provider's name or URL (04-00b)
+AssertionError: expected [] to deeply equal [ { file: 'l.js', …(1) } ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   {[39m
+[32m-     "file": "l.js",[39m
+[32m-     "kind": "Resend API key literal",[39m
+[32m-   },[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/setup/e2e-app-env.spec.ts:133:80
+    131|     // Assembled at run time: no key-shaped literal in the repo.
+    132|     const key = ["re", "SyntheticScanKey00000000000"].join("_");
+    133|     expect(scanText(`h={authorization:"Bearer "+e};k="${key}"`, "l.js"…
+       |                                                                                ^
+    134|     expect(scanText(`k='${key}'`, "m.js", false)).toEqual([{ file: "m.…
+    135|     expect(JSON.stringify(scanText(`k="${key}"`, "n.js", true))).not.t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/16]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > never lets a test lane select Resend or carry a Resend key, by any name (04-00b)
+AssertionError: expected [] to include 'RESEND_API_KEY must not be set in the…'
+ ❯ tests/setup/test-env-guard.spec.ts:255:24
+    253|     for (const name of ["RESEND_API_KEY", "NEXT_PUBLIC_RESEND_API_KEY"…
+    254|       const problems = findTestEnvProblems(safeEnv({ [name]: key }));
+    255|       expect(problems).toContain(`${name} must not be set in the test …
+       |                        ^
+    256|       expect(problems.join("\n")).not.toContain(key);
+    257|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/16]⎯
+
+
+ Test Files  6 failed (6)
+      Tests  14 failed | 331 passed (345)
+   Start at  14:03:07
+   Duration  1.78s (transform 207ms, setup 44ms, collect 182ms, tests 374ms, environment 0ms, prepare 150ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

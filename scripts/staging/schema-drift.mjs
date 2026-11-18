@@ -5,7 +5,8 @@
  *
  *   1. `target-guard`: `STAGING_DB_URL_RO` must be the staging project (`SUPABASE_PROJECT_REF_STAGING`); loopback,
  *      IP literals and other projects are refused before anything runs.
- *   2. `supabase db diff --db-url <canonical URL> --schema public,ops,private --agent no --output-format json`: the CLI
+ *   2. `supabase db diff --db-url <canonical URL without the password> --schema public,ops,private --agent no
+ *      --output-format json`, with the password in `PGPASSWORD` (04-00 L-7: never in argv): the CLI
  *      builds a shadow database from `supabase/migrations` in the runner's Docker and diffs it against the staging
  *      database. The CLI only reads the target (catalog queries); the URL's role is the read-only `clinicos_drift_ro`
  *      (no table grants; docs/runbooks/staging.md). 03-13b (M-DRIFT): `ops` and `private` hold this phase's
@@ -26,14 +27,17 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { judgeSnapshot, parseSnapshot, psqlArgs } from "../drift/schema-snapshot.mjs";
-import { REF_VAR, canonicalDbUrl, redactUrl, stagingTargetProblems } from "./target-guard.mjs";
+import { REF_VAR, canonicalDbUrl, redactUrl, stagingTargetProblems, urlPassword } from "./target-guard.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const DB_URL_VAR = "STAGING_DB_URL_RO";
 /** 03-13b M-DRIFT: the schemas the hosted diff covers (this phase's protections live in `ops` and `private` too). */
 export const DIFF_SCHEMAS = "public,ops,private";
 
-/** The CLI arguments of the read-only diff (exported for the spec). */
+/**
+ * The CLI arguments of the read-only diff (exported for the spec). 04-00 (review A L-7): `url` is the password-free
+ * canonical URL; the CLI reads the password from `PGPASSWORD` in its environment, never from argv.
+ */
 export function diffArgs(url) {
   return ["supabase", "db", "diff", "--db-url", url, "--schema", DIFF_SCHEMAS, "--agent", "no", "--output-format", "json"];
 }
@@ -66,11 +70,13 @@ export function runSchemaDrift({ vars = process.env, out, spawnImpl = spawnSync 
   const target = canonicalDbUrl(url);
   // The raw URL first: it is a prefix of the canonical one, so both print as `<staging-url>` (password always `***`).
   const redact = (text) => redactUrl(redactUrl(text, url), target);
-  const diff = spawnImpl("npx", diffArgs(target), {
+  // 04-00 L-7: the URL on the command line carries no password; pgx takes it from PGPASSWORD (local CLI proof in
+  // .planning/phases/04-jobs-reliability/evidence/04-00/l7-cli-pgpassword.txt).
+  const diff = spawnImpl("npx", diffArgs(canonicalDbUrl(url, { password: false })), {
     cwd: REPO_ROOT,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
-    env: { ...process.env, [DB_URL_VAR]: undefined, PGSSLMODE: "require" },
+    env: { ...process.env, [DB_URL_VAR]: undefined, PGSSLMODE: "require", PGPASSWORD: urlPassword(url) ?? "" },
   });
   if (diff.error || diff.status !== 0) {
     const stderr = redact(String(diff.stderr ?? "")).trim();

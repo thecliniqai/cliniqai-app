@@ -28,7 +28,8 @@
      `notifyPrescriptionIssued` is deleted (P0-01). Tests call domain services with an explicit context.
   2. **One confined factory.** `getSystemDb(reason)` lives in `lib/supabase/system.ts` (`import
      "server-only"`), replaces all five factories, and is importable only from `lib/jobs/**` (internal
-     part, below), `features/*/system.ts` and `app/api/{jobs,webhooks}/**` (C20). Every call emits one
+     part, below), `features/*/system.ts` and `app/api/{jobs,webhooks}/**` (C20; additions: A1 public share routes,
+     A3 the Send Email hook route, below). Every call emits one
      structured log line with the reason code and the calling module, never tenant data or PHI.
      `features/*/system.ts` modules carry `import "server-only"`, never `"use server"`, and may be imported
      only from the same allowed paths. Supabase Auth admin calls live in `features/auth/system.ts` (C50).
@@ -38,7 +39,8 @@
      Request-path code never falls back to the service role on error.
   3. **Public links** use SECURITY DEFINER RPCs scoped to the token, not service-role queries (P0-04).
      **Request-path enqueue** of messages and webhook events uses one SECURITY DEFINER enqueue RPC that
-     derives the tenant from `auth.uid()` and accepts no tenant argument (V2-04; P1-05 RPCs later write the
+     derives the tenant from `auth.uid()` and accepts no tenant argument (**amended by A2, 2026-11-14: the
+     active tenant is accepted as a constraint only**; V2-04; P1-05 RPCs later write the
      outbox in the same transaction). **Readiness** (`/api/ready`) uses one SECURITY DEFINER health RPC
      returning counts only, with no bucket check (V2-03, P1-15); storage health comes from the backup job's
      alerts (FT-02/FT-03).
@@ -101,3 +103,46 @@
 - **Verification:** `tests/security/share-tokens.spec.ts` (cross-tenant, wrong-type, expired, revoked, single-use,
   path checks). From V2-03 the `no-restricted-imports` rule encodes this importer list and a fixture proves an
   import from any other route fails lint.
+
+## Amendments A2 and A3 (V2-04, applied 2026-11-14)
+
+- **Status:** Accepted by the agent as CTO under PO delegation (2026-11-13; rulings R-6, R-43); text applied at the
+  V2-04 phase close (2026-11-14) and listed in `.planning/phases/04-jobs-reliability/04-SUMMARY.md` for the PO to see
+  at the V2-04 gate (04-P14). Proposal and evidence: `.planning/phases/04-jobs-reliability/04-ADR0005-PROPOSALS.md`.
+  Rejecting either amendment is a revert of its one ESLint zone and its call site.
+
+### A2: request-path enqueue takes the active tenant only as a constraint (R-6, revised for the 03-07 D1 finding)
+
+- **Context:** Decision 3 says the enqueue RPC "derives the tenant from `auth.uid()` and accepts no tenant argument".
+  A user who is a member of two clinics has no single tenant derivable from `auth.uid()`, and until V2-05 adds a
+  database-side active tenant nothing else stops a user acting in clinic A from enqueueing for clinic B.
+- **Decision (replaces "accepts no tenant argument" in Decision 3):** request-path enqueue derives the tenant from the
+  subject row. It takes the caller's active tenant (`ServiceContext.tenantId`, session-derived, never request input)
+  only as a constraint the subject row must match, and requires membership in it; a mismatch reads as not found. It is
+  never the source of the row's tenant.
+- **Verification:** `public.enqueue_message` (migration 000035) and `public.enqueue_webhook_event` (000036); the
+  dual-member cases of `tests/jobs/enqueue-message-rpc-db.spec.ts` and `tests/jobs/enqueue-webhook-rpc-db.spec.ts`
+  and guard leg 3b; the "any membership" variant shown failing
+  (`.planning/phases/04-jobs-reliability/evidence/04-03a|04-03b/negative-enqueue-any-membership.txt`).
+
+### A3: the Send Email hook may record its delivery id through one system function (R-43)
+
+- **Context:** Decision 2 lists `app/api/{jobs,webhooks}/**` but not `app/api/auth/**`. The Supabase Auth Send Email
+  hook (`app/api/auth/send-email/route.ts`) is a Standard-Webhooks-signed server-to-server endpoint, an inbound webhook
+  in all but path, and its retries can land on another server instance, which only a shared store can dedupe. An
+  anon-callable dedupe RPC instead would let anyone fill the table.
+- **Decision (an allow-list addition to Decision 2, not a register entry):** `app/api/auth/send-email/route.ts` may
+  import `features/auth/system.ts` and call it only after the signature check, only to record the delivery id
+  (reason `auth.send_email_hook`): `authHookDeliveryBegin` / `authHookDeliveryFinish` →
+  `public.inbound_webhook_begin/finish('supabase_auth_hook', <webhook-id>)` (service role only, migration 000037).
+  Provider, id and timestamps only; a store error never blocks an auth email. No other `features/*/system` module and
+  not the factory itself may be imported there.
+- **Verification:** one ESLint zone for exactly that route with a pass fixture and fail fixtures (the same import from
+  another `app/api/auth/**` route and from a feature service; the factory, another domain's system module and
+  `features/sharing/system` at the route) in `tests/security/p1-34-lint-gates.spec.ts`;
+  `tests/integration/auth/send-email-hook-dedupe-db.spec.ts`; `REASON_OWNER["auth.send_email_hook"] =
+  "features/auth/system"`.
+
+**Register state after V2-04 (Verification 4):** the V2-04 entries (`app/api/cron/**`, `lib/messaging/dispatcher.ts`,
+`lib/webhooks/**`) are deleted; the register holds only `app/api/v1/**` and `lib/api/**` (owner P1-37), as this
+ADR's end state requires. No amendment is needed for that.

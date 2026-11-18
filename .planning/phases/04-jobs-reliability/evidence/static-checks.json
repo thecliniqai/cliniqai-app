@@ -1,0 +1,97 @@
+{
+ "commit": "2260c647b29a3d61989247414b7e4ed7e10a9ee5",
+ "typecheck": {
+  "command": "npm run typecheck",
+  "exit_code": 0
+ },
+ "eslint": {
+  "command": "npx eslint . --quiet",
+  "exit_code": 0
+ },
+ "grep_auth01_banned_otp_terms_in_app_code": 0,
+ "grep_override_params_in_app_code": 0,
+ "inventory": {
+  "exit_code": 0,
+  "tail": [
+   "      \"methods\": [",
+   "        \"POST\"",
+   "      ]",
+   "    }",
+   "  ]",
+   "}"
+  ]
+ },
+ "files_linted": 326,
+ "boundary_messages": {
+  "P1-34": 0,
+  "P1-21": 0,
+  "P1-25": 0,
+  "P1-15": 0,
+  "P0-12": 0,
+  "flagged": []
+ },
+ "boundary_directives": [],
+ "p1_34_boundary_messages": 0,
+ "utc_today_messages": 0,
+ "service_role_factories": [
+  "lib/supabase/system.ts"
+ ],
+ "system_module_importers": {
+  "factory": [
+   "app/api/jobs/run/route.ts",
+   "app/api/v1/appointments/[id]/route.ts",
+   "app/api/v1/appointments/route.ts",
+   "app/api/v1/lab-orders/[id]/route.ts",
+   "app/api/v1/lab-orders/route.ts",
+   "app/api/v1/patients/[id]/export/route.ts",
+   "app/api/v1/patients/[id]/route.ts",
+   "app/api/v1/patients/route.ts",
+   "app/api/v1/prescriptions/[id]/route.ts",
+   "app/api/v1/prescriptions/route.ts",
+   "app/api/v1/referrals/[id]/route.ts",
+   "app/api/v1/referrals/route.ts",
+   "app/api/v1/visits/[id]/route.ts",
+   "app/api/v1/visits/route.ts",
+   "app/api/webhooks/messaging/[provider]/route.ts",
+   "features/auth/system.ts",
+   "features/billing/system.ts",
+   "features/sharing/system.ts"
+  ],
+  "feature_system": [
+   "app/api/auth/send-email/route.ts",
+   "app/api/r/[token]/route.ts",
+   "app/api/reports/view/route.ts",
+   "app/api/reschedule/[token]/route.ts",
+   "app/api/webhooks/messaging/[provider]/route.ts",
+   "app/r/[token]/page.tsx",
+   "app/reports/view/page.tsx",
+   "features/sharing/system.ts"
+  ],
+  "non_canonical": []
+ },
+ "exception_register": [
+  "app/api/v1/**",
+  "lib/api/**"
+ ],
+ "exception_register_entries": 2,
+ "exception_register_importers": [
+  "app/api/v1/appointments/[id]/route.ts",
+  "app/api/v1/appointments/route.ts",
+  "app/api/v1/lab-orders/[id]/route.ts",
+  "app/api/v1/lab-orders/route.ts",
+  "app/api/v1/patients/[id]/export/route.ts",
+  "app/api/v1/patients/[id]/route.ts",
+  "app/api/v1/patients/route.ts",
+  "app/api/v1/prescriptions/[id]/route.ts",
+  "app/api/v1/prescriptions/route.ts",
+  "app/api/v1/referrals/[id]/route.ts",
+  "app/api/v1/referrals/route.ts",
+  "app/api/v1/visits/[id]/route.ts",
+  "app/api/v1/visits/route.ts"
+ ],
+ "cron_route_files": 0,
+ "dependencies": {
+  "next_declared": "16.4.6",
+  "next_installed": "16.4.6"
+ }
+}

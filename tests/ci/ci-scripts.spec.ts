@@ -52,8 +52,8 @@ describe("retry.mjs (IR-F8)", () => {
 });
 
 describe("pick-nightly-issue.mjs (AR-L1)", () => {
-  const pick = (issues: unknown) => {
-    const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/ci/pick-nightly-issue.mjs")], {
+  const pick = (issues: unknown, args: string[] = []) => {
+    const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/ci/pick-nightly-issue.mjs"), ...args], {
       input: JSON.stringify(issues),
       encoding: "utf8",
     });
@@ -69,6 +69,17 @@ describe("pick-nightly-issue.mjs (AR-L1)", () => {
         { number: 3, title: "Nightly failing", author: bot },
       ]),
     ).toEqual({ status: 0, out: "3" });
+  });
+
+  it("--title picks the bot's own issue with that title (V2-04 04-05a backup alert), never the default one", () => {
+    const issues = [
+      { number: 3, title: "Nightly failing", author: bot },
+      { number: 9, title: "Staging backup failing", author: stranger },
+      { number: 11, title: "Staging backup failing", author: bot },
+    ];
+    expect(pick(issues, ["--title", "Staging backup failing"])).toEqual({ status: 0, out: "11" });
+    expect(pick(issues.slice(0, 2), ["--title", "Staging backup failing"])).toEqual({ status: 0, out: "" });
+    expect(pick(issues, ["--title"]).status).toBe(2);
   });
 
   it("picks nothing when only a stranger's issue (or a near-miss title) exists, so the bot opens its own", () => {

@@ -9,7 +9,7 @@ import { GET as getDocumentRoute } from "@/app/api/r/[token]/route";
 import { GET as getReportRoute } from "@/app/api/reports/view/route";
 import { GET as getRescheduleRoute, POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route";
 import { generateRescheduleToken } from "@/features/appointments/system";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
 
@@ -495,7 +495,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
     });
 
     it("single use: two concurrent POSTs give exactly one 200 and one 410; the visit moves once", async () => {
-      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessageAsSystem").mockResolvedValue({ id: "msg-syn" } as never);
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, A.visitId);
       const token = url.split("/reschedule/")[1];
       const t1 = new Date(Date.now() + 6 * 86_400_000);
@@ -525,9 +525,15 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
       // A third attempt after the race is also refused.
       expect((await reschedulePost(token, t2.toISOString())).status).toBe(410);
       expect(enqueueSpy).toHaveBeenCalledTimes(1);
+      // V2-04 04-03a: the system path enqueues (tenant from the visit) with a per-visit-and-time dedupe key.
       expect(enqueueSpy).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ messageType: "appointment_rescheduled", tenantId: A.owner.tenantId })
+        expect.objectContaining({
+          messageType: "appointment_rescheduled",
+          visitId: A.visitId,
+          dedupeKey: `appointment_rescheduled:${A.visitId}:${winner.toISOString()}`,
+        }),
+        "system:patient_self_service_reschedule"
       );
     });
 

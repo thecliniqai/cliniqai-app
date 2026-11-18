@@ -471,7 +471,8 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
       const result = await provider.sendWhatsApp("919876543210", "appointment_booked", {});
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("MSG91_AUTH_KEY is not configured");
+      // V2-04 04-03a (R-20): a fixed machine code, not retryable (nothing to retry without credentials).
+      expect(result).toMatchObject({ error: "msg91_not_configured", code: "msg91_not_configured", retryable: false });
     });
 
     it("handles HTTP 400 validation error from MSG91 API", async () => {
@@ -493,7 +494,9 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
 
       const result = await provider.sendWhatsApp("919876543210", "appointment_booked", {});
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Template variable count mismatch");
+      // V2-04 04-03a (R-20): a code, never MSG91's text; a 4xx is not retryable.
+      expect(result).toMatchObject({ error: "msg91_http_400", code: "msg91_http_400", retryable: false });
+      expect(JSON.stringify(result)).not.toContain("Template variable count mismatch");
       expect(result.statusCode).toBe(400);
     });
 
@@ -516,7 +519,8 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
 
       const result = await provider.sendWhatsApp("919876543210", "appointment_booked", {});
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Invalid Auth Key");
+      expect(result).toMatchObject({ error: "msg91_http_401", code: "msg91_http_401", retryable: false });
+      expect(JSON.stringify(result)).not.toContain("Invalid Auth Key");
       expect(result.statusCode).toBe(401);
     });
   });

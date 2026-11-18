@@ -5,7 +5,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueWebhookEventAsSystem } from "@/lib/jobs/enqueue";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { getTenantToday } from "@/lib/datetime/server";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
@@ -240,18 +240,9 @@ export async function POST(req: NextRequest) {
       log.error({ event: "api.lab_orders_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
-    // 5. Enqueue webhook event: lab_result.ready
+    // 5. Webhook event lab_result.ready (04-03b): queued through the system RPC; tenant and data from the document row.
     try {
-      await enqueueWebhookEvent(
-        admin,
-        session.tenantId,
-        "lab_result.ready",
-        {
-          document_id: doc.id,
-          patient_id: doc.patient_id,
-          title: doc.title,
-        }
-      );
+      await enqueueWebhookEventAsSystem(admin, "lab_result.ready", doc.id, "system:api_v1");
     } catch (webhookErr) {
       log.warn({ event: "api.lab_orders_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }

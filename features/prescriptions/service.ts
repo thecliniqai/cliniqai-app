@@ -6,8 +6,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import {
   prescriptionItemSchema,
   PrescriptionItemInput,
@@ -23,8 +22,10 @@ import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
-// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
-// `prescription.issued` webhook is enqueued by `getOrCreateDraftPrescription` under the acting tenant.
+// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
+// no use-case here enqueues `prescription.issued`: in the app it is queued only when the prescription is signed
+// (features/consultation/service.ts, key `:signed`), and the public API queues its own (app/api/v1/prescriptions,
+// key `:created`); a draft never sends it.
 
 // Specialty slugs are interpolated into a PostgREST `.or()` filter, so only plain slug characters are accepted.
 const SPECIALTY_SLUG = /^[a-z0-9_]{1,50}$/;
@@ -138,15 +139,8 @@ export async function getOrCreateDraftPrescription(
       return { success: false, error: "Failed to create prescription draft." };
     }
 
-    try {
-      await enqueueWebhookEvent(supabase, ctx.tenantId, "prescription.issued", {
-        prescription_id: created.id,
-        patient_id: visit.patient_id,
-        visit_id: visitId,
-      });
-    } catch (webhookErr) {
-      log.warn({ event: "prescriptions.draft_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
+    // 04-07a M-RXEVENT: the empty draft raises no `prescription.issued`; the event is queued when the consultation is
+    // signed (features/consultation/service.ts), and SQL refuses it from a request before then.
 
     return { success: true, prescriptionId: created.id };
   } catch (err: unknown) {
@@ -749,8 +743,8 @@ export async function sharePrescriptionViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #6 (prescription_ready)
-    await enqueueMessage(supabase, {
-      tenantId: ctx.tenantId,
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
+    await enqueueMessage(ctx, {
       patientId: rx.patient_id,
       channel: "whatsapp",
       messageType: "prescription_ready",

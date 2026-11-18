@@ -1,0 +1,189 @@
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts  631ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/actions.ts 4ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/(dashboard)/fixture/page.tsx 9ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/jobs/run/route.ts 8ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at lib/jobs/enqueue.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/webhooks/payments/route.ts 7ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/billing/service.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/appointments/system.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-class-imports.ts at features/visits/scheduling-service.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > namespace-barrel-import.ts at features/labs/service.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > reexport-sender.ts at lib/db/x.ts 2ms
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/labs/service.ts 10ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/webhooks/actions.ts 3ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/v1/prescriptions/route.ts 7ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/appointments/system.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/jobs/run/route.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at lib/jobs/enqueue.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > webhook-transport-imports.ts at features/webhooks/service.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ], [ 2, …(1) ], …(2) ]
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at lib/jobs/internal/x.ts 8ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at lib/jobs/internal/handlers/message-send.ts 1ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at lib/messaging/x.ts 8ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at app/api/webhooks/messaging/[provider]/route.ts 7ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at tests/fixture/x.spec.ts 13ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-factory-import.ts at scripts/msg91-test-send.ts 4ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > direct-send-import.ts at app/api/webhooks/messaging/[provider]/route.ts 3ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > direct-send-import.ts at lib/jobs/internal/x.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-class-imports.ts at lib/jobs/internal/x.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > provider-class-imports.ts at lib/messaging/x.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > namespace-barrel-import.ts at lib/messaging/x.ts 1ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > allowed-imports.ts at features/patients/service.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > allowed-imports.ts at app/api/patients/route.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > webhook-fire-and-forget.ts at lib/jobs/internal/x.ts 5ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > webhook-fire-and-forget.ts at lib/jobs/internal/handlers/webhook-deliver.ts 2ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > webhook-fire-and-forget.ts at tests/fixture/x.spec.ts 4ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > webhook-transport-imports.ts at lib/webhooks/x.ts 10ms
+   ✓ P0-12: the runner internals, the messaging modules and the 04-03c allowance pass > webhook-transport-imports.ts at lib/jobs/internal/x.ts 1ms
+   × P0-12: the real tree > the real handlers and inbound route lint clean in place, and fail at a feature path 19ms
+     → No files matching '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/jobs/internal/handlers/webhook-deliver.ts' were found.
+   × P0-12: the real tree > sibling spellings of the deliverer fail outside lib/webhooks and pass inside it 2ms
+     → expected [] to deeply equal [ 1, 2 ]
+   × P0-12: the real tree > the fire-and-forget outbox and the cron webhook route are gone 0ms
+     → expected true to be false // Object.is equality
+   ✓ P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)  11979ms
+   × P0-12: the real tree > the census counts a P0-12 violation (so 0 above is live) 40ms
+     → expected 9 to be greater than or equal to 13
+   ✓ mapDbError: SQLSTATE table > 42501 (RLS / revoked EXECUTE / role check) 0ms
+   ✓ mapDbError: SQLSTATE table > P0002 with a raised reason 0ms
+   ✓ mapDbError: SQLSTATE table > P0002 with free text 0ms
+   ✓ mapDbError: SQLSTATE table > 23505 unique violation 0ms
+   ✓ mapDbError: SQLSTATE table > 23503 foreign key 0ms
+   ✓ mapDbError: SQLSTATE table > 23514 check 0ms
+   ✓ mapDbError: SQLSTATE table > 23P01 exclusion 0ms
+   ✓ mapDbError: SQLSTATE table > 55P03 lock timeout 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 OVERPAYMENT 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 INVOICE_NOT_PAYABLE 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 ACTOR_INVALID 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 AMOUNT_INVALID 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 METHOD_INVALID 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 INPUT_INVALID 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 IDEMPOTENCY_MISMATCH 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 OUTBOX_SUBJECT_INVALID (a programming fault) 0ms
+   ✓ mapDbError: SQLSTATE table > P0002 SUBJECT_MISMATCH (subject outside the active clinic) 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 SUBJECT_MISMATCH (patient is not the visit's) 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 TEMPLATE_NOT_ALLOWED 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 RECIPIENT_NOT_ALLOWED 0ms
+   × mapDbError: SQLSTATE table > P0001 EVENT_NOT_ALLOWED 2ms
+     → expected 'CONFLICT' to be 'VALIDATION_FAILED' // Object.is equality
+   × mapDbError: SQLSTATE table > P0001 RATE_LIMITED 0ms
+     → expected 'CONFLICT' to be 'RATE_LIMITED' // Object.is equality
+   ✓ mapDbError: SQLSTATE table > P0001 unregistered reason 0ms
+   ✓ mapDbError: SQLSTATE table > P0001 free text (an older RAISE) 0ms
+   ✓ mapDbError: SQLSTATE table > XX000 internal 0ms
+   ✓ mapDbError: SQLSTATE table > 57014 statement timeout 0ms
+   ✓ mapDbError: SQLSTATE table > PGRST202 unknown function 0ms
+   ✓ mapDbError: SQLSTATE table > no code 0ms
+   ✓ mapDbError: SQLSTATE table > null, undefined and non-objects map to INTERNAL 0ms
+   ✓ mapDbError: SQLSTATE table > an unknown error keeps no driver text in the message, reason or serialised form 0ms
+   ✓ mapDbError: SQLSTATE table > every registered RPC reason maps to its registered code 0ms
+   ✓ mapDbError: fixed messages > a reason message wins over the code message 0ms
+   ✓ mapDbError: fixed messages > falls back to the code message, then the default 0ms
+   ✓ mapDbError: fixed messages > a reason of the wrong shape is dropped, never used as a message key or echoed 0ms
+   ✓ appError > keeps the cause off the wire (not enumerable, not serialised) 0ms
+   ✓ appError > drops a reason that is not upper snake case 0ms
+   × pre-04-03b behaviour > R-19: a receptionist's prescription.issued queues nothing although an active subscription exists (silent drop) 490ms
+     → expected { Object (receptionistRows, doctorRows) } to deeply equal { receptionistRows: 1, doctorRows: 1 }
+   × pre-04-03b behaviour > 03-10: enqueue starts a POST in the background (fire-and-forget second writer) 434ms
+     → background POST attempts after enqueue: expected 1 to be +0 // Object.is equality
+   × record_payment: one transaction under the caller's RLS > happy path: one payment, audit actor = auth.uid(), one outbox row for the subscribed endpoint, invoice paid 28ms
+     → column webhook_delivery_queue.event_key does not exist
+   ✓ record_payment: one transaction under the caller's RLS > a partial payment keeps the invoice issued; the remainder settles it 12ms
+   ✓ record_payment: one transaction under the caller's RLS > rollback: a fault in the outbox insert (after the payment and audit inserts) leaves 0 payments, 0 audit, 0 outbox rows and the invoice unchanged 115ms
+   ✓ record_payment: one transaction under the caller's RLS > a cross-tenant invoice id is NOT_FOUND and nothing changes in either tenant 16ms
+   ✓ record_payment: one transaction under the caller's RLS > a member of A and B acting in B cannot pay A's invoice (the active tenant narrows RLS, AR-M2b) 149ms
+   ✓ record_payment: one transaction under the caller's RLS > a user with no membership gets NOT_FOUND 125ms
+   ✓ record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > the function's role list equals the roles the matrix allows 41ms
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > owner: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role 10ms
+     → column webhook_delivery_queue.event_key does not exist
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > admin: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role 128ms
+     → column webhook_delivery_queue.event_key does not exist
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > doctor: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role 128ms
+     → column webhook_delivery_queue.event_key does not exist
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > receptionist: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role 128ms
+     → column webhook_delivery_queue.event_key does not exist
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > nurse: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role 127ms
+     → column webhook_delivery_queue.event_key does not exist
+   ✓ record_payment: invariants > overpayment is CONFLICT/OVERPAYMENT and writes nothing 8ms
+   ✓ record_payment: invariants > a paid invoice is CONFLICT/INVOICE_NOT_PAYABLE 6ms
+   ✓ record_payment: invariants > a cancelled invoice is CONFLICT/INVOICE_NOT_PAYABLE 7ms
+   ✓ record_payment: invariants > zero amount is VALIDATION_FAILED 5ms
+   ✓ record_payment: invariants > negative amount is VALIDATION_FAILED 5ms
+   ✓ record_payment: invariants > three decimals is VALIDATION_FAILED 6ms
+   ✓ record_payment: invariants > unknown method is VALIDATION_FAILED 5ms
+   ✓ record_payment: invariants > reference over 100 characters is VALIDATION_FAILED 6ms
+   ✓ record_payment: invariants > concurrent overpayment race: of two 600 payments on a 1000 invoice exactly one succeeds (3 rounds) 154ms
+   ✓ record_payment: invariants > concurrent full-balance race: one payment, the invoice paid once 8ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5080ms
+   × record_payment: idempotent replay by command id > the same command twice returns the same payment, replayed, and writes one payment, one audit and one outbox row 21ms
+     → column webhook_delivery_queue.event_key does not exist
+   ✓ record_payment: idempotent replay by command id > two concurrent submits of one command record one payment; one of them is the replay 11ms
+   ✓ record_payment: idempotent replay by command id > reusing a command id with a different amount is IDEMPOTENCY_MISMATCH 9ms
+   ✓ record_payment: idempotent replay by command id > the service passes the client's commandId: a resubmitted payment replays instead of paying twice 8ms
+   × record_payment: actor rule and the system path (TARGET §7.1) > system path via getSystemDb: recorded_by_system set, audit actor_type system, outbox row written 10ms
+     → column webhook_delivery_queue.event_key does not exist
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > the system path is bound to the tenant it names: another tenant's invoice is NOT_FOUND 7ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > a user session passing p_system_actor is ACTOR_INVALID 6ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > the service role without a system actor, or with one outside the closed set, is ACTOR_INVALID 8ms
+   ✓ record_payment: privileges > anon cannot execute record_payment (EXECUTE revoked) 5ms
+   ✓ record_payment: privileges > catalog: INVOKER, empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable 166ms
+   ✓ record_payment: privileges > the outbox writer is not served by PostgREST 2ms
+   × record_payment: privileges > the outbox writer refuses a payment the current transaction did not insert (no forged or replayed events) 39ms
+     → column webhook_delivery_queue.event_key does not exist
+   ✓ record_payment: privileges > a request-path client cannot write recorded_by_system (column privilege), so it cannot forge a system payment 6ms
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts [ tests/api/webhook-dispatch-hardening.spec.ts ]
+ FAIL  tests/api/webhooks-outbox.spec.ts [ tests/api/webhooks-outbox.spec.ts ]
+ FAIL  tests/jobs/enqueue-webhook-rpc-db.spec.ts [ tests/jobs/enqueue-webhook-rpc-db.spec.ts ]
+ FAIL  tests/jobs/webhook-deliver-handler-db.spec.ts [ tests/jobs/webhook-deliver-handler-db.spec.ts ]
+Error: Cannot find module '@/lib/jobs/internal/handlers/webhook-deliver' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/tests/jobs/webhook-helpers.ts'.
+⎯⎯⎯⎯⎯⎯ Failed Tests 24 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: one transaction under the caller's RLS > happy path: one payment, audit actor = auth.uid(), one outbox row for the subscribed endpoint, invoice paid
+Error: column webhook_delivery_queue.event_key does not exist
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > owner: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > admin: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > doctor: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > receptionist: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit) > nurse: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role
+Error: column webhook_delivery_queue.event_key does not exist
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: idempotent replay by command id > the same command twice returns the same payment, replayed, and writes one payment, one audit and one outbox row
+Error: column webhook_delivery_queue.event_key does not exist
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: actor rule and the system path (TARGET §7.1) > system path via getSystemDb: recorded_by_system set, audit actor_type system, outbox row written
+Error: column webhook_delivery_queue.event_key does not exist
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: privileges > the outbox writer refuses a payment the current transaction did not insert (no forged or replayed events)
+Error: column webhook_delivery_queue.event_key does not exist
+ FAIL  tests/db/error-map.spec.ts > mapDbError: SQLSTATE table > P0001 EVENT_NOT_ALLOWED
+AssertionError: expected 'CONFLICT' to be 'VALIDATION_FAILED' // Object.is equality
+Expected: "VALIDATION_FAILED"
+ FAIL  tests/db/error-map.spec.ts > mapDbError: SQLSTATE table > P0001 RATE_LIMITED
+AssertionError: expected 'CONFLICT' to be 'RATE_LIMITED' // Object.is equality
+ FAIL  tests/jobs/before-probe.spec.ts > pre-04-03b behaviour > R-19: a receptionist's prescription.issued queues nothing although an active subscription exists (silent drop)
+AssertionError: expected { Object (receptionistRows, doctorRows) } to deeply equal { receptionistRows: 1, doctorRows: 1 }
+ FAIL  tests/jobs/before-probe.spec.ts > pre-04-03b behaviour > 03-10: enqueue starts a POST in the background (fire-and-forget second writer)
+AssertionError: background POST attempts after enqueue: expected 1 to be +0 // Object.is equality
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/labs/service.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/webhooks/actions.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/v1/prescriptions/route.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/appointments/system.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/jobs/run/route.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at lib/jobs/enqueue.ts
+AssertionError: expected [] to deeply equal [ [ 1, …(1) ] ]
+     82|   it.each(FAILING)("%s at %s", async (fixture, relPath, expected) => {
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > webhook-transport-imports.ts at features/webhooks/service.ts
+AssertionError: expected [] to deeply equal [ [ 1, …(1) ], [ 2, …(1) ], …(2) ]
+     82|   it.each(FAILING)("%s at %s", async (fixture, relPath, expected) => {
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the real handlers and inbound route lint clean in place, and fail at a feature path
+Error: No files matching '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/jobs/internal/handlers/webhook-deliver.ts' were found.
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > sibling spellings of the deliverer fail outside lib/webhooks and pass inside it
+AssertionError: expected [] to deeply equal [ 1, 2 ]
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the fire-and-forget outbox and the cron webhook route are gone
+AssertionError: expected true to be false // Object.is equality
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the census counts a P0-12 violation (so 0 above is live)
+AssertionError: expected 9 to be greater than or equal to 13
+ Test Files  8 failed (8)
+      Tests  24 failed | 91 passed (115)

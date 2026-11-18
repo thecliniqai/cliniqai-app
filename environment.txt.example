@@ -1,0 +1,107 @@
+# clinicOS v2 — where every key, token and setting goes (PLACEHOLDERS ONLY)
+#
+# Copy the lines you need into the destination named in each section. Never put a real value in this file
+# or in any committed file. `.env*` files are git-ignored; Vercel, GitHub and Supabase hold the hosted values.
+# Generated from the env schema in lib/env.ts (2026-11-13; Resend names from V2-04 plan 04-00b, job runner names from 04-02).
+
+########################################################################################################
+# A. YOUR LAPTOP — file: .env.local   (for `npm run dev` against the LOCAL Supabase stack)
+#    Get the two keys from:  npx supabase status --local   ("Publishable key" / "Secret key")
+########################################################################################################
+APP_ENV=development
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from `npx supabase status --local`>
+SUPABASE_SECRET_KEY=<secret key from `npx supabase status --local`>
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+MESSAGING_PROVIDER=dev
+EMAIL_PROVIDER=mailpit
+MAILPIT_API_URL=http://127.0.0.1:54324
+PWNED_CHECK=off
+AI_ENABLED=false
+API_V1_ENABLED=false
+DIAG_ERROR_ROUTE_ENABLED=false
+CRON_SECRET=<any random string, 32+ characters>
+# JOBS_RUNNER_SECRET: leave unset locally (POST /api/jobs/run then refuses every call; docs/runbooks/jobs.md)
+JOBS_DRILL_ENABLED=false
+# OPS_ALERT_EMAIL: leave unset locally (alert.notify jobs then dead-letter; the e2e server uses ops-alerts@example.test)
+# Turnstile: leave empty locally, or use Cloudflare's documented always-pass TEST site key (see lib/env.ts TURNSTILE_TEST_SITE_KEYS)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+
+########################################################################################################
+# B. VERCEL — project "clinicos-staging" → Settings → Environment Variables
+#    Scope: **Production only** (untick Preview and Development). Mark the secret ones "Sensitive".
+########################################################################################################
+APP_ENV=staging
+NEXT_PUBLIC_SUPABASE_URL=https://<staging-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase staging → Project Settings → API Keys → Publishable key>
+SUPABASE_SECRET_KEY=<Supabase staging → Project Settings → API Keys → Secret key>            # Sensitive
+NEXT_PUBLIC_APP_URL=https://staging.thecliniqai.com
+CRON_SECRET=<openssl rand -hex 32>                                                             # Sensitive
+JOBS_RUNNER_SECRET=<openssl rand -hex 32, NOT the CRON_SECRET; the same value goes to Vault in C>   # Sensitive
+JOBS_DRILL_ENABLED=false           # true only during a scheduler/alert drill (docs/runbooks/jobs.md), then false
+OPS_ALERT_EMAIL=<the ops inbox that receives alerts, one address (04-P7)>   # 04-04; required in production, optional here
+MESSAGING_PROVIDER=sink                # R-9 (V2-04 04-03a): the queue and runner run, nothing is sent; `disabled` still allowed (dead-letters every message)
+EMAIL_PROVIDER=disabled            # switch to `resend` once the Resend domain is verified (then also set the two below)
+EMAIL_FROM=no-reply@auth.thecliniqai.com   # a plain address on the verified domain (no display name; the app refuses one)
+RESEND_API_KEY=<Resend → API Keys → "clinicos-staging", Sending access, domain auth.thecliniqai.com>  # Sensitive
+SEND_EMAIL_HOOK_SECRET=<Supabase staging → Authentication → Hooks → Send Email → generated secret>    # Sensitive
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare → Turnstile → widget "clinicos-staging" → Site key>
+ERROR_INGEST_KEY=<openssl rand -hex 32>                                                        # Sensitive
+PWNED_CHECK=on
+DIAG_ERROR_ROUTE_ENABLED=false     # true only for the one-time error-sink check (PO-ACTIONS 03-E9), then false
+AI_ENABLED=false
+API_V1_ENABLED=false
+#
+# DO NOT SET on Vercel (the app refuses to boot with these): NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+# STORAGE_PROVIDER, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, MAILPIT_API_URL,
+# NEXT_PUBLIC_RESEND_API_KEY (the Resend key is server only; a NEXT_PUBLIC_ name would put it in every page).
+# Not needed until go-live: SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, MSG91_* / TWILIO_* / GUPSHUP_*, AI_*.
+
+########################################################################################################
+# C. SUPABASE STAGING DASHBOARD — settings, not env vars (exact screens in .planning/PO-ACTIONS.md 03-E3/E7/E8/E9)
+########################################################################################################
+# Authentication → Bot and Abuse Protection → CAPTCHA: Turnstile, secret = <Cloudflare Turnstile widget Secret key>
+# Authentication → Hooks → Send Email: HTTPS https://staging.thecliniqai.com/api/auth/send-email  (copy its secret to B)
+# Authentication → Hooks → Customize Access Token: Postgres, schema private, function session_age_token_hook
+#                  (ONLY after migration 000030 is applied on staging — otherwise every sign-in fails)
+# SQL editor (once): select vault.create_secret('<sha256 hex of ERROR_INGEST_KEY>', 'ops_error_ingest_key_sha256');
+#                    compute with:  printf %s "<ERROR_INGEST_KEY>" | shasum -a 256
+# SQL editor (V2-04 04-P9, AFTER the migrate run with 000033_jobs_scheduler.sql; docs/runbooks/jobs.md §2):
+#                    select vault.create_secret('<the JOBS_RUNNER_SECRET value from B>', 'jobs_runner_secret');
+#                    select vault.create_secret('https://staging.thecliniqai.com/api/jobs/run', 'jobs_runner_url');
+
+########################################################################################################
+# D. GITHUB — repo → Settings → Environments
+########################################################################################################
+# Environment "staging"  (Required reviewer: you; Deployment branches: feature/v2 only)
+#   Secret   STAGING_DB_URL         = <Supabase → Connect → Session pooler URL, port 5432, password percent-encoded, no ?params except sslmode=require>
+#   Secret   STAGING_SECRET_KEY     = <same Secret key as in B>
+#   Secret   STAGING_SEED_PASSWORD  = <16+ character password for the synthetic staging logins>
+#   Variable SUPABASE_PROJECT_REF_STAGING = <staging-project-ref>
+#   Variable STAGING_ORIGIN               = https://staging.thecliniqai.com
+#   Variable STAGING_PUBLISHABLE_KEY      = <same Publishable key as in B>
+# Environment "staging-readonly"  (no reviewer; Deployment branches: feature/v2 only)
+#   Secret   SUPABASE_ACCESS_TOKEN_STAGING_RO = <Supabase → Account → Access Tokens → fine-grained, Auth config: read>
+#   Secret   STAGING_DB_URL_RO                = <Session pooler URL with user clinicos_drift_ro.<ref> — role SQL in docs/runbooks/staging.md §3>
+
+########################################################################################################
+# E. CLOUDFLARE R2 — staging backups (V2-04 04-05a: .github/workflows/backup.yml, docs/runbooks/backup-restore.md)
+########################################################################################################
+# R2 → Create bucket "clinicos-staging-backups" (location hint: Asia-Pacific)
+# R2 bucket → Settings → Object lifecycle rules: delete objects 30 days after upload (whole bucket)
+# R2 → Manage API tokens → "clinicos-staging-backup", Object Read & Write, this bucket only
+# Supabase (staging) → Storage → S3 Connection: enable, create an access key (the backup reads every bucket with it)
+# GitHub → Settings → Environments → New environment "staging-backup" (ruling R-48): NO required reviewer,
+#   Deployment branches: feature/v2 only. Used only by .github/workflows/backup.yml (workflow-policy enforces it).
+#   Secret   BACKUP_S3_ENDPOINT          = https://<account-id>.r2.cloudflarestorage.com
+#   Secret   BACKUP_S3_BUCKET            = clinicos-staging-backups
+#   Secret   BACKUP_S3_ACCESS_KEY_ID     = <R2 token access key id>
+#   Secret   BACKUP_S3_SECRET_ACCESS_KEY = <R2 token secret>
+#   Secret   BACKUP_AGE_RECIPIENTS       = <two age public keys, space separated; private keys stay offline>
+#   Secret   STAGING_STORAGE_S3_KEY_ID   = <Supabase staging Storage S3 access key id>
+#   Secret   STAGING_STORAGE_S3_SECRET   = <Supabase staging Storage S3 secret access key>
+#   Secret   STAGING_BACKUP_DB_URL       = <same value as STAGING_DB_URL in D: Session pooler URL, user postgres.<ref>>
+#                                          (not the read-only role: `supabase db dump` runs SET ROLE postgres and the
+#                                           job writes its ops.backup_runs row)
+#   Variable STAGING_STORAGE_S3_REGION   = <the region shown on the Storage S3 page, e.g. ap-south-1>
+#   Variable SUPABASE_PROJECT_REF_STAGING = <staging-project-ref> (same as in D; Environment variables are per Environment)

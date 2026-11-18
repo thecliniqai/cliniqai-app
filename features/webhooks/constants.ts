@@ -23,7 +23,7 @@ export interface WebhookDeliveryLogItem {
   subscriptionId: string;
   eventType: string;
   payload: string;
-  status: "pending" | "delivered" | "failed" | "dead_letter";
+  status: "pending" | "processing" | "delivered" | "failed";
   retryCount: number;
   maxRetries: number;
   responseStatus: number | null;

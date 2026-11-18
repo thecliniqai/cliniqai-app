@@ -30,16 +30,22 @@ export const LOOPBACK_TIERS: readonly AppEnv[] = ["test", "e2e", "ci"];
 /** Tiers with offline defaults (`MESSAGING_PROVIDER=dev`, `NEXT_PUBLIC_APP_URL=http://localhost:3000`). */
 export const DEFAULTED_TIERS: readonly AppEnv[] = ["development", "test"];
 
-export const MESSAGING_PROVIDERS = ["dev", "disabled", "msg91", "twilio", "gupshup"] as const;
+/** V2-04 04-03a (R-9): `sink` runs the real queue and runner but sends nothing (staging, e2e); refused in production. */
+export const MESSAGING_PROVIDERS = ["dev", "disabled", "sink", "msg91", "twilio", "gupshup"] as const;
 export type MessagingProviderName = (typeof MESSAGING_PROVIDERS)[number];
 /** The AI providers `lib/ai/client.ts` can call. `mock` is accepted only as the offline marker of local lanes. */
 export const AI_PROVIDERS = ["openai", "gemini", "claude", "groq", "ollama", "deepseek"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
-/** 03-11b (AUTH-03, PO-A3): who delivers auth email. `mailpit` is the local catcher; `disabled` sends nothing. */
-export const EMAIL_PROVIDERS = ["mailpit", "ses", "disabled"] as const;
+/**
+ * 03-11b (AUTH-03, PO-A3): who delivers auth email. `mailpit` is the local catcher; `disabled` sends nothing.
+ * 04-00b (PO decision 2026-11-13): `resend` until go-live, SES after it.
+ */
+export const EMAIL_PROVIDERS = ["mailpit", "ses", "resend", "disabled"] as const;
 export type EmailProviderName = (typeof EMAIL_PROVIDERS)[number];
 /** Tiers that may use the local Mailpit sender (never staging or production). */
 export const MAILPIT_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+/** 04-00b: the providers that deliver real mail (what `/api/ready` reports as `configured`; production must use one). */
+export const REAL_EMAIL_PROVIDERS: readonly EmailProviderName[] = ["ses", "resend"];
 
 /** 03-12a (FT-05): breached-password check switch, and the tiers that may point it at another range API. */
 export const PWNED_CHECK_VALUES = ["on", "off"] as const;
@@ -83,6 +89,13 @@ export const DEPLOY_VERCEL_ENV = "production";
 /** 03-13 M-PREVIEW: staging deploys only from this branch (the Vercel staging project's production branch, PO E4). */
 export const STAGING_GIT_BRANCH = "feature/v2";
 export const MIN_CRON_SECRET_LENGTH = 32;
+/**
+ * V2-04 04-02 (R-17, R-18, RL-23): the bearer pg_cron sends to `/api/jobs/run` (the same value sits in Supabase Vault as
+ * `jobs_runner_secret`). At least 32 printable ASCII characters without spaces (`ops.kick_job_runner()` refuses anything
+ * else, so both halves accept the same values); 64 hex characters from `openssl rand -hex 32` in practice.
+ */
+export const MIN_JOBS_RUNNER_SECRET_LENGTH = 32;
+export const JOBS_RUNNER_SECRET_PATTERN = /^[!-~]{32,512}$/;
 /** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
 export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
 /**
@@ -93,6 +106,11 @@ export const SEND_EMAIL_HOOK_SECRET_PATTERN = /^v1,whsec_[A-Za-z0-9+/]+={0,2}$/;
 export const MIN_SEND_EMAIL_HOOK_KEY_BYTES = 24;
 /** 03-11b (R-31): long-term access key id of the least-privilege SES IAM user. */
 export const SES_ACCESS_KEY_ID_PATTERN = /^AKIA[A-Z0-9]{16}$/;
+/**
+ * 04-00b: a Resend API key (`re_` and the key body). Lenient on the body (Resend does not document its length), strict
+ * on the prefix and the character set, so a pasted label, a URL or a key of another service is refused at boot.
+ */
+export const RESEND_API_KEY_PATTERN = /^re_[A-Za-z0-9_-]{16,200}$/;
 
 /** Names that must not be set in staging or production (stale hosted config fails loudly), with what replaced them. */
 export const RETIRED_NAMES: Readonly<Record<string, string>> = {
@@ -104,6 +122,14 @@ export const RETIRED_NAMES: Readonly<Record<string, string>> = {
   R2_ACCESS_KEY_ID: "removed with the R2 provider (P1-43)",
   R2_SECRET_ACCESS_KEY: "removed with the R2 provider (P1-43)",
   R2_BUCKET_NAME: "removed with the R2 provider (P1-43)",
+};
+
+/**
+ * 04-00b: public names that would carry a server-only secret into every page (`next build` inlines `NEXT_PUBLIC_*`).
+ * Refused in every tier, whatever their value.
+ */
+export const SERVER_ONLY_SECRET_PUBLIC_NAMES: Readonly<Record<string, string>> = {
+  NEXT_PUBLIC_RESEND_API_KEY: "the Resend API key is server only (RESEND_API_KEY); a NEXT_PUBLIC_ name is inlined into every page",
 };
 
 /** The old name of a renamed key, so a missing new name can say where its value went. */
@@ -126,6 +152,10 @@ const shapeSchema = z.object({
   NEXT_PUBLIC_APP_URL: text.url().optional(),
   API_V1_ENABLED: flag.optional(),
   CRON_SECRET: text.optional(),
+  JOBS_RUNNER_SECRET: text.optional(),
+  JOBS_RUNNER_SECRET_NEXT: text.optional(),
+  JOBS_DRILL_ENABLED: flag.optional(),
+  OPS_ALERT_EMAIL: text.email().optional(),
   MESSAGING_PROVIDER: z.enum(MESSAGING_PROVIDERS).optional(),
   MSG91_AUTH_KEY: text.optional(),
   MSG91_INTEGRATED_NUMBER: text.optional(),
@@ -151,6 +181,7 @@ const shapeSchema = z.object({
   MAILPIT_API_URL: text.url().optional(),
   SES_ACCESS_KEY_ID: text.optional(),
   SES_SECRET_ACCESS_KEY: text.optional(),
+  RESEND_API_KEY: text.optional(),
   SEND_EMAIL_HOOK_SECRET: text.optional(),
   PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
   PWNED_API_BASE_URL: text.url().optional(),
@@ -166,7 +197,22 @@ export type EnvName = keyof Shape;
 
 /** Every name the schema reads (the retired names are read only to refuse them). */
 export const ENV_NAMES = Object.keys(shapeSchema.shape) as EnvName[];
-export const ENV_SOURCE_NAMES: readonly string[] = [...ENV_NAMES, ...Object.keys(RETIRED_NAMES)];
+export const ENV_SOURCE_NAMES: readonly string[] = [
+  ...ENV_NAMES,
+  ...Object.keys(RETIRED_NAMES),
+  ...Object.keys(SERVER_ONLY_SECRET_PUBLIC_NAMES),
+];
+
+/**
+ * 04-00 (review A L-1, R-47): credential-shaped names (`*_SECRET`, `*_SECRET_KEY`, `*_KEY`, `*_TOKEN`, `*_PASSWORD`;
+ * never `NEXT_PUBLIC_*`, which are public by definition). A copy-paste that carries a space or a newline yields a
+ * secret that boots but never matches its other half, so a leading or trailing whitespace is refused in every tier.
+ */
+export function isSecretEnvName(name: string): boolean {
+  // 04-02: a rotation slot (`<NAME>_NEXT`, e.g. JOBS_RUNNER_SECRET_NEXT) is as secret as the name it rotates.
+  return !name.startsWith("NEXT_PUBLIC_") && /(?:_SECRET|_KEY|_TOKEN|_PASSWORD)(?:_NEXT)?$/.test(name);
+}
+export const SECRET_ENV_NAMES: readonly EnvName[] = ENV_NAMES.filter(isSecretEnvName);
 
 /** The parsed environment: tier resolved, defaults applied, flags as booleans. */
 export interface Env {
@@ -178,6 +224,17 @@ export interface Env {
   NEXT_PUBLIC_APP_URL: string;
   API_V1_ENABLED: boolean;
   CRON_SECRET?: string;
+  /** 04-02: the `/api/jobs/run` bearer; required in staging/production. Unset = every runner call is refused. */
+  JOBS_RUNNER_SECRET?: string;
+  /** 04-02: the rotation slot, accepted next to {@link Env.JOBS_RUNNER_SECRET} while Vault moves to it. */
+  JOBS_RUNNER_SECRET_NEXT?: string;
+  /** 04-02 (R-32): drill job kinds run only when true; refused in production. Defaults to false. */
+  JOBS_DRILL_ENABLED: boolean;
+  /**
+   * 04-04 (R-1): where the `alert.notify` job emails ops alerts (through `getEmailSender()`). Required in production;
+   * optional elsewhere (unset = alerts stay in `ops.alerts` and the ops report, the notify job dead-letters).
+   */
+  OPS_ALERT_EMAIL?: string;
   MESSAGING_PROVIDER: MessagingProviderName;
   MSG91_AUTH_KEY?: string;
   MSG91_INTEGRATED_NUMBER?: string;
@@ -204,6 +261,8 @@ export interface Env {
   MAILPIT_API_URL?: string;
   SES_ACCESS_KEY_ID?: string;
   SES_SECRET_ACCESS_KEY?: string;
+  /** 04-00b: server only; required when `EMAIL_PROVIDER=resend`. */
+  RESEND_API_KEY?: string;
   SEND_EMAIL_HOOK_SECRET?: string;
   /** Defaults to `off`; required `on` in production (FT-05, R-17). */
   PWNED_CHECK: PwnedCheck;
@@ -247,8 +306,6 @@ const shapeErrorMap: z.ZodErrorMap = (issue) => {
   }
 };
 
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 function hostOf(url: string): string | null {
   try {
     return new URL(url).hostname;
@@ -257,9 +314,42 @@ function hostOf(url: string): string | null {
   }
 }
 
-function isLoopbackUrl(url: string): boolean {
+/** IPv4 `127.0.0.0/8` in the WHATWG-canonical dotted form (`127.1`, `0x7f.1` and `2130706433` all arrive as this). */
+const IPV4_LOOPBACK = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+/**
+ * IPv6 as the WHATWG parser serialises it (bracketed, compressed, lower case): `::1`, the unspecified `::`, the
+ * IPv4-mapped loopback range `::ffff:7f00:0/104` (`[::ffff:127.0.0.1]` arrives as `[::ffff:7f00:1]`) and `::ffff:0:0`.
+ */
+const IPV6_LOOPBACK = /^\[(?:::1|::|::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}|::ffff:0:0)\]$/;
+
+/**
+ * 04-00 (review A L-2, R-47): a host that reaches this machine. Classified on the canonical hostname of `new URL()`,
+ * so odd spellings are folded first; `localhost` and its subdomains count with or without the trailing root dot.
+ * Isomorphic on purpose (this module is bundled for the browser): no `node:net`, no `lib/webhooks/ssrf.ts`.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (IPV4_LOOPBACK.test(host) || host === "0.0.0.0" || IPV6_LOOPBACK.test(host)) return true;
+  const name = host.endsWith(".") ? host.slice(0, -1) : host;
+  return name === "localhost" || name.endsWith(".localhost");
+}
+
+export function isLoopbackUrl(url: string): boolean {
   const host = hostOf(url);
-  return host !== null && (LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost"));
+  return host !== null && isLoopbackHost(host);
+}
+
+/**
+ * 04-00 (review A L-2): a bare origin, `scheme://host[:port]` with at most a `/` path: no credentials, path, query or
+ * fragment (a lone `?` or `#` counts too, since `href` keeps it).
+ */
+export function isBareOrigin(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.username === "" && u.password === "" && u.href === `${u.origin}/`;
+  } catch {
+    return false;
+  }
 }
 
 function isHttpsUrl(url: string): boolean {
@@ -306,8 +396,9 @@ function supabaseKeyKind(key: string): SupabaseKeyKind {
   return "other-jwt";
 }
 
+/** 04-00 (review A L-1, R-47): a value that is empty after `trim()` counts as unset (a pasted blank is not a secret). */
 function present(value: string | undefined): value is string {
-  return value !== undefined && value !== "";
+  return value !== undefined && value.trim() !== "";
 }
 
 /** The decoded key of a `v1,whsec_<base64>` hook secret, or null when the shape is wrong. */
@@ -321,7 +412,11 @@ function hookSecretKey(secret: string): string | null {
   }
 }
 
-/** Blank values count as unset; only the schema's own names (and the retired names) are read. */
+/**
+ * Blank values (empty after `trim()`, 04-00 L-1) count as unset; every other value is kept exactly as given, so a padded
+ * secret is refused by name (below) rather than silently trimmed. Only the schema's own names (and the retired names)
+ * are read.
+ */
 function normalise(source: EnvSource): EnvSource {
   const out: EnvSource = {};
   for (const name of ENV_SOURCE_NAMES) {
@@ -349,6 +444,12 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   const add = (key: string, rule: string) => issues.push(`${key}: ${rule}`);
   const deploy = DEPLOY_TIERS.includes(tier);
   const nodeProduction = raw.NODE_ENV === "production";
+
+  // 04-00 (review A L-1): a padded secret is refused by name in every tier; the value is never echoed.
+  for (const name of SECRET_ENV_NAMES) {
+    const value = raw[name];
+    if (present(value) && value !== value.trim()) add(name, "must not have leading or trailing whitespace");
+  }
 
   // A production build can claim only a build/deploy tier; `development`/`test` would switch the fail-closed rules off.
   if (nodeProduction && (tier === "development" || tier === "test")) {
@@ -408,14 +509,34 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
   }
 
-  // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (ses, or
-  // disabled until the PO's SES account exists); production sends through SES. Mailpit is a loopback catcher for local
-  // lanes only. SES needs the sender address, the IAM user's key pair and the hook secret that authenticates the
-  // Send Email hook calls it serves.
+  // 04-02 (RL-23, R-16, R-18, R-32): the job runner's bearer. Its own secret (never the cron or service key), long and
+  // printable wherever it is set; the rotation slot needs a current secret and must differ from it. Drill kinds never
+  // run in production.
+  const runnerSecret = raw.JOBS_RUNNER_SECRET;
+  const runnerNext = raw.JOBS_RUNNER_SECRET_NEXT;
+  const runnerRule = `at least ${MIN_JOBS_RUNNER_SECRET_LENGTH} printable ASCII characters without spaces`;
+  if (present(runnerSecret) && !JOBS_RUNNER_SECRET_PATTERN.test(runnerSecret)) add("JOBS_RUNNER_SECRET", runnerRule);
+  if (present(runnerNext) && !JOBS_RUNNER_SECRET_PATTERN.test(runnerNext)) add("JOBS_RUNNER_SECRET_NEXT", runnerRule);
+  if (present(runnerNext) && !present(runnerSecret)) add("JOBS_RUNNER_SECRET_NEXT", "requires JOBS_RUNNER_SECRET");
+  if (present(runnerNext) && runnerNext === runnerSecret) add("JOBS_RUNNER_SECRET_NEXT", "must differ from JOBS_RUNNER_SECRET");
+  if (present(runnerSecret) && runnerSecret === raw.CRON_SECRET) {
+    add("JOBS_RUNNER_SECRET", "must differ from CRON_SECRET (a dedicated runner secret, R-16)");
+  }
+  if (raw.JOBS_DRILL_ENABLED === "true" && tier === "production") {
+    add("JOBS_DRILL_ENABLED", "must not be true in production (R-32)");
+  }
+  // 04-04 (R-1): ops alerts are emailed to one address; production must have one (staging may leave it unset: the
+  // alerts then stay visible in ops.alerts and the ops report). The shape (an email address) is checked above.
+  if (tier === "production" && !present(raw.OPS_ALERT_EMAIL)) add("OPS_ALERT_EMAIL", "required in production (R-1)");
+
+  // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (a real
+  // provider, or disabled until the PO's provider account exists); production sends through a real provider (04-00b:
+  // resend until go-live, ses after it). Mailpit is a loopback catcher for local lanes only. SES and Resend need the
+  // sender address, their credential and the hook secret that authenticates the Send Email hook calls they serve.
   const emailProvider = raw.EMAIL_PROVIDER ?? (deploy ? undefined : "disabled");
-  if (deploy && !present(raw.EMAIL_PROVIDER)) add("EMAIL_PROVIDER", `required in ${tier} (ses, or disabled in staging)`);
-  if (tier === "production" && present(raw.EMAIL_PROVIDER) && raw.EMAIL_PROVIDER !== "ses") {
-    add("EMAIL_PROVIDER", "must be ses in production");
+  if (deploy && !present(raw.EMAIL_PROVIDER)) add("EMAIL_PROVIDER", `required in ${tier} (resend or ses, or disabled in staging)`);
+  if (tier === "production" && present(raw.EMAIL_PROVIDER) && !(REAL_EMAIL_PROVIDERS as readonly string[]).includes(raw.EMAIL_PROVIDER)) {
+    add("EMAIL_PROVIDER", "must be resend or ses in production");
   }
   if (emailProvider === "mailpit") {
     if (!MAILPIT_TIERS.includes(tier)) add("EMAIL_PROVIDER", `must not be mailpit in ${tier}`);
@@ -428,6 +549,25 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     if (!present(raw.SES_ACCESS_KEY_ID)) add("SES_ACCESS_KEY_ID", "required when EMAIL_PROVIDER=ses (R-31)");
     if (!present(raw.SES_SECRET_ACCESS_KEY)) add("SES_SECRET_ACCESS_KEY", "required when EMAIL_PROVIDER=ses (R-31)");
     if (!present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required when EMAIL_PROVIDER=ses");
+  }
+  // 04-00b: Resend (PO decision 2026-11-13). The key is checked in every tier (no silent fallback to `disabled`).
+  if (emailProvider === "resend") {
+    if (!present(raw.EMAIL_FROM)) add("EMAIL_FROM", "required when EMAIL_PROVIDER=resend");
+    if (!present(raw.RESEND_API_KEY)) add("RESEND_API_KEY", "required when EMAIL_PROVIDER=resend");
+    if (!present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required when EMAIL_PROVIDER=resend");
+  }
+  if (present(raw.RESEND_API_KEY) && !RESEND_API_KEY_PATTERN.test(raw.RESEND_API_KEY.trim())) {
+    add("RESEND_API_KEY", "must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)");
+  }
+  // 04-00b: the Resend key never reaches the browser bundle: a NEXT_PUBLIC_ name for it, or a Resend-key-shaped value in
+  // any public name, is refused in every tier (Next inlines NEXT_PUBLIC_* values into every page).
+  for (const [name, why] of Object.entries(SERVER_ONLY_SECRET_PUBLIC_NAMES)) {
+    if (present(raw[name])) add(name, `must not be set: ${why}`);
+  }
+  for (const [name, value] of Object.entries(raw)) {
+    if (name.startsWith("NEXT_PUBLIC_") && present(value) && /^re_[A-Za-z0-9_-]{16,}/.test(value.trim())) {
+      add(name, "must not hold a Resend API key (server only, RESEND_API_KEY)");
+    }
   }
   if (present(raw.SES_ACCESS_KEY_ID) && !SES_ACCESS_KEY_ID_PATTERN.test(raw.SES_ACCESS_KEY_ID)) {
     add("SES_ACCESS_KEY_ID", "must be an IAM user access key id (AKIA followed by 16 characters)");
@@ -506,6 +646,7 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (deploy) {
     if (messaging === "dev") add("MESSAGING_PROVIDER", `must not be dev in ${tier}`);
     if (messaging === "disabled" && tier === "production") add("MESSAGING_PROVIDER", "must not be disabled in production");
+    if (messaging === "sink" && tier === "production") add("MESSAGING_PROVIDER", "must not be sink in production");
     if (messaging === "msg91") {
       if (!present(raw.MSG91_INTEGRATED_NUMBER) && !present(raw.MSG91_SENDER_ID)) {
         add("MSG91_INTEGRATED_NUMBER", "MSG91_INTEGRATED_NUMBER or MSG91_SENDER_ID required when MESSAGING_PROVIDER=msg91");
@@ -519,6 +660,13 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
 
     if (present(supabaseUrl) && (!isHttpsUrl(supabaseUrl) || isLoopbackUrl(supabaseUrl))) {
       add("NEXT_PUBLIC_SUPABASE_URL", `must be a non-loopback https URL in ${tier}`);
+    }
+    // 04-00 (review A L-2): the project URL and the app URL are origins; credentials, a path, a query or a fragment
+    // there are a paste error at best (every client call and patient link is built by appending to them).
+    for (const [key, value] of [["NEXT_PUBLIC_SUPABASE_URL", supabaseUrl], ["NEXT_PUBLIC_APP_URL", appUrl]] as const) {
+      if (present(value) && !isBareOrigin(value)) {
+        add(key, `must be a bare https origin in ${tier} (no credentials, path, query or fragment)`);
+      }
     }
     // R-K: hosted projects issue only `sb_publishable_` / `sb_secret_` keys; anything else in a deploy tier is a
     // local-stack key, a legacy JWT or a paste error (a swapped key is refused below, in every tier).
@@ -539,6 +687,7 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     if (!present(raw.CRON_SECRET) || raw.CRON_SECRET.length < MIN_CRON_SECRET_LENGTH) {
       add("CRON_SECRET", `required in ${tier}, at least ${MIN_CRON_SECRET_LENGTH} characters`);
     }
+    if (!present(runnerSecret)) add("JOBS_RUNNER_SECRET", `required in ${tier} (the pg_cron runner bearer, 04-P8)`);
     for (const [name, why] of Object.entries(RETIRED_NAMES)) {
       if (present(raw[name])) add(name, `must not be set in ${tier}: ${why}`);
     }
@@ -580,6 +729,7 @@ export function parseEnv(source: EnvSource): Env {
     API_V1_ENABLED: s.API_V1_ENABLED === "true",
     AI_ENABLED: s.AI_ENABLED === "true",
     DIAG_ERROR_ROUTE_ENABLED: s.DIAG_ERROR_ROUTE_ENABLED === "true",
+    JOBS_DRILL_ENABLED: s.JOBS_DRILL_ENABLED === "true",
     // Checked above: present in staging/production.
     EMAIL_PROVIDER: s.EMAIL_PROVIDER ?? "disabled",
     PWNED_CHECK: s.PWNED_CHECK ?? "off",
@@ -685,10 +835,40 @@ export const ENV_DOCS: Record<
   CRON_SECRET: {
     group: "App",
     notes: [
-      `Bearer secret for /api/cron/*. Required in staging/production, at least ${MIN_CRON_SECRET_LENGTH} characters (I-07).`,
-      "Unset locally means every cron call is refused.",
+      `Bearer secret for /api/cron/* (until 04-03a/b delete them) and /api/diag/error. Required in staging/production, at least ${MIN_CRON_SECRET_LENGTH} characters (I-07).`,
+      "Never the job runner's bearer (JOBS_RUNNER_SECRET, R-27). Unset locally means every cron call is refused.",
     ],
     example: SET_IN_VERCEL,
+  },
+  JOBS_RUNNER_SECRET: {
+    group: "Jobs",
+    notes: [
+      `Bearer pg_cron sends to POST /api/jobs/run (04-02, RL-23); the same value is the Vault secret jobs_runner_secret.`,
+      `Required in staging/production; ${MIN_JOBS_RUNNER_SECRET_LENGTH}+ printable characters, no spaces (openssl rand -hex 32). Unset = every runner call is refused.`,
+    ],
+    example: SET_IN_VERCEL,
+  },
+  JOBS_RUNNER_SECRET_NEXT: {
+    group: "Jobs",
+    notes: [
+      "Rotation slot: also accepted by /api/jobs/run while Vault moves to the new value; must differ from JOBS_RUNNER_SECRET.",
+      "Unset outside a rotation (docs/runbooks/jobs.md).",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  JOBS_DRILL_ENABLED: {
+    group: "Jobs",
+    notes: ["true | false (default false). Runs the drill.* job kinds (ops.drill_enqueue); refused in production (R-32)."],
+    example: "false",
+  },
+  OPS_ALERT_EMAIL: {
+    group: "Jobs",
+    notes: [
+      "Ops alert inbox (04-04, R-1): the alert.notify job emails every alert there through EMAIL_PROVIDER. One address.",
+      "Required in production; optional elsewhere (unset = alerts stay in ops.alerts and the ops report).",
+      "Alert emails carry rule names, counts, timestamps and ids only (no PHI). Local lanes: ops-alerts@example.test.",
+    ],
+    example: "ops-alerts@example.com",
   },
   API_V1_ENABLED: {
     group: "App",
@@ -698,8 +878,9 @@ export const ENV_DOCS: Record<
   MESSAGING_PROVIDER: {
     group: "Messaging",
     notes: [
-      "dev | disabled | msg91 | twilio | gupshup. Defaults to dev in development and test only.",
-      "staging: not dev (disabled allowed until accounts exist, R-16); production: a real provider.",
+      "dev | disabled | sink | msg91 | twilio | gupshup. Defaults to dev in development and test only.",
+      "staging: not dev (disabled or sink allowed until accounts exist, R-16/R-9); production: a real provider.",
+      "sink: the job runner 'sends' with no network, file or recipient (V2-04 04-03a); e2e uses it.",
     ],
     example: "dev",
   },
@@ -814,8 +995,9 @@ export const ENV_DOCS: Record<
   EMAIL_PROVIDER: {
     group: "Email",
     notes: [
-      "mailpit | ses | disabled. Who delivers auth email for the Send Email hook (03-11b, AUTH-03).",
-      "Defaults to disabled outside staging/production; staging: ses or disabled (R-16); production: ses.",
+      "mailpit | ses | resend | disabled. Who delivers auth email for the Send Email hook (03-11b, AUTH-03).",
+      "Defaults to disabled outside staging/production; staging: resend, ses or disabled (R-16); production: resend or ses.",
+      "resend until go-live, ses after it (PO decision 2026-11-13, 04-00b).",
       "mailpit (the local stack's catcher, loopback only) is refused in staging and production.",
     ],
     example: "disabled",
@@ -823,7 +1005,8 @@ export const ENV_DOCS: Record<
   EMAIL_FROM: {
     group: "Email",
     notes: [
-      "Sender address. Required for ses and mailpit; for ses it is the verified identity's address (no-reply@auth.<domain>).",
+      "Sender address, a plain address (no display name). Required for resend, ses and mailpit; for resend and ses it is",
+      "an address on the verified domain (no-reply@auth.<domain>).",
     ],
     example: "no-reply@auth.example.com",
   },
@@ -846,11 +1029,19 @@ export const ENV_DOCS: Record<
     notes: ["Secret access key of the same IAM user. Server only. Required when EMAIL_PROVIDER=ses."],
     example: SET_IN_VERCEL,
   },
+  RESEND_API_KEY: {
+    group: "Email",
+    notes: [
+      "Resend API key (re_...), sending access limited to the auth.<domain> domain (04-00b). Server only: never a",
+      "NEXT_PUBLIC_ name (refused in every tier). Required when EMAIL_PROVIDER=resend. Mark it Sensitive in Vercel.",
+    ],
+    example: SET_IN_VERCEL,
+  },
   SEND_EMAIL_HOOK_SECRET: {
     group: "Email",
     notes: [
       "Supabase Auth Send Email hook secret, v1,whsec_<base64> as the dashboard shows it (PO action E8).",
-      `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with ses; unset means every hook call is refused (401).`,
+      `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with resend or ses; unset means every hook call is refused (401).`,
     ],
     example: SET_IN_VERCEL,
   },

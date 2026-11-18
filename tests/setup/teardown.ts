@@ -25,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalTestEnv } from "./test-env";
+import { psql } from "../helpers/sql";
 
 /** Columns referencing auth.users with NO ACTION (migrations 000002–000013); checked against the live catalog by
  * tests/setup/teardown.spec.ts so the list cannot drift. Every one of these tables has `tenant_id`. */
@@ -317,6 +318,12 @@ export async function teardownRun(
       `teardown: run data remains after teardown (tenants ${tenantsLeft}, users ${usersLeft}, objects ${objectsLeft})`,
     );
   }
+
+  // V2-04 04-03c: the inbound dedupe store (ops.inbound_webhook_events) has no tenant, so tenant deletion does not
+  // reach it. Remove the keys this run recorded (the Send Email hook and MSG91 route calls of every spec); no worker is
+  // running any more, so nothing races this. Keys only (provider, id, timestamps): no personal data either way.
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(marker.startedAt)) throw new Error("teardown: unexpected run marker");
+  psql(`delete from ops.inbound_webhook_events where received_at >= '${marker.startedAt}'::timestamptz`);
 
   for (const file of SIDE_EFFECT_FILES) {
     if (!marker.preexistingFiles.includes(file)) fs.rmSync(path.join(rootDir, file), { force: true });

@@ -2,8 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env-server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessageAsSystem, enqueueWebhookEventAsSystem } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -23,6 +22,18 @@ export interface AppointmentSystemContext {
   reason: AppointmentSystemReason;
 }
 
+/**
+ * The visit is not (or no longer) in a state the cancel may change: a business no-op the inbound webhook records as
+ * handled (04-07a M-INBOUND). Every other cancel failure is an ordinary Error the webhook answers 500 to, so the
+ * provider retries.
+ */
+export class AppointmentNotCancellableError extends Error {
+  constructor() {
+    super("Appointment not cancellable");
+    this.name = "AppointmentNotCancellableError";
+  }
+}
+
 export interface CancelAppointmentInput {
   appointmentId: string;
   reason?: string;
@@ -33,6 +44,11 @@ export interface CancelAppointmentInput {
    * cancellable".
    */
   onlyFromStatuses?: readonly string[];
+  /**
+   * The inbound callback key that asked for the cancel (04-07a M-INBOUND), stored as `metadata.cancel_source_key` so a
+   * provider retry of the same callback can tell its own earlier cancel from a visit cancelled some other way.
+   */
+  sourceKey?: string;
 }
 
 /**
@@ -68,34 +84,42 @@ export async function notifyAppointmentRescheduled(sys: AppointmentSystemContext
       timeZone: "Asia/Kolkata",
     });
 
-    await enqueueMessage(supabase, {
-      tenantId: visit.tenant_id,
-      patientId: visit.patient_id,
-      appointmentId: visit.id,
-      channel: "whatsapp",
-      messageType: "appointment_rescheduled",
-      templateId: "appointment_rescheduled",
-      templateParams: {
-        patient_name: patient.full_name || "Patient",
-        doctor_name: "Doctor",
-        new_date_time: formattedDateTime,
-      },
-      recipientPhone: patient.phone,
-      metadata: {
-        buttons: [
-          { id: "btn_confirm", text: "Confirm" },
-          { id: "btn_cancel", text: "Cancel" },
-        ],
-      },
-    });
+    // V2-04 04-03a: queued through the system enqueue RPC (tenant from the visit); the job runner sends it. One message
+    // per visit and time, however often the reschedule follow-up runs (R-24). Best effort: the reschedule stands.
+    try {
+      await enqueueMessageAsSystem(
+        supabase,
+        {
+          patientId: visit.patient_id,
+          visitId: visit.id,
+          dedupeKey: `appointment_rescheduled:${visit.id}:${new Date(input.newScheduledAt).toISOString()}`,
+          channel: "whatsapp",
+          messageType: "appointment_rescheduled",
+          templateId: "appointment_rescheduled",
+          templateParams: {
+            patient_name: patient.full_name || "Patient",
+            doctor_name: "Doctor",
+            new_date_time: formattedDateTime,
+          },
+          recipientPhone: patient.phone,
+          metadata: {
+            buttons: [
+              { id: "btn_confirm", text: "Confirm" },
+              { id: "btn_cancel", text: "Cancel" },
+            ],
+          },
+        },
+        `system:${sys.reason}`
+      );
+    } catch (enqueueErr) {
+      log.warn({ event: "jobs.enqueue.failed", code: errorTag(enqueueErr), requestId: await getRequestId(), tenantId: visit.tenant_id });
+    }
   }
 
-  // Enqueue webhook event: appointment.rescheduled
+  // Webhook event appointment.rescheduled (04-03b): queued through the system RPC (tenant and the new time from the
+  // visit row); one event per visit and time.
   try {
-    await enqueueWebhookEvent(supabase, visit.tenant_id, "appointment.rescheduled", {
-      appointment_id: input.appointmentId,
-      scheduled_at: input.newScheduledAt,
-    });
+    await enqueueWebhookEventAsSystem(supabase, "appointment.rescheduled", input.appointmentId, `system:${sys.reason}`);
   } catch (webhookErr) {
     log.warn({ event: "appointments.reschedule_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }
@@ -118,7 +142,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
   }
 
   if (input.onlyFromStatuses && !input.onlyFromStatuses.includes(visit.status)) {
-    throw new Error("Appointment not cancellable");
+    throw new AppointmentNotCancellableError();
   }
 
   let cancelQuery = supabase
@@ -130,6 +154,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
         cancellation_reason: input.reason || "clinic_cancelled",
         cancelled_by: `system:${sys.reason}`,
         cancelled_at: new Date().toISOString(),
+        ...(input.sourceKey ? { cancel_source_key: input.sourceKey } : {}),
       },
       updated_at: new Date().toISOString(),
     })
@@ -138,21 +163,20 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
   if (input.onlyFromStatuses) {
     cancelQuery = cancelQuery.in("status", [...input.onlyFromStatuses]);
   }
-  const { data: updated, error: updateError } = await cancelQuery.select().single();
+  const { data: updated, error: updateError } = await cancelQuery.select().maybeSingle();
 
-  if (input.onlyFromStatuses && (updateError || !updated)) {
-    throw new Error("Appointment not cancellable");
+  // No row and no error: the status filter matched nothing (the visit moved on between the read and the update).
+  if (input.onlyFromStatuses && !updateError && !updated) {
+    throw new AppointmentNotCancellableError();
   }
   if (updateError || !updated) {
     throw new Error("Failed to cancel appointment.", { cause: updateError });
   }
 
-  // Enqueue webhook event: appointment.cancelled
+  // Webhook event appointment.cancelled (04-03b): queued through the system RPC; the reason is the one stored on the
+  // visit above (`metadata.cancellation_reason`).
   try {
-    await enqueueWebhookEvent(supabase, visit.tenant_id, "appointment.cancelled", {
-      appointment_id: input.appointmentId,
-      reason: input.reason || "clinic_cancelled",
-    });
+    await enqueueWebhookEventAsSystem(supabase, "appointment.cancelled", input.appointmentId, `system:${sys.reason}`);
   } catch (webhookErr) {
     log.warn({ event: "appointments.cancel_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }
@@ -183,19 +207,28 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
 
   // Queue Event #3 (appointment_cancelled) if clinic-initiated
   if (input.isClinicInitiated && visit.patient?.phone) {
-    await enqueueMessage(supabase, {
-      tenantId: visit.tenant_id,
-      patientId: visit.patient_id,
-      appointmentId: visit.id,
-      channel: "whatsapp",
-      messageType: "appointment_cancelled",
-      templateId: "appointment_cancelled",
-      templateParams: {
-        patient_name: visit.patient?.full_name || "Patient",
-        reason: input.reason || "Schedule conflict",
-      },
-      recipientPhone: visit.patient?.phone,
-    });
+    // V2-04 04-03a: queued through the system enqueue RPC; one cancellation message per visit (R-24). Best effort.
+    try {
+      await enqueueMessageAsSystem(
+        supabase,
+        {
+          patientId: visit.patient_id,
+          visitId: visit.id,
+          dedupeKey: `appointment_cancelled:${visit.id}`,
+          channel: "whatsapp",
+          messageType: "appointment_cancelled",
+          templateId: "appointment_cancelled",
+          templateParams: {
+            patient_name: visit.patient?.full_name || "Patient",
+            reason: input.reason || "Schedule conflict",
+          },
+          recipientPhone: visit.patient?.phone,
+        },
+        `system:${sys.reason}`
+      );
+    } catch (enqueueErr) {
+      log.warn({ event: "jobs.enqueue.failed", code: errorTag(enqueueErr), requestId: await getRequestId(), tenantId: visit.tenant_id });
+    }
   }
 
   return { success: true, appointment: updated };
@@ -205,13 +238,32 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
  * Generates a 24-hour tokenized self-service appointment reschedule link for `appointmentId`. The tenant is read
  * from the appointment row, never taken from the caller. (Token storage is replaced by 01-04, P0-04.)
  */
+/**
+ * The visit cannot get a reschedule link (missing, not booked/confirmed, or no doctor): `create_reschedule_token`'s
+ * business refusals (SQLSTATE P0002 `not_found`, P0001 `appointment_closed` / `appointment_unassigned`, 000023). The
+ * inbound webhook treats it as "no link" (04-07d, re-verification L-C); every other failure is an ordinary Error the
+ * webhook answers 500 to, so the provider retries.
+ */
+export class RescheduleNotActionableError extends Error {
+  constructor() {
+    super("Appointment cannot get a reschedule link");
+    this.name = "RescheduleNotActionableError";
+  }
+}
+
+const RESCHEDULE_REFUSALS = new Set(["not_found", "appointment_closed", "appointment_unassigned"]);
+
 export async function generateRescheduleToken(sys: AppointmentSystemContext, appointmentId: string): Promise<string> {
-  // create_reschedule_token (000020, service_role only): resource_type 'appointment', created_by NULL (system-issued,
-  // D9), tenant from the visit row, 24 h expiry; refused for a missing, completed or cancelled visit. Errors are
-  // raised, never ignored (the v1 insert used a nil-uuid creator that failed the FK silently).
+  // create_reschedule_token (000020, 000023; service_role only): resource_type 'appointment', created_by NULL
+  // (system-issued, D9), tenant from the visit row, 24 h expiry; refused for a missing, unassigned or not
+  // booked/confirmed visit. Errors are raised, never ignored (the v1 insert used a nil-uuid creator that failed the FK
+  // silently); only the refusals above are RescheduleNotActionableError.
   const { data: token, error } = await sys.db.rpc("create_reschedule_token", { p_visit_id: appointmentId });
+  if (error && (error.code === "P0001" || error.code === "P0002") && RESCHEDULE_REFUSALS.has(error.message)) {
+    throw new RescheduleNotActionableError();
+  }
   if (error || typeof token !== "string" || token.length === 0) {
-    throw new Error("Could not create a reschedule link for this appointment");
+    throw new Error("Could not create a reschedule link for this appointment", { cause: error ?? undefined });
   }
 
   const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;

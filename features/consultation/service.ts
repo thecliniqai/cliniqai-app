@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { memberOfTenant, visitInTenant } from "@/lib/auth/tenant-refs";
 import {
   saveConsultationDraftSchema,
@@ -12,7 +13,6 @@ import {
 } from "./schema";
 import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
@@ -726,14 +726,9 @@ export async function completeAndSignConsultation(
       },
     });
 
-    // 8. Enqueue webhook events
+    // 8. Webhook events (04-03b): queued through the RPC, data built in SQL from the visit / prescription row.
     try {
-      await enqueueWebhookEvent(supabase, ctx.tenantId, "visit.completed", {
-        visit_id: visitId,
-        patient_id: visit.patient_id,
-        doctor_id: visit.doctor_id,
-        completed_at: nowIso,
-      });
+      await enqueueWebhookEvent(ctx, "visit.completed", visitId);
 
       // Check if an active prescription was signed during this consultation
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -743,12 +738,10 @@ export async function completeAndSignConsultation(
         .eq("tenant_id", ctx.tenantId)
         .maybeSingle();
 
+      // 04-07a M-RXEVENT: the one `prescription.issued` of a prescription made in the app, queued now that it is signed
+      // (event key `prescription.issued:<id>:signed`; the draft raises none, and SQL refuses an unsigned one).
       if (signedRx) {
-        await enqueueWebhookEvent(supabase, ctx.tenantId, "prescription.issued", {
-          prescription_id: signedRx.id,
-          patient_id: signedRx.patient_id,
-          visit_id: signedRx.visit_id,
-        });
+        await enqueueWebhookEvent(ctx, "prescription.issued", signedRx.id);
       }
     } catch (webhookErr) {
       log.warn({ event: "consultation.sign_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });

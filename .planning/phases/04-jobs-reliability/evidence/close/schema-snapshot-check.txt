@@ -1,0 +1,3 @@
+# node scripts/drift/schema-snapshot.mjs --local --check at 2260c64
+schema-snapshot: PASS (local: 2520 lines equal the committed snapshot)
+exit=0

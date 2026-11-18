@@ -1,0 +1,8 @@
+# actionlint 1.7.7 (docker, --network none) on staging.yml and drift.yml at bc8bbb1
+# exit: 0
+# zizmor 1.32.0 --offline (docker ghcr.io/zizmorcore/zizmor, --network none)
+No findings to report. Good job!
+# exit: 0
+# workflow-policy
+workflow-policy: PASS (4 workflow(s))
+# exit: 0

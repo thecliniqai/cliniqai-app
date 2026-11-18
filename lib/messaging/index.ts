@@ -3,12 +3,9 @@ import { DevLoggerProvider } from "./dev-logger";
 import { DisabledMessagingProvider } from "./providers/disabled";
 import { GupshupProvider } from "./providers/gupshup";
 import { Msg91Provider } from "./providers/msg91";
+import { SinkProvider } from "./providers/sink";
 import { TwilioProvider } from "./providers/twilio";
-import {
-  InteractiveButton,
-  MessagingProvider,
-  MessagingSendResult,
-} from "./types";
+import type { MessagingProvider } from "./types";
 
 export * from "./types";
 export * from "./dev-logger";
@@ -16,6 +13,7 @@ export * from "./providers/disabled";
 export * from "./providers/msg91";
 export * from "./providers/twilio";
 export * from "./providers/gupshup";
+export * from "./providers/sink";
 
 let cachedProvider: MessagingProvider | null = null;
 let cachedProviderName: string | null = null;
@@ -48,6 +46,9 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
     case "disabled":
       provider = new DisabledMessagingProvider();
       break;
+    case "sink":
+      provider = new SinkProvider();
+      break;
     case "dev":
       provider = new DevLoggerProvider();
       break;
@@ -60,23 +61,5 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
   return provider;
 }
 
-export async function sendDirectSms(
-  to: string,
-  templateId: string,
-  params: Record<string, string>,
-  providerName?: string
-): Promise<MessagingSendResult> {
-  const provider = getMessagingProvider(providerName);
-  return provider.sendSms(to, templateId, params);
-}
-
-export async function sendDirectWhatsApp(
-  to: string,
-  templateId: string,
-  params: Record<string, string>,
-  buttons?: InteractiveButton[],
-  providerName?: string
-): Promise<MessagingSendResult> {
-  const provider = getMessagingProvider(providerName);
-  return provider.sendWhatsApp(to, templateId, params, buttons);
-}
+// V2-04 04-03c (R-33): `sendDirectSms` / `sendDirectWhatsApp` are deleted with their last app caller (the inbound
+// messaging webhook now queues its bot replies). Only the job handlers in lib/jobs/internal/** send (ESLint P0-12).

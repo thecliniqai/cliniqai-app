@@ -21,11 +21,17 @@
  * `verify-full` was given), never the raw secret.
  *
  * CLI (used by staging.yml / drift.yml):
- *   node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url]
+ *   node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url [--no-password] | --print-pgpassword]
  * reads the URL from the named environment variable and the ref from `SUPABASE_PROJECT_REF_STAGING`. `--mask` makes
  * a GitHub Actions runner mask the database password in every later log line of the job (`::add-mask::`), on top of
  * the masking GitHub already applies to the whole secret. `--print-db-url` prints only the canonical database URL on
  * stdout (status lines go to stderr) for `DB_URL="$(…)"` in the step that runs the CLI.
+ * V2-04 04-00 (review A L-7, R-47): `--print-db-url --no-password` prints that URL **without** the password and
+ * `--print-pgpassword` prints only the (percent-decoded) password, for `PGPASSWORD="$(…)"; export PGPASSWORD`: the
+ * Supabase CLI's driver (pgx) takes the password from `PGPASSWORD` when the URL has none (proved on the local stack,
+ * `.planning/phases/04-jobs-reliability/evidence/04-00/l7-cli-pgpassword.txt`), so no password sits in any process's
+ * argv (`/proc/<pid>/cmdline`). `scripts/ci/workflow-policy.mjs` refuses `--print-db-url` without `--no-password` in a
+ * staging workflow.
  * Exit 0 = accepted, 1 = refused, 2 = usage.
  */
 import { pathToFileURL } from "node:url";
@@ -119,15 +125,17 @@ export function stagingTargetProblems({ url, ref, kind = "any" }) {
 /**
  * The database URL re-serialised from its checked parts (scheme, user, password, host, port, database) with TLS
  * required: `?sslmode=require`, or `verify-full` when the URL asked for it. Call only on a URL that
- * {@link stagingTargetProblems} accepted; throws on anything that is not a postgres URL.
+ * {@link stagingTargetProblems} accepted; throws on anything that is not a postgres URL. `{ password: false }` (04-00
+ * L-7) leaves the password out; the caller hands it over as `PGPASSWORD` instead.
  * @param {string} url
+ * @param {{ password?: boolean }} [options]
  * @returns {string}
  */
-export function canonicalDbUrl(url) {
+export function canonicalDbUrl(url, { password = true } = {}) {
   const u = new URL(url);
   if (!DB_SCHEMES.has(u.protocol)) throw new Error("canonicalDbUrl: not a postgres:// or postgresql:// URL");
   const sslmode = new URLSearchParams(u.search).get("sslmode") === "verify-full" ? "verify-full" : "require";
-  const auth = u.password ? `${u.username}:${u.password}` : u.username;
+  const auth = password && u.password ? `${u.username}:${u.password}` : u.username;
   return `${u.protocol}//${auth}@${u.hostname}${u.port ? `:${u.port}` : ""}${u.pathname || "/"}?sslmode=${sslmode}`;
 }
 
@@ -156,24 +164,44 @@ export function redactUrl(text, url) {
   return out;
 }
 
+const USAGE = "usage: node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url [--no-password] | --print-pgpassword]";
+const KNOWN_FLAGS = new Set(["--var", "--mask", "--print-db-url", "--no-password", "--print-pgpassword"]);
+
 function main(argv, env) {
   const i = argv.indexOf("--var");
   const name = i > -1 ? argv[i + 1] : undefined;
   const printDbUrl = argv.includes("--print-db-url");
-  if (!name || !/^[A-Z][A-Z0-9_]*$/.test(name) || (printDbUrl && argv.includes("--mask"))) {
-    console.error("usage: node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url]");
+  const noPassword = argv.includes("--no-password");
+  const printPassword = argv.includes("--print-pgpassword");
+  const modes = [argv.includes("--mask"), printDbUrl, printPassword].filter(Boolean).length;
+  const unknown = argv.filter((a, idx) => idx !== i + 1 && !KNOWN_FLAGS.has(a));
+  if (!name || !/^[A-Z][A-Z0-9_]*$/.test(name) || modes > 1 || (noPassword && !printDbUrl) || unknown.length) {
+    console.error(USAGE);
     return 2;
   }
   const url = env[name];
-  const problems = stagingTargetProblems({ url, ref: env[REF_VAR], kind: printDbUrl ? "db" : "any" });
+  const problems = stagingTargetProblems({ url, ref: env[REF_VAR], kind: printDbUrl || printPassword ? "db" : "any" });
   if (problems.length) {
     for (const p of problems) console.error(`target-guard: REFUSED ${name}: ${p}`);
     return 1;
   }
   if (printDbUrl) {
     // stdout carries only the URL (captured by `DB_URL="$(…)"`, never echoed); the status line goes to stderr.
-    console.error(`target-guard: OK ${name} is the staging project ${env[REF_VAR]} (${new URL(url).hostname}); TLS required`);
-    process.stdout.write(`${canonicalDbUrl(url)}\n`);
+    console.error(
+      `target-guard: OK ${name} is the staging project ${env[REF_VAR]} (${new URL(url).hostname}); TLS required${noPassword ? "; password left out (PGPASSWORD)" : ""}`,
+    );
+    process.stdout.write(`${canonicalDbUrl(url, { password: !noPassword })}\n`);
+    return 0;
+  }
+  if (printPassword) {
+    // 04-00 L-7: stdout carries only the password (captured by `PGPASSWORD="$(…)"`, never echoed).
+    const pw = urlPassword(url);
+    if (!pw) {
+      console.error(`target-guard: REFUSED ${name}: the database URL carries no password`);
+      return 1;
+    }
+    console.error(`target-guard: OK ${name} is the staging project ${env[REF_VAR]} (${new URL(url).hostname}); password for PGPASSWORD`);
+    process.stdout.write(pw);
     return 0;
   }
   if (argv.includes("--mask") && env.GITHUB_ACTIONS === "true") {

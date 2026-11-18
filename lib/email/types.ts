@@ -14,7 +14,9 @@ export type EmailTag =
   | "auth-recovery"
   | "auth-invite"
   | "auth-email-change"
-  | "auth-password-changed";
+  | "auth-password-changed"
+  /** V2-04 04-04: an ops alert from the `alert.notify` job to `OPS_ALERT_EMAIL` (no PHI). */
+  | "ops-alert";
 
 export interface EmailMessage {
   /** One recipient. */
@@ -26,13 +28,18 @@ export interface EmailMessage {
 }
 
 export interface SendResult {
-  /** The provider's id for the accepted message (SES `MessageId`, Mailpit `ID`). */
+  /** The provider's id for the accepted message (SES `MessageId`, Mailpit `ID`, Resend `id`). */
   providerMessageId: string;
 }
 
 /** Per-call options. `signal` aborts the provider call (the Send Email hook's time budget, 03-13a). */
 export interface SendOptions {
   signal?: AbortSignal;
+  /**
+   * 04-00b: a key that makes a repeated call send nothing (Resend's `Idempotency-Key`). The Send Email hook derives it
+   * from the signed `webhook-id`, one per message. Providers without the feature ignore it.
+   */
+  idempotencyKey?: string;
 }
 
 export interface EmailSender {

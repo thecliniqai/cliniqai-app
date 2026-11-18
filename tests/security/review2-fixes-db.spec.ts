@@ -9,7 +9,7 @@ import { shareTokenHash } from "../helpers/share-tokens";
 import { GET as getDocumentRoute } from "@/app/api/r/[token]/route";
 import { POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route";
 import { generateRescheduleToken } from "@/features/appointments/system";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { transitionQueueState } from "@/features/queue/service";
@@ -267,7 +267,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
 
     it("reschedule links: only the hash is stored and the raw link still works once", async () => {
-      vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      vi.spyOn(enqueueModule, "enqueueMessageAsSystem").mockResolvedValue({ id: "msg-syn" } as never);
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, A.visitId);
       const token = url.split("/reschedule/")[1];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -349,7 +349,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
 
     it("a confirmed visit can still be rescheduled", async () => {
-      vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      vi.spyOn(enqueueModule, "enqueueMessageAsSystem").mockResolvedValue({ id: "msg-syn" } as never);
       const visitId = await freshVisit(A, "confirmed");
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, visitId);
       const token = url.split("/reschedule/")[1];

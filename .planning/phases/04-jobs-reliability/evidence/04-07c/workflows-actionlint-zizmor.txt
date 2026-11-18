@@ -1,0 +1,8 @@
+# 04-07c: actionlint 1.7.7 (docker rhysd/actionlint:1.7.7, --network none) over .github/workflows at 448a769
+# exit 0
+# zizmor 1.32.0 --offline (docker ghcr.io/zizmorcore/zizmor, --network none)
+No findings to report. Good job! (1 ignored, 3 suppressed)
+# exit 0
+# workflow-policy
+workflow-policy: PASS (7 workflow(s))
+# exit 0

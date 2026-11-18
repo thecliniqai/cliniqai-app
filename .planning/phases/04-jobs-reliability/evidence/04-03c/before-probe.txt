@@ -1,0 +1,8 @@
+# 04-03c before-probe on pre-plan code (6cb887e, stack at 000036); source: before-probe.spec.ts.txt (temporary, not committed)
+PROBE dlr_delivered_audit_rows_after_two_posts=2
+PROBE direct_ack_sends_after_two_posts=2
+PROBE mailpit_messages_after_two_instances=2
+ ✓ tests/probe/before-probe.spec.ts (3 tests) 1893ms
+   ✓ pre-04-03c behaviour > Send Email hook: the same signed delivery on two instances sends two emails  1534ms
+ Test Files  1 passed (1)
+      Tests  3 passed (3)

@@ -1,0 +1,25 @@
+# 04-07c negative proof (migration 000042), each in ONE transaction rolled back, under the test-run lock (nothing persists, nothing visible to other sessions):
+# 'before' = ops.evaluate_alerts() replaced inside the transaction by its 000039 body / the 000042 constraint dropped inside the transaction; 'after' = 000042 as committed.
+## L-1 + L-4 before (000039 evaluator): reviewer's flapping proof, then an unconfigured channel over two later evaluations
+L-1 alerts|2
+L-1 notify_jobs|2
+L-4 notify_jobs_for_open_alert|3
+## L-1 + L-4 after (000042 evaluator)
+L-1 alerts|2
+L-1 notify_jobs|1
+L-4 notify_jobs_for_open_alert|0
+## M-BACKUPAUTH: an ok backup row without a digest, constraint dropped (before) vs as committed (after)
+before (constraint dropped): ok row without digest accepted|1
+ERROR:  new row for relation "backup_runs" violates check constraint "backup_runs_ok_has_digest"
+DETAIL:  Failing row contains (93, staging, 2026-11-13 19:22:55.421601+00, 2026-11-13 19:22:55.421601+00, ok, staging/2026-11-13T020004Z.tar.age, 1, 1, null, null, 2026-11-13 19:22:55.421601+00, null).
+## M-RESTORE: a restored stack (every schedule removed) before (no ops.ensure_schedules: the call fails) and after
+ERROR:  function ops.ensure_schedules() does not exist
+LINE 1: select 'before: ' || ops.ensure_schedules()::text;
+                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+after: ["jobs-kick", "jobs-reap", "cron-history-cleanup", "delivery-reap", "ops-evaluate-alerts", "ops-heartbeat", "ops-quota-snapshot", "ops-quota-weekly-summary", "ops-cleanup"]|
+# (the 'after' line above reads cron.job in the same statement as the call, so its snapshot predates the call; re-read in a separate statement:)
+after, separate statement: 9 schedules, inactive: jobs-kick
+## stack unchanged afterwards
+schema-snapshot: PASS (local: 2510 lines equal the committed snapshot)
+9 cron jobs

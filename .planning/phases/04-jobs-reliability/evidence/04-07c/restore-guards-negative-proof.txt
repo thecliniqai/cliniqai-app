@@ -1,0 +1,29 @@
+# 04-07c negative proof (M-BACKUPAUTH): each fix disabled in turn, the spec re-run, the file restored with git checkout -- <file>
+## 1. run.sh verify_digest replaced by a no-op (CHECK_DIGEST=true): tampered/planted tests
+   × run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses a tampered archive (one byte changed) before decrypting, in both modes 65ms
+   × run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses a planted archive (valid age file to the same key, not the recorded one) 329ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'age: error: failed to decrypt and aut…' to contain 'archive SHA-256 does not match the re…'
+AssertionError: expected 'sql-guard: REFUSED schema.sql:2 psql …' to contain 'refused before decrypt'
+      Tests  2 failed | 17 skipped (19)
+## 2. sql-guard findMetaCommands returns []: guard tests
+   ✓ sql-guard.ts: what psql would execute as a meta-command > passes the shapes pg_dump writes: COPY data with \N and backslashes, E'' strings, dollar quotes, comments, \restrict 1ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses a meta-command on its own line 3ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses after a statement on the same line 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses \copy to a file 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses \o redirect inside a statement 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses right after the COPY terminator 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses content after COPY … FROM stdin; on its line 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses a \restrict line that is not the bare form 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses \restrict inside a statement 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses a quote closed early by an E-string escape trick 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses COPY … PROGRAM 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses a COPY whose terminator is missing 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses an unterminated dollar quote hiding the rest 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > the CLI names file and line only, never the line's content, and exits 1 / 0 / 2 246ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [] to deeply equal [ Array(1) ]
+AssertionError: expected +0 to be 1 // Object.is equality
+      Tests  13 failed | 1 passed | 5 skipped (19)
+## 3. restored: full spec
+      Tests  19 passed (19)

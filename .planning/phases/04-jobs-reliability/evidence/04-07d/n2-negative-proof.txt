@@ -1,0 +1,68 @@
+# 04-07d N-2 negative proof (tool output captured 2026-11-13T20:34:18Z)
+# Code under test: HEAD 4db5e35 ops/restore-drill/sql-guard.ts (04-07c guard, no --emit-dir, no guardBytes) and
+# ops/bin/psql-restricted.sh replaced by a stand-in that execs psql-docker.sh unrestricted (the 04-07c restore call).
+# Specs: tests/ops/restore-guards.spec.ts and tests/ops/restore-psql-restricted-db.spec.ts as committed in 04-07d.
+# Expected: every 04-07d N-2 case fails (the shell command in the repro runs: a harmless echo in a throwaway container).
+
+   × psql-restricted.sh: psql refuses every meta-command in the archive's SQL (04-07d, N-2) > the re-verifier's standard_conforming_strings repro: refused, exit 3, the shell command never runs 339ms
+     → expected +0 to be 3 // Object.is equality
+   × psql-restricted.sh: psql refuses every meta-command in the archive's SQL (04-07d, N-2) > a client_encoding switch made by server-side code (invisible to the text guard): the guard passes it, restricted psql refuses it 1ms
+     → (0 , guardBytes) is not a function
+   × psql-restricted.sh: psql refuses every meta-command in the archive's SQL (04-07d, N-2) > the guard's restore copy of a pg_dump-shaped file restores in restricted mode (COPY data and its terminator work) 329ms
+     → expected 2 to be +0 // Object.is equality
+   ✓ sql-guard.ts: what psql would execute as a meta-command > passes the shapes pg_dump writes: COPY data with \N and backslashes, E'' strings, dollar quotes, comments, \restrict 1ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses a meta-command on its own line 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses after a statement on the same line 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses \copy to a file 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses \o redirect inside a statement 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses right after the COPY terminator 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses content after COPY … FROM stdin; on its line 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses a \restrict line that is not the bare form 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses \restrict inside a statement 0ms
+   × sql-guard.ts: what psql would execute as a meta-command > refuses a quote closed early by an E-string escape trick 3ms
+     → expected [ Array(1) ] to deeply equal [ Array(1) ]
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses COPY … PROGRAM 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses a COPY whose terminator is missing 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > refuses an unterminated dollar quote hiding the rest 0ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > the CLI names file and line only, never the line's content, and exits 1 / 0 / 2  837ms
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses the re-verifier's repro (SET standard_conforming_strings = off, then `\'` hides `\!`) 1ms
+     → expected [] to deeply equal [ …(2) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses the same strings when the setting is changed where no text scan can see it (server-side code) 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses `\'` at the end of a string spanning lines 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses set_config of standard_conforming_strings 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a quoted-identifier spelling 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses RESET standard_conforming_strings 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses SET standard_conforming_strings = on inside a statement pg_dump never writes 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a client_encoding other than UTF8 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses set_config of client_encoding 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a function body that sets client_encoding 1ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a line inside a string that starts with a backslash 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a line inside a dollar quote that starts with a backslash 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a line inside a block comment that starts with a backslash 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   ✓ sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > passes backslashes whose reading is the same under both settings (`\\` before the closing quote, `\d`, `\n`) 0ms
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > refuses a file that is not valid UTF-8, naming the line only 0ms
+     → (0 , guardBytes) is not a function
+   × sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > --emit-dir writes restore copies with only pg_dump's \restrict lines turned into comments, and nothing when refused 191ms
+     → expected 2 to be +0 // Object.is equality
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses to run without --expect-sha256, or with a value that is not a SHA-256 (exit 2) 22ms
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses a tampered archive (one byte changed) before decrypting, in both modes 66ms
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses a planted archive (valid age file to the same key, not the recorded one) 31ms
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > the recorded clean archive passes the digest check (decrypt-only, upper-case digest accepted) 39ms
+   × run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses an authenticated archive whose SQL holds a psql meta-command, before any SQL runs or a stack starts 355ms
+     → expected 'usage: sql-guard.ts <file.sql> [...]\…' to contain 'sql-guard: REFUSED schema.sql:2 psql …'
+⎯⎯⎯⎯⎯⎯ Failed Tests 20 ⎯⎯⎯⎯⎯⎯⎯
+     71|     expect(r.stdout + r.stderr).not.toContain("GUARD_BYPASS_EXECUTED\n…
+ Test Files  2 failed (2)
+      Tests  20 failed | 18 passed (38)
