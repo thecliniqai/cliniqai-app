@@ -898,3 +898,10 @@ subscriptions can. A clinic that starts with one branch and grows needs a differ
 | Trial | Branches added during the trial are free until it ends |
 | To confirm with Razorpay (PO, during KYC) | Variable "as presented" debits on UPI AutoPay and e-mandate; the mandate maximum for our category; pre-debit notices; switching flow without double debits |
 | Owner phase | V2-13B (scope grows; estimate +20–30 %); branch data hook in V2-07/V2-08; branch screens v2.1 |
+
+### PO rulings for V2-07 scope (2026-11-18)
+
+| Item | Ruling |
+|---|---|
+| Branch data hook | Lands in **V2-07**, not V2-08: `clinic_locations` (one default location per clinic, backfilled), `location_id` on visits, appointments, queue and invoices. The V2-07 command RPCs write `location_id` (default location for now). Branch screens stay v2.1 |
+| Per-flow feature flags | **Dropped.** BACKEND_MIGRATION_PLAN D3's `TX_<FLOW>=on` flags and "old path kept for one release" are not built. Production will be a fresh instance with no live clinics, so each flow switches to its RPC directly and the old multi-statement path is deleted in the same plan. Supersedes that part of D3 |
