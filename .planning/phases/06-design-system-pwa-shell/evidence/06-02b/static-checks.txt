@@ -1,0 +1,28 @@
+Static checks at 13556fe (2026-11-14T19:31:45Z)
+--- npm run typecheck
+exit 0 (app + tests)
+--- npx eslint .
+✖ 457 problems (0 errors, 457 warnings): all warnings in pre-existing files
+files with warnings among 06-02b's: 0
+--- npm run inventory
+inventory: 26 "use server" modules, 113 exports; 14/15 D1 non-action modules present; 29 route modules, 51 methods; 0 flagged, 6 noted
+--- node scripts/ci/ui-policy.mjs
+ui-policy: ai-sdk-import [report] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: arbitrary-color [report] 2 finding(s) in 2 file(s) (baseline 4, delta -2)
+ui-policy: brand-utility [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: link-wraps-button [report] 31 finding(s) in 9 file(s) (baseline 31, delta 0)
+ui-policy: px-font [report] 281 finding(s) in 51 file(s) (baseline 282, delta -1)
+ui-policy: raw-palette [report] 3477 finding(s) in 93 file(s) (baseline 3530, delta -53)
+ui-policy: screen-height [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: signout-guard [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: window-dialog [report] 27 finding(s) in 8 file(s) (baseline 27, delta 0)
+ui-policy: PASS (report-mode findings do not fail)
+--- npm run ci:ai-l1
+ai-l1: 2805 files, 4 finding(s), 4 waived (time-boxed)
+  waived L1-R5 components/settings/developer/api-key-table.tsx:90
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:66
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:75
+  waived L1-R5 components/settings/developer/revoke-key-modal.tsx:47
+ai-l1: PASS
+--- node scripts/design/contrast.mjs
+contrast: 211 pairs, 0 fail; (report unchanged since 0ade487)

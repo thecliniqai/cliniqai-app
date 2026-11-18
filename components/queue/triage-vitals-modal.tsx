@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,11 @@ export function TriageVitalsModal({
     bmi: null,
   });
 
-  useEffect(() => {
+  // Load the form on open (and when the recorded vitals change while open), during render rather than in an effect:
+  // the same triggers as before (React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [resetFor, setResetFor] = useState<{ isOpen: boolean; existingVitals: typeof existingVitals } | null>(null);
+  if (resetFor === null || resetFor.isOpen !== isOpen || resetFor.existingVitals !== existingVitals) {
+    setResetFor({ isOpen, existingVitals });
     if (isOpen) {
       setError(null);
       if (existingVitals) {
@@ -73,7 +77,7 @@ export function TriageVitalsModal({
         });
       }
     }
-  }, [isOpen, existingVitals]);
+  }
 
   // Auto-calculated BMI: Weight (kg) / [Height (m)]^2
   const bmiInfo = useMemo(() => {
@@ -240,7 +244,7 @@ export function TriageVitalsModal({
                 value={vitals.pulse ?? ""}
                 onChange={(e) => handleFieldChange("pulse", e.target.value)}
               />
-              <Heart className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Heart className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
 
@@ -261,7 +265,7 @@ export function TriageVitalsModal({
                 value={vitals.temperature ?? ""}
                 onChange={(e) => handleFieldChange("temperature", e.target.value)}
               />
-              <Thermometer className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Thermometer className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
 
@@ -282,7 +286,7 @@ export function TriageVitalsModal({
                 value={vitals.spo2 ?? ""}
                 onChange={(e) => handleFieldChange("spo2", e.target.value)}
               />
-              <Activity className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Activity className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
 
@@ -303,7 +307,7 @@ export function TriageVitalsModal({
                 value={vitals.respiratory_rate ?? ""}
                 onChange={(e) => handleFieldChange("respiratory_rate", e.target.value)}
               />
-              <Wind className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Wind className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
 
@@ -324,7 +328,7 @@ export function TriageVitalsModal({
                 value={vitals.weight ?? ""}
                 onChange={(e) => handleFieldChange("weight", e.target.value)}
               />
-              <Weight className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Weight className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
 
@@ -345,7 +349,7 @@ export function TriageVitalsModal({
                 value={vitals.height ?? ""}
                 onChange={(e) => handleFieldChange("height", e.target.value)}
               />
-              <Ruler className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Ruler className="absolute right-3 top-2.5 w-4 h-4 text-fg-subtle pointer-events-none" />
             </div>
           </Field>
         </div>

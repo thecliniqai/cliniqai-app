@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Bell } from "lucide-react";
 import { useNotifications } from "./use-notifications";
 import { NotificationDrawer } from "./notification-drawer";
+import { cn } from "@/lib/utils";
+import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,15 +24,23 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 rounded-lg text-[#52565B] hover:text-[#111827] hover:bg-gray-100 transition-colors cursor-pointer flex items-center justify-center"
+        // V2-06 06-04b: re-homed in the top bar; the shell's target size (36 px, 44 on touch) and the focus ring.
+        className={cn(
+          "relative flex size-control-dense shrink-0 cursor-pointer items-center justify-center rounded-md text-fg-secondary hover:bg-surface-muted hover:text-fg touch:size-control",
+          TRANSITION,
+          FOCUS_RING,
+        )}
         aria-label={`Notifications (${unreadCount} unread)`}
         title="View Notifications"
       >
-        <Bell className="w-5 h-5" />
+        <Bell aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
 
         {/* Dynamic unread counter badge pill */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#1769E0] text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs">
+          <span
+            aria-hidden="true"
+            className="absolute top-0.5 right-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-pill border-2 border-surface bg-accent px-1 text-caption font-semibold text-fg-on-accent tabular-nums"
+          >
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}

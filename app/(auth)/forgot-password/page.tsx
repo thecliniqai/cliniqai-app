@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthPageClient } from "@/lib/supabase/client";
 import { abandonReset, completeReset, requestReset, type SetPasswordResult } from "@/features/auth/password-flows";
 import { setNewPasswordAction } from "@/features/auth/actions";
 import { PASSWORDS_DO_NOT_MATCH_MESSAGE, RECOVERY_CODE_LENGTH, completeResetFormSchema } from "@/features/auth/schemas";
@@ -38,7 +38,11 @@ type Step = "request" | "reset" | "done";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  // 06-09d close (re-check L-N3): created at the first submit, never on mount, and it never sees the device's session
+  // cookies (`createAuthPageClient`), so it never refreshes them. A signed-in user who opened this page while Auth
+  // rate-limited the token refresh was otherwise signed out by the browser client (auth-js deleted the cookies on the 429).
+  const client = useRef<ReturnType<typeof createAuthPageClient> | null>(null);
+  const supabase = () => (client.current ??= createAuthPageClient());
 
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
@@ -72,16 +76,16 @@ export default function ForgotPasswordPage() {
   // Leaving the page with an unfinished reset ends the recovery session on this device.
   useEffect(() => {
     return () => {
-      if (pendingRecovery.current) void abandonReset(supabase);
+      if (pendingRecovery.current) void abandonReset();
     };
-  }, [supabase]);
+  }, []);
 
   const sendCode = async (turnstile: React.RefObject<TurnstileFieldHandle | null>) => {
     setError(null);
     setNotice(null);
     setLoading(true);
     const captchaToken = siteKey ? ((await turnstile.current?.token()) ?? null) : null;
-    const result = await requestReset(supabase, { email }, { required: Boolean(siteKey), token: captchaToken });
+    const result = await requestReset(supabase(), { email }, { required: Boolean(siteKey), token: captchaToken });
     // Turnstile tokens are single-use: every attempt that used one needs a new one.
     if (captchaToken) turnstile.current?.reset();
     setLoading(false);
@@ -137,7 +141,7 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    const result = await completeReset(supabase, parsed.data, saveNewPassword);
+    const result = await completeReset(supabase(), parsed.data, saveNewPassword);
     setLoading(false);
     if (!result.ok) {
       if (result.stage === "update" && result.code === "reauth_required") {
@@ -154,7 +158,7 @@ export default function ForgotPasswordPage() {
   // The recovery session is older than the 10-minute bound (A00-5): end it here and start again with a new code.
   const restartAfterStaleSession = async (message: string) => {
     setCodeAccepted(false);
-    await abandonReset(supabase);
+    await abandonReset();
     setCode("");
     setNewPasswordValue("");
     setConfirmPassword("");
@@ -167,7 +171,7 @@ export default function ForgotPasswordPage() {
   // recovery session included; clearing this device's copy as well covers a revocation that did not reach GoTrue.
   const finish = async (otherSessionsSignedOut: boolean) => {
     setCodeAccepted(false);
-    await abandonReset(supabase);
+    await abandonReset();
     setStep("done");
     setNotice(otherSessionsSignedOut ? null : "We could not sign out your other devices. Sign out on them too.");
   };
@@ -175,21 +179,21 @@ export default function ForgotPasswordPage() {
   const handleCancel = async () => {
     if (codeAccepted) {
       setCodeAccepted(false);
-      await abandonReset(supabase);
+      await abandonReset();
     }
     router.replace("/login");
   };
 
   return (
-    <main className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
+    <main className="min-h-app w-full flex flex-col lg:flex-row bg-white">
       <ClinicShowcasePanel />
 
-      <div className="w-full lg:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 xl:p-16 bg-white">
+      <div className="w-full lg:w-1/2 min-h-app flex items-center justify-center p-6 sm:p-12 xl:p-16 bg-white">
         <div className="w-full max-w-md mx-auto space-y-7">
           <AuthMobileBrand />
 
           <div>
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 text-[#1769E0] flex items-center justify-center mb-4 shadow-2xs">
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 text-accent flex items-center justify-center mb-4 shadow-2xs">
               <KeyRound className="w-5 h-5" aria-hidden="true" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
@@ -257,7 +261,7 @@ export default function ForgotPasswordPage() {
                       setNotice(null);
                       setCode("");
                     }}
-                    className="shrink-0 text-sm font-semibold text-[#1769E0] hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40"
+                    className="shrink-0 text-sm font-semibold text-accent hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   >
                     Change email
                   </button>
@@ -281,7 +285,7 @@ export default function ForgotPasswordPage() {
                   required
                   autoFocus
                   disabled={codeAccepted}
-                  className="h-11 text-center text-lg font-mono tracking-[0.3em]"
+                  className="h-11 text-center text-lg tabular-nums tracking-[0.3em]"
                 />
               </Field>
 
@@ -328,7 +332,7 @@ export default function ForgotPasswordPage() {
                     type="button"
                     onClick={handleResend}
                     disabled={loading || cooldown > 0}
-                    className="font-semibold text-[#1769E0] hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40"
+                    className="font-semibold text-accent hover:underline disabled:text-fg-disabled disabled:no-underline disabled:cursor-not-allowed rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   >
                     {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
                   </button>
@@ -356,7 +360,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   Cancel and back to sign in
@@ -364,7 +368,7 @@ export default function ForgotPasswordPage() {
               ) : (
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                   Back to sign in

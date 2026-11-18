@@ -1017,6 +1017,71 @@ export async function healthRouteLeg(
   return out;
 }
 
+/**
+ * `public-asset` route (06-09b): anonymous 200 with the declared content type, no data access, no cookie, no ids or
+ * tenant B values; a signed-in member gets the byte-identical body (nothing personalised) and no data access either.
+ */
+export async function publicAssetRouteLeg(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "public-asset" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const anon = await callRoute(slot, anonClient(), c);
+  const member = await callRoute(slot, world.roles.owner.client, c);
+  for (const [leg, r] of [["anonymous", anon], ["signed-in member", member]] as const) {
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoIds(c, leg, r), ...expectNoB(c, leg, r, world));
+    out.push(...expectNoAccess(c, leg, r));
+    const type = r.headers.get("content-type") ?? "";
+    if (!type.startsWith(guard.contentType)) out.push(routeV(c, leg, `content-type ${type || "(none)"}, expected ${guard.contentType}`));
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+  }
+  if (member.body !== anon.body) out.push(routeV(c, "signed-in member", "body differs from the anonymous one (personalised)"));
+  return out;
+}
+
+/**
+ * `session-status` route (06-06): no session 401 and no membership 403, each touching nothing but the membership
+ * lookup and carrying no ids; a member 200 whose keys are within `keys`; `no-store` on every answer; a forged
+ * `?tenant=<B>` answers exactly what the plain call answers, with nothing of tenant B.
+ */
+export async function sessionStatusRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-status" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const anon = await callRoute(slot, anonClient(), c);
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c);
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  const member = await callRoute(slot, world.roles.receptionist.client, c);
+  out.push(...expectStatus(c, "member", member, [200]), ...expectNoIds(c, "member", member), ...expectNoB(c, "member", member, world));
+  noStore("member", member);
+  let keys: string[] = [];
+  try {
+    keys = Object.keys(JSON.parse(member.body) as Record<string, unknown>);
+  } catch {
+    out.push(routeV(c, "member", "body is not JSON"));
+  }
+  const extra = keys.filter((k) => !guard.keys.includes(k));
+  if (extra.length > 0) out.push(routeV(c, "member", `keys outside the allowlist: ${extra.join(", ")}`));
+
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (forged.body !== member.body) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
 /** Formats violations for an assertion message (one per line). */
 export function report(violations: Violation[]): string {
   return violations.map((v) => `${v.key} [${v.leg}] ${v.detail}`).join("\n");

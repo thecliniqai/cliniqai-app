@@ -1,0 +1,35 @@
+/** TEMPORARY debugging probe (ci-43712054628): records page errors (React #418 hydration mismatches) on the screens
+ * the CI failures share. Never committed. */
+import { test } from "./fixtures";
+import { readRunData, storageStatePath } from "./support/run-data";
+import { freeBookingDate, istInstant, run, seedPatient, seedVisit, testTag } from "./support/m0-data";
+
+const out: string[] = [];
+test.use({ storageState: storageStatePath("owner"), ...(process.env.PROBE_TZ_ID ? { timezoneId: process.env.PROBE_TZ_ID } : {}) });
+test.afterAll(() => console.log(`HYDRATION-PROBE ${JSON.stringify(out, null, 1)}`));
+
+for (const width of [360, 820, 1280]) {
+  test(`probe at ${width}`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message.slice(0, 140)));
+    page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text().slice(0, 140)}`); });
+    await page.setViewportSize({ width, height: 900 });
+    const { tenantA } = readRunData();
+    for (const url of ["/", `/patients/${tenantA.patientId}`, `/consultation/${tenantA.visitId}`, "/settings/clinic"]) {
+      errors.length = 0;
+      await page.goto(url);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(500);
+      out.push(`${process.env.TZ ?? "local"}/${process.env.PROBE_TZ_ID ?? "-"} ${width} ${url.replace(/[0-9a-f-]{36}/, "<id>")}: ${errors.join(" | ") || "clean"}`);
+    }
+    const r = run();
+    const date = await freeBookingDate(r.tenantA.id, r.tenantA.users.doctor.id);
+    const p = await seedPatient(r.tenantA.id, r.tenantA.users.owner.id, `E2E Synthetic Probe ${testTag()}`);
+    await seedVisit({ tenantId: r.tenantA.id, patientId: p.id, doctorId: r.tenantA.users.doctor.id, createdBy: r.tenantA.users.owner.id, status: "booked", originType: "scheduled", scheduledAt: istInstant(date, "11:00") });
+    errors.length = 0;
+    await page.goto(`/calendar?date=${date}`);
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500);
+    out.push(`${process.env.TZ ?? "local"}/${process.env.PROBE_TZ_ID ?? "-"} ${width} /calendar (seeded visit): ${errors.join(" | ") || "clean"}`);
+  });
+}

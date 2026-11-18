@@ -1,0 +1,6 @@
+npx vitest run --reporter=dot --reporter=json (06-08 tree before the FLOOR commit; local stack 000094)
+ Test Files  300 passed (300)
+      Tests  6181 passed (6181)
+   Start at  10:35:18
+   Duration  465.50s (transform 2.52s, setup 1.49s, collect 20.91s, tests 417.08s, environment 15ms, prepare 6.01s)
+[teardown] removed run data: 242 tenant(s), 480 auth user(s), 1568 storage object(s); verified none remain

@@ -130,7 +130,7 @@ export function BlockTimeModal({
               id="block-doctor-select"
               value={selectedDoctorId}
               onChange={(e) => setSelectedDoctorId(e.target.value)}
-              className="w-full h-10 px-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1769E0]/20 focus:border-[#1769E0]"
+              className="w-full h-10 px-3.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
             >
               {doctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>

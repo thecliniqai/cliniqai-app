@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/features/labs/service";
+import { uploadLabDocument, getPatientDocuments, deleteLabDocument, getDocumentSignedUrl } from "@/features/labs/service";
+import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
@@ -115,6 +116,13 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
         expect(uploadRes.document.storage_path).not.toMatch(/Aarav|Sharma/i);
         documentAId = uploadRes.document.id;
       }
+    });
+
+    it("signs a 5-minute view link for the uploaded document (06-09b N-1; was 3600 s)", async () => {
+      const res = await getDocumentSignedUrl(ctxFor(tenantA), documentAId);
+      expect(res.success).toBe(true);
+      expect(new URL(res.signedUrl!).pathname).toContain(`/clinic-records/tenants/${tenantA.tenantId}/patients/${patientAId}/labs/`);
+      expect(signedUrlLifetimeSeconds(res.signedUrl!)).toBe(300);
     });
 
     it("retrieves patient documents ordered by report_date DESC", async () => {

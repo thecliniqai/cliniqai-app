@@ -10,6 +10,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -22,8 +23,8 @@ import { GET as getReceiptPdf } from "@/app/api/invoices/[id]/receipt-pdf/route"
 
 const MISSING_ID = "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5";
 
-function call(handler: typeof getPrescriptionPdf, id: string) {
-  return handler(new Request(`http://localhost/api/x/${id}`), { params: Promise.resolve({ id }) });
+function call(handler: typeof getPrescriptionPdf, id: string, query = "") {
+  return handler(new Request(`http://localhost/api/x/${id}${query}`), { params: Promise.resolve({ id }) });
 }
 
 describe("PDF route guards (F1, F3)", () => {
@@ -63,6 +64,62 @@ describe("PDF route guards (F1, F3)", () => {
   it("lets every clinic role with appointments:view reach the receipt lookup (receptionist → 404 for a missing invoice)", async () => {
     mockState.client = receptionist.client;
     expect((await call(getReceiptPdf, MISSING_ID)).status).toBe(404);
+  });
+
+  it("06-09b (N-1): a served prescription or receipt PDF, inline or download, is `private` and `no-store`", async () => {
+    // A document tab opened from the app runs no app code, so sign-out cannot reach it; nothing in between may keep a
+    // copy either (browser HTTP cache, bfcache-backed reload, a shared proxy).
+    const admin = getAdminClient();
+    const { data: patient, error: pErr } = await admin
+      .from("patients")
+      .insert({ tenant_id: owner.tenantId, full_name: "Synthetic PdfHeader Patient", phone: "+919876543210", created_by: owner.userId })
+      .select("id")
+      .single();
+    expect(pErr).toBeNull();
+    const { data: visit, error: vErr } = await admin
+      .from("visits")
+      .insert({
+        tenant_id: owner.tenantId,
+        patient_id: patient!.id,
+        doctor_id: doctor.userId,
+        origin_type: "walk_in",
+        status: "completed",
+        estimated_duration_minutes: 15,
+        reason_for_visit: "Synthetic PDF header check",
+        created_by: owner.userId,
+      })
+      .select("id")
+      .single();
+    expect(vErr).toBeNull();
+    const { data: invoice, error: iErr } = await admin
+      .from("invoices")
+      .insert({
+        tenant_id: owner.tenantId,
+        visit_id: visit!.id,
+        patient_id: patient!.id,
+        invoice_number: `INV-PDFH-${Date.now()}`,
+        subtotal: 300,
+        total_amount: 300,
+        status: "issued",
+      })
+      .select("id")
+      .single();
+    expect(iErr).toBeNull();
+
+    for (const [label, client, handler, id] of [
+      ["prescription", doctor.client, getPrescriptionPdf, visit!.id],
+      ["receipt", receptionist.client, getReceiptPdf, invoice!.id],
+    ] as const) {
+      mockState.client = client;
+      for (const query of ["", "?download=true"]) {
+        const res = await call(handler, id, query);
+        expect(res.status, `${label}${query}`).toBe(200);
+        expect(res.headers.get("content-type"), `${label}${query}`).toBe("application/pdf");
+        expect(res.headers.get("content-disposition"), `${label}${query}`).toMatch(query ? /^attachment;/ : /^inline;/);
+        const cacheControl = (res.headers.get("cache-control") ?? "").split(",").map((d) => d.trim());
+        expect(cacheControl, `${label}${query}`).toEqual(expect.arrayContaining(["private", "no-store"]));
+      }
+    }
   });
 
   it("answers 404 for a receipt id that is not a UUID, including a filter-injection attempt", async () => {

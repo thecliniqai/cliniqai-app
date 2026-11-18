@@ -21,6 +21,15 @@ const ACCESS_LABEL: Record<AccessLevel, string> = {
   none: "No access",
 };
 
+/**
+ * Whether a complimentary period is still running at request time. A module-level helper, not inline in the page:
+ * this is a server component rendered once per request, so reading the clock is correct here, but React Compiler's
+ * `purity` rule cannot tell a server component from a client one (V2-06 06-08, R-30).
+ */
+function compPeriodActive(compUntil: string | null | undefined, now: number = Date.now()): boolean {
+  return compUntil ? new Date(compUntil).getTime() > now : false;
+}
+
 // SUB §10.3: subscription times are shown in IST.
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", {
@@ -45,7 +54,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function DateValue({ iso }: { iso: string }) {
   return (
     <span className="flex items-center gap-1.5 tabular-nums">
-      <Calendar className="w-3.5 h-3.5 text-gray-400" aria-hidden="true" />
+      <Calendar className="w-3.5 h-3.5 text-fg-subtle" aria-hidden="true" />
       {formatDate(iso)}
     </span>
   );
@@ -69,7 +78,7 @@ async function BillingSettingsPage() {
   }
 
   const { subscription, accessLevel } = overview;
-  const compActive = subscription?.compUntil ? new Date(subscription.compUntil).getTime() > Date.now() : false;
+  const compActive = compPeriodActive(subscription?.compUntil);
 
   return (
     <div className="space-y-6 max-w-3xl" data-testid="billing-settings">
@@ -81,7 +90,7 @@ async function BillingSettingsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+            <div className="w-8 h-8 rounded-lg bg-accent-subtle flex items-center justify-center text-accent-fg border border-accent-border">
               <CreditCard className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>

@@ -1,0 +1,24 @@
+06-09a static checks at 41517f2 (shared worktree; partner files may be modified in the tree)
+== npm run typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit 0
+== npx eslint . (errors/warnings)
+errors 0 warnings 461
+== npm run inventory (exit 0)
+(summary on stderr not captured; JSON "flagged": 0)
+== npm run ci:ui-policy
+ui-policy: ai-sdk-import [report] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: arbitrary-color [report] 2 finding(s) in 2 file(s) (baseline 4, delta -2)
+ui-policy: brand-utility [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: link-wraps-button [report] 31 finding(s) in 9 file(s) (baseline 31, delta 0)
+ui-policy: px-font [report] 282 finding(s) in 52 file(s) (baseline 282, delta 0)
+ui-policy: raw-palette [report] 3504 finding(s) in 96 file(s) (baseline 3530, delta -26)
+ui-policy: screen-height [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: signout-guard [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: window-dialog [report] 27 finding(s) in 8 file(s) (baseline 27, delta 0)
+ui-policy: PASS (report-mode findings do not fail)
+== npm run ci:ai-l1
+ai-l1: PASS
+== client routes
+client-routes: lib/observability/client-routes.ts matches the route tree

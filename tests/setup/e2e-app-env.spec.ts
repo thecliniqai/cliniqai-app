@@ -4,6 +4,7 @@
  * guard (run in a child Node process exactly as `NODE_OPTIONS=--require` loads it into Next).
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,6 +14,7 @@ import {
   buildAppServerEnv,
   E2E_BASE_URL,
   publicEnvHash,
+  SERVER_AUTH_FAULTS,
   SERVER_NET_GUARD,
   stampProblems,
   type LocalStackKeys,
@@ -61,6 +63,8 @@ describe("buildAppServerEnv", () => {
     });
     expect(E2E_BASE_URL).toBe("http://127.0.0.1:3100");
     expect(env.NODE_OPTIONS).toContain(SERVER_NET_GUARD);
+    expect(env.NODE_OPTIONS).toContain(SERVER_AUTH_FAULTS);
+    expect(env.NODE_OPTIONS!.indexOf(SERVER_NET_GUARD), "the guard loads first").toBeLessThan(env.NODE_OPTIONS!.indexOf(SERVER_AUTH_FAULTS));
   });
 
   it("refuses hosted keys", () => {
@@ -228,5 +232,43 @@ describe("server-side socket guard (as NODE_OPTIONS=--require loads it into next
     expect(out.dns).toBe("93.184.216.34");
     expect(out.loopback).toBe("connected");
     expect(res.stderr).toContain('[e2e-net-guard] blocked non-loopback connection to "example.com"');
+  });
+});
+
+describe("server-side Auth fault hook (06-09d, preloaded after the guard)", () => {
+  it("answers the refresh of the one token that has a rule file; every other request goes on (the guard still blocks)", () => {
+    const faultDir = path.resolve(path.dirname(SERVER_AUTH_FAULTS), "../../../playwright/.auth/auth-faults");
+    const token = `synthetic-refresh-${process.pid}-${Date.now()}`;
+    const file = path.join(faultDir, `${createHash("sha256").update(token).digest("hex")}.json`);
+    fs.mkdirSync(faultDir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ status: 429, body: { code: "over_request_rate_limit" }, goTrue: true }));
+    try {
+      const script = `
+        (async () => {
+          const out = {};
+          const refresh = (t) => fetch("http://127.0.0.1:9/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: t }) });
+          const hit = await refresh(${JSON.stringify(token)});
+          out.hit = [hit.status, hit.headers.get("x-supabase-api-version"), (await hit.json()).code];
+          out.other = await refresh("another-token").then((r) => "answered " + r.status, (e) => "sent: " + e.name);
+          out.blocked = await fetch("https://abcdefghijklmnop.supabase.co/auth/v1/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: ${JSON.stringify(token)} }) }).then(() => "answered", (e) => e.message);
+          process.stdout.write(JSON.stringify(out));
+        })();
+      `;
+      const res = spawnSync(process.execPath, ["--require", SERVER_NET_GUARD, "--require", SERVER_AUTH_FAULTS, "-e", script], {
+        cwd: path.dirname(SERVER_NET_GUARD),
+        encoding: "utf8",
+        timeout: 30_000,
+        env: { PATH: process.env.PATH ?? "" } as unknown as NodeJS.ProcessEnv,
+      });
+      expect(res.status).toBe(0);
+      const out = JSON.parse(res.stdout);
+      expect(out.hit).toEqual([429, "2024-01-01", "over_request_rate_limit"]);
+      expect(out.other, "another token's refresh reaches the (closed) loopback port").toBe("sent: TypeError");
+      expect(out.blocked, "a non-local host is never answered by a rule: the guard refuses it").toContain("blocked a network request to non-local host");
+      expect(res.stderr).toContain("[e2e-auth-faults] refresh answered 429");
+      expect(res.stderr).not.toContain(token);
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
   });
 });

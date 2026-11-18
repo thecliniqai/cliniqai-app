@@ -85,6 +85,16 @@ export function ymdOf(instant: Date | string | number, tz: string): string {
   return formatYmd(zoned.getFullYear(), zoned.getMonth() + 1, zoned.getDate());
 }
 
+/**
+ * The wall-clock hour (0-23) and minute of `instant` in zone `tz`: where a visit sits on the clinic's timeline. Never
+ * `Date#getHours()`, which reads the zone of the process (server render) or the browser (hydration), so the two
+ * renders disagree whenever those zones differ (CI 43712054628: React error #418 on the calendar).
+ */
+export function clockOf(instant: Date | string | number, tz: string): { hour: number; minute: number } {
+  const zoned = new TZDate(toInstant(instant), tz);
+  return { hour: zoned.getHours(), minute: zoned.getMinutes() };
+}
+
 /** The clinic's current date in zone `tz`. `now` is injectable for tests; it defaults to the current instant. */
 export function todayInTz(tz: string, now: Date | number = Date.now()): string {
   return ymdOf(now, tz);
@@ -95,6 +105,18 @@ export function addDaysYmd(ymd: string, n: number): string {
   const { y, m, d } = parseYmd(ymd);
   const moved = new Date(Date.UTC(y, m - 1, d + Math.trunc(n)));
   return formatYmd(moved.getUTCFullYear(), moved.getUTCMonth() + 1, moved.getUTCDate());
+}
+
+/**
+ * Calendar days from `fromYmd` to `toYmd` (negative when `toYmd` is earlier); `null` if either is not a `YYYY-MM-DD`
+ * date. Pure calendar arithmetic, so "how many days ago" is counted in clinic dates, never in 24-hour periods of the
+ * browser clock (V2-06 06-08: replaces render-time `Date.now()` reads that React Compiler's `purity` rule reports).
+ */
+export function daysBetweenYmd(fromYmd: string, toYmd: string): number | null {
+  if (!isYmd(fromYmd) || !isYmd(toYmd)) return null;
+  const a = parseYmd(fromYmd);
+  const b = parseYmd(toYmd);
+  return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 86_400_000);
 }
 
 /** The first day of the month that contains `ymd`. */

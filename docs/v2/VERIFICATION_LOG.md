@@ -815,6 +815,21 @@ security audit anyways"). Applies from the 05a re-verification onward; nothing a
 | 4. Overlapping phases | V2-06 starts now alongside V2-05 (05a fixes, then 05b), in its own worktree, branched from the 05a tip and later merging the 05b tip (merge commits only). Plans that need 05b code (06-06; the locked-user leg of 06-05 spec 1) wait for 05b |
 | V2-14 | Remains the full security verification (adversarial review + scanners) and is the backstop for deferred Lows. It does not replace per-change review of security-sensitive code |
 
+### G2-D addendum: approved state is the CliniQ AI brand theme at `3a78a5d` (2026-11-14)
+
+The G2-D row above names `e95b8b5` (direction A, teal). The PO since supplied the CliniQ AI brand (Claude Design patch,
+applied as `d2e399f`) and decided the With-doctor border `#11998D` (`3a78a5d`, PR #7 head). **Approved state for V2-06
+Wave B: `v2/phase-dx-design-exploration` at `3a78a5d`**; per-file SHA-256 list (tool output) in the 06-PLAN revision
+note of 2026-11-14. Typography: Manrope display + Inter body. CTO rulings on the plan's open items (PO delegated):
+
+| Item | Ruling |
+|---|---|
+| PWA theme colour | `#FFFFFF` (white-first canvas, as approved in V2-DX); one token to change |
+| Favicon below 32 px | Brand-kit rule: the small mark below 32 px; the white-tile icon for app icons |
+| "ClinicOS"/"ClinicQ" strings outside V2-06 | Renamed by their owner phases: WhatsApp templates in V2-12 (templates are re-registered there anyway); `X-ClinicQ-Signature` decided with API v1 hardening (P1-37) — no external consumer exists yet (PO-16); other UI copy by the phase that owns the screen |
+| Inter licence file | Vendor rsms/inter's own `OFL.txt` (correct copyright line) |
+| Doc errata (DESIGN_SYSTEM, PWA_STRATEGY, PO-19) | Proposed at phase close, as planned |
+
 ### V2-05b CTO rulings applied to approved docs (2026-11-15)
 
 Made by the agent as CTO under the PO's delegation of the V2-05 rulings (05-P1, delegated 2026-11-13: "for the rest, I
@@ -830,3 +845,56 @@ overturn any of them at the 05b gate (05-P6). Source: `.planning/phases/05-db-au
 
 R-38's other proposed errata (roadmap V2-05/DB-08, SVP §6.1, AUTH §3.2/§9, BACKEND C6/§3, SUB §7.1/§7.2) are not
 applied here; they stay listed in `05-PLAN.md` § Rulings for the V2-05 phase close.
+
+### PO ruling: lean delivery process from V2-07 (2026-11-15)
+
+PO: "adopt a lean process" (after V2-05/V2-06 used ~75 % of a week's usage quota in ~48 h). Supersedes the review/test
+depth parts of the 2026-11-14 speed ruling from V2-07 onward.
+
+| Item | Ruling |
+|---|---|
+| Reviews | One review round + one fix round per phase; re-check only Highs; Mediums found in a re-check go to the backlog with an owner, except real cross-tenant/PHI leaks; V2-14 is the sweep |
+| Tests in agents | Affected tests only + one full browser lane at the end of a plan; CI runs everything; one evidence run + CI; one "fails without" proof per High; no mutant runs |
+| Models | Sonnet for build work, Haiku for docs/evidence/merges, Opus for security review and hard debugging |
+| Parallelism | One phase at a time (or separate local stacks per track) |
+| Building | Vertical slices: each screen with the components it uses |
+| Unchanged | Flaky tests are root-caused, never retried to green; CI-only evidence; PO approves every gate |
+
+### PO decision: API v1 for a third-party AI voice bot (2026-11-15) — updates PO-16
+
+PO: "I was thinking of using third party for now for stable launch and once we get traction we build our own."
+
+| Item | Decision |
+|---|---|
+| PO-16 | Updated: an external API consumer exists (a third-party AI voice bot for appointments). P1-37 becomes **P1** in V2-12, no longer P2 |
+| V2-12 scope added | An appointments-scoped API: free slots, book, reschedule, cancel, patient lookup by mobile; per-key least-privilege scopes (a voice-bot key holds appointment scopes only, never clinical); clinical resources (prescriptions, referrals, lab orders, clinical notes) refused for such keys; rate limits; idempotency keys; fixed error texts; per-key audit; OpenAPI contract; change webhook; full-access clinics only (05b) |
+| Own voice bot | Stays v2.1 (AI Voice Receptionist), after traction |
+| Vendor | Third-party vendor is a sub-processor (patient names and phone numbers): DPA and India data residency check before go-live (PO action, alongside MSG91 / Vertex) |
+
+### PO decisions: post-v2.0 features and the branch model (2026-11-15)
+
+| Item | Decision |
+|---|---|
+| Clinic branches | **Option B: one clinic, many locations.** Patients and clinical history are shared across branches; visits, appointments, queue, staff assignment and invoice numbering are per location. **v2.0:** add the data-model hook only (a `clinic_locations` table, one default location per clinic, `location_id` on visits/appointments/queue/invoices) in V2-07/V2-08, so no live-data migration is needed later. **v2.1:** branch screens, per-branch reports, branch switcher |
+| Inventory & stock (medicines, equipment, consumables) | v2.1. Self-contained module; Schedule H dispensing record rules scoped when planned |
+| Voice Rx / voice consult (speech-to-text → LLM) | v2.1, first AI item. V2-12 designs the AI gateway so audio input can be added without rework; needs India-hosted STT, recording consent, audio retention/deletion and cost limits |
+| v2.0 scope | Unchanged otherwise (risk R12 scope creep) |
+
+### PO decision: branch pricing and the two-mode Razorpay billing strategy (2026-11-15)
+
+Context: Razorpay Subscriptions authorised by UPI AutoPay or e-mandate cannot be updated (quantity included); only card
+subscriptions can. A clinic that starts with one branch and grows needs a different path.
+
+| Item | Decision |
+|---|---|
+| Price | First branch ₹1,499 + GST; each extra branch **₹749 + GST** per month (configurable in `plan_prices`, no release needed) |
+| Billing unit | One owner, one debit, one GST invoice per cycle listing every branch |
+| Two billing modes | **Single-branch clinics: Razorpay Subscriptions** (fixed ₹1,768.82 mandate, nothing to explain). **Multi-branch clinics: Razorpay Recurring Payments** (one variable "as presented" mandate up to a stated maximum; CliniQ computes each cycle's amount) |
+| Onboarding | Owner is asked up front: "Do you have, or plan to open, other branches?" with a short note on why and how billing works for each answer; the answer picks the mode |
+| Adding a branch later (single → multi) | From the billing screen (owner/admin). The branch works immediately. The owner approves a recurring mandate; only after it is active is the subscription set to cancel at the end of its paid period (no gap, no double charge). The first recurring debit, on the old renewal date, includes the base, extra branches and the pro-rated amount |
+| Mid-cycle branch add (recurring mode) | Pro-rated for the remaining days and added to the **next** bill; no extra debit, no new mandate |
+| Recurring mandate maximum | CTO default (PO may change): enough for the declared/planned branches plus one, minimum ₹5,000, maximum ₹15,000 (or the limit Razorpay allows for our category), shown clearly before approval; exceeding it asks the owner for one re-approval |
+| Closing a branch | Stops counting from the next bill; no refund for the current period. Switching back to the fixed subscription is v2.1 |
+| Trial | Branches added during the trial are free until it ends |
+| To confirm with Razorpay (PO, during KYC) | Variable "as presented" debits on UPI AutoPay and e-mandate; the mandate maximum for our category; pre-debit notices; switching flow without double debits |
+| Owner phase | V2-13B (scope grows; estimate +20–30 %); branch data hook in V2-07/V2-08; branch screens v2.1 |

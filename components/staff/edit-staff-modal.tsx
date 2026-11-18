@@ -91,7 +91,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#1769E0] flex items-center justify-center border border-blue-100">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-accent flex items-center justify-center border border-blue-100">
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -108,7 +108,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -123,7 +123,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
               onClick={() => setActiveTab("general")}
               className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "general"
-                  ? "border-[#1769E0] text-[#1769E0]"
+                  ? "border-accent text-accent"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -135,7 +135,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
               onClick={() => setActiveTab("schedule")}
               className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
                 activeTab === "schedule"
-                  ? "border-[#1769E0] text-[#1769E0]"
+                  ? "border-accent text-accent"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -163,7 +163,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             {/* Full Name */}
             <Field label="Full Name" htmlFor="staff_fullname" required>
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
+                <span className="absolute start-3 top-2.5 text-fg-subtle">
                   <User className="w-4 h-4" />
                 </span>
                 <Input
@@ -191,14 +191,14 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             {/* Role */}
             <Field label="Assigned Role" htmlFor="staff_role" required>
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
+                <span className="absolute start-3 top-2.5 text-fg-subtle">
                   <Shield className="w-4 h-4" />
                 </span>
                 <select
                   id="staff_role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 >
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>
@@ -213,14 +213,14 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             {isDoctorOrOwner && (
               <Field label="Primary Specialty" htmlFor="staff_specialty">
                 <div className="relative">
-                  <span className="absolute start-3 top-2.5 text-gray-400">
+                  <span className="absolute start-3 top-2.5 text-fg-subtle">
                     <Stethoscope className="w-4 h-4" />
                   </span>
                   <select
                     id="staff_specialty"
                     value={defaultSpecialty}
                     onChange={(e) => setDefaultSpecialty(e.target.value)}
-                    className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                    className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-xs font-semibold text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                   >
                     <option value="general_physician">General Physician</option>
                     <option value="dental">Dental</option>
@@ -233,9 +233,9 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
 
           {/* Clinical Credentials Section for Doctors */}
           {isDoctorOrOwner && (
-            <div className="p-4 rounded-xl border border-blue-200 bg-[#F4F8FF]/80 space-y-3.5">
+            <div className="p-4 rounded-xl border border-blue-200 bg-accent-tint/80 space-y-3.5">
               <div className="flex items-center gap-2 pb-1.5 border-b border-blue-100">
-                <GraduationCap className="w-4 h-4 text-[#1769E0]" />
+                <GraduationCap className="w-4 h-4 text-accent" />
                 <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
                   Doctor Clinical Credentials
                 </h4>
@@ -249,7 +249,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
                 required
               >
                 <div className="relative">
-                  <span className="absolute start-3 top-2.5 text-gray-400">
+                  <span className="absolute start-3 top-2.5 text-fg-subtle">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
                   <Input
@@ -289,7 +289,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
                       key={deg}
                       type="button"
                       onClick={() => addDegreeChip(deg)}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white border border-blue-200 text-[#1769E0] hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white border border-blue-200 text-accent hover:bg-blue-50 transition-colors cursor-pointer"
                     >
                       +{deg}
                     </button>
@@ -314,7 +314,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             <Button
               type="submit"
               disabled={isPending}
-              className="h-10 px-5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
+              className="h-10 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
               <span>{isPending ? "Saving..." : "Save Member Details"}</span>

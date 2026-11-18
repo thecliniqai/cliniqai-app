@@ -167,7 +167,7 @@ export function WaitlistDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 text-fg-subtle hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -200,7 +200,7 @@ export function WaitlistDrawer({
                   id="wl-doctor"
                   value={doctorId}
                   onChange={(e) => setDoctorId(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
                 >
                   <option value="any">Any Available Doctor</option>
                   {doctors.map((doc) => (
@@ -218,7 +218,7 @@ export function WaitlistDrawer({
                   id="wl-window"
                   value={timeWindow}
                   onChange={(e) => setTimeWindow(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
                 >
                   <option value="Morning (9 AM - 1 PM)">Morning (9 AM - 1 PM)</option>
                   <option value="Afternoon (1 PM - 5 PM)">Afternoon (1 PM - 5 PM)</option>
@@ -232,7 +232,7 @@ export function WaitlistDrawer({
                   id="wl-priority"
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
-                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
                 >
                   <option value={0}>Normal (0)</option>
                   <option value={5}>High (5)</option>
@@ -262,7 +262,7 @@ export function WaitlistDrawer({
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "search"
-                    ? "border-brand-500 text-brand-500"
+                    ? "border-accent text-accent"
                     : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
@@ -278,7 +278,7 @@ export function WaitlistDrawer({
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "new"
-                    ? "border-brand-500 text-brand-500"
+                    ? "border-accent text-accent"
                     : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
@@ -297,7 +297,7 @@ export function WaitlistDrawer({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <Search className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
+                    <Search className="w-4 h-4 text-fg-subtle absolute right-3 top-3.5 pointer-events-none" />
                   </div>
                 </Field>
 
@@ -342,7 +342,7 @@ export function WaitlistDrawer({
                                 {p.phone}
                               </div>
                             </div>
-                            <UserCheck className="w-4 h-4 text-brand-500 shrink-0" />
+                            <UserCheck className="w-4 h-4 text-accent shrink-0" />
                           </button>
                         ))}
                       </div>

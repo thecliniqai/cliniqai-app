@@ -1,0 +1,302 @@
+[
+  {
+    "mutant": "route-no-store-removed",
+    "file": "app/api/session-status/route.ts",
+    "specs": [
+      "tests/api/session-status-db.spec.ts",
+      "tests/security/guard-routes.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 61,
+      "failed": 7
+    },
+    "failed": [
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) tracer: the owner of a full clinic gets { accessLevel: 'full', redirect: null } and nothing else",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) signed out \u2192 401 unauthenticated, no-store",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) signed in without a membership \u2192 403 no_membership",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) locked owner \u2192 /billing/locked; locked receptionist \u2192 /billing/locked/staff",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) onboarding owner and receptionist \u2192 /onboarding/billing",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) a dual-clinic user gets the active clinic's level (cookie), and 409 when none is chosen",
+      "tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded seeded legs denial legs (no writes) session-status: app/api/session-status/route.ts#GET"
+    ]
+  },
+  {
+    "mutant": "route-honours-query-tenant",
+    "file": "app/api/session-status/route.ts",
+    "specs": [
+      "tests/api/session-status-db.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 9,
+      "failed": 1
+    },
+    "failed": [
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) a dual-clinic user gets the active clinic's level (cookie), and 409 when none is chosen"
+    ]
+  },
+  {
+    "mutant": "route-unauthenticated-as-503",
+    "file": "app/api/session-status/route.ts",
+    "specs": [
+      "tests/api/session-status-db.spec.ts",
+      "tests/security/guard-routes.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 65,
+      "failed": 3
+    },
+    "failed": [
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) signed out \u2192 401 unauthenticated, no-store",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) a session revoked at GoTrue (access token still unexpired) \u2192 401",
+      "tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded seeded legs denial legs (no writes) session-status: app/api/session-status/route.ts#GET"
+    ]
+  },
+  {
+    "mutant": "route-no-membership-as-200-full",
+    "file": "app/api/session-status/route.ts",
+    "specs": [
+      "tests/api/session-status-db.spec.ts",
+      "tests/security/guard-routes.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 65,
+      "failed": 3
+    },
+    "failed": [
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) signed in without a membership \u2192 403 no_membership",
+      "tests/api/session-status-db.spec.ts > GET /api/session-status (local stack) a removed member (05-05 status 'removed', session still live) \u2192 403 no_membership",
+      "tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded seeded legs denial legs (no writes) session-status: app/api/session-status/route.ts#GET"
+    ]
+  },
+  {
+    "mutant": "client-any-redirect-followed",
+    "file": "lib/pwa/session-status.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 20,
+      "failed": 1
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > parseSessionStatus refuses any other destination, extra or missing keys, odd levels and inconsistent answers"
+    ]
+  },
+  {
+    "mutant": "client-5xx-signs-out",
+    "file": "lib/pwa/session-status.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 19,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > readSessionStatus 409, 5xx, an opaque redirect, a bad body, a network error or a timeout \u2192 unknown (never a sign-out)",
+      "tests/pwa/session-status.spec.ts > startSessionStatusWatch a 503 changes nothing and the next trigger checks again"
+    ]
+  },
+  {
+    "mutant": "client-update-without-page-id",
+    "file": "lib/pwa/session-status.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts",
+      "tests/pwa/update.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 34,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > reactToStatus no update without both ids (a dev page has no data-dpl-id; a server without an id answers null)",
+      "tests/pwa/update.spec.ts > the service worker side mismatch detection ignores a missing data-dpl-id instead of looping"
+    ]
+  },
+  {
+    "mutant": "client-no-error-throttle",
+    "file": "lib/pwa/session-status.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 20,
+      "failed": 1
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > startSessionStatusWatch error-triggered checks run at most once per ERROR_CHECK_MIN_GAP_MS"
+    ]
+  },
+  {
+    "mutant": "lock-signs-out-no-conceal",
+    "file": "lib/pwa/lock.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 19,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > onLocked (D-8: the session is kept) conceals, runs the lock cleanups, then replaces; never signs out",
+      "tests/pwa/session-status.spec.ts > onLocked (D-8: the session is kept) replaces even when a cleanup rejects; a second call does nothing"
+    ]
+  },
+  {
+    "mutant": "update-ignores-dirty",
+    "file": "lib/pwa/update.ts",
+    "specs": [
+      "tests/pwa/update.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 12,
+      "failed": 3
+    },
+    "failed": [
+      "tests/pwa/update.spec.ts > safe-point apply on a route change a form with typed input blocks the reload while it is on screen and on the navigation that removes it; the next applies",
+      "tests/pwa/update.spec.ts > safe-point apply on a route change input outside a form blocks only until the navigation",
+      "tests/pwa/update.spec.ts > safe-point apply on a route change a command in flight blocks the reload until it settles"
+    ]
+  },
+  {
+    "mutant": "update-applies-after-skew",
+    "file": "lib/pwa/update.ts",
+    "specs": [
+      "tests/pwa/update.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 14,
+      "failed": 1
+    },
+    "failed": [
+      "tests/pwa/update.spec.ts > safe-point apply on a route change after a skew notice nothing reloads by itself, even with nothing typed"
+    ]
+  },
+  {
+    "mutant": "dirty-submit-not-clearing",
+    "file": "lib/pwa/dirty-guard.ts",
+    "specs": [
+      "tests/pwa/dirty-guard.spec.ts",
+      "tests/pwa/update.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 20,
+      "failed": 4
+    },
+    "failed": [
+      "tests/pwa/dirty-guard.spec.ts > dirty guard input marks the field's form dirty; its submit clears it",
+      "tests/pwa/dirty-guard.spec.ts > dirty guard change marks dirty too; reset clears",
+      "tests/pwa/dirty-guard.spec.ts > dirty guard a field without .form is matched to its closest <form>",
+      "tests/pwa/update.spec.ts > safe-point apply on a route change a submitted or reset form is clean again"
+    ]
+  },
+  {
+    "mutant": "skew-not-marked",
+    "file": "lib/pwa/skew.ts",
+    "specs": [
+      "tests/pwa/session-status.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 19,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/session-status.spec.ts > skew guard an unrecognised Server Action (Next's own error) is skew: the notice is set, a check is asked for",
+      "tests/pwa/session-status.spec.ts > skew guard startSkewGuard listens to unhandledrejection and error, and stops"
+    ]
+  },
+  {
+    "mutant": "platform-ipad-without-touch-rule",
+    "file": "lib/pwa/platform.ts",
+    "specs": [
+      "tests/pwa/platform.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 17,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/platform.spec.ts > platform detection (UA table) ipadAsMac (maxTouchPoints 5)",
+      "tests/pwa/platform.spec.ts > platform detection (UA table) installMode per device"
+    ]
+  },
+  {
+    "mutant": "platform-in-app-ignored",
+    "file": "lib/pwa/platform.ts",
+    "specs": [
+      "tests/pwa/platform.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 18,
+      "failed": 1
+    },
+    "failed": [
+      "tests/pwa/platform.spec.ts > platform detection (UA table) installMode per device"
+    ]
+  },
+  {
+    "mutant": "intent-url-keeps-query",
+    "file": "lib/pwa/platform.ts",
+    "specs": [
+      "tests/pwa/platform.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 17,
+      "failed": 2
+    },
+    "failed": [
+      "tests/pwa/platform.spec.ts > chromeIntentUrl is built from host and path only (no query, no fragment)",
+      "tests/pwa/platform.spec.ts > chromeIntentUrl cannot be steered by odd host or path characters"
+    ]
+  },
+  {
+    "mutant": "card-first-session",
+    "file": "lib/pwa/install.ts",
+    "specs": [
+      "tests/pwa/platform.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 18,
+      "failed": 1
+    },
+    "failed": [
+      "tests/pwa/platform.spec.ts > Today install card rules shows from the second session, while an install path exists, unless dismissed in the last 30 days"
+    ]
+  },
+  {
+    "mutant": "env-deployment-id-unchecked",
+    "file": "lib/env.ts",
+    "specs": [
+      "tests/config/env-schema.spec.ts"
+    ],
+    "exit": 1,
+    "totals": {
+      "passed": 270,
+      "failed": 5
+    },
+    "failed": [
+      "tests/config/env-schema.spec.ts > env schema: deployment id (06-06, R-21) test: an id with spaces, other characters or 65 characters is refused, by name only",
+      "tests/config/env-schema.spec.ts > env schema: deployment id (06-06, R-21) development: an id with spaces, other characters or 65 characters is refused, by name only",
+      "tests/config/env-schema.spec.ts > env schema: deployment id (06-06, R-21) ci: an id with spaces, other characters or 65 characters is refused, by name only",
+      "tests/config/env-schema.spec.ts > env schema: deployment id (06-06, R-21) staging: an id with spaces, other characters or 65 characters is refused, by name only",
+      "tests/config/env-schema.spec.ts > env schema: deployment id (06-06, R-21) production: an id with spaces, other characters or 65 characters is refused, by name only"
+    ]
+  }
+]

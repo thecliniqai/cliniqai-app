@@ -1,0 +1,86 @@
+06-09d close with-fix run, Vitest: the same specs at the fixed tree (working tree on top of e7d99ce, before the fix commit), shared local stack, 2026-11-15T09:32:04Z.
+Command: npx vitest run tests/auth/session-auth-close-db.spec.ts tests/auth/auth-failure.spec.ts tests/auth/session-auth-reverify-db.spec.ts --reporter=verbose
+
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N1: a slow but successful password change reports success > PUT /user answered after 4.5 s (applied at once), after a 1.5 s breached-password check: ok, new password signs in 6545ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > the bounds: proxy hard stop + the route's budget stay under the client's status timeout 1ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > a refresh answered after 4.5 s: signed in, the rotated session stored, no 'unavailable' mark, no /login 4724ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > a refresh that never answers ends at the proxy's bound; the route ends at its own; together < 10 s 9259ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > the proxy's pin name is the request client's 0ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > revoked session (expired token, real GoTrue refusal): 307 /login, auth cookie and pin both expired 264ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > no session at all: a public page (/login) and a Server Action POST expire a leftover pin 3ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > controls: a signed-in request and an Auth outage (a refresh that never answers) keep the pin 5700ms
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > D5: device pinned to A, session revoked while closed; a user of B only then signs in on it → 200 (B), not 403 715ms
+ ✓ tests/auth/auth-failure.spec.ts > isDefinitiveAuthRejection: GoTrue's codes, never a bare 4xx > definitive: a missing session, a token that fails verification, GoTrue's session/refresh/user codes 1ms
+ ✓ tests/auth/auth-failure.spec.ts > isDefinitiveAuthRejection: GoTrue's codes, never a bare 4xx > not definitive: uncoded 4xx (gateway 400, Kong 401/404), no_authorization, 408, 429, 5xx, network, unknown 0ms
+ ✓ tests/auth/auth-failure.spec.ts > classifyAuthAnswer mirrors auth-js's reading of an answer > reads body.code only with GoTrue's API-version header, else body.error_code 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > records each Auth answer's outcome; keepSessionCookies drops auth-cookie deletions only after 'unavailable' 2ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a thrown network error is 'unavailable' and is rethrown (auth-js maps it to a retryable error) 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a call still running at the deadline is aborted and answered 408 (synthetic); later calls get it without a request 1ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a refresh failing retryably is cut once auth-js's next back-off sleep would pass the deadline 1ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > under the proxy's mark, /user and the refresh grant are answered at once; sign-in, sign-out and PostgREST are sent 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: a spent session budget never refuses or cuts a non-session call (PUT /user is sent and awaited) 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: a sign-out is sent after the session budget is spent and has its own bound 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: the JWKS fetch inside getClaims is a session call (bounded, refused once the budget is spent) 0ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > tracer: an expired session with Auth answering is refreshed (route 200, proxy refreshes the cookie) 140ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers network: the route answers 503 twice and keeps the cookies 6039ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers abort: the route answers 503 twice and keeps the cookies 6033ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 503: the route answers 503 twice and keeps the cookies 6026ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 500: the route answers 503 twice and keeps the cookies 6030ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 520: the route answers 503 twice and keeps the cookies 6028ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 429: the route answers 503 twice and keeps the cookies 3ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 408: the route answers 503 twice and keeps the cookies 3ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 400gw: the route answers 503 twice and keeps the cookies 3ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 404kong: the route answers 503 twice and keeps the cookies 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401kong: the route answers 503 twice and keeps the cookies 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 403html: the route answers 503 twice and keeps the cookies 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401noauth: the route answers 503 twice and keeps the cookies 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers network: the proxy keeps the cookies, never redirects to /login, marks the request 3013ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers abort: the proxy keeps the cookies, never redirects to /login, marks the request 3012ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 503: the proxy keeps the cookies, never redirects to /login, marks the request 3018ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 500: the proxy keeps the cookies, never redirects to /login, marks the request 3014ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 520: the proxy keeps the cookies, never redirects to /login, marks the request 3014ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 429: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 408: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 400gw: the proxy keeps the cookies, never redirects to /login, marks the request 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 404kong: the proxy keeps the cookies, never redirects to /login, marks the request 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401kong: the proxy keeps the cookies, never redirects to /login, marks the request 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 403html: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401noauth: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > server actions: a 429 on the refresh is 'unavailable' (never 'unauthenticated') and keeps the cookies 1ms
+RV timing token=hang -> proxy 5506 ms (200), route 3506 ms (503)
+RV timing token=network -> proxy 3012 ms (200), route 3012 ms (503)
+RV timing token=503 -> proxy 3012 ms (200), route 3014 ms (503)
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > L-R3: a refresh that never answers, or keeps failing, ends inside the budget; proxy + route < the client's 10 s 21062ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > L-R2: under the proxy's mark nothing refreshes again; the layout and Today throw AuthUnavailableError (no /login) 6ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > the proxy removes an inbound mark (only the proxy sets it) 32ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > synthetic GoTrue refresh_token_not_found: route 401 and the cookie deleted; proxy /login and the cookie deleted 273ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > a session revoked for real (admin global sign-out): expired → route 401 + deleted, proxy /login + deleted; unexpired → route 401 253ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > a malformed refresh token (real GoTrue validation_failed) signs out 208ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > tracer: /user ok → 200 24ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers network → 503, cookies kept 2ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers abort → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 503 → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 500 → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 520 → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 429 → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 408 → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 400gw → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 404kong → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 401kong → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 403html → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 401noauth → 503, cookies kept 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R1: /user answers are classified by GoTrue's code (unexpired token) > under the proxy's mark the route does not call /user at all 1ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > 06-09d: signing out during an Auth incident still signs this device out > /logout answers 404kong: the auth cookies are deleted all the same 191ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > 06-09d: signing out during an Auth incident still signs this device out > /logout answers 401kong: the auth cookies are deleted all the same 182ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > 06-09d: signing out during an Auth incident still signs this device out > /logout answers 503: the auth cookies are deleted all the same 183ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > 06-09d: signing out during an Auth incident still signs this device out > /logout answers 429: the auth cookies are deleted all the same 191ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > M-REMOVED-R1: the device is pinned to the clinic it resolved > R3 cookie-less: A only (poll pins A) → added to B → removed from A → 403, never B's 200 522ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > M-REMOVED-R1: the device is pinned to the clinic it resolved > the pin is written only when none is set; a dual member without one is not pinned (409) 465ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > M-REMOVED-R1: the device is pinned to the clinic it resolved > the shell's clinic header is resolved like the cookie: its own clinic is pinned, another clinic answers 403, a set cookie wins 617ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > M-REMOVED-R1: the device is pinned to the clinic it resolved > the layout hands the shell its clinic while none is pinned, and nothing once pinned 506ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > M-REMOVED-R1: the device is pinned to the clinic it resolved > R1/R2 (06-09c) still hold: cookie = A, removed from (or suspended in) A with B left → 403 927ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R4: removed from the last clinic > with the clinic pinned: the layout renders MembershipEnded (sign-out, purge), the route 403 494ms
+ ✓ tests/auth/session-auth-reverify-db.spec.ts > L-R4: removed from the last clinic > a new account without a clinic (no pinned clinic) still goes to /clinic/new 205ms
+ Test Files  3 passed (3)
+      Tests  77 passed (77)
+[teardown] removed run data: 31 tenant(s), 41 auth user(s), 0 storage object(s); verified none remain

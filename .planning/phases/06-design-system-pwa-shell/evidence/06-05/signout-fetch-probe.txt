@@ -1,0 +1,6 @@
+# Research A4 / risk K-4 probe (06-05, 2026-11-14T08:05:12Z, desktop-chrome, built app on 127.0.0.1:3100)
+# A signed-in fresh synthetic nurse; page.evaluate(fetch('/auth/signout', {method:'POST', body: scope=local, redirect:'manual', credentials:'same-origin'})).
+# js = what the page's fetch resolved to; seen = Playwright context events for the request; before/after = sb-*-auth-token cookies with a value.
+DEBUG {"js":{"type":"opaqueredirect","status":0},"seen":["failed:net::ERR_ABORTED"],"before":1,"after":0}
+# Earlier probe (menu click through hardSignOut): events seen for /auth/signout:
+SEEN ["context:request","page:request","context:requestfailed","page:requestfailed"]

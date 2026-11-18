@@ -1,0 +1,14 @@
+{
+  "id": "owner-patient",
+  "width": 820,
+  "path": "/patients/<id>",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [],
+  "horizontalScroll": false
+}

@@ -50,7 +50,7 @@ export function StaffList({ members, isOwnerOrAdmin }: StaffListProps) {
               className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors"
             >
               <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center font-bold text-sm shrink-0">
                   {m.role.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -70,7 +70,7 @@ export function StaffList({ members, isOwnerOrAdmin }: StaffListProps) {
                   {isDoctor && (m.qualifications || m.medical_council_reg_no) && (
                     <div className="flex items-center gap-2 mt-1 flex-wrap text-xs">
                       {m.qualifications && (
-                        <span className="inline-flex items-center gap-1 font-semibold text-[#1769E0] bg-blue-50/70 border border-blue-100 px-2 py-0.5 rounded-md text-[11px]">
+                        <span className="inline-flex items-center gap-1 font-semibold text-accent bg-blue-50/70 border border-blue-100 px-2 py-0.5 rounded-md text-[11px]">
                           <GraduationCap className="w-3 h-3" />
                           <span>{m.qualifications}</span>
                         </span>

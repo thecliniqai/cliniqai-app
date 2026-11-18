@@ -67,6 +67,10 @@ describe("AR2-H1: encoded dot segments never reach the storage signer", () => {
     const res = await signSharedObject(TOKEN, ["patient_document"]);
     expect(res?.signedUrl).toContain("signed");
     expect(createSignedUrl).toHaveBeenCalledTimes(1);
+    // 06-09b (N-1): a patient share link signs a 5-minute view link (was 10 minutes).
+    expect(createSignedUrl).toHaveBeenCalledWith(`tenants/${TENANT_A}/patients/${PATIENT_P}/labs/report_2026-10-22.pdf`, 300, {
+      download: "report.pdf",
+    });
   });
 
   it("05-10a: a well-formed key of a clinic that is not full is not signed (R-28)", async () => {

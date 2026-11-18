@@ -1,0 +1,13 @@
+npx playwright test tests/e2e/design/input-modes.spec.ts --project=design-{360,820,1180,1280} --retries=0, build of 20b5e94, e2e lane lock
+[WebServer] ✓ Ready in 104ms
+[WebServer] ✓ Running next.config.ts took 65ms
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (624ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (414ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (539ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (381ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (362ms)
+  ✓  6 [design-360] › tests/e2e/design/input-modes.spec.ts:21:5 › input kinds and control sizes on /dev/ui (197ms)
+  ✓  7 [design-820] › tests/e2e/design/input-modes.spec.ts:21:5 › input kinds and control sizes on /dev/ui (186ms)
+  ✓  8 [design-1180] › tests/e2e/design/input-modes.spec.ts:21:5 › input kinds and control sizes on /dev/ui (198ms)
+  ✓  9 [design-1280] › tests/e2e/design/input-modes.spec.ts:21:5 › input kinds and control sizes on /dev/ui (198ms)
+  9 passed (8.0s)

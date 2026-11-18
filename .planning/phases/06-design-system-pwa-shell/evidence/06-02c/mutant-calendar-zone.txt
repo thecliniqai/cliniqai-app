@@ -1,0 +1,13 @@
+06-02c mutant check (tool output, 2026-11-14T20:29:34Z): does the UTC+14 calendar case fail when the Calendar ignores the clinic zone?
+Mutant: components/ui/calendar.tsx without the DayPicker props 'timeZone={timeZone}' and 'noonSafe' (built with npm run e2e:build at 064c75b + that edit; the file was restored with git checkout right after the build).
+Command: npx playwright test tests/e2e/design/keyboard/data-and-dates.spec.ts --project=desktop-chrome --retries=0 -g "UTC\+14|clinic's own zone" (lane lock)
+
+  1) [desktop-chrome] › tests/e2e/design/keyboard/data-and-dates.spec.ts:87:7 › DateField and Calendar in a browser far from the clinic (UTC+14) › at 23:30 IST the calendar's today is the clinic's 12 Nov; arrows, Home/End and PageUp/PageDown move; Enter picks it; focus returns to the field 
+    Error: expect(locator).toHaveAccessibleName(expected) failed
+    Expected: "November 2026"
+    Received: "October 2026"
+    test-results/design-keyboard-data-and-d-dfcf7--focus-returns-to-the-field-desktop-chrome/test-failed-1.png
+  1 failed
+  12 passed (15.6s)
+
+Reading: the far-zone case fails at its first calendar assertion (the grid opened on October: the browser's local midnight of 1 Nov read in IST); the IST-zone cases pass, as they must when browser and clinic share a zone. Restored head: the same cases pass (e2e-pr.txt).

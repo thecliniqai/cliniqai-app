@@ -43,6 +43,24 @@
  *          (tests/helpers/subscription.spec.ts, the rewritten tests/integration/subscription.spec.ts, auth/invite,
  *          cross-tenant, share-path-encoding, invite-token-lockout, msg91-webhook) and the two gate-close specs
  *          (ai-commit-expiry-race, invite-dedupe-role): 173 in total.
+ *   5872 — V2-06 06-08 (phase close step 1): the full suite at the 06-08 tree (000094, branch and stack matching) had
+ *          6181 tests in 300 files, 0 skipped (evidence/06-08/vitest-full-summary.txt); 6181 × 0.95 = 5871.95 → 5872.
+ *          REQUIRED_FILES gains every spec V2-06 added outside tests/e2e (40 files; 213 in total).
+ *   5909 — V2-06 06-09c (Wave B review fixes): the full suite at the 06-09c tree (000094) had 6219 tests in 303 files,
+ *          0 skipped (evidence/06-09c/vitest-full-summary.txt); 6219 × 0.95 = 5908.05 → 5909. REQUIRED_FILES + the three
+ *          new 06-09c specs (auth-outage-db, active-clinic-removed-db, record-layouts-db; 216 in total).
+ *   5974 — V2-06 06-09d (re-verification fixes): the full suite at the 06-09d tree (c68851a, stack 000094) had 6288
+ *          tests in 305 files, 0 skipped (evidence/06-09d/vitest-full-summary.txt); 6288 × 0.95 = 5973.6 → 5974.
+ *          REQUIRED_FILES + the two new 06-09d specs (auth-failure, session-auth-reverify-db; 218 in total).
+ *   5985 — V2-06 gate close: the full suite at the gate-close tree (5197b1a + this commit's REQUIRED_FILES line, stack
+ *          000094) had 6300 tests in 306 files, 0 skipped (evidence/close/vitest-full-measure.txt); 6300 × 0.95 = 5985.
+ *          REQUIRED_FILES + tests/auth/session-auth-close-db.spec.ts (219 in total). tests/ci/vitest-report-gate.spec.ts
+ *          follows the default (it still named 5909: b11e398 raised the FLOOR without it, so that spec failed from
+ *          b11e398 on; fixed here).
+ *   5992 — V2-06 06-09e (G3 design review fixes): the full suite at the 06-09e tree (2a23550 + this commit's
+ *          REQUIRED_FILES line, stack 000094) had 6307 tests in 307 files, 0 skipped
+ *          (evidence/06-09e/vitest-full-summary.txt); 6307 × 0.95 = 5991.65 → 5992. REQUIRED_FILES +
+ *          tests/design/design-review-09e.spec.ts (220 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -51,7 +69,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 4826;
+const FLOOR = 5992;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -274,6 +292,69 @@ const REQUIRED_FILES = [
   "tests/messaging/msg91-webhook.spec.ts",
   "tests/ai/ai-commit-expiry-race.spec.ts",
   "tests/staff/invite-dedupe-role.spec.ts",
+  // V2-06 (06-PLAN.md "Phase close" step 1, executed by 06-08): every spec V2-06 added outside tests/e2e.
+  // 06-01a tokens, codemod, UI policy; 06-01b approved tokens, contrast, brand mark, AI labels; 06-02a… primitives.
+  "tests/design/tokens.spec.ts",
+  "tests/design/codemod.spec.ts",
+  "tests/design/png-diff.spec.ts",
+  "tests/design/approved-tokens.spec.ts",
+  "tests/design/contrast.spec.ts",
+  "tests/design/brand-mark.spec.ts",
+  "tests/design/ai-labels.spec.ts",
+  "tests/design/input-kind.spec.ts",
+  "tests/design/gallery.spec.ts",
+  "tests/design/age.spec.ts",
+  "tests/ui/cn.spec.ts",
+  "tests/utils/datetime-format.spec.ts",
+  "tests/ci/ui-policy.spec.ts",
+  "tests/ci/ui-policy-signout-guard.spec.ts",
+  // 06-07 route-JS report and Lighthouse CI config (cookie scrub).
+  "tests/ci/route-js.spec.ts",
+  "tests/ci/lhci-config.spec.ts",
+  // 06-04a client error capture (PHI); 06-09a client render events and route patterns.
+  "tests/errors/client-error-kind.spec.ts",
+  "tests/observability/client-error-action-db.spec.ts",
+  "tests/observability/client-render-event.spec.ts",
+  "tests/observability/client-routes.spec.ts",
+  // 06-05 / 06-09a service worker allowlist, hard sign-out and purge, no-store, icons, device prefs.
+  "tests/pwa/sw-allowlist.spec.ts",
+  "tests/pwa/hard-sign-out.spec.ts",
+  "tests/pwa/purge.spec.ts",
+  "tests/pwa/auth-broadcast.spec.ts",
+  "tests/pwa/proxy-no-store-db.spec.ts",
+  "tests/pwa/device-prefs.spec.ts",
+  "tests/pwa/online.spec.ts",
+  "tests/pwa/icons.spec.ts",
+  // 06-06 session status, lock, update, install.
+  "tests/api/session-status-db.spec.ts",
+  "tests/pwa/session-status.spec.ts",
+  "tests/pwa/update.spec.ts",
+  "tests/pwa/dirty-guard.spec.ts",
+  "tests/pwa/platform.spec.ts",
+  // 06-03a/b clinical status, vitals and Rx vocabulary.
+  "tests/clinical/visit-status.spec.ts",
+  "tests/clinical/vitals.spec.ts",
+  "tests/clinical/rx.spec.ts",
+  // 06-04b navigation by role, palette patient search (PHI projection), shell runtime.
+  "tests/nav/nav-for-role.spec.ts",
+  "tests/patients/palette-search-db.spec.ts",
+  "tests/pwa/shell-runtime.spec.ts",
+  // 06-08 React Compiler rules at error and their waiver register (R-30).
+  "tests/ci/react-compiler-waivers.spec.ts",
+  // 06-09c Wave B review fixes: an Auth outage is never a sign-out (H-AUTHOUT), removal from the active clinic
+  // (M-REMOVED), record layouts tell a failed lookup from "not found" (IND L-2).
+  "tests/auth/auth-outage-db.spec.ts",
+  "tests/auth/active-clinic-removed-db.spec.ts",
+  "tests/nav/record-layouts-db.spec.ts",
+  // 06-09d re-verification fixes: a refresh/`/user` failure that is not a definitive GoTrue answer never signs out or
+  // deletes cookies (H-AUTHOUT-R1, L-R1..L-R3); the device is pinned to its clinic (M-REMOVED-R1, L-R4).
+  "tests/auth/auth-failure.spec.ts",
+  "tests/auth/session-auth-reverify-db.spec.ts",
+  // V2-06 gate close (the re-check's Lows L-N1, L-N2, L-N4: the Auth budget covers only session calls, the proxy's
+  // 5.5 s budget, the pin expired on a definitive sign-out).
+  "tests/auth/session-auth-close-db.spec.ts",
+  // 06-09e (G3 design review): the BottomBar caption, palette shortcut label and initials mappings.
+  "tests/design/design-review-09e.spec.ts",
 ];
 
 const file = process.argv[2];

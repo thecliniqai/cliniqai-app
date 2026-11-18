@@ -93,7 +93,7 @@ export function SoftBlockOverrideDialog({
               setEmergencyReason(e.target.value);
               if (error) setError(null);
             }}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1769E0]/20 focus:border-[#1769E0]"
+            className="w-full px-3 py-2 text-xs rounded-xl border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
           />
         </Field>
 

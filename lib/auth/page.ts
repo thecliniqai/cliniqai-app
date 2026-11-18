@@ -1,8 +1,16 @@
 import "server-only";
 
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { assertTenantAccess, getActiveMembership, TenantLockedError, UnauthenticatedError } from "@/lib/auth/tenant";
+import {
+  ActiveClinicMembershipEndedError,
+  assertTenantAccess,
+  AuthUnavailableError,
+  getActiveMembership,
+  TenantLockedError,
+  UnauthenticatedError,
+} from "@/lib/auth/tenant";
+import { MembershipEnded } from "@/components/shell/membership-ended";
 import { accessRedirect, LOCKED_STAFF_PATH } from "@/lib/auth/access-redirect";
 import type { UserRole } from "@/lib/db/types";
 
@@ -22,6 +30,20 @@ export function isUnauthenticated(err: unknown): boolean {
 /** Redirects to sign-in when `err` is the missing-session error (`redirect` throws Next's control-flow error). */
 export function redirectIfUnauthenticated(err: unknown): void {
   if (isUnauthenticated(err)) redirect("/login");
+}
+
+/** A record id as the record layouts accept it (a UUID); anything else is "not found" without a lookup (06-09c). */
+export const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * V2-06 06-09c (IND L-2): a record layout's lookup failed (database or network error). Not "not found": the route
+ * error boundary handles it. Carries no database text (IR-L1).
+ */
+export class RecordLookupError extends Error {
+  constructor() {
+    super("The record could not be loaded.");
+    this.name = "RecordLookupError";
+  }
 }
 
 export function isTenantLocked(err: unknown): err is TenantLockedError {
@@ -60,6 +82,9 @@ async function assertPageClinicFull(): Promise<void> {
     membership = await getActiveMembership();
   } catch (err) {
     redirectIfUnauthenticated(err);
+    // 06-09d (L-R2): Auth could not answer. Never left to the page, whose own session read would take the failure for
+    // "signed out" and redirect to /login: the route error boundary shows the unavailable state (Retry) instead.
+    if (err instanceof AuthUnavailableError) throw err;
     return;
   }
   await assertTenantAccess(membership, "full");
@@ -68,8 +93,10 @@ async function assertPageClinicFull(): Promise<void> {
 /**
  * Wraps a dashboard page (an async server component): a missing or revoked session anywhere in its loader becomes a
  * redirect to /login; a clinic that is not `full` (05-10b; checked before the loader runs since 05-12) a redirect to
- * the member's locked or onboarding page; every other error (and Next's own redirect/notFound) passes through
- * unchanged.
+ * the member's locked or onboarding page; 06-09c (M-REMOVED) the active clinic no longer being one of the user's
+ * clinics renders `MembershipEnded` (sign-out and purge; on a client navigation the layout does not run again, and on a
+ * full load the page's output is discarded by the layout's own `MembershipEnded`, without a false request error);
+ * every other error (and Next's own redirect/notFound) passes through unchanged.
  */
 export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props: P) => Promise<ReactNode> {
   return async function AuthenticatedPage(props: P): Promise<ReactNode> {
@@ -79,6 +106,7 @@ export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props:
     } catch (err) {
       redirectIfUnauthenticated(err);
       await redirectIfTenantLocked(err);
+      if (err instanceof ActiveClinicMembershipEndedError) return createElement(MembershipEnded);
       throw err;
     }
   };

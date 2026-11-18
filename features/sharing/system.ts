@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSystemDb, type SystemDb } from "@/lib/supabase/system";
-import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { getSignedUrl, SupabaseStorageProvider, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
@@ -43,8 +43,6 @@ function systemRpc(db: SystemDb, name: "share_token_object" | "reschedule_token_
   return rpc.rpc(name, args);
 }
 
-/** R-29 (05-10a): share views are views (SUB §7.2): 300 s. */
-const SIGNED_URL_TTL_SECONDS = 300;
 const BUCKETS = new Set(["clinic-records", "prescriptions"]);
 
 async function shareTokenObject(
@@ -101,7 +99,8 @@ export async function signSharedObject(
       {
         path: target.storage_path,
         bucket: target.bucket,
-        expiresInSeconds: SIGNED_URL_TTL_SECONDS,
+        // 06-09b (N-1): 5 minutes (was 10). The pages load it at once; their Download buttons re-sign via the route.
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): share views are views (SUB §7.2), the 300 s cap
         downloadFilename: target.original_filename ?? undefined,
       },
       provider

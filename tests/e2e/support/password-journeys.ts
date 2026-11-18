@@ -91,9 +91,14 @@ export async function expectSignedOut(page: Page): Promise<void> {
   const outOffset = logOffset(SERVER_STDOUT_LOG);
   const errOffset = logOffset(SERVER_STDERR_LOG);
   const sinkBefore = unauthenticatedSinkEvents();
+  // The /patients answer is a 307 to /login. Chromium exposes its headers (the x-request-id); WebKit (iphone-15, 06-09a
+  // probe) reports the 307 but without its headers. Each request id seen is checked; on every browser no
+  // `request.error` line for the /patients route may appear while this page loads.
   const requestIds: string[] = [];
+  let sawPatients = false;
   const onResponse = (res: { url(): string; headers(): Record<string, string> }) => {
     if (new URL(res.url()).pathname !== "/patients") return;
+    sawPatients = true;
     const id = res.headers()["x-request-id"];
     if (id) requestIds.push(id);
   };
@@ -105,8 +110,10 @@ export async function expectSignedOut(page: Page): Promise<void> {
   } finally {
     page.off("response", onResponse);
   }
-  expect(requestIds.length, "the /patients request carried a request id").toBeGreaterThan(0);
+  expect(sawPatients, "the /patients request was answered").toBe(true);
   const printed = readLogFrom(SERVER_STDOUT_LOG, outOffset) + readLogFrom(SERVER_STDERR_LOG, errOffset);
+  const routeErrors = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes('"route":"/patients"'));
+  expect(routeErrors, "request.error for the signed-out /patients load").toEqual([]);
   for (const id of requestIds) {
     const errorLines = printed.split("\n").filter((line) => line.includes('"event":"request.error"') && line.includes(id));
     expect(errorLines, `request.error for the signed-out /patients load ${id}`).toEqual([]);

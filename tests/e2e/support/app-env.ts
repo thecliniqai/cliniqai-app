@@ -5,7 +5,8 @@
  * copied; everything the app reads is set explicitly to a local-stack or offline value, and the result must pass
  * `assertLocalAppServerEnv` (the test-lane rules with `NODE_ENV=production` allowed). `__NEXT_PROCESSED_ENV=true`
  * stops `@next/env` from filling anything from a developer's `.env*` files (pinned by
- * tests/setup/next-env-flag.spec.ts), and `NODE_OPTIONS` preloads the server-side socket guard. The local stack's
+ * tests/setup/next-env-flag.spec.ts), and `NODE_OPTIONS` preloads the server-side socket guard (and, 06-09d, the
+ * per-device Auth refresh fault hook, `server-auth-faults.cjs`). The local stack's
  * keys come from `npx supabase status` (never from the shell or a file).
  *
  * Plain Node + relative imports only: used by the Playwright config, `build.ts`/`serve.ts` (via tsx) and Vitest.
@@ -14,6 +15,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   E2E_APP_ENV,
+  E2E_DEPLOYMENT_ID,
   E2E_PWNED_API_BASE_URL,
   E2E_TURNSTILE_SITE_KEY,
   E2E_TURNSTILE_VERIFY_URL,
@@ -43,6 +45,8 @@ export const E2E_JOBS_RUNNER_SECRET = LOCAL_JOBS_RUNNER_SECRET;
 export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
+/** V2-06 06-09d: per-device Auth refresh faults for the server (rule files; a no-op without one). */
+export const SERVER_AUTH_FAULTS = path.join(ROOT, "tests/e2e/support/server-auth-faults.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
 export const BUILD_STAMP_FILE = path.join(ROOT, ".next/e2e-build-stamp.json");
 export const BUILD_ID_FILE = path.join(ROOT, ".next/BUILD_ID");
@@ -130,7 +134,10 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // test secret (built at run time).
     TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET_KEY,
     TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL,
-    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
+    // V2-06 06-06 (R-21): a fixed deployment id for build and serve: Next writes it as `data-dpl-id` and
+    // `/api/session-status` reports it, so they agree; tests/e2e/pwa/06-update.spec.ts changes the answer with page.route.
+    NEXT_DEPLOYMENT_ID: E2E_DEPLOYMENT_ID,
+    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}" --require "${SERVER_AUTH_FAULTS}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);
   return env;

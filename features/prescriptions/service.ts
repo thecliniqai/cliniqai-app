@@ -534,7 +534,7 @@ export type GetPrescriptionPdfSignedUrlResult =
   | { success: false; error: string };
 
 /**
- * Compiles and returns a time-limited signed storage URL (3600s TTL)
+ * Compiles and returns a time-limited signed storage URL (5-minute view link, `VIEW_LINK_TTL_SECONDS`)
  * for previewing and printing a prescription in the browser.
  */
 export async function getPrescriptionPdfSignedUrl(
@@ -675,7 +675,7 @@ export async function getPrescriptionPdfSignedUrl(
       follow_up_date: followUp?.follow_up_date || null,
     };
 
-    // 10. Generate PDF and get 3600s signed URL
+    // 10. Generate PDF and get a 5-minute signed URL
     const { signedUrl } = await generateAndArchivePrescriptionPdf(ctx, payload);
 
     return {

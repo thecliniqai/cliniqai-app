@@ -1,0 +1,13 @@
+{
+  "id": "gallery-dates",
+  "width": 1180,
+  "path": "/dev/ui",
+  "capture": "element #dates",
+  "axe": {
+    "scope": "#dates",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}

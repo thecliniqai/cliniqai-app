@@ -1,0 +1,6 @@
+Full Vitest at c68851a (shared local stack 000094), 2026-11-15T08:20:46Z → 2026-11-15T08:30:21Z: npx vitest run --reporter=json
+files=305 tests=6288 passed=6288 failed=0 skipped/todo=0
+vitest exit 0
+[teardown] removed run data: 286 tenant(s), 540 auth user(s), 1568 storage object(s); verified none remain
+
+Earlier full run at the pre-commit tree (07:53Z): files=305 tests=6284 passed=6283 failed=1 — guard-routes signout leg: `cookies` called outside a request scope (the signout route's unconditional dropAuthCookies outside Next); fixed before 6d79ef5 (dropAuthCookies tolerates no request scope).

@@ -1,0 +1,65 @@
+{
+  "generated_by": "tests/e2e/design/gallery-axe.spec.ts (same run); copied from design-captures/06-02a/axe-gallery-<width>.json",
+  "widths": [
+    {
+      "route": "/dev/ui",
+      "width": 360,
+      "sections": [
+        "forms",
+        "overlays",
+        "data",
+        "dates",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 36
+    },
+    {
+      "route": "/dev/ui",
+      "width": 820,
+      "sections": [
+        "forms",
+        "overlays",
+        "data",
+        "dates",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 36
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1180,
+      "sections": [
+        "forms",
+        "overlays",
+        "data",
+        "dates",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 33
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1280,
+      "sections": [
+        "forms",
+        "overlays",
+        "data",
+        "dates",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 33
+    }
+  ]
+}

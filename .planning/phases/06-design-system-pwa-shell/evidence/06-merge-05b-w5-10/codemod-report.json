@@ -1,0 +1,92 @@
+{
+  "generatedBy": "scripts/design/codemod-colors.mjs",
+  "mode": "write",
+  "totals": {
+    "filesChanged": 3,
+    "replacements": 11,
+    "byRule": {
+      "hex": 11
+    }
+  },
+  "files": {
+    "app/(auth)/join/join-forms.tsx": {
+      "hex": 2
+    },
+    "app/r/[token]/page.tsx": {
+      "hex": 5
+    },
+    "app/reports/view/page.tsx": {
+      "hex": 4
+    }
+  },
+  "unmapped": [
+    {
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 156,
+      "token": "hover:bg-[#146340]",
+      "prop": "bg",
+      "hex": "#146340",
+      "reason": "success button hover (patients consent section); replaced by the 06-02a Button primitive"
+    },
+    {
+      "file": "app/r/[token]/page.tsx",
+      "line": 170,
+      "token": "text-[#374151]",
+      "prop": "text",
+      "hex": "#374151",
+      "reason": "no table entry"
+    },
+    {
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 232,
+      "token": "hover:bg-[#ffeacc]",
+      "prop": "bg",
+      "hex": "#ffeacc",
+      "reason": "warning chip hover (patient visit history); replaced by the 06-03a status/chip patterns"
+    }
+  ],
+  "collapses": [],
+  "semanticUse": {
+    "accent": 1,
+    "border": 3,
+    "canvas": 1,
+    "fg": 2,
+    "fg-secondary": 2,
+    "ring": 1,
+    "sunken": 1
+  },
+  "outOfScope": [
+    {
+      "file": "features/billing/pdf/receipt-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes (print layouts are DESIGN_SYSTEM §7.10, V2-09b/V2-10)",
+      "inlineHexLiterals": 44
+    },
+    {
+      "file": "features/dpdp/pdf/medical-summary-doc.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 47
+    },
+    {
+      "file": "features/prescriptions/pdf/prescription-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 40
+    },
+    {
+      "file": "features/referrals/pdf/referral-letter-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 53
+    }
+  ],
+  "inlineHexReported": [
+    {
+      "file": "components/brand/brand-mark.tsx",
+      "inlineHexLiterals": 3,
+      "reason": "inline hex literal (not a class)"
+    },
+    {
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "inlineHexLiterals": 22,
+      "reason": "SVG drawing colours (inline hex literals); V2-09b rebuilds dental. Its Tailwind classes are in scope and migrated."
+    }
+  ]
+}

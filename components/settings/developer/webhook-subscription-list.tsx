@@ -69,12 +69,12 @@ export function WebhookSubscriptionList({
   };
 
   return (
-    <div id="webhook-subscriptions" className="rounded-xl border border-[#E4E5E7] bg-white shadow-theme-xs overflow-hidden">
+    <div id="webhook-subscriptions" className="rounded-xl border border-border bg-white shadow-theme-xs overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-[#E4E5E7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-accent-subtle text-accent flex items-center justify-center shrink-0">
               <Webhook className="w-4 h-4" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900 tracking-tight">
@@ -100,7 +100,7 @@ export function WebhookSubscriptionList({
       {/* Body */}
       {subscriptions.length === 0 ? (
         <EmptyState
-          icon={<Webhook className="w-6 h-6 text-gray-400" />}
+          icon={<Webhook className="w-6 h-6 text-fg-subtle" />}
           title="No Webhook Subscriptions"
           description="Subscribe an HTTPS endpoint to receive real-time notifications for appointment bookings, completed visits, and lab reports."
           action={
@@ -117,7 +117,7 @@ export function WebhookSubscriptionList({
       ) : (
         <TableContainer className="rounded-none border-0 shadow-none">
           <Table>
-            <TableHeader className="bg-[#F1F2F4]/60">
+            <TableHeader className="bg-sunken/60">
               <TableRow>
                 <TableHead className="text-xs font-semibold text-gray-600">Endpoint URL</TableHead>
                 <TableHead className="text-xs font-semibold text-gray-600">Subscribed Events</TableHead>
@@ -172,7 +172,7 @@ export function WebhookSubscriptionList({
                         </span>
                         <button
                           onClick={() => toggleSecretReveal(sub.id)}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors cursor-pointer"
+                          className="p-1 text-fg-subtle hover:text-gray-600 rounded transition-colors cursor-pointer"
                           aria-label={isRevealed ? "Hide signing secret" : "Reveal signing secret"}
                           title={isRevealed ? "Hide secret" : "Reveal secret"}
                         >
@@ -180,7 +180,7 @@ export function WebhookSubscriptionList({
                         </button>
                         <button
                           onClick={() => copySecret(sub.id, sub.signingSecret)}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors cursor-pointer"
+                          className="p-1 text-fg-subtle hover:text-gray-600 rounded transition-colors cursor-pointer"
                           aria-label="Copy signing secret to clipboard"
                           title="Copy secret"
                         >
@@ -213,14 +213,14 @@ export function WebhookSubscriptionList({
                           aria-label={`Send test ping to ${sub.endpointUrl}`}
                           aria-describedby={`ping-status-${sub.id}`}
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? "animate-spin text-[#1769E0]" : ""}`} />
+                          <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? "animate-spin text-accent" : ""}`} />
                           <span>{isPinging ? "Queuing..." : "Send Test Ping"}</span>
                         </button>
 
                         {/* View Logs button */}
                         <button
                           onClick={() => onViewLogs(sub)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[#1769E0] hover:bg-[#EAF2FF] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:bg-accent-subtle px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
                           aria-label="View delivery logs"
                         >
                           <FileText className="w-3.5 h-3.5" />

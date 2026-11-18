@@ -1,0 +1,47 @@
+# Attribution of the 7 e2e:pr failures on the a79297c build (tool output, filtered).
+# 'revert' = a79297c with the 7 06-01b commits reverted (git revert --no-commit, private worktree, own e2e build).
+# 'after'  = a79297c as committed. Same stack, same lane session, back to back.
+
+## pwa-revert: npx playwright test tests/e2e/pwa/05-cache-audit.spec.ts tests/e2e/pwa/06-tabs-and-devices.spec.ts --project=iphone-15
+  1) [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:193:7 › exit paths (fresh nurse each) › Sign out of all devices: purged here, the second device loses its session @golden 
+    Error: the /patients request carried a request id
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+  2) [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:221:7 › exit paths (fresh nurse each) › Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden 
+    Error: page.waitForURL: WebKit encountered an internal error
+  3) [iphone-15] › tests/e2e/pwa/06-tabs-and-devices.spec.ts:53:5 › M-EVERYWHERE: route unreachable, GoTrue reachable: the browser client revokes every session; device 2 is signed out @golden 
+    Error: the /patients request carried a request id
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+  4) [iphone-15] › tests/e2e/pwa/06-tabs-and-devices.spec.ts:73:5 › M-EVERYWHERE: neither the route nor GoTrue reachable: this device is signed out and the user is told; device 2 is not @golden 
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+  4 failed
+  9 passed (47.1s)
+
+## pwa-after: npx playwright test tests/e2e/pwa/05-cache-audit.spec.ts tests/e2e/pwa/06-tabs-and-devices.spec.ts --project=iphone-15
+  1) [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:193:7 › exit paths (fresh nurse each) › Sign out of all devices: purged here, the second device loses its session @golden 
+    Error: the /patients request carried a request id
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+  2) [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:221:7 › exit paths (fresh nurse each) › Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden 
+    Error: page.waitForURL: WebKit encountered an internal error
+  3) [iphone-15] › tests/e2e/pwa/06-tabs-and-devices.spec.ts:53:5 › M-EVERYWHERE: route unreachable, GoTrue reachable: the browser client revokes every session; device 2 is signed out @golden 
+    Error: the /patients request carried a request id
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+  4) [iphone-15] › tests/e2e/pwa/06-tabs-and-devices.spec.ts:73:5 › M-EVERYWHERE: neither the route nor GoTrue reachable: this device is signed out and the user is told; device 2 is not @golden 
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+  5) [iphone-15] › tests/e2e/pwa/06-tabs-and-devices.spec.ts:94:5 › IND L-6: a session ended without hardSignOut purges the device on arrival at /login; other tabs leave @golden 
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+  5 failed
+  8 passed (47.1s)
+
+## rs-revert: npx playwright test tests/e2e/shell/route-states.spec.ts tests/e2e/design/route-states-axe.spec.ts --project=desktop-chrome
+  25 passed (19.5s)
+
+## rs-after: npx playwright test tests/e2e/shell/route-states.spec.ts tests/e2e/design/route-states-axe.spec.ts --project=desktop-chrome
+  25 passed (19.5s)

@@ -1,0 +1,22 @@
+# npx vitest run (full lane), build 20b5e94, shared local stack
+      Tests  6 failed | 5621 passed (5627)
+   Duration  408.69s (transform 2.20s, setup 1.38s, collect 18.13s, tests 365.25s, environment 14ms, prepare 5.57s)
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ FAIL  tests/security/guard-canary.spec.ts > P0-13 canary: an unguarded action and route are caught > (a) the fixture action and route are inventoried and reported missing from the manifest
+ FAIL  tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > the manifest lists exactly the inventoried route methods (a new route without an entry fails here)
+ Test Files  5 failed | 268 passed (273)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+# the six failing files on the plan base b9463be (same stack)
+      Tests  6 failed | 73 passed (79)
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ FAIL  tests/security/guard-canary.spec.ts > P0-13 canary: an unguarded action and route are caught > (a) the fixture action and route are inventoried and reported missing from the manifest
+ FAIL  tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > the manifest lists exactly the inventoried route methods (a new route without an entry fails here)
+ Test Files  5 failed (5)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯

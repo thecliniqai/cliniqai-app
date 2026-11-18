@@ -1,0 +1,21 @@
+Root-cause traces of the PR-lane failures (Playwright traces of runs 1 and 2, request rows of the network log; synthetic data).
+
+1) Run 1, iphone-15, 09-outage-and-removal H-AUTHOUT (Full Name read ""): requests of the test page
+  2026-11-15T06:20:02.855Z GET /api/session-status -1
+  2026-11-15T06:20:02.864Z GET /patients/new 200
+  2026-11-15T06:20:02.957Z GET /api/session-status 200
+  2026-11-15T06:20:02.962Z POST /patients/new 200
+  2026-11-15T06:20:03.056Z POST /patients/new 200
+  2026-11-15T06:20:03.128Z GET /api/session-status 503
+  → one document load of /patients/new (no reload), its two server actions, then the first (503) status answer; the text typed right after goto was gone before any status answer: hydration (WebKit fires load first).
+
+2) Run 2, iphone-15, 05-cache-audit offline sign-out (goto interrupted by a navigation to /login):
+  2026-11-15T06:38:58.441Z GET /login 200
+  2026-11-15T06:38:58.761Z GET /api/session-status -1
+  2026-11-15T06:38:58.933Z GET /api/session-status 200
+  2026-11-15T06:38:59.568Z POST /auth/signout -1
+  2026-11-15T06:38:59.945Z GET /login -1
+  2026-11-15T06:38:59.973Z GET /api/session-status 401
+  2026-11-15T06:38:59.977Z POST /auth/signout 200
+  2026-11-15T06:38:59.985Z GET /login 200
+  → offline: the sign-out POST and the /login navigation fail (-1; WebKit cannot navigate offline under a service worker, so the page stays with its runtime); back online the runtime's status check answers 401, hardSignOut runs again (POST /auth/signout 200) and the page replaces to /login while the spec's goto("/patients") is starting.

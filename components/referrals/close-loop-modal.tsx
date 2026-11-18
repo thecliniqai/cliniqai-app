@@ -68,7 +68,7 @@ export function CloseLoopModal({
     >
       <div className="bg-white rounded-2xl shadow-theme-lg border border-gray-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#F8FAFC]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-sunken">
           <div>
             <h2
               id="close-loop-title"
@@ -88,7 +88,7 @@ export function CloseLoopModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -104,7 +104,7 @@ export function CloseLoopModal({
           )}
 
           {/* Specialist Context Banner */}
-          <div className="rounded-xl border border-blue-200 bg-[#EAF2FF] p-3 text-xs text-blue-900">
+          <div className="rounded-xl border border-blue-200 bg-accent-subtle p-3 text-xs text-blue-900">
             <div className="font-bold">
               Referred to: Dr. {referral.referred_to_name}
             </div>
@@ -134,7 +134,7 @@ export function CloseLoopModal({
               type="date"
               value={returnDate}
               onChange={(e) => setReturnDate(e.target.value)}
-              className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+              className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -153,9 +153,9 @@ export function CloseLoopModal({
               value={closureNotes}
               onChange={(e) => setClosureNotes(e.target.value)}
               placeholder="e.g. Patient underwent 2D Echo showing EF 58%, trivial MR. Started on Beta-blocker. Routine 3-month review advised..."
-              className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+              className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             />
-            <p className="text-[11px] text-gray-400 mt-1">
+            <p className="text-[11px] text-fg-subtle mt-1">
               Documenting loop closure marks the referral as completed and attaches return notes to the patient visit history.
             </p>
           </div>
@@ -173,7 +173,7 @@ export function CloseLoopModal({
             <button
               type="submit"
               disabled={isSubmitting || !closureNotes.trim()}
-              className="min-h-[44px] px-4 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold flex items-center gap-2 shadow-theme-xs transition-colors disabled:opacity-50 cursor-pointer"
+              className="min-h-[44px] px-4 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold flex items-center gap-2 shadow-theme-xs transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

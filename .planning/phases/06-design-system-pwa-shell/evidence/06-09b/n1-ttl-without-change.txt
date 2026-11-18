@@ -1,0 +1,11 @@
+   × Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy) > 3. Server-side PDF Compilation produces valid binary buffer with %PDF- header 39ms
+   × Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy) > 4. getPrescriptionPdfSignedUrl generates 5-minute signed URLs for both Blank Paper and Pre-Printed modes (06-09b N-1) 49ms
+   × Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 2. Out-of-Network Referral & Branded PDF Generation > creates out-of-network referral with specialist name and facility 93ms
+   × Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 2. Out-of-Network Referral & Branded PDF Generation > generates a 5-minute signed URL for the referral letter PDF (06-09b N-1; was 3600 s) 5ms
+   × Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy) > 1. Compiles server-side React-PDF payment receipt with %PDF- header magic bytes 77ms
+   × Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy) > 2. Retrieves signed receipt URL via Server Action with invoice details 42ms
+   × Lab Reports & Records Management (REQ-lab-records) > 2. Document Upload & Storage Integration > signs a 5-minute view link for the uploaded document (06-09b N-1; was 3600 s) 12ms
+   × AR2-H1: encoded dot segments never reach the storage signer > control: a well-formed key under the token's tenant is signed 4ms
+   × Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals) > 1. Provider Factory Resolution > a signed URL with no lifetime given is a 5-minute view link, not an hour (06-09b N-1) 3ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  9 failed | 65 passed (74)

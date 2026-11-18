@@ -35,6 +35,8 @@ The PO asked for only the items that need a decision or money; Claude handles th
 - **05-P6 · Approve the V2-05b gate** (2026-11-15): `05b-VERIFICATION.md` and `05b-SUMMARY.md` (same folder). Decision
   only. It includes the CTO rulings you may overturn (ADR-0005 A4, the SUB §8.1 actor erratum, owners may clear a
   patient's AI objection, `/gsd-secure-phase` replaced by the review set).
+- **06-P6 / 06-P7 · Approve the V2-06 gate** (2026-11-15): `06-VERIFICATION.md` and `06-SUMMARY.md` in
+  `.planning/phases/06-design-system-pwa-shell/`; the screenshot set and the doc errata are below (V2-06 section).
 
 **Clicks only, after B-1…B-4 (exact steps are in each item below):**
 03-E1a dump the v1 schema → 03-E2 staging Supabase project (Mumbai) → 03-E6R Resend domain auth.thecliniqai.com →
@@ -110,6 +112,33 @@ C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend 
   - *Why:* roadmap R5: no primitives are built before the design direction is approved from rendered evidence.
   - *Unblocks:* 06-01 tokens, 06-02 primitives, 06-03 clinical components, 06-04 shell being merged as final.
   - *Verify:* PO sign-off recorded in `docs/v2/VERIFICATION_LOG.md` (G2-D row).
+
+- [ ] **06-P6 · G3: approve the V2-06 screenshot set** — gate (blocks the V2-06 merge)
+  - *Do / where:* open `.planning/phases/06-design-system-pwa-shell/evidence/06-08/screens/README.md` (33 screens at
+    360/820/1180/1280, each next to its G2-D reference at `3a78a5d`, with the axe and scroll columns). The set was
+    last regenerated in commit `4e4c89b4cf58ce215a1f0449b62805cb82f095c7`, after the isolated design reviewer's
+    fixes (`reviews/v206-review-design.md`, approve with changes; all 5 Mediums fixed, record
+    `06-09e-DESIGN-FIXES.md`). Approve, or list the screens to change.
+  - *Why:* roadmap V2-06 acceptance 2 and G3.
+  - *Verify (Claude):* your approval, verbatim, in the V2-06 gate entry of `docs/v2/VERIFICATION_LOG.md` with that SHA.
+
+- [ ] **06-P7 · Doc errata E-1…E-13 and the V2-06 CTO rulings** — gate
+  - *Do / where:* read the errata table in `.planning/phases/06-design-system-pwa-shell/06-08-CLOSE-OUT.md` ("Doc
+    errata proposals"; DESIGN_SYSTEM palette, fonts, radii and icon; PWA_STRATEGY name, background, budgets method;
+    PO-19; FMP M2/M3; IA §3.3, §3.7) and the rulings table in `06-SUMMARY.md`. Say "apply" (all or by number) or
+    overturn any of them.
+  - *Why:* approved documents change only with your decision; none of the errata changes scope.
+  - *Verify (Claude):* the dated erratum notes added to each document and your decision in `VERIFICATION_LOG.md`.
+
+- [ ] **06-P8 · One manual check on a real iPhone: sign out while offline** — not a merge blocker; when staging is
+  live (03-E4)
+  - *Do / where:* on an iPhone (Safari, and once from the Home Screen icon), sign in to the staging app, open a
+    patient, turn on Airplane mode, then Menu → Sign out. Expected: the patient screen disappears at once, you land
+    on the offline page or `/login`, and Back shows no patient data. Turn the network on, reload: you are on
+    `/login`. Tell Claude what you saw (no screenshots of real data; staging is synthetic).
+  - *Why:* Playwright's WebKit cannot run a service worker offline (06-09a re-verification, M-OFFLINE / M-TABS on
+    real iOS); every other sign-out path is covered by the PR lane.
+  - *Verify (Claude):* your description recorded in `06-VERIFICATION.md`.
 
 ## V2-03 Platform hygiene
 

@@ -140,14 +140,14 @@ export function CreateWebhookModal({
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-xs font-medium text-[#1769E0] hover:underline cursor-pointer"
+              className="text-xs font-medium text-accent hover:underline cursor-pointer"
             >
               {allSelected ? "Deselect All" : "Select All"}
             </button>
           </div>
 
           {eventError && (
-            <p className="text-xs text-[#B42318]">{eventError}</p>
+            <p className="text-xs text-danger-fg">{eventError}</p>
           )}
 
           <div className="space-y-2 border border-gray-200 rounded-xl p-3 bg-gray-50/50 max-h-60 overflow-y-auto">
@@ -162,7 +162,7 @@ export function CreateWebhookModal({
                     type="checkbox"
                     checked={checked}
                     onChange={() => handleToggleEvent(event)}
-                    className="mt-0.5 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]"
+                    className="mt-0.5 rounded border-gray-300 text-accent focus:ring-ring"
                   />
                   <div className="text-xs leading-relaxed">
                     <span className="font-mono font-semibold text-gray-900 block">

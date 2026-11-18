@@ -1,0 +1,6 @@
+typecheck exit 0
+eslint . --quiet exit 0 (0 error lines)
+inventory exit 0
+ci:ai-l1 exit 0 :: ai-l1: PASS
+contrast exit 0 :: contrast: 242 pairs, 0 fail
+ci:ui-policy exit 0

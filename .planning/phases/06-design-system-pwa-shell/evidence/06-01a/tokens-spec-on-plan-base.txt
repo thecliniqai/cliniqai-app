@@ -1,0 +1,11 @@
+ RUN  v3.2.7 <worktree>
+   × app/globals.css token layers > defines every DESIGN_SYSTEM §2.3 semantic in @theme inline, resolving to a raw palette colour 3ms
+   × app/globals.css token layers > the semantic layer only references the raw v1 layer (values live in one place) 0ms
+   × app/globals.css token layers > every semantic the colour codemod can write exists, so no codemodded class renders nothing 0ms
+   × app/globals.css token layers > has no v1 brand scale and no :root block left 0ms
+   × app/globals.css token layers > paints body with semantic variables 1ms
+   × app/globals.css token layers > lib/design/tokens.ts equals the CSS value of each variable it mirrors 0ms
+   × app/globals.css token layers > keeps the v1 radii the old :root block applied and the v1 font (approved values land in 06-01b) 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  7 failed (7)

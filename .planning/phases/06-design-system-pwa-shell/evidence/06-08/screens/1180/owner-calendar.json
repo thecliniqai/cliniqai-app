@@ -1,0 +1,14 @@
+{
+  "id": "owner-calendar",
+  "width": 1180,
+  "path": "/calendar",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [],
+  "horizontalScroll": false
+}

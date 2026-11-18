@@ -1,0 +1,23 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 93ms
+[WebServer] ✓ Running next.config.ts took 29ms
+
+Running 12 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (769ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (437ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (610ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (427ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (461ms)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (458ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (423ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (423ms)
+  ✓   9 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes (31.2s)
+  ✓  10 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes (31.2s)
+  ✓  11 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes (31.4s)
+  ✓  12 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes (31.1s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+  12 passed (2.2m)

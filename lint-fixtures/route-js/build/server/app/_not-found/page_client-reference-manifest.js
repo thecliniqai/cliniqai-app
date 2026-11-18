@@ -1,0 +1,2 @@
+globalThis.__RSC_MANIFEST = globalThis.__RSC_MANIFEST || {};
+globalThis.__RSC_MANIFEST["/_not-found/page"] = {"moduleLoading":{"prefix":""},"clientModules":{},"entryCSSFiles":{"[project]/app/layout":[{"path":"static/css/root.css","inlined":false}]},"entryJSFiles":{"[project]/app/layout":["static/chunks/root-runtime.js","static/chunks/layout.js"],"[project]/app/_not-found/page":["static/chunks/not-found.js"]}};

@@ -1,0 +1,39 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 96ms
+[WebServer] ✓ Running next.config.ts took 58ms
+
+Running 11 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (713ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (414ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (592ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (423ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (411ms)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (441ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (490ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (410ms)
+  ✓   9 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 360 (7.1s)
+  ✓  10 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 820 (6.9s)
+HYDRATION-PROBE [
+ "UTC/Asia/Kolkata 360 /: clean",
+ "UTC/Asia/Kolkata 360 /patients/<id>: clean",
+ "UTC/Asia/Kolkata 360 /consultation/<id>: clean",
+ "UTC/Asia/Kolkata 360 /settings/clinic: clean",
+ "UTC/Asia/Kolkata 360 /calendar (seeded visit): clean",
+ "UTC/Asia/Kolkata 820 /: clean",
+ "UTC/Asia/Kolkata 820 /patients/<id>: clean",
+ "UTC/Asia/Kolkata 820 /consultation/<id>: clean",
+ "UTC/Asia/Kolkata 820 /settings/clinic: clean",
+ "UTC/Asia/Kolkata 820 /calendar (seeded visit): clean",
+ "UTC/Asia/Kolkata 1280 /: clean",
+ "UTC/Asia/Kolkata 1280 /patients/<id>: clean",
+ "UTC/Asia/Kolkata 1280 /consultation/<id>: clean",
+ "UTC/Asia/Kolkata 1280 /settings/clinic: clean",
+ "UTC/Asia/Kolkata 1280 /calendar (seeded visit): clean"
+]
+  ✓  11 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 1280 (7.5s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+  11 passed (29.9s)

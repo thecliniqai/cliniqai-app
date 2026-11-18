@@ -1,0 +1,35 @@
+overlays-axe tooltip case: diagnostic run with the OLD locator ([data-overlay=tooltip].first()), --repeat-each=4 --retries=0, desktop-chrome, lane lock, 2026-11-14.
+The menu case before it returns focus to the "More actions" IconButton, whose tooltip opens on that focus (data-state=instant-open).
+The old locator matched that tooltip at once; settleAnimations ran before the hovered "Print prescription" tooltip opened
+(400 ms delay, data-state=delayed-open), and axe met that tooltip at the start of its 120 ms fade-in:
+background #f1f2f4 = Midnight at a few % over white, text #fefefe, 1.11:1.
+
+17:[6/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes
+18:[7/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes
+19:[8/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes
+20:[9/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes
+21:[10/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes
+22:[11/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes
+23:[12/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes
+24:[13/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes
+25:[14/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes
+26:[15/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes
+27:[16/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes
+28:[17/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes
+29:  1) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+44:    +       "<div data-side=\"top\" data-align=\"center\" data-state=\"delayed-open\" role=\"tooltip\" id=\"radix-_R_2iiainpfivb...\" data-overlay=\"tooltip\" class=\"z-50 inline-flex ma :: Fix any of the following: Element has insufficient color contrast of 1.11 (foreground color: #fefefe, background color: #f1f2f4, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1",
+76:[18/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes
+77:[19/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes
+78:[20/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes
+79:[21/21] [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes
+80:  2) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+95:    +       "<div data-side=\"top\" data-align=\"center\" data-state=\"delayed-open\" role=\"tooltip\" id=\"radix-_R_2iiainpfivb...\" data-overlay=\"tooltip\" class=\"z-50 inline-flex ma :: Fix any of the following: Element has insufficient color contrast of 1.11 (foreground color: #fefefe, background color: #f1f2f4, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1",
+128:  2 failed
+129:    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+130:    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+131:  19 passed (3.0m)
+
+After the fix (locate the hovered tooltip by its text, then settle; the scrim clicks yield one macrotask first):
+overlays-axe.spec.ts + keyboard/overlays.spec.ts --repeat-each=4 --retries=0, desktop-chrome:
+  73 passed (4.2m)
+(16 overlay-axe width runs, 52 keyboard overlay runs, 5 setup; 0 failed, 0 flaky)

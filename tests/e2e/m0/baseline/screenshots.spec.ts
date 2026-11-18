@@ -11,11 +11,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
-import { expect, test } from "../../fixtures";
+import { test } from "../../fixtures";
 import { ROOT } from "../../support/app-env";
 import { istDate } from "../../support/m0-data";
-import { readRunData, storageStatePath, type E2eRole } from "../../support/run-data";
-import { BASELINE_ROUTES, settle } from "./baseline-routes";
+import { storageStatePath } from "../../support/run-data";
+import { BASELINE_ROUTES, FLOW_SCREENS, settle } from "./baseline-routes";
 
 const SHOTS_DIR = path.join(ROOT, "test-results/m0/screenshots");
 
@@ -51,50 +51,7 @@ for (const route of BASELINE_ROUTES) {
   });
 }
 
-// --- Key screens of the characterisation flows ---------------------------------------------------------------------
-const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Page) => Promise<void> }> = [
-  {
-    name: "flow-walk-in-drawer",
-    role: "receptionist",
-    open: async (page) => {
-      await page.goto("/queue");
-      await page.getByRole("button", { name: "+ Add Walk-In" }).click();
-      await expect(page.getByRole("heading", { name: "Quick Walk-In Registration" })).toBeVisible();
-    },
-  },
-  {
-    name: "flow-booking-drawer",
-    role: "receptionist",
-    open: async (page) => {
-      await page.goto("/calendar");
-      await page.getByRole("button", { name: "+ Book Appointment" }).click();
-      await expect(page.getByRole("dialog", { name: "Schedule Appointment" })).toBeVisible();
-    },
-  },
-  {
-    name: "flow-sign-and-bill-modal",
-    role: "doctor",
-    open: async (page) => {
-      await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
-      await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
-      await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
-    },
-  },
-  {
-    name: "flow-checkout-drawer",
-    role: "receptionist",
-    open: async (page) => {
-      await page.goto("/queue");
-      await page
-        .getByRole("heading", { name: readRunData().tenantA.patientName, exact: true })
-        .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]")
-        .getByRole("button", { name: /Checkout/ })
-        .click();
-      await expect(page.getByRole("heading", { name: "Patient Checkout & Billing" })).toBeVisible();
-    },
-  },
-];
-
+// --- Key screens of the characterisation flows (FLOW_SCREENS, shared with the V2-06 neutral capture) ----------------
 for (const screen of FLOW_SCREENS) {
   test.describe(screen.name, () => {
     test.use({ storageState: storageStatePath(screen.role) });

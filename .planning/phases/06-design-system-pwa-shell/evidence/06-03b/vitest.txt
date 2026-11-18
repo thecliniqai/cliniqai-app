@@ -1,0 +1,31 @@
+npx vitest run (full lane, shared local stack) at c4f1e06 (tree = HEAD), 2026-11-15
+ Test Files  12 failed | 267 passed (279)
+      Tests  18 failed | 5486 passed | 303 skipped (5807)
+   Duration  367.84s (transform 2.14s, setup 1.35s, collect 18.55s, tests 323.98s, environment 14ms, prepare 5.58s)
+
+Failed (all outside 06-03a/06-03b: git diff a0e330d..c4f1e06 -- supabase features app/api lib/db lib/auth tests/security tests/integration tests/ops tests/ci tests/api tests/auth tests/setup is empty):
+   tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon can execute no other SECURITY DEFINER function in public
+   tests/auth/invite.spec.ts > Staff Invitations & Join Flow (REQ-multi-tenancy, REQ-nfr-security) > allows Owner/Admin of tenant to insert an invitation row under RLS
+   tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+   tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+   tests/integration/subscription.spec.ts > Subscription & Billing RLS Boundary (REQ-multi-tenancy, REQ-nfr-security) > proves Tenant A's owner can read their own subscription and payment records
+   tests/integration/subscription.spec.ts > Subscription & Billing RLS Boundary (REQ-multi-tenancy, REQ-nfr-security) > proves Tenant B's owner receives 0 rows when attempting to read Tenant A's billing data (Cross-tenant RLS)
+   tests/integration/subscription.spec.ts > Subscription & Billing RLS Boundary (REQ-multi-tenancy, REQ-nfr-security) > proves a doctor in Tenant A receives 0 rows when attempting to query billing tables directly (RLS)
+   tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+   tests/security/cross-tenant.spec.ts > Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy, REQ-nfr-security)
+   tests/security/guard-actions.spec.ts > P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission
+   tests/security/guard-actions.spec.ts > P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b)
+   tests/security/guard-canary.spec.ts > P0-13 canary: an unguarded action and route are caught > (d) leg 3 forging one reference at a time, with a positive control (02-06, IR-F2/AR-M2a) > forging every B id at once misses the unchecked second reference; one at a time reaches it
+   tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes)
+   tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids on session routes
+   tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > a tenant-A owner cannot call the generators or drug search for tenant B
+   tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > an anon-key client without a session cannot execute any of the functions
+   tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > the caller's own tenant still works
+   tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > TC-RLS-MEM-04: invitations > an admin can invite a doctor; an owner can invite an admin
+   tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > TC-RLS-MEM-04: invitations > members cannot update or delete invitations directly
+   tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > SELECT > a receptionist still reads the visit row, whose legacy clinical columns hold only empty values
+   tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > writes > a visit a receptionist books gets exactly one empty clinical_notes row; content cannot ride along
+   tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > writes > nobody can put clinical content back into visits (the CHECK refuses it, 23514)
+   tests/setup/teardown.spec.ts > teardown FK coverage > lists exactly the public columns that reference auth.users with NO ACTION (live catalog)
+
+Cause: the shared stack is ahead of this branch (npx supabase migration list --local: remote-only 000079-000088; the branch ends at 000078). New since 06-03a's run (the stack gained 000088 meanwhile): readiness-probe-db (schema_current / SECURITY DEFINER list), auth/invite and membership-guard TC-RLS-MEM-04 (42501 on invitations), setup/teardown FK coverage (catalog lists 24 columns, spec 22). The rest as in evidence/06-03a/vitest.txt. Re-run after the 05b merge-in (orchestrator).

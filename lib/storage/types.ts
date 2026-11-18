@@ -18,7 +18,11 @@ export interface StorageSignedUrlOptions {
 
 export type SignedUrlPurpose = "view" | "export";
 
-/** R-29 (SUB §7.2): signed-URL lifetimes are short, so a lock (or a revoked share) takes effect within minutes. */
+/**
+ * R-29 (SUB §7.2): signed-URL lifetimes are short, so a lock (or a revoked share) takes effect within minutes. The single
+ * source of truth for every signed-URL lifetime: `view` is also `VIEW_LINK_TTL_SECONDS` (`./view-link`, V2-06 06-09b N-1),
+ * which the link holders use to decide when to re-sign. Client-safe (no imports).
+ */
 export const SIGNED_URL_MAX_TTL_SECONDS: Readonly<Record<SignedUrlPurpose, number>> = { view: 300, export: 900 };
 
 /** The lifetime actually signed: the requested one, never above the purpose's cap, at least 1 s; unset = the cap. */

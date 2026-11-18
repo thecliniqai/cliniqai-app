@@ -1,0 +1,532 @@
+{
+  "commit": "78056850627e87df6cf86b37bce63ac0dd3c6340",
+  "project": "m0-axe-iphone-15",
+  "routes": [
+    {
+      "route": "/billing/register",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/billing/reports",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/scrollable-region-focusable?application=playwright",
+          "nodes": 1
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/billing/reports",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/billing/reports",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "help": "Scrollable region must have keyboard access",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/scrollable-region-focusable?application=playwright",
+          "nodes": 1
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/cabin",
+      "role": "doctor",
+      "project": "m0-axe-iphone-15",
+      "url": "/cabin",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 2
+        }
+      ],
+      "passes": 20,
+      "incomplete": 1
+    },
+    {
+      "route": "/calendar",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/calendar",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 52
+        }
+      ],
+      "passes": 21,
+      "incomplete": 1
+    },
+    {
+      "route": "/consultation/[id]",
+      "role": "doctor",
+      "project": "m0-axe-iphone-15",
+      "url": "/consultation/fe46b4a4-836f-4101-8979-6f25329ca7cd",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "button-name",
+          "impact": "critical",
+          "help": "Buttons must have discernible text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/button-name?application=playwright",
+          "nodes": 1
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 15
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        },
+        {
+          "id": "target-size",
+          "impact": "serious",
+          "help": "All touch targets must be 24px large, or leave sufficient space",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/target-size?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 1
+    },
+    {
+      "route": "/forgot-password",
+      "role": null,
+      "project": "m0-axe-iphone-15",
+      "url": "/forgot-password",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 2
+        }
+      ],
+      "passes": 23,
+      "incomplete": 0
+    },
+    {
+      "route": "/login",
+      "role": null,
+      "project": "m0-axe-iphone-15",
+      "url": "/login",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/patients/[id]",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/patients/b0bc9e1b-f838-4b53-80f3-116f75144fac",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 5
+        }
+      ],
+      "passes": 21,
+      "incomplete": 1
+    },
+    {
+      "route": "/patients/new",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/patients/new",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/patients",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/patients",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 3
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/profile",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/profile",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 15
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 31
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 26,
+      "incomplete": 1
+    },
+    {
+      "route": "/queue",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/queue",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    },
+    {
+      "route": "/referrals",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/referrals",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 1
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 2
+        }
+      ],
+      "passes": 23,
+      "incomplete": 0
+    },
+    {
+      "route": "/settings/billing",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/settings/billing",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 21,
+      "incomplete": 0
+    },
+    {
+      "route": "/settings/clinic",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/settings/clinic",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 15
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 32
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 25,
+      "incomplete": 1
+    },
+    {
+      "route": "/settings/developer",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/settings/developer",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 21,
+      "incomplete": 0
+    },
+    {
+      "route": "/staff",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/staff",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 3
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/visits",
+      "role": "owner",
+      "project": "m0-axe-iphone-15",
+      "url": "/visits",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 5
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 3
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    }
+  ]
+}

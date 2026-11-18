@@ -48,7 +48,7 @@ function formatRelativeTime(isoString: string): string {
 function getCategoryIcon(category: NotificationCategory) {
   switch (category) {
     case "clinical":
-      return <Stethoscope className="w-4 h-4 text-[#1769E0]" />;
+      return <Stethoscope className="w-4 h-4 text-accent" />;
     case "queue":
       return <Users className="w-4 h-4 text-emerald-700" />;
     case "billing":
@@ -119,9 +119,9 @@ export function NotificationDrawer({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-[#111827]">Notifications</h2>
+            <h2 className="text-base font-bold text-fg">Notifications</h2>
             {unreadCount > 0 && (
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#1769E0] text-white">
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-accent text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
@@ -132,7 +132,7 @@ export function NotificationDrawer({
               <button
                 type="button"
                 onClick={onMarkAllAsRead}
-                className="text-xs text-[#1769E0] hover:text-[#0F5AB8] hover:underline font-medium flex items-center gap-1 cursor-pointer"
+                className="text-xs text-accent hover:text-accent-hover hover:underline font-medium flex items-center gap-1 cursor-pointer"
                 title="Mark all notifications as read"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -142,7 +142,7 @@ export function NotificationDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
               aria-label="Close notification drawer"
             >
               <X className="w-5 h-5" />
@@ -151,7 +151,7 @@ export function NotificationDrawer({
         </div>
 
         {/* Filter Category Tabs */}
-        <div className="px-4 py-2.5 border-b border-gray-100 bg-[#F9FAFB] flex items-center gap-1.5 overflow-x-auto shrink-0 no-scrollbar">
+        <div className="px-4 py-2.5 border-b border-gray-100 bg-sunken flex items-center gap-1.5 overflow-x-auto shrink-0 no-scrollbar">
           {categories.map((cat) => {
             const isSelected = activeCategory === cat.key;
             return (
@@ -161,8 +161,8 @@ export function NotificationDrawer({
                 onClick={() => onSelectCategory(cat.key)}
                 className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-[#EAF2FF] text-[#1769E0] font-semibold"
-                    : "text-[#52565B] hover:text-[#111827] hover:bg-gray-200/60"
+                    ? "bg-accent-subtle text-accent font-semibold"
+                    : "text-fg-secondary hover:text-fg hover:bg-gray-200/60"
                 }`}
               >
                 {cat.label}
@@ -181,12 +181,12 @@ export function NotificationDrawer({
             </div>
           ) : notifications.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 my-auto">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-fg-subtle">
                 <BellOff className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-[#111827]">All caught up</h3>
-                <p className="text-xs text-[#52565B] mt-1 max-w-[240px]">
+                <h3 className="text-sm font-semibold text-fg">All caught up</h3>
+                <p className="text-xs text-fg-secondary mt-1 max-w-[240px]">
                   You have no unread notifications or pending patient replies.
                 </p>
               </div>
@@ -202,7 +202,7 @@ export function NotificationDrawer({
                   className={`p-3.5 rounded-xl border transition-all flex items-start gap-3 relative ${
                     item.is_read
                       ? "bg-white border-gray-200 hover:border-gray-300"
-                      : "bg-[#F9FBFF] border-blue-100 hover:border-blue-200 shadow-2xs"
+                      : "bg-accent-tint border-blue-100 hover:border-blue-200 shadow-2xs"
                   }`}
                   onClick={() => {
                     if (!item.is_read) {
@@ -220,20 +220,20 @@ export function NotificationDrawer({
                   {/* Body text */}
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <span className="text-xs font-semibold text-[#111827] truncate">
+                      <span className="text-xs font-semibold text-fg truncate">
                         {item.title}
                       </span>
-                      <span className="text-[10px] text-gray-400 shrink-0 font-medium">
+                      <span className="text-[10px] text-fg-subtle shrink-0 font-medium">
                         {relativeTime}
                       </span>
                     </div>
 
-                    <p className="text-xs text-[#52565B] line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-fg-secondary line-clamp-2 leading-relaxed">
                       {item.message}
                     </p>
 
                     {item.link_url && (
-                      <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#1769E0] hover:underline">
+                      <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline">
                         <span>Open Details</span>
                         <ChevronRight className="w-3 h-3" />
                       </div>
@@ -243,7 +243,7 @@ export function NotificationDrawer({
                   {/* Unread indicator dot */}
                   {!item.is_read && (
                     <span
-                      className="w-2 h-2 rounded-full bg-[#1769E0] shrink-0 mt-1.5"
+                      className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1.5"
                       title="Unread"
                     />
                   )}

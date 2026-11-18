@@ -1,0 +1,90 @@
+{
+  "generated_by": "tests/e2e/perf/lhci.spec.ts (npm run perf:lhci) in a clean worktree at 87dc215; listing of test-results/lhci after the run",
+  "build_id": "FUuw6Nco310ZwwUEH_jy-",
+  "files": [
+    {
+      "file": "127_0_0_1--2026_11_14_07_22_42.report.html",
+      "bytes": 586773,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1--2026_11_14_07_22_42.report.json",
+      "bytes": 491572,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-consultation_<run-visit-id>-2026_11_14_07_23_06.report.html",
+      "bytes": 714017,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-consultation_<run-visit-id>-2026_11_14_07_23_06.report.json",
+      "bytes": 636694,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-login-2026_11_14_07_22_29.report.html",
+      "bytes": 547052,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-login-2026_11_14_07_22_29.report.json",
+      "bytes": 448529,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-patients-2026_11_14_07_22_53.report.html",
+      "bytes": 552535,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "127_0_0_1-patients-2026_11_14_07_22_53.report.json",
+      "bytes": 458708,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "assertion-results.json",
+      "bytes": 941,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "manifest.json",
+      "bytes": 2461,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "summary.json",
+      "bytes": 1798,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    },
+    {
+      "file": "summary.md",
+      "bytes": 926,
+      "extraHeadersKey": false,
+      "cookieName": false,
+      "redactedMarkers": 0
+    }
+  ]
+}

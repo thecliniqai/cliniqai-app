@@ -31,6 +31,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     if (resolved.reason === "forbidden") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    // 06-09d: Supabase Auth could not answer: 503, never 401 (no sign-out during an Auth incident).
+    if (resolved.reason === "unavailable") {
+      return NextResponse.json({ error: CONTEXT_FAILURE_MESSAGE }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ error: CONTEXT_FAILURE_MESSAGE }, { status: 500 });
   }
   const ctx = resolved.ctx;

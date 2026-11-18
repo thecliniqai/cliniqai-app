@@ -72,6 +72,18 @@ export type RouteGuard =
   | { kind: "signout" }
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
+  /**
+   * Public PWA asset (V2-06 06-09a `/sw.js`; 06-09b): no session by design, PHI-free and the same for every caller. An
+   * anonymous GET answers 200 with `contentType`, no request-client data access, no `Set-Cookie`, no ids and nothing of
+   * tenant B; a signed-in member gets the byte-identical body (nothing personalised) with no data access either.
+   */
+  | { kind: "public-asset"; contentType: string }
+  /**
+   * V2-06 06-06 (PWA §3.7, §6.6; R-16, R-21): the PWA's session and access poll. No session 401, no membership 403,
+   * both with no data access beyond the membership lookup; a member 200 whose JSON keys are a subset of `keys`;
+   * `no-store` on every answer; a forged `?tenant=` (tenant B's id) changes nothing and nothing of B comes back.
+   */
+  | { kind: "session-status"; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -130,11 +142,15 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks their own notifications read." },
   "features/notifications/actions.ts#markNotificationRead":
     { member: "Every member marks one of their own notifications read." },
+  "features/observability/actions.ts#reportClientRenderError":
+    { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
   "features/patients/actions.ts#createPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",
   "features/patients/actions.ts#getPatientVisitHistory": "patients:view",
   "features/patients/actions.ts#searchPatients": "patients:view",
+  // V2-06 06-04b (T-06-17): the command palette's patient search; four fields per patient, nothing stored.
+  "features/patients/actions.ts#searchPatientsForPalette": "patients:view",
   "features/patients/actions.ts#updatePatient": "patients:edit",
   "features/patients/consent.ts#getCurrentConsent": "patients:view",
   "features/patients/consent.ts#grantConsent": "patients:edit",
@@ -152,6 +168,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#getQueueForDate": "appointments:view",
+  // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
+  "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
   "features/queue/actions.ts#transitionQueueState": "appointments:edit",
   "features/referrals/actions.ts#acknowledgeReferral": "consultations:edit",
   "features/referrals/actions.ts#closeReferralLoop": "consultations:edit",
@@ -257,6 +275,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
   "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  // V2-06 06-09a (M-OFFLINE): the stamped service worker script, public (`PUBLIC_PAGE_PREFIXES`) and PHI-free; the
+  // browser fetches it with no session on the login page and on every update check.
+  "app/sw.js/route.ts#GET": { kind: "public-asset", contentType: "application/javascript" },
+  // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
+  "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
   "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,

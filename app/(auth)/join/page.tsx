@@ -55,10 +55,10 @@ export default async function JoinClinicPage({ searchParams }: { searchParams: P
   const email = invitation.status === "pending" ? await signedInEmail() : null;
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 shadow-theme-sm space-y-6">
         <div className="text-center flex flex-col items-center">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center mb-4 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center mb-4 shadow-2xs">
             <Building2 className="w-6 h-6" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">{M.title}</h1>

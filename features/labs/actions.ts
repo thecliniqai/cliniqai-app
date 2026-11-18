@@ -42,7 +42,7 @@ export async function getPatientDocuments(
 }
 
 /**
- * Generates a short-lived 3600-second signed URL for authorized staff to view/download a document.
+ * Generates a short-lived (5-minute, `VIEW_LINK_TTL_SECONDS`) signed URL for authorized staff to view/download a document.
  */
 export async function getDocumentSignedUrl(
   documentId: string

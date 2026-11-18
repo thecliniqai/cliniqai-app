@@ -1,0 +1,33 @@
+Vitest report gate negative proofs at f21a4b6, derived from the real phase-evidence run 1 (evidence/full-run-1.json), 2026-11-15T10:39:31Z. Command: node vitest-gate-negatives.mjs evidence/full-run-1.json (source: close/vitest-gate-negatives.mjs.txt).
+
+### baseline (the real report, unchanged): exit 0
+vitest-report-gate: files=306 tests=6300 passed=6300 failed=0 skipped/todo=0 floor=5985 required=219
+vitest-report-gate: PASS
+
+### required V2-06 file removed (tests/auth/session-auth-close-db.spec.ts): exit 1
+vitest-report-gate: files=305 tests=6291 passed=6291 failed=0 skipped/todo=0 floor=5985 required=219
+FAIL required spec file missing: tests/auth/session-auth-close-db.spec.ts
+
+### required V2-06 file removed (tests/design/approved-tokens.spec.ts): exit 1
+vitest-report-gate: files=305 tests=6052 passed=6052 failed=0 skipped/todo=0 floor=5985 required=219
+FAIL required spec file missing: tests/design/approved-tokens.spec.ts
+
+### required V2-06 file removed (tests/pwa/hard-sign-out.spec.ts): exit 1
+vitest-report-gate: files=305 tests=6264 passed=6264 failed=0 skipped/todo=0 floor=5985 required=219
+FAIL required spec file missing: tests/pwa/hard-sign-out.spec.ts
+
+### one test dropped by it.skip (tests/auth/session-auth-close-db.spec.ts, first test): exit 1
+vitest-report-gate: files=306 tests=6300 passed=6299 failed=0 skipped/todo=1 floor=5985 required=219
+FAIL test skipped (0 skipped allowed): tests/auth/session-auth-close-db.spec.ts > L-N1: a slow but successful password change reports success PUT /user answered after 4.5 s (applied at once), after a 1.5 s breached-password check: ok, new password signs in
+
+### every test of a required file dropped (tests/auth/session-auth-close-db.spec.ts): exit 1
+vitest-report-gate: files=306 tests=6291 passed=6291 failed=0 skipped/todo=0 floor=5985 required=219
+FAIL required spec file has no passed test: tests/auth/session-auth-close-db.spec.ts
+
+### suite shrinks to one test below the floor 5985 (tests removed from many files, each file keeps one): exit 1
+vitest-report-gate: files=306 tests=5984 passed=5984 failed=0 skipped/todo=0 floor=5985 required=219
+FAIL total 5984 is below the floor 5985 (suite shrank?)
+
+### one passing test removed from a required file that keeps others (95 % rule: not a gate failure by design): exit 0
+vitest-report-gate: files=306 tests=6299 passed=6299 failed=0 skipped/todo=0 floor=5985 required=219
+vitest-report-gate: PASS

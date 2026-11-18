@@ -1,0 +1,103 @@
+npm run e2e:pr -- --retries=0 (projects desktop-chrome, pixel-7, iphone-15) on the build of c4f1e06 (this worktree, e2e lane lock), 2026-11-15
+stats: expected=400 unexpected=0 flaky=0 skipped=128 duration_ms=422639
+tests with more than one result (retried): 0
+desktop-chrome: {'expected': 281}
+iphone-15: {'expected': 18}
+pixel-7: {'expected': 96, 'skipped': 128}
+setup: {'expected': 5}
+the plan's specs and the specs touching its files (non-skipped):
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 360px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 820px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 1180px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 1280px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-b-axe.spec.ts :: clinical entry at 360px: axe clean (list and builder open too), no horizontal scroll, target sizes, keypads -> expected
+  desktop-chrome design/clinical-b-axe.spec.ts :: clinical entry at 820px: axe clean (list and builder open too), no horizontal scroll, target sizes, keypads -> expected
+  desktop-chrome design/clinical-b-axe.spec.ts :: clinical entry at 1180px: axe clean (list and builder open too), no horizontal scroll, target sizes, keypads -> expected
+  desktop-chrome design/clinical-b-axe.spec.ts :: clinical entry at 1280px: axe clean (list and builder open too), no horizontal scroll, target sizes, keypads -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 360px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 820px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1180px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1280px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui is not served without a session -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: status chips: one per status with label and icon, Cancelled outlined, no chip in the accent, unknown is neutral -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: token chips: spoken as 'Token 14', Manrope 800 tabular, border in the status hue, booked shows the time -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: queue rows: Tab reaches the name and every action with the visible ring; the name opens the visit -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: queue rows: next, selected, waits and flash carry non-colour cues -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: a 30-character synthetic name shows unbroken at 360 px in the identity header and the queue row -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: identity header: fixed order, header landmark, masked phone inline, full phone in the header -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: allergy line: role alert only with known allergies; none and not recorded are text, Record now is a button -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: save status announces each change through one polite live region; Retry is reachable -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: save status below 768 px: saving and saved are announced but not drawn; offline and error are drawn -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: share: the system share sheet where the browser has one, else Copy link + 'Link copied'; nothing stored -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: the gallery loads at the top: no inline Command (cmdk) scrolls the page to itself -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: Rx entry: type, Enter, a digit preset, 5d, Enter adds the line in five keys and refocuses the search -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: Rx entry: ↓ then Enter picks the second match; 2w and 1m durations; an impossible duration is an error; Escape closes -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: Rx entry: no match offers 'Add “…”'; the tap path sets every field; Tab walks into the builder -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: Rx lines: edit a dose in the sheet, remove with an 8 s Undo, an allergy match needs a reason -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: PatientPicker: typeahead by digits and name with a loading row, Enter acts, no match offers registration -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: VitalsForm: Tab order, numeric keyboards, Enter to the next field, flags in words, errors block only implausible values -> expected
+  desktop-chrome design/keyboard/clinical-b.spec.ts :: QuickRegisterForm: errors focus the first field, duplicate hint, valid submit -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: at 23:30 IST the calendar's today is the clinic's 12 Nov; arrows, Home/End and PageUp/PageDown move; Enter picks it; focus returns to the field -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: the Today / Tomorrow chips and the max bound use the clinic's date, not the browser's -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: a day picked at 23:30 IST stays that day (no UTC cut), and at 00:30 IST today is already the next day -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: at 00:30 IST the calendar opens on 13 Nov (UTC is still on 12 Nov) -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: dd/mm/yyyy: slashes come by themselves, d/m/yyyy is read, a non-date shows how to fix it, clearing clears -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: sortable headers are buttons; Enter and Space toggle aria-sort and the order; numbers align right -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: states: loading (5 skeleton rows, announced), empty, error with Retry, stale with Retry -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: below lg the same model is a two-line list; Load more adds rows and focus moves to the first new one -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: Pagination: Next and Previous by keyboard, Indian grouping, the disabled end hands focus to the other button -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: search waits 200 ms after typing, Escape and Clear search empty it and keep focus -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: removing a filter by keyboard moves focus to the next one; + Filter opens its popover; Clear all lands on + Filter -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: pulses only when motion is allowed -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: DayStrip: Today is the clinic's day; arrows rove and wrap, Home/End jump, Space picks -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: SlotPicker: a radiogroup per part of the day, full slots hidden until shown, an overbooking warns -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: PhoneInput: +91 adornment, digits only up to 10, a pasted +91 number is reduced to its 10 digits -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: AgeOrDobInput: age gives an approximate DOB, months below 2 years, DOB gives the age on the clinic's date -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Button: Tab reaches it, Enter and Space activate it, disabled and loading buttons are skipped, the ring shows -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: IconButton: named, ringed, and disabled or loading icon buttons are skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Input and Field: the label names the control, hint and error describe it, invalid is announced, disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Textarea and NativeSelect: named by their labels, ringed, error described -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Checkbox: Space toggles aria-checked, indeterminate reads mixed, disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: RadioGroup: Tab enters on the checked option, arrows move and select, skip disabled and wrap -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Switch: Space and Enter toggle aria-checked; disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: SegmentedControl: a radiogroup; arrows move and select, wrapping; one tab stop -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: ChipGroup: one tab stop per group; arrows move with wrap, skipping disabled; Space toggles pressed or checked -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Dialog: Enter opens it on its first field, Tab and Shift+Tab stay inside, Escape and Close return focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Dialog with unsaved input: Escape, the scrim and Close ask 'Discard changes?' (safe action first); Keep editing keeps the input -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: AlertDialog: starts on the safe action, traps focus, ignores outside clicks, Escape cancels and returns focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Sheet (≥ 768 px: right side): opens on its first field, traps focus, asks before discarding, Close and Escape return focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Drawer: a bottom sheet with the handle; trapped focus; Close and Escape return focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Popover: Enter opens it and moves focus inside; Escape closes and returns focus; aria-expanded follows -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Tooltip: keyboard focus shows it and describes the control; Escape hides it; hover shows it after the delay -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: DropdownMenu: Enter opens on the first item; arrows wrap and skip disabled items; typeahead; Escape and selection return focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Tabs: arrows move and select (wrapping, disabled skipped), Home and End jump, Tab moves to the panel; route tabs mark the current page -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Command: a combobox over a listbox; typing filters, arrows move the active option, Enter runs it, no match shows the empty row -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Command dialog: opens with the field focused, Escape closes and returns focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Toasts: confirmations are polite status messages that leave after 4 s; errors are alerts that stay; Undo and Retry act -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Modal (v1 adapter): named by its title, focus trapped, Escape and Close return focus to the opener -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  pixel-7 m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  desktop-chrome m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  pixel-7 m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  desktop-chrome m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  pixel-7 m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  desktop-chrome m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  pixel-7 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  iphone-15 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  desktop-chrome m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  pixel-7 m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  desktop-chrome m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  pixel-7 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  iphone-15 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected

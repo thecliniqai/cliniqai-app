@@ -13,6 +13,14 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
       expect(await buildPatientSearchFilter("")).toBe("");
       expect(await buildPatientSearchFilter("   ")).toBe("");
       expect(await buildPatientSearchFilter(" ,()  ")).toBe("");
+      // 06-09c (IND L-4): LIKE wildcards, PostgREST's `*` and the escape character are not part of a query.
+      expect(await buildPatientSearchFilter("%%")).toBe("");
+      expect(await buildPatientSearchFilter("_*\\")).toBe("");
+      const filter = await buildPatientSearchFilter("Ra%m_e*sh");
+      const patterns = [...filter.matchAll(/\.ilike\.%([^,]*)%/g)].map((m) => m[1]);
+      expect(patterns.length).toBeGreaterThan(0);
+      for (const p of patterns) expect(p).not.toMatch(/[%_*\\]/);
+      expect(filter).toContain("full_name.ilike.%Ra m e sh%");
     });
 
     it("includes both bare digits and +91 prefix when searching bare 10-digit number", async () => {

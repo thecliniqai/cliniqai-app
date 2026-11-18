@@ -1,0 +1,49 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 95ms
+[WebServer] ✓ Running next.config.ts took 60ms
+
+Running 11 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (728ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (436ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (577ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (407ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (427ms)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (442ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (423ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (388ms)
+MAIN-PROBE
+360 consultation +23ms role=main 1 dom=["main:shown:flex","-:hidden-anc:block"]
+360 consultation +281ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+360 consultation +1300ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+360 consultation +4321ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+360 patients +21ms role=main 1 dom=["main:shown:block"]
+360 patients +278ms role=main 1 dom=["main:shown:block"]
+360 patients +1296ms role=main 1 dom=["main:shown:block"]
+360 patients +4313ms role=main 1 dom=["main:shown:block"]
+  ✓   9 [desktop-chrome] › tests/e2e/0-main-probe.spec.ts:9:7 › main count at 360 (9.2s)
+MAIN-PROBE
+820 consultation +22ms role=main 1 dom=["main:shown:flex","-:hidden-anc:block"]
+820 consultation +281ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+820 consultation +1292ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+820 consultation +4302ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+820 patients +20ms role=main 1 dom=["main:shown:block"]
+820 patients +298ms role=main 1 dom=["main:shown:block"]
+820 patients +1312ms role=main 1 dom=["main:shown:block"]
+820 patients +4331ms role=main 1 dom=["main:shown:block"]
+  ✓  10 [desktop-chrome] › tests/e2e/0-main-probe.spec.ts:9:7 › main count at 820 (9.2s)
+MAIN-PROBE
+1280 consultation +19ms role=main 1 dom=["main:shown:flex","-:hidden-anc:block"]
+1280 consultation +280ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+1280 consultation +1291ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+1280 consultation +4301ms role=main 2 dom=["main:shown:flex","-:shown:block"]
+1280 patients +28ms role=main 1 dom=["main:shown:block"]
+1280 patients +296ms role=main 1 dom=["main:shown:block"]
+1280 patients +1313ms role=main 1 dom=["main:shown:block"]
+1280 patients +4341ms role=main 1 dom=["main:shown:block"]
+  ✓  11 [desktop-chrome] › tests/e2e/0-main-probe.spec.ts:9:7 › main count at 1280 (9.5s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+  11 passed (36.5s)

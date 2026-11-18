@@ -1,0 +1,5 @@
+gitleaks zricethezav/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, --log-opts=1d7651f..86e8c2a (every commit since the 06-02b plan base, the L-6 debugger's two included), local clone of the branch
+INF Unknown SCM platform. Use --platform to include links in findings. host=
+INF 9 commits scanned.
+INF scanned ~231125 bytes (231.12 KB) in 205ms
+INF no leaks found

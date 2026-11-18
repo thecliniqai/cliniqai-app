@@ -160,6 +160,25 @@ const RENAMED_FROM: Readonly<Record<string, string>> = {
 const text = z.string();
 const flag = z.enum(["true", "false"]);
 
+/**
+ * V2-06 06-06 (PWA_STRATEGY §3.7, R-21): the deployment id. `NEXT_DEPLOYMENT_ID` (set by hand, e.g. the e2e lane) wins
+ * over Vercel's `VERCEL_DEPLOYMENT_ID`. `next.config.ts` passes it to Next as `deploymentId` (Next then adds `?dpl=` to
+ * static assets, sends `x-deployment-id` and writes `data-dpl-id` on `<html>`), and `deploymentInfo()` reports the same
+ * value from `/api/session-status`, so an open page can tell that the server now runs another deployment.
+ */
+export const DEPLOYMENT_ID_NAMES = ["NEXT_DEPLOYMENT_ID", "VERCEL_DEPLOYMENT_ID"] as const;
+export const DEPLOYMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const DEPLOYMENT_ID_RULE = "must be 1 to 64 characters of A-Z, a-z, 0-9, _ or -";
+
+/** The deployment id of `source` (`NEXT_DEPLOYMENT_ID`, else `VERCEL_DEPLOYMENT_ID`), or null when unset or ill-shaped. */
+export function deploymentIdFrom(source: EnvSource): string | null {
+  for (const name of DEPLOYMENT_ID_NAMES) {
+    const value = source[name];
+    if (present(value)) return DEPLOYMENT_ID_PATTERN.test(value) ? value : null;
+  }
+  return null;
+}
+
 /** Shapes only; tier rules are in {@link tierIssues}. Every blank value is treated as unset before parsing. */
 const shapeSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
@@ -210,6 +229,8 @@ const shapeSchema = z.object({
   VERCEL_GIT_COMMIT_SHA: text.optional(),
   VERCEL_ENV: text.optional(),
   VERCEL_GIT_COMMIT_REF: text.optional(),
+  NEXT_DEPLOYMENT_ID: text.optional(),
+  VERCEL_DEPLOYMENT_ID: text.optional(),
 });
 
 type Shape = z.infer<typeof shapeSchema>;
@@ -300,6 +321,10 @@ export interface Env {
   VERCEL_ENV?: string;
   /** Set by Vercel (the deployed branch); staging requires `feature/v2` when it is set. */
   VERCEL_GIT_COMMIT_REF?: string;
+  /** V2-06 06-06 (R-21): the deployment id Next stamps on the build (`deploymentId`); wins over VERCEL_DEPLOYMENT_ID. */
+  NEXT_DEPLOYMENT_ID?: string;
+  /** Set by Vercel: this deployment's id (`dpl_…`); the deployment id when NEXT_DEPLOYMENT_ID is unset. */
+  VERCEL_DEPLOYMENT_ID?: string;
 }
 
 export type EnvSource = Record<string, string | undefined>;
@@ -679,6 +704,11 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (deploy && present(raw.VERCEL_ENV) && raw.VERCEL_ENV !== DEPLOY_VERCEL_ENV) {
     add("VERCEL_ENV", `must be ${DEPLOY_VERCEL_ENV} when APP_ENV=${tier} (no preview or development deployment with ${tier} secrets)`);
   }
+  // V2-06 06-06 (R-21): a deployment id reaches `data-dpl-id`, `?dpl=` asset URLs and `/api/session-status`; any other
+  // shape is refused in every tier (it is never echoed).
+  for (const name of DEPLOYMENT_ID_NAMES) {
+    if (present(raw[name]) && !DEPLOYMENT_ID_PATTERN.test(raw[name])) add(name, DEPLOYMENT_ID_RULE);
+  }
   if (tier === "staging" && present(raw.VERCEL_GIT_COMMIT_REF) && raw.VERCEL_GIT_COMMIT_REF !== STAGING_GIT_BRANCH) {
     add("VERCEL_GIT_COMMIT_REF", `must be ${STAGING_GIT_BRANCH} when APP_ENV=staging (staging deploys only that branch)`);
   }
@@ -836,7 +866,10 @@ export interface EnvDoc {
 export const SET_IN_VERCEL = "<set in Vercel>";
 
 export const ENV_DOCS: Record<
-  Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "VERCEL_GIT_COMMIT_SHA" | "VERCEL_ENV" | "VERCEL_GIT_COMMIT_REF">,
+  Exclude<
+    EnvName,
+    "NODE_ENV" | "VERCEL_REGION" | "VERCEL_GIT_COMMIT_SHA" | "VERCEL_ENV" | "VERCEL_GIT_COMMIT_REF" | "VERCEL_DEPLOYMENT_ID"
+  >,
   EnvDoc
 > = {
   APP_ENV: {
@@ -1127,6 +1160,15 @@ export const ENV_DOCS: Record<
     ],
     example: SET_IN_VERCEL,
   },
+  NEXT_DEPLOYMENT_ID: {
+    group: "Deployment tier",
+    notes: [
+      "Optional deployment id (1-64 of A-Z a-z 0-9 _ -); wins over Vercel's VERCEL_DEPLOYMENT_ID. Next's deploymentId",
+      "(data-dpl-id, ?dpl= assets) and /api/session-status report it, so an open app sees a new deploy (06-06, R-21).",
+      "Leave unset on Vercel; the e2e lane sets a fixed value for build and serve.",
+    ],
+    example: "",
+  },
   TURNSTILE_VERIFY_URL: {
     group: "Bot protection",
     notes: [
@@ -1144,4 +1186,5 @@ export const PLATFORM_NAMES: Readonly<Record<string, string>> = {
   VERCEL_GIT_COMMIT_SHA: "set by Vercel; reported by /api/health as release (R-26)",
   VERCEL_ENV: "set by Vercel; staging/production refuse anything but production (no preview with deploy secrets, 03-13)",
   VERCEL_GIT_COMMIT_REF: "set by Vercel; staging refuses any branch but feature/v2 (03-13)",
+  VERCEL_DEPLOYMENT_ID: "set by Vercel; the deployment id (Next deploymentId, /api/session-status) unless NEXT_DEPLOYMENT_ID is set (06-06)",
 };

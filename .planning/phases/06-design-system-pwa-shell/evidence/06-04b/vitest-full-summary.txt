@@ -1,0 +1,11 @@
+# Full Vitest lane (npx vitest run, local stack), tree 0e95669, 2026-11-15
+files: 297 (296 passed, 1 failed) | tests: total 6158, passed 6156, failed 2, pending 0
+failed:
+- tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool reports no drift for a schema-only dump of the local database
+- tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool names a column the dump has and the migrations do not
+
+Cause (schema-coupled, recorded and not changed, per the execution protocol): the shared local stack is at
+migration 000094 (applied by another lane); this branch ends at 000093. tests/ci/hosted-dump-diff.spec.ts compares a
+schema-only dump of the local database with the branch's migrations, so it reports the extra migration's drift. It is
+not touched by 06-04b (no migration). The 06-04b specs (nav-for-role 30, shell-runtime 11, palette-search-db 5) and
+the guard specs with the two new actions passed in this run.

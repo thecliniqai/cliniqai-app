@@ -1,0 +1,14 @@
+# 06-04b palette spec: reading Server Action answers (root cause of a 1-in-3 failure)
+
+Symptom: palette.spec "four fields only" failed 1 of 3 (--repeat-each=3): no answer with "patients" found.
+Probe (temporary spec, desktop-chrome): bodies of POST responses with a next-action header, read with response.text()
+from page.on("response"):
+  BODY>> "ERR ... Network.getResponseBody: No data found for resource with given identifier ..."
+  BODY>> "ERR ... Network.getResponseBody: No data found ..."
+  BODY>> "0:{"a":"$@1","q":"","i":false}\n1:{"ok":true,"patients":[{"id":"…","name":"E2E Synthetic Patient A …","ageSex":{"age":null,"sex":"O"},"phoneLast4":"…"}]}\n"
+  BODY>> "0:{…}\n1:{"ok":true,"matches":[{"visitId":"…","token":null,"name":"E2E Synthetic Patient A …","status":"in_consultation"}]}\n"
+Cause: Chrome does not always keep the body of a streamed (RSC, text/x-component) response for CDP, so
+getResponseBody fails for some answers regardless of navigation. Not a product defect: the page itself rendered the
+rows from those answers.
+Fix: the spec takes the answers on the way through (page.route → route.fetch() → response.text() → route.fulfill),
+which Playwright buffers itself. Proof: palette.spec ×10 (--repeat-each=10 --retries=0) 0 failed.

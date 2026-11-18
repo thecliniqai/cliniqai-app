@@ -1,0 +1,2 @@
+[e2e:build] output scan clean (1679 files); stamp written for build HnBVj_mrRmhck3_4l_YPh
+built from 2a23550 (npm run e2e:build); used by e2e:g3 (set 4e4c89b) and e2e:pr

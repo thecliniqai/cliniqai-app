@@ -1,0 +1,9 @@
+Report gates on both phase-evidence runs at f21a4b6 (2026-11-15T10:44:20Z):
+## run 1: node scripts/ci/assert-vitest-report.mjs evidence/full-run-1.json
+vitest-report-gate: files=306 tests=6300 passed=6300 failed=0 skipped/todo=0 floor=5985 required=219
+vitest-report-gate: PASS
+exit=0
+## run 2: node scripts/ci/assert-vitest-report.mjs evidence/full-run-2.json
+vitest-report-gate: files=306 tests=6300 passed=6300 failed=0 skipped/todo=0 floor=5985 required=219
+vitest-report-gate: PASS
+exit=0

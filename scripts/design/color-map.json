@@ -1,0 +1,156 @@
+{
+  "$comment": "V2-06 06-01a colour codemod table (scripts/design/codemod-colors.mjs). Keys: utility property group, then lowercase v1 hex. A value is a semantic token name, or an object keyed by the state variant in the class's variant chain (placeholder, disabled, active, focus, hover; first match in that order) with a 'default'. Values of the semantic tokens live only in app/globals.css (raw v1-* layer); this table never holds colours except the deleted brand scale it resolves.",
+  "groups": {
+    "bg": ["bg", "from", "via", "to"],
+    "text": ["text", "placeholder", "decoration", "caret", "fill", "stroke"],
+    "border": ["border", "border-x", "border-y", "border-t", "border-r", "border-b", "border-l", "border-s", "border-e", "divide"],
+    "ring": ["ring", "ring-offset", "outline"]
+  },
+  "brandScale": {
+    "$comment": "The v1 --color-brand-* scale deleted from app/globals.css by 06-01a; brand-<step> classes resolve to these hexes, then map like any hex.",
+    "25": "#f6faff",
+    "50": "#eaf2ff",
+    "100": "#d5e6ff",
+    "200": "#b3d4ff",
+    "300": "#80baff",
+    "400": "#4797ff",
+    "500": "#1769e0",
+    "600": "#0f5ab8",
+    "700": "#0b4c9c",
+    "800": "#0d3f7f",
+    "900": "#0f3668",
+    "950": "#0a2245"
+  },
+  "map": {
+    "bg": {
+      "#1769e0": "accent",
+      "#155cc0": "accent-hover",
+      "#0f5ab8": { "default": "accent", "hover": "accent-hover", "active": "accent-pressed" },
+      "#1253b3": "accent-hover",
+      "#1255b8": "accent-hover",
+      "#0b4c9c": "accent-pressed",
+      "#0d4496": "accent-pressed",
+      "#eaf2ff": "accent-subtle",
+      "#f4f8ff": "accent-tint",
+      "#f6faff": "accent-tint",
+      "#f9fbff": "accent-tint",
+      "#d5e6ff": "selected",
+      "#d6e5ff": "selected",
+      "#f7f6f3": "canvas",
+      "#f8fafc": "sunken",
+      "#f9fafb": "sunken",
+      "#f6f7f9": "sunken",
+      "#f3f4f6": "sunken",
+      "#f1f2f4": "sunken",
+      "#f0efea": "sunken",
+      "#18794e": "success-solid",
+      "#eaf7f0": "success-bg",
+      "#9a5b00": "warning-solid",
+      "#fff5e5": "warning-bg",
+      "#b42318": "danger-solid",
+      "#ffedec": "danger-bg"
+    },
+    "text": {
+      "#1769e0": "accent",
+      "#155cc0": "accent-hover",
+      "#1455b3": "accent-hover",
+      "#0f5ab8": { "default": "accent-fg", "hover": "accent-hover" },
+      "#0b4c9c": { "default": "accent-fg", "hover": "accent-hover" },
+      "#0d3f7f": "accent-fg",
+      "#0a2245": "accent-fg",
+      "#111827": "fg",
+      "#1a1a1a": "fg",
+      "#4b5563": "fg-secondary",
+      "#52565b": "fg-secondary",
+      "#555": "fg-secondary",
+      "#6b7280": "fg-muted",
+      "#9ca3af": "fg-subtle",
+      "#18794e": "success-fg",
+      "#16a34a": "success-fg",
+      "#9a5b00": "warning-fg",
+      "#b42318": "danger-fg",
+      "#ba1a1a": "danger-fg",
+      "#dc2626": "danger-fg"
+    },
+    "border": {
+      "#1769e0": "accent",
+      "#b2ccff": "accent-border",
+      "#b3d4ff": "accent-border",
+      "#bfd8ff": "accent-border",
+      "#d5e6ff": "accent-border",
+      "#80baff": "accent-border",
+      "#e5e7eb": "border",
+      "#e4e5e7": "border",
+      "#e5e4e0": "border",
+      "#f3f4f6": "border-subtle",
+      "#bde5cf": "success-border",
+      "#f3d39a": "warning-border",
+      "#f8b4b4": "danger-border",
+      "#ffdad6": "danger-border",
+      "#b42318": "danger-solid"
+    },
+    "ring": {
+      "#1769e0": { "default": "accent", "focus": "ring" },
+      "#b42318": "danger-solid",
+      "#ba1a1a": "danger-solid"
+    }
+  },
+  "named": {
+    "$comment": "Tailwind default-palette classes the codemod replaces (plan 06-01a step 4); every other raw palette class is reported by the UI policy (raw-palette) and left for the screen rebuilds.",
+    "text-gray-400": { "default": "text-fg-subtle", "placeholder": "text-fg-placeholder", "disabled": "text-fg-disabled" },
+    "placeholder-gray-400": "placeholder-fg-placeholder"
+  },
+  "fileOverrides": {
+    "$comment": "Per-file semantic choices where the hex alone is ambiguous (same values, so value-neutral).",
+    "components/ui/alert.tsx": {
+      "bg:#eaf2ff": "info-bg",
+      "border:#bfd8ff": "info-border",
+      "text:#1769e0": "info-fg"
+    }
+  },
+  "unmappedOnPurpose": {
+    "$comment": "Interaction-state shades with no semantic slot in DESIGN_SYSTEM §2.3 or the G2-D token file. Left as hex (value-neutral) and reported; their owners replace them with primitives.",
+    "bg:#912018": "danger button hover (components/ui/button.tsx); the 06-02a Button primitive owns danger hover/pressed",
+    "bg:#7a271a": "danger button pressed (components/ui/button.tsx); the 06-02a Button primitive owns danger hover/pressed",
+    "bg:#146340": "success button hover (patients consent section); replaced by the 06-02a Button primitive",
+    "bg:#ffeacc": "warning chip hover (patient visit history); replaced by the 06-03a status/chip patterns"
+  },
+  "outOfScope": [
+    { "prefix": "features/billing/pdf/", "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes (print layouts are DESIGN_SYSTEM §7.10, V2-09b/V2-10)" },
+    { "prefix": "features/dpdp/pdf/", "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes" },
+    { "prefix": "features/prescriptions/pdf/", "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes" },
+    { "prefix": "features/referrals/pdf/", "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes" }
+  ],
+  "inlineHexReported": {
+    "components/consultation/specialty/dental-odontogram.tsx": "SVG drawing colours (inline hex literals); V2-09b rebuilds dental. Its Tailwind classes are in scope and migrated."
+  },
+  "provisional_without_v1_site": {
+    "$comment": "Semantic tokens no v1 hex class maps to. Their 06-01a value is the colour the nearest v1 screen uses today; 06-01b replaces all of them with approved values.",
+    "surface": "v1 bg-white panels",
+    "fg-on-accent": "v1 text-white on blue/red solids",
+    "fg-placeholder": "v1 placeholder:text-gray-400 (also mapped)",
+    "fg-disabled": "v1 disabled:text-gray-400 (also mapped)",
+    "border-control": "v1 inputs: border-gray-300 (95 sites, Tailwind gray-300)",
+    "info-bg": "v1 --status-info-bg #eaf2ff (components/ui/alert.tsx info)",
+    "info-fg": "v1 --status-info #1769e0",
+    "info-border": "components/ui/alert.tsx info border #bfd8ff",
+    "info-solid": "v1 --status-info #1769e0",
+    "status-booked-bg": "queue-card Booked badge: bg-gray-100",
+    "status-booked-fg": "queue-card Booked badge: text-gray-700",
+    "status-waiting-bg": "queue-card Waiting badge: bg-amber-50",
+    "status-waiting-fg": "queue-card Waiting badge: text-amber-700",
+    "status-with-doctor-bg": "queue-card In Consultation badge: #eaf2ff",
+    "status-with-doctor-fg": "queue-card In Consultation badge: #1769e0",
+    "status-to-bill-bg": "no v1 state; queue-card default badge bg-gray-50",
+    "status-to-bill-fg": "no v1 state; queue-card default badge text-gray-500",
+    "status-done-bg": "queue-card Completed badge: bg-emerald-50",
+    "status-done-fg": "queue-card Completed badge: text-emerald-700",
+    "status-no-show-bg": "v1 danger chips: #ffedec",
+    "status-no-show-fg": "v1 danger chips: #b42318",
+    "status-cancelled-bg": "queue-card default badge bg-gray-50",
+    "status-cancelled-fg": "queue-card default badge text-gray-500",
+    "alert-allergy-bg": "v1 danger solid #b42318 (DESIGN_SYSTEM §2.3: danger-600)",
+    "alert-allergy-fg": "white",
+    "scrim": "v1 modal backdrop bg-black/40 (11 sites)"
+  }
+}

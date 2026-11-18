@@ -1,0 +1,3 @@
+npx playwright test tests/e2e/design/keyboard/data-and-dates.spec.ts tests/e2e/design/data-dates-axe.spec.ts --project=desktop-chrome --retries=0 --repeat-each=3 (build of 8049442, spec as committed next, lane lock), 2026-11-14T20:48:50Z
+  65 passed (1.1m)
+(65 = 20 tests x 3 + 5 setup; 0 failed, 0 flaky, no retries)

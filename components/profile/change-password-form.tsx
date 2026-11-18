@@ -63,7 +63,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#1769E0] border border-blue-100">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-accent border border-blue-100">
             <KeyRound className="w-4 h-4" aria-hidden="true" />
           </div>
           <div>

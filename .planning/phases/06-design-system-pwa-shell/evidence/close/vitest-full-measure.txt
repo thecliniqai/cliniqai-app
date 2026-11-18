@@ -1,0 +1,7 @@
+Floor measurement for the V2-06 gate close: full Vitest at 5197b1a (working tree: + the REQUIRED_FILES line for session-auth-close-db; shared local stack 000094), 2026-11-15T09:40:01Z → 2026-11-15T09:50:16Z: npx vitest run --reporter=json --reporter=dot
+files=306 tests=6300 passed=6299 failed=1 skipped/todo=0
+failed: tests/ci/vitest-report-gate.spec.ts > vitest report gate fails when the suite shrinks below the recorded floor (default 5909, 95% of the suite, IR-F5) :: AssertionError: expected 'FAIL total 3 is below the floor 5974 …' to contain 'total 3 is below the floor 5909'
+vitest exit=1
+[teardown] removed run data: 293 tenant(s), 549 auth user(s), 1568 storage object(s); verified none remain
+
+The one failure is a pre-existing defect: b11e398 (06-09d) raised FLOOR 5909 → 5974 in scripts/ci/assert-vitest-report.mjs without the spec that pins the default floor. Fixed in the gate commit (the spec follows the new default). Test count for the floor: 6300 (the failing test counts; it ran). FLOOR = 6300 × 0.95 = 5985.

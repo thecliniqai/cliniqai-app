@@ -6,6 +6,7 @@ import { ctxFor } from "../helpers/context";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { listInReferralDirectory } from "../helpers/referral-directory";
+import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 
 describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -137,13 +138,15 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
         expect(res.referral.pdf_storage_path).toContain(`tenants/${tenantA.tenantId}/referrals/${res.referral.id}/referral_letter.pdf`);
         outOfNetworkReferralId = res.referral.id;
       }
+      // 06-09b (N-1): the letter link the modal opens at once is a 5-minute view link (was one hour).
+      expect(signedUrlLifetimeSeconds(res.signedUrl!)).toBe(300);
     });
 
-    it("generates a valid 3600-second signed URL for the referral letter PDF", async () => {
+    it("generates a 5-minute signed URL for the referral letter PDF (06-09b N-1; was 3600 s)", async () => {
       const urlRes = await getReferralSignedUrl(ctxFor(tenantA), outOfNetworkReferralId);
       expect(urlRes.success).toBe(true);
       expect(urlRes.signedUrl).toBeDefined();
-      expect(urlRes.signedUrl).toContain("http");
+      expect(signedUrlLifetimeSeconds(urlRes.signedUrl!)).toBe(300);
     });
 
     it("retrieves outbound referrals including patient details", async () => {

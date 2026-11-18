@@ -12,6 +12,8 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { TURNSTILE_ALWAYS_FAIL_SITE_KEY } from "../../setup/test-env";
+import { settleAnimations } from "../support/settle";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -24,7 +26,7 @@ const WIDTHS = [
 ];
 
 const PAGES = [
-  { name: "login", path: "/login", heading: "Sign in to ClinicOS", widget: "#login-turnstile" },
+  { name: "login", path: "/login", heading: `Sign in to ${PRODUCT_NAME}`, widget: "#login-turnstile" },
   { name: "forgot-password", path: "/forgot-password", heading: "Reset your password", widget: "#reset-request-turnstile" },
 ];
 
@@ -40,6 +42,7 @@ async function settle(page: Page): Promise<void> {
   const submit = page.locator('button[type="submit"]').first();
   await expect(submit).toBeEnabled();
   await expect.poll(() => submit.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  await settleAnimations(page); // the 06-02a Button fades its colours in; never scan a mid-fade frame
 }
 
 async function check(page: Page, testInfo: TestInfo, name: string, width: number): Promise<void> {

@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { ENV_SOURCE_NAMES, EnvConfigError, isDeployTier, parseEnv, type Env, type EnvSource } from "./env";
+import { deploymentIdFrom, ENV_SOURCE_NAMES, EnvConfigError, isDeployTier, parseEnv, type Env, type EnvSource } from "./env";
 
 /**
  * Typed server-side environment (V2-03 03-01, P1-15). Server code reads configuration only through `serverEnv()`;
@@ -78,14 +78,34 @@ const REGION_PATTERN = /^[a-z0-9]{2,12}$/;
 const RELEASE_PATTERN = /^[0-9a-f]{7,40}$/;
 
 /**
- * Where and what is running, for `/api/health` (R-26 release, R-30 region). Reads only the two platform names and
- * validates their shape, so the liveness probe never depends on the rest of the configuration.
+ * Where and what is running, for `/api/health` (R-26 release, R-30 region) and `/api/session-status` (V2-06 06-06,
+ * R-21: `deploymentId`). Reads only the platform names and validates their shape, so neither route depends on the
+ * rest of the configuration. `deploymentId` is `NEXT_DEPLOYMENT_ID`, else `VERCEL_DEPLOYMENT_ID` (`deploymentIdFrom`),
+ * read at run time like Next itself reads it for `data-dpl-id` (`next start` loads `next.config.ts` again), so the page's
+ * `data-dpl-id` and this value come from the same name; null when neither is set (local `next dev`, Vitest).
  */
-export function deploymentInfo(): { region: string | null; release: string | null } {
+export function deploymentInfo(): { region: string | null; release: string | null; deploymentId: string | null } {
   const region = process.env.VERCEL_REGION;
   const release = process.env.VERCEL_GIT_COMMIT_SHA;
   return {
     region: region && REGION_PATTERN.test(region) ? region : null,
     release: release && RELEASE_PATTERN.test(release) ? release : null,
+    deploymentId: deploymentIdFrom({
+      NEXT_DEPLOYMENT_ID: process.env.NEXT_DEPLOYMENT_ID,
+      VERCEL_DEPLOYMENT_ID: process.env.VERCEL_DEPLOYMENT_ID,
+    }),
   };
+}
+
+const BUILD_STAMP_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * This build's stamp (V2-06 06-09a M-OFFLINE): `CLINICOS_BUILD_STAMP`, which `next.config.ts` computes once per
+ * `next build` and the bundler inlines (`env`), so the running server reports the build it was compiled in. The service
+ * worker route puts it in `/sw.js`, so every deploy installs a new worker. `null` outside a build (tests, `next dev`
+ * before the first compile) or for an unexpected shape.
+ */
+export function buildStamp(): string | null {
+  const stamp = process.env.CLINICOS_BUILD_STAMP;
+  return stamp && BUILD_STAMP_PATTERN.test(stamp) ? stamp : null;
 }

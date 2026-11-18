@@ -1,0 +1,66 @@
+{
+  "tool": "@lhci/cli 0.15.1 / lighthouse 12.6.1",
+  "chromium": "chromium-1243",
+  "settings": "Lighthouse mobile defaults (simulated slow 4G, 4x CPU), 1 run per route, assertions at warn",
+  "budgets": "PWA_STRATEGY §3.9: LCP ≤ 2500 ms, TBT ≤ 300 ms, CLS ≤ 0.1, ≤ 2 font files",
+  "notes": [
+    "Chrome runs with --host-resolver-rules mapping every non-loopback host to NOTFOUND: Turnstile on /login loads nothing.",
+    "Signed-in routes carry the role's Cookie header (extraHeaders); it is removed from every report before upload."
+  ],
+  "routes": [
+    {
+      "route": "/login",
+      "role": "signed out",
+      "performanceScore": 0.9,
+      "accessibilityScore": 1,
+      "lcpMs": 3635,
+      "tbtMs": 22,
+      "cls": 0.021,
+      "fontFiles": 0,
+      "blockedOffMachineRequests": [
+        "challenges.cloudflare.com"
+      ],
+      "warnings": [
+        "largest-contentful-paint: 3635.2413 > 2500"
+      ]
+    },
+    {
+      "route": "/",
+      "role": "owner",
+      "performanceScore": 0.99,
+      "accessibilityScore": 0.93,
+      "lcpMs": 2224,
+      "tbtMs": 9,
+      "cls": 0,
+      "fontFiles": 0,
+      "blockedOffMachineRequests": [],
+      "warnings": []
+    },
+    {
+      "route": "/patients",
+      "role": "owner",
+      "performanceScore": 0.98,
+      "accessibilityScore": 0.94,
+      "lcpMs": 2310,
+      "tbtMs": 1,
+      "cls": 0,
+      "fontFiles": 0,
+      "blockedOffMachineRequests": [],
+      "warnings": []
+    },
+    {
+      "route": "/consultation/[id]",
+      "role": "doctor",
+      "performanceScore": 0.97,
+      "accessibilityScore": 0.79,
+      "lcpMs": 2623,
+      "tbtMs": 9,
+      "cls": 0,
+      "fontFiles": 0,
+      "blockedOffMachineRequests": [],
+      "warnings": [
+        "largest-contentful-paint: 2623.0319 > 2500"
+      ]
+    }
+  ]
+}

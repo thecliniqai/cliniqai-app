@@ -1,0 +1,3 @@
+  6 skipped
+  138 passed (3.1m)
+screenshot-index: 129 capture(s) at 360/820/1180/1280 px, 0 problems; wrote .planning/phases/06-design-system-pwa-shell/evidence/06-08/screens/README.md

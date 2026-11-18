@@ -1,0 +1,34 @@
+# e2e mutant: the two guard layouts removed (patients/[id]/layout.tsx, (today)/layout.tsx), build of b9f8a36's sources minus those files, desktop-chrome, --retries=0
+
+  ✘   9 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A owner › owner: clinic B's patient and visit URLs are refused with no B data in DOM or network (320ms)
+  ✘  10 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A doctor › doctor: clinic B's patient and visit URLs are refused with no B data in DOM or network (299ms)
+  ✘  11 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A receptionist › receptionist: clinic B's patient and visit URLs are refused with no B data in DOM or network (312ms)
+  ✘  12 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:28:9 › full-page status codes are kept › owner of clinic A › another clinic's patient and visit, an unknown id and a malformed id answer 404 (179ms)
+  ✘  13 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:48:9 › full-page status codes are kept › doctor › Today redirects a doctor to the cabin with 307; billing reports to Today with 307 (151ms)
+  ✓  14 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:56:9 › full-page status codes are kept › receptionist › the cabin redirects a receptionist to the Live Queue with 307 (151ms)
+  ✓  15 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Dashboard (/) (1.2s)
+  ✓  16 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Patients (/patients) (1.2s)
+  ✓  17 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Live Queue (/queue) (1.2s)
+  ✓  18 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Doctor's Cabin (/cabin) (1.2s)
+  ✓  19 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Calendar (/calendar) (1.2s)
+  ✓  20 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Billing & Reports (/billing/reports) (1.2s)
+  ✓  21 [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:86:7 › the skeleton shows during a slow client navigation › a patient record opened from Patients (859ms)
+  ✘  22 [desktop-chrome] › tests/e2e/shell/route-states.spec.ts:18:5 › a dashboard notFound() renders the dashboard not-found inside the shell (254ms)
+  ✓  23 [desktop-chrome] › tests/e2e/shell/route-states.spec.ts:30:5 › an unmatched URL renders the root not-found outside the shell with HTTP 404 (150ms)
+  ✓  24 [desktop-chrome] › tests/e2e/shell/route-states.spec.ts:39:5 › a slow client navigation shows the loading skeleton inside the shell, then the page (2.2s)
+  ✓  25 [desktop-chrome] › tests/e2e/shell/route-states.spec.ts:51:5 › the diagnostic render error shows the error state with Try again and no message (361ms)
+
+  6 failed
+  19 passed (21.5s)
+
+Expected/Received lines:
+    Expected: false
+    Received: true
+    Expected: false
+    Received: true
+    Expected: false
+    Received: true
+    Expected: 404
+    Received: 200
+    Expected: 404
+    Received: 200

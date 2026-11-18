@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
-import { isYmd, weekdayOfYmd, ymdOf } from "@/lib/datetime";
+import { clockOf, isYmd, weekdayOfYmd, ymdOf, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee, Check, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -36,6 +36,20 @@ export interface DoctorTimelineProps {
   confirmingId?: string | null;
 }
 
+/**
+ * A visit's wall-clock time in the clinic's zone (ADR-016, P1-21), so the server render and hydration place it in the
+ * same slot whatever zones the server and the browser run in (CI 43712054628: `Date#getHours()` read each runtime's
+ * own zone, the renders differed and React threw the server HTML away, error #418). null for an unreadable timestamp
+ * (skipped, as the NaN check did before).
+ */
+function clinicClockOf(iso: string, timeZone: string): { hour: number; minute: number } | null {
+  try {
+    return clockOf(iso, timeZone);
+  } catch {
+    return null;
+  }
+}
+
 export function DoctorTimeline({
   doctors,
   visits,
@@ -47,6 +61,7 @@ export function DoctorTimeline({
   confirmingId,
 }: DoctorTimelineProps) {
   const timeZone = useClinicTimeZone();
+  const clinicClock = (iso: string) => clinicClockOf(iso, timeZone);
 
   // Day of week for currentDate
   const dayKey = useMemo<DayOfWeek>(
@@ -82,18 +97,18 @@ export function DoctorTimeline({
     // Also expand hours if any visits are scheduled outside shift hours (e.g. emergency override)
     for (const v of visits) {
       if (!v.scheduled_at || v.status === "cancelled") continue;
-      const vDate = new Date(v.scheduled_at);
-      const vH = vDate.getHours();
-      if (!isNaN(vH)) {
+      const clock = clinicClockOf(v.scheduled_at, timeZone);
+      if (clock) {
+        const vH = clock.hour;
         if (vH < earliestHour) earliestHour = Math.max(0, vH);
         const dur = v.estimated_duration_minutes || 15;
-        const endH = Math.ceil((vH * 60 + vDate.getMinutes() + dur) / 60);
+        const endH = Math.ceil((vH * 60 + clock.minute + dur) / 60);
         if (endH > latestHour) latestHour = Math.min(24, endH);
       }
     }
 
     return { startHour: earliestHour, endHour: latestHour };
-  }, [doctors, dayKey, visits]);
+  }, [doctors, dayKey, visits, timeZone]);
 
   // Generate 15-minute time slots between dynamic startHour and endHour
   const timeSlots = useMemo(() => {
@@ -122,10 +137,9 @@ export function DoctorTimeline({
       if (v.doctor_id !== doctorId) return false;
       if (v.status === "cancelled") return false;
 
-      const vTime = new Date(v.scheduled_at);
-      const vH = vTime.getHours().toString().padStart(2, "0");
-      const vM = vTime.getMinutes().toString().padStart(2, "0");
-      const vSlot = `${vH}:${vM}`;
+      const clock = clinicClock(v.scheduled_at);
+      if (!clock) return false;
+      const vSlot = `${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}`;
       return vSlot === timeStr;
     });
   };
@@ -137,10 +151,9 @@ export function DoctorTimeline({
 
     return visits.find((v) => {
       if (!v.scheduled_at || v.doctor_id !== doctorId || v.status === "cancelled") return false;
-      const vDate = new Date(v.scheduled_at);
-      const vH = vDate.getHours();
-      const vM = vDate.getMinutes();
-      const vStartMins = vH * 60 + vM;
+      const clock = clinicClock(v.scheduled_at);
+      if (!clock) return false;
+      const vStartMins = clock.hour * 60 + clock.minute;
       const vDuration = v.estimated_duration_minutes || 15;
       const vEndMins = vStartMins + vDuration;
 
@@ -153,8 +166,8 @@ export function DoctorTimeline({
     const [h, m] = timeStr.split(":").map(Number);
     const slotMins = h * 60 + m;
 
-    // 1. Check schedule blocks (doctor specific or clinic-wide)
-    const slotStartTs = new Date(`${currentDate}T${timeStr}:00`).getTime();
+    // 1. Check schedule blocks (doctor specific or clinic-wide). The slot is a clinic wall-clock time on a clinic date.
+    const slotStartTs = isYmd(currentDate) ? Date.parse(zonedDateTimeToUtcIso(currentDate, timeStr, timeZone)) : NaN;
     const slotEndTs = slotStartTs + 15 * 60000;
 
     for (const block of scheduleBlocks) {
@@ -217,7 +230,7 @@ export function DoctorTimeline({
         {/* Doctors Header Row */}
         <div className="grid grid-cols-[110px_repeat(auto-fit,minmax(210px,1fr))] border-b border-gray-200 bg-gray-50/80 sticky top-0 z-10 backdrop-blur-xs">
           <div className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center justify-center border-r border-gray-200">
-            <Clock className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+            <Clock className="w-3.5 h-3.5 mr-1.5 text-fg-subtle" />
             Time
           </div>
           {doctors.map((doc) => (
@@ -225,7 +238,7 @@ export function DoctorTimeline({
               key={doc.id}
               className="p-3 border-r border-gray-200 last:border-r-0 flex items-center justify-center gap-2.5 truncate"
             >
-              <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-200 text-brand-600 font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-accent-subtle border border-accent-border text-accent-fg font-bold text-xs flex items-center justify-center shrink-0">
                 {doc.name.replace(/^(Dr\.|Staff)\s*/i, "").charAt(0) || "D"}
               </div>
               <div className="text-left truncate">
@@ -310,7 +323,7 @@ export function DoctorTimeline({
                                     ? "bg-sky-50/60 border-dashed border-sky-300 text-sky-950"
                                     : isInConsultation
                                     ? "bg-emerald-50 border-solid border-emerald-300 text-emerald-950"
-                                    : "bg-brand-50/80 border-solid border-brand-200 text-brand-950"
+                                    : "bg-accent-subtle/80 border-solid border-accent-border text-accent-fg"
                                 }`}
                               >
                                 {/* Top Row: Patient Name & Overbooked icon */}
@@ -391,7 +404,7 @@ export function DoctorTimeline({
 
                                     <Link
                                       href={`/consultation/${v.id}`}
-                                      className="p-1 rounded-lg text-[#1769E0] hover:text-[#155cc0] hover:bg-white/90 transition-colors cursor-pointer"
+                                      className="p-1 rounded-lg text-accent hover:text-accent-hover hover:bg-white/90 transition-colors cursor-pointer"
                                       title={
                                         v.status === "in_consultation"
                                           ? "Resume Consultation"
@@ -409,7 +422,7 @@ export function DoctorTimeline({
                                       }}
                                       title="Cancel Appointment"
                                       aria-label="Cancel Appointment"
-                                      className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
+                                      className="p-1 rounded-lg text-fg-subtle hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
                                     >
                                       <XCircle className="w-3.5 h-3.5" />
                                     </button>
@@ -421,11 +434,11 @@ export function DoctorTimeline({
                         </div>
                       ) : ongoingVisit ? (
                         /* Ongoing Consultation Span from Previous Slot */
-                        <div className="px-2.5 py-1.5 rounded-lg bg-brand-50/40 border border-dashed border-brand-200 text-[11px] text-brand-800 flex items-center justify-between">
+                        <div className="px-2.5 py-1.5 rounded-lg bg-accent-subtle/40 border border-dashed border-accent-border text-[11px] text-accent-fg flex items-center justify-between">
                           <span className="truncate font-medium">
                             ↳ {ongoingVisit.patients?.full_name || "Patient"} (in progress)
                           </span>
-                          <span className="text-[10px] font-semibold text-brand-600 shrink-0">
+                          <span className="text-[10px] font-semibold text-accent-fg shrink-0">
                             {ongoingVisit.estimated_duration_minutes}m
                           </span>
                         </div>
@@ -455,8 +468,8 @@ export function DoctorTimeline({
                           className="w-full h-full min-h-[38px] px-2 py-1 rounded-lg border border-transparent hover:border-dashed hover:border-gray-300 hover:bg-gray-200/50 transition-colors flex items-center justify-between text-left cursor-pointer group"
                           title="Click to override off-duty for emergency"
                         >
-                          <div className="flex items-center gap-1.5 text-gray-400 truncate">
-                            <Coffee className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-fg-subtle truncate">
+                            <Coffee className="w-3.5 h-3.5 text-fg-subtle shrink-0" />
                             <span className="text-[11px] font-medium truncate">Off Duty</span>
                           </div>
                           <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -468,7 +481,7 @@ export function DoctorTimeline({
                         <button
                           type="button"
                           onClick={() => onSlotClick(doc.id, timeStr, {})}
-                          className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-brand-300 hover:bg-brand-50/30 group flex items-center justify-center text-transparent hover:text-brand-600 text-xs font-semibold transition-all cursor-pointer"
+                          className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-accent-border hover:bg-accent-subtle/30 group flex items-center justify-center text-transparent hover:text-accent-hover text-xs font-semibold transition-all cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5 mr-1" />
                           <span>Book</span>

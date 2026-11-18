@@ -1,0 +1,98 @@
+{
+  "360": {
+    "route": "/dev/ui",
+    "width": 360,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 16
+    },
+    "rowMenuOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 32
+    },
+    "horizontalScroll": false,
+    "undersizedControls": [],
+    "minTarget": 44,
+    "rowActionGaps": [
+      140,
+      140,
+      140,
+      100,
+      122
+    ]
+  },
+  "820": {
+    "route": "/dev/ui",
+    "width": 820,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 16
+    },
+    "rowMenuOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 32
+    },
+    "horizontalScroll": false,
+    "undersizedControls": [],
+    "minTarget": 44,
+    "rowActionGaps": [
+      260,
+      260,
+      260,
+      220,
+      242
+    ]
+  },
+  "1180": {
+    "route": "/dev/ui",
+    "width": 1180,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 16
+    },
+    "rowMenuOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 31
+    },
+    "horizontalScroll": false,
+    "undersizedControls": [],
+    "minTarget": 24,
+    "rowActionGaps": [
+      284,
+      284,
+      284,
+      244,
+      266
+    ]
+  },
+  "1280": {
+    "route": "/dev/ui",
+    "width": 1280,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 16
+    },
+    "rowMenuOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 31
+    },
+    "horizontalScroll": false,
+    "undersizedControls": [],
+    "minTarget": 24,
+    "rowActionGaps": [
+      284,
+      284,
+      284,
+      244,
+      266
+    ]
+  }
+}

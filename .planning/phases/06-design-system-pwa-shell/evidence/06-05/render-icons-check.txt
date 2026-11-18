@@ -1,0 +1,2 @@
+render-icons: check PASS
+exit 0

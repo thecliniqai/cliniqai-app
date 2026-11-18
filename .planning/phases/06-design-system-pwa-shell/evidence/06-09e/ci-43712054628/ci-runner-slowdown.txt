@@ -1,0 +1,20 @@
+common passing tests 345 sum prior 552.7 sum final 831.1 ratio 1.504
+median ratio 1.5
+2.48 0.123 0.305 tests/e2e/pwa/01-manifest.spec.ts:118:9 locked-owner (V2-05 05-10b locked clinic) › @golden locked-owner: ever
+2.43 0.121 0.294 tests/e2e/pwa/01-manifest.spec.ts:118:9 locked-receptionist (V2-05 05-10b locked clinic) › @golden locked-rece
+2.2 0.138 0.303 tests/e2e/pwa/03-sw.spec.ts:23:5 /sw.js is served no-store with a same-origin-only CSP, signed in and s
+1.98 0.426 0.842 tests/e2e/pwa/07-titles.spec.ts:17:7 /settings/developer: the title is "Developer Settings · CliniQ AI", th
+1.97 0.462 0.912 tests/e2e/pwa/07-titles.spec.ts:17:7 /billing/reports: the title is "Billing & Financial Reports · CliniQ A
+1.94 0.115 0.223 tests/e2e/security/unauth-pages.spec.ts:114:5 public paths stay reachable without a session (never redirected to /lo
+1.94 0.671 1.3 tests/e2e/shell/nav-per-role.spec.ts:97:9 landmarks and skip link › at 1280px: one banner, one visible Primary n
+1.92 0.286 0.55 tests/e2e/shell/loading-states.spec.ts:48:9 full-page status codes are kept › doctor › Today redirects a doctor to
+1.92 2.6 5.0 tests/e2e/shell/nav-per-role.spec.ts:52:9 doctor › doctor: the Sidebar shows exactly navForRole's destinations, 
+1.91 0.518 0.989 tests/e2e/shell/route-states.spec.ts:18:5 a dashboard notFound() renders the dashboard not-found inside the shel
+1.9 3.1 5.9 tests/e2e/shell/nav-per-role.spec.ts:52:9 nurse › nurse: the Sidebar shows exactly navForRole's destinations, an
+1.9 0.418 0.795 tests/e2e/pwa/07-titles.spec.ts:17:7 /profile: the title is "My Profile · CliniQ AI", the brand once
+...
+0.3 0.007 0.015 tests/e2e/pwa/01-manifest.spec.ts:98:5 the root document links the manifest, the icons and the PWA viewport (
+0.28 0.01 0.014 tests/e2e/security/request-id.spec.ts:23:5 a spoofed inbound x-request-id is replaced
+0.28 0.009 0.014 tests/e2e/shell/nav-per-role.spec.ts:84:5 every v1 dashboard page is reachable through the navigation of a role 
+0.02 0.001 0.001 tests/e2e/journeys/journey-01-password-login.spec.ts:15:5 the setup project signed every role in through the login UI @golden
+0.02 0.0 0.001 tests/e2e/security/unauth-pages.spec.ts:46:5 the dashboard route enumeration found the dashboard pages

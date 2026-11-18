@@ -1,0 +1,51 @@
+npm run e2e:pr -- --retries=0 (projects desktop-chrome, pixel-7, iphone-15) on build of 20b5e94 (private detached worktree, e2e lane lock)
+stats: expected=333 unexpected=0 flaky=0 skipped=64 duration_ms=247134
+tests with more than one result (retried): 0
+desktop-chrome: {'expected': 216}
+iphone-15: {'expected': 17}
+pixel-7: {'expected': 95, 'skipped': 64}
+setup: {'expected': 5}
+not expected: []
+06-02a specs and the flake spec file (non-skipped):
+  desktop-chrome a11y/v2-01-screens.spec.ts :: login at 360px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: login at 820px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: login at 1280px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password at 360px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password at 820px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password at 1280px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (incomplete link) at 360px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (incomplete link) at 820px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (incomplete link) at 1280px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (signed out) at 360px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (signed out) at 820px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: join (signed out) at 1280px: 0 serious/critical axe violations -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password set-a-new-password step at 360px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password set-a-new-password step at 820px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: forgot-password set-a-new-password step at 1280px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: change-password form at 360px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: change-password form at 820px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: change-password form at 1280px: 0 serious/critical -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: staff invite form -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: staff edit modal -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: DPDP export control on the patient page -> expected
+  desktop-chrome a11y/v2-01-screens.spec.ts :: Sign & Bill modal -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 360px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 820px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1180px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1280px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui is not served without a session -> expected
+  desktop-chrome design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  pixel-7 design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Button: Tab reaches it, Enter and Space activate it, disabled and loading buttons are skipped, the ring shows -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: IconButton: named, ringed, and disabled or loading icon buttons are skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Input and Field: the label names the control, hint and error describe it, invalid is announced, disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Textarea and NativeSelect: named by their labels, ringed, error described -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Checkbox: Space toggles aria-checked, indeterminate reads mixed, disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: RadioGroup: Tab enters on the checked option, arrows move and select, skip disabled and wrap -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: Switch: Space and Enter toggle aria-checked; disabled is skipped -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: SegmentedControl: a radiogroup; arrows move and select, wrapping; one tab stop -> expected
+  desktop-chrome design/keyboard/forms.spec.ts :: ChipGroup: one tab stop per group; arrows move with wrap, skipping disabled; Space toggles pressed or checked -> expected
+  desktop-chrome pwa/04-offline.spec.ts :: offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online -> expected
+  desktop-chrome pwa/04-offline.spec.ts :: offline: the walk-in drawer and patient form submit buttons are disabled with the reason, and enabled again online -> expected
+  pixel-7 pwa/04-offline.spec.ts :: offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online -> expected
+  pixel-7 pwa/04-offline.spec.ts :: offline: the walk-in drawer and patient form submit buttons are disabled with the reason, and enabled again online -> expected

@@ -15,7 +15,7 @@ import { en } from "@/messages/en";
 
 const M = en.auth.invite;
 const LINK_CLASS =
-  "text-sm font-semibold text-[#1769E0] hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40";
+  "text-sm font-semibold text-accent hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /** Signed-in invitee: accept with the current session (the server checks the session's address). */
 export function JoinAcceptButton({ token, email }: { token: string; email: string }) {

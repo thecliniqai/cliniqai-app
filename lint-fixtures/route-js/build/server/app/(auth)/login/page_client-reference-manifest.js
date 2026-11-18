@@ -1,0 +1,2 @@
+globalThis.__RSC_MANIFEST = globalThis.__RSC_MANIFEST || {};
+globalThis.__RSC_MANIFEST["/(auth)/login/page"] = {"moduleLoading":{"prefix":""},"clientModules":{},"entryCSSFiles":{"[project]/app/layout":[{"path":"static/css/root.css","inlined":false}]},"entryJSFiles":{"[project]/app/layout":["static/chunks/root-runtime.js","static/chunks/layout.js"],"[project]/app/(auth)/login/page":["static/chunks/login.js"]}};

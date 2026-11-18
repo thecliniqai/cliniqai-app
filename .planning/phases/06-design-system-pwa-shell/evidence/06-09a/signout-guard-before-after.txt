@@ -1,0 +1,38 @@
+06-09a M-GUARD before/after (tool output). Base = 0892105 (06-05's rule), after = working tree.
+
+== 06-05 rule (git show 0892105:scripts/ci/ui-policy/rules/signout-guard.mjs) on the 06-09a fixture tree
+FAIL signout-guard components/menu.tsx:6 createClient().auth.signOut
+FAIL signout-guard components/menu.tsx:11 auth.signOut
+FAIL signout-guard components/menu.tsx:16 client.auth["signOut"]
+FAIL signout-guard components/menu.tsx:20 { signOut } destructured
+FAIL signout-guard features/auth/client-helper.tsx:7 createClient().auth.signOut
+FAIL signout-guard lib/hooks/use-session.ts:3 client.auth.signOut
+ui-policy: signout-guard [enforce] 6 finding(s) in 3 file(s) (no baseline)
+
+== 06-09a rule on the same fixture tree
+FAIL signout-guard components/computed-access.tsx:9 auth["signOut"]
+FAIL signout-guard components/computed-access.tsx:14 auth["signOut"]
+FAIL signout-guard components/computed-access.tsx:19 Reflect.get(auth, …)
+FAIL signout-guard components/computed-access.tsx:25 client.auth[<computed>]
+FAIL signout-guard components/computed-access.tsx:26 Reflect.get(client.auth, …)
+FAIL signout-guard components/computed-access.tsx:31 "signOut" string
+FAIL signout-guard components/menu.tsx:6 createClient().auth.signOut
+FAIL signout-guard components/menu.tsx:11 auth.signOut
+FAIL signout-guard components/menu.tsx:16 client.auth["signOut"]
+FAIL signout-guard components/menu.tsx:20 { signOut } destructured
+FAIL signout-guard features/auth/client-helper.tsx:7 createClient().auth.signOut
+FAIL signout-guard features/auth/password-flows.ts:4 client.auth.signOut
+FAIL signout-guard lib/hooks/use-session.ts:3 client.auth.signOut
+FAIL signout-guard lib/raw-logout.ts:3 GoTrue logout URL (/auth/v1/logout)
+FAIL signout-guard lib/raw-logout.ts:7 GoTrue logout URL (/auth/v1/logout)
+ui-policy: signout-guard [enforce] 15 finding(s) in 6 file(s) (no baseline)
+
+== 06-09a rule on 0892105's features/auth/password-flows.ts (abandonReset ran auth.signOut in the browser)
+FAIL signout-guard features/auth/password-flows.ts:221 client.auth.signOut
+ui-policy: signout-guard [enforce] 1 finding(s) in 1 file(s) (no baseline)
+== 06-05 rule on the same file
+ui-policy: signout-guard [enforce] 0 finding(s) in 0 file(s) (no baseline)
+
+== 06-09a rule on the repository (working tree)
+ui-policy: signout-guard [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: PASS (report-mode findings do not fail)

@@ -369,7 +369,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
               ) : (
                 filteredPayments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                    <td className="py-3 px-4 tabular-nums text-[11px] text-slate-500">
                       {new Date(p.recorded_at).toLocaleDateString([], {
                         month: "short",
                         day: "numeric",
@@ -380,7 +380,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
                         minute: "2-digit",
                       })}
                     </td>
-                    <td className="py-3 px-4 font-mono font-medium text-slate-900">
+                    <td className="py-3 px-4 tabular-nums font-medium text-slate-900">
                       {p.invoice_number}
                     </td>
                     <td className="py-3 px-4">
@@ -402,7 +402,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
                         {p.payment_method}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                    <td className="py-3 px-4 tabular-nums text-[11px] text-slate-500">
                       {p.reference_number || "—"}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold text-slate-900">

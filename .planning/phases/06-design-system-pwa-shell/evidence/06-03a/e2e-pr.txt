@@ -1,0 +1,49 @@
+npm run e2e:pr -- --retries=0 (projects desktop-chrome, pixel-7, iphone-15) on the build of the 06-03a tree (base a0e330d + 06-03a files, this worktree, e2e lane lock), 2026-11-15
+stats: expected=388 unexpected=0 flaky=0 skipped=116 duration_ms=396665
+tests with more than one result (retried): 0
+desktop-chrome: {'expected': 269}
+iphone-15: {'expected': 18}
+pixel-7: {'expected': 96, 'skipped': 116}
+setup: {'expected': 5}
+the plan's specs and the specs touching its files (non-skipped):
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 360px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 820px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 1180px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/clinical-a-axe.spec.ts :: clinical identity and status at 1280px: axe clean, no horizontal scroll, target sizes -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 360px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 820px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1180px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1280px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui is not served without a session -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: status chips: one per status with label and icon, Cancelled outlined, no chip in the accent, unknown is neutral -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: token chips: spoken as 'Token 14', Manrope 800 tabular, border in the status hue, booked shows the time -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: queue rows: Tab reaches the name and every action with the visible ring; the name opens the visit -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: queue rows: next, selected, waits and flash carry non-colour cues -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: a 30-character synthetic name shows unbroken at 360 px in the identity header and the queue row -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: identity header: fixed order, header landmark, masked phone inline, full phone in the header -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: allergy line: role alert only with known allergies; none and not recorded are text, Record now is a button -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: save status announces each change through one polite live region; Retry is reachable -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: save status below 768 px: saving and saved are announced but not drawn; offline and error are drawn -> expected
+  desktop-chrome design/keyboard/clinical-a.spec.ts :: share: the system share sheet where the browser has one, else Copy link + 'Link copied'; nothing stored -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  pixel-7 m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  desktop-chrome m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  pixel-7 m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  desktop-chrome m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  pixel-7 m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  desktop-chrome m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  pixel-7 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  iphone-15 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  desktop-chrome m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  pixel-7 m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  desktop-chrome m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  pixel-7 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  iphone-15 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected

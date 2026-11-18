@@ -10,6 +10,8 @@ import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { unaffectedRowsError } from "@/lib/db/errors";
 import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { getTenantTimeZone } from "@/lib/datetime/server";
+import { formatAgeToday } from "@/lib/ui/age";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -237,8 +239,10 @@ export function buildPatientSearchFilter(query: string): string {
   const clean = query.trim();
   if (!clean) return "";
 
-  // Sanitize query to avoid PostgREST filter syntax breaks
-  const sanitized = clean.replace(/[,()]/g, " ").trim();
+  // Sanitize query to avoid PostgREST filter syntax breaks. 06-09c (IND L-4, adversarial B L-1): the LIKE wildcards
+  // `%` and `_`, PostgREST's `*` alias for `%`, and the escape character `\` are removed as well, so they match
+  // nothing special: "%%" or "__" is not a query, and `_` is no per-digit phone oracle.
+  const sanitized = clean.replace(/[,()%_*\\]/g, " ").replace(/\s+/g, " ").trim();
   if (!sanitized) return "";
 
   // Search across full_name, phone, or abha_id
@@ -289,6 +293,69 @@ export async function searchPatients(ctx: ServiceContext, query: string): Promis
   }
 
   return data as Patient[];
+}
+
+/**
+ * The command palette's patient row (V2-06 06-04b; IA §3.7, DESIGN_SYSTEM §7.9, T-06-17): exactly four fields, so the
+ * palette never holds more of a patient than its row shows. `ageSex` is the display age in the clinic's zone (`42 y`)
+ * and the sex letter; `phoneLast4` is the last four digits of the mobile number only (the row masks the rest).
+ */
+export interface PalettePatient {
+  id: string;
+  name: string;
+  ageSex: { age: string | null; sex: "M" | "F" | "O" | null } | null;
+  phoneLast4: string | null;
+}
+
+/** The keys of {@link PalettePatient}, in order (the projection spec compares against this). */
+export const PALETTE_PATIENT_KEYS = ["id", "name", "ageSex", "phoneLast4"] as const;
+/** At most this many patients per palette query. */
+export const PALETTE_PATIENT_LIMIT = 8;
+/** Shortest query the palette sends (one character matches too much of a directory). */
+export const PALETTE_MIN_QUERY = 2;
+const PALETTE_MAX_QUERY = 100;
+
+const SEX_LETTER: Record<string, "M" | "F" | "O"> = { male: "M", female: "F", other: "O" };
+
+/**
+ * Patients matching `query` (name, mobile number or ABHA, the same matching as {@link searchPatients}) in the caller's
+ * clinic, projected to {@link PalettePatient}. The tenant comes from the session context; nothing is stored.
+ */
+export async function searchPatientsForPalette(ctx: ServiceContext, query: string): Promise<PalettePatient[]> {
+  assertPerm(ctx.role, "patients:view");
+  const q = typeof query === "string" ? query.trim().slice(0, PALETTE_MAX_QUERY) : "";
+  // 06-09c (IND L-4): only letters and digits count toward the minimum ("%%", "__", "**" return nothing).
+  if (q.replace(/[^\p{L}\p{N}]/gu, "").length < PALETTE_MIN_QUERY) return [];
+  const filterString = buildPatientSearchFilter(q);
+  if (!filterString) return [];
+
+  const { data, error } = await (ctx.db.from("patients") as any)
+    .select("id, full_name, phone, date_of_birth, age, sex")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("is_deleted", false)
+    .or(filterString)
+    .order("created_at", { ascending: false })
+    .limit(PALETTE_PATIENT_LIMIT);
+
+  if (error || !data) {
+    log.error({ event: "patients.palette_search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return [];
+  }
+
+  type Row = { id: string; full_name: string; phone: string | null; date_of_birth: string | null; age: number | null; sex: string | null };
+  const rows = data as Row[];
+  const tz = rows.some((r) => r.date_of_birth) ? await getTenantTimeZone(ctx.db, ctx.tenantId) : null;
+  return rows.map((r) => {
+    const age = r.date_of_birth && tz ? formatAgeToday(r.date_of_birth, tz) : typeof r.age === "number" ? `${r.age} y` : null;
+    const sex = (r.sex && SEX_LETTER[r.sex]) || null;
+    const digits = (r.phone ?? "").replace(/\D/g, "");
+    return {
+      id: r.id,
+      name: r.full_name,
+      ageSex: age || sex ? { age, sex } : null,
+      phoneLast4: digits.length >= 4 ? digits.slice(-4) : null,
+    };
+  });
 }
 
 export async function getPatients(ctx: ServiceContext): Promise<Patient[]> {

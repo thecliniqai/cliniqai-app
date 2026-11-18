@@ -1,0 +1,94 @@
+06-09c fails-without proof, Vitest: the 06-09c specs (new and changed) copied into a detached worktree at 735e558 (code before 06-09c) and run there against the shared local stack (000094), 2026-11-15T06:27:09Z.
+M-REMOVED's spec runs as tests/zz-before/active-clinic-removed-db.spec.ts (MembershipEnded compared by name: the component does not exist at 735e558).
+Command: npx vitest run tests/auth/auth-outage-db.spec.ts tests/zz-before/active-clinic-removed-db.spec.ts tests/nav/record-layouts-db.spec.ts tests/patients/palette-search-db.spec.ts tests/patients/phone-search.spec.ts tests/pwa/session-status.spec.ts tests/auth/signout-route.spec.ts tests/clinical/vitals.spec.ts tests/design/age.spec.ts
+
+   × record layouts: not found vs a failed lookup (local stack) > a failing lookup (500) is an error for the boundary, never a 404 73ms
+   × record layouts: not found vs a failed lookup (local stack) > a failing lookup (network) is an error for the boundary, never a 404 14139ms
+   × 06-09a fetch callers and a failed global revocation > 06-09c (M-REMOVED): every sign-out (fetch or form, revoked or not) expires the active-clinic cookie 9ms
+   × isDefinitiveAuthRejection (which auth errors are a real 'no session') > no session, and a GoTrue 4xx other than 408/429, are definitive; everything else is retryable 2ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 503 → 503 unavailable (never 401), no-store 4ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 502 → 503 unavailable (never 401), no-store 1ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 500 → 503 unavailable (never 401), no-store 1ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 429 → 503 unavailable (never 401), no-store 0ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 408 → 503 unavailable (never 401), no-store 0ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers network → 503 unavailable (never 401), no-store 0ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers timeout → 503 unavailable (never 401), no-store 0ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers unreadable → 503 unavailable (never 401), no-store 0ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > getActiveMembership: AuthUnavailableError on an outage, UnauthenticatedError on a refusal 2ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > server actions: an outage is the generic failure, never 'unauthenticated' (which signs the client out) 1ms
+   × Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > the dashboard layout and a wrapped page show the error boundary on an outage, not a redirect to sign-in 0ms
+   × dobFromAge > 0 years has no date of birth (an infant's age is in months); 1 year is 12 months, shown '12 m' 2ms
+   × dobFromAge > round trip: every age entry reads back as entered on that day (years from 2, months below), any day of the year 0ms
+   × removed from the active clinic, one clinic left (local stack) > removed from A with B left: 403 no_membership (before 06-09c: 200 with B's level) 390ms
+   × removed from the active clinic, one clinic left (local stack) > suspended in A with B left: the same refusal 393ms
+   × removed from the active clinic, one clinic left (local stack) > the dashboard layout renders the sign-out screen, never B's shell 416ms
+   × removed from the active clinic, one clinic left (local stack) > a wrapped page (a client navigation) and a server action refuse too: the sign-out screen, a fixed refusal 405ms
+   × removed from the active clinic, one clinic left (local stack) > POST /auth/signout of the removed member expires the active-clinic cookie 381ms
+   × palette projections > patients: wildcards are not a query: %%, __, ** and the like return nothing; a wildcard inside a name matches nothing extra 9ms
+   × reactToStatus > expired / removed / locked / update / none 3ms
+   × startSessionStatusWatch > 503, 429, a network error and a timeout never sign out; the watch retries with a back-off; a later 401 still signs out 1011ms
+   × startSessionStatusWatch > a timed-out check (no answer within the limit) is a failure, not a sign-out 3ms
+   × startSessionStatusWatch > a retry on a hidden page is skipped (the visible trigger checks); a success resets the back-off 1004ms
+   × startSessionStatusWatch > IND L-1: 'Check for updates' resolves 'failed' (not 'none') when the check got no answer 2ms
+   × Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03) > buildPatientSearchFilter (Query Normalization & Filter Construction) > returns empty string for empty or whitespace-only queries 2ms
+   × summary > a critical reading is never hidden behind merely-high ones: criticals rank first 3ms
+   × summary > every critical reading is shown, even more than three of them; then flagged, then normal 0ms
+ Test Files  9 failed (9)
+      Tests  31 failed | 168 passed (199)
+
+Failure messages:
+ FAIL  tests/auth/auth-outage-db.spec.ts > isDefinitiveAuthRejection (which auth errors are a real 'no session') > no session, and a GoTrue 4xx other than 408/429, are definitive; everything else is retryable
+TypeError: isDefinitiveAuthRejection is not a function
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 503 → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 502 → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 500 → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 429 → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers 408 → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers network → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers timeout → 503 unavailable (never 401), no-store
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > Auth answers unreadable → 503 unavailable (never 401), no-store
+AssertionError: expected 401 to be 503 // Object.is equality
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > getActiveMembership: AuthUnavailableError on an outage, UnauthenticatedError on a refusal
+AssertionError: The instanceof assertion needs a constructor but undefined was given.
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > server actions: an outage is the generic failure, never 'unauthenticated' (which signs the client out)
+AssertionError: 503: expected 'unauthenticated' not to be 'unauthenticated' // Object.is equality
+ FAIL  tests/auth/auth-outage-db.spec.ts > Supabase Auth unavailable (local stack, real session, failing /auth/v1/user) > the dashboard layout and a wrapped page show the error boundary on an outage, not a redirect to sign-in
+AssertionError: The instanceof assertion needs a constructor but undefined was given.
+ FAIL  tests/auth/signout-route.spec.ts > 06-09a fetch callers and a failed global revocation > 06-09c (M-REMOVED): every sign-out (fetch or form, revoked or not) expires the active-clinic cookie
+AssertionError: the active clinic is expired: expected [] to have a length of 1 but got +0
+ FAIL  tests/clinical/vitals.spec.ts > summary > a critical reading is never hidden behind merely-high ones: criticals rank first
+AssertionError: expected [ [ 'BP 150/95', 'high' ], …(2) ] to deeply equal [ Array(3) ]
+ FAIL  tests/clinical/vitals.spec.ts > summary > every critical reading is shown, even more than three of them; then flagged, then normal
+AssertionError: expected [ 'BP 200/125', 'P 160', '106.0°F' ] to deeply equal [ 'BP 200/125', 'P 160', …(3) ]
+ FAIL  tests/design/age.spec.ts > dobFromAge > 0 years has no date of birth (an infant's age is in months); 1 year is 12 months, shown '12 m'
+AssertionError: expected '2026-01-01' to be null
+ FAIL  tests/design/age.spec.ts > dobFromAge > round trip: every age entry reads back as entered on that day (years from 2, months below), any day of the year
+TypeError: (0 , ageEntryFor) is not a function
+ FAIL  tests/nav/record-layouts-db.spec.ts > record layouts: not found vs a failed lookup (local stack) > a failing lookup (500) is an error for the boundary, never a 404
+AssertionError: expected { kind: 'notFound' } to deeply equal { kind: 'error', …(1) }
+ FAIL  tests/nav/record-layouts-db.spec.ts > record layouts: not found vs a failed lookup (local stack) > a failing lookup (network) is an error for the boundary, never a 404
+AssertionError: expected { kind: 'notFound' } to deeply equal { kind: 'error', …(1) }
+ FAIL  tests/patients/palette-search-db.spec.ts > palette projections > patients: wildcards are not a query: %%, __, ** and the like return nothing; a wildcard inside a name matches nothing extra
+AssertionError: %%: expected [ { …(4) }, { …(4) } ] to deeply equal []
+ FAIL  tests/patients/phone-search.spec.ts > Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03) > buildPatientSearchFilter (Query Normalization & Filter Construction) > returns empty string for empty or whitespace-only queries
+AssertionError: expected 'full_name.ilike.%%%%,phone.ilike.%%%%…' to be '' // Object.is equality
+ FAIL  tests/pwa/session-status.spec.ts > reactToStatus > expired / removed / locked / update / none
+AssertionError: expected 'none' to be 'failed' // Object.is equality
+ FAIL  tests/pwa/session-status.spec.ts > startSessionStatusWatch > 503, 429, a network error and a timeout never sign out; the watch retries with a back-off; a later 401 still signs out
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/pwa/session-status.spec.ts > startSessionStatusWatch > a timed-out check (no answer within the limit) is a failure, not a sign-out
+AssertionError: expected 'none' to be 'failed' // Object.is equality
+ FAIL  tests/pwa/session-status.spec.ts > startSessionStatusWatch > a retry on a hidden page is skipped (the visible trigger checks); a success resets the back-off
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/pwa/session-status.spec.ts > startSessionStatusWatch > IND L-1: 'Check for updates' resolves 'failed' (not 'none') when the check got no answer
+AssertionError: expected 'none' to be 'failed' // Object.is equality
+ FAIL  tests/zz-before/active-clinic-removed-db.spec.ts > removed from the active clinic, one clinic left (local stack) > removed from A with B left: 403 no_membership (before 06-09c: 200 with B's level)
+AssertionError: expected 200 to be 403 // Object.is equality
+ FAIL  tests/zz-before/active-clinic-removed-db.spec.ts > removed from the active clinic, one clinic left (local stack) > suspended in A with B left: the same refusal
+AssertionError: expected 200 to be 403 // Object.is equality
+ FAIL  tests/zz-before/active-clinic-removed-db.spec.ts > removed from the active clinic, one clinic left (local stack) > the dashboard layout renders the sign-out screen, never B's shell
+AssertionError: expected 'ClinicTimeZoneProvider' to be 'MembershipEnded' // Object.is equality
+ FAIL  tests/zz-before/active-clinic-removed-db.spec.ts > removed from the active clinic, one clinic left (local stack) > a wrapped page (a client navigation) and a server action refuse too: the sign-out screen, a fixed refusal
+AssertionError: expected undefined to be 'MembershipEnded' // Object.is equality
+ FAIL  tests/zz-before/active-clinic-removed-db.spec.ts > removed from the active clinic, one clinic left (local stack) > POST /auth/signout of the removed member expires the active-clinic cookie
+TypeError: .toMatch() expects to receive a string, but got undefined

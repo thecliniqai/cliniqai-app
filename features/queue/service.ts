@@ -5,7 +5,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
-import { getTenantTimeZone } from "@/lib/datetime/server";
+import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
 import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
@@ -320,4 +320,48 @@ export async function getQueueForDate(
       error: clientErrorMessage(err, "Failed to fetch queue.", "queue.get_queue_for_date.failed"),
     };
   }
+}
+
+/**
+ * The command palette's "Today queue" group (V2-06 06-04b; IA §3.7 "Today: queue matches by token, name or phone"):
+ * today's visits in the caller's clinic (clinic date in its zone) whose token number, patient name or mobile number
+ * matches `query`, projected to four fields. Cancelled visits are left out. The tenant comes from the session context.
+ */
+export interface PaletteQueueMatch {
+  visitId: string;
+  token: number | null;
+  name: string;
+  status: string;
+}
+
+export const PALETTE_QUEUE_KEYS = ["visitId", "token", "name", "status"] as const;
+export const PALETTE_QUEUE_LIMIT = 5;
+
+export async function searchTodayQueueForPalette(ctx: ServiceContext, query: string): Promise<PaletteQueueMatch[]> {
+  assertPerm(ctx.role, "appointments:view");
+  const q = typeof query === "string" ? query.trim().slice(0, 100) : "";
+  if (!q) return [];
+  const { today } = await getTenantToday(ctx.db, ctx.tenantId);
+  const result = await getQueueForDate(ctx, today);
+  if (!result.success) return [];
+
+  const lower = q.toLowerCase();
+  // "14", "#14", "T14", "token 14" → token 14; a longer digit run is a mobile number fragment.
+  const tokenQuery = /^(?:#|t|token\s*)?(\d{1,4})$/i.exec(q)?.[1];
+  const digits = q.replace(/\D/g, "");
+  const matches: PaletteQueueMatch[] = [];
+  for (const item of result.items) {
+    if (item.visit.status === "cancelled") continue;
+    const name = item.patient?.full_name ?? "";
+    const token = item.queueToken?.token_number ?? null;
+    const phone = (item.patient?.phone ?? "").replace(/\D/g, "");
+    const hit =
+      (tokenQuery !== undefined && token !== null && token === Number(tokenQuery)) ||
+      (name !== "" && name.toLowerCase().includes(lower)) ||
+      (digits.length >= 4 && digits.length === q.replace(/[\s+()-]/g, "").length && phone.includes(digits.slice(-10)));
+    if (!hit) continue;
+    matches.push({ visitId: item.visit.id, token, name, status: item.visit.status });
+    if (matches.length >= PALETTE_QUEUE_LIMIT) break;
+  }
+  return matches;
 }

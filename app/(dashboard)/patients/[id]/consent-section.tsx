@@ -69,7 +69,7 @@ export function ConsentSection({
       <Card className="border border-gray-200 overflow-hidden shadow-xs">
         <div
           className={`p-5 sm:p-6 transition-colors ${
-            isGranted ? "bg-[#EAF7F0]/30" : "bg-[#FFF5E5]/30"
+            isGranted ? "bg-success-bg/30" : "bg-warning-bg/30"
           }`}
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -77,14 +77,14 @@ export function ConsentSection({
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
                   isGranted
-                    ? "bg-[#EAF7F0] border-[#BDE5CF] text-[#18794E]"
-                    : "bg-[#FFF5E5] border-[#F3D39A] text-[#9A5B00]"
+                    ? "bg-success-bg border-success-border text-success-fg"
+                    : "bg-warning-bg border-warning-border text-warning-fg"
                 }`}
               >
                 {isGranted ? (
-                  <Shield className="w-5 h-5 text-[#18794E]" />
+                  <Shield className="w-5 h-5 text-success-fg" />
                 ) : (
-                  <ShieldAlert className="w-5 h-5 text-[#9A5B00]" />
+                  <ShieldAlert className="w-5 h-5 text-warning-fg" />
                 )}
               </div>
 
@@ -96,13 +96,13 @@ export function ConsentSection({
                   <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       isGranted
-                        ? "bg-[#EAF7F0] text-[#18794E] border border-[#BDE5CF]"
-                        : "bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]"
+                        ? "bg-success-bg text-success-fg border border-success-border"
+                        : "bg-warning-bg text-warning-fg border border-warning-border"
                     }`}
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        isGranted ? "bg-[#18794E]" : "bg-[#9A5B00]"
+                        isGranted ? "bg-success-solid" : "bg-warning-solid"
                       }`}
                     />
                     {isGranted ? "Active Consent" : "Withdrawn Consent"}
@@ -153,7 +153,7 @@ export function ConsentSection({
                   className={`h-9 font-semibold text-xs px-4 ${
                     isGranted
                       ? "border-amber-300 text-amber-800 hover:bg-amber-50"
-                      : "bg-[#18794E] text-white hover:bg-[#146340]"
+                      : "bg-success-solid text-white hover:bg-[#146340]"
                   }`}
                 >
                   {isGranted ? "Withdraw Consent" : "Grant Consent"}
@@ -172,9 +172,9 @@ export function ConsentSection({
           >
             <span>Specific Purpose Consent Breakdown (Treatment & Data Sharing)</span>
             {showPurposes ? (
-              <ChevronUp className="w-4 h-4 text-gray-400" />
+              <ChevronUp className="w-4 h-4 text-fg-subtle" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="w-4 h-4 text-fg-subtle" />
             )}
           </button>
 

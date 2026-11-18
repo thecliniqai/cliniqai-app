@@ -1,70 +1,407 @@
 @import "tailwindcss";
 
+/*
+ * clinicOS design tokens: the ONLY source of colour, type and size values (DESIGN_SYSTEM §2.4, §10).
+ *
+ * Values: the approved CliniQ AI theme (G2-D addendum 2026-11-14; V2-DX `3a78a5d`): `clinic-paper.css` with
+ * `cliniq-ai.css` on top, copied as resolved values under the approved names (V2-06 plan 06-01b). The verbatim
+ * approved files are in `.planning/phases/06-design-system-pwa-shell/evidence/06-01b/`, and
+ * tests/design/approved-tokens.spec.ts fails when a value here differs from them. Light only (R-7).
+ *
+ * Four layers:
+ *   1. RAW (`@theme`): the approved palette under its approved names (`mineral-*` hold the slate neutrals,
+ *      `primary-*` CliniQ Blue, `teal-*` Care Teal). Never used outside this file (DESIGN_SYSTEM §2.3).
+ *   2. SEMANTIC (`@theme inline`): what a colour means. Components use only these utilities (bg-canvas, text-fg-muted,
+ *      border-accent, ring-ring, bg-status-waiting-bg …). Each points at the raw layer; a few approved status values
+ *      are literal hexes in the brand file and stay literal here.
+ *   3. STRUCTURE (`@theme`): fonts, type scale, weights, radii, elevation, motion and sizes.
+ *   4. COMPONENT (`@theme static`): per-component aliases of semantic tokens and the PWA colours, emitted at runtime
+ *      whether or not a utility uses them.
+ *
+ * Not copied from the approved files (they are not custom properties): the IBM Plex `@font-face` rules (no token
+ * names Plex since G2-D) and the prototype-only selectors of `cliniq-ai.css` (`.title-1`, `.display`, `.token`,
+ * `.chip-cancelled` …). Their rules are component behaviour: the `font-display` utility with the type-scale weights
+ * below (06-02a…06-04b apply them) and StatusChip's cancelled variant (06-03a). Fonts load from `app/fonts/fonts.ts`
+ * (`next/font/local`, Inter + Manrope), which inserts the metric-matched "… Fallback" faces named in the stacks.
+ *
+ * The Tailwind default palette stays available until the palette reset (M5, V2-11); the UI policy reports its use.
+ * lib/design/tokens.ts mirrors the few values non-CSS code needs (tests/design/tokens.spec.ts keeps them equal).
+ */
+
+/* 1. RAW: the approved palette */
 @theme {
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-white: #ffffff;
 
-  --color-brand-25: #f6faff;
-  --color-brand-50: #eaf2ff;
-  --color-brand-100: #d5e6ff;
-  --color-brand-200: #b3d4ff;
-  --color-brand-300: #80baff;
-  --color-brand-400: #4797ff;
-  --color-brand-500: #1769e0;
-  --color-brand-600: #0f5ab8;
-  --color-brand-700: #0b4c9c;
-  --color-brand-800: #0d3f7f;
-  --color-brand-900: #0f3668;
-  --color-brand-950: #0a2245;
+  /* Slate neutrals under the approved "mineral-*" names; mineral-900 is Midnight */
+  --color-mineral-50: #f7f9fc;
+  --color-mineral-100: #f1f4f9;
+  --color-mineral-200: #e4e9f1;
+  --color-mineral-300: #cdd5e1;
+  --color-mineral-400: #a9b4c6;
+  --color-mineral-450: #7e8ba2;
+  --color-mineral-500: #5c6981;
+  --color-mineral-550: #5c6981;
+  --color-mineral-600: #465268;
+  --color-mineral-900: #0b1a42;
 
+  /* CliniQ Blue */
+  --color-primary-50: #f5f9fe;
+  --color-primary-100: #eef5fd;
+  --color-primary-200: #b9d4f5;
+  --color-primary-500: #3a80d9;
+  --color-primary-600: #246bce;
+  --color-primary-700: #1d58ab;
+  --color-primary-800: #1b4a8c;
+
+  /* Care Teal: the With-doctor status and the next-up row; teal-550 is the AA border on the teal wash */
+  --color-teal-50: #eafbf8;
+  --color-teal-100: #c9f4ee;
+  --color-teal-500: #12a396;
+  --color-teal-550: #11998d;
+  --color-teal-700: #0d6962;
+
+  /* "To bill" brass (kept from round 3) */
+  --color-brass-50: #f7f1e8;
+  --color-brass-500: #b58a55;
+  --color-brass-700: #6d5434;
+
+  --color-success-50: #e8f5ee;
+  --color-success-600: #177a45;
+  --color-warning-50: #fdf3e2;
+  --color-warning-600: #8a5710;
+  --color-danger-50: #fdecec;
+  --color-danger-600: #b42828;
+  --color-info-50: #eef5fd;
+  --color-info-600: #1d58ab;
+
+  --color-focus: #3a80d9;
+  --color-focus-halo: #eef5fd;
+}
+
+/* 2. SEMANTIC: components use ONLY these (DESIGN_SYSTEM §2.3; extra approved names listed in 06-01b record) */
+@theme inline {
+  --color-canvas: var(--color-white);
+  --color-surface: var(--color-white);
+  --color-surface-soft: var(--color-mineral-50);
+  --color-surface-muted: var(--color-mineral-100);
+  --color-sunken: var(--color-mineral-100);
+  --color-hover: var(--color-mineral-50);
+  --color-selected: var(--color-primary-100);
+  --color-scrim: rgb(11 26 66 / 0.36);
+
+  --color-fg: var(--color-mineral-900);
+  --color-fg-body-tint: var(--color-mineral-600);
+  --color-fg-secondary: var(--color-mineral-600);
+  --color-fg-muted: var(--color-mineral-550);
+  --color-fg-subtle: var(--color-mineral-550);
+  --color-fg-icon: var(--color-mineral-500);
+  --color-fg-placeholder: var(--color-mineral-550);
+  --color-fg-disabled: var(--color-mineral-400);
+  --color-fg-on-accent: var(--color-white);
+
+  --color-border: var(--color-mineral-200);
+  --color-border-subtle: var(--color-mineral-200);
+  --color-border-strong: var(--color-mineral-300);
+  --color-border-control: var(--color-mineral-450);
+
+  --color-accent: var(--color-primary-600);
+  --color-accent-hover: var(--color-primary-700);
+  --color-accent-pressed: var(--color-primary-800);
+  --color-accent-subtle: var(--color-primary-100);
+  --color-accent-tint: var(--color-primary-50);
+  --color-accent-fg: var(--color-primary-600);
+  --color-accent-border: var(--color-primary-200);
+  --color-accent-disabled: var(--color-primary-200);
+  --color-accent-2: var(--color-brass-500);
+  --color-accent-2-bg: var(--color-brass-50);
+  --color-accent-2-fg: var(--color-brass-700);
+  --color-ring: var(--color-focus);
+  --color-ring-halo: var(--color-white);
+  --color-ring-glow: var(--color-focus-halo);
+
+  --color-success-bg: var(--color-success-50);
+  --color-success-fg: var(--color-success-600);
+  --color-success-border: var(--color-success-600);
+  --color-success-solid: var(--color-success-600); /* not in the approved files: codemodded solid fills (06-01a) */
+  --color-warning-bg: var(--color-warning-50);
+  --color-warning-fg: var(--color-warning-600);
+  --color-warning-border: var(--color-warning-600);
+  --color-warning-solid: var(--color-warning-600); /* not in the approved files: codemodded solid fills (06-01a) */
+  --color-danger-bg: var(--color-danger-50);
+  --color-danger-fg: var(--color-danger-600);
+  --color-danger-border: var(--color-danger-600);
+  --color-danger-solid: var(--color-danger-600);
+  --color-info-bg: var(--color-info-50);
+  --color-info-fg: var(--color-info-600);
+  --color-info-border: var(--color-info-600);
+  --color-info-solid: var(--color-info-600); /* not in the approved files: codemodded solid fills (06-01a) */
+
+  /* Visit status: each state has its own hue and none uses the primary blue (DESIGN_SYSTEM §7.5) */
+  --color-status-booked-bg: #f3effd;
+  --color-status-booked-fg: #5b34b5;
+  --color-status-booked-border: #7c5cd6;
+  --color-status-waiting-bg: var(--color-warning-50);
+  --color-status-waiting-fg: var(--color-warning-600);
+  --color-status-waiting-border: var(--color-warning-600);
+  --color-status-with-doctor-bg: var(--color-teal-50);
+  --color-status-with-doctor-fg: var(--color-teal-700);
+  --color-status-with-doctor-border: var(--color-teal-550);
+  --color-status-to-bill-bg: var(--color-success-50);
+  --color-status-to-bill-fg: var(--color-success-600);
+  --color-status-to-bill-border: var(--color-success-600);
+  --color-status-done-bg: var(--color-mineral-100);
+  --color-status-done-fg: var(--color-mineral-600);
+  --color-status-done-border: var(--color-mineral-450);
+  --color-status-no-show-bg: var(--color-danger-50);
+  --color-status-no-show-fg: var(--color-danger-600);
+  --color-status-no-show-border: var(--color-danger-600);
+  --color-status-cancelled-bg: var(--color-white);
+  --color-status-cancelled-fg: var(--color-mineral-550);
+  --color-status-cancelled-border: var(--color-mineral-550);
+
+  --color-alert-allergy-bg: var(--color-danger-600);
+  --color-alert-allergy-fg: var(--color-white);
+  --color-alert-unrecorded-bg: var(--color-warning-50);
+  --color-alert-unrecorded-fg: var(--color-warning-600);
+  --color-finding-normal-fg: var(--color-mineral-550);
+  --color-finding-abnormal-bg: var(--color-warning-50);
+  --color-finding-abnormal-fg: var(--color-warning-600);
+  --color-finding-abnormal-border: var(--color-warning-600);
+
+  /* AI-02 (AI_STRATEGY §5.3): AI Assist chip, Smart Assist label, Preview chip */
+  --color-ai-bg: var(--color-white);
+  --color-ai-fg: var(--color-mineral-900);
+  --color-ai-border: var(--color-mineral-450);
+  --color-ai-glyph: var(--color-mineral-900);
+  --color-smart-fg: var(--color-mineral-550);
+  --color-preview-bg: var(--color-info-50);
+  --color-preview-fg: var(--color-info-600);
+  --color-preview-border: var(--color-info-600);
+}
+
+/* 3. STRUCTURE: fonts, type scale, weights, radii, elevation, motion, sizes */
+@theme {
+  /* Inter for reading and UI; Manrope (the logo face) for titles, display text, prices and token numbers.
+     Devanagari names are listed but not loaded until Hindi renders (PWA §3.9). */
+  --font-sans: "Inter", "Inter Fallback", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Manrope", "Manrope Fallback", "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Type scale, round 3 (hierarchy by weight, colour and spacing). Desktop body is 14 px; inputs 16 px on phones. */
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 0.875rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.125rem;
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.25rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-body-lg: 0.9375rem;
+  --text-body-lg--line-height: 1.375rem;
+  --text-title-3: 0.875rem;
+  --text-title-3--line-height: 1.25rem;
+  --text-title-2: 1rem;
+  --text-title-2--line-height: 1.375rem;
+  --text-title-1: 1.25rem;
+  --text-title-1--line-height: 1.625rem;
+  --text-display: 1.625rem;
+  --text-display--line-height: 2rem;
+  --text-token: 1.375rem;
+  --text-token--line-height: 1.5rem;
+  --text-token-sm: 1.0625rem;
+  --text-token-sm--line-height: 1.25rem;
+  --text-input: 0.875rem;
+  /* Display weights (cliniq-ai.css: Manrope 700 for titles, 800 for title-1, display and token numbers) */
+  --text-title-1--font-weight: 800;
+  --text-title-2--font-weight: 700;
+  --text-display--font-weight: 800;
+  --text-token--font-weight: 800;
+  --text-token--letter-spacing: -0.02em;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --tracking-title: -0.015em;
+  --tracking-caps: 0.08em;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --shadow-hairline: 0 0 0 1px var(--color-mineral-200);
+  --shadow-card: 0 1px 2px rgb(11 26 66 / 0.05), 0 8px 28px rgb(11 26 66 / 0.06);
+  --shadow-popover: 0 2px 6px rgb(11 26 66 / 0.06), 0 12px 32px rgb(11 26 66 / 0.1);
+  --shadow-overlay: 0 24px 56px rgb(11 26 66 / 0.16), 0 2px 8px rgb(11 26 66 / 0.06);
+  /* v1 elevation still used by the v1 screens (shadow-theme-*); retired as each screen is rebuilt */
   --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
   --shadow-theme-sm: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
   --shadow-theme-md: 0px 4px 8px -2px rgba(16, 24, 40, 0.1), 0px 2px 4px -2px rgba(16, 24, 40, 0.06);
   --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-sheet: 240ms;
+  --duration-flash: 600ms;
+
+  /* Sizes. Visual height can be compact; the hit area is ≥ 44 px on touch. */
+  --spacing-control: 2.75rem;
+  --spacing-control-dense: 2.25rem;
+  --spacing-control-compact: 2rem;
+  --spacing-pill: 1.25rem;
+  --spacing-tile: 2rem;
+  --spacing-bar: 3.25rem;
+  --spacing-bottom-bar: 3.75rem;
+  --spacing-rail: 3.5rem;
+  --spacing-sidebar: 13.5rem;
+  --spacing-sheet: 28rem;
+  --spacing-sheet-lg: 38rem;
+  --spacing-context-pane: 16.5rem;
+  --spacing-assist-pane: 17rem;
+  --spacing-note-max: 56rem;
+  --spacing-label-col: 7.5rem;
+  --spacing-gutter: 1rem;
+  --spacing-gutter-lg: 1.5rem;
 }
 
-:root {
-  /* Canonical DESIGN.md tokens */
-  --brand-primary: #1769E0;
-  --brand-hover: #0F5AB8;
-  --brand-active: #0B4C9C;
-  --brand-soft: #EAF2FF;
+/* 4. COMPONENT: emitted at runtime whether or not a utility uses them */
+@theme static {
+  --font-features: "cv11", "ss01";
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --button-primary-bg: var(--color-accent);
+  --button-primary-bg-hover: var(--color-accent-hover);
+  --button-primary-bg-pressed: var(--color-accent-pressed);
+  --button-primary-fg: var(--color-fg-on-accent);
+  --button-secondary-bg: var(--color-accent-subtle);
+  --button-secondary-fg: var(--color-accent-fg);
+  --button-secondary-border: transparent;
+  --button-quiet-bg: var(--color-surface);
+  --button-quiet-fg: var(--color-fg-secondary);
+  --button-quiet-border: var(--color-border-strong);
+  --button-danger-bg: var(--color-danger-solid);
+  --button-danger-fg: var(--color-fg-on-accent);
+  --button-disabled-bg: var(--color-surface-muted);
+  --button-disabled-fg: var(--color-fg-muted);
+  --input-bg: var(--color-surface);
+  --input-fg: var(--color-fg);
+  --input-border: var(--color-border-control);
+  --input-placeholder: var(--color-fg-placeholder);
+  --input-invalid-border: var(--color-danger-solid);
+  --tile-bg: var(--color-surface);
+  --tile-fg: var(--color-fg);
+  --tile-border: var(--color-border-strong);
+  --tile-hover-bg: var(--color-surface-soft);
+  --tile-selected-bg: var(--color-accent-subtle);
+  --tile-selected-fg: var(--color-accent-fg);
+  --tile-selected-border: var(--color-accent);
+  --token-chip-bg: var(--color-surface);
+  --token-chip-fg: var(--color-fg);
+  --token-chip-border-width: 1.5px;
+  --nav-active-bg: var(--color-accent-subtle);
+  --nav-active-fg: var(--color-accent-fg);
+  --nav-active-indicator: var(--color-accent);
+  --nav-fg: var(--color-fg-secondary);
+  --lane-header-bg: var(--color-surface);
+  --lane-header-fg: var(--color-fg);
+  --row-selected-bg: var(--color-selected);
+  --row-selected-indicator: var(--color-accent);
+  --row-next-bg: #f2fcfa;
+  --wait-normal-fg: var(--color-fg-muted);
+  --wait-long-fg: var(--color-warning-fg);
+  --wait-critical-fg: var(--color-danger-fg);
+  --chip-ai-bg: var(--color-ai-bg);
+  --chip-ai-fg: var(--color-ai-fg);
+  --chip-ai-border: var(--color-ai-border);
+  --chip-preview-bg: var(--color-preview-bg);
+  --chip-preview-fg: var(--color-preview-fg);
+  --chip-smart-fg: var(--color-smart-fg);
+  --banner-offline-bg: var(--color-mineral-900);
+  --banner-offline-fg: var(--color-white);
+  --banner-trial-bg: var(--color-info-bg);
+  --banner-trial-fg: var(--color-info-fg);
+  --banner-past-due-bg: var(--color-warning-bg);
+  --banner-past-due-fg: var(--color-warning-fg);
+  --pwa-theme-color: #ffffff;
+  --pwa-background-color: var(--color-white);
+  --pwa-icon-tile: #ffffff;
+}
 
-  --canvas-bg: #F7F6F3;
-  --surface-card: #FFFFFF;
-  --surface-subtle: #F0EFEA;
-  
-  --text-primary: #1A1A1A;
-  --text-secondary: #52565B;
-  --text-muted: #73777D;
-  --text-inverse: #FFFFFF;
-
-  --border-default: #E4E5E7;
-  --border-subtle: #ECEDEF;
-  --border-focus: #1769E0;
-
-  --status-success: #18794E;
-  --status-success-bg: #EAF7F0;
-  --status-warning: #9A5B00;
-  --status-warning-bg: #FFF5E5;
-  --status-error: #B42318;
-  --status-error-bg: #FDECEA;
-  --status-error-border: #F2B8B5;
-  --status-info: #1769E0;
-  --status-info-bg: #EAF2FF;
-
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+/* Light only (R-7). */
+html {
+  color-scheme: light;
 }
 
 body {
-  background-color: var(--canvas-bg);
-  color: var(--text-primary);
+  background-color: var(--color-canvas);
+  color: var(--color-fg);
   font-family: var(--font-sans);
+  font-feature-settings: var(--font-features);
   -webkit-font-smoothing: antialiased;
+  /* The vh line is the fallback for WebViews without dynamic viewport units (PWA_STRATEGY §3.3; 06-04a). */
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/*
+ * Viewport and safe-area utilities (V2-06 06-04a; PWA_STRATEGY §3.3). Full-height layouts use `min-h-app`/`h-app`,
+ * never `min-h-screen`/`h-screen` (100vh, which the mobile URL bar and keyboard break; UI policy rule `screen-height`,
+ * enforced). Each keeps a 100vh line as the fallback for WebViews without `dvh`. The safe-area paddings read the
+ * notch/home-indicator insets (non-zero with `viewport-fit=cover`); the bottom one keeps a 0.5rem floor.
+ */
+@utility min-h-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@utility h-app {
+  height: 100vh;
+  height: 100dvh;
+}
+
+@utility pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/*
+ * Touch variant (06-UI-SPEC CD-04; V2-06 06-02a). "Touch" = a coarse pointer or a viewport below 1024 px, the approved
+ * system's rule (`sketch.css` at 3a78a5d): every interactive control reaches the 44 px floor (`touch:min-h-control`)
+ * and inputs draw 16 px text (`touch:text-base`); desktop fine pointers keep the dense 36/32/28 px sizes. Block form:
+ * the one-line form splits the media list at its comma and silently drops the `max-width` half.
+ */
+@custom-variant touch {
+  @media (pointer: coarse), (max-width: 1023px) {
+    @slot;
+  }
+}
+
+/*
+ * Focus treatment (06-UI-SPEC "Focus treatment"; 06-02a). The ring (`ring`, 2 px) always sits outside the control on
+ * a 2 px white halo: 3.99:1 on the halo, 1.29:1 on CliniQ Blue, so it never sits on a blue fill. Primitives write
+ * `focus-visible:focus-ring`. `focus-ring-inset` (CD-12) is for full-bleed rows inside clipping containers only.
+ */
+@utility focus-ring {
+  outline: var(--focus-ring-width) solid var(--color-ring);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: 0 0 0 var(--focus-ring-offset) var(--color-ring-halo);
+}
+
+@utility focus-ring-inset {
+  outline: var(--focus-ring-width) solid var(--color-ring);
+  outline-offset: calc(var(--focus-ring-width) * -1);
 }
 
 /* Custom scrollbars */

@@ -1,0 +1,16 @@
+06-09a: adversarial review A's probe specs (scratchpad adv-pwa-probe-copy/, unchanged except outputDir) re-run against
+the 06-09a build (f09705d), private detached worktree, under the e2e lane lock; ADV_MODE=manual. Compare adv-pwa-run*.log.
+
+[WebServer] ⨯ internal image response failed for /patients 307
+[WebServer] ⨯ internal image response failed for /patients/[UUID] 307
+ADV sw-cache ["shell-700922c8-cbe8-4c5e-871d-869e29bfbef6:/offline","shell-700922c8-cbe8-4c5e-871d-869e29bfbef6:/manifest.webmanifest","shell-700922c8-cbe8-4c5e-871d-869e29bfbef6:/icon-192.png","shell-700922c8-cbe8-4c5e-871d-869e29bfbef6:/icon-512.png","shell-700922c8-cbe8-4c5e-871d-869e29bfbef6:/icon-maskable-512.png"]
+ADV multi-tab {"tab2Url":"http://127.0.0.1:3100/login","patientNameStillVisible":false}
+ADV back-chromium [{"url":"http://127.0.0.1:3100/login?next=%2Fpatients","phi":false},{"url":"http://127.0.0.1:3100/login?next=%2Fpatients%2Fc8e68dc4-4955-43f8-85d3-a7d0a4f9537e","phi":false},{"url":"http://127.0.0.1:3100/login?next=%2F","phi":false}]
+ADV everywhere-fallback {"device1Url":"http://127.0.0.1:3100/login","device1ToldOfFailure":false,"device2Url":"http://127.0.0.1:3100/login"}
+  ✓  11 [adv-chrome] › playwright/adv-probe/adv.spec.ts:185:7 › device and exit paths › Sign out of all devices with a failed server call silently stays local (1.1s)
+ADV diag-chromium [{"name":"caches.keys","ok":true,"v":""},{"name":"idb.databases","ok":true,"v":"[]"},{"name":"idb.open","ok":true,"v":"opened"},{"name":"idb.databases2","ok":true,"v":"[{\"name\":\"adv-db\",\"version\":1}]"},{"name":"idb.delete","ok":true,"v":"deleted"},{"name":"AbortSignal.timeout","ok":true,"v":"function"},{"name":"signout-fetch","ok":true,"v":"opaqueredirect 0"}]
+ADV diag3-chromium {"getManual":"opaqueredirect 0","landedOnLogin":"{\"postManual308\":\"opaqueredirect 0 csd=null\",\"signoutFollow\":\"skipped\",\"signoutManual\":\"opaqueredirect 0 csd=null\"}","sbCookiesLeft":0,"offsite":[]}
+ADV back-webkit [{"url":"http://127.0.0.1:3100/login?next=%2Fpatients","phi":false},{"url":"http://127.0.0.1:3100/login?next=%2Fpatients%2Fc8e68dc4-4955-43f8-85d3-a7d0a4f9537e","phi":false},{"url":"http://127.0.0.1:3100/login?next=%2F","phi":false}]
+ADV diag-webkit [{"name":"caches.keys","ok":true,"v":""},{"name":"idb.databases","ok":true,"v":"[]"},{"name":"idb.open","ok":true,"v":"opened"},{"name":"idb.databases2","ok":true,"v":"[{\"name\":\"adv-db\",\"version\":1}]"},{"name":"idb.delete","ok":true,"v":"deleted"},{"name":"AbortSignal.timeout","ok":true,"v":"function"},{"name":"signout-fetch","ok":false,"v":"HUNG"}]
+ADV diag3-webkit {"getManual":"opaqueredirect 0","landedOnLogin":"{\"postManual308\":\"opaqueredirect 0 csd=null\",\"signoutFollow\":\"skipped\",\"signoutManual\":\"HUNG>8s\"}","sbCookiesLeft":0,"offsite":["challenges.cloudflare.com",""]}
+  16 passed (59.9s)

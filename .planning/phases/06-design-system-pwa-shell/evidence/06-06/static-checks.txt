@@ -1,0 +1,26 @@
+tree: 490f3d4 (source = HEAD for lib app components features next.config.ts proxy.ts: yes)
+--- npm run typecheck
+exit 0
+--- npx eslint .
+✖ 457 problems (0 errors, 457 warnings)
+--- eslint on the 06-06 files (count of error/warning lines)
+0 (the 457 warnings are pre-existing report-mode rules, 0 errors)
+--- npm run inventory
+exit 0
+--- npm run ci:ui-policy
+ui-policy: ai-sdk-import [report] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: arbitrary-color [report] 2 finding(s) in 2 file(s) (baseline 4, delta -2)
+ui-policy: brand-utility [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: link-wraps-button [report] 31 finding(s) in 9 file(s) (baseline 31, delta 0)
+ui-policy: px-font [report] 281 finding(s) in 51 file(s) (baseline 282, delta -1)
+ui-policy: raw-palette [report] 3442 finding(s) in 90 file(s) (baseline 3530, delta -88)
+ui-policy: screen-height [enforce] 0 finding(s) in 0 file(s) (baseline 0, delta 0)
+ui-policy: signout-guard [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: window-dialog [report] 27 finding(s) in 8 file(s) (baseline 27, delta 0)
+ui-policy: PASS (report-mode findings do not fail)
+--- npm run ci:ai-l1
+ai-l1: PASS
+--- contrast (scripts/design/contrast.mjs)
+exit 0
+--- env-example --check
+env-example: .env.example matches lib/env.ts

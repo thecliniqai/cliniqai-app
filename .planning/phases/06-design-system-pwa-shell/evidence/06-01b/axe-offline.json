@@ -1,0 +1,37 @@
+{
+  "generatedBy": "tests/e2e/design/offline-brand-axe.spec.ts (desktop-chrome, npm run e2e:pr on the a79297c build)",
+  "results": [
+    {
+      "route": "/offline",
+      "width": 360,
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 18
+    },
+    {
+      "route": "/offline",
+      "width": 820,
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 18
+    },
+    {
+      "route": "/offline",
+      "width": 1180,
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 18
+    },
+    {
+      "route": "/offline",
+      "width": 1280,
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 18
+    }
+  ]
+}

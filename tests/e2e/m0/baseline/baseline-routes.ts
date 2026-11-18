@@ -50,3 +50,50 @@ export async function settle(page: Page): Promise<void> {
   await expect(page.locator("main, h1").first()).toBeVisible();
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
+
+/**
+ * The key screen of each characterisation flow (walk-in drawer, booking drawer, Sign & Bill modal, checkout drawer),
+ * opened without submitting anything. Captured by the M0 baseline and by the V2-06 neutral capture (06-01a).
+ */
+export const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Page) => Promise<void> }> = [
+  {
+    name: "flow-walk-in-drawer",
+    role: "receptionist",
+    open: async (page) => {
+      await page.goto("/queue");
+      await page.getByRole("button", { name: "+ Add Walk-In" }).click();
+      await expect(page.getByRole("heading", { name: "Quick Walk-In Registration" })).toBeVisible();
+    },
+  },
+  {
+    name: "flow-booking-drawer",
+    role: "receptionist",
+    open: async (page) => {
+      await page.goto("/calendar");
+      await page.getByRole("button", { name: "+ Book Appointment" }).click();
+      await expect(page.getByRole("dialog", { name: "Schedule Appointment" })).toBeVisible();
+    },
+  },
+  {
+    name: "flow-sign-and-bill-modal",
+    role: "doctor",
+    open: async (page) => {
+      await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
+      await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
+      await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
+    },
+  },
+  {
+    name: "flow-checkout-drawer",
+    role: "receptionist",
+    open: async (page) => {
+      await page.goto("/queue");
+      await page
+        .getByRole("heading", { name: readRunData().tenantA.patientName, exact: true })
+        .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]")
+        .getByRole("button", { name: /Checkout/ })
+        .click();
+      await expect(page.getByRole("heading", { name: "Patient Checkout & Billing" })).toBeVisible();
+    },
+  },
+];

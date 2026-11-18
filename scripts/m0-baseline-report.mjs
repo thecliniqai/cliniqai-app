@@ -9,20 +9,22 @@
  *   - axe (report-only):   test-results/m0/axe/<project>/<route>.json (tests/e2e/m0/baseline/axe-routes.spec.ts)
  *   - screenshots:         test-results/m0/screenshots/<vp>/*.jpg   (tests/e2e/m0/baseline/screenshots.spec.ts)
  *   - flow outcomes:       playwright-report/results.json           (Playwright JSON reporter)
- *   - route JS:            .next/app-build-manifest.json + .next/static (the guarded `npm run e2e:build` output)
+ *   - route JS:            .next/build-manifest.json + .next/server/app/<route>/page_client-reference-manifest.js + .next/static
+ *                          (the guarded `npm run e2e:build` output; reader shared with scripts/ci/route-js.mjs, V2-06 06-07)
  *
  * Output (default `.planning/phases/02-ci-e2e-foundations/evidence/m0-baseline/`, or `--out <dir>`):
  *   README.md, counts.json, route-js.json, flows.json, axe/<project>.json, screenshots/<vp>/*.jpg
  * `--update-fmp` also fills the "v1 actions / keystrokes" and "v1 time (synthetic)" cells of the
  * docs/v2/FRONTEND_MIGRATION_PLAN.md appendix rows that one measured flow matches exactly (FMP_ROWS below).
  *
- * Plain Node (no dependencies); never starts the app or a test runner; reads no `.env*` file.
+ * Plain Node (no dependencies); never starts the app or a test runner; reads no `.env*` file. Importing the module
+ * runs nothing (the report is written only when the file is the entry point).
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { BuildInputError, measureRouteJs } from "./ci/route-js.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const M0 = path.join(ROOT, "test-results/m0");
@@ -123,39 +125,18 @@ function collectOutcomes() {
 }
 
 // --- Route JS from the build manifests ----------------------------------------------------------------------------
-function routeJs() {
-  const manifestFile = path.join(ROOT, ".next/app-build-manifest.json");
-  if (!fs.existsSync(manifestFile)) return { available: false, routes: [] };
-  const pages = readJson(manifestFile).pages ?? {};
-  const gzipCache = new Map();
-  const gz = (rel) => {
-    if (!gzipCache.has(rel)) {
-      const abs = path.join(ROOT, ".next", rel);
-      gzipCache.set(rel, fs.existsSync(abs) ? zlib.gzipSync(fs.readFileSync(abs), { level: 9 }).length : 0);
-    }
-    return gzipCache.get(rel);
-  };
-  const routes = [];
-  for (const key of Object.keys(pages).sort()) {
-    if (!key.endsWith("/page") || key.startsWith("/api/") || key.includes("/_not-found")) continue;
-    // First-load JS = the page entry's chunks plus every enclosing layout's chunks (as `next build` reports it).
-    const segments = key.split("/").slice(1, -1);
-    const entries = ["/layout"];
-    for (let i = 1; i <= segments.length; i++) entries.push(`/${segments.slice(0, i).join("/")}/layout`);
-    entries.push(key);
-    const files = new Set();
-    for (const entry of entries) for (const f of pages[entry] ?? []) if (f.endsWith(".js")) files.add(f);
-    const pageOnly = (pages[key] ?? []).filter((f) => f.includes("/app/")).reduce((sum, f) => sum + gz(f), 0);
-    const route = `/${segments.filter((s) => !/^\(.*\)$/.test(s)).join("/")}`;
-    routes.push({
-      route,
-      entry: key,
-      firstLoadGzipBytes: [...files].reduce((sum, f) => sum + gz(f), 0),
-      routeChunkGzipBytes: pageOnly,
-      chunks: files.size,
-    });
+/**
+ * First-load JS per app route (V2-06 06-07): Next 16 Turbopack writes no `app-build-manifest.json`, so this reuses the
+ * route-JS report's manifest reader (`scripts/ci/route-js.mjs`). `available: false` when the build is missing or
+ * incomplete (the README says which file).
+ */
+export function routeJs(nextDir = path.join(ROOT, ".next")) {
+  try {
+    return { available: true, ...measureRouteJs(nextDir) };
+  } catch (err) {
+    if (err instanceof BuildInputError) return { available: false, reason: err.message, routes: [] };
+    throw err;
   }
-  return { available: true, method: "app-build-manifest.json: page + enclosing layouts, gzip -9 per chunk", routes };
 }
 
 // --- axe summaries --------------------------------------------------------------------------------------------------
@@ -281,12 +262,13 @@ function readme({ meta, flows, outcomes, js, axe, shots }) {
   L.push("", "Step-by-step actions per flow: `counts.json`.", "");
 
   L.push("## 3. Route JS (first load, gzip)", "");
-  if (!js.available) L.push("_`.next/app-build-manifest.json` not found: run `npm run e2e:build` first._", "");
+  if (!js.available) L.push(`_Route JS not measured: ${js.reason}._`, "");
   else {
     L.push(`Method: ${js.method}.`, "");
-    L.push("| Route | First-load JS (kB gz) | Route chunk (kB gz) | Chunks |", "|---|---|---|---|");
+    L.push(`Framework root (every route): ${kb(js.frameworkRoot.gzipBytes)} kB gz.`, "");
+    L.push("| Route | First-load JS (kB gz) | Route-specific (kB gz) | Files | Budget (kB) | Status |", "|---|---|---|---|---|---|");
     for (const r of js.routes)
-      L.push(`| \`${r.route}\` | ${kb(r.firstLoadGzipBytes)} | ${kb(r.routeChunkGzipBytes)} | ${r.chunks} |`);
+      L.push(`| \`${r.route}\` | ${kb(r.totalGzipBytes)} | ${kb(r.routeSpecificGzipBytes)} | ${r.files} | ${r.budgetKb} | ${r.status} |`);
     L.push("");
   }
 
@@ -381,4 +363,4 @@ function main() {
   }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

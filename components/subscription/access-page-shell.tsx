@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { AccessSignOut } from "@/components/subscription/access-sign-out";
 import { en } from "@/messages/en";
 
 /**
  * V2-05 05-10b: the frame of the locked and onboarding pages (`/billing/locked`, `/billing/locked/staff`,
  * `/onboarding/billing`). Functional only, existing primitives (the design system is V2-06; styled pages are SUB-08 in
  * V2-13b). No dashboard shell and no link into the dashboard: the member's only actions are reading the page and
- * signing out. Sign-out is the plain form POST to `/auth/signout` (V2-03 03-12b), which revokes the session and clears
- * the cookies; the session is otherwise kept, so an owner can renew or export once billing opens.
+ * signing out. Sign-out is `hardSignOut()` (V2-06 06-06: server revocation, then the device purge; the form POST to
+ * `/auth/signout` is the no-JavaScript fallback); the session is otherwise kept, so an owner can renew or export once
+ * billing opens. V2-06 06-06: semantic tokens (DESIGN_SYSTEM §2.3) instead of the v1 palette.
  */
 export function AccessPageShell({
   testId,
@@ -19,16 +20,11 @@ export function AccessPageShell({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-dvh bg-gray-50/70 flex items-center justify-center p-4" data-testid={testId}>
-      <div className="w-full max-w-lg bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-theme-sm">
-        <h1 className="text-xl font-bold tracking-tight text-gray-900">{title}</h1>
-        <div className="mt-4 space-y-4 text-sm text-gray-700">{children}</div>
-        <form method="post" action="/auth/signout" className="mt-6">
-          <input type="hidden" name="scope" value="local" />
-          <Button type="submit" variant="outline" className="w-full sm:w-auto">
-            {en.subscription.sign_out}
-          </Button>
-        </form>
+    <main className="min-h-app bg-canvas flex items-center justify-center p-4" data-testid={testId}>
+      <div className="w-full max-w-lg bg-surface p-6 sm:p-8 rounded-2xl border border-border shadow-card">
+        <h1 className="text-xl font-bold tracking-tight text-fg">{title}</h1>
+        <div className="mt-4 space-y-4 text-sm text-fg-secondary">{children}</div>
+        <AccessSignOut label={en.subscription.sign_out} />
       </div>
     </main>
   );
@@ -38,8 +34,8 @@ export function AccessPageShell({
 export function AccessFact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <dt className="text-gray-600">{label}</dt>
-      <dd className="font-medium text-gray-900 break-words">{children}</dd>
+      <dt className="text-fg-secondary">{label}</dt>
+      <dd className="font-medium text-fg break-words">{children}</dd>
     </div>
   );
 }

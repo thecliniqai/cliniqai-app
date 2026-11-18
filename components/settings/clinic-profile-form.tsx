@@ -161,7 +161,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#1769E0] border border-blue-100">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-accent border border-blue-100">
               <Building2 className="w-4 h-4" />
             </div>
             <div>
@@ -213,7 +213,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                       type="checkbox"
                       checked={checked}
                       onChange={() => handleSpecialtyToggle(spec)}
-                      className="w-4 h-4 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]/20 cursor-pointer"
+                      className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-ring/20 cursor-pointer"
                     />
                     <span>{spec}</span>
                   </label>
@@ -270,15 +270,15 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                 onChange={(e) => setOwnerIsPracticing(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1769E0]" />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent" />
             </label>
           </div>
 
           {/* Owner Doctor Credentials Card */}
           {ownerIsPracticing && (
-            <div className="p-4 sm:p-5 rounded-2xl border border-blue-200 bg-[#F4F8FF]/80 space-y-4">
+            <div className="p-4 sm:p-5 rounded-2xl border border-blue-200 bg-accent-tint/80 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-blue-100">
-                <GraduationCap className="w-4 h-4 text-[#1769E0]" />
+                <GraduationCap className="w-4 h-4 text-accent" />
                 <h4 className="text-sm font-bold text-gray-900">
                   Owner Doctor Credentials (Printed on Prescriptions &amp; Receipts)
                 </h4>
@@ -287,7 +287,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Doctor Full Name" htmlFor="doctor_name" required>
                   <div className="relative">
-                    <span className="absolute start-3 top-2.5 text-gray-400">
+                    <span className="absolute start-3 top-2.5 text-fg-subtle">
                       <User className="w-4 h-4" />
                     </span>
                     <Input
@@ -317,7 +317,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                   required
                 >
                   <div className="relative">
-                    <span className="absolute start-3 top-2.5 text-gray-400">
+                    <span className="absolute start-3 top-2.5 text-fg-subtle">
                       <ShieldCheck className="w-4 h-4" />
                     </span>
                     <Input
@@ -336,7 +336,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                     id="defaultSpecialty"
                     value={defaultSpecialty}
                     onChange={(e) => setDefaultSpecialty(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                    className="w-full h-10 px-3 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                   >
                     <option value="general_physician">General Physician</option>
                     <option value="dental">Dental</option>
@@ -371,7 +371,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                       key={deg}
                       type="button"
                       onClick={() => addDegreeChip(deg)}
-                      className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-blue-200 text-[#1769E0] hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-blue-200 text-accent hover:bg-blue-50 transition-colors cursor-pointer"
                     >
                       +{deg}
                     </button>
@@ -390,7 +390,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               required
             >
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400 font-medium text-sm">
+                <span className="absolute start-3 top-2.5 text-fg-subtle font-medium text-sm">
                   ₹
                 </span>
                 <Input
@@ -413,7 +413,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               required
             >
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400 font-medium text-sm">
+                <span className="absolute start-3 top-2.5 text-fg-subtle font-medium text-sm">
                   ₹
                 </span>
                 <Input
@@ -442,7 +442,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               <label
                 className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   paymentMethods.includes("cash")
-                    ? "bg-[#EAF2FF] border-[#B2CCFF] text-[#1769E0]"
+                    ? "bg-accent-subtle border-accent-border text-accent"
                     : "bg-white border-gray-200 text-gray-700"
                 }`}
               >
@@ -450,7 +450,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                   type="checkbox"
                   checked={paymentMethods.includes("cash")}
                   onChange={() => handlePaymentMethodToggle("cash")}
-                  className="w-4 h-4 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-ring/20 cursor-pointer"
                 />
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <Banknote className="w-4 h-4" />
@@ -461,7 +461,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               <label
                 className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   paymentMethods.includes("upi")
-                    ? "bg-[#EAF2FF] border-[#B2CCFF] text-[#1769E0]"
+                    ? "bg-accent-subtle border-accent-border text-accent"
                     : "bg-white border-gray-200 text-gray-700"
                 }`}
               >
@@ -469,7 +469,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                   type="checkbox"
                   checked={paymentMethods.includes("upi")}
                   onChange={() => handlePaymentMethodToggle("upi")}
-                  className="w-4 h-4 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-ring/20 cursor-pointer"
                 />
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <QrCode className="w-4 h-4" />
@@ -480,7 +480,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
               <label
                 className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   paymentMethods.includes("card")
-                    ? "bg-[#EAF2FF] border-[#B2CCFF] text-[#1769E0]"
+                    ? "bg-accent-subtle border-accent-border text-accent"
                     : "bg-white border-gray-200 text-gray-700"
                 }`}
               >
@@ -488,7 +488,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
                   type="checkbox"
                   checked={paymentMethods.includes("card")}
                   onChange={() => handlePaymentMethodToggle("card")}
-                  className="w-4 h-4 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]/20 cursor-pointer"
+                  className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-ring/20 cursor-pointer"
                 />
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <CreditCard className="w-4 h-4" />
@@ -505,7 +505,7 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
         <Button
           type="submit"
           disabled={isPending}
-          className="h-11 px-6 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-sm shadow-theme-xs cursor-pointer flex items-center gap-2"
+          className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-sm shadow-theme-xs cursor-pointer flex items-center gap-2"
         >
           <Save className="w-4 h-4" />
           <span>{isPending ? "Saving Settings..." : "Save Clinic Settings"}</span>

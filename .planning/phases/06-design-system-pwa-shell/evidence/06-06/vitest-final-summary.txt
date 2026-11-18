@@ -1,0 +1,28 @@
+tree 490f3d4; local stack at 000093 during this run (branch ends at 000091: 000092/000093 were applied to the shared stack by another lane after the first run)
+ Test Files  3 failed | 290 passed (293)
+      Tests  10 failed | 6077 passed (6087)
+   Duration  462.79s (transform 2.50s, setup 1.53s, collect 20.39s, tests 415.29s, environment 15ms, prepare 5.98s)
+FAIL file failed: tests/integration/auth/remove-member.spec.ts
+FAIL test failed: tests/integration/auth/remove-member.spec.ts > AUTH-05: a removed member is cut off at once (acceptance 4, R-43) writes one staff.removed audit row with counts only
+FAIL success=false
+--- failed cases (all in 3 files that 06-06 does not touch; each passed in the first full run at 000091)
+tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool reports no drift for a schema-only dump of the local database
+     AssertionError: expected 1 to be +0 // Object.is equality
+tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool names a column the dump has and the migrations do not
+     AssertionError: expected 57 to be 1 // Object.is equality
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "+05:30": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "-05:00": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "-0500": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "+05": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "IST": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "Not/AZone": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/ist-boundaries.spec.ts > clinic date parity: SQL tenant_local_date = app getTenantToday zone "": SQL and the app give the same clinic date at every instant
+     Error: Failed to set the tenant zone: new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+tests/integration/auth/remove-member.spec.ts > AUTH-05: a removed member is cut off at once (acceptance 4, R-43) writes one staff.removed audit row with counts only
+     AssertionError: expected [ 'invites_revoked', …(6) ] to deeply equal [ 'invites_revoked', …(5) ]
