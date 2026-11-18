@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(71);
+select plan(75);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -180,6 +180,8 @@ insert into c2c_definer values
   ('public.log_audit', 'bound', 'p_tenant = active clinic (000060); action and metadata allow-lists (000074, 05-11b)'),
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
+  ('private.command_claim', 'bound', 'user path: p_tenant_id = the active, full clinic; system path = service role + a system actor; idempotent command claim (000095, 07-00, R-2)'),
+  ('private.command_complete', 'bound', 'completes only the claim the caller''s own transaction made (000095, 07-00, R-2)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05); a locked/onboarding clinic only by its owner (000092, 05-12)'),
   ('public.invite_staff', 'bound', 'p_tenant in tenant_ids_with(staff:invite): the active clinic; owner/admin invitations by owners (000088, 05-07a)'),
@@ -244,6 +246,8 @@ insert into c2c_definer values
   ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b); never promotes to paid (000075, 05-11d)'),
   ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
   ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)'),
+  ('private.tenants_create_default_location', 'internal', 'trigger: every new clinic gets its default location (000095, 07-00, R-5)'),
+  ('private.fill_default_location', 'internal', 'trigger: visits, queue_tokens and invoices get the clinic''s default location when none is given (000095, 07-00, R-5)'),
   ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)'),
   ('private.tenants_timezone_audit', 'internal', 'trigger: every tenants.timezone change is audited (000092, 05-12, H-AITZ)'),
   ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)');
@@ -306,7 +310,9 @@ select set_eq(
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
     'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
-    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:'
+    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:',
+    'private.command_claim:authenticated,service_role', 'private.command_complete:authenticated,service_role',
+    'private.tenants_create_default_location:', 'private.fill_default_location:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
@@ -371,6 +377,15 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select set_config('clinicos.record_payment_id', 'c2c00000-0000-4000-8000-000000009999', true), private.outbox_payment_recorded('c2c00000-0000-4000-8000-000000009999')$$),
   '1', 'outbox_payment_recorded: acting in B it runs');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
+  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0001', 'synthetic.command', 'hash-1')$$),
+  'error:P0002:NOT_FOUND%', 'command_claim: acting in A, a claim in clinic B is refused');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0001', 'synthetic.command', 'hash-1')$$),
+  '1', 'command_claim: acting in B the claim is made (a fresh claim answers NULL)');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select private.command_complete('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0002', '{}'::jsonb)$$),
+  'error:P0001:COMMAND_NOT_CLAIMED%', 'command_complete: a claim this transaction did not make is never completed');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
   '0', 'referral_source_clinics: acting in A, clinic A is not a source of A''s incoming referrals');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
@@ -440,6 +455,7 @@ create temp table c2c_access(fn text primary key, handling text not null) on com
 insert into c2c_access values
   ('public.change_member_role', 'refuses'), ('public.create_share_token', 'refuses'), ('public.revoke_share_token', 'refuses'),
   ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
+  ('private.command_claim', 'refuses'), ('private.command_complete', 'neutral'),
   ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
@@ -519,6 +535,9 @@ select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select set_config('clinicos.record_payment_id', 'c2c00000-0000-4000-8000-000000009999', true), private.outbox_payment_recorded('c2c00000-0000-4000-8000-000000009999')$$),
   'error:P0001:OUTBOX_SUBJECT_INVALID%', 'locked B: outbox_payment_recorded is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0003', 'synthetic.command', 'hash-1')$$),
+  'error:P0002:NOT_FOUND%', 'locked B: command_claim is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
   '0', 'locked B: referral_source_clinics lists nothing');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),

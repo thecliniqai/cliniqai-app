@@ -659,6 +659,18 @@ export const TARGETS: readonly Target[] = [
   {
     kind: "table",
     schema: "public",
+    table: "clinic_locations",
+    key: ["tenant_id", "is_default"],
+    fixture: { tenant_id: A, is_default: "true" },
+    inBase: true,
+    insert: { tenant_id: A, name: "'Synthetic second location'" },
+    update: "name",
+    rules: selectOnly(full),
+    note: "the clinic's branches (V2-07 R-5): one default 'Main' per clinic, created by the tenants trigger; SELECT: any member of the active, full clinic; written only by the migration owner / service role (owners manage locations in v2.1)",
+  },
+  {
+    kind: "table",
+    schema: "public",
     table: "queue_token_counters",
     key: ["tenant_id", "date"],
     fixture: { tenant_id: A, date: "'2030-01-01'", last_token: "1" },

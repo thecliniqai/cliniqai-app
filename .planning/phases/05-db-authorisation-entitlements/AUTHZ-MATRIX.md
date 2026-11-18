@@ -104,6 +104,10 @@ Principals:
 | `public.queue_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_tokens` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.queue_tokens` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | S | full | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.clinic_locations` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -322,6 +326,7 @@ Notes:
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op). 05-11d (N-3): line total = price x quantity (computed), price >= 0, keys never change; no write to a paid or cancelled invoice's items, and an invoice with payments is never lowered to the amount collected (invoice_items_integrity_guard; reverify_integrity.test.sql). The fixture invoice is draft with a zero item
 - `public.payments`: written only by record_payment (SECURITY DEFINER, billing:collect in the active clinic; 05-11b M-INVOICE); doctors and nurses do not collect (PO-3)
 - `public.queue_tokens`: written by issue_queue_token (SECURITY DEFINER, 05-11a M-TOKEN): no INSERT privilege; UPDATE only of priority, called_at, completed_at (column grant), so token_number/date cannot be forged
+- `public.clinic_locations`: the clinic's branches (V2-07 R-5): one default 'Main' per clinic, created by the tenants trigger; SELECT: any member of the active, full clinic; written only by the migration owner / service role (owners manage locations in v2.1)
 - `public.queue_token_counters`: written only by issue_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08 R-18, 05-11a): no member may read or rewind the counter (T-05-21)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit

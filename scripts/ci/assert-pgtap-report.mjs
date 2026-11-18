@@ -58,6 +58,9 @@
  *   7892 — V2-05 05b gate close (000094 gate_close_05b): 7880 + gate_close_05b 12 = 7892 (47 files, every one required;
  *          review_fixes_05b and invitations_v2 keep their counts: two expectations follow the answer's new `role` key and
  *          the objection ruling). The floor is the measured total: one dropped test, or one dropped file, fails the gate.
+ *   8036 — V2-07 07-00 (000095 clinic_locations): 7892 + authz_matrix 96 (the clinic_locations target x 4 ops x 24
+ *          principals) + composite_fks 6 (the three location FKs, case and control) + definer_functions 4 (the claim
+ *          helpers: 3 dual-member and 1 locked leg) + clinic_locations 38 = 8036 (48 files, every one required).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -69,7 +72,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 7892;
+export const FLOOR = 8036;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -144,6 +147,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/review_fixes_05b.test.sql",
   // 05b gate close (000094: re-verification N-1, N-2; objection ruling)
   "supabase/tests/database/gate_close_05b.test.sql",
+  // V2-07 07-00 (000095: clinic locations, command_results)
+  "supabase/tests/database/clinic_locations.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

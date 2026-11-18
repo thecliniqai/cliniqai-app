@@ -394,6 +394,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      clinic_locations: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_default: boolean;
+          name: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_default?: boolean;
+          name: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_default?: boolean;
+          name?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinic_locations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_notes: {
         Row: {
           advice: string[];
@@ -1223,6 +1256,7 @@ export type Database = {
           discount: number;
           id: string;
           invoice_number: string;
+          location_id: string;
           patient_id: string;
           status: string;
           subtotal: number;
@@ -1238,6 +1272,7 @@ export type Database = {
           discount?: number;
           id?: string;
           invoice_number: string;
+          location_id?: string;
           patient_id: string;
           status?: string;
           subtotal?: number;
@@ -1252,6 +1287,7 @@ export type Database = {
           discount?: number;
           id?: string;
           invoice_number?: string;
+          location_id?: string;
           patient_id?: string;
           status?: string;
           subtotal?: number;
@@ -1268,6 +1304,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "invoices_tenant_patient_fkey";
@@ -2084,6 +2127,7 @@ export type Database = {
           created_at: string;
           date: string;
           id: string;
+          location_id: string;
           priority: string;
           tenant_id: string;
           token_number: number;
@@ -2096,6 +2140,7 @@ export type Database = {
           created_at?: string;
           date: string;
           id?: string;
+          location_id?: string;
           priority?: string;
           tenant_id: string;
           token_number: number;
@@ -2107,6 +2152,7 @@ export type Database = {
           created_at?: string;
           date?: string;
           id?: string;
+          location_id?: string;
           priority?: string;
           tenant_id?: string;
           token_number?: number;
@@ -2119,6 +2165,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "queue_tokens_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "queue_tokens_tenant_visit_fkey";
@@ -2786,6 +2839,7 @@ export type Database = {
           estimated_duration_minutes: number;
           id: string;
           is_overbooked: boolean;
+          location_id: string;
           metadata: NonNullable<Json>;
           origin_type: string;
           patient_id: string;
@@ -2807,6 +2861,7 @@ export type Database = {
           estimated_duration_minutes?: number;
           id?: string;
           is_overbooked?: boolean;
+          location_id?: string;
           metadata?: NonNullable<Json>;
           origin_type: string;
           patient_id: string;
@@ -2827,6 +2882,7 @@ export type Database = {
           estimated_duration_minutes?: number;
           id?: string;
           is_overbooked?: boolean;
+          location_id?: string;
           metadata?: NonNullable<Json>;
           origin_type?: string;
           patient_id?: string;
@@ -2853,6 +2909,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "visits_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "visits_tenant_patient_fkey";

@@ -165,6 +165,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.invoice_items": "perm(billing:collect)",
   "public.payments": "rpc_only",
   "public.queue_token_counters": "rpc_only",
+  "public.clinic_locations": "rpc_only", // V2-07 07-00 (000095): read-only for members
   "public.queue_tokens": "rpc_only",
   "public.waitlist_entries": "rpc_only",
   "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
