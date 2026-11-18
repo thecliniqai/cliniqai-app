@@ -233,7 +233,12 @@ describe("concurrent duplicate claims", () => {
     );
     // psqlAsync (-c, not -q) also prints the command tags; keep the statements' own output.
     const output = (lines: string[]) => lines.filter((l) => !/^(BEGIN|SET|DO|COMMIT|ROLLBACK)$/.test(l));
-    return { first: output(await first), second: output(await second) };
+    // Settle both together: the second can reject (IDEMPOTENCY_MISMATCH) before the first resolves, and awaiting them
+    // one after the other left that rejection unhandled for a moment (CI run 44304509920, "Unhandled Rejection").
+    const [a, b] = await Promise.allSettled([first, second]);
+    if (a.status === "rejected") throw a.reason;
+    if (b.status === "rejected") throw b.reason;
+    return { first: output(a.value), second: output(b.value) };
   }
 
   it("the second session waits on the first, then replays its committed result once", async () => {
