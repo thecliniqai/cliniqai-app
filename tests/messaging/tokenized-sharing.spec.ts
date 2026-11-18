@@ -4,7 +4,7 @@ import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { mockCtx } from "../helpers/context";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/service";
 import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/service";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 
 // The public routes (/api/r, /r, /api/reschedule, /api/reports/view) are covered against the local database in
 // tests/security/share-tokens.spec.ts (P0-04): they resolve tokens through token-scoped RPCs, so the per-table admin
@@ -58,7 +58,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   }
 
   it("sharePrescriptionViaWhatsApp mints a prescription token via create_share_token and enqueues Event #6", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-rx-1" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-rx-1" } as never);
     const calls: RpcCall[] = [];
     const db = fakeDb(
       "prescriptions",
@@ -74,7 +74,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await sharePrescriptionViaWhatsApp(mockCtx(db, session), "rx-100");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "prescription", p_resource_id: "rx-100" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -89,7 +91,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   });
 
   it("shareLabReportViaWhatsApp mints a patient_document token and enqueues Event #7", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-lab-1" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-lab-1" } as never);
     const calls: RpcCall[] = [];
     const db = fakeDb(
       "patient_documents",
@@ -106,7 +108,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareLabReportViaWhatsApp(mockCtx(db, session), "doc-200");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "patient_document", p_resource_id: "doc-200" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -120,7 +124,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   });
 
   it("shareReferralLetterViaWhatsApp mints a referral token and enqueues Event #8", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-ref-1" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-ref-1" } as never);
     const calls: RpcCall[] = [];
     const db = fakeDb(
       "referrals",
@@ -137,7 +141,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareReferralLetterViaWhatsApp(mockCtx(db, session), "ref-300");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "referral", p_resource_id: "ref-300" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -147,7 +153,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   });
 
   it("shareReceiptViaWhatsApp mints an invoice token and enqueues Event #11", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-inv-1" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-inv-1" } as never);
     const calls: RpcCall[] = [];
     const db = fakeDb(
       "invoices",
@@ -165,7 +171,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     const res = await shareReceiptViaWhatsApp(mockCtx(db, session), "inv-400");
     expect(res.success).toBe(true);
     expect(res.shareUrl).toContain(`/r/${MINTED_TOKEN}`);
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "invoice", p_resource_id: "inv-400" } },
     ]);
     expect(enqueueSpy).toHaveBeenCalledWith(
@@ -175,7 +183,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   });
 
   it("a refused create_share_token fails the share and sends nothing", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-x" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-x" } as never);
     const calls: RpcCall[] = [];
     const db = fakeDb(
       "prescriptions",
@@ -195,7 +203,7 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
   });
 
   it("sendConsolidatedConsultationWhatsApp mints two tokens (prescription & invoice) and enqueues exactly 1 consultation_documents message with interactive buttons", async () => {
-    const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-cons-1" } as never);
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-cons-1" } as never);
     const calls: RpcCall[] = [];
 
     const mockSupabase = {
@@ -297,7 +305,9 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
     expect(res.success).toBe(true);
     expect(res.rxShareUrl).toContain("/r/");
     expect(res.invoiceShareUrl).toContain("/r/");
-    expect(calls).toEqual([
+    // The audit row goes through log_audit (V2-05 05-02c); the share-token calls are compared on their own.
+    expect(calls.some((c) => c.name === "log_audit")).toBe(true);
+    expect(calls.filter((c) => c.name !== "log_audit")).toEqual([
       { name: "create_share_token", args: { p_resource_type: "prescription", p_resource_id: "rx-100" } },
       { name: "create_share_token", args: { p_resource_type: "invoice", p_resource_id: "inv-200" } },
     ]);

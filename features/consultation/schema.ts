@@ -34,7 +34,7 @@ const bloodPressureOrder = {
 
 export const vitalsSchema = vitalsFieldsSchema.refine(bloodPressureOrder.check, bloodPressureOrder.options);
 
-/** Stored vitals (visits.vitals JSONB): the validated measurements plus the server-set recorder. */
+/** Stored vitals (clinical_notes.vitals JSONB since V2-05 05-02a): the validated measurements plus the server-set recorder. */
 export type Vitals = z.infer<typeof vitalsSchema> & { recorded_by?: string | null };
 
 /**

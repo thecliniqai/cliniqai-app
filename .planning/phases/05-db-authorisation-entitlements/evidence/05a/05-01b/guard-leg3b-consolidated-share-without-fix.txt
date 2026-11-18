@@ -1,0 +1,11 @@
+# guard leg 3b with PO-3 keys + 000046 but WITHOUT the sendConsolidatedConsultationWhatsApp fix (features/billing/service.ts), then restored
+   × P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > every tenant B row is unchanged 44ms
+   × P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > no tenant A row references a tenant B id 79ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { …(34) } to deeply equal { …(34) }
+[32m-   "audit_logs": "0:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",[39m
+[31m+   "audit_logs": "1:eb85525aba556494e95757461a093bf2da66a102e1434fac404e2e915ca68038",[39m
+[32m-   "document_share_tokens": "2:f69a46070c068c82016e9bea287014c577341c68816b385c877205f9f2be554c",[39m
+[31m+   "document_share_tokens": "3:599794736faf0e148bf89c839d9ad12c29380ddd3b3029b5b125d775a13cb5e5",[39m
+AssertionError: expected [ Array(1) ] to deeply equal []
+      Tests  2 failed | 109 passed | 499 skipped (610)

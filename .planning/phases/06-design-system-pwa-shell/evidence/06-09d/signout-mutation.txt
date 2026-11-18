@@ -1,0 +1,11 @@
+Mutation: app/auth/signout/route.ts back to 'if (failed) await dropAuthCookies();' (the 06-09c rule) on the 06-09d tree, 2026-11-15T08:04:41Z
+RV signout logout=404kong -> 200 authCookieLeft=true
+RV signout logout=401kong -> 200 authCookieLeft=true
+RV signout logout=503 -> 502 authCookieLeft=false
+RV signout logout=429 -> 502 authCookieLeft=false
+   × 06-09d: signing out during an Auth incident still signs this device out > /logout answers 404kong: the auth cookies are deleted all the same 326ms
+   × 06-09d: signing out during an Auth incident still signs this device out > /logout answers 401kong: the auth cookies are deleted all the same 211ms
+   ✓ 06-09d: signing out during an Auth incident still signs this device out > /logout answers 503: the auth cookies are deleted all the same 194ms
+   ✓ 06-09d: signing out during an Auth incident still signs this device out > /logout answers 429: the auth cookies are deleted all the same 195ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 2 passed | 53 skipped (57)

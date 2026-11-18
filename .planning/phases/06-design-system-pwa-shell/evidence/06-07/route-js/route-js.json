@@ -1,0 +1,233 @@
+{
+  "method": "Turbopack manifests (build-manifest.json rootMainFiles ∪ each page_client-reference-manifest.js entryJSFiles), gzip -9 per distinct file, kB = 1024 bytes; not comparable 1:1 with the M0 webpack numbers (app-build-manifest.json page + enclosing layouts)",
+  "budgetsFile": "scripts/ci/route-js-budgets.json",
+  "frameworkRoot": {
+    "files": [
+      "static/chunks/310vm2bl3xxpt.js",
+      "static/chunks/3i_9ugyh1q1o1.js",
+      "static/chunks/24krtntfyvvcs.js",
+      "static/chunks/1854c8fmz6ih-.js",
+      "static/chunks/3jua5gvtt1jpt.js",
+      "static/chunks/turbopack-077hmtqrhcoji.js"
+    ],
+    "gzipBytes": 131916
+  },
+  "routes": [
+    {
+      "route": "/",
+      "entry": "/(dashboard)/page",
+      "totalGzipBytes": 162064,
+      "routeSpecificGzipBytes": 30148,
+      "files": 11,
+      "budgetKb": 200,
+      "status": "ok"
+    },
+    {
+      "route": "/billing/register",
+      "entry": "/(dashboard)/billing/register/page",
+      "totalGzipBytes": 162064,
+      "routeSpecificGzipBytes": 30148,
+      "files": 11,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/billing/reports",
+      "entry": "/(dashboard)/billing/reports/page",
+      "totalGzipBytes": 168318,
+      "routeSpecificGzipBytes": 36402,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/cabin",
+      "entry": "/(dashboard)/cabin/page",
+      "totalGzipBytes": 168608,
+      "routeSpecificGzipBytes": 36692,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/calendar",
+      "entry": "/(dashboard)/calendar/page",
+      "totalGzipBytes": 190606,
+      "routeSpecificGzipBytes": 58690,
+      "files": 14,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/clinic/new",
+      "entry": "/(onboarding)/clinic/new/page",
+      "totalGzipBytes": 148008,
+      "routeSpecificGzipBytes": 16092,
+      "files": 9,
+      "budgetKb": 150,
+      "status": "ok"
+    },
+    {
+      "route": "/consultation/[id]",
+      "entry": "/(dashboard)/consultation/[id]/page",
+      "totalGzipBytes": 218159,
+      "routeSpecificGzipBytes": 86243,
+      "files": 14,
+      "budgetKb": 200,
+      "status": "over"
+    },
+    {
+      "route": "/forgot-password",
+      "entry": "/(auth)/forgot-password/page",
+      "totalGzipBytes": 240250,
+      "routeSpecificGzipBytes": 108334,
+      "files": 11,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/join",
+      "entry": "/(auth)/join/page",
+      "totalGzipBytes": 232450,
+      "routeSpecificGzipBytes": 100534,
+      "files": 11,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/login",
+      "entry": "/(auth)/login/page",
+      "totalGzipBytes": 239937,
+      "routeSpecificGzipBytes": 108021,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/patients",
+      "entry": "/(dashboard)/patients/page",
+      "totalGzipBytes": 165551,
+      "routeSpecificGzipBytes": 33635,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/patients/[id]",
+      "entry": "/(dashboard)/patients/[id]/page",
+      "totalGzipBytes": 200224,
+      "routeSpecificGzipBytes": 68308,
+      "files": 14,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/patients/new",
+      "entry": "/(dashboard)/patients/new/page",
+      "totalGzipBytes": 181238,
+      "routeSpecificGzipBytes": 49322,
+      "files": 13,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/profile",
+      "entry": "/(dashboard)/profile/page",
+      "totalGzipBytes": 187522,
+      "routeSpecificGzipBytes": 55606,
+      "files": 13,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/queue",
+      "entry": "/(dashboard)/queue/page",
+      "totalGzipBytes": 193168,
+      "routeSpecificGzipBytes": 61252,
+      "files": 14,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/r/[token]",
+      "entry": "/r/[token]/page",
+      "totalGzipBytes": 136635,
+      "routeSpecificGzipBytes": 4719,
+      "files": 8,
+      "budgetKb": 150,
+      "status": "ok"
+    },
+    {
+      "route": "/referrals",
+      "entry": "/(dashboard)/referrals/page",
+      "totalGzipBytes": 168119,
+      "routeSpecificGzipBytes": 36203,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/reports/view",
+      "entry": "/reports/view/page",
+      "totalGzipBytes": 136635,
+      "routeSpecificGzipBytes": 4719,
+      "files": 8,
+      "budgetKb": 150,
+      "status": "ok"
+    },
+    {
+      "route": "/reschedule/[token]",
+      "entry": "/reschedule/[token]/page",
+      "totalGzipBytes": 142239,
+      "routeSpecificGzipBytes": 10323,
+      "files": 8,
+      "budgetKb": 150,
+      "status": "ok"
+    },
+    {
+      "route": "/settings/billing",
+      "entry": "/(dashboard)/settings/billing/page",
+      "totalGzipBytes": 162064,
+      "routeSpecificGzipBytes": 30148,
+      "files": 11,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/settings/clinic",
+      "entry": "/(dashboard)/settings/clinic/page",
+      "totalGzipBytes": 174268,
+      "routeSpecificGzipBytes": 42352,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/settings/developer",
+      "entry": "/(dashboard)/settings/developer/page",
+      "totalGzipBytes": 173033,
+      "routeSpecificGzipBytes": 41117,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/staff",
+      "entry": "/(dashboard)/staff/page",
+      "totalGzipBytes": 173385,
+      "routeSpecificGzipBytes": 41469,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    },
+    {
+      "route": "/visits",
+      "entry": "/(dashboard)/visits/page",
+      "totalGzipBytes": 171089,
+      "routeSpecificGzipBytes": 39173,
+      "files": 12,
+      "budgetKb": 150,
+      "status": "over"
+    }
+  ]
+}

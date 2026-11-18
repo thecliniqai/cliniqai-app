@@ -32,3 +32,5 @@ aebe35d03d1f54210e4cec3b1e3f52fb0c2c0111:tests/ci/auth00-recheck-cli.spec.ts:gen
 # V2-04 04-00: false positive, two run-time-joined synthetic hosted-key markers in the L-8 guard spec (no real key)
 3576a1dc665a109d072b0fdfe23dcc67b22b6a66:tests/setup/test-env-guard.spec.ts:generic-api-key:126
 3576a1dc665a109d072b0fdfe23dcc67b22b6a66:tests/setup/test-env-guard.spec.ts:generic-api-key:128
+# V2-05 05-06: synthetic api_keys.key_prefix literal in a pgTAP fixture (no real key; replaced in a later commit)
+1dd96408da3de23f9a03a9385b794a169341b052:supabase/tests/database/referrals_rules.test.sql:generic-api-key:236

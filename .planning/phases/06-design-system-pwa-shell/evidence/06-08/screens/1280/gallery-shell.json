@@ -1,0 +1,13 @@
+{
+  "id": "gallery-shell",
+  "width": 1280,
+  "path": "/dev/ui",
+  "capture": "element #shell",
+  "axe": {
+    "scope": "#shell",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}

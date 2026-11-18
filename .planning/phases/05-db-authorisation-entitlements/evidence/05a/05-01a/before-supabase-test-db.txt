@@ -1,0 +1,38 @@
+--- stdout ---
+<repo>/supabase/tests/memberships_bounds_cleanup.sql ......... 
+Dubious, test returned 3 (wstat 768, 0x300)
+No subtests run 
+<repo>/supabase/tests/restore_drill_checks.sql ............... 
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 12/13 subtests 
+<repo>/supabase/tests/search_medicines_extension_schema.sql .. 
+Dubious, test returned 3 (wstat 768, 0x300)
+No subtests run 
+
+Test Summary Report
+-------------------
+<repo>/supabase/tests/memberships_bounds_cleanup.sql       (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: No plan found in TAP output
+<repo>/supabase/tests/restore_drill_checks.sql             (Wstat: 768 (exited 3) Tests: 1 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 13 tests but ran 1.
+<repo>/supabase/tests/search_medicines_extension_schema.sql (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: No plan found in TAP output
+Files=3, Tests=1,  0 wallclock secs ( 0.00 usr  0.02 sys +  0.03 cusr  0.01 csys =  0.06 CPU)
+Result: FAIL
+
+--- stderr ---
+Connecting to local database...
+psql:<repo>/supabase/tests/memberships_bounds_cleanup.sql:48: NOTICE:  control ok: the CHECK fails on the planted rows without the clean-up
+psql:<repo>/supabase/tests/memberships_bounds_cleanup.sql:51: error: <repo>/supabase/migrations/000021_review_fixes.sql: No such file or directory
+psql:<repo>/supabase/tests/restore_drill_checks.sql:22: NOTICE:  extension "pgtap" already exists, skipping
+psql:<repo>/supabase/tests/restore_drill_checks.sql:41: ERROR:  syntax error at or near ":"
+LINE 3:   :'expected_policies'::int,
+          ^
+psql:<repo>/supabase/tests/search_medicines_extension_schema.sql:73: NOTICE:  control ok: the stale function fails once pg_trgm moved (undefined_function)
+psql:<repo>/supabase/tests/search_medicines_extension_schema.sql:78: error: <repo>/supabase/migrations/000021_review_fixes.sql: No such file or directory
+error running container: exit 1
+
+--- exit 1 ---

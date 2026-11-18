@@ -1,0 +1,6 @@
+e2e:build exit 0
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[e2e:build] output scan clean (1419 files); stamp written for build 0woHpopRO4F9nHH7FCWIn

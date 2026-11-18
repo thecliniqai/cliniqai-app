@@ -1,0 +1,5 @@
+
+> clinicos@0.1.0 db:drift:local
+> node scripts/ci/local-drift.mjs
+
+local-drift: PASS (0 statement(s), 0 allowlisted: none)

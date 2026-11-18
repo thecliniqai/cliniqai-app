@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSystemDb, type SystemDb } from "@/lib/supabase/system";
-import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { getSignedUrl, SupabaseStorageProvider, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
@@ -43,7 +43,6 @@ function systemRpc(db: SystemDb, name: "share_token_object" | "reschedule_token_
   return rpc.rpc(name, args);
 }
 
-const SIGNED_URL_TTL_SECONDS = 600;
 const BUCKETS = new Set(["clinic-records", "prescriptions"]);
 
 async function shareTokenObject(
@@ -55,7 +54,16 @@ async function shareTokenObject(
   if (error || !data || typeof data !== "object" || Array.isArray(data)) return null;
   const t = data as unknown as ShareObjectTarget;
   if (!t.tenant_id || !t.resource_id || !t.bucket || !t.storage_path) return null;
+  // V2-05 05-10a (SUB-02, R-28): nothing of a clinic whose access level is not `full` is signed or rendered. The RPC
+  // refuses such a token too (000090); this second check uses the service-role access function, never billing_internal.
+  if (!(await clinicIsFull(db, t.tenant_id))) return null;
   return t;
+}
+
+/** R-28: the clinic's access level through `tenant_access_for_system` (service role only); fail closed. */
+export async function clinicIsFull(db: SystemDb, tenantId: string): Promise<boolean> {
+  const { data, error } = await db.rpc("tenant_access_for_system", { p_tenant: tenantId });
+  return !error && data === "full";
 }
 
 /**
@@ -91,7 +99,8 @@ export async function signSharedObject(
       {
         path: target.storage_path,
         bucket: target.bucket,
-        expiresInSeconds: SIGNED_URL_TTL_SECONDS,
+        // 06-09b (N-1): 5 minutes (was 10). The pages load it at once; their Download buttons re-sign via the route.
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): share views are views (SUB §7.2), the 300 s cap
         downloadFilename: target.original_filename ?? undefined,
       },
       provider

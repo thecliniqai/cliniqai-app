@@ -1,0 +1,106 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T04:46:46.016Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:46:47.045Z","level":"error","event":"api.v1.failed","requestId":"b89fc342-63ea-433d-b05b-3cea9964e808","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:46:47.210Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:46:48.237Z","level":"error","event":"api.v1.failed","requestId":"3f592373-cd6f-4c67-a985-2c5d5ef3180b","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:46:48.423Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:46:49.452Z","level":"error","event":"api.v1.failed","requestId":"9e46b819-f404-4e31-884e-6baf8463cb06","reason":"database_error","status":500}
+{"ts":"2026-11-14T04:46:50.678Z","level":"error","event":"sharing.reschedule_consume.failed","code":"40P01"}
+ ❯ tests/scheduling/slot-deadlock-retry.spec.ts (5 tests | 4 failed) 6513ms
+   × slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500) 1198ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500) 1193ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500) 1220ms
+     → expected 500 to be 409 // Object.is equality
+   × slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found) 1223ms
+     → expected 404 to be 409 // Object.is equality
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict  1224ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/scheduling/slot-deadlock-retry.spec.ts > slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500)
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/scheduling/slot-deadlock-retry.spec.ts:189:24
+    187|       )
+    188|     );
+    189|     expect(res.status).toBe(409);
+       |                        ^
+    190|     expect((await res.json()).error.code).toBe("SLOT_CONFLICT");
+    191|     expect(await visitsAt(target)).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/scheduling/slot-deadlock-retry.spec.ts > slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500)
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/scheduling/slot-deadlock-retry.spec.ts:209:24
+    207|       )
+    208|     );
+    209|     expect(res.status).toBe(409);
+       |                        ^
+    210|     expect((await res.json()).error.code).toBe("SLOT_CONFLICT");
+    211|     expect(await visitsAt(target)).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/scheduling/slot-deadlock-retry.spec.ts > slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500)
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/scheduling/slot-deadlock-retry.spec.ts:224:24
+    222|       })
+    223|     );
+    224|     expect(res.status).toBe(409);
+       |                        ^
+    225|     expect((await res.json()).error.code).toBe("SLOT_CONFLICT");
+    226|     const { data } = await admin.from("visits").select("scheduled_at")…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/scheduling/slot-deadlock-retry.spec.ts > slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found)
+AssertionError: expected 404 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 404[39m
+
+ ❯ tests/scheduling/slot-deadlock-retry.spec.ts:250:26
+    248|         )
+    249|       );
+    250|       expect(res.status).toBe(409);
+       |                          ^
+    251|       const { data: unchanged } = await admin.from("visits").select("s…
+    252|       expect(new Date(unchanged!.scheduled_at as string).toISOString()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  10:16:44
+   Duration  7.11s (transform 156ms, setup 9ms, collect 240ms, tests 6.51s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 3 auth user(s), 0 storage object(s); verified none remain

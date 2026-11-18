@@ -1,0 +1,181 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T04:58:12.455Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.503Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.522Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.552Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.574Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.593Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.615Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.653Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.679Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.697Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.721Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.738Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T04:58:12.753Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ❯ tests/api/v1-visits-no-clinical.spec.ts (13 tests | 13 failed) 700ms
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > GET /api/v1/visits lists visits without clinical fields 52ms
+     → vitals: expected { …(17) } to not have property "vitals"
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > GET /api/v1/visits/:id returns the visit without clinical fields 13ms
+     → vitals: expected { …(24) } to not have property "vitals"
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > POST /api/v1/visits with chief_complaints → 403 CLINICAL_ACCESS_DENIED, nothing stored 36ms
+     → expected 201 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > POST /api/v1/visits without clinical fields creates the visit; the response has none 18ms
+     → vitals: expected { …(24) } to not have property "vitals"
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with clinical_notes → 403 CLINICAL_ACCESS_DENIED, nothing changes 20ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with chief_complaints → 403 CLINICAL_ACCESS_DENIED, nothing changes 21ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with vitals → 403 CLINICAL_ACCESS_DENIED, nothing changes 37ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with advice → 403 CLINICAL_ACCESS_DENIED, nothing changes 28ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with investigations_advised → 403 CLINICAL_ACCESS_DENIED, nothing changes 18ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with specialty_data → 403 CLINICAL_ACCESS_DENIED, nothing changes 23ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with a clinical field next to a status change → 403 CLINICAL_ACCESS_DENIED, nothing changes 19ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with completing (signing) the visit → 403 CLINICAL_ACCESS_DENIED, nothing changes 15ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH status in_consultation → 200; the response has no clinical fields and the notes are untouched 9ms
+     → expected 409 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > GET /api/v1/visits lists visits without clinical fields
+AssertionError: vitals: expected { …(17) } to not have property "vitals"
+
+[32m- Expected:[39m 
+undefined
+
+[31m+ Received:[39m 
+{
+  "bp": "120/80",
+}
+
+ ❯ expectNoClinical tests/api/v1-visits-no-clinical.spec.ts:94:67
+     92| 
+     93|   function expectNoClinical(visit: Record<string, unknown>) {
+     94|     for (const field of CLINICAL_FIELDS) expect(visit, field).not.toHa…
+       |                                                                   ^
+     95|     expect(visit).not.toHaveProperty("notes");
+     96|     const text = JSON.stringify(visit);
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:106:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > GET /api/v1/visits/:id returns the visit without clinical fields
+AssertionError: vitals: expected { …(24) } to not have property "vitals"
+
+[32m- Expected:[39m 
+undefined
+
+[31m+ Received:[39m 
+{
+  "bp": "120/80",
+}
+
+ ❯ expectNoClinical tests/api/v1-visits-no-clinical.spec.ts:94:67
+     92| 
+     93|   function expectNoClinical(visit: Record<string, unknown>) {
+     94|     for (const field of CLINICAL_FIELDS) expect(visit, field).not.toHa…
+       |                                                                   ^
+     95|     expect(visit).not.toHaveProperty("notes");
+     96|     const text = JSON.stringify(visit);
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:114:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > POST /api/v1/visits with chief_complaints → 403 CLINICAL_ACCESS_DENIED, nothing stored
+AssertionError: expected 201 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 201[39m
+
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:122:24
+    120|       req("/api/v1/visits", "POST", { patient_id: patientId, doctor_id…
+    121|     );
+    122|     expect(res.status).toBe(403);
+       |                        ^
+    123|     expect((await res.json()).error.code).toBe("CLINICAL_ACCESS_DENIED…
+    124|     const after = await admin.from("visits").select("id", { count: "ex…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > POST /api/v1/visits without clinical fields creates the visit; the response has none
+AssertionError: vitals: expected { …(24) } to not have property "vitals"
+
+[32m- Expected:[39m 
+undefined
+
+[31m+ Received:[39m 
+{}
+
+ ❯ expectNoClinical tests/api/v1-visits-no-clinical.spec.ts:94:67
+     92| 
+     93|   function expectNoClinical(visit: Record<string, unknown>) {
+     94|     for (const field of CLINICAL_FIELDS) expect(visit, field).not.toHa…
+       |                                                                   ^
+     95|     expect(visit).not.toHaveProperty("notes");
+     96|     const text = JSON.stringify(visit);
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:133:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with clinical_notes → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with chief_complaints → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with vitals → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with advice → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with investigations_advised → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with specialty_data → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with a clinical field next to a status change → 403 CLINICAL_ACCESS_DENIED, nothing changes
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH with completing (signing) the visit → 403 CLINICAL_ACCESS_DENIED, nothing changes
+AssertionError: expected 200 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 200[39m
+
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:149:24
+    147|     const { data: visitBefore } = await admin.from("visits").select("s…
+    148|     const res = await patchVisit(req(`/api/v1/visits/${visitId}`, "PAT…
+    149|     expect(res.status).toBe(403);
+       |                        ^
+    150|     expect((await res.json()).error.code).toBe("CLINICAL_ACCESS_DENIED…
+    151|     expect(await clinicalNotesOf(visitId)).toEqual(notesBefore);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  tests/api/v1-visits-no-clinical.spec.ts > /api/v1/visits carries no clinical content (05-11c, M-APINOTES, R-9) > PATCH status in_consultation → 200; the response has no clinical fields and the notes are untouched
+AssertionError: expected 409 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 409[39m
+
+ ❯ tests/api/v1-visits-no-clinical.spec.ts:161:24
+    159|       params: Promise.resolve({ id: visitId }),
+    160|     });
+    161|     expect(res.status).toBe(200);
+       |                        ^
+    162|     const body = await res.json();
+    163|     expect(body.data).toMatchObject({ id: visitId, status: "in_consult…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  13 failed (13)
+   Start at  10:28:11
+   Duration  1.20s (transform 142ms, setup 13ms, collect 131ms, tests 700ms, environment 0ms, prepare 27ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

@@ -1,0 +1,16 @@
+# static checks at 57824b0 (working tree also carries other plans' uncommitted files), 2026-11-14T05:26:16Z
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
+## npx eslint .
+  0 errors and 24 warnings potentially fixable with the `--fix` option.
+
+## npm run inventory
+exit=0
+    "flagged": 0,
+## schema snapshot --local --check
+schema-snapshot: PASS (local: 2185 lines equal the committed snapshot)
+## db:drift:local
+local-drift: PASS (0 statement(s), 0 allowlisted: none)

@@ -1,0 +1,12 @@
+├ ƒ /settings/clinic
+├ ƒ /settings/developer
+├ ƒ /staff
+└ ƒ /visits
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[e2e:build] output scan clean (1342 files); stamp written for build FqgqJpM7n5TtAv5G_2Moq

@@ -1,0 +1,201 @@
+{
+ "generatedBy": "tests/e2e/design/route-states-axe.spec.ts (desktop-chrome, tags wcag2a/wcag2aa/wcag21aa/wcag22aa)",
+ "results": [
+  {
+   "state": "dashboard-error",
+   "width": 1180,
+   "scope": "main",
+   "path": "/diag/client-error",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-error",
+   "width": 1280,
+   "scope": "main",
+   "path": "/diag/client-error",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-error",
+   "width": 360,
+   "scope": "main",
+   "path": "/diag/client-error",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "dashboard-error",
+   "width": 820,
+   "scope": "main",
+   "path": "/diag/client-error",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "dashboard-loading",
+   "width": 1180,
+   "scope": "main",
+   "path": "/visits",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-loading",
+   "width": 1280,
+   "scope": "main",
+   "path": "/visits",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-loading",
+   "width": 360,
+   "scope": "main",
+   "path": "/visits",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "dashboard-loading",
+   "width": 820,
+   "scope": "main",
+   "path": "/visits",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "dashboard-not-found",
+   "width": 1180,
+   "scope": "main",
+   "path": "/patients/[id]",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-not-found",
+   "width": 1280,
+   "scope": "main",
+   "path": "/patients/[id]",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "nodes": 3
+    }
+   ]
+  },
+  {
+   "state": "dashboard-not-found",
+   "width": 360,
+   "scope": "main",
+   "path": "/patients/[id]",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "dashboard-not-found",
+   "width": 820,
+   "scope": "main",
+   "path": "/patients/[id]",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "root-not-found",
+   "width": 1180,
+   "scope": "page",
+   "path": "/no-such-page",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "root-not-found",
+   "width": 1280,
+   "scope": "page",
+   "path": "/no-such-page",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "root-not-found",
+   "width": 360,
+   "scope": "page",
+   "path": "/no-such-page",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  },
+  {
+   "state": "root-not-found",
+   "width": 820,
+   "scope": "page",
+   "path": "/no-such-page",
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "wholePageForReference": []
+  }
+ ]
+}

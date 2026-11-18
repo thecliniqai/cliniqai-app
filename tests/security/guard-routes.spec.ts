@@ -9,9 +9,16 @@
  *   - public-token (P0-04): malformed token 400, random and wrong-type tokens 404; no ids in the body;
  *   - webhook-secret (P0-03): missing or wrong `x-webhook-secret` 401, unknown provider 404, other methods 404;
  *   - cron-secret: CRON_SECRET unset 401, wrong or missing bearer 401 (fail-closed only; the compare is V2-04's, RL-23);
+ *   - runner-secret (V2-04 04-02, RL-23): JOBS_RUNNER_SECRET unset 401; missing, wrong, different-length and
+ *     scheme-less bearers and a member's session 401 with `{"ok":false}` and no data access; the right bearer 200 with
+ *     counts only; other methods 405 `Allow: POST` with or without the bearer;
  *   - api-v1 (PO-16, AR2-H2): switch off → 404 with an empty body at the handler, even with a staff session; switch
  *     on and no key → 401 (docs and openapi.json are public by design when on);
  *   - public-health: JSON keys within the committed allowlist, nothing of tenant B;
+ *   - public-asset (06-09b, `/sw.js`): anonymous 200 with the declared content type, no data access, no cookie, no ids
+ *     or tenant B values; a signed-in member gets the byte-identical body;
+ *   - session-status (06-06): no session 401, no membership 403 (membership lookup only), member 200 with allowlisted
+ *     keys, `no-store` everywhere, a forged `?tenant=` answers the same as the plain call;
  *   - signout (03-12b, T-03-13): cross-origin / cross-site / signal-less 403 and an unknown scope 400 with no
  *     `auth.signOut` call (a throwaway user's session survives); signed out 303 → `/login` with `Clear-Site-Data`.
  * None of the denial legs writes anything (row counts); the cross-tenant leg leaves every tenant B row unchanged.
@@ -23,6 +30,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { createUnlinkedUser } from "../helpers/tenants";
+import { psql } from "../helpers/sql";
 import { serverEnv } from "@/lib/env-server";
 import { ROUTE_GUARDS, type RouteGuard } from "./guard-manifest";
 import {
@@ -32,6 +40,9 @@ import {
   countRows,
   cronRouteLeg,
   healthRouteLeg,
+  publicAssetRouteLeg,
+  sessionStatusRouteLegs,
+  runnerRouteLegs,
   webhookSignatureRouteLegs,
   publicTokenRouteLegs,
   report,
@@ -143,6 +154,24 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
         expect(violations, report(violations)).toEqual([]);
       });
 
+      it.each(ofKind("runner-secret"))("runner-secret: %s", async (_k, c, guard) => {
+        // 04-03b: the control leg runs a real runner pass over every registered kind. Jobs other files left due (a
+        // guard-actions control's message.send or webhook.deliver job) would be sent by it and write rows (audit
+        // `communication_sent`) inside this "wrote nothing" block, depending on file order. Park them a day ahead.
+        psql(
+          "update ops.jobs set run_at = now() + interval '1 day' where status = 'pending' and kind not like 'drill.%' " +
+            "and run_at <= now() + interval '1 hour'"
+        );
+        const violations = await runnerRouteLegs(
+          slot,
+          c,
+          guard,
+          (value) => vi.stubEnv("JOBS_RUNNER_SECRET", value),
+          world.roles.owner.client,
+        );
+        expect(violations, report(violations)).toEqual([]);
+      });
+
       it.each(ofKind("webhook-signature"))("webhook-signature: %s", async (_k, c) => {
         const payload = JSON.parse(readFileSync(path.join(process.cwd(), "lint-fixtures/auth-hook/recovery.json"), "utf8"));
         const secrets = {
@@ -183,6 +212,16 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("public-health"))("public-health: %s", async (_k, c, guard) => {
         const violations = await healthRouteLeg(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("public-asset"))("public-asset: %s", async (_k, c, guard) => {
+        const violations = await publicAssetRouteLeg(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("session-status"))("session-status: %s", async (_k, c, guard) => {
+        const violations = await sessionStatusRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

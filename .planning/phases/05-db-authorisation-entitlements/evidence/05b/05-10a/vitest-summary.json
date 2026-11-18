@@ -1,0 +1,43 @@
+{
+  "numTotalTestSuites": 976,
+  "numPassedTestSuites": 976,
+  "numFailedTestSuites": 0,
+  "numTotalTests": 5008,
+  "numPassedTests": 5008,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "success": true,
+  "changed_or_new_files": {
+    "tests/authz/table-matrix.spec.ts": {
+      "status": "passed",
+      "tests": 29,
+      "passed": 29
+    },
+    "tests/security/guard-actions.spec.ts": {
+      "status": "passed",
+      "tests": 646,
+      "passed": 646
+    },
+    "tests/security/guard-routes.spec.ts": {
+      "status": "passed",
+      "tests": 56,
+      "passed": 56
+    },
+    "tests/security/share-path-encoding.spec.ts": {
+      "status": "passed",
+      "tests": 22,
+      "passed": 22
+    },
+    "tests/storage/storage-provider.spec.ts": {
+      "status": "passed",
+      "tests": 14,
+      "passed": 14
+    },
+    "tests/subscriptions/lock-enforcement.spec.ts": {
+      "status": "passed",
+      "tests": 10,
+      "passed": 10
+    }
+  }
+}

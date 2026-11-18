@@ -224,7 +224,7 @@ export function WalkInDrawer({
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
@@ -239,7 +239,7 @@ export function WalkInDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
             aria-label="Close drawer"
           >
             <X className="w-5 h-5" />
@@ -253,7 +253,7 @@ export function WalkInDrawer({
             onClick={() => setTab("search")}
             className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               tab === "search"
-                ? "border-brand-500 text-brand-500"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-900"
             }`}
           >
@@ -265,7 +265,7 @@ export function WalkInDrawer({
             onClick={() => setTab("new")}
             className={`pb-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               tab === "new"
-                ? "border-brand-500 text-brand-500"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-900"
             }`}
           >
@@ -283,7 +283,7 @@ export function WalkInDrawer({
             <select
               value={doctorId}
               onChange={(e) => setDoctorId(e.target.value)}
-              className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
             >
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -325,7 +325,7 @@ export function WalkInDrawer({
                     placeholder="e.g. 9876543210 or Ramesh"
                     autoFocus
                   />
-                  <Search className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
+                  <Search className="w-4 h-4 text-fg-subtle absolute right-3 top-3.5 pointer-events-none" />
                 </div>
               </Field>
 
@@ -347,7 +347,7 @@ export function WalkInDrawer({
                           full_name: /^\d+$/.test(searchQuery) ? "" : searchQuery,
                         }));
                       }}
-                      className="block mx-auto mt-2 text-brand-600 font-semibold underline cursor-pointer"
+                      className="block mx-auto mt-2 text-accent-fg font-semibold underline cursor-pointer"
                     >
                       Register as New Patient
                     </button>

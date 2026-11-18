@@ -1,0 +1,3 @@
+supabase/tests/database/remove_member.test.sql planned=81 ok=81 not_ok=0
+supabase/tests/database/authz_matrix.test.sql planned=3224 ok=3224 not_ok=0
+supabase/tests/database/definer_functions.test.sql planned=36 ok=36 not_ok=0

@@ -1,0 +1,54 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 61ms
+[WebServer] ✓ Running next.config.ts took 24ms
+
+Running 9 tests using 1 worker
+
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (601ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (431ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (592ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (425ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (424ms)
+  ✓  6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (427ms)
+  ✓  7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (423ms)
+  ✓  8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (374ms)
+  ✘  9 [desktop-chrome] › tests/e2e/shell/clinic-zone-hydration.spec.ts:63:5 › booking 10:00 from a browser in another zone books 10:00 clinic time (1.2s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/shell/clinic-zone-hydration.spec.ts:63:5 › booking 10:00 from a browser in another zone books 10:00 clinic time 
+
+    Error: 10:00 in the clinic's zone (IST)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "2026-11-17T04:30:00.000Z"
+    Received: "2026-11-17T15:00:00.000Z"
+
+      76 |   const visits = await visitsOf(tenantA.id, patient.id);
+      77 |   expect(visits).toHaveLength(1);
+    > 78 |   expect(new Date(visits[0].scheduled_at!).toISOString(), "10:00 in the clinic's zone (IST)").toBe(istInstant(date, "10:00"));
+         |                                                                                               ^
+      79 | });
+      80 |
+        at tests/e2e/shell/clinic-zone-hydration.spec.ts:78:95
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/shell-clinic-zone-hydratio-383fe-one-books-10-00-clinic-time-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/shell-clinic-zone-hydratio-383fe-one-books-10-00-clinic-time-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-clinic-zone-hydratio-383fe-one-books-10-00-clinic-time-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/shell-clinic-zone-hydratio-383fe-one-books-10-00-clinic-time-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [desktop-chrome] › tests/e2e/shell/clinic-zone-hydration.spec.ts:63:5 › booking 10:00 from a browser in another zone books 10:00 clinic time 
+  8 passed (9.4s)

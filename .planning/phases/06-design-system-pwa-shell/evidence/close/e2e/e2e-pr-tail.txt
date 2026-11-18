@@ -1,0 +1,8 @@
+  ✓  784 [pwa-ipados] › tests/e2e/pwa/10-ipados.spec.ts:121:7 › signed out › no install card on /login, even on a device past its second session (243ms)
+  ✓  785 [pwa-ipados] › tests/e2e/pwa/10-ipados.spec.ts:133:7 › iPhone user agent › Install app opens the same iOS sheet (873ms)
+  ✓  786 [pwa-ipados] › tests/e2e/pwa/10-ipados.spec.ts:147:7 › WhatsApp in-app browser (iOS) › the entry is Open in Safari guidance, not the install steps (827ms)
+[e2e teardown] removed run data: 39 tenant(s), 105 auth user(s), 8 storage object(s); verified none remain
+
+  196 skipped
+  590 passed (12.9m)
+exit=0

@@ -1,0 +1,6 @@
+npm run ci:audit at 9cf851d
+audit-gate: 2 high/critical advisories (production deps), 2 waiver(s), today 2026-11-15
+  high     GHSA-j4fx-xxwh-2485 jsondiffpatch
+  high     GHSA-mrhx-c7xc-m3w5 zod
+audit-gate: PASS
+exit=0

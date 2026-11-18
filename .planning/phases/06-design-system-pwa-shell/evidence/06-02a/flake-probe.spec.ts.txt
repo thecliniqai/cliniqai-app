@@ -1,0 +1,51 @@
+/**
+ * Probe (06-02a flake root cause, not committed): the change-password a11y scan with page animations slowed 50x via
+ * CDP, so the Button's disabled → enabled colour transition (120 ms → 6 s) is still running when the spec's settle
+ * guard (opacity === "1") lets axe scan. MODE=guard-old: the spec's opacity guard; MODE=guard-new: wait until the
+ * button has no running animations (CSS transitions included).
+ */
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "../fixtures";
+import { storageStatePath } from "../support/run-data";
+import { settleAnimations } from "../support/settle";
+
+test.use({ storageState: storageStatePath("nurse") });
+const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
+
+for (const mode of ["guard-old", "guard-new"] as const) {
+  test(`change-password at 1280 with slowed animations: ${mode}`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chrome");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Animation.enable");
+    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.02 });
+    await page.goto("/profile");
+    const form = page.locator('form[aria-labelledby="change-password-title"]');
+    const button = form.getByRole("button", { name: "Change password" });
+    await expect(button).toBeEnabled();
+    await expect.poll(() => button.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    // Slowed 50x, the 120 ms fade lasts 6 s: wait to its middle, the frame a loaded CI worker can scan at full speed.
+    await page.waitForTimeout(3_000);
+    if (mode === "guard-new") {
+      await settleAnimations(page, 15_000); // the shared guard the a11y specs now use
+    }
+    const state = await button.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        bg: cs.backgroundColor,
+        color: cs.color,
+        transition: cs.transitionProperty + " " + cs.transitionDuration,
+        animations: el.getAnimations().map((a) => `${(a as CSSTransition).transitionProperty ?? a.constructor.name}@${a.currentTime}/${a.playbackRate}`),
+        classes: el.className,
+      };
+    });
+    console.log(`STATE ${mode}: ${JSON.stringify(state)}`);
+    const results = await new AxeBuilder({ page }).withTags(TAGS).include('form[aria-labelledby="change-password-title"]').analyze();
+    const blocking = results.violations
+      .filter((v) => v.impact === "serious" || v.impact === "critical")
+      .map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target.join(" ")), summary: v.nodes.map((n) => n.failureSummary) }));
+    console.log(`PROBE ${mode}: ${JSON.stringify(blocking)}`);
+    if (mode === "guard-old") expect(blocking.map((b) => b.id)).toContain("color-contrast");
+    else expect(blocking).toEqual([]);
+  });
+}

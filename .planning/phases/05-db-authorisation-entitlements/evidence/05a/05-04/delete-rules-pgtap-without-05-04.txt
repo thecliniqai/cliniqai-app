@@ -1,0 +1,97 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/delete_rules.test.sql .. 
+# Failed test 13: "the DELETE policies are exactly the 05-04 set (no visits, prescriptions, queue_tokens, waitlist_entries, referrals, ...)"
+#     Extra records:
+#         (prescription_items,prescription_items_delete_member)
+#         (api_keys,api_keys_owner_admin)
+#         (schedule_blocks,schedule_blocks_delete_tenant)
+#         (consultation_diagnoses,consultation_diagnoses_delete_member)
+#         (queue_tokens,queue_tokens_delete_member)
+#         (patient_documents,patient_documents_tenant_isolation)
+#         (visits,visits_delete_member)
+#         (doctor_prescription_templates,doctor_prescription_templates_delete_member)
+#         (consultations,consultations_tenant_isolation)
+#         (doctor_custom_medicines,doctor_custom_medicines_delete_member)
+#         (doctor_custom_diagnoses,doctor_custom_diagnoses_delete_member)
+#         (api_key_usage_daily,api_key_usage_owner_admin)
+#         (waitlist_entries,waitlist_entries_delete_member)
+#         (tenant_messaging_config,tenant_messaging_config_tenant_isolation)
+#         (in_app_notifications,in_app_notifications_tenant_isolation)
+#         (follow_ups,follow_ups_delete_member)
+#         (prescriptions,prescriptions_delete_member)
+#         (referrals,referrals_originating_tenant_manage)
+#         (webhook_subscriptions,webhook_subs_owner_admin)
+#     Missing records:
+#         (schedule_blocks,schedule_blocks_delete)
+#         (doctor_custom_diagnoses,doctor_custom_diagnoses_delete)
+#         (doctor_prescription_templates,doctor_prescription_templates_delete)
+#         (api_key_usage_daily,api_key_usage_daily_delete)
+#         (follow_ups,follow_ups_delete)
+#         (patient_documents,patient_documents_delete)
+#         (doctor_custom_medicines,doctor_custom_medicines_delete)
+#         (api_keys,api_keys_delete)
+#         (invoice_items,invoice_items_delete)
+#         (webhook_subscriptions,webhook_subscriptions_delete)
+#         (consultation_diagnoses,consultation_diagnoses_delete)
+#         (prescription_items,prescription_items_delete)
+#         (in_app_notifications,in_app_notifications_delete)
+# Failed test 14: "no FOR ALL policy is left on a public table (it would also grant DELETE)"
+#     Unexpected records:
+#         (consultations)
+#         (patient_documents)
+#         (referrals)
+#         (tenant_messaging_config)
+#         (in_app_notifications)
+#         (api_keys)
+#         (api_key_usage_daily)
+#         (webhook_subscriptions)
+# Failed test 15: "every DELETE policy binds the active clinic through the authz helpers, never the legacy rules"
+#     Unexpected records:
+#         (visits_delete_member)
+#         (queue_tokens_delete_member)
+#         (waitlist_entries_delete_member)
+#         (consultation_diagnoses_delete_member)
+#         (prescriptions_delete_member)
+#         (prescription_items_delete_member)
+#         (doctor_custom_medicines_delete_member)
+#         (doctor_custom_diagnoses_delete_member)
+#         (doctor_prescription_templates_delete_member)
+#         (follow_ups_delete_member)
+#         (schedule_blocks_delete_tenant)
+# Failed test 16: "the owner cannot delete a visit, even one without children (visits_delete_member dropped)"
+#         have: 1
+#         want: 0
+# Failed test 17: "an admin cannot delete a visit"
+#         have: 1
+#         want: 0
+# Failed test 18: "the owner cannot delete a prescription"
+#         have: 1
+#         want: 0
+# Failed test 20: "a doctor deletes a draft Rx item (was a silent no-op: owner/admin-only policy)"
+#         have: 0
+#         want: 1
+# Failed test 23: "an admin cannot delete an Rx item (R-9: no clinical access)"
+#         have: 1
+#         want: 0
+# Failed test 24: "a doctor removes a diagnosis (was a silent no-op: owner/admin-only policy)"
+#         have: 0
+#         want: 1
+# Failed test 26: "a receptionist deletes an invoice item (was a silent no-op: no DELETE policy)"
+#         have: 0
+#         want: 1
+# Failed test 28: "a doctor clears a follow-up (was a silent no-op: owner/admin-only policy)"
+#         have: 0
+#         want: 1
+# Failed test 29: "a dual member acting in clinic A (doctor there) removes an A diagnosis"
+#         have: 0
+#         want: 1
+# Looks like you failed 12 tests of 35
+Failed 12/35 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/delete_rules.test.sql (Wstat: 0 Tests: 35 Failed: 12)
+  Failed tests:  13-18, 20, 23-24, 26, 28-29
+Files=1, Tests=35,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: FAIL
+error running container: exit 1

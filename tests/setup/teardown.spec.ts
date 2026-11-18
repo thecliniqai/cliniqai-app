@@ -5,7 +5,13 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { psql } from "../helpers/sql";
-import { acquireRunLock, findLeakedReferences, localAdminClient, NO_ACTION_USER_REFS } from "./teardown";
+import {
+  acquireRunLock,
+  findLeakedReferences,
+  localAdminClient,
+  NO_ACTION_USER_REFS,
+  removeRunPlatformAdmins,
+} from "./teardown";
 
 describe("teardown FK coverage", () => {
   it("lists exactly the public columns that reference auth.users with NO ACTION (live catalog)", () => {
@@ -55,6 +61,37 @@ describe("teardown leak check", () => {
     const many = Array.from({ length: 400 }, () => randomUUID());
     expect(await findLeakedReferences(admin, [userId], [...many, inside])).toEqual(["schedule_blocks.created_by: 1 row(s)"]);
     expect(await findLeakedReferences(admin, [userId], [...many, inside, outside])).toEqual([]);
+  });
+});
+
+describe("teardown of platform admins (V2-05 05-09b)", () => {
+  it("removes a run user's platform_admins row, without which the user cannot be deleted (FK RESTRICT, no tenant_id)", async () => {
+    const admin = localAdminClient();
+    const { data: created, error: userErr } = await admin.auth.admin.createUser({
+      email: `teardown-platform-admin-${randomUUID()}@example.test`,
+      password: `T-${randomUUID()}!9a`,
+      email_confirm: true,
+    });
+    expect(userErr).toBeNull();
+    const userId = created.user!.id;
+    psql(`insert into public.platform_admins (user_id) values ('${userId}')`);
+
+    const blocked = await admin.auth.admin.deleteUser(userId);
+    expect(blocked.error).not.toBeNull();
+    expect(psql(`select count(*) from auth.users where id = '${userId}'`)).toEqual(["1"]);
+
+    expect(removeRunPlatformAdmins([userId, randomUUID()])).toBe(1);
+    expect(psql(`select count(*) from public.platform_admins where user_id = '${userId}'`)).toEqual(["0"]);
+    expect(psql(`select action from public.platform_audit_log where payload ->> 'user_id' = '${userId}' order by occurred_at, action`)).toEqual([
+      "platform_admin.granted",
+      "platform_admin.deleted",
+    ]);
+    const { error: delErr } = await admin.auth.admin.deleteUser(userId);
+    expect(delErr).toBeNull();
+  });
+
+  it("refuses a malformed user id instead of building SQL from it", () => {
+    expect(() => removeRunPlatformAdmins(["1') or true --"])).toThrow("teardown: unexpected user id");
   });
 });
 

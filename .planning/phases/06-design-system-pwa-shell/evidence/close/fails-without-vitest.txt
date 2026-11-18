@@ -1,0 +1,36 @@
+06-09d close fails-without proof, Vitest: the close specs (new tests/auth/session-auth-close-db.spec.ts, changed tests/auth/auth-failure.spec.ts) copied into a detached worktree at e7d99ce (the code before the four Lows, HEAD of the branch before this work) and run there against the shared local stack, 2026-11-15T09:31:34Z.
+Command: npx vitest run tests/auth/session-auth-close-db.spec.ts tests/auth/auth-failure.spec.ts --reporter=verbose
+
+ × tests/auth/session-auth-close-db.spec.ts > L-N1: a slow but successful password change reports success > PUT /user answered after 4.5 s (applied at once), after a 1.5 s breached-password check: ok, new password signs in 3815ms
+   → expected { ok: false, code: 'unknown', …(1) } to deeply equal { ok: true, …(1) }
+ × tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > the bounds: proxy hard stop + the route's budget stay under the client's status timeout 2ms
+   → actual value must be number or bigint, received "undefined"
+ × tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > a refresh answered after 4.5 s: signed in, the rotated session stored, no 'unavailable' mark, no /login 3736ms
+   → not marked unavailable: expected 'unavailable' to be null
+ × tests/auth/session-auth-close-db.spec.ts > L-N2: the proxy refreshes through a slow but working GoTrue > a refresh that never answers ends at the proxy's bound; the route ends at its own; together < 10 s 7247ms
+   → expected 3508 to be greater than or equal to NaN
+ × tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > the proxy's pin name is the request client's 1ms
+   → expected undefined to be 'clinic_active_tenant' // Object.is equality
+ × tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > revoked session (expired token, real GoTrue refusal): 307 /login, auth cookie and pin both expired 251ms
+   → expected false to be true // Object.is equality
+ × tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > no session at all: a public page (/login) and a Server Action POST expire a leftover pin 1ms
+   → expected false to be true // Object.is equality
+ ✓ tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > controls: a signed-in request and an Auth outage (a refresh that never answers) keep the pin 3706ms
+ × tests/auth/session-auth-close-db.spec.ts > L-N4: a definitive sign-out in the proxy expires the active-clinic pin > D5: device pinned to A, session revoked while closed; a user of B only then signs in on it → 200 (B), not 403 510ms
+   → the pin went with the session: expected true to be false // Object.is equality
+ ✓ tests/auth/auth-failure.spec.ts > isDefinitiveAuthRejection: GoTrue's codes, never a bare 4xx > definitive: a missing session, a token that fails verification, GoTrue's session/refresh/user codes 1ms
+ ✓ tests/auth/auth-failure.spec.ts > isDefinitiveAuthRejection: GoTrue's codes, never a bare 4xx > not definitive: uncoded 4xx (gateway 400, Kong 401/404), no_authorization, 408, 429, 5xx, network, unknown 0ms
+ ✓ tests/auth/auth-failure.spec.ts > classifyAuthAnswer mirrors auth-js's reading of an answer > reads body.code only with GoTrue's API-version header, else body.error_code 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > records each Auth answer's outcome; keepSessionCookies drops auth-cookie deletions only after 'unavailable' 2ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a thrown network error is 'unavailable' and is rethrown (auth-js maps it to a retryable error) 0ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a call still running at the deadline is aborted and answered 408 (synthetic); later calls get it without a request 1ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > a refresh failing retryably is cut once auth-js's next back-off sleep would pass the deadline 1ms
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > under the proxy's mark, /user and the refresh grant are answered at once; sign-in, sign-out and PostgREST are sent 0ms
+ × tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: a spent session budget never refuses or cuts a non-session call (PUT /user is sent and awaited) 2ms
+   → expected "hang" to be called 2 times, but got 1 times
+ × tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: a sign-out is sent after the session budget is spent and has its own bound 1ms
+   → expected false to be true // Object.is equality
+ ✓ tests/auth/auth-failure.spec.ts > createAuthTransport > 06-09d close L-N1: the JWKS fetch inside getClaims is a session call (bounded, refused once the budget is spent) 0ms
+ Test Files  2 failed (2)
+      Tests  10 failed | 10 passed (20)
+[teardown] removed run data: 7 tenant(s), 8 auth user(s), 0 storage object(s); verified none remain

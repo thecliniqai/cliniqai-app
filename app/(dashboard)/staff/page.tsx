@@ -10,8 +10,9 @@ import { InviteStaffForm } from "@/components/staff/invite-staff-form";
 import { StaffList } from "@/components/staff/staff-list";
 import { Membership } from "@/lib/db/types";
 import { Users, UserPlus, Mail, ShieldCheck } from "lucide-react";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function StaffPage() {
+async function StaffPage() {
   const supabase = await createClient();
   const membership = await getActiveMembership();
   const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
@@ -21,6 +22,7 @@ export default async function StaffPage() {
     .from("memberships")
     .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at")
     .eq("tenant_id", membership.tenantId)
+    .eq("status", "active")
     .order("created_at", { ascending: true })
     .returns<Membership[]>();
 
@@ -32,6 +34,7 @@ export default async function StaffPage() {
       .select("id, invited_address, role, expires_at, consumed_at")
       .eq("tenant_id", membership.tenantId)
       .is("consumed_at", null)
+      .is("revoked_at", null)
       .order("created_at", { ascending: false })
       .returns<Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }>>();
 
@@ -79,7 +82,7 @@ export default async function StaffPage() {
         <Card className="max-w-xl">
           <CardHeader>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+              <div className="w-8 h-8 rounded-lg bg-accent-subtle flex items-center justify-center text-accent-fg border border-accent-border">
                 <UserPlus className="w-4 h-4" />
               </div>
               <div>
@@ -160,3 +163,5 @@ export default async function StaffPage() {
   );
 }
 
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(StaffPage);

@@ -6,7 +6,9 @@
  * 02-06 several services read and changed rows by id with RLS as the only scope, so a user who is a doctor in clinic A
  * and a receptionist in clinic C, acting in A, could check in, confirm, cancel or re-status C's visits, promote C's
  * waitlist entry and acknowledge C's inbound referral with A's role, and got an A queue token pointing at C's visit.
- * Every by-id read and write now filters on the active clinic (`ctx.tenantId`).
+ * Every by-id read and write now filters on the active clinic (`ctx.tenantId`). Since V2-05 05-02b the policies are bound
+ * to the active clinic too (the x-clinicos-tenant header the app's client sends, R-42), so the database refuses the
+ * same calls on its own; the service filters stay as defence in depth.
  *
  * Each case: refused for C's row, C's row unchanged, no clinic-A row references it; a positive control proves the same
  * call succeeds on A's own row. Local stack, real JWT clients, synthetic data only.
@@ -19,9 +21,12 @@ import { cancelVisit, confirmAppointment, updateVisitStatus } from "@/features/v
 import { promoteWaitlistEntry } from "@/features/waitlist/service";
 import { acknowledgeReferral } from "@/features/referrals/service";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { signInActingIn } from "../helpers/active-tenant";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { insertReturningId, rowById, type IdTable } from "../helpers/db";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 import type { Tables, TablesInsert } from "@/types/database";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 const admin = getAdminClient();
 
@@ -53,7 +58,7 @@ async function seedClinic(owner: SeededTenant, label: string): Promise<ClinicRow
       doctor_id: owner.userId,
       origin_type: "scheduled",
       status: "booked",
-      scheduled_at: new Date(Date.now() + 2 * 86_400_000 + Math.floor(Math.random() * 600) * 60_000).toISOString(),
+      scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
       created_by: owner.userId,
     });
   const visit = await newVisit();
@@ -95,15 +100,29 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
     member = await addMemberToTenant(ownerA.tenantId, "doctor");
     const { error } = await admin.from("memberships").insert({ user_id: member.userId, tenant_id: ownerC.tenantId, role: "receptionist" });
     if (error) throw new Error(`second membership failed: ${error.message}`);
-    // The context a request in clinic A builds (lib/auth/context.ts): A's tenant and role, the member's JWT client.
-    ctxA = { userId: member.userId, tenantId: ownerA.tenantId, role: "doctor", actorType: "user", db: member.client };
+    // The context a request in clinic A builds (lib/auth/context.ts): A's tenant and role, the member's JWT client
+    // naming clinic A as active (lib/supabase/server.ts sends the clinic cookie as x-clinicos-tenant, R-42).
+    ctxA = {
+      userId: member.userId,
+      tenantId: ownerA.tenantId,
+      role: "doctor",
+      actorType: "user",
+      db: await signInActingIn(member.userEmail, ownerA.tenantId),
+    };
     A = await seedClinic(ownerA, "A");
     C = await seedClinic(ownerC, "C");
   }, 60_000);
 
-  it("RLS alone would let the member read C's visit by id (the precondition the filters close)", async () => {
-    const { data } = await member.client.from("visits").select("id").eq("id", C.visit).maybeSingle();
-    expect(data).not.toBeNull();
+  it("RLS itself no longer lets the member, acting in A, read C's visit by id (05-02b: policies bound to the active clinic)", async () => {
+    // Before 05-02b this read returned C's visit (any membership): the precondition the service filters closed.
+    const { data: inA } = await ctxA.db.from("visits").select("id").eq("id", C.visit).maybeSingle();
+    expect(inA).toBeNull();
+    // Control: acting in C, the same user reads it; with no clinic named (two memberships), nothing.
+    const inC = await signInActingIn(member.userEmail, ownerC.tenantId);
+    const { data: fromC } = await inC.from("visits").select("id").eq("id", C.visit).maybeSingle();
+    expect(fromC).not.toBeNull();
+    const { data: none } = await member.client.from("visits").select("id").eq("id", C.visit).maybeSingle();
+    expect(none).toBeNull();
   });
 
   it("checkInVisit: C's visit refused, no A queue token points at it, C's visit unchanged", async () => {
@@ -128,7 +147,9 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
       doctor_id: ownerA.userId,
       origin_type: "scheduled",
       status: "booked",
-      scheduled_at: new Date(Date.now() + 4 * 86_400_000).toISOString(),
+      // Clear of the seeded visits (2-4 days ahead, 05-08: no overlapping seeds) and of the waitlist's target day
+      // (3 days ahead): cancelling it below must not auto-promote A's waitlist entry, which a later case promotes.
+      scheduled_at: new Date(Date.now() + 8 * 86_400_000).toISOString(),
       created_by: ownerA.userId,
     });
     expect((await updateVisitStatus(ctxA, control, "booked")).success).toBe(true);
@@ -168,6 +189,9 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
         referred_to_name: "Synthetic Specialist",
         reason_for_referral: "Synthetic reason",
       });
+    // Both targets are listed in the referral directory (05-06: an unlisted target is refused).
+    await listInReferralDirectory(ownerC.tenantId);
+    await listInReferralDirectory(ownerA.tenantId);
     const toC = await referral(ownerC.tenantId);
     const toA = await referral(ownerA.tenantId);
     expect((await acknowledgeReferral(ctxA, toC)).success).toBe(false);

@@ -9,7 +9,10 @@ import {
   getStorageProviderForDb,
   SupabaseStorageProvider,
   StorageProvider,
+  VIEW_LINK_TTL_SECONDS,
+  SIGNED_URL_MAX_TTL_SECONDS,
 } from "@/lib/storage";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 import * as storageModule from "@/lib/storage";
 
 describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)", () => {
@@ -72,6 +75,23 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       } finally {
         vi.unstubAllEnvs();
       }
+    });
+
+    it("a signed URL with no lifetime given is a 5-minute view link, not an hour (06-09b N-1)", async () => {
+      const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.local/signed" }, error: null }));
+      const callerClient = { storage: { from: vi.fn(() => ({ createSignedUrl })) } } as unknown as Parameters<
+        typeof getStorageProviderForDb
+      >[0];
+      await getStorageProviderForDb(callerClient, "clinic-records").createSignedUrl({ path: "tenants/t-1/labs/l-1/report.pdf" });
+      expect(createSignedUrl).toHaveBeenCalledWith("tenants/t-1/labs/l-1/report.pdf", VIEW_LINK_TTL_SECONDS, { download: undefined });
+      expect(VIEW_LINK_TTL_SECONDS).toBe(300);
+    });
+
+    it("a held view link is reused only while it has more than 30 s to live (06-09b N-1)", () => {
+      const signedAt = 1_000_000;
+      expect(isViewLinkFresh(signedAt, signedAt + 269_999)).toBe(true);
+      expect(isViewLinkFresh(signedAt, signedAt + 270_000)).toBe(false);
+      expect(isViewLinkFresh(0, signedAt)).toBe(false);
     });
 
     it("exports no R2/S3 provider", () => {
@@ -163,7 +183,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       );
     });
 
-    it("getSignedUrl validates path and defaults to 3600s expiration", async () => {
+    it("getSignedUrl validates path and passes a lifetime below the cap through unchanged", async () => {
       const mockProvider: StorageProvider = {
         name: "mock",
         upload: vi.fn(),
@@ -177,7 +197,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       const result = await getSignedUrl(
         {
           path: "tenants/tenant-1/referrals/ref-1/letter.pdf",
-          expiresInSeconds: 3600,
+          expiresInSeconds: 120,
         },
         mockProvider
       );
@@ -186,9 +206,37 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       expect(mockProvider.createSignedUrl).toHaveBeenCalledWith(
         expect.objectContaining({
           path: "tenants/tenant-1/referrals/ref-1/letter.pdf",
-          expiresInSeconds: 3600,
+          expiresInSeconds: 120,
         })
       );
+    });
+
+    it("getSignedUrl clamps the lifetime to 300 s for a view and 900 s for an export (R-29, 05-10a)", async () => {
+      const mockProvider: StorageProvider = {
+        name: "mock",
+        upload: vi.fn(),
+        createSignedUrl: vi.fn().mockResolvedValue({ signedUrl: "https://storage.example.com/signed-url?token=xyz" }),
+        delete: vi.fn(),
+        download: vi.fn(),
+      };
+      const path = "tenants/tenant-1/referrals/ref-1/letter.pdf";
+
+      // Asked for 3600 s; a view is signed for at most 300 s (SUB §7.2, R-29), the view-link lifetime (06-09b N-1).
+      await getSignedUrl({ path, expiresInSeconds: 3600 }, mockProvider);
+      expect(mockProvider.createSignedUrl).toHaveBeenLastCalledWith(expect.objectContaining({ path, expiresInSeconds: 300 }));
+      expect(SIGNED_URL_MAX_TTL_SECONDS.view).toBe(VIEW_LINK_TTL_SECONDS);
+
+      await getSignedUrl({ path, expiresInSeconds: 3600, purpose: "export" }, mockProvider);
+      expect(mockProvider.createSignedUrl).toHaveBeenLastCalledWith(expect.objectContaining({ path, expiresInSeconds: 900 }));
+    });
+
+    it("a direct provider call cannot sign longer than the cap either (R-29, 05-10a)", async () => {
+      const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.local/signed" }, error: null }));
+      const callerClient = { storage: { from: vi.fn(() => ({ createSignedUrl })) } } as unknown as Parameters<
+        typeof getStorageProviderForDb
+      >[0];
+      await getStorageProviderForDb(callerClient, "clinic-records").createSignedUrl({ path: "tenants/t-1/labs/l-1/report.pdf", expiresInSeconds: 3600 });
+      expect(createSignedUrl).toHaveBeenCalledWith("tenants/t-1/labs/l-1/report.pdf", 300, { download: undefined });
     });
 
     it("deleteFile validates path and delegates deletion", async () => {

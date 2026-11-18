@@ -1,0 +1,96 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/subscriptions/locked-redirects.spec.ts (47 tests | 7 failed) 3209ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > full × owner 1ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > full × admin 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > full × doctor 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > full × nurse 1ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > full × receptionist 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > locked × owner 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > locked × admin 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > locked × doctor 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > locked × nurse 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > locked × receptionist 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > onboarding × owner 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > onboarding × admin 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > onboarding × doctor 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > onboarding × nurse 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > onboarding × receptionist 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > none × owner 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > none × admin 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > none × doctor 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > none × nurse 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > none × receptionist 0ms
+   ✓ accessRedirect: role × access level → destination (05-10b contract) > every destination is outside the (dashboard) group and maps to itself for its members (no loop) 0ms
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedOwner → redirect(/billing/locked) 59ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedAdmin → redirect(/billing/locked) 38ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedDoctor → redirect(/billing/locked/staff) 53ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedNurse → redirect(/billing/locked/staff) 58ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedReceptionist → redirect(/billing/locked/staff) 47ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > onboardingOwner → redirect(/onboarding/billing) 34ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   × locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > onboardingReceptionist → redirect(/onboarding/billing) 39ms
+     → expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > a full clinic's owner renders the dashboard (no redirect) 33ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > dashboard page loaders of a locked clinic (client navigation: the layout does not run) > lockedOwner: every page renders empty, 404s, or redirects to /billing/locked; none throws a server error  483ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > dashboard page loaders of a locked clinic (client navigation: the layout does not run) > lockedReceptionist: every page renders empty, 404s, or redirects to /billing/locked/staff; none throws a server error  462ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > dashboard page loaders of a locked clinic (client navigation: the layout does not run) > lockedDoctor: every page renders empty, 404s, or redirects to /billing/locked/staff; none throws a server error  396ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedOwner on the locked page → { kind: 'rendered' } 37ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedAdmin on the locked page → { kind: 'rendered' } 36ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedReceptionist on the locked page → { kind: 'redirect', to: '/billing/locked/staff' } 15ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedReceptionist on the staff page → { kind: 'rendered' } 17ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedNurse on the staff page → { kind: 'rendered' } 19ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedOwner on the staff page → { kind: 'redirect', to: '/billing/locked' } 16ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > lockedOwner on the onboarding page → { kind: 'redirect', to: '/billing/locked' } 15ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > onboardingOwner on the onboarding page → { kind: 'rendered' } 16ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > onboardingReceptionist on the onboarding page → { kind: 'rendered' } 16ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > onboardingOwner on the locked page → { kind: 'redirect', to: '/onboarding/billing' } 16ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > onboardingReceptionist on the staff page → { kind: 'redirect', to: '/onboarding/billing' } 16ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > fullOwner on the locked page → { kind: 'redirect', to: '/' } 15ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > fullOwner on the staff page → { kind: 'redirect', to: '/' } 15ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > fullOwner on the onboarding page → { kind: 'redirect', to: '/' } 15ms
+   ✓ locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > destination pages render only for their own members > the owner's locked page shows the clinic, status and end date, and the staff page no subscription detail 55ms
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 40 passed (47)
+   Start at  06:06:22
+   Duration  4.64s (transform 613ms, setup 9ms, collect 1.03s, tests 3.21s, environment 0ms, prepare 25ms)
+
+[teardown] removed run data: 3 tenant(s), 8 auth user(s), 0 storage object(s); verified none remain
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedOwner → redirect(/billing/locked)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedAdmin → redirect(/billing/locked)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedDoctor → redirect(/billing/locked/staff)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedNurse → redirect(/billing/locked/staff)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > lockedReceptionist → redirect(/billing/locked/staff)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > onboardingOwner → redirect(/onboarding/billing)
+ FAIL  tests/subscriptions/locked-redirects.spec.ts > locked and onboarding clinics: layout redirects, page loaders, destination pages (local stack) > (dashboard) layout > onboardingReceptionist → redirect(/onboarding/billing)
+AssertionError: expected { kind: 'rendered' } to deeply equal { kind: 'redirect', …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "kind": "redirect",[39m
+[32m-   "to": "/billing/locked",[39m
+[31m+   "kind": "rendered",[39m
+[2m  }[22m
+
+ ❯ tests/subscriptions/locked-redirects.spec.ts:177:33
+    175|     ] as const)("%s → redirect(%s)", async (who, to) => {
+    176|       as(who);
+    177|       expect(await run(layout)).toEqual({ kind: "redirect", to });
+       |                                 ^
+    178|     });
+    179| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+

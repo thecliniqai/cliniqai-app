@@ -1,0 +1,38 @@
+{
+  "numTotalTestSuites": 969,
+  "numPassedTestSuites": 969,
+  "numFailedTestSuites": 0,
+  "numTotalTests": 4995,
+  "numPassedTests": 4995,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "success": true,
+  "new_or_required_files": {
+    "tests/auth/turnstile-verify.spec.ts": {
+      "status": "passed",
+      "tests": 10,
+      "passed": 10
+    },
+    "tests/jobs/email-invite-handler.spec.ts": {
+      "status": "passed",
+      "tests": 5,
+      "passed": 5
+    },
+    "tests/integration/auth/accept-invite.spec.ts": {
+      "status": "passed",
+      "tests": 9,
+      "passed": 9
+    },
+    "tests/integration/auth/invite-delivery.spec.ts": {
+      "status": "passed",
+      "tests": 5,
+      "passed": 5
+    },
+    "tests/integration/auth/remove-member.spec.ts": {
+      "status": "passed",
+      "tests": 13,
+      "passed": 13
+    }
+  }
+}

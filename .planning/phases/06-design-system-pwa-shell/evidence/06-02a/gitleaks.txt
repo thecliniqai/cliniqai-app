@@ -1,0 +1,5 @@
+gitleaks ghcr.io/gitleaks/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, --log-opts=b9463be..5b5481e (every commit since the 06-02a plan base, partners' included), local clone of the branch
+INF Unknown SCM platform. Use --platform to include links in findings. host=
+INF 14 commits scanned.
+INF scanned ~412038 bytes (412.04 KB) in 127ms
+INF no leaks found

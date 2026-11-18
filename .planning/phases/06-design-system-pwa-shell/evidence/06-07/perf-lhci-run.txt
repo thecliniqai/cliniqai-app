@@ -1,0 +1,17 @@
+> clinicos@0.1.0 perf:lhci
+> playwright test --project=perf-lhci
+
+
+Running 6 tests using 1 worker
+
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (484ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (382ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (525ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (362ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (366ms)
+  ✓  6 [perf-lhci] › tests/e2e/perf/lhci.spec.ts:100:5 › Lighthouse CI on Login, Today, Patients and Consult (report-only) (55.3s)
+[e2e teardown] removed run data: 2 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain
+
+  6 passed (1.0m)
+PR_EXIT 0 LHCI_EXIT 0
+EXIT 0

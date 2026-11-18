@@ -23,6 +23,44 @@
  *          test-env-guard 1) = 1899; 1899 × 0.95 = 1804.05 → 1805.
  *   3292 — V2-03 phase close: the full suite at 570a82d (code at e4eb4c1) had 3465 tests in 162 files, 0 skipped;
  *          3465 × 0.95 = 3291.75 → 3292. REQUIRED_FILES gains every spec V2-03 added outside tests/e2e (60 files; 69 in total).
+ *   4180 — V2-04 phase close: the full suite at fceeda2 (I-1 fix included) had 4399 tests in 211 files, 0 skipped;
+ *          4399 × 0.95 = 4179.05 → 4180. No test was removed by a V2-04 rewrite without its replacement in the same run
+ *          (the count is the measured total). REQUIRED_FILES gains every spec V2-04 added outside tests/e2e (49 files;
+ *          118 in total).
+ *   4633 — V2-05 05a gate close: the full suite at 13217bb (000078, the 05a fixes and gates) had 4876 tests in 248 files,
+ *          0 skipped; 4876 × 0.95 = 4632.2 → 4633. REQUIRED_FILES gains every spec 05a added outside tests/e2e
+ *          (37 files; 155 in total).
+ *   4804 — V2-05 05-10b (05b wave 9): the full suite at the 05-10b tree had 5056 tests in 256 files, 0 skipped;
+ *          5056 × 0.95 = 4803.2 → 4804. REQUIRED_FILES gains every spec 05b added so far outside tests/e2e (7 files; 162
+ *          in total).
+ *   4810 — V2-05 05-10c (05b wave 10): the full suite at the 05-10c tree had 5063 tests in 257 files, 0 skipped;
+ *          5063 × 0.95 = 4809.85 → 4810. REQUIRED_FILES + tests/ai/ai-reserve-concurrency.spec.ts (163 in total).
+ *   4823 — V2-05 05-12 (05b review fixes): the full suite at the 05-12 tree had 5076 tests in 258 files, 0 skipped;
+ *          5076 × 0.95 = 4822.2 → 4823. REQUIRED_FILES + tests/staff/reinvite-role.spec.ts (164 in total).
+ *   4826 — V2-05 05b gate close (000094): the full suite at the gate tree has 5080 tests in 260 files, 0 skipped (5076 + the
+ *          4 tests of the two new specs; measured by both evidence runs in evidence/05b/summary.json);
+ *          5080 × 0.95 = 4826. REQUIRED_FILES gains every remaining spec 05b added or rewrote for its own acceptance
+ *          (tests/helpers/subscription.spec.ts, the rewritten tests/integration/subscription.spec.ts, auth/invite,
+ *          cross-tenant, share-path-encoding, invite-token-lockout, msg91-webhook) and the two gate-close specs
+ *          (ai-commit-expiry-race, invite-dedupe-role): 173 in total.
+ *   5872 — V2-06 06-08 (phase close step 1): the full suite at the 06-08 tree (000094, branch and stack matching) had
+ *          6181 tests in 300 files, 0 skipped (evidence/06-08/vitest-full-summary.txt); 6181 × 0.95 = 5871.95 → 5872.
+ *          REQUIRED_FILES gains every spec V2-06 added outside tests/e2e (40 files; 213 in total).
+ *   5909 — V2-06 06-09c (Wave B review fixes): the full suite at the 06-09c tree (000094) had 6219 tests in 303 files,
+ *          0 skipped (evidence/06-09c/vitest-full-summary.txt); 6219 × 0.95 = 5908.05 → 5909. REQUIRED_FILES + the three
+ *          new 06-09c specs (auth-outage-db, active-clinic-removed-db, record-layouts-db; 216 in total).
+ *   5974 — V2-06 06-09d (re-verification fixes): the full suite at the 06-09d tree (c68851a, stack 000094) had 6288
+ *          tests in 305 files, 0 skipped (evidence/06-09d/vitest-full-summary.txt); 6288 × 0.95 = 5973.6 → 5974.
+ *          REQUIRED_FILES + the two new 06-09d specs (auth-failure, session-auth-reverify-db; 218 in total).
+ *   5985 — V2-06 gate close: the full suite at the gate-close tree (5197b1a + this commit's REQUIRED_FILES line, stack
+ *          000094) had 6300 tests in 306 files, 0 skipped (evidence/close/vitest-full-measure.txt); 6300 × 0.95 = 5985.
+ *          REQUIRED_FILES + tests/auth/session-auth-close-db.spec.ts (219 in total). tests/ci/vitest-report-gate.spec.ts
+ *          follows the default (it still named 5909: b11e398 raised the FLOOR without it, so that spec failed from
+ *          b11e398 on; fixed here).
+ *   5992 — V2-06 06-09e (G3 design review fixes): the full suite at the 06-09e tree (2a23550 + this commit's
+ *          REQUIRED_FILES line, stack 000094) had 6307 tests in 307 files, 0 skipped
+ *          (evidence/06-09e/vitest-full-summary.txt); 6307 × 0.95 = 5991.65 → 5992. REQUIRED_FILES +
+ *          tests/design/design-review-09e.spec.ts (220 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -31,9 +69,9 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 3292;
+const FLOOR = 5992;
 
-/** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 phase close). */
+/** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
   "tests/security/guard-actions.spec.ts",
   "tests/security/guard-routes.spec.ts",
@@ -120,6 +158,203 @@ const REQUIRED_FILES = [
   "tests/security/no-raw-error-responses.spec.ts",
   "tests/auth/session-age-token-hook-db.spec.ts",
   "tests/integration/auth/session-age-token-hook.spec.ts",
+  // V2-04 (04-PLAN.md "Phase close" step 1 plus each plan record's close note): every spec V2-04 added outside tests/e2e.
+  // 04-00b Resend sender and the hook's Resend path.
+  "tests/auth/resend-sender.spec.ts",
+  "tests/auth/send-email-hook-resend.spec.ts",
+  // 04-01 queue core: claim, grants, 8-runner exactly-once, reaper, runner library.
+  "tests/jobs/claim-grants-db.spec.ts",
+  "tests/jobs/parallel-dispatch-db.spec.ts",
+  "tests/jobs/reaper-db.spec.ts",
+  "tests/jobs/runner.spec.ts",
+  // 04-02 scheduler, runner route and token auth.
+  "tests/jobs/scheduler-migration-db.spec.ts",
+  "tests/jobs/run-route.spec.ts",
+  "tests/jobs/runner-auth.spec.ts",
+  // 04-03a messages: enqueue RPC, handler, delivery reaper, MSG91 contract (MSW), sink, P0-12 lint gates.
+  "tests/jobs/enqueue-message-rpc-db.spec.ts",
+  "tests/jobs/message-send-handler-db.spec.ts",
+  "tests/jobs/delivery-reap-db.spec.ts",
+  "tests/messaging/msg91-contract.spec.ts",
+  "tests/messaging/sink-provider.spec.ts",
+  "tests/security/p0-12-lint-gates.spec.ts",
+  "tests/setup/msw-loopback.spec.ts",
+  // 04-03b webhooks: enqueue RPC and delivery handler.
+  "tests/jobs/enqueue-webhook-rpc-db.spec.ts",
+  "tests/jobs/webhook-deliver-handler-db.spec.ts",
+  // 04-03c inbound idempotency, hook dedupe (ADR-0005 A3), contract grants, replay, backfill.
+  "tests/messaging/inbound-dedupe-db.spec.ts",
+  "tests/integration/auth/send-email-hook-dedupe-db.spec.ts",
+  "tests/jobs/replay-job-db.spec.ts",
+  "tests/jobs/queue-grants-db.spec.ts",
+  "tests/jobs/backfill-db.spec.ts",
+  // 04-04 alerts.
+  "tests/jobs/alerts-db.spec.ts",
+  "tests/jobs/alert-notify-db.spec.ts",
+  "tests/jobs/alert-drill-db.spec.ts",
+  "tests/jobs/alert-email.spec.ts",
+  // 04-05a backup and restore drill.
+  "tests/ops/backup-evidence.spec.ts",
+  "tests/ops/backup-roundtrip-db.spec.ts",
+  "tests/ops/backup-runs-db.spec.ts",
+  "tests/ops/backup-script-guards.spec.ts",
+  "tests/ops/drill-evidence-and-workflows.spec.ts",
+  "tests/ops/drill-lib-db.spec.ts",
+  "tests/ops/manifest-compare.spec.ts",
+  "tests/ops/restore-drill-checks-db.spec.ts",
+  // 04-06 heartbeat, quota, retention, ops report.
+  "tests/ops/quota-level-db.spec.ts",
+  "tests/ops/heartbeat-quota-db.spec.ts",
+  "tests/ops/ops-cleanup-db.spec.ts",
+  "tests/ops/ops-report-db.spec.ts",
+  "tests/ops/check-ops-report.spec.ts",
+  "tests/ops/quota-alert-email.spec.ts",
+  // 04-07a…e review fixes (H-SMS, M-*, N-1/N-1b, N-2/N-2b, Lows, I-1).
+  "tests/messaging/sms-recipient-exploit-db.spec.ts",
+  "tests/messaging/inbound-retry-db.spec.ts",
+  "tests/jobs/runner-review-fixes-db.spec.ts",
+  "tests/jobs/alert-review-fixes-db.spec.ts",
+  "tests/ops/ensure-schedules-db.spec.ts",
+  "tests/ops/restore-guards.spec.ts",
+  "tests/ops/manifest-guard.spec.ts",
+  "tests/ops/restore-psql-restricted-db.spec.ts",
+  // V2-05 05a (05-PLAN.md "05a gate" step 1 plus each plan record's close note): every spec 05a added outside tests/e2e.
+  // 05-01a pgTAP harness and gate.
+  "tests/ci/pgtap-report.spec.ts",
+  "tests/ci/test-pgtap-script.spec.ts",
+  "tests/ci/pgtap-legacy-inline.spec.ts",
+  // 05-01b authz helpers, active-tenant carrier, parity, generated matrix.
+  "tests/permissions/has-permission-parity.spec.ts",
+  "tests/authz/active-tenant-carrier.spec.ts",
+  "tests/authz/table-matrix.spec.ts",
+  "tests/authz/generator-drift.spec.ts",
+  // 05-03 composite FKs and diagnostics.
+  "tests/ci/diagnostics-script.spec.ts",
+  "tests/ci/fk-edge-cases-inline.spec.ts",
+  // 05-04 delete paths.
+  "tests/integration/delete-paths.spec.ts",
+  // 05-02a clinical split.
+  "tests/ci/clinical-notes-backfill-inline.spec.ts",
+  "tests/security/role-rls.spec.ts",
+  // 05-02b domain policies (acceptance 5) and billing:collect.
+  "tests/patients/receptionist-registration.spec.ts",
+  "tests/billing/collect-permission.spec.ts",
+  // 05-02c storage, lab keys, audit v2.
+  "tests/storage/storage-policies-jwt.spec.ts",
+  "tests/labs/lab-storage-key.spec.ts",
+  "tests/audit/audit-actor.spec.ts",
+  // 05-06 exports and referrals.
+  "tests/dpdp/export-dto.spec.ts",
+  "tests/api/export-scope.spec.ts",
+  // 05-08 integrity (acceptance 6 and 7).
+  "tests/scheduling/no-double-booking.spec.ts",
+  "tests/integration/queue-token-concurrency.spec.ts",
+  "tests/api/v1-slot-conflict.spec.ts",
+  "tests/visits/create-visit-slot-race.spec.ts",
+  // 05-11a…e review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-*).
+  "tests/visits/signed-visit-integrity.spec.ts",
+  "tests/ci/visit-integrity-inline.spec.ts",
+  "tests/visits/duration-bounds.spec.ts",
+  "tests/billing/invoice-totals-db.spec.ts",
+  "tests/audit/log-audit-allowlist.spec.ts",
+  "tests/referrals/referral-consent-write.spec.ts",
+  "tests/db/retry.spec.ts",
+  "tests/scheduling/slot-deadlock-retry.spec.ts",
+  "tests/api/v1-error-texts.spec.ts",
+  "tests/api/v1-visits-no-clinical.spec.ts",
+  "tests/api/v1-patients-no-clinical.spec.ts",
+  "tests/dpdp/export-routes-audit.spec.ts",
+  "tests/dpdp/export-fail-closed.spec.ts",
+  "tests/auth/page-revoked-session.spec.ts",
+  // 05b: 05-05 membership removal (acceptance 4); 05-07b invitations (acceptance 10), invite acceptance, Turnstile.
+  "tests/integration/auth/remove-member.spec.ts",
+  "tests/integration/auth/invite-delivery.spec.ts",
+  "tests/integration/auth/accept-invite.spec.ts",
+  "tests/jobs/email-invite-handler.spec.ts",
+  "tests/auth/turnstile-verify.spec.ts",
+  // 05-10a SUB-02 enforcement (acceptance 8 app half).
+  "tests/subscriptions/lock-enforcement.spec.ts",
+  // 05-10b layout redirects and locked/onboarding pages (SUB-02 UX).
+  "tests/subscriptions/locked-redirects.spec.ts",
+  // 05-10c AI-03 database part: the ai_reserve concurrency test (roadmap V2-05).
+  "tests/ai/ai-reserve-concurrency.spec.ts",
+  // 05-12 (M-REINVITE: a re-invite with another role yields the new role)
+  "tests/staff/reinvite-role.spec.ts",
+  // 05b gate close: the remaining specs 05b added or rewrote for its acceptance (05-09a subscription helper, 05-09c
+  // rewritten subscription and cross-tenant specs, 05-07a invitations, 05-10a share links, 05-12 locked-clinic replies)
+  // and the gate-close fixes (000094: re-verification N-1 and N-2).
+  "tests/helpers/subscription.spec.ts",
+  "tests/integration/subscription.spec.ts",
+  "tests/security/cross-tenant.spec.ts",
+  "tests/auth/invite.spec.ts",
+  "tests/security/invite-token-lockout.spec.ts",
+  "tests/security/share-path-encoding.spec.ts",
+  "tests/messaging/msg91-webhook.spec.ts",
+  "tests/ai/ai-commit-expiry-race.spec.ts",
+  "tests/staff/invite-dedupe-role.spec.ts",
+  // V2-06 (06-PLAN.md "Phase close" step 1, executed by 06-08): every spec V2-06 added outside tests/e2e.
+  // 06-01a tokens, codemod, UI policy; 06-01b approved tokens, contrast, brand mark, AI labels; 06-02a… primitives.
+  "tests/design/tokens.spec.ts",
+  "tests/design/codemod.spec.ts",
+  "tests/design/png-diff.spec.ts",
+  "tests/design/approved-tokens.spec.ts",
+  "tests/design/contrast.spec.ts",
+  "tests/design/brand-mark.spec.ts",
+  "tests/design/ai-labels.spec.ts",
+  "tests/design/input-kind.spec.ts",
+  "tests/design/gallery.spec.ts",
+  "tests/design/age.spec.ts",
+  "tests/ui/cn.spec.ts",
+  "tests/utils/datetime-format.spec.ts",
+  "tests/ci/ui-policy.spec.ts",
+  "tests/ci/ui-policy-signout-guard.spec.ts",
+  // 06-07 route-JS report and Lighthouse CI config (cookie scrub).
+  "tests/ci/route-js.spec.ts",
+  "tests/ci/lhci-config.spec.ts",
+  // 06-04a client error capture (PHI); 06-09a client render events and route patterns.
+  "tests/errors/client-error-kind.spec.ts",
+  "tests/observability/client-error-action-db.spec.ts",
+  "tests/observability/client-render-event.spec.ts",
+  "tests/observability/client-routes.spec.ts",
+  // 06-05 / 06-09a service worker allowlist, hard sign-out and purge, no-store, icons, device prefs.
+  "tests/pwa/sw-allowlist.spec.ts",
+  "tests/pwa/hard-sign-out.spec.ts",
+  "tests/pwa/purge.spec.ts",
+  "tests/pwa/auth-broadcast.spec.ts",
+  "tests/pwa/proxy-no-store-db.spec.ts",
+  "tests/pwa/device-prefs.spec.ts",
+  "tests/pwa/online.spec.ts",
+  "tests/pwa/icons.spec.ts",
+  // 06-06 session status, lock, update, install.
+  "tests/api/session-status-db.spec.ts",
+  "tests/pwa/session-status.spec.ts",
+  "tests/pwa/update.spec.ts",
+  "tests/pwa/dirty-guard.spec.ts",
+  "tests/pwa/platform.spec.ts",
+  // 06-03a/b clinical status, vitals and Rx vocabulary.
+  "tests/clinical/visit-status.spec.ts",
+  "tests/clinical/vitals.spec.ts",
+  "tests/clinical/rx.spec.ts",
+  // 06-04b navigation by role, palette patient search (PHI projection), shell runtime.
+  "tests/nav/nav-for-role.spec.ts",
+  "tests/patients/palette-search-db.spec.ts",
+  "tests/pwa/shell-runtime.spec.ts",
+  // 06-08 React Compiler rules at error and their waiver register (R-30).
+  "tests/ci/react-compiler-waivers.spec.ts",
+  // 06-09c Wave B review fixes: an Auth outage is never a sign-out (H-AUTHOUT), removal from the active clinic
+  // (M-REMOVED), record layouts tell a failed lookup from "not found" (IND L-2).
+  "tests/auth/auth-outage-db.spec.ts",
+  "tests/auth/active-clinic-removed-db.spec.ts",
+  "tests/nav/record-layouts-db.spec.ts",
+  // 06-09d re-verification fixes: a refresh/`/user` failure that is not a definitive GoTrue answer never signs out or
+  // deletes cookies (H-AUTHOUT-R1, L-R1..L-R3); the device is pinned to its clinic (M-REMOVED-R1, L-R4).
+  "tests/auth/auth-failure.spec.ts",
+  "tests/auth/session-auth-reverify-db.spec.ts",
+  // V2-06 gate close (the re-check's Lows L-N1, L-N2, L-N4: the Auth budget covers only session calls, the proxy's
+  // 5.5 s budget, the pin expired on a definitive sign-out).
+  "tests/auth/session-auth-close-db.spec.ts",
+  // 06-09e (G3 design review): the BottomBar caption, palette shortcut label and initials mappings.
+  "tests/design/design-review-09e.spec.ts",
 ];
 
 const file = process.argv[2];

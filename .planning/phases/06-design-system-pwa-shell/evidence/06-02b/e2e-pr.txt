@@ -1,0 +1,93 @@
+npm run e2e:pr -- --retries=0 (projects desktop-chrome, pixel-7, iphone-15) on the build of 13556fe (this worktree, e2e lane lock), 2026-11-14
+stats: expected=354 unexpected=0 flaky=0 skipped=82 duration_ms=339796
+tests with more than one result (retried): 0
+desktop-chrome: {'expected': 235}
+iphone-15: {'expected': 18}
+pixel-7: {'expected': 96, 'skipped': 82}
+setup: {'expected': 5}
+06-02b specs and the specs 06-02b touched (non-skipped):
+  desktop-chrome auth/signout.spec.ts :: at 360px: both items visible, 0 serious/critical axe violations -> expected
+  desktop-chrome auth/signout.spec.ts :: at 820px: both items visible, 0 serious/critical axe violations -> expected
+  desktop-chrome auth/signout.spec.ts :: at 1280px: both items visible, 0 serious/critical axe violations -> expected
+  desktop-chrome auth/signout.spec.ts :: Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in -> expected
+  desktop-chrome auth/signout.spec.ts :: Sign out of all devices: every session of the user ends -> expected
+  desktop-chrome auth/signout.spec.ts :: GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST is 303 with Clear-Site-Data -> expected
+  pixel-7 auth/signout.spec.ts :: Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in -> expected
+  pixel-7 auth/signout.spec.ts :: Sign out of all devices: every session of the user ends -> expected
+  pixel-7 auth/signout.spec.ts :: GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST is 303 with Clear-Site-Data -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 360px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 820px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1180px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1280px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui is not served without a session -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Dialog: Enter opens it on its first field, Tab and Shift+Tab stay inside, Escape and Close return focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Dialog with unsaved input: Escape, the scrim and Close ask 'Discard changes?' (safe action first); Keep editing keeps the input -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: AlertDialog: starts on the safe action, traps focus, ignores outside clicks, Escape cancels and returns focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Sheet (≥ 768 px: right side): opens on its first field, traps focus, asks before discarding, Close and Escape return focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Drawer: a bottom sheet with the handle; trapped focus; Close and Escape return focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Popover: Enter opens it and moves focus inside; Escape closes and returns focus; aria-expanded follows -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Tooltip: keyboard focus shows it and describes the control; Escape hides it; hover shows it after the delay -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: DropdownMenu: Enter opens on the first item; arrows wrap and skip disabled items; typeahead; Escape and selection return focus -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Tabs: arrows move and select (wrapping, disabled skipped), Home and End jump, Tab moves to the panel; route tabs mark the current page -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Command: a combobox over a listbox; typing filters, arrows move the active option, Enter runs it, no match shows the empty row -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Command dialog: opens with the field focused, Escape closes and returns focus to the opener -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Toasts: confirmations are polite status messages that leave after 4 s; errors are alerts that stay; Undo and Retry act -> expected
+  desktop-chrome design/keyboard/overlays.spec.ts :: Modal (v1 adapter): named by its title, focus trapped, Escape and Close return focus to the opener -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome design/overlays-axe.spec.ts :: overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  pixel-7 m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  desktop-chrome m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  pixel-7 m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  desktop-chrome m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  pixel-7 m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  desktop-chrome m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  pixel-7 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  iphone-15 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  desktop-chrome m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  pixel-7 m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  desktop-chrome m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  pixel-7 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  iphone-15 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Sign out: purged, no auth cookie, Back shows no patient data @golden -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Sign out of all devices: purged here, the second device loses its session @golden -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Switch user: purged, plain login page with nothing prefilled @golden -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Sign out: purged, no auth cookie, Back shows no patient data @golden -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Sign out of all devices: purged here, the second device loses its session @golden -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Switch user: purged, plain login page with nothing prefilled @golden -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden -> expected
+  iphone-15 pwa/05-cache-audit.spec.ts :: Sign out: purged, no auth cookie, Back shows no patient data @golden -> expected
+  iphone-15 pwa/05-cache-audit.spec.ts :: Sign out of all devices: purged here, the second device loses its session @golden -> expected
+  iphone-15 pwa/05-cache-audit.spec.ts :: Switch user: purged, plain login page with nothing prefilled @golden -> expected
+  iphone-15 pwa/05-cache-audit.spec.ts :: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden -> expected
+  desktop-chrome pwa/05-cache-audit.spec.ts :: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden -> expected
+  pixel-7 pwa/05-cache-audit.spec.ts :: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden -> expected
+  iphone-15 pwa/05-cache-audit.spec.ts :: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: /offline at 360px: no horizontal scroll, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: /offline at 820px: no horizontal scroll, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: /offline at 1180px: no horizontal scroll, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: /offline at 1280px: no horizontal scroll, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: offline banner on Today at 360px: axe clean, adds no horizontal scroll -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: user menu with Switch user at 360px: visible, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: offline banner on Today at 820px: axe clean, adds no horizontal scroll -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: user menu with Switch user at 820px: visible, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: offline banner on Today at 1180px: axe clean, adds no horizontal scroll -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: user menu with Switch user at 1180px: visible, axe clean -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: offline banner on Today at 1280px: axe clean, adds no horizontal scroll -> expected
+  desktop-chrome pwa/ui-checks.spec.ts :: user menu with Switch user at 1280px: visible, axe clean -> expected
+  desktop-chrome settings/developer-test-ping.spec.ts :: the owner's test ping is queued: status line, one ping row and one job; axe and layout at 360/820/1280 -> expected
+  pixel-7 settings/developer-test-ping.spec.ts :: the owner's test ping is queued: status line, one ping row and one job; axe and layout at 360/820/1280 -> expected
+  desktop-chrome shell/user-menu-keyboard.spec.ts :: account menu: Enter opens it, arrows move through the items, Escape returns focus; Sign out by keyboard signs out and purges -> expected

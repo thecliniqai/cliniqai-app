@@ -19,6 +19,7 @@ import { publicEnv } from "@/lib/env";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 
 const ROOT = path.resolve(__dirname, "../..");
 const PHONE_A = "+910000000026";
@@ -53,6 +54,7 @@ describe("referral_source_clinics(p_ids) (migration 000026)", () => {
     ]);
     const { error: phoneErr } = await getAdminClient().from("tenants").update({ phone: PHONE_A }).eq("id", A.tenantId);
     if (phoneErr) throw new Error(`seed phone: ${phoneErr.message}`);
+    await listInReferralDirectory(B.tenantId); // 05-06: the in-network target must be listed in the referral directory
 
     const { data: patient, error: patientErr } = await A.client
       .from("patients")

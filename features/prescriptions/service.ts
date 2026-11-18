@@ -6,8 +6,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import {
   prescriptionItemSchema,
   PrescriptionItemInput,
@@ -19,12 +18,16 @@ import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
-// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
-// `prescription.issued` webhook is enqueued by `getOrCreateDraftPrescription` under the acting tenant.
+// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
+// no use-case here enqueues `prescription.issued`: in the app it is queued only when the prescription is signed
+// (features/consultation/service.ts, key `:signed`), and the public API queues its own (app/api/v1/prescriptions,
+// key `:created`); a draft never sends it.
 
 // Specialty slugs are interpolated into a PostgREST `.or()` filter, so only plain slug characters are accepted.
 const SPECIALTY_SLUG = /^[a-z0-9_]{1,50}$/;
@@ -138,15 +141,8 @@ export async function getOrCreateDraftPrescription(
       return { success: false, error: "Failed to create prescription draft." };
     }
 
-    try {
-      await enqueueWebhookEvent(supabase, ctx.tenantId, "prescription.issued", {
-        prescription_id: created.id,
-        patient_id: visit.patient_id,
-        visit_id: visitId,
-      });
-    } catch (webhookErr) {
-      log.warn({ event: "prescriptions.draft_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
+    // 04-07a M-RXEVENT: the empty draft raises no `prescription.issued`; the event is queued when the consultation is
+    // signed (features/consultation/service.ts), and SQL refuses it from a request before then.
 
     return { success: true, prescriptionId: created.id };
   } catch (err: unknown) {
@@ -304,13 +300,22 @@ export async function removePrescriptionItem(
       return { success: false, error: "Prescription item not found." };
     }
 
+    // RLS may filter the delete to 0 rows (V2-05 05-04): ask for the deleted row and refuse a no-op, so no success and
+    // no audit row are reported for an item that is still there.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteErr } = await (supabase.from("prescription_items") as any)
+    const { data: deleted, error: deleteErr } = await (supabase.from("prescription_items") as any)
       .delete()
-      .eq("id", itemId);
+      .eq("id", itemId)
+      .eq("tenant_id", ctx.tenantId)
+      .select("id");
 
     if (deleteErr) {
       return { success: false, error: "Failed to delete prescription item." };
+    }
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "prescriptions.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     await recordAudit(ctx, {
@@ -529,7 +534,7 @@ export type GetPrescriptionPdfSignedUrlResult =
   | { success: false; error: string };
 
 /**
- * Compiles and returns a time-limited signed storage URL (3600s TTL)
+ * Compiles and returns a time-limited signed storage URL (5-minute view link, `VIEW_LINK_TTL_SECONDS`)
  * for previewing and printing a prescription in the browser.
  */
 export async function getPrescriptionPdfSignedUrl(
@@ -540,7 +545,7 @@ export async function getPrescriptionPdfSignedUrl(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -556,15 +561,17 @@ export async function getPrescriptionPdfSignedUrl(
 
     // 2. Fetch visit record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, specialty, vitals, chief_complaints, clinical_notes, advice, investigations_advised, created_at, scheduled_at, signed_at")
+    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
+      .select(`id, status, specialty, created_at, scheduled_at, signed_at, ${clinicalNotesEmbed()}`)
       .eq("id", rx.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    if (visitErr || !visitRow) {
       return { success: false, error: "Visit encounter record not found." };
     }
+    // The clinical content comes from clinical_notes (V2-05 05-02a).
+    const visit = withClinicalNotes(visitRow);
 
     // 3. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -645,7 +652,7 @@ export async function getPrescriptionPdfSignedUrl(
       visit: {
         visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
         vitals: visit.vitals || null,
-        chief_complaints: visit.chief_complaints || [],
+        chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
         clinical_notes: visit.clinical_notes || null,
         specialty: visit.specialty || "general_physician",
       },
@@ -668,7 +675,7 @@ export async function getPrescriptionPdfSignedUrl(
       follow_up_date: followUp?.follow_up_date || null,
     };
 
-    // 10. Generate PDF and get 3600s signed URL
+    // 10. Generate PDF and get a 5-minute signed URL
     const { signedUrl } = await generateAndArchivePrescriptionPdf(ctx, payload);
 
     return {
@@ -698,7 +705,7 @@ export async function sharePrescriptionViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -749,8 +756,8 @@ export async function sharePrescriptionViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #6 (prescription_ready)
-    await enqueueMessage(supabase, {
-      tenantId: ctx.tenantId,
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
+    await enqueueMessage(ctx, {
       patientId: rx.patient_id,
       channel: "whatsapp",
       messageType: "prescription_ready",

@@ -24,6 +24,13 @@ describe("mapDbError: SQLSTATE table", () => {
     ["23514 check", { code: "23514", message: 'new row violates check constraint "payments_amount_check"', details: ROW_DETAIL }, "CONFLICT", "PAYMENTS_AMOUNT_CHECK"],
     ["23P01 exclusion", { code: "23P01", message: 'conflicting key value violates exclusion constraint "visits_no_overlap"' }, "CONFLICT", "VISITS_NO_OVERLAP"],
     ["55P03 lock timeout", { code: "55P03", message: "canceling statement due to lock timeout" }, "CONFLICT", "LOCK_TIMEOUT"],
+    // V2-05 05-11c (INT L-3): a deadlock victim or a serialization failure lost to a concurrent write (retry-safe).
+    ["40P01 deadlock", { code: "40P01", message: "deadlock detected", details: "Process 101 waits for ShareLock on transaction 9" }, "CONFLICT", "CONCURRENT_WRITE"],
+    ["40001 serialization failure", { code: "40001", message: "could not serialize access due to concurrent update" }, "CONFLICT", "CONCURRENT_WRITE"],
+    // 05-11c (INT L-4): a value the column type refuses is the caller's input, not a server fault.
+    ["22P02 invalid text representation", { code: "22P02", message: 'invalid input syntax for type uuid: "Synthetic+919000000000"' }, "VALIDATION_FAILED", undefined],
+    ["22007 invalid datetime format", { code: "22007", message: 'invalid input syntax for type timestamp with time zone: "x"' }, "VALIDATION_FAILED", undefined],
+    ["22008 datetime field overflow", { code: "22008", message: 'date/time field value out of range: "2031-13-45"' }, "VALIDATION_FAILED", undefined],
     ["P0001 OVERPAYMENT", { code: "P0001", message: "OVERPAYMENT" }, "CONFLICT", "OVERPAYMENT"],
     ["P0001 INVOICE_NOT_PAYABLE", { code: "P0001", message: "INVOICE_NOT_PAYABLE" }, "CONFLICT", "INVOICE_NOT_PAYABLE"],
     ["P0001 ACTOR_INVALID", { code: "P0001", message: "ACTOR_INVALID" }, "FORBIDDEN", "ACTOR_INVALID"],
@@ -32,6 +39,34 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 INPUT_INVALID", { code: "P0001", message: "INPUT_INVALID" }, "VALIDATION_FAILED", "INPUT_INVALID"],
     ["P0001 IDEMPOTENCY_MISMATCH", { code: "P0001", message: "IDEMPOTENCY_MISMATCH" }, "IDEMPOTENCY_MISMATCH", "IDEMPOTENCY_MISMATCH"],
     ["P0001 OUTBOX_SUBJECT_INVALID (a programming fault)", { code: "P0001", message: "OUTBOX_SUBJECT_INVALID" }, "INTERNAL", "OUTBOX_SUBJECT_INVALID"],
+    // V2-04 04-03a: the message enqueue RPCs (migration 000035).
+    ["P0002 SUBJECT_MISMATCH (subject outside the active clinic)", { code: "P0002", message: "SUBJECT_MISMATCH" }, "NOT_FOUND", "SUBJECT_MISMATCH"],
+    ["P0001 SUBJECT_MISMATCH (patient is not the visit's)", { code: "P0001", message: "SUBJECT_MISMATCH" }, "NOT_FOUND", "SUBJECT_MISMATCH"],
+    ["P0001 TEMPLATE_NOT_ALLOWED", { code: "P0001", message: "TEMPLATE_NOT_ALLOWED" }, "VALIDATION_FAILED", "TEMPLATE_NOT_ALLOWED"],
+    ["P0001 RECIPIENT_NOT_ALLOWED", { code: "P0001", message: "RECIPIENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "RECIPIENT_NOT_ALLOWED"],
+    ["P0001 EVENT_NOT_ALLOWED", { code: "P0001", message: "EVENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "EVENT_NOT_ALLOWED"],
+    ["P0001 RATE_LIMITED", { code: "P0001", message: "RATE_LIMITED" }, "RATE_LIMITED", "RATE_LIMITED"],
+    // V2-04 04-03c (000037): ops.replay_job (postgres only; registered so the map stays complete).
+    ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
+    // 05-11b (000074): the referral target-doctor guard.
+    ["P0001 REFERRAL_TARGET_DOCTOR_INVALID", { code: "P0001", message: "REFERRAL_TARGET_DOCTOR_INVALID" }, "VALIDATION_FAILED", "REFERRAL_TARGET_DOCTOR_INVALID"],
+    ["P0001 ENTITLEMENT_KEY_UNKNOWN (05-09b)", { code: "P0001", message: "ENTITLEMENT_KEY_UNKNOWN" }, "VALIDATION_FAILED", "ENTITLEMENT_KEY_UNKNOWN"],
+    ["P0001 PRODUCT_PRICE_REQUIRED (05-09b)", { code: "P0001", message: "PRODUCT_PRICE_REQUIRED" }, "PRECONDITION_FAILED", "PRODUCT_PRICE_REQUIRED"],
+    ["P0001 PRODUCT_STATE_INVALID (05-09b)", { code: "P0001", message: "PRODUCT_STATE_INVALID" }, "CONFLICT", "PRODUCT_STATE_INVALID"],
+    ["42501 PLATFORM_ADMIN_REQUIRED (05-09b)", { code: "42501", message: "PLATFORM_ADMIN_REQUIRED" }, "FORBIDDEN", undefined],
+    // V2-05 05-05 (000087): remove_member and the revoked-invitation refusal.
+    ["P0001 SELF_REMOVAL (05-05)", { code: "P0001", message: "SELF_REMOVAL" }, "VALIDATION_FAILED", "SELF_REMOVAL"],
+    ["P0001 LAST_OWNER (05-05)", { code: "P0001", message: "LAST_OWNER" }, "CONFLICT", "LAST_OWNER"],
+    ["P0001 MEMBER_NOT_ACTIVE (05-05)", { code: "P0001", message: "MEMBER_NOT_ACTIVE" }, "CONFLICT", "MEMBER_NOT_ACTIVE"],
+    ["P0001 INVITATION_REVOKED (05-05)", { code: "P0001", message: "INVITATION_REVOKED" }, "CONFLICT", "INVITATION_REVOKED"],
+    ["P0002 MEMBER_NOT_FOUND (05-05)", { code: "P0002", message: "MEMBER_NOT_FOUND" }, "NOT_FOUND", "MEMBER_NOT_FOUND"],
+    ["42501 OWNER_REQUIRED (05-05)", { code: "42501", message: "OWNER_REQUIRED" }, "FORBIDDEN", undefined],
+    // V2-05 05-07a (000088): invitations v2.
+    ["P0001 ALREADY_MEMBER (05-07a)", { code: "P0001", message: "ALREADY_MEMBER" }, "CONFLICT", "ALREADY_MEMBER"],
+    ["P0001 INVITATION_NOT_PENDING (05-07a)", { code: "P0001", message: "INVITATION_NOT_PENDING" }, "CONFLICT", "INVITATION_NOT_PENDING"],
+    ["P0001 INVITATION_ACCOUNT_AMBIGUOUS (05-07b)", { code: "P0001", message: "INVITATION_ACCOUNT_AMBIGUOUS" }, "CONFLICT", "INVITATION_ACCOUNT_AMBIGUOUS"],
+    ["P0002 INVITATION_NOT_FOUND (05-07a)", { code: "P0002", message: "INVITATION_NOT_FOUND" }, "NOT_FOUND", "INVITATION_NOT_FOUND"],
+    ["42501 SYSTEM_ONLY (05-07a)", { code: "42501", message: "SYSTEM_ONLY" }, "FORBIDDEN", undefined],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],
@@ -50,6 +85,17 @@ describe("mapDbError: SQLSTATE table", () => {
     expect(serialised).not.toContain("+91");
   });
 
+  it("23P01 from visits_no_double_booking (V2-05 05-08) → CONFLICT, reason = the constraint, the caller's fixed text", () => {
+    const err = {
+      code: "23P01",
+      message: 'conflicting key value violates exclusion constraint "visits_no_double_booking"',
+      details: "Key (tenant_id, doctor_id, public.visit_slot(scheduled_at, estimated_duration_minutes))=(...) conflicts with existing key",
+    };
+    const mapped = mapDbError(err, { VISITS_NO_DOUBLE_BOOKING: "Synthetic slot-taken text." });
+    expect(mapped).toEqual(appError("CONFLICT", { message: "Synthetic slot-taken text.", reason: "VISITS_NO_DOUBLE_BOOKING" }));
+    expect(JSON.stringify(mapped)).not.toContain("Key (");
+  });
+
   it("null, undefined and non-objects map to INTERNAL", () => {
     for (const err of [null, undefined, "boom" as unknown as null, 42 as unknown as null]) {
       expect(mapDbError(err)).toEqual({ code: "INTERNAL", message: DEFAULT_APP_ERROR_MESSAGES.INTERNAL });
@@ -61,6 +107,15 @@ describe("mapDbError: SQLSTATE table", () => {
     const mapped = mapDbError(err);
     expect(mapped).toEqual({ code: "INTERNAL", message: DEFAULT_APP_ERROR_MESSAGES.INTERNAL });
     expect(Object.keys(mapped).sort()).toEqual(["code", "message"]);
+  });
+
+  it("05-12 reasons: an expired AI reservation is a CONFLICT, an unmetered AI feature a PRECONDITION_FAILED", () => {
+    expect(mapDbError({ code: "P0001", message: "AI_RESERVATION_EXPIRED" })).toMatchObject({ code: "CONFLICT", reason: "AI_RESERVATION_EXPIRED" });
+    expect(mapDbError({ code: "P0001", message: "AI_QUOTA_NOT_CONFIGURED" })).toMatchObject({
+      code: "PRECONDITION_FAILED",
+      reason: "AI_QUOTA_NOT_CONFIGURED",
+    });
+    expect(mapDbError({ code: "42501", message: "AI_OBJECTION_CLEAR_FORBIDDEN" })).toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("every registered RPC reason maps to its registered code", () => {

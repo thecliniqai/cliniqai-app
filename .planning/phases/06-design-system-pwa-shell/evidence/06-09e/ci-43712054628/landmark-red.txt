@@ -1,0 +1,62 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 95ms
+[WebServer] ✓ Running next.config.ts took 62ms
+
+Running 9 tests using 1 worker
+
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (667ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (445ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (574ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (407ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (443ms)
+  ✓  6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (453ms)
+  ✓  7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (426ms)
+  ✓  8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (405ms)
+  ✘  9 [desktop-chrome] › tests/e2e/shell/nav-per-role.spec.ts:126:7 › landmarks and skip link › the consult (focus mode): one main landmark, the shell's, once the workspace has rendered (5.7s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/shell/nav-per-role.spec.ts:126:7 › landmarks and skip link › the consult (focus mode): one main landmark, the shell's, once the workspace has rendered 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('main')
+    Expected: 1
+    Received: 2
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('main') with timeout 5000ms
+      - waiting for locator('main')
+        14 × locator resolved to 2 elements
+           - unexpected value "2"
+
+
+      127 |     await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
+      128 |     await expect(page.locator("section#vitals")).toBeVisible();
+    > 129 |     await expect(page.locator("main")).toHaveCount(1);
+          |                                        ^
+      130 |     await expect(page.getByRole("main")).toHaveAttribute("id", "main");
+      131 |   });
+      132 | });
+        at tests/e2e/shell/nav-per-role.spec.ts:129:40
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/shell-nav-per-role-landmar-eb796--the-workspace-has-rendered-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/shell-nav-per-role-landmar-eb796--the-workspace-has-rendered-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shell-nav-per-role-landmar-eb796--the-workspace-has-rendered-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/shell-nav-per-role-landmar-eb796--the-workspace-has-rendered-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [desktop-chrome] › tests/e2e/shell/nav-per-role.spec.ts:126:7 › landmarks and skip link › the consult (focus mode): one main landmark, the shell's, once the workspace has rendered 
+  8 passed (14.2s)

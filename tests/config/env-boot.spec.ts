@@ -6,10 +6,12 @@
  * keys (never the values); the ci profile of `.github/workflows/ci.yml` and the e2e app server's environment boot.
  * `instrumentation.ts` `register()` (once per server instance) refuses a bad environment on the Node.js runtime.
  */
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ENV_SOURCE_NAMES } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
+import { parseEnvFile } from "../setup/test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
 const TSX = path.join(ROOT, "node_modules/.bin/tsx");
@@ -41,6 +43,10 @@ const PRODUCTION_WITHOUT_PROVIDERS = {
   SUPABASE_SECRET_KEY: BOOT_SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-boot-cron-secret-0123456789abcdef",
+  // 04-02: required in production.
+  JOBS_RUNNER_SECRET: "MARKER-boot-jobs-runner-secret-0123456789abcdef",
+  // 04-04 (R-1): required in production.
+  OPS_ALERT_EMAIL: "ops-alerts@synthetic-clinic.example.org",
   MESSAGING_PROVIDER: "dev",
   AI_PROVIDER: "mock",
 };
@@ -61,6 +67,8 @@ const COMPLETE_PRODUCTION = {
   SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
   PWNED_CHECK: "on",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-boot-turnstile-key",
+  // 05-07b (R-46): assembled at run time.
+  TURNSTILE_SECRET_KEY: ["0x", "MARKER-boot-turnstile-secret"].join(""),
 };
 
 const CI_BUILD = {
@@ -88,6 +96,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stderr).toContain("PWNED_CHECK: must be on in production");
     // 03-12c: production must show a real Turnstile widget (C43).
     expect(res.stderr).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production");
+    // 05-07b (R-46): production verifies invite acceptance's Turnstile token server-side.
+    expect(res.stderr).toContain("TURNSTILE_SECRET_KEY: required in production (R-46)");
     for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.includes("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);
@@ -174,5 +184,106 @@ describe("boot: instrumentation.ts register() (every server instance)", () => {
     stubAll({ ...CI_BUILD, NEXT_RUNTIME: "nodejs" });
     const { register } = await import("@/instrumentation");
     await expect(register()).resolves.toBeUndefined();
+  });
+
+  /**
+   * V2-04 04-00 (review A L-3, R-47): the pinned CLI's fixed opaque local keys carry the hosted prefixes, so only their
+   * digest identifies them. Read from the running local stack here (never committed, never printed); the Vitest lane
+   * itself loads the JWT keys, so these exist only inside this test's stubbed environment.
+   */
+  /** Exactly `env` for the schema's names: the lane's own values (e.g. its local-only names) are unset first. */
+  function stubOnly(env: Record<string, string | undefined>) {
+    stubAll({ ...Object.fromEntries(ENV_SOURCE_NAMES.map((name) => [name, undefined])), ...env });
+  }
+
+  function liveLocalOpaqueKeys(): { publishable: string; secret: string } {
+    const status = parseEnvFile(
+      execFileSync("npx", ["supabase", "status", "-o", "env"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 60_000 }),
+    );
+    const publishable = status.PUBLISHABLE_KEY;
+    const secret = status.SECRET_KEY;
+    expect(publishable, "the local stack reports PUBLISHABLE_KEY").toBeTruthy();
+    expect(secret, "the local stack reports SECRET_KEY").toBeTruthy();
+    // They pass every prefix rule of lib/env.ts; that is why the digest check exists.
+    expect(publishable.startsWith(["sb", "publishable", ""].join("_"))).toBe(true);
+    expect(secret.startsWith(["sb", "secret", ""].join("_"))).toBe(true);
+    return { publishable, secret };
+  }
+
+  it("refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)", async () => {
+    const local = liveLocalOpaqueKeys();
+    stubOnly({
+      ...COMPLETE_PRODUCTION,
+      APP_ENV: "staging",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishable,
+      SUPABASE_SECRET_KEY: local.secret,
+      NEXT_RUNTIME: "nodejs",
+    });
+    const { register } = await import("@/instrumentation");
+    const err = await register().then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(Error);
+    const message = (err as Error).message;
+    expect(message).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not be a local-stack key in staging");
+    expect(message).toContain("SUPABASE_SECRET_KEY: must not be a local-stack key in staging");
+    expect(message).not.toContain(local.publishable);
+    expect(message).not.toContain(local.secret);
+
+    // Every server read goes through the same parse.
+    const { serverEnv } = await import("@/lib/env-server");
+    expect(() => serverEnv()).toThrow(/SUPABASE_SECRET_KEY: must not be a local-stack key in staging/);
+
+    // One local key is enough to refuse; production refuses them as well.
+    vi.unstubAllEnvs();
+    stubOnly({ ...COMPLETE_PRODUCTION, SUPABASE_SECRET_KEY: local.secret, NEXT_RUNTIME: "nodejs" });
+    await expect(register()).rejects.toThrow(/^(?![\s\S]*NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)[\s\S]*SUPABASE_SECRET_KEY: must not be a local-stack key in production/);
+  });
+
+  it("the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)", async () => {
+    stubOnly({ ...COMPLETE_PRODUCTION, APP_ENV: "staging", NEXT_RUNTIME: "nodejs" });
+    const { register } = await import("@/instrumentation");
+    await expect(register()).resolves.toBeUndefined();
+
+    // Outside the deploy tiers the opaque local keys are not refused (a developer may run against them locally).
+    const local = liveLocalOpaqueKeys();
+    vi.unstubAllEnvs();
+    stubOnly({ ...CI_BUILD, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishable, SUPABASE_SECRET_KEY: local.secret, NEXT_RUNTIME: "nodejs" });
+    await expect(register()).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * V2-06 06-06 (R-21): `next.config.ts` hands NEXT_DEPLOYMENT_ID (else VERCEL_DEPLOYMENT_ID) to Next as `deploymentId`,
+ * and keeps a random BUILD_ID per build (`generateBuildId` → null; with a deploymentId Next would otherwise use one
+ * constant id for every build, which defeats the e2e stale-build guard). An ill-shaped id stops the boot by name.
+ */
+describe("boot: next.config.ts deployment id (06-06)", () => {
+  const READ =
+    "import('./next.config.ts').then(async (m) => { const c = m.default?.default ?? m.default; " +
+    "console.log(JSON.stringify({ dpl: c.deploymentId ?? null, buildId: c.generateBuildId ? await c.generateBuildId() : 'unset' })); }, " +
+    "(e) => { console.error(e.message); process.exit(1); })";
+  function read(env: Record<string, string | undefined>) {
+    const clean: Record<string, string> = { PATH: process.env.PATH ?? "" };
+    for (const [k, v] of Object.entries(env)) if (v !== undefined) clean[k] = v;
+    const res = spawnSync(TSX, ["-e", READ], { cwd: ROOT, env: clean as NodeJS.ProcessEnv, encoding: "utf8", timeout: 60_000 });
+    return { status: res.status, stderr: res.stderr, out: res.status === 0 ? (JSON.parse(res.stdout.trim().split("\n").pop()!) as { dpl: string | null; buildId: unknown }) : null };
+  }
+
+  it("NEXT_DEPLOYMENT_ID wins, VERCEL_DEPLOYMENT_ID is the fallback, none → no deploymentId; BUILD_ID stays per build", () => {
+    expect(read(CI_BUILD).out).toEqual({ dpl: null, buildId: null });
+    expect(read({ ...CI_BUILD, VERCEL_DEPLOYMENT_ID: "dpl_SyntheticBoot01" }).out).toEqual({ dpl: "dpl_SyntheticBoot01", buildId: null });
+    expect(read({ ...CI_BUILD, NEXT_DEPLOYMENT_ID: "e2e-local-deployment", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticBoot01" }).out).toEqual({
+      dpl: "e2e-local-deployment",
+      buildId: null,
+    });
+  });
+
+  it("an ill-shaped deployment id stops the boot, naming the key and not the value", () => {
+    const res = read({ ...CI_BUILD, NEXT_DEPLOYMENT_ID: "LEAK deployment/id" });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("NEXT_DEPLOYMENT_ID: must be 1 to 64 characters of A-Z, a-z, 0-9, _ or -");
+    expect(res.stderr).not.toContain("LEAK");
   });
 });

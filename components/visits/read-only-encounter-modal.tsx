@@ -62,7 +62,7 @@ export function ReadOnlyEncounterModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-gray-50/80 border border-gray-200 text-xs">
           <div className="space-y-1">
             <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1">
-              <User className="w-3.5 h-3.5 text-[#1769E0]" />
+              <User className="w-3.5 h-3.5 text-accent" />
               Patient Details
             </span>
             <p className="font-semibold text-gray-900 text-sm">{visit.patient.full_name}</p>
@@ -72,7 +72,7 @@ export function ReadOnlyEncounterModal({
               {visit.patient.phone && ` • ${visit.patient.phone}`}
             </p>
             {visit.patient.abha_id && (
-              <p className="text-[11px] font-mono text-emerald-700 flex items-center gap-1">
+              <p className="text-[11px] tabular-nums text-emerald-700 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
                 ABHA: {visit.patient.abha_id}
               </p>
@@ -81,7 +81,7 @@ export function ReadOnlyEncounterModal({
 
           <div className="space-y-1 sm:text-right">
             <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider flex items-center gap-1 sm:justify-end">
-              <Stethoscope className="w-3.5 h-3.5 text-[#1769E0]" />
+              <Stethoscope className="w-3.5 h-3.5 text-accent" />
               Treating Doctor
             </span>
             <p className="font-semibold text-gray-900 text-sm">{visit.doctor.full_name}</p>
@@ -103,14 +103,14 @@ export function ReadOnlyEncounterModal({
         {visit.vitals && Object.keys(visit.vitals).length > 0 && (
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#1769E0]" />
+              <Activity className="w-3.5 h-3.5 text-accent" />
               Recorded Vitals
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               {renderVitals(visit.vitals).map((vital, i) => (
                 <div key={i} className="p-2.5 rounded-lg bg-gray-50 border border-gray-100">
                   <span className="text-[10px] text-gray-500 block uppercase">{vital.label}</span>
-                  <span className="font-semibold text-gray-900 font-mono text-xs">{vital.value}</span>
+                  <span className="font-semibold text-gray-900 tabular-nums text-xs">{vital.value}</span>
                 </div>
               ))}
             </div>
@@ -160,7 +160,7 @@ export function ReadOnlyEncounterModal({
                 >
                   <span>{diag.diagnosis_name}</span>
                   {diag.icd11_code && (
-                    <span className="text-[10px] font-mono bg-white/80 px-1 py-0.5 rounded border border-emerald-300">
+                    <span className="text-[10px] tabular-nums bg-white/80 px-1 py-0.5 rounded border border-emerald-300">
                       {diag.icd11_code}
                     </span>
                   )}
@@ -212,9 +212,9 @@ export function ReadOnlyEncounterModal({
                             <span>{item.medicine_name}</span>
                           </div>
                         </td>
-                        <td className="px-3.5 py-2.5 text-gray-700 font-mono">{item.dosage}</td>
+                        <td className="px-3.5 py-2.5 text-gray-700">{item.dosage}</td>
                         <td className="px-3.5 py-2.5 text-gray-700">{item.timing || "—"}</td>
-                        <td className="px-3.5 py-2.5 text-gray-700 font-mono">{item.duration}</td>
+                        <td className="px-3.5 py-2.5 text-gray-700 tabular-nums">{item.duration}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -230,7 +230,7 @@ export function ReadOnlyEncounterModal({
         {(visit.clinical_notes || (visit.advice && visit.advice.length > 0)) && (
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-[#1769E0]" />
+              <FileText className="w-3.5 h-3.5 text-accent" />
               Doctor Clinical Notes & Advice
             </h4>
             {visit.clinical_notes && (
@@ -252,11 +252,11 @@ export function ReadOnlyEncounterModal({
         {visit.invoice && (
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-[#1769E0]" />
+              <CreditCard className="w-4 h-4 text-accent" />
               <span className="font-semibold text-gray-900">
                 Invoice #{visit.invoice.invoice_number}
               </span>
-              <span className="font-mono text-gray-700 font-medium">
+              <span className="tabular-nums text-gray-700 font-medium">
                 ₹{visit.invoice.total_amount.toFixed(2)}
               </span>
             </div>
@@ -286,7 +286,7 @@ export function ReadOnlyEncounterModal({
                 <Button
                   variant="secondary"
                   size="sm"
-                  startIcon={<Printer className="w-3.5 h-3.5 text-[#1769E0]" />}
+                  startIcon={<Printer className="w-3.5 h-3.5 text-accent" />}
                 >
                   Print Prescription (PDF)
                 </Button>

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hardSignOut } from "@/lib/auth/hard-sign-out";
 import { en } from "@/messages/en";
 import { AUTH_ERROR_MESSAGES, authErrorCodeOf, isRateLimitCode, type AuthErrorCode } from "./errors";
 import {
@@ -215,11 +216,16 @@ export async function completeReset(
   return updated;
 }
 
-/** Ends the recovery session on this device only (user cancels after the code was accepted). */
-export async function abandonReset(client: AuthClient): Promise<void> {
+/**
+ * Ends the recovery session on this device (user cancels after the code was accepted, a stale recovery session, or the
+ * reset finished). Through `hardSignOut("recovery")` (V2-06 06-09a M-GUARD): the same server sign-out, local fallback,
+ * device purge and other-tab signal as every exit, without navigating away from the page. This module runs in the
+ * browser (it is imported by the "use client" auth pages), so it may not call `auth.signOut` itself.
+ */
+export async function abandonReset(): Promise<void> {
   try {
-    await client.auth.signOut({ scope: "local" });
+    await hardSignOut("recovery");
   } catch {
-    // Nothing to report: the local session is cleared either way.
+    // Nothing to report: hardSignOut reports its own failures and never leaves an auth cookie behind.
   }
 }

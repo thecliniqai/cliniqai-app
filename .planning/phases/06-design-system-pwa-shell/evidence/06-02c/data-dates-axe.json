@@ -1,0 +1,105 @@
+{
+  "generated_by": "tests/e2e/design/data-dates-axe.spec.ts (PR lane run on the build of 5ed20e6); one entry per width, copied from design-captures/06-02c/axe-data-dates-<width>.json",
+  "widths": [
+    {
+      "route": "/dev/ui",
+      "width": 360,
+      "form": "DataList",
+      "sections": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 28
+      },
+      "calendarOpen": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 31
+      },
+      "horizontalScroll": false,
+      "undersizedControls": [],
+      "minTarget": 44,
+      "smallestCalendarDay": 44,
+      "popover": {
+        "x": 16,
+        "y": 418,
+        "width": 326,
+        "height": 326
+      }
+    },
+    {
+      "route": "/dev/ui",
+      "width": 820,
+      "form": "DataList",
+      "sections": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 28
+      },
+      "calendarOpen": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 31
+      },
+      "horizontalScroll": false,
+      "undersizedControls": [],
+      "minTarget": 44,
+      "smallestCalendarDay": 44,
+      "popover": {
+        "x": 354,
+        "y": 618,
+        "width": 326,
+        "height": 326
+      }
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1180,
+      "form": "DataTable",
+      "sections": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 25
+      },
+      "calendarOpen": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 28
+      },
+      "horizontalScroll": false,
+      "undersizedControls": [],
+      "minTarget": 24,
+      "smallestCalendarDay": 36,
+      "popover": {
+        "x": 424,
+        "y": 434,
+        "width": 278,
+        "height": 286
+      }
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1280,
+      "form": "DataTable",
+      "sections": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 25
+      },
+      "calendarOpen": {
+        "seriousOrCritical": [],
+        "violations": [],
+        "passes": 28
+      },
+      "horizontalScroll": false,
+      "undersizedControls": [],
+      "minTarget": 24,
+      "smallestCalendarDay": 36,
+      "popover": {
+        "x": 474,
+        "y": 424,
+        "width": 278,
+        "height": 286
+      }
+    }
+  ]
+}

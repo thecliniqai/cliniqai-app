@@ -1,0 +1,18 @@
+NotFound: FileSystem.readFile (/Users/sid/.supabase/profile)
+Connecting to local database...
+psql:/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql:30: ERROR:  relation "public.platform_admins" does not exist
+LINE 1: insert into public.platform_admins (user_id, granted_by) val...
+                    ^
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql .. 
+1..80
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 80/80 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 80 tests but ran 0.
+Files=1, Tests=0,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.02 cusr  0.01 csys =  0.05 CPU)
+Result: FAIL
+error running container: exit 1

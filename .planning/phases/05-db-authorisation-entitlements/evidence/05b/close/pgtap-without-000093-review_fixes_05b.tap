@@ -1,0 +1,56 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql .. 
+1..42
+ok 1 - H-AITZ: 1,500 trial drafts used; the OWNER moves the clinic to UTC−12 mid-trial: still over_quota (no new pool)
+ok 2 - H-AITZ: the ADMIN moves the zone mid-trial: ai_reserve still raises AI_OVER_QUOTA
+ok 3 - H-AITZ: after a zone change the reservation is booked to the IST date of the stored trial start
+ok 4 - H-AITZ: at 20:00 UTC on 30 Nov (1 Dec IST) a UTC−12 clinic is metered in the IST month 2026-12
+ok 5 - H-AITZ: at 17:00 UTC on 30 Nov (still 30 Nov IST) a UTC+14 clinic is metered in the IST month 2026-11
+ok 6 - H-AITZ: an override clinic at its 50 monthly drafts stays over_quota after zone changes mid-month
+ok 7 - H-AITZ: the trial period is trial:<IST date of the stored trial_start>
+ok 8 - H-AITZ: an unknown zone name is refused (CHECK tenants_timezone_iana)
+ok 9 - H-AITZ: an offset, an abbreviation that is not a zone name, and a blank are refused
+ok 10 - H-AITZ: a zone name in another case is accepted (as tenant_local_date and Intl read it)
+ok 11 - H-AITZ: the zone change is audited (actor, role, old and new zone)
+ok 12 - H-AITZ: the CHECK is validated (000093): every existing clinic holds an IANA zone
+ok 13 - M-AIEXP: committing a reservation that has expired raises AI_RESERVATION_EXPIRED
+ok 14 - M-AIEXP (reviewer P2): 1,499 used + a reservation that expired; a new one commits (1,500), the expired one is refused (before: 1,501)
+ok 15 - M-AIEXP: a live reservation at 1,499 commits to exactly the limit
+ok 16 - IND L-6: ai_reserve records the reserving user
+ok 17 - IND L-6: another doctor of the clinic cannot commit the reservation
+ok 18 - IND L-6: another doctor of the clinic cannot release it either (it stays)
+ok 19 - IND L-6: the system path (service_role session) commits any reservation
+ok 20 - IND L-2: an AI feature without a quota key is refused as not configured (not a silent over_quota)
+ok 21 - IND L-2: a feature metered by another limit key (voice minutes) reads its own limit: ok, not over_quota
+ok 22 - IND L-2: the quota keys of the catalogue
+ok 23 - M-CANCEL: a reminder enqueued through enqueue_message, then the clinic locks: the job is cancelled and the queue row closed and scrubbed
+ok 24 - M-CANCEL: after cleanup and a renewal, backfill_delivery_jobs does not recreate the closed reminder
+ok 25 - M-CANCEL: a cancelled webhook delivery is closed (failed) and not recreated by the backfill
+ok 26 - M-CANCEL: a cancelled email.invite leaves the invitation pending; after renewal it is resent (version 2, a new job)
+ok 27 - M-REINVITE: re-inviting as receptionist replaces the pending admin invitation (revoked), a new one is created and emailed
+ok 28 - M-REINVITE: the same address and role is still deduped (same invitation, no new email)
+ok 29 - M-REINVITE: an admin cannot replace a pending admin invitation (revoking it is owner-only)
+ok 30 - M-REINVITE: the replacement is audited (revocation names the new role, the new invitation the replaced one)
+ok 31 - IND L-3: removing the admin disables their webhook subscription, rotates its secret, and audits the count
+ok 32 - IND L-5: the owner of a LOCKED clinic removes a nurse (same rules, audited)
+ok 33 - IND L-5: an admin of a locked clinic still cannot remove staff
+ok 34 - IND L-7: a referral to a REMOVED doctor of the target clinic is refused
+ok 35 - IND L-7: an active doctor of the target clinic is accepted
+ok 36 - IND L-4: the expired clinic's prescription answers only status, restricted, access, type, clinic and verification
+ok 37 - IND L-4: verification = valid, doctor name, registration number, issue date; clinic = name only
+ok 38 - IND L-4: no patient name, title or file name in the restricted answer
+ok 39 - AI L-3: a nurse cannot clear a patient's AI objection
+not ok 40 - AI L-3: nor can an admin; the owner can since 000094 (CTO ruling 2026-11-15: an owner holding the doctor permissions)
+# Failed test 40: "AI L-3: nor can an admin; the owner can since 000094 (CTO ruling 2026-11-15: an owner holding the doctor permissions)"
+#         have: denied:AI_OBJECTION_CLEAR_FORBIDDEN/denied:AI_OBJECTION_CLEAR_FORBIDDEN
+#         want: 1/denied:AI_OBJECTION_CLEAR_FORBIDDEN
+ok 41 - AI L-3: a receptionist clears it; setting and clearing are both audited (actor, no PHI)
+ok 42 - AI L-3: the doctor sets and clears it, audited
+# Looks like you failed 1 test of 42
+Failed 1/42 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql (Wstat: 0 Tests: 42 Failed: 1)
+  Failed test:  40
+Files=1, Tests=42,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: FAIL

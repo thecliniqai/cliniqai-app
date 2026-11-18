@@ -96,7 +96,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       consultation_fee: 500,
       additional_items: [],
       discount: 0,
-      payment_collected: true,
+      // PO-3 (05-02b): the least-privileged holder of consultations:edit is a doctor, who routes the fee to reception;
+      // a doctor's collection is refused (tests/billing/collect-permission.spec.ts).
+      payment_collected: false,
       payment_method: "cash",
       reference_number: null,
       ...acting(a),
@@ -142,6 +144,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     ],
   },
   "features/notifications/actions.ts#markAllNotificationsRead": { args: () => ["system"] },
+  // 06-04a: membership-only; the acting fields are forged one at a time and must be ignored (the schema strips them).
+  "features/observability/actions.ts#reportClientRenderError": {
+    args: (a) => [{ name: "GuardSpecRenderError", route: "/queue", ...acting(a) }],
+  },
   "features/patients/actions.ts#createPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
@@ -152,6 +158,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
   "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal"] },
+  // The clinic acknowledges a referral it received (05-06: from the unrelated clinic S, not a self-referral).
+  "features/referrals/actions.ts#acknowledgeReferral": { args: (a) => [a.inboundReferral] },
   "features/referrals/actions.ts#closeReferralLoop": {
     args: (a) => [{ referral_id: a.referral, closure_notes: "Synthetic closure notes", return_date: null, ...acting(a) }],
   },
@@ -205,6 +213,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   },
   "features/staff/actions.ts#inviteStaffMemberAction": {
     args: (a) => [formData({ email: syntheticEmail(), role: "doctor", tenant_id: a.tenant, created_by: a.ownerUser })],
+  },
+  "features/staff/actions.ts#removeStaff": {
+    args: (a) => [{ membershipId: a.membership, reason: "Synthetic guard removal" }],
   },
   "features/terminology/actions.ts#addConsultationDiagnosis": {
     args: (a) => [{

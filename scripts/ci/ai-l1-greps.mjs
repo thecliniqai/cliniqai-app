@@ -37,6 +37,14 @@ import ts from "typescript";
 const LLM_FEATURE_FILES = new Set([
   "components/consultation/ai-scribe-modal.tsx",
   "components/consultation/returning-patient-catchup.tsx",
+  // AI-02 labels (V2-06 06-01b): each in its own file with no price copy, so L1-R6 still fails any file that puts
+  // them next to a price.
+  "components/clinical/ai-assist-chip.tsx",
+  "components/clinical/ai-preview-chip.tsx",
+  "components/clinical/ai-coming-soon-row.tsx",
+  "components/clinical/smart-assist-label.tsx",
+  // The /dev/ui gallery's AI-02 section (V2-06 06-02a step 5): renders the labels above, no price copy.
+  "app/dev/ui/sections/ai.tsx",
 ]);
 const MAX_WAIVER_DAYS = 90;
 const SOURCE_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
@@ -45,6 +53,13 @@ const SPARKLE_NAME = /^(Sparkles?|Sparkles?Icon|LucideSparkles?)$/;
 const PURCHASE_CASED = /₹|\bRs\b|\bINR\b/;
 const PURCHASE_ANYCASE = /\/\s?month|\bper month\b|\bbuy\b|\bupgrade\b|\bsubscribe\b|\badd to plan\b/i;
 const AI_WORD = /\bAI\b/g;
+/**
+ * Brand-name ruling (PO, 2026-11-14): "CliniQ AI" is the product's fixed brand name, not an AI feature claim. Exactly
+ * that string (case-sensitive) is masked before L1-R5 and L1-R6 run; every other "AI" — including a bare "AI" next to
+ * the brand, or "AI" plus a price — is still checked. AI features keep the AI-02 labels.
+ */
+const BRAND_NAME = /\bCliniQ AI\b/g;
+const maskBrand = (text) => text.replace(BRAND_NAME, "CliniQ \u00b7brand\u00b7");
 const WINDOW = 80;
 
 function arg(name) {
@@ -159,7 +174,7 @@ function check(root, files) {
     if (file.endsWith(".tsx") && /^(app|components|features)\//.test(file) && !llm && !file.startsWith("features/ai/")) {
       for (const seg of segments) {
         AI_WORD.lastIndex = 0;
-        if (AI_WORD.test(seg.text)) add("L1-R5", file, seg.line, snippet(seg.text));
+        if (AI_WORD.test(maskBrand(seg.text))) add("L1-R5", file, seg.line, snippet(seg.text));
       }
     }
 
@@ -168,7 +183,7 @@ function check(root, files) {
     const starts = [];
     for (const seg of segments) {
       starts.push({ at: joined.length, line: seg.line });
-      joined += `${seg.text} `;
+      joined += `${maskBrand(seg.text)} `;
     }
     const reported = new Set();
     for (const m of joined.matchAll(AI_WORD)) {

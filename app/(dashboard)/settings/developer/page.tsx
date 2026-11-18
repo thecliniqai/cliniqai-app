@@ -3,20 +3,23 @@ import { listApiKeys } from "@/features/api-keys/actions";
 import { listWebhookSubscriptions } from "@/features/webhooks/actions";
 import { DeveloperSettingsView } from "@/components/settings/developer/developer-settings-view";
 import { Card, CardContent } from "@/components/ui/card";
+import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
-  title: "Developer Settings | ClinicQ",
+  title: "Developer Settings",
   description: "Manage tenant API keys, outgoing webhook subscriptions, and developer integrations.",
 };
 
-export default async function DeveloperSettingsPage() {
+async function DeveloperSettingsPage() {
   try {
     await requirePermission("clinic:manage");
-  } catch {
+  } catch (err) {
+    // 05-10b: a clinic that is not `full` goes to its locked/onboarding page, not "Access Denied".
+    await redirectIfTenantLocked(err);
     return (
       <Card className="max-w-2xl border-rose-200 bg-rose-50/50">
         <CardContent className="p-6">
-          <h2 className="text-base font-semibold text-[#B42318]">Access Denied</h2>
+          <h2 className="text-base font-semibold text-danger-fg">Access Denied</h2>
           <p className="text-xs text-rose-600 mt-1 leading-relaxed">
             Developer settings are restricted to Clinic Owners and Administrators. Contact your clinic owner to request access.
           </p>
@@ -39,3 +42,6 @@ export default async function DeveloperSettingsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(DeveloperSettingsPage);

@@ -1,0 +1,32 @@
+{
+  "commit": "29358dc",
+  "note": "05-05 final full Vitest on the committed tree",
+  "files": 250,
+  "tests": 4929,
+  "passed": 4929,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/authz/table-matrix.spec.ts": {
+      "tests": 28,
+      "passed": 28
+    },
+    "tests/db/error-map.spec.ts": {
+      "tests": 54,
+      "passed": 54
+    },
+    "tests/integration/calendar-scheduling-ux.spec.ts": {
+      "tests": 12,
+      "passed": 12
+    },
+    "tests/setup/teardown.spec.ts": {
+      "tests": 5,
+      "passed": 5
+    },
+    "tests/integration/auth/remove-member.spec.ts": {
+      "tests": 13,
+      "passed": 13
+    }
+  }
+}

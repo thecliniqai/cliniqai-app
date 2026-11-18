@@ -5,6 +5,8 @@ export interface DoctorValidationResult {
   valid: boolean;
   doctorName?: string;
   error?: string;
+  /** Set when the membership lookup itself failed: the route maps it (`apiDbError`), never answers "not found". */
+  dbError?: unknown;
 }
 
 /**
@@ -44,9 +46,14 @@ export async function validateDoctorAssignment(
     .select("id, role, user_id")
     .eq("tenant_id", tenantId)
     .eq("user_id", doctorId.trim())
+    // V2-05 05-05: a removed or suspended doctor is not assignable (reads as "not found in the active clinic").
+    .eq("status", "active")
     .maybeSingle();
 
-  if (error || !membership) {
+  if (error) {
+    return { valid: false, error: "Assigned doctor could not be verified.", dbError: error };
+  }
+  if (!membership) {
     return {
       valid: false,
       error: "Assigned doctor not found in the active clinic.",

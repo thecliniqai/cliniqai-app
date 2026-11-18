@@ -1,0 +1,1163 @@
+# 04-00 BEFORE run (a): the 04-00 specs against the pre-plan code (base 118b3ae, git worktree), 2026-11-13T05:19:34Z
+# Command: npx vitest run tests/config/env-schema.spec.ts tests/config/env-boot.spec.ts tests/setup/test-env-guard.spec.ts tests/ci/staging-scripts.spec.ts tests/ci/workflow-policy.spec.ts
+# staging-scripts fails at import here (scripts/staging/migration-plan.mjs does not exist before 04-00: L-5); run (b) adds only that file.
+
+
+ RUN  v3.2.7 <scratch>/before
+
+ ❯ tests/config/env-boot.spec.ts (12 tests | 1 failed) 2569ms
+   ✓ boot: next.config.ts (next build / start / dev) > a production profile without real providers fails, naming the keys and no value 140ms
+   ✓ boot: next.config.ts (next build / start / dev) > a production profile with the messaging provider unset fails (no fallback) 127ms
+   ✓ boot: next.config.ts (next build / start / dev) > NODE_ENV=production without APP_ENV fails 122ms
+   ✓ boot: next.config.ts (next build / start / dev) > the ci build profile boots (K-6) 125ms
+   ✓ boot: next.config.ts (next build / start / dev) > the e2e app server environment boots (K-6) 99ms
+   ✓ boot: next.config.ts (next build / start / dev) > a complete synthetic production profile boots 98ms
+   ✓ boot: next.config.ts (next build / start / dev) > the secret key in the publishable variable stops the build, naming the key and no value (03-13 H-ENV) 97ms
+   ✓ boot: next.config.ts (next build / start / dev) > a staging profile on a Vercel preview deployment stops the build (03-13 M-PREVIEW) 203ms
+   ✓ boot: instrumentation.ts register() (every server instance) > throws on the Node.js runtime when the environment breaks a tier rule 31ms
+   ✓ boot: instrumentation.ts register() (every server instance) > passes on the Node.js runtime with a valid environment 0ms
+   × boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3) 784ms
+     → expected null to be an instance of Error
+   ✓ boot: instrumentation.ts register() (every server instance) > the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)  742ms
+ ❯ tests/ci/workflow-policy.spec.ts (41 tests | 9 failed) 203ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > passes the repository's workflows, including staging.yml and drift.yml 22ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > passes a clean fixture whose comments mention a tag pin and pull_request_target 19ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > unpinned-uses.yml exits 1 naming rule uses-pinned 19ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > staging-pull-request.yml exits 1 naming rule staging-no-pr-trigger 19ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > staging-secret-without-environment.yml exits 1 naming rule staging-secret-needs-environment 18ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > no-permissions.yml exits 1 naming rule top-level-permissions 18ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > pull-request-target.yml exits 1 naming rule no-pull-request-target 18ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > secrets-dump.yml exits 1 naming rule no-secrets-dump 18ms
+   ✓ workflow policy checker (CLI, the way the static job runs it) > exits 2 on an unreadable file 18ms
+   ✓ workflow policy on regressions of the real staging workflows > staging.yml gains a pull_request trigger -> staging-no-pr-trigger (by file name) 2ms
+   ✓ workflow policy on regressions of the real staging workflows > drift.yml gains a workflow_run trigger -> staging-no-pr-trigger 0ms
+   ✓ workflow policy on regressions of the real staging workflows > the migrate job loses its environment -> staging-secret-needs-environment for each STAGING_DB_URL reference 1ms
+   ✓ workflow policy on regressions of the real staging workflows > a staging secret moved to the workflow-level env -> staging-secret-needs-environment 0ms
+   ✓ workflow policy on regressions of the real staging workflows > ci.yml with a tag-pinned checkout and without top-level permissions -> two rules 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > the flow-style bypass fixture fails (CLI exit 1) instead of passing 19ms
+   × workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > the block-style bypass names every rule it breaks 3ms
+     → expected [ 'no-write-all', …(5) ] to deeply equal [ 'no-write-all', …(6) ]
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: triggers as a flow list with pull_request 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: an issue_comment trigger 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a pull_request_review trigger 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: permissions: write-all 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a job-level contents: write 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret in job-level env 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret in a step's with: 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: setup-node's npm cache 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: an actions/cache step 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: npm ci without --ignore-scripts 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a checkout that persists credentials 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: any expression in a staging run: 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret hidden in a shell comment of a run: script 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a YAML anchor 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a duplicate key 0ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > ci.yml: an untrusted context in run: fails even outside staging; the existing safe expressions pass 2ms
+   ✓ workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > ci.yml keeps its npm caches and plain npm ci (no environment, not a staging workflow) 1ms
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > the committed staging.yml has a plan job in staging-readonly that migrate needs, and passes 0ms
+     → expected '# Staging deploy lane (V2-03 plan 03-…' to match /\n  plan:\n[\s\S]*?\n    environment:…/
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > migrate without `needs: plan` fails (L-5) 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > a plan job that runs in the reviewed staging Environment fails (L-5) 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > no plan job at all fails, even if migrate still names it (L-5) 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > `needs` written as a flow list passes 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > `needs` written as a block list passes 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > a staging run: that prints the database URL with its password fails (L-7) 0ms
+     → the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+   × workflow policy: plan before migrate and password-free CLI URLs (04-00) > the same command in drift.yml (a staging workflow) fails too; outside staging workflows the rule does not apply 1ms
+     → expected [] to deeply equal [ 'staging-db-url-no-password' ]
+ ❯ tests/setup/test-env-guard.spec.ts (76 tests | 8 failed) 151ms
+   ✓ test-env guard rules > accepts the local stack configuration 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.co 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.in 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: https://db.example.com 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: http://10.0.0.5:54321 0ms
+   ✓ test-env guard rules > rejects a non-local Supabase URL: http://127.0.0.1.nip.io:54321 0ms
+   ✓ test-env guard rules > rejects a missing or malformed Supabase URL 0ms
+   ✓ test-env guard rules > rejects a hosted URL hidden in any other variable 0ms
+   ✓ test-env guard rules > rejects keys that were not issued by the local stack 0ms
+   ✓ test-env guard rules > requires offline providers 0ms
+   ✓ test-env guard rules > rejects real-credential variable NEXT_PUBLIC_SUPABASE_ANON_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_SERVICE_ROLE_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable MESSAGING_WEBHOOK_SECRET 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_ACCESS_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_ACCESS_TOKEN_STAGING_RO 0ms
+   ✓ test-env guard rules > rejects real-credential variable SUPABASE_DB_PASSWORD 0ms
+   ✓ test-env guard rules > rejects real-credential variable DATABASE_URL 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_ACCOUNT_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_SECRET_ACCESS_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable R2_BUCKET_NAME 0ms
+   ✓ test-env guard rules > rejects real-credential variable AI_BASE_URL 0ms
+   ✓ test-env guard rules > rejects real-credential variable GEMINI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GOOGLE_GENERATIVE_AI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable OPENAI_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable ANTHROPIC_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_API_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_APP_NAME 0ms
+   ✓ test-env guard rules > rejects real-credential variable GUPSHUP_SRC_PHONE 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_ACCOUNT_SID 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_AUTH_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_FROM_PHONE 0ms
+   ✓ test-env guard rules > rejects real-credential variable TWILIO_WHATSAPP_FROM 0ms
+   ✓ test-env guard rules > rejects real-credential variable MSG91_DLT_TE_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable MSG91_SENDER_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_SECRET_ACCESS_KEY 0ms
+   ✓ test-env guard rules > rejects real-credential variable AWS_SESSION_TOKEN 0ms
+   ✓ test-env guard rules > rejects real-credential variable SES_ACCESS_KEY_ID 0ms
+   ✓ test-env guard rules > rejects real-credential variable SES_SECRET_ACCESS_KEY 0ms
+   × test-env guard rules > rejects the staging name STAGING_SECRET_KEY, never echoing its value (04-00 L-8) 2ms
+     → expected [] to include 'STAGING_SECRET_KEY must not be set in…'
+   × test-env guard rules > rejects the staging name STAGING_SEED_PASSWORD, never echoing its value (04-00 L-8) 0ms
+     → expected [] to include 'STAGING_SEED_PASSWORD must not be set…'
+   × test-env guard rules > rejects the staging name STAGING_PUBLISHABLE_KEY, never echoing its value (04-00 L-8) 0ms
+     → expected [] to include 'STAGING_PUBLISHABLE_KEY must not be s…'
+   × test-env guard rules > rejects the staging name STAGING_DB_URL_RO, never echoing its value (04-00 L-8) 0ms
+     → expected [] to include 'STAGING_DB_URL_RO must not be set in …'
+   × test-env guard rules > rejects the staging name STAGING_ANY_LATER_NAME, never echoing its value (04-00 L-8) 0ms
+     → expected [] to include 'STAGING_ANY_LATER_NAME must not be se…'
+   ✓ test-env guard rules > an empty staging name is not a value (the shell may export it blank); a name merely containing STAGING passes 0ms
+   × test-env guard rules > rejects an sb_secret_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+     → expected [] to include 'SOME_UNRELATED_VAR references a hoste…'
+   × test-env guard rules > rejects an sb_publishable_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+     → expected [] to include 'SOME_UNRELATED_VAR references a hoste…'
+   × test-env guard rules > rejects an upper-case SB_SECRET_ value in an unrelated variable as hosted, never echoing it (04-00 L-8) 0ms
+     → expected [] to include 'SOME_UNRELATED_VAR references a hoste…'
+   ✓ test-env guard rules > rejects a key with the wrong role claim (anon key in the service-role slot) 0ms
+   ✓ test-env guard rules > allows only placeholders for MSG91_AUTH_KEY 0ms
+   ✓ test-env guard rules > allows only placeholders for AI_API_KEY 0ms
+   ✓ test-env guard rules > refuses proxy variable HTTPS_PROXY 0ms
+   ✓ test-env guard rules > refuses proxy variable http_proxy 0ms
+   ✓ test-env guard rules > refuses proxy variable NODE_USE_ENV_PROXY 0ms
+   ✓ test-env guard rules > pins the env-schema tier: APP_ENV=test for the lane, e2e for the app server (03-01, R-11) 0ms
+   ✓ test-env guard rules > refuses dev auth logging and a hosted Playwright base URL 0ms
+   ✓ test-env guard rules > pins the AI kill switch off (V2-02 02-03a) 0ms
+   ✓ test-env guard rules > allows NODE_ENV=production only when the caller opts in (the e2e app server) 0ms
+   ✓ test-env guard rules > pins the error-sink key to the local synthetic key and never echoes another value (03-09b) 0ms
+   ✓ test-env guard rules > keeps the diagnostic error route off in the Vitest lane; the e2e app server may turn it on (03-09b) 0ms
+   ✓ test-env guard rules > pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b) 0ms
+   ✓ test-env guard rules > keeps the breached-password check off in the Vitest lane; the e2e server may turn it on, loopback only (03-12a) 0ms
+   ✓ test-env guard rules > allows auth email only as disabled or the loopback Mailpit, never SES (03-11b) 0ms
+   ✓ test-env guard rules > allows only Cloudflare's Turnstile test site keys in a test lane (03-12c, R-22) 0ms
+   ✓ test-env guard rules > never echoes secret values in its messages 0ms
+   ✓ local stack key loading > fills keys from `supabase status` output and nothing else 0ms
+   ✓ local stack key loading > fails closed when the local stack is not running 0ms
+   ✓ local stack key loading > parses dotenv content without interpolation 0ms
+   ✓ worker network block > rejects fetch to a non-loopback host before any request is made 3ms
+   ✓ worker network block > refuses raw sockets to non-loopback hosts (node:https, AWS SDK, etc.) 6ms
+   ✓ worker network block > answers DNS for non-loopback names offline with a fixed public address 1ms
+   ✓ worker network block > refuses resolver queries and UDP to non-loopback hosts without sending them (AR-L5) 2ms
+   ✓ worker network block > refuses to load .env files in workers 0ms
+   ✓ worker network block > still allows the local stack 7ms
+   ✓ end to end: a vitest run pointed at a hosted URL > aborts at config load with a non-zero exit and collects no tests 124ms
+ ❯ tests/config/env-schema.spec.ts (228 tests | 47 failed) 26ms
+   ✓ env schema: complete profiles pass > a complete synthetic production profile parses, flags as booleans 1ms
+   ✓ env schema: complete profiles pass > staging may run MESSAGING_PROVIDER=disabled until the accounts exist (R-16) 0ms
+   ✓ env schema: complete profiles pass > production with AI on and a complete provider configuration parses 0ms
+   ✓ env schema: complete profiles pass > the ci build profile parses as tier ci (K-6) 0ms
+   ✓ env schema: complete profiles pass > the e2e app server environment parses as tier e2e (K-6) 0ms
+   ✓ env schema: complete profiles pass > development and test default the app URL and the offline messaging provider 0ms
+   ✓ env schema: complete profiles pass > blank values count as unset 0ms
+   ✓ env schema: the tier > NODE_ENV=production without APP_ENV throws 0ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=development (it would switch the rules off) 1ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=test (it would switch the rules off) 0ms
+   ✓ env schema: the tier > an unknown APP_ENV throws without echoing it 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > production refuses the disabled messaging provider (staging allows it) 0ms
+   ✓ env schema: staging and production are fail-closed > lists every broken rule at once, never a value 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be ses 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production requires the hook secret even if the provider were not ses 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > staging must choose: disabled parses until the SES account exists (R-16), mailpit is refused 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > ses needs the sender address, the IAM key pair and the hook secret in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the SES key pair has the IAM user shape; values are never echoed 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the hook secret must be v1,whsec_<base64> of at least 24 bytes 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the local synthetic hook secret parses in the local tiers and is refused in staging and production 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > mailpit needs a loopback API URL and a sender address; a non-loopback Mailpit URL is refused in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > EMAIL_FROM must be an address (the message says so, without the value) 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > defaults to disabled in development, test and ci; the e2e server runs Mailpit with the local secret 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > names no email value in the Error message 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > production without ERROR_INGEST_KEY throws; staging and the local tiers may leave it unset 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in production, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in staging, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in ci, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in production 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in staging 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15) 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true parses in staging (PO action E9) and e2e; it defaults to false 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a non-boolean DIAG_ERROR_ROUTE_ENABLED throws 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > production must have PWNED_CHECK=on (unset and off throw) 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > defaults to off with the public API everywhere else; staging may run either way until the PO sets it 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > a value other than on|off throws 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in production 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in staging 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in ci 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > test and e2e accept only a loopback override; development accepts any URL 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > on in a loopback tier needs the loopback override (a test lane never reaches the public API) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production requires a key (unset throws) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000AA 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000AB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 3x00000000000000000000FF 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > staging is optional: unset, a test key or a real key all parse (PO action E7 sets the real one) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > development, test, e2e and ci accept only Cloudflare's test keys (and default to no widget) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > a value that is not site-key shaped throws in every tier 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > the e2e app server builds with the always-pass test key (R-22) 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > e2e with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback app URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > test with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci requires an explicit app URL and messaging provider (no development defaults) 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_API_KEY throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_MODEL_NAME throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_BASE_URL throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true with the mock provider throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > outside a production build an incomplete AI config parses (the AI layer fails closed at runtime) 0ms
+   ✓ env schema: every tier > MESSAGING_PROVIDER=msg91 without MSG91_AUTH_KEY throws (no fallback to the dev logger) 0ms
+   ✓ env schema: every tier > an old key name alone says where the value went 0ms
+   ✓ env schema: every tier > shape errors name the key and the allowed values, never the received value 0ms
+   ✓ env schema: every tier > names no value in the Error message either (the whole text) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > the local stack's own keys parse in the local tiers 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > production refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses any branch but feature/v2; production is not bound to a branch here 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11) 0ms
+   × env schema: blank and padded secrets (04-00, review A L-1) > a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed 3ms
+     → expected an issue for CRON_SECRET, got:
+: expected false to be true // Object.is equality
+   × env schema: blank and padded secrets (04-00, review A L-1) > SUPABASE_SECRET_KEY=" " is refused as missing in production 0ms
+     → expected 'SUPABASE_SECRET_KEY: must be a secret…' to match /required/
+   × env schema: blank and padded secrets (04-00, review A L-1) > MSG91_AUTH_KEY=" " is refused as missing in production 0ms
+     → expected an issue for MSG91_AUTH_KEY, got:
+: expected false to be true // Object.is equality
+   × env schema: blank and padded secrets (04-00, review A L-1) > MSG91_WEBHOOK_SECRET=" " is refused as missing in production 0ms
+     → expected an issue for MSG91_WEBHOOK_SECRET, got:
+: expected false to be true // Object.is equality
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid CRON_SECRET with surrounding whitespace is refused naming the key, never the value 1ms
+     → expected [] to include 'CRON_SECRET: must not have leading or…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid SUPABASE_SECRET_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [] to include 'SUPABASE_SECRET_KEY: must not have le…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_AUTH_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [] to include 'MSG91_AUTH_KEY: must not have leading…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_WEBHOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [] to include 'MSG91_WEBHOOK_SECRET: must not have l…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid SEND_EMAIL_HOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [ Array(1) ] to include 'SEND_EMAIL_HOOK_SECRET: must not have…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid ERROR_INGEST_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [] to include 'ERROR_INGEST_KEY: must not have leadi…'
+   × env schema: blank and padded secrets (04-00, review A L-1) > a valid SES_SECRET_ACCESS_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+     → expected [] to include 'SES_SECRET_ACCESS_KEY: must not have …'
+   × env schema: blank and padded secrets (04-00, review A L-1) > the padding rule holds in every tier (a padded secret in the test tier is refused too) 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   × env schema: blank and padded secrets (04-00, review A L-1) > the rule covers every credential-shaped schema name and no public or non-secret one 0ms
+     → the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://localhost./ as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://0.0.0.0 as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.0.0.2 as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.1 as loopback 0ms
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::] as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://app.localhost. as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://localhost./ as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a n…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://0.0.0.0 as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a n…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a n…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://127.0.0.2 as loopback 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a n…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo, a path and a query as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo only as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a path as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a query as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a lone ? as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a fragment as not a bare origin, never echoing it 0ms
+     → expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > the app URL must be a bare origin too (staging) 0ms
+     → expected [] to deeply equal [ Array(1) ]
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > a bare hosted origin passes, with or without the trailing slash 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > the test, e2e and ci tiers still accept the local stack (and refuse a non-loopback host) 0ms
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.0.0.1) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.255.255.254) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(0.0.0.0) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::1]) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::]) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7f00:1]) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7fff:ffff]) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:0:0]) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost.) = true 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(128.0.0.1) = false 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::2]) = false 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:8000:1]) = false 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.example.org) = false 0ms
+     → (0 , isLoopbackHost) is not a function
+   × env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(notlocalhost) = false 0ms
+     → (0 , isLoopbackHost) is not a function
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ci/staging-scripts.spec.ts [ tests/ci/staging-scripts.spec.ts ]
+Error: Cannot find module '@/scripts/staging/migration-plan.mjs' imported from '<scratch>/before/tests/ci/staging-scripts.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/ci/staging-scripts.spec.ts:23:1
+     21| import { describe, expect, it } from "vitest";
+     22| import { checkRegion, pinnedRegion } from "@/scripts/staging/check-reg…
+     23| import { comparePlan, localMigrations, planPsqlArgs, runMigrationPlan …
+       | ^
+     24| import { diffArgs, runSchemaDrift } from "@/scripts/staging/schema-dri…
+     25| import { canonicalDbUrl, redactUrl, stagingTargetProblems } from "@/sc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/66]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 65 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > the block-style bypass names every rule it breaks
+AssertionError: expected [ 'no-write-all', …(5) ] to deeply equal [ 'no-write-all', …(6) ]
+
+- Expected
++ Received
+
+  [
+    "no-write-all",
+    "privileged-no-cache",
+    "run-no-untrusted-expression",
+    "staging-no-pr-trigger",
+-   "staging-plan-before-migrate",
+    "staging-read-only-token",
+    "staging-secret-step-scope",
+  ]
+
+ ❯ tests/ci/workflow-policy.spec.ts:139:40
+    137|   it("the block-style bypass names every rule it breaks", () => {
+    138|     const found = rules(".github/workflows/staging.yml", BYPASS_BLOCK);
+    139|     expect([...new Set(found)].sort()).toEqual(
+       |                                        ^
+    140|       [
+    141|         "no-write-all",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > the committed staging.yml has a plan job in staging-readonly that migrate needs, and passes
+AssertionError: expected '# Staging deploy lane (V2-03 plan 03-…' to match /\n  plan:\n[\s\S]*?\n    environment:…/
+
+- Expected: 
+/\n  plan:\n[\s\S]*?\n    environment: staging-readonly\n/
+
++ Received: 
+"# Staging deploy lane (V2-03 plan 03-08; P1-35a, FT-01; rulings R-9, R-19, R-21, R-26). Runbook: docs/runbooks/staging.md.
+#
+# The staging app deploys through the Vercel Git integration on feature/v2 (R-26). This workflow applies the
+# migrations to the staging database and then waits until the deployment whose /api/health `release` equals this
+# commit answers /api/ready with `checks.schema: \"current\"` (its EXPECTED_MIGRATION, the repository's newest, is applied;
+# 03-13c M-PROBE) (\"staging deploys from CI\").
+#
+# Rules for this file (checked by scripts/ci/workflow-policy.mjs in the `static` job):
+# - never runs on pull_request / pull_request_target / workflow_run: PR code never sits next to staging credentials;
+# - every job that touches staging declares `environment: staging` (required reviewer = the PO, deployment branch
+#   feature/v2 only), and also checks the ref itself; agents never dispatch this workflow (R-9);
+# - secrets live only in the `env` of the single step that needs them, never at job or workflow level; `npm ci` runs
+#   with `--ignore-scripts` and no npm cache restore in these jobs (no install script or restored cache runs next to
+#   a staging secret);
+# - the GITHUB_TOKEN is read-only, checkout does not persist credentials, every `uses:` is pinned to a commit SHA;
+# - migrations go through `supabase db push --db-url` (never link state, never --include-seed); every database URL is
+#   checked by scripts/staging/target-guard.mjs first, which also masks the password for the rest of the job. The CLI
+#   gets the URL re-serialised by the guard (`--print-db-url`: no query parameter that could re-target pgx, TLS
+#   required), never the raw secret (03-13 M-GUARD).
+# - the AUTH-00 re-check (03-12c, task `recheck`) runs scripts/staging/auth00-recheck.ts: synthetic users only (created
+#   and deleted by the kit), one burst of at most 40 password grants, read-only catalogue queries; its JSON report is
+#   uploaded as an artifact and holds no key, password, code or token.
+name: Staging
+
+on:
+  push:
+    branches: [feature/v2]
+    paths:
+      - \"supabase/migrations/**\"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: \"migrate = apply supabase/migrations, then wait for the release; seed = create or refresh the synthetic demo clinic; seed-reset = remove it; recheck = AUTH-00 hosted re-check (03-12c)\"
+        type: choice
+        options: [migrate, seed, seed-reset, recheck]
+        default: migrate
+      captcha_browser_check:
+        description: \"recheck only: result of your browser sign-in on staging with the live Turnstile widget (PO action E7)\"
+        type: choice
+        options: [not-recorded, passed, failed]
+        default: not-recorded
+      auth_log_retention:
+        description: \"recheck only: how long the Auth logs keep failed sign-ins, as the dashboard shows it (e.g. 1 day)\"
+        type: string
+        required: false
+        default: \"\"
+      stale_wait_seconds:
+        description: \"recheck only, item 10 (optional): seconds 601-890 to wait before the stale emailed-code session probe; empty = skip\"
+        type: string
+        required: false
+        default: \"\"
+      email_cap_probe:
+        description: \"recheck only, item 11 (optional): sends 1-70 for the Send Email hook vs email-cap probe (SES simulator); empty = skip\"
+        type: string
+        required: false
+        default: \"\"
+
+permissions:
+  contents: read
+
+concurrency:
+  # One staging change at a time; a running migration is never cancelled.
+  group: staging
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: \"1\"
+  CI: \"true\"
+
+jobs:
+  migrate:
+    name: migrate
+    if: ${{ github.ref == 'refs/heads/feature/v2' && (github.event_name == 'push' || inputs.task == 'migrate') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts; the Supabase CLI comes from its platform package)
+        run: npm ci --ignore-scripts
+      - name: Target guard (the staging project only; masks the database password)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL --mask
+      - name: Migrations that would be applied (dry run)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          PGSSLMODE: require
+        run: |
+          DB_URL=\"$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)\"
+          npx supabase db push --db-url \"$DB_URL\" --dry-run
+      - name: Apply the migrations
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          PGSSLMODE: require
+        run: |
+          DB_URL=\"$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)\"
+          npx supabase db push --db-url \"$DB_URL\" --yes
+      - name: Wait for the release on staging, then readiness with the schema current
+        env:
+          STAGING_ORIGIN: ${{ vars.STAGING_ORIGIN }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: node scripts/staging/wait-for-release.mjs \"$STAGING_ORIGIN\" \"$RELEASE_SHA\"
+
+  seed:
+    name: seed
+    if: ${{ github.ref == 'refs/heads/feature/v2' && github.event_name == 'workflow_dispatch' && (inputs.task == 'seed' || inputs.task == 'seed-reset') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts)
+        run: npm ci --ignore-scripts
+      # scripts/seed-staging.ts refuses unless APP_ENV=staging, the URL is https://<staging ref>.supabase.co, the key
+      # is an sb_secret_ key and the password has at least 16 characters. It never prints the key or the password.
+      - name: Synthetic demo clinic (seed or reset)
+        env:
+          APP_ENV: staging
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          STAGING_SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_REF_STAGING }}.supabase.co
+          STAGING_SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+          STAGING_SEED_PASSWORD: ${{ secrets.STAGING_SEED_PASSWORD }}
+          TASK: ${{ inputs.task }}
+        run: |
+          if [ \"$TASK\" = \"seed-reset\" ]; then
+            npx tsx scripts/seed-staging.ts --reset
+          else
+            npx tsx scripts/seed-staging.ts
+          fi
+
+  auth00-recheck:
+    name: auth00-recheck
+    if: ${{ github.ref == 'refs/heads/feature/v2' && github.event_name == 'workflow_dispatch' && inputs.task == 'recheck' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Target guard (the staging database only; masks the database password)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL --mask
+      # scripts/staging/auth00-recheck.ts refuses unless this is GitHub Actions on feature/v2 with APP_ENV=staging, the
+      # API URL and database are the staging project's, and both keys are hosted sb_ keys. It prints statuses only.
+      - name: AUTH-00 re-check (synthetic users, created and deleted by the kit)
+        env:
+          APP_ENV: staging
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          STAGING_SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_REF_STAGING }}.supabase.co
+          STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
+          STAGING_SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          PO_CAPTCHA_BROWSER_CHECK: ${{ inputs.captcha_browser_check }}
+          PO_AUTH_LOG_RETENTION: ${{ inputs.auth_log_retention }}
+          # Optional 03-13a probes: validated by recheck-args.mjs (digits in range or empty) and passed to the kit as
+          # an argument array (--stale-wait-seconds / --email-cap-probe), never through a shell.
+          PO_STALE_WAIT_SECONDS: ${{ inputs.stale_wait_seconds }}
+          PO_EMAIL_CAP_PROBE: ${{ inputs.email_cap_probe }}
+        run: node scripts/staging/recheck-args.mjs --out auth00-recheck-report.json
+      - name: Upload the report (statuses and codes only)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: auth00-recheck-report
+          path: auth00-recheck-report.json
+          if-no-files-found: warn
+          retention-days: 90
+"
+
+ ❯ tests/ci/workflow-policy.spec.ts:234:18
+    232|   it("the committed staging.yml has a plan job in staging-readonly tha…
+    233|     const text = staging();
+    234|     expect(text).toMatch(/\n  plan:\n[\s\S]*?\n    environment: stagin…
+       |                  ^
+    235|     expect(text).toMatch(/\n  migrate:\n    name: migrate\n    needs: …
+    236|     expect(checkWorkflow(".github/workflows/staging.yml", text)).toEqu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > migrate without `needs: plan` fails (L-5)
+AssertionError: the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+ ❯ after tests/ci/workflow-policy.spec.ts:228:48
+    226|   const after = (edit: (t: string) => string, name = "staging.yml", or…
+    227|     const text = edit(original);
+    228|     expect(text, "the edit did not apply").not.toBe(original);
+       |                                                ^
+    229|     return checkWorkflow(`.github/workflows/${name}`, text);
+    230|   };
+ ❯ tests/ci/workflow-policy.spec.ts:240:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > a plan job that runs in the reviewed staging Environment fails (L-5)
+AssertionError: the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+ ❯ after tests/ci/workflow-policy.spec.ts:228:48
+    226|   const after = (edit: (t: string) => string, name = "staging.yml", or…
+    227|     const text = edit(original);
+    228|     expect(text, "the edit did not apply").not.toBe(original);
+       |                                                ^
+    229|     return checkWorkflow(`.github/workflows/${name}`, text);
+    230|   };
+ ❯ tests/ci/workflow-policy.spec.ts:246:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > no plan job at all fails, even if migrate still names it (L-5)
+AssertionError: the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+ ❯ after tests/ci/workflow-policy.spec.ts:228:48
+    226|   const after = (edit: (t: string) => string, name = "staging.yml", or…
+    227|     const text = edit(original);
+    228|     expect(text, "the edit did not apply").not.toBe(original);
+       |                                                ^
+    229|     return checkWorkflow(`.github/workflows/${name}`, text);
+    230|   };
+ ❯ tests/ci/workflow-policy.spec.ts:252:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > `needs` written as a flow list passes
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > `needs` written as a block list passes
+AssertionError: the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+ ❯ after tests/ci/workflow-policy.spec.ts:228:48
+    226|   const after = (edit: (t: string) => string, name = "staging.yml", or…
+    227|     const text = edit(original);
+    228|     expect(text, "the edit did not apply").not.toBe(original);
+       |                                                ^
+    229|     return checkWorkflow(`.github/workflows/${name}`, text);
+    230|   };
+ ❯ tests/ci/workflow-policy.spec.ts:261:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > a staging run: that prints the database URL with its password fails (L-7)
+AssertionError: the edit did not apply: expected '# Staging deploy lane (V2-03 plan 03-…' not to be '# Staging deploy lane (V2-03 plan 03-…' // Object.is equality
+ ❯ after tests/ci/workflow-policy.spec.ts:228:48
+    226|   const after = (edit: (t: string) => string, name = "staging.yml", or…
+    227|     const text = edit(original);
+    228|     expect(text, "the edit did not apply").not.toBe(original);
+       |                                                ^
+    229|     return checkWorkflow(`.github/workflows/${name}`, text);
+    230|   };
+ ❯ tests/ci/workflow-policy.spec.ts:265:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/66]⎯
+
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy: plan before migrate and password-free CLI URLs (04-00) > the same command in drift.yml (a staging workflow) fails too; outside staging workflows the rule does not apply
+AssertionError: expected [] to deeply equal [ 'staging-db-url-no-password' ]
+
+- Expected
++ Received
+
+- [
+-   "staging-db-url-no-password",
+- ]
++ []
+
+ ❯ tests/ci/workflow-policy.spec.ts:274:64
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/66]⎯
+
+ FAIL  tests/config/env-boot.spec.ts > boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)
+AssertionError: expected null to be an instance of Error
+ ❯ tests/config/env-boot.spec.ts:219:17
+    217|       (e: unknown) => e,
+    218|     );
+    219|     expect(err).toBeInstanceOf(Error);
+       |                 ^
+    220|     const message = (err as Error).message;
+    221|     expect(message).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: m…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed
+AssertionError: expected an issue for CRON_SECRET, got:
+: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectRejected tests/config/env-schema.spec.ts:92:115
+     90| function expectRejected(source: EnvSource, key: string): string[] {
+     91|   const issues = issuesOf(source);
+     92|   expect(issues.some((i) => i.startsWith(`${key}:`)), `expected an iss…
+       |                                                                                                                   ^
+     93|     true,
+     94|   );
+ ❯ tests/config/env-schema.spec.ts:689:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > SUPABASE_SECRET_KEY=" " is refused as missing in production
+AssertionError: expected 'SUPABASE_SECRET_KEY: must be a secret…' to match /required/
+
+- Expected: 
+/required/
+
++ Received: 
+"SUPABASE_SECRET_KEY: must be a secret key (sb_secret_...) in production (R-K)"
+
+ ❯ tests/config/env-schema.spec.ts:695:57
+    693|   it.each(["SUPABASE_SECRET_KEY", "MSG91_AUTH_KEY", "MSG91_WEBHOOK_SEC…
+    694|     const issues = expectRejected({ ...PRODUCTION, [key]: " " }, key);
+    695|     expect(issues.find((i) => i.startsWith(`${key}:`))).toMatch(/requi…
+       |                                                         ^
+    696|   });
+    697| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > MSG91_AUTH_KEY=" " is refused as missing in production
+AssertionError: expected an issue for MSG91_AUTH_KEY, got:
+: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectRejected tests/config/env-schema.spec.ts:92:115
+     90| function expectRejected(source: EnvSource, key: string): string[] {
+     91|   const issues = issuesOf(source);
+     92|   expect(issues.some((i) => i.startsWith(`${key}:`)), `expected an iss…
+       |                                                                                                                   ^
+     93|     true,
+     94|   );
+ ❯ tests/config/env-schema.spec.ts:694:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > MSG91_WEBHOOK_SECRET=" " is refused as missing in production
+AssertionError: expected an issue for MSG91_WEBHOOK_SECRET, got:
+: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectRejected tests/config/env-schema.spec.ts:92:115
+     90| function expectRejected(source: EnvSource, key: string): string[] {
+     91|   const issues = issuesOf(source);
+     92|   expect(issues.some((i) => i.startsWith(`${key}:`)), `expected an iss…
+       |                                                                                                                   ^
+     93|     true,
+     94|   );
+ ❯ tests/config/env-schema.spec.ts:694:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid CRON_SECRET with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'CRON_SECRET: must not have leading or…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid SUPABASE_SECRET_KEY with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'SUPABASE_SECRET_KEY: must not have le…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_AUTH_KEY with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'MSG91_AUTH_KEY: must not have leading…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_WEBHOOK_SECRET with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'MSG91_WEBHOOK_SECRET: must not have l…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid SEND_EMAIL_HOOK_SECRET with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [ Array(1) ] to include 'SEND_EMAIL_HOOK_SECRET: must not have…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid ERROR_INGEST_KEY with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'ERROR_INGEST_KEY: must not have leadi…'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > a valid SES_SECRET_ACCESS_KEY with surrounding whitespace is refused naming the key, never the value
+AssertionError: expected [] to include 'SES_SECRET_ACCESS_KEY: must not have …'
+ ❯ tests/config/env-schema.spec.ts:708:20
+    706|   ])("a valid %s with surrounding whitespace is refused naming the key…
+    707|     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    708|     expect(issues).toContain(`${key}: must not have leading or trailin…
+       |                    ^
+    709|     expect(issues.join("\n")).not.toContain(padded.trim());
+    710|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > the padding rule holds in every tier (a padded secret in the test tier is refused too)
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- [
+-   "CRON_SECRET: must not have leading or trailing whitespace",
+- ]
++ []
+
+ ❯ tests/config/env-schema.spec.ts:714:78
+    712|   it("the padding rule holds in every tier (a padded secret in the tes…
+    713|     const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http:…
+    714|     expect(issuesOf({ ...local, CRON_SECRET: "MARKER-local-cron-secret…
+       |                                                                              ^
+    715|     expect(parseEnv({ ...local, CRON_SECRET: "  " }).CRON_SECRET).toBe…
+    716|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: blank and padded secrets (04-00, review A L-1) > the rule covers every credential-shaped schema name and no public or non-secret one
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/config/env-schema.spec.ts:731:32
+    729|       "AI_API_KEY",
+    730|     ]) {
+    731|       expect(SECRET_ENV_NAMES).toContain(key);
+       |                                ^
+    732|     }
+    733|     for (const key of ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_P…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://localhost./ as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://0.0.0.0 as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::ffff:127.0.0.1] as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.0.0.2 as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::] as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://app.localhost. as loopback
+AssertionError: expected [] to include 'NEXT_PUBLIC_APP_URL: must be a non-lo…'
+ ❯ tests/config/env-schema.spec.ts:751:69
+    749|     "production refuses NEXT_PUBLIC_APP_URL=%s as loopback",
+    750|     (url) => {
+    751|       expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_APP_URL: url })).to…
+       |                                                                     ^
+    752|     },
+    753|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://localhost./ as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://0.0.0.0 as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://[::ffff:127.0.0.1] as loopback
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://127.0.0.2 as loopback
+AssertionError: expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a n…'
+ ❯ tests/config/env-schema.spec.ts:758:71
+    756|     "staging refuses NEXT_PUBLIC_SUPABASE_URL=%s as loopback",
+    757|     (url) => {
+    758|       expect(issuesOf({ ...STAGING, NEXT_PUBLIC_SUPABASE_URL: url })).…
+       |                                                                       ^
+    759|     },
+    760|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo, a path and a query as not a bare origin, never echoing it
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo only as not a bare origin, never echoing it
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a path as not a bare origin, never echoing it
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a query as not a bare origin, never echoing it
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a lone ? as not a bare origin, never echoing it
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a fragment as not a bare origin, never echoing it
+AssertionError: expected [] to include 'NEXT_PUBLIC_SUPABASE_URL: must be a b…'
+ ❯ tests/config/env-schema.spec.ts:771:20
+    769|   ])("production refuses a Supabase URL with %s as not a bare origin, …
+    770|     const issues = issuesOf({ ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL:…
+    771|     expect(issues).toContain("NEXT_PUBLIC_SUPABASE_URL: must be a bare…
+       |                    ^
+    772|     expect(issues.join("\n")).not.toContain(url);
+    773|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > the app URL must be a bare origin too (staging)
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- [
+-   "NEXT_PUBLIC_APP_URL: must be a bare https origin in staging (no credentials, path, query or fragment)",
+- ]
++ []
+
+ ❯ tests/config/env-schema.spec.ts:776:110
+    774| 
+    775|   it("the app URL must be a bare origin too (staging)", () => {
+    776|     expect(issuesOf({ ...STAGING, NEXT_PUBLIC_APP_URL: "https://app.sy…
+       |                                                                                                              ^
+    777|       "NEXT_PUBLIC_APP_URL: must be a bare https origin in staging (no…
+    778|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/66]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.0.0.1) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.255.255.254) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(0.0.0.0) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::1]) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::]) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7f00:1]) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7fff:ffff]) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:0:0]) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost.) = true
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(128.0.0.1) = false
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::2]) = false
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:8000:1]) = false
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.example.org) = false
+ FAIL  tests/config/env-schema.spec.ts > env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(notlocalhost) = false
+TypeError: (0 , isLoopbackHost) is not a function
+ ❯ tests/config/env-schema.spec.ts:817:12
+    815|     ["notlocalhost", false],
+    816|   ])("isLoopbackHost(%s) = %s", (host, expected) => {
+    817|     expect(isLoopbackHost(host)).toBe(expected);
+       |            ^
+    818|   });
+    819| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects the staging name STAGING_SECRET_KEY, never echoing its value (04-00 L-8)
+AssertionError: expected [] to include 'STAGING_SECRET_KEY must not be set in…'
+ ❯ tests/setup/test-env-guard.spec.ts:115:24
+    113|       const value = "MARKER-staging-value-not-hosted-shaped";
+    114|       const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+    115|       expect(problems).toContain(`${key} must not be set in the test l…
+       |                        ^
+    116|       expect(problems.join("\n")).not.toContain(value);
+    117|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects the staging name STAGING_SEED_PASSWORD, never echoing its value (04-00 L-8)
+AssertionError: expected [] to include 'STAGING_SEED_PASSWORD must not be set…'
+ ❯ tests/setup/test-env-guard.spec.ts:115:24
+    113|       const value = "MARKER-staging-value-not-hosted-shaped";
+    114|       const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+    115|       expect(problems).toContain(`${key} must not be set in the test l…
+       |                        ^
+    116|       expect(problems.join("\n")).not.toContain(value);
+    117|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects the staging name STAGING_PUBLISHABLE_KEY, never echoing its value (04-00 L-8)
+AssertionError: expected [] to include 'STAGING_PUBLISHABLE_KEY must not be s…'
+ ❯ tests/setup/test-env-guard.spec.ts:115:24
+    113|       const value = "MARKER-staging-value-not-hosted-shaped";
+    114|       const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+    115|       expect(problems).toContain(`${key} must not be set in the test l…
+       |                        ^
+    116|       expect(problems.join("\n")).not.toContain(value);
+    117|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects the staging name STAGING_DB_URL_RO, never echoing its value (04-00 L-8)
+AssertionError: expected [] to include 'STAGING_DB_URL_RO must not be set in …'
+ ❯ tests/setup/test-env-guard.spec.ts:115:24
+    113|       const value = "MARKER-staging-value-not-hosted-shaped";
+    114|       const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+    115|       expect(problems).toContain(`${key} must not be set in the test l…
+       |                        ^
+    116|       expect(problems.join("\n")).not.toContain(value);
+    117|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects the staging name STAGING_ANY_LATER_NAME, never echoing its value (04-00 L-8)
+AssertionError: expected [] to include 'STAGING_ANY_LATER_NAME must not be se…'
+ ❯ tests/setup/test-env-guard.spec.ts:115:24
+    113|       const value = "MARKER-staging-value-not-hosted-shaped";
+    114|       const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+    115|       expect(problems).toContain(`${key} must not be set in the test l…
+       |                        ^
+    116|       expect(problems.join("\n")).not.toContain(value);
+    117|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/66]⎯
+
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects an sb_secret_ value in an unrelated variable as hosted, never echoing it (04-00 L-8)
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects an sb_publishable_ value in an unrelated variable as hosted, never echoing it (04-00 L-8)
+ FAIL  tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects an upper-case SB_SECRET_ value in an unrelated variable as hosted, never echoing it (04-00 L-8)
+AssertionError: expected [] to include 'SOME_UNRELATED_VAR references a hoste…'
+ ❯ tests/setup/test-env-guard.spec.ts:131:22
+    129|   ])("rejects %s in an unrelated variable as hosted, never echoing it …
+    130|     const problems = findTestEnvProblems(safeEnv({ SOME_UNRELATED_VAR:…
+    131|     expect(problems).toContain(`SOME_UNRELATED_VAR references a hosted…
+       |                      ^
+    132|     expect(problems.join("\n")).not.toContain(value);
+    133|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/66]⎯
+
+
+ Test Files  5 failed (5)
+      Tests  65 failed | 292 passed (357)
+   Start at  10:48:57
+   Duration  3.60s (transform 77ms, setup 27ms, collect 58ms, tests 2.95s, environment 0ms, prepare 99ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

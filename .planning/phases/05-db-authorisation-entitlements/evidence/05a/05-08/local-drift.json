@@ -1,0 +1,8 @@
+{
+  "tool": "scripts/ci/local-drift.mjs",
+  "source": "supabase db diff --local (migra)",
+  "statements": 0,
+  "allowlisted": [],
+  "drift": [],
+  "result": "pass"
+}

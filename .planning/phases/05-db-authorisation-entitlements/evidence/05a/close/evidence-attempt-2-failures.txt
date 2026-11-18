@@ -1,0 +1,29 @@
+# Second 05a close evidence attempt (phase-evidence at 4d25b332c3cd, 09:18-09:32Z): two failures, both root-caused; read from full-run-1.json, pgtap-run-{1,2}.tap and the local stack
+vitest run 1: tests=4876 passed=4875 failed=1
+  failed: tests/ops/backup-roundtrip-db.spec.ts > backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) uploads an age archive that only the two recipients' keys open, holding the dump, the objects and the manifest
+    Error: spawnSync sh ENOBUFS
+vitest run 2: tests=4876 passed=4876 failed=0
+pgTAP run 1:
+  not ok 16 - M-XTENANT-WH: VALIDATE succeeds once corrected
+  # Failed test 16: "M-XTENANT-WH: VALIDATE succeeds once corrected"
+  #     died: 23503: insert or update on table "webhook_delivery_queue" violates foreign key constraint "webhook_delivery_queue_tenant_subscription_fkey"
+pgTAP run 2:
+  not ok 16 - M-XTENANT-WH: VALIDATE succeeds once corrected
+  # Failed test 16: "M-XTENANT-WH: VALIDATE succeeds once corrected"
+  #     died: 23503: insert or update on table "webhook_delivery_queue" violates foreign key constraint "webhook_delivery_queue_tenant_subscription_fkey"
+
+## Local stack after the runs (counts only, 09:34Z): tenants created since the 08:30Z reset, by minute (this agent's runs' teardown verified none of its own remain)
+08:31|1 09:00|16 09:02|6 09:03|28 09:04|39 09:05|62 09:06|57 09:07|16 09:08|5 09:09|13 09:10|42 09:11|57 09:12|75 09:33|2 
+## Cross-tenant webhook_delivery_queue rows (what the VALIDATE refuses), by creation minute
+09:03|1 09:05|2 09:10|1 09:12|2 
+## Storage objects now, and the size of a tar listing of them (files + directories, bytes)
+objects=2846 listing_bytes~902258
+
+Root causes:
+1. pgTAP migration_edge_cases_fk #16 (VALIDATE webhook_delivery_queue_tenant_subscription_fkey) died on cross-tenant queue rows created 09:03-09:12Z,
+   between this agent's lanes, by another worktree's test runs that never reached teardown (their tenants are still present). VALIDATE is table-wide by design;
+   the shared stack, not the test or 000078, was wrong (both earlier lane runs at 961ba82 passed 3343/3343). Remedy: db reset --local + seed:local under the
+   test-run lock, then the evidence re-run.
+2. vitest tests/ops/backup-roundtrip-db.spec.ts ENOBUFS: the archive listing names every Storage object of the stack (directories included);
+   with the leftovers plus a run's own in-flight objects it passed Node's default 1 MiB maxBuffer (run 2, with fewer objects in flight, passed).
+   Latent spec fragility (CI's fresh stack stays far below); fixed by an explicit maxBuffer for the listing and the manifest read. Not retried to green.

@@ -1,0 +1,144 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 99ms
+[WebServer] ✓ Running next.config.ts took 29ms
+
+Running 12 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (534ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (429ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (594ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (409ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (426ms)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (425ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (406ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (389ms)
+  ✘   9 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes (31.3s)
+  ✘  10 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes (31.3s)
+  ✘  11 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes (31.4s)
+  ✘  12 [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes (31.2s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.screenshot: Test timeout of 30000ms exceeded.
+    Call log:
+      - taking element screenshot
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+
+
+      218 |     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 10_000 });
+      219 |     await settleAnimations(page);
+    > 220 |     await page.locator('[data-gallery-section="overlays"]').screenshot({ path: path.join(OUT, `gallery-overlays-${width}.png`) });
+          |                                                             ^
+      221 |     fs.writeFileSync(path.join(OUT, `axe-overlays-${width}.json`), `${JSON.stringify({ route: "/dev/ui", width, summary }, null, 2)}\n`);
+      222 |   });
+      223 | }
+        at tests/e2e/design/overlays-axe.spec.ts:220:61
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-d10e5-touch-targets-Escape-closes-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/design-overlays-axe-overla-d10e5-touch-targets-Escape-closes-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-d10e5-touch-targets-Escape-closes-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/design-overlays-axe-overla-d10e5-touch-targets-Escape-closes-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes 
+
+    Test timeout of 30000ms exceeded.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-eb2e6-touch-targets-Escape-closes-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/design-overlays-axe-overla-eb2e6-touch-targets-Escape-closes-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-eb2e6-touch-targets-Escape-closes-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/design-overlays-axe-overla-eb2e6-touch-targets-Escape-closes-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes 
+
+    Test timeout of 30000ms exceeded.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-f6699-touch-targets-Escape-closes-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/design-overlays-axe-overla-f6699-touch-targets-Escape-closes-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-f6699-touch-targets-Escape-closes-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/design-overlays-axe-overla-f6699-touch-targets-Escape-closes-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[data-sonner-toast]')
+    Expected: 0
+    Received: 1
+
+    Call log:
+      - Expect "toHaveCount" locator('[data-sonner-toast]') with timeout 10000ms
+      - waiting for locator('[data-sonner-toast]')
+        4 × locator resolved to 2 elements
+          - unexpected value "2"
+        2 × locator resolved to 1 element
+          - unexpected value "1"
+      - Test timeout of 30000ms exceeded.
+
+
+      216 |
+      217 |     // The gallery's overlay section as a page capture (the reviewer's 360 / 1280 set), once the info toast has left.
+    > 218 |     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 10_000 });
+          |                                                       ^
+      219 |     await settleAnimations(page);
+      220 |     await page.locator('[data-gallery-section="overlays"]').screenshot({ path: path.join(OUT, `gallery-overlays-${width}.png`) });
+      221 |     fs.writeFileSync(path.join(OUT, `axe-overlays-${width}.json`), `${JSON.stringify({ route: "/dev/ui", width, summary }, null, 2)}\n`);
+        at tests/e2e/design/overlays-axe.spec.ts:218:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-36060-touch-targets-Escape-closes-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/design-overlays-axe-overla-36060-touch-targets-Escape-closes-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/design-overlays-axe-overla-36060-touch-targets-Escape-closes-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/design-overlays-axe-overla-36060-touch-targets-Escape-closes-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 360px: axe clean, fitted, placed per width, touch targets, Escape closes 
+    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 820px: axe clean, fitted, placed per width, touch targets, Escape closes 
+    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1180px: axe clean, fitted, placed per width, touch targets, Escape closes 
+    [desktop-chrome] › tests/e2e/design/overlays-axe.spec.ts:146:7 › overlays at 1280px: axe clean, fitted, placed per width, touch targets, Escape closes 
+  8 passed (2.3m)

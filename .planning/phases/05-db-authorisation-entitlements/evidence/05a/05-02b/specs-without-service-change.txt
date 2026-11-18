@@ -1,0 +1,137 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T02:01:01.277Z","level":"error","event":"billing.invoice_insert.failed","tenantId":"8e83ad90-3b58-48c6-a64b-cbd0346dd83a","code":"42501"}
+ ❯ tests/billing/collect-permission.spec.ts (12 tests | 3 failed) 1654ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a receptionist collects: ok, one payment by the receptionist, the invoice is paid 36ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a doctor is refused (FORBIDDEN text), 0 payments, the invoice unchanged 11ms
+   × billing:collect (05-02b, PO-3) > recordPayment > a nurse is refused (FORBIDDEN text), 0 payments, the invoice unchanged 19ms
+     → expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > the database refuses a doctor's record_payment call made directly (past the service): 0 payments 8ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a nurse's direct payments insert is refused by RLS (42501) 6ms
+   × billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > a doctor collecting at the desk is refused BEFORE anything happens: visit unsigned, no invoice, 0 payments 232ms
+     → expected { success: true, …(9) } to deeply equal { success: false, error: undefined }
+   ✓ billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > a doctor routing to reception: signed, the invoice is created unpaid, 0 payments 109ms
+   ✓ billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > the owner of a solo clinic signs and collects: payment recorded, invoice paid 97ms
+   ✓ billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > reads the invoice of their own visit, not a colleague's; a nurse reads none 8ms
+   × billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > cannot invoice a colleague's visit (service text; nothing written), the front desk can 5ms
+     → expected { success: false, …(1) } to deeply equal { success: false, error: undefined }
+   ✓ billing:collect (05-02b, PO-3) > a member of two clinics (R-42 active tenant) > acting in this clinic, collects here 74ms
+   ✓ billing:collect (05-02b, PO-3) > a member of two clinics (R-42 active tenant) > acting in the other clinic, cannot read or collect this clinic's invoice: 0 payments 68ms
+{"ts":"2026-11-14T02:01:02.529Z","level":"error","event":"patients.create_insert.failed","tenantId":"178f143a-0d58-4e0b-a57e-c089c4e9f977","code":"42501"}
+ ❯ tests/patients/receptionist-registration.spec.ts (7 tests | 1 failed) 840ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist session registers a patient: success, the row exists in the clinic with created_by = receptionist 25ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > the receptionist updates the phone; the allergies stay as they were 10ms
+   × receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist's change of allergies or chronic conditions is refused (FORBIDDEN text) and nothing changes 13ms
+     → expected { success: false, …(1) } to deeply equal { success: false, error: undefined }
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > the database refuses the allergy change itself (42501), even past the service 8ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a doctor (consultations:view) changes allergies 10ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist of this clinic who is also a member of another clinic (R-42 active tenant) > acting in this clinic, registers a patient here 67ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist of this clinic who is also a member of another clinic (R-42 active tenant) > acting in the other clinic, cannot register or edit a patient of this clinic 74ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > recordPayment > a nurse is refused (FORBIDDEN text), 0 payments, the invoice unchanged
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "You do not have permission to perform this action.",[39m
+[31m+   "error": "Invoice not found or unauthorized.",[39m
+[2m    "success": false,[22m
+[2m  }[22m
+
+ ❯ tests/billing/collect-permission.spec.ts:142:19
+    140|       const invoiceId = await newInvoice(visitId);
+    141|       const res = await recordPayment(ctxFor(who()), pay(invoiceId));
+    142|       expect(res).toEqual({ success: false, error: RECORD_PAYMENT_MESS…
+       |                   ^
+    143|       expect(await paymentsOf(invoiceId)).toEqual([]);
+    144|       expect(await invoicesOfVisit(visitId)).toEqual([{ id: invoiceId,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > a doctor collecting at the desk is refused BEFORE anything happens: visit unsigned, no invoice, 0 payments
+AssertionError: expected { success: true, …(9) } to deeply equal { success: false, error: undefined }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": undefined,[39m
+[32m-   "success": false,[39m
+[31m+   "invoiceId": "2ad2b470-a6aa-4be4-b950-ce1adc0bcfcc",[39m
+[31m+   "invoiceNumber": "INV-2026-00001",[39m
+[31m+   "invoiceShareUrl": "http://localhost:3000/r/8579164eae909b97c73b7f7cc88850d60f9b51cbc955648a41574f903758df7e",[39m
+[31m+   "paymentRecorded": false,[39m
+[31m+   "pdfStoragePath": null,[39m
+[31m+   "rxShareUrl": undefined,[39m
+[31m+   "success": true,[39m
+[31m+   "visitId": "c2825b0d-3d42-498f-bbf3-0604927f3cd9",[39m
+[31m+   "whatsAppError": null,[39m
+[31m+   "whatsAppSent": true,[39m
+[2m  }[22m
+
+ ❯ tests/billing/collect-permission.spec.ts:184:19
+    182|       const before = await visitState(visitId);
+    183|       const res = await completeAndBillConsultation(ctxFor(doctor), si…
+    184|       expect(res).toEqual({ success: false, error: BILLING_COLLECT_FOR…
+       |                   ^
+    185|       expect(await visitState(visitId)).toEqual(before);
+    186|       expect(before.signed_at).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > cannot invoice a colleague's visit (service text; nothing written), the front desk can
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, error: undefined }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": undefined,[39m
+[31m+   "error": "Failed to create invoice.",[39m
+[2m    "success": false,[22m
+[2m  }[22m
+
+ ❯ tests/billing/collect-permission.spec.ts:236:63
+    234|         tax: 0,
+    235|       };
+    236|       expect(await createVisitInvoice(ctxFor(doctor), input)).toEqual(…
+       |                                                               ^
+    237|       expect(await createVisitInvoice(ctxFor(nurse), input)).toEqual({…
+    238|       expect(await invoicesOfVisit(visitId)).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/patients/receptionist-registration.spec.ts > receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist's change of allergies or chronic conditions is refused (FORBIDDEN text) and nothing changes
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, error: undefined }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": undefined,[39m
+[31m+   "error": "Failed to update patient record.",[39m
+[2m    "success": false,[22m
+[2m  }[22m
+
+ ❯ tests/patients/receptionist-registration.spec.ts:102:23
+    100|       input({ full_name: "Synthetic Renamed", allergies: ["Synthetic a…
+    101|     );
+    102|     expect(allergies).toEqual({ success: false, error: PATIENT_CLINICA…
+       |                       ^
+    103| 
+    104|     const chronic = await updatePatient(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 15 passed (19)
+   Start at  07:30:59
+   Duration  3.24s (transform 114ms, setup 13ms, collect 272ms, tests 2.49s, environment 0ms, prepare 44ms)
+
+[teardown] removed run data: 4 tenant(s), 12 auth user(s), 6 storage object(s); verified none remain

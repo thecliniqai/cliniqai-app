@@ -1,0 +1,23 @@
+AI H-1 P1.0 preflight with 1,500 used in the IST trial key (expect over_quota) | over_quota
+AI H-1 P1.1 owner sets timezone '-23' through the table grant | -23
+AI H-1 P1.2 preflight after the owner set '-23' | ok
+AI H-1 P1.2b preflight after the owner set the IANA zone Etc/GMT+12 (UTC-12) | ok
+AI H-1 P1.5 admin (not owner) sets '+00' | 1
+AI H-1 P1.6 audit rows for one owner zone change | 0
+AI H-1 distinct trial keys reachable (zones -23, Etc/GMT+12, Asia/Kolkata, Pacific/Kiritimati, +23) | trial:2026-11-12 trial:2026-11-13 trial:2026-11-14
+AI H-1 pools that still answer ok with 1,500 used in the IST key (one per zone; 0 = no extra pool) | 3
+AI M-1 P2.4 units vs limit 1500 after committing a new and an expired reservation | 1501
+IND L-6 another doctor commits the reservation | 1
+IND L-6 another doctor releases the reservation | true
+IND L-2 ai.voice_receptionist with an override (enabled, 5 minutes): preflight | over_quota
+IND L-2 ai.scribe.voice (no limit key): preflight | not_entitled
+AI L-1 P5.1 / IND M-1 job | last_error | queue row | document_url after the lapse and a claim | cancelled | tenant_not_full | pending | https://example.test/r/synthetic
+AI L-1 P5.2-P5.4 cleanup after 8 days | renewal | backfill | the reminder claimed again | jobs deleted 1 | renewed | backfill created 1 | claimed again 1
+IND M-2 invite admin then receptionist: second answer | stored pending role | email.invite jobs | {"deduped": true} | admin | 1
+IND L-3 / ACC L-1 the removed admin's subscription: is_active | secret unchanged | true | true
+IND L-5 the owner of a locked clinic removes a nurse | error:P0002:MEMBER_NOT_FOUND
+IND L-7 referral to a REMOVED doctor of the target clinic | 1 row inserted
+IND L-4 keys of the expired clinic's prescription answer | access,clinic,document_type,expires_at,mime_type,original_filename,patient_name,report_date,resource_type,restricted,status,title
+IND L-4 the answer contains the patient's name | true
+AI L-3 P3.4 a nurse clears the objection (rows changed) | 1
+AI L-3 P3.5 audit rows after a doctor sets and a receptionist clears it | 0

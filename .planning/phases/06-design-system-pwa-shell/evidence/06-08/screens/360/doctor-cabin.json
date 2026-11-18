@@ -1,0 +1,14 @@
+{
+  "id": "doctor-cabin",
+  "width": 360,
+  "path": "/cabin",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [],
+  "horizontalScroll": false
+}

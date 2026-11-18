@@ -29,12 +29,27 @@
  *     so a retry that lands on another instance can still re-send the same code: harmless (the same code to the same
  *     address); a shared store arrives with the V2-04 outbox.
  *
+ * 04-03c (R-43; proposed ADR-0005 amendment A3): the shared layer. After the signature check and the per-instance
+ * memory, the delivery's `webhook-id` is recorded in the shared inbound store (`features/auth/system`:
+ * `authHookDeliveryBegin` → `inbound_webhook_begin('supabase_auth_hook', id)`, migration 000037), so a retry that
+ * lands on another instance is not sent again: `duplicate` → 200, nothing sent; `in_flight` (another instance is
+ * sending it now) → hook error 409, so Supabase Auth retries later; `process` → send, then `authHookDeliveryFinish`
+ * (`processed`, or `failed` so the next retry sends). An id outside `^[A-Za-z0-9_.-]{1,128}$` skips the shared layer.
+ * The shared layer fails OPEN: a database error is logged and the email is sent. The table holds the provider, the id
+ * and timestamps only.
+ *
+ * 04-00b: every provider call carries an idempotency key derived from the signed `webhook-id` and the message's index
+ * ({@link idempotencyKeyFor}). Resend answers a repeated key with the first result and sends nothing, so a retry that
+ * lands on another instance (past the per-instance memory above) does not send the code twice.
+ *
  * Logs carry the event, the action type, the provider, a count and the request id; never an address, a code, a token
  * hash or a provider message.
  */
+import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "standardwebhooks";
 import { z } from "zod";
+import { authHookDeliveryBegin, authHookDeliveryFinish } from "@/features/auth/system";
 import { EmailDisabledError, getEmailSender, type EmailMessage } from "@/lib/email";
 import { renderAuthEmail, type AuthEmailKind } from "@/lib/email/templates/auth";
 import { serverEnv } from "@/lib/env-server";
@@ -57,7 +72,7 @@ export const HOOK_SEND_BUDGET_MS = 3_500;
 export const DEDUPE_TTL_MS = 10 * 60_000;
 export const DEDUPE_MAX_ENTRIES = 1_000;
 
-type Outcome = { status: 200 } | { status: 500 | 503; message: string };
+type Outcome = { status: 200 } | { status: 409 | 500 | 503; message: string };
 
 /** `webhook-id` → the outcome of that delivery (pending while it is being sent). Per instance; see the header. */
 const deliveries = new Map<string, { expires: number; outcome: Promise<Outcome> }>();
@@ -95,9 +110,19 @@ class BudgetExceededError extends Error {
   }
 }
 
+/**
+ * 04-00b: the provider idempotency key of message `index` of the delivery `webhookId`: `auth-email/<sha256 hex>/<n>`.
+ * Hashed so the outbound header has a fixed shape whatever the (signed) inbound id holds; per message because an
+ * `email_change` delivery sends two different messages. `null` without an id (nothing to derive it from).
+ */
+export function idempotencyKeyFor(webhookId: string, index: number): string | null {
+  if (!webhookId) return null;
+  return `auth-email/${createHash("sha256").update(webhookId, "utf8").digest("hex")}/${index}`;
+}
+
 /** Sends every message in parallel; rejects once the budget is spent, aborting the provider calls. */
 async function sendWithinBudget(
-  send: (message: EmailMessage, signal: AbortSignal) => Promise<unknown>,
+  send: (message: EmailMessage, signal: AbortSignal, index: number) => Promise<unknown>,
   messages: EmailMessage[],
 ): Promise<void> {
   const controller = new AbortController();
@@ -109,7 +134,7 @@ async function sendWithinBudget(
     }, HOOK_SEND_BUDGET_MS);
   });
   try {
-    await Promise.race([Promise.all(messages.map((m) => send(m, controller.signal))), deadline]);
+    await Promise.race([Promise.all(messages.map((m, i) => send(m, controller.signal, i))), deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -265,20 +290,41 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
   }
 
-  const outcome = deliver(planned, action, requestId);
+  const outcome = deliverOnce(planned, action, requestId, webhookId);
   remember(webhookId, outcome, Date.now());
   const result = await outcome;
   if (result.status !== 200 && deliveries.get(webhookId)?.outcome === outcome) deliveries.delete(webhookId);
   return result.status === 200 ? ok() : hookError(result.status, result.message);
 }
 
-async function deliver(planned: Delivery[], action: LogWord, requestId: string | undefined): Promise<Outcome> {
+/** 04-03c: the shared `webhook-id` record around {@link deliver} (fails open; see the header). */
+async function deliverOnce(planned: Delivery[], action: LogWord, requestId: string | undefined, webhookId: string): Promise<Outcome> {
+  const shared = await authHookDeliveryBegin(webhookId);
+  if (shared === "duplicate") {
+    log.info({ event: "auth.email.duplicate", requestId, module: MODULE, action, reason: "webhook_id_seen" });
+    return { status: 200 };
+  }
+  if (shared === "in_flight") {
+    log.info({ event: "auth.email.duplicate", requestId, module: MODULE, action, reason: "in_flight", status: 409 });
+    return { status: 409, message: "Email is already being sent" };
+  }
+  const result = await deliver(planned, action, requestId, webhookId);
+  if (shared === "process" || shared === "unavailable") {
+    await authHookDeliveryFinish(webhookId, result.status === 200 ? "processed" : "failed");
+  }
+  return result;
+}
+
+async function deliver(planned: Delivery[], action: LogWord, requestId: string | undefined, webhookId: string): Promise<Outcome> {
   let provider = "unknown";
   try {
     const messages: EmailMessage[] = planned.map((d) => ({ to: d.to, ...renderAuthEmail(d.kind, d.code) }));
     const sender = getEmailSender();
     provider = sender.provider;
-    await sendWithinBudget((message, signal) => sender.send(message, { signal }), messages);
+    await sendWithinBudget((message, signal, index) => {
+      const idempotencyKey = idempotencyKeyFor(webhookId, index);
+      return sender.send(message, idempotencyKey ? { signal, idempotencyKey } : { signal });
+    }, messages);
   } catch (err) {
     const disabled = err instanceof EmailDisabledError;
     const status = disabled ? 503 : 500;

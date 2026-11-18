@@ -68,8 +68,19 @@ function connectTarget(args: unknown[]): { host?: string; path?: string } {
   if (typeof first === "string" && Number.isNaN(Number(first))) return { path: first };
   return { host: typeof args[1] === "string" ? args[1] : "localhost" };
 }
+/** Hosts an MSW spec mocks (see `mswFetch`): a connect to one of them dials 127.0.0.1 instead, never the host. */
+const mockedHosts = new Set<string>();
+function toLoopback(args: unknown[]): unknown[] {
+  const swap = (o: unknown) => (o && typeof o === "object" ? { ...(o as object), host: "127.0.0.1" } : o);
+  if (Array.isArray(args[0])) return [[swap((args[0] as unknown[])[0]), ...(args[0] as unknown[]).slice(1)], ...args.slice(1)];
+  if (args[0] && typeof args[0] === "object") return [swap(args[0]), ...args.slice(1)];
+  return typeof args[1] === "string" ? [args[0], "127.0.0.1", ...args.slice(2)] : args;
+}
 net.Socket.prototype.connect = function guardedConnect(this: net.Socket, ...args: ConnectArgs) {
   const target = connectTarget(args);
+  if (!target.path && target.host && mockedHosts.has(target.host)) {
+    return realConnect.apply(this, toLoopback(args as unknown[]));
+  }
   if (!target.path && !isLoopbackHost(target.host)) {
     const err = new NonLocalNetworkError(String(target.host));
     process.nextTick(() => this.destroy(err));
@@ -119,6 +130,7 @@ function requestHost(input: Parameters<typeof fetch>[0]): string | null {
   }
 }
 
+const REAL_FETCH = Symbol.for("clinicos.test.realFetch");
 const realFetch = globalThis.fetch;
 if (realFetch && !(realFetch as { __localOnly?: boolean }).__localOnly) {
   const localOnlyFetch: typeof fetch = (input, init) => {
@@ -127,5 +139,32 @@ if (realFetch && !(realFetch as { __localOnly?: boolean }).__localOnly) {
     return realFetch(input, init);
   };
   (localOnlyFetch as { __localOnly?: boolean }).__localOnly = true;
+  // V2-04 04-03a: MSW 3 intercepts below `fetch` (at the socket), so a spec that mocks an external API with MSW installs
+  // `mswFetch` (below) for the hosts it mocks. The socket and DNS guards above stay in force for everything.
+  Object.defineProperty(localOnlyFetch, REAL_FETCH, { value: realFetch, enumerable: false });
   globalThis.fetch = localOnlyFetch;
+}
+
+/**
+ * For MSW specs (V2-04 04-03a, MSG91 contract). MSW 3 answers mocked requests at the socket, below `fetch`, so for
+ * exactly `hosts`: `fetch` passes the request down to Node's fetch, and the socket guard rewrites a connect to one of
+ * these hosts to dial 127.0.0.1 instead (MSW's own mock connection does the same). Whatever MSW does with the
+ * request, no socket ever dials the real host; every other non-loopback host is still refused. Undo with `restore()`.
+ */
+export function mswFetch(hosts: string[]): { restore: () => void } {
+  const guarded = globalThis.fetch;
+  const real = (guarded as unknown as Record<symbol, typeof fetch>)[REAL_FETCH];
+  if (!real) throw new Error("mswFetch: the worker fetch guard is not installed");
+  for (const host of hosts) mockedHosts.add(host);
+  globalThis.fetch = ((input, init) => {
+    const host = requestHost(input);
+    if (host !== null && hosts.includes(host)) return real(input, init);
+    return guarded(input, init);
+  }) as typeof fetch;
+  return {
+    restore: () => {
+      for (const host of hosts) mockedHosts.delete(host);
+      globalThis.fetch = guarded;
+    },
+  };
 }

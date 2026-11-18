@@ -75,7 +75,7 @@ Abbreviations: C = CONFIRMED, PC = PARTIALLY_CONFIRMED. Cr = Critical, H = High,
 | D13 | There is no visit state machine. Front desk can mark a visit completed. | C | Confirmed. Check-in does not validate status or date. | **H / P1** | `features/queue/actions.ts:24-252`; `components/queue/checkout-drawer.tsx:285` |
 | D14 | Paid invoices stay mutable, overpayment is allowed, and there is no cancel or refund. | C | Confirmed, and worse: editing items un-cancels a cancelled invoice. | **H / P1** | `features/billing/actions.ts:184-628`; `features/billing/schema.ts:19-25` |
 | D15 | Silent fallbacks to the dev messaging provider and a mock AI. | PC | Confirmed for messaging, SOAP drafts and catch-up summaries. The copilot routes fail rather than mock. | **H / P1** | `lib/messaging/index.ts:20-30`; `lib/ai/client.ts:43-225` |
-| D16 | Inline `dispatchPendingQueue` processes all tenants with a non-atomic claim, causing double sends and latency. | PC | Confirmed. "All tenants" applies only to the service-role paths, though those are common (appointments). | **H / P0** (with F-3b) | `lib/messaging/dispatcher.ts:33-148`; `features/appointments/actions.ts:10-22` |
+| D16 | Inline `dispatchPendingQueue` processes all tenants with a non-atomic claim, causing double sends and latency. | PC | Confirmed. "All tenants" applies only to the service-role paths, though those are common (appointments). | **H / P0** (with F-3b). **Fixed in V2-04 (awaiting PO gate):** request paths only enqueue; the runner claims atomically per tenant (`tests/jobs/parallel-dispatch-db.spec.ts`, `tests/jobs/claim-grants-db.spec.ts`, `tests/security/p0-12-lint-gates.spec.ts`) | `lib/messaging/dispatcher.ts:33-148`; `features/appointments/actions.ts:10-22` |
 
 ### 1.3 Backend (ARCHITECTURE_ASSESSMENT.md, DATABASE_ASSESSMENT.md, API_ASSESSMENT.md)
 
@@ -133,8 +133,8 @@ Abbreviations: C = CONFIRMED, PC = PARTIALLY_CONFIRMED. Cr = Critical, H = High,
 | E-4 | RLS tests cover only 8 of 43 tables, and clinical tables have none. | PC | The catalog check covers 8 tables, but **cross-tenant tests exist** for visits, prescriptions, invoices, documents, referrals and API keys. The real gaps: no role-within-tenant DB tests, and no tests for comms, share tokens or API keys. | **H / P1** | `tests/helpers/rls.ts:3-12`; `tests/integration/*.spec.ts` |
 | TEST-ES-3 | All safety-critical tests need the DB, and a no-DB run looks green. | PC | Mostly true. Some security tests run without a DB. The run is **not** green (27 files fail, non-zero exit). | **H / P0** (CI DB lane) | `tests/security/ai-rbac.spec.ts`; `vitest.config.ts:14` |
 | E-13 / F-2 | No CI/CD. | PC | Confirmed (no `.github/`, no hooks). Vercel's build may catch type errors (hosted configuration not verifiable). | **H / P0** | repo root |
-| F-3a | No scheduler, so queued messages are never sent. | PC | No scheduler confirmed. Immediate messages *are* sent inline. Delayed, retried and webhook-retry traffic is lost. | **H / P0** | `lib/messaging/dispatcher.ts:103-110`; `lib/webhooks/outbox.ts:116-129` |
-| F-3b | Non-atomic job claim, and stuck `processing` rows. | C | Confirmed. Inline dispatch makes overlap likely. | **H / P0** | `lib/messaging/dispatcher.ts:103-149` |
+| F-3a | No scheduler, so queued messages are never sent. | PC | No scheduler confirmed. Immediate messages *are* sent inline. Delayed, retried and webhook-retry traffic is lost. | **H / P0**. **Fixed in V2-04 (awaiting PO gate):** pg_cron → pg_net → `/api/jobs/run` every minute (`tests/jobs/scheduler-migration-db.spec.ts`, `tests/jobs/run-route.spec.ts`, `.planning/phases/04-jobs-reliability/evidence/scheduler-local-e2e.json`); staging confirmation pending PO (04-P1, P9) | `lib/messaging/dispatcher.ts:103-110`; `lib/webhooks/outbox.ts:116-129` |
+| F-3b | Non-atomic job claim, and stuck `processing` rows. | C | Confirmed. Inline dispatch makes overlap likely. | **H / P0**. **Fixed in V2-04 (awaiting PO gate):** atomic claim with lease and fencing, reaper for expired leases and stuck delivery rows (`tests/jobs/parallel-dispatch-db.spec.ts`, `tests/jobs/reaper-db.spec.ts`, `tests/jobs/delivery-reap-db.spec.ts`) | `lib/messaging/dispatcher.ts:103-149` |
 | F-4 | Residency, plan and PITR are unverified. The runbooks contradict each other. No dump job. The drill is open. | PC | Confirmed, except the "KMS vs AES contradiction" (not contradictory). The backup test only greps a document. | **H / P0** (verify before GA) | `docs/ops/backup-restore.md`; `docs/operations/backups.md`; `tests/ops/backup-restore.spec.ts:17-30` |
 | G-1 | `allow_default_branch_commits: true`, and no branching strategy. | C | Confirmed. 297 of 298 commits are on `main`. | **H / P0** (process gate before the first GSD execute; the verifier suggested P1) | `.planning/config.json`; `git rev-list` |
 | W-02 | No Claude Code deny rules for `.env`. | C | Confirmed at project and user level. | **H / P0** (process gate) | `ls .claude`; `~/.claude/settings.json` |
@@ -182,7 +182,7 @@ The verifiers could not settle these points statically. They are tracked as deci
 |---|---|---|
 | OI-1 | Is the Supabase project in `.env` production? Does it hold real patient data? Is v1 live? | SEC-25, E-1, E-2, F-4 |
 | OI-2 | What are the project's region, plan tier and PITR status? | F-4, I-01 |
-| OI-3 | Is any external or dashboard cron calling `/api/cron/*`? Is `CRON_SECRET` set? | F5, F-3a |
+| OI-3 | Is any external or dashboard cron calling `/api/cron/*`? Is `CRON_SECRET` set? (V2-04: the `/api/cron/*` routes are deleted and answer 404; `CRON_SECRET` stays for the diag route, R-27. Answer pending PO, 04-P9.) | F5, F-3a |
 | OI-4 | Does the hosted schema drift from `supabase/migrations`? Does an `auth.users` row with the nil UUID exist? | F7, BACKEND B1 |
 | OI-5 | Do Supabase default privileges give `anon` EXECUTE on the SECURITY DEFINER functions? | SEC-09 |
 | OI-6 | Does the production build expose server-only-imported or unimported actions (`getPatient`, `getPatients`, `notifyPrescriptionIssued`)? Answer with a production build's server-reference manifest, not a dev build. | ARC-01, D4, SEC-01 (C31) |
@@ -234,6 +234,12 @@ Source: the consistency review. "Roadmap ref" points to `V2_MASTER_ROADMAP.md`.
 | C32 | Roadmap §15.6 required all 10 e2e journeys at both viewports, but TEST_STRATEGY T-14 (journeys 2, 3, 5, 7, 10) is P2 | **T-14 raised to P1** as backlog item P1-42 (V2-08 to V2-11, each journey with its workflow). §15.6 stands. TEST_STRATEGY T-14 receives an erratum. | §10 P1-42, §15 |
 
 Missing content noted by the consistency review: TARGET_ARCHITECTURE has no §10 rows for frontend, design system, testing or security tooling; the roadmap §5, §8 and §6 cover these. SECURITY findings SEC-08 to SEC-33 lack the Component, Impact and Verification fields. UX has only ASCII wireframes and no design-skill exercise. The documentation items are recorded as debt (roadmap §10, P2-DOC). The design gap is now closed by phase V2-DX and the design sub-gate G2-D before any primitives are built (revised after review). None of these blocks G1.
+
+**Erratum (V2-04, 2026-11-14): staging backup target.** The roadmap's V2-04 dependencies, expected changes and
+acceptance named an AWS `ap-south-1` bucket written by AWS CodeBuild. Staging backups instead go to a **Cloudflare R2**
+bucket, written by the GitHub Actions workflow `.github/workflows/backup.yml` in the GitHub Environment
+`staging-backup` (PO decision B-3, 2026-11-13, `.planning/PO-ACTIONS.md`; ruling R-48). The AWS `ap-south-1` design
+moves to the production backups (V2-15). Applied in `V2_MASTER_ROADMAP.md` §12 V2-04 by 04-07c (`838d4bd`).
 
 ---
 
@@ -759,3 +765,136 @@ Evidence, reviews and triage: `.planning/phases/03-platform-hygiene/` (`03-SUMMA
 `03-13-REVIEW-TRIAGE.md`, `evidence/`, `reviews/`). Rulings A00-1…5, R-1…R-36 and R-K were taken by the agent as CTO
 under PO delegation. Doc errata (R-24) are proposed in `03-SUMMARY.md`, not applied. Merge waits on 03-E13 (rulings,
 incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged packages) and 03-E15 (Next 16 outcome).
+
+### V2-04 gate evidence (2026-11-14) — awaiting PO gate
+V2-04 Jobs reliability verified locally at `2260c64`. Vitest ran twice locally: 211 files / 4399 tests, 0 skipped, 0
+failed. The report gate passed with floor 4180 and 118 required security/acceptance specs. Playwright PR lane: 196
+passed (10 KNOWN-BUG expected failures), 9 skipped by design, 0 failed, 0 retried. ESLint: 0 errors; every boundary
+message id 0 incl. P0-12; 1 service-role factory; the ADR-0005 exception register holds only `app/api/v1/**` and
+`lib/api/**`; 0 cron route files. Local drift PASS (0 statements), schema snapshot PASS. Restore drill self-test: pass,
+RPO 18 s, RTO 32 s. Typecheck, inventory, AI-06 L1, the audit gate and the workflow policy are green. CI run link:
+recorded by the orchestrator in `04-VERIFICATION.md` (`ci_run`).
+
+Roadmap acceptance 1 and 2 are met. 3, 4, 7 and 8 are met locally with their staging halves pending PO; 5 and 6 are
+code-complete / drilled locally and pending PO (04-P1, P7…P13, 04-R2, 04-P17; post-merge, R-19 pattern). D16, F-3a and
+F-3b are fixed in V2-04 (rows in §1 updated); OI-3's answer comes with 04-P9.
+
+Four isolated reviews found 1 High (H-SMS) and 10 distinct Mediums; all were fixed in 04-07a…c with regression tests.
+Three re-verification rounds followed: the first closed H-SMS and 8 Mediums and found M-FAIR and M-BACKUPAUTH partly
+open (N-1, N-2; fixed in 04-07d), the second reopened both through new routes (N-1b, N-2b; fixed in 04-07e), and the
+third found both CLOSED with one Info (I-1, fixed at close). Three independent-review Lows (L1, L5, L6) have no triage
+row and await an owner.
+
+ADR-0005 amendments A2 and A3 were accepted by the agent as CTO under PO delegation (2026-11-13) and applied to
+`docs/adr/0005-confine-service-role-client.md` at close. Rulings R-1…R-51 (incl. R-48 staging backups on R2, R-49 HMAC
+runner token, R-50/R-51 alerts) are in `04-PLAN.md`. Evidence, reviews and triage:
+`.planning/phases/04-jobs-reliability/` (`04-SUMMARY.md`, `04-VERIFICATION.md`, `04-07-REVIEW-TRIAGE.md`,
+`evidence/`, `reviews/`). No merge blocker is open (04-P14 and 04-P15 delegated to the CTO).
+
+### G2-D design sign-off (2026-11-13)
+
+| Item | Result | Evidence |
+|---|---|---|
+| V2-DX direction | **Approved by the PO**: direction A "Calm Confidence — Botanical Teal", typeface Inter, round-3 component system and consult structure; kept tokenised for later change | PR #7, branch `v2/phase-dx-design-exploration` at `e95b8b5`; `.planning/sketches/V2-DX-PROPOSAL.md` (round 3 + PO decision); evidence `.planning/sketches/v2-dx-evidence/` (axe 107 runs 0 serious/critical; contrast 139/139) |
+
+### PO ruling: "CliniQ AI" is a fixed brand name (2026-11-14)
+
+| Item | Ruling | Evidence |
+|---|---|---|
+| Product name vs AI-06 L1 copy rules (AI_STRATEGY §5.3) | The exact, case-sensitive string "CliniQ AI" is the brand name, not an AI feature claim: masked before L1-R5 (AI in UI copy) and L1-R6 (AI next to a price). Every other "AI" stays checked; AI features keep the AI-02 labels; pricing copy names the plan. Brand theme from Claude Design applied to the V2-DX branch (`d2e399f`) and supersedes the round-3 teal default for G2-D. | `scripts/ci/ai-l1-greps.mjs` (`BRAND_NAME`), `tests/ci/ai-l1-greps.spec.ts` (2 new cases, both fail on the old checker), fixtures `lint-fixtures/ai-l1/brand-name-*` |
+
+### PO ruling: delivery speed — review depth by risk, Lows to backlog, overlapping phases (2026-11-14)
+
+PO asked why delivery is slow; options 1, 3 and 4 accepted ("we should go ahead with 1,3 & 4 as we have V2-14 a full
+security audit anyways"). Applies from the 05a re-verification onward; nothing already fixed is reverted.
+
+| Item | Ruling |
+|---|---|
+| 1. Review depth by risk | Adversarial reviews and a fresh re-verification only for security-sensitive change (migrations, RLS, permissions, middleware, auth, billing, platform admin, PHI — CLAUDE.md DoD 6). UI and other non-sensitive work: one independent review; no re-check round when the review finds no High |
+| 3. Lows | A Low is fixed in the current round only if it is cheap and local; otherwise it goes to the backlog with an owner phase, without a second review pass. Highs and Mediums are unchanged (fix + test that fails without it) |
+| 4. Overlapping phases | V2-06 starts now alongside V2-05 (05a fixes, then 05b), in its own worktree, branched from the 05a tip and later merging the 05b tip (merge commits only). Plans that need 05b code (06-06; the locked-user leg of 06-05 spec 1) wait for 05b |
+| V2-14 | Remains the full security verification (adversarial review + scanners) and is the backstop for deferred Lows. It does not replace per-change review of security-sensitive code |
+
+### G2-D addendum: approved state is the CliniQ AI brand theme at `3a78a5d` (2026-11-14)
+
+The G2-D row above names `e95b8b5` (direction A, teal). The PO since supplied the CliniQ AI brand (Claude Design patch,
+applied as `d2e399f`) and decided the With-doctor border `#11998D` (`3a78a5d`, PR #7 head). **Approved state for V2-06
+Wave B: `v2/phase-dx-design-exploration` at `3a78a5d`**; per-file SHA-256 list (tool output) in the 06-PLAN revision
+note of 2026-11-14. Typography: Manrope display + Inter body. CTO rulings on the plan's open items (PO delegated):
+
+| Item | Ruling |
+|---|---|
+| PWA theme colour | `#FFFFFF` (white-first canvas, as approved in V2-DX); one token to change |
+| Favicon below 32 px | Brand-kit rule: the small mark below 32 px; the white-tile icon for app icons |
+| "ClinicOS"/"ClinicQ" strings outside V2-06 | Renamed by their owner phases: WhatsApp templates in V2-12 (templates are re-registered there anyway); `X-ClinicQ-Signature` decided with API v1 hardening (P1-37) — no external consumer exists yet (PO-16); other UI copy by the phase that owns the screen |
+| Inter licence file | Vendor rsms/inter's own `OFL.txt` (correct copyright line) |
+| Doc errata (DESIGN_SYSTEM, PWA_STRATEGY, PO-19) | Proposed at phase close, as planned |
+
+### V2-05b CTO rulings applied to approved docs (2026-11-15)
+
+Made by the agent as CTO under the PO's delegation of the V2-05 rulings (05-P1, delegated 2026-11-13: "for the rest, I
+trust your judgement"). Applied at the V2-05b gate close with a dated erratum note in each document; the PO may
+overturn any of them at the 05b gate (05-P6). Source: `.planning/phases/05-db-authorisation-entitlements/`
+(`05-PLAN.md` § Rulings, `05b-REVIEW-TRIAGE.md`, `05b-SUMMARY.md`).
+
+| Ruling | Document changed | What changed and why | Evidence |
+|---|---|---|---|
+| R-44 | `docs/adr/0005-confine-service-role-client.md` (new "Amendment A4") | `features/auth/invite-flows.ts` may import `features/auth/system.ts` to call one function, `redeemInvitationWithPassword`, only after the token-hash, server-side Turnstile and FT-05 checks. AUTH §3.2's invite flow needs the Auth admin API from a public, token-gated action, which Decision 2's importer list did not allow (A1/A3 are the precedents). Text = the accepted proposal `05-ADR0005-A4-PROPOSAL.md` | ESLint zone `A4_AUTH_ONLY` with pass/fail fixtures (`tests/security/p1-34-lint-gates.spec.ts`), `accept-invite.spec.ts`, `invitation_accept_context.test.sql`; reviewed in `reviews/v205b-review-adversarial-access.md` (no finding on the A4 path) |
+| R-38 (SUB part) | `docs/v2/SUBSCRIPTIONS_AND_PLANS.md` §8.1 (erratum under the actor block) | The `platform.*` actor rule reads the session role (`coalesce(nullif(current_setting('role', true), 'none'), session_user)`), not `current_user`: inside a SECURITY DEFINER function `current_user` is the owner, so the verbatim block let any signed-in user act as any platform admin | `platform_rpcs.test.sql` (the actor-rule loop over every RPC; the verbatim block fails cases 14–17, `05-09b-PLATFORM-RPCS.md` mutant 1); `private.platform_actor` in 000085 |
+| Objection clear (2026-11-15) | none (AI_STRATEGY §4.6 is read with this ruling) | An owner who holds the doctor permissions (today every owner: the owner role holds every doctor permission) may also clear a patient's AI objection, audited; admins and nurses may not. Typical single-doctor clinics have no separate doctor login | Migration 000094 (`private.patients_ai_objection_audit`); `gate_close_05b.test.sql` 9–12, `review_fixes_05b.test.sql` 40 |
+
+R-38's other proposed errata (roadmap V2-05/DB-08, SVP §6.1, AUTH §3.2/§9, BACKEND C6/§3, SUB §7.1/§7.2) are not
+applied here; they stay listed in `05-PLAN.md` § Rulings for the V2-05 phase close.
+
+### PO ruling: lean delivery process from V2-07 (2026-11-15)
+
+PO: "adopt a lean process" (after V2-05/V2-06 used ~75 % of a week's usage quota in ~48 h). Supersedes the review/test
+depth parts of the 2026-11-14 speed ruling from V2-07 onward.
+
+| Item | Ruling |
+|---|---|
+| Reviews | One review round + one fix round per phase; re-check only Highs; Mediums found in a re-check go to the backlog with an owner, except real cross-tenant/PHI leaks; V2-14 is the sweep |
+| Tests in agents | Affected tests only + one full browser lane at the end of a plan; CI runs everything; one evidence run + CI; one "fails without" proof per High; no mutant runs |
+| Models | Sonnet for build work, Haiku for docs/evidence/merges, Opus for security review and hard debugging |
+| Parallelism | One phase at a time (or separate local stacks per track) |
+| Building | Vertical slices: each screen with the components it uses |
+| Unchanged | Flaky tests are root-caused, never retried to green; CI-only evidence; PO approves every gate |
+
+### PO decision: API v1 for a third-party AI voice bot (2026-11-15) — updates PO-16
+
+PO: "I was thinking of using third party for now for stable launch and once we get traction we build our own."
+
+| Item | Decision |
+|---|---|
+| PO-16 | Updated: an external API consumer exists (a third-party AI voice bot for appointments). P1-37 becomes **P1** in V2-12, no longer P2 |
+| V2-12 scope added | An appointments-scoped API: free slots, book, reschedule, cancel, patient lookup by mobile; per-key least-privilege scopes (a voice-bot key holds appointment scopes only, never clinical); clinical resources (prescriptions, referrals, lab orders, clinical notes) refused for such keys; rate limits; idempotency keys; fixed error texts; per-key audit; OpenAPI contract; change webhook; full-access clinics only (05b) |
+| Own voice bot | Stays v2.1 (AI Voice Receptionist), after traction |
+| Vendor | Third-party vendor is a sub-processor (patient names and phone numbers): DPA and India data residency check before go-live (PO action, alongside MSG91 / Vertex) |
+
+### PO decisions: post-v2.0 features and the branch model (2026-11-15)
+
+| Item | Decision |
+|---|---|
+| Clinic branches | **Option B: one clinic, many locations.** Patients and clinical history are shared across branches; visits, appointments, queue, staff assignment and invoice numbering are per location. **v2.0:** add the data-model hook only (a `clinic_locations` table, one default location per clinic, `location_id` on visits/appointments/queue/invoices) in V2-07/V2-08, so no live-data migration is needed later. **v2.1:** branch screens, per-branch reports, branch switcher |
+| Inventory & stock (medicines, equipment, consumables) | v2.1. Self-contained module; Schedule H dispensing record rules scoped when planned |
+| Voice Rx / voice consult (speech-to-text → LLM) | v2.1, first AI item. V2-12 designs the AI gateway so audio input can be added without rework; needs India-hosted STT, recording consent, audio retention/deletion and cost limits |
+| v2.0 scope | Unchanged otherwise (risk R12 scope creep) |
+
+### PO decision: branch pricing and the two-mode Razorpay billing strategy (2026-11-15)
+
+Context: Razorpay Subscriptions authorised by UPI AutoPay or e-mandate cannot be updated (quantity included); only card
+subscriptions can. A clinic that starts with one branch and grows needs a different path.
+
+| Item | Decision |
+|---|---|
+| Price | First branch ₹1,499 + GST; each extra branch **₹749 + GST** per month (configurable in `plan_prices`, no release needed) |
+| Billing unit | One owner, one debit, one GST invoice per cycle listing every branch |
+| Two billing modes | **Single-branch clinics: Razorpay Subscriptions** (fixed ₹1,768.82 mandate, nothing to explain). **Multi-branch clinics: Razorpay Recurring Payments** (one variable "as presented" mandate up to a stated maximum; CliniQ computes each cycle's amount) |
+| Onboarding | Owner is asked up front: "Do you have, or plan to open, other branches?" with a short note on why and how billing works for each answer; the answer picks the mode |
+| Adding a branch later (single → multi) | From the billing screen (owner/admin). The branch works immediately. The owner approves a recurring mandate; only after it is active is the subscription set to cancel at the end of its paid period (no gap, no double charge). The first recurring debit, on the old renewal date, includes the base, extra branches and the pro-rated amount |
+| Mid-cycle branch add (recurring mode) | Pro-rated for the remaining days and added to the **next** bill; no extra debit, no new mandate |
+| Recurring mandate maximum | CTO default (PO may change): enough for the declared/planned branches plus one, minimum ₹5,000, maximum ₹15,000 (or the limit Razorpay allows for our category), shown clearly before approval; exceeding it asks the owner for one re-approval |
+| Closing a branch | Stops counting from the next bill; no refund for the current period. Switching back to the fixed subscription is v2.1 |
+| Trial | Branches added during the trial are free until it ends |
+| To confirm with Razorpay (PO, during KYC) | Variable "as presented" debits on UPI AutoPay and e-mandate; the mandate maximum for our category; pre-debit notices; switching flow without double debits |
+| Owner phase | V2-13B (scope grows; estimate +20–30 %); branch data hook in V2-07/V2-08; branch screens v2.1 |

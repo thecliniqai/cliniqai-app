@@ -1,0 +1,24 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/contract_05a.test.sql .. 
+1..18
+ok 1 - visits.vitals is dropped (05-b0)
+ok 2 - visits.chief_complaints is dropped (05-b0)
+ok 3 - visits.clinical_notes is dropped (05-b0)
+ok 4 - visits.specialty_data is dropped (05-b0)
+ok 5 - visits.investigations_advised is dropped (05-b0)
+ok 6 - visits.advice is dropped (05-b0)
+ok 7 - the 000053 "moved" CHECK is dropped with the columns it guarded
+ok 8 - the six content columns live on clinical_notes
+ok 9 - generate_daily_queue_token(uuid, date) is dropped (P1-40; replaced by issue_queue_token)
+ok 10 - the legacy helper current_user_has_role(uuid, text[]) is dropped
+ok 11 - the legacy helper current_user_is_admin_or_owner(uuid) is dropped
+ok 12 - no overload of a dropped function is left in any schema
+ok 13 - the replacement issue_queue_token(uuid, text) stays
+ok 14 - the member helper current_user_tenant_ids() stays (R-42)
+ok 15 - in_app_notifications_link_url_relative is VALID (VALIDATE after D11n, 05a triage)
+ok 16 - a protocol-relative link is still refused
+ok 17 - an in-app path is still accepted
+ok 18 - D11n is 0 after the VALIDATE (no stored link the check refuses)
+ok
+All tests successful.
+Files=1, Tests=18,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: PASS

@@ -1,0 +1,145 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old
+
+{"ts":"2026-11-14T05:13:18.926Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:18.973Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:19.014Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:19.034Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:19.057Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:19.080Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:13:19.081Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"915e8102-23b8-4311-92cc-3dd1f7a56c2d","code":"XX000"}
+ ❯ tests/dpdp/export-routes-audit.spec.ts (12 tests | 10 failed) 724ms
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a PDF export writes exactly one audit row (before: two) 136ms
+     → expected [ { format: 'pdf', …(1) }, …(1) ] to deeply equal [ { format: 'pdf', …(1) } ]
+   ✓ DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a JSON export writes exactly one audit row 52ms
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed prescriptions query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 35ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed consent_records query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 33ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed visits query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 32ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed tenants query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 37ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a PDF export writes exactly one audit row (before: two) 48ms
+     → expected [ { format: 'pdf', …(1) }, …(1) ] to deeply equal [ { format: 'pdf', …(1) } ]
+   ✓ DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a JSON export writes exactly one audit row 43ms
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed prescriptions query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 21ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed consent_records query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 23ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed visits query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 22ms
+     → json: expected 200 to be 500 // Object.is equality
+   × DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed tenants query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed') 25ms
+     → json: expected 200 to be 500 // Object.is equality
+ ❯ tests/dpdp/export-fail-closed.spec.ts (9 tests | 8 failed) 5ms
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed tenants query → ExportIncompleteError (clinic), no bundle, no audit row 3ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed visits query → ExportIncompleteError (encounters), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed prescriptions query → ExportIncompleteError (prescriptions), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed patient_documents query → ExportIncompleteError (documents), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed invoices query → ExportIncompleteError (invoices), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed payments query → ExportIncompleteError (payments), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed consent_records query → ExportIncompleteError (consent_records), no bundle, no audit row 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   × DPDP export fails closed on any section error (05-11c, INT L-1) > a failed patient read is ExportIncompleteError, not 'not found'; a missing patient is still 'not found' 0ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   ✓ DPDP export fails closed on any section error (05-11c, INT L-1) > control: with every query answering, the bundle is complete and audited exactly once as completed 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed tenants query → ExportIncompleteError (clinic), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed visits query → ExportIncompleteError (encounters), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed prescriptions query → ExportIncompleteError (prescriptions), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed patient_documents query → ExportIncompleteError (documents), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed invoices query → ExportIncompleteError (invoices), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed payments query → ExportIncompleteError (payments), no bundle, no audit row
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed consent_records query → ExportIncompleteError (consent_records), no bundle, no audit row
+AssertionError: The instanceof assertion needs a constructor but undefined was given.
+ ❯ tests/dpdp/export-fail-closed.spec.ts:58:17
+     56|   ])("a failed %s query → ExportIncompleteError (%s), no bundle, no au…
+     57|     const err = await exportPatientDpdpArchive(mockCtx(client(table)),…
+     58|     expect(err).toBeInstanceOf(ExportIncompleteError);
+       |                 ^
+     59|     expect((err as ExportIncompleteError).section).toBe(section);
+     60|     expect((err as Error).message).not.toContain("SENTINEL");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯
+
+ FAIL  tests/dpdp/export-fail-closed.spec.ts > DPDP export fails closed on any section error (05-11c, INT L-1) > a failed patient read is ExportIncompleteError, not 'not found'; a missing patient is still 'not found'
+AssertionError: The instanceof assertion needs a constructor but undefined was given.
+ ❯ tests/dpdp/export-fail-closed.spec.ts:66:20
+     64|   it("a failed patient read is ExportIncompleteError, not 'not found';…
+     65|     const failed = await exportPatientDpdpArchive(mockCtx(client(null,…
+     66|     expect(failed).toBeInstanceOf(ExportIncompleteError);
+       |                    ^
+     67|     const missing = await exportPatientDpdpArchive(
+     68|       mockCtx(client(null, { code: "PGRST116", message: "JSON object r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯
+
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a PDF export writes exactly one audit row (before: two)
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a PDF export writes exactly one audit row (before: two)
+AssertionError: expected [ { format: 'pdf', …(1) }, …(1) ] to deeply equal [ { format: 'pdf', …(1) } ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    {[22m
+[2m      "format": "pdf",[22m
+[2m      "status": "completed",[22m
+[2m    },[22m
+[31m+   {[39m
+[31m+     "format": "pdf",[39m
+[31m+     "status": "completed",[39m
+[31m+   },[39m
+[2m  ][22m
+
+ ❯ tests/dpdp/export-routes-audit.spec.ts:145:45
+    143|       expect(res.status).toBe(200);
+    144|       expect(Buffer.from(await res.arrayBuffer()).subarray(0, 4).toStr…
+    145|       expect(await exportAudits(patientId)).toEqual([{ format: "pdf", …
+       |                                             ^
+    146|     }, 60_000);
+    147| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯
+
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed prescriptions query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed consent_records query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed visits query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > in-app route > a failed tenants query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed prescriptions query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed consent_records query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed visits query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+ FAIL  tests/dpdp/export-routes-audit.spec.ts > DPDP export routes: one audit row per export, none for a failed one (05-11c, INT L-1) > v1 route (scoped API key) > a failed tenants query → 500 with a fixed text, no archive, no audit row (before: 200, partial, 'completed')
+AssertionError: json: expected 200 to be 500 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 500[39m
+[31m+ 200[39m
+
+ ❯ tests/dpdp/export-routes-audit.spec.ts:163:38
+    161|         for (const format of ["json", "pdf"]) {
+    162|           const res = await exportAs(patientId, format);
+    163|           expect(res.status, format).toBe(500);
+       |                                      ^
+    164|           const text = await res.text();
+    165|           // The in-app route's fixed text, or the v1 envelope's (it r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  18 failed | 3 passed (21)
+   Start at  10:43:17
+   Duration  1.46s (transform 156ms, setup 16ms, collect 275ms, tests 729ms, environment 0ms, prepare 48ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain

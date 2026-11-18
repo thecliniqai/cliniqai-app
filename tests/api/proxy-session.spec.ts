@@ -118,7 +118,8 @@ describe("03-06 proxy session refresh (@supabase/ssr 0.12, getClaims)", () => {
     const res = await proxy(requestWith(session));
     expect(res.status).toBe(200);
     expect(authCookieFromSetCookie(res)).toBeNull();
-    expect(res.headers.get("cache-control")).toBeNull();
+    // V2-06 06-05 (PWA D-4): a signed-in page response is always private/no-store (tests/pwa/proxy-no-store-db.spec.ts).
+    expect(res.headers.get("cache-control")).toBe("private, no-cache, no-store, must-revalidate, max-age=0");
   });
 
   it("refreshes an expired session and returns the response setAll built (cookie + no-store headers)", async () => {

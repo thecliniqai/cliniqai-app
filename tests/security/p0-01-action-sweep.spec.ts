@@ -70,7 +70,7 @@ const GENERIC_FAILURE_MESSAGE = new Set(["generateSoapAction", "getPatientCatchU
 
 /** Every table the actions can write (supabase/migrations). Row counts must be identical before and after. */
 const TABLES = [
-  "tenants", "memberships", "invitations", "subscriptions", "payment_records", "patients", "visits", "visit_revisions",
+  "tenants", "memberships", "invitations", "tenant_subscriptions", "subscription_events", "patients", "visits", "visit_revisions",
   "consultations", "consultation_diagnoses", "follow_ups", "prescriptions", "prescription_items",
   "doctor_prescription_templates", "doctor_custom_medicines", "doctor_custom_diagnoses", "queue_tokens",
   "schedule_blocks", "waitlist_entries", "invoices", "invoice_items", "payments", "consent_records", "audit_logs",

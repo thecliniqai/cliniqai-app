@@ -1,0 +1,3 @@
+npm run e2e:design -- --retries=0 (projects design-360, design-820, design-1180, design-1280) at 1138294 on the build of 8049442 (5ed20e6 changes only DataList text size and a gallery wrapper, outside the design-lane specs), lane lock, 2026-11-14
+  16 skipped
+  105 passed (1.5m)

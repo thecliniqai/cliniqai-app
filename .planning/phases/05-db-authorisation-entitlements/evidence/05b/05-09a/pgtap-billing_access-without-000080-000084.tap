@@ -1,0 +1,12 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_access.test.sql .. 
+1..45
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 45/45 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_access.test.sql (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 45 tests but ran 0.
+Files=1, Tests=0,  1 wallclock secs ( 0.00 usr +  0.01 sys =  0.01 CPU)
+Result: FAIL

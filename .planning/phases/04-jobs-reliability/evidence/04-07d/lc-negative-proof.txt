@@ -1,0 +1,21 @@
+# 04-07d L-C negative proof (tool output captured 2026-11-13T20:40:02Z)
+# Code under test: HEAD af92fe6 app/api/webhooks/messaging/[provider]/route.ts and features/appointments/system.ts (every reschedule-token failure swallowed).
+# Spec: tests/messaging/inbound-retry-db.spec.ts as committed in 04-07d. Expected: the transient token failure case fails (200 processed, no link).
+
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the visit UPDATE fails → 500, still booked, key failed; the retry cancels and acknowledges once  359ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the acknowledgement enqueue fails after the cancel → 500; the retry queues the acknowledgement once (no 'not found' reply, no second audit) 231ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a cancel for a visit that moved on is a business no-op: 200 `ignored`, no retry needed 221ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > confirm: the acknowledgement enqueue fails → 500; the retry acknowledges once and confirms once 180ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > triage: the reply enqueue fails after the front-desk note → 500; the retry writes no second note (review IND L4) 287ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: a failed note insert → 500; the retry writes one note and one link reply 253ms
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: the token RPC fails transiently → 500, no link; the retry sends one link and writes one note 146ms
+     → expected { status: 200, text: '{"ok":true}' } to deeply equal { status: 500, text: '{"ok":false}' }
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: the token RPC's business refusal (the visit closed meanwhile) is handled: 200, one note, no link 239ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > unmatched sender: the reply enqueue fails → 500; the retry queues one reply job 79ms
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a permanent refusal of the reply (the stored recipient is no longer the patient's number) is handled, not retried 260ms
+   ✓ review B L-2: a reply acts only on the queue row's own visit column, never on metadata > a row without appointment_id whose metadata names another visit changes nothing there 192ms
+   ✓ delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > a Delivered report that beats the sender's finish write is applied when the id is written (before: lost)  324ms
+   ✓ delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > the urgent-failure note prints a reason code, never the provider's free text 211ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/messaging/inbound-retry-db.spec.ts > M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: the token RPC fails transiently → 500, no link; the retry sends one link and writes one note
+      Tests  1 failed | 12 passed (13)

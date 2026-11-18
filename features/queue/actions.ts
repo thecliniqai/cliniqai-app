@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { QueuePriority } from "@/lib/db/types";
 import * as queueService from "./service";
-import type { CheckInResult, TransitionStateResult, GetQueueResult } from "./service";
+import type { CheckInResult, TransitionStateResult, GetQueueResult, PaletteQueueMatch } from "./service";
 
-export type { CheckInResult, TransitionStateResult, GetQueueResult } from "./service";
+export type { CheckInResult, TransitionStateResult, GetQueueResult, PaletteQueueMatch } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
@@ -42,4 +42,16 @@ export async function getQueueForDate(dateStr: string, doctorId?: string): Promi
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return queueService.getQueueForDate(resolved.ctx, dateStr, doctorId);
+}
+
+/**
+ * The command palette's "Today queue" group (V2-06 06-04b): `appointments:view`, the tenant from the session, four
+ * fields per match. `{ ok: false }` when the caller is not signed in or not permitted.
+ */
+export async function searchTodayQueueForPalette(
+  query: string
+): Promise<{ ok: true; matches: PaletteQueueMatch[] } | { ok: false }> {
+  const resolved = await resolveServiceContext("appointments:view");
+  if (!resolved.ok) return { ok: false };
+  return { ok: true, matches: await queueService.searchTodayQueueForPalette(resolved.ctx, query) };
 }

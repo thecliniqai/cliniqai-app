@@ -1,0 +1,8 @@
+# Failed test 64: "locked B: share_token_object returns nothing to sign (service role)"
+#         have: {"bucket": "prescriptions", "tenant_id": "c2c00000-0000-4000-8000-00000000000b", "resource_id": "c2c00000-0000-4000-8000-000000002005", "storage_path": "c2c00000-0000-4000-8000-00000000000b/receipts/inv_c2c00000-0000-4000-8000-000000002005.pdf", "resource_type": "invoice", "original_filename": "Receipt_C2C-B-0001.pdf"}
+#         want: null
+# Looks like you failed 1 test of 65
+Failed 1/65 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 65 Failed: 1)
+  Failed test:  64
+Result: FAIL

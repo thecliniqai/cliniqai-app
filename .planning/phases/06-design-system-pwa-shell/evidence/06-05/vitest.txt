@@ -1,0 +1,31 @@
+# Full Vitest lane on the 06-05 tree (stack up; shared stack carries V2-05 migrations up to 000076, ahead of this branch)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/doc-grep-gate.spec.ts > doc-grep test gate > passes on this repository's tests/
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ Test Files  4 failed | 259 passed (263)
+      Tests  5 failed | 5062 passed (5067)
+
+# The same 3 files on the plan base ba69ebd (detached temp worktree, same stack): the same failures
+   × hosted dump drift tool > reports no drift for a schema-only dump of the local database 5997ms
+   × hosted dump drift tool > names a column the dump has and the migrations do not 5943ms
+   × drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind 1892ms
+   × M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment 36ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  3 failed (3)
+      Tests  4 failed | 13 passed (17)
+
+# After moving the kill switch out of docs/: 06-05 specs + doc-grep gate
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 180ms
+ ✓ tests/ci/ui-policy-signout-guard.spec.ts (3 tests) 1067ms
+ ✓ tests/pwa/proxy-no-store-db.spec.ts (8 tests) 189ms
+ ✓ tests/pwa/hard-sign-out.spec.ts (19 tests) 55ms
+ ✓ tests/pwa/sw-allowlist.spec.ts (29 tests) 30ms
+ ✓ tests/auth/public-paths.spec.ts (65 tests) 5ms
+ ✓ tests/pwa/purge.spec.ts (24 tests) 4ms
+ ✓ tests/pwa/icons.spec.ts (7 tests) 3ms
+ ✓ tests/pwa/device-prefs.spec.ts (11 tests) 2ms
+ Test Files  9 passed (9)
+      Tests  173 passed (173)

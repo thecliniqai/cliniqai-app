@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor, mockCtx } from "../helpers/context";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 import * as tenantModule from "@/lib/auth/tenant";
 import * as contextModule from "@/lib/auth/context";
 import * as serverClientModule from "@/lib/supabase/server";
@@ -14,6 +14,7 @@ import { saveConsultationDraft } from "@/features/consultation/service";
 import { getInAppNotifications, markAllNotificationsRead } from "@/features/notifications/service";
 import { updateClinicSettings } from "@/features/settings/service";
 import { GET as receiptPdfRoute } from "@/app/api/invoices/[id]/receipt-pdf/route";
+import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
 
 // V2-01 plan 01-08, checkpoint 2 (app-only review fixes). DB-backed cases use the local stack; the error-text cases
 // stub the client so a database error whose text carries row data can be produced deterministically.
@@ -77,7 +78,7 @@ describe("01-08 review fixes, app-only items", () => {
 
   describe("AR-L5: lab and referral share audits carry no token or phone", () => {
     it.each(["lab", "referral"] as const)("%s share", async (kind) => {
-      vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
       const tenantDigits = patientPhone.slice(-10);
 
       let entityId: string;
@@ -123,20 +124,23 @@ describe("01-08 review fixes, app-only items", () => {
 
   describe("signed consultation overwrite: saveConsultationDraft refuses a completed or signed visit", () => {
     async function visit(fields: Record<string, unknown>): Promise<string> {
-      return insertRow("visits", {
+      const id = await insertRow("visits", {
         tenant_id: owner.tenantId,
         patient_id: patientId,
         doctor_id: doctor.userId,
         origin_type: "walk_in",
         scheduled_at: new Date().toISOString(),
         created_by: owner.userId,
-        clinical_notes: "Signed synthetic note.",
         ...fields,
       });
+      // The note lives in the visit's clinical_notes row (V2-05 05-02a).
+      await seedClinicalNotes(id, { clinical_notes: "Signed synthetic note." });
+      return id;
     }
     async function notesOf(id: string) {
-      const { data } = await admin.from("visits").select("clinical_notes, metadata").eq("id", id).single();
-      return data as { clinical_notes: string | null; metadata: unknown };
+      const { data } = await admin.from("visits").select("metadata").eq("id", id).single();
+      const notes = await clinicalNotesOf(id);
+      return { clinical_notes: notes.clinical_notes, metadata: (data as { metadata: unknown } | null)?.metadata };
     }
 
     it.each([

@@ -1,0 +1,5 @@
+# 04-07c gitleaks v8.30.1 (docker, --redact, .gitleaks.toml) over git history at db54e3b, after the 04-07c commits
+7:32PM INF 662 commits scanned.
+7:32PM INF scanned ~69604828 bytes (69.60 MB) in 21.6s
+7:32PM INF no leaks found
+exit=0

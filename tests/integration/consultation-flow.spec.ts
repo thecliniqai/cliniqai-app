@@ -104,21 +104,29 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
       height: 172,
     };
 
-    const { error: vitalsErr } = await tenantA.client
-      .from("visits")
-      .update({ vitals: triageVitals, updated_at: new Date().toISOString() })
-      .eq("id", visitAId);
+    // Vitals live in the visit's clinical_notes row (V2-05 05-02a); visits no longer accepts them.
+    const { data: written, error: vitalsErr } = await tenantA.client
+      .from("clinical_notes")
+      .update({ vitals: triageVitals })
+      .eq("visit_id", visitAId)
+      .select("visit_id");
 
     expect(vitalsErr).toBeNull();
+    expect(written).toHaveLength(1);
 
     const { data: visitRow } = await tenantA.client
       .from("visits")
-      .select("status, vitals")
+      .select("status")
       .eq("id", visitAId)
+      .single();
+    const { data: notesRow } = await tenantA.client
+      .from("clinical_notes")
+      .select("vitals")
+      .eq("visit_id", visitAId)
       .single();
 
     expect(visitRow?.status).toBe("waiting");
-    expect(visitRow?.vitals).toEqual(triageVitals);
+    expect(notesRow?.vitals).toEqual(triageVitals);
   });
 
   it("4. Doctor calls patient into consultation room: transitions status to 'in_consultation'", async () => {
@@ -178,13 +186,14 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     expect(draftRes.success).toBe(true);
 
+    const { data: visitOnly } = await tenantA.client.from("visits").select("specialty").eq("id", visitAId).single();
     const { data: visitRow } = await tenantA.client
-      .from("visits")
-      .select("specialty, chief_complaints, clinical_notes, specialty_data, advice, investigations_advised")
-      .eq("id", visitAId)
+      .from("clinical_notes")
+      .select("chief_complaints, clinical_notes, specialty_data, advice, investigations_advised")
+      .eq("visit_id", visitAId)
       .single();
 
-    expect(visitRow?.specialty).toBe("dental");
+    expect(visitOnly?.specialty).toBe("dental");
     expect(visitRow?.clinical_notes).toContain("Deep cavitated lesion observed");
     expect(visitRow?.chief_complaints).toHaveLength(1);
     expect(visitRow?.advice).toHaveLength(2);

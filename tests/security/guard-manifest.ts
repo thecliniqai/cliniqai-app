@@ -19,13 +19,22 @@
  *     authenticates from the cookie session itself. Legs: unauthenticated; cross-tenant (as the outsider); and the
  *     `self` leg: the input names no user, tenant or row (password fields only) and a signed-in call with forged ids
  *     touches nothing but `auth` and returns nothing of tenant B.
+ *   - `{ publicToken: reason }` (V2-05 05-07b): callable WITHOUT a session by design; a single-use token in the input
+ *     is the authorisation (invite acceptance by a new invitee). No static guard call. Legs: unauthenticated (a forged
+ *     token is refused with no request-client data access; any fixed message), cross-tenant (as the outsider), and
+ *     the `publicToken` leg (signed out, signed in, every forged token refused, nothing written).
  *
  * Routes (`"file#METHOD"`), by category (see `RouteGuard`). Adding an entry is a security decision: say why in the
  * PR and get the adversarial second review (CLAUDE.md DoD 6).
  */
 import type { Permission } from "@/lib/permissions";
 
-export type ActionGuard = Permission | { member: string } | { authenticated: string } | { self: string };
+export type ActionGuard =
+  | Permission
+  | { member: string }
+  | { authenticated: string }
+  | { self: string }
+  | { publicToken: string };
 
 /** Which of tenant B's seeded rows a session route's `[id]` gets in the cross-tenant leg. */
 export type BResource = "invoice" | "patient" | "visit";
@@ -43,6 +52,14 @@ export type RouteGuard =
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
   /**
+   * V2-04 04-02 (RL-23, R-18, R-49): the job runner. `POST`: JOBS_RUNNER_SECRET unset 401, no header 401, wrong bearer
+   * 401, different-length bearer 401, the raw secret 401, another secret's token 401, a stale token 401, a scheme-less
+   * token 401, a signed-in member's session 401, all before any data access; the control with a valid token 200 with
+   * counts only. Every other method (`post: false`) 405 with `Allow: POST`,
+   * with or without the bearer.
+   */
+  | { kind: "runner-secret"; post: boolean }
+  /**
    * Standard Webhooks signed call (03-11b: the Supabase Auth Send Email hook): secret unset, no signature headers, a
    * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
    */
@@ -55,6 +72,18 @@ export type RouteGuard =
   | { kind: "signout" }
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
+  /**
+   * Public PWA asset (V2-06 06-09a `/sw.js`; 06-09b): no session by design, PHI-free and the same for every caller. An
+   * anonymous GET answers 200 with `contentType`, no request-client data access, no `Set-Cookie`, no ids and nothing of
+   * tenant B; a signed-in member gets the byte-identical body (nothing personalised) with no data access either.
+   */
+  | { kind: "public-asset"; contentType: string }
+  /**
+   * V2-06 06-06 (PWA §3.7, §6.6; R-16, R-21): the PWA's session and access poll. No session 401, no membership 403,
+   * both with no data access beyond the membership lookup; a member 200 whose JSON keys are a subset of `keys`;
+   * `no-store` on every answer; a forged `?tenant=` (tenant B's id) changes nothing and nothing of B comes back.
+   */
+  | { kind: "session-status"; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -71,21 +100,23 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
+  "features/auth/actions.ts#acceptInviteWithPasswordAction":
+    { publicToken: "V2-05 05-07b (AUTH-06): a new invitee sets a password from the /join link; no session exists. The invitation token (64 hex, stored as SHA-256) is the authorisation, after server-side Turnstile, the password policy and FT-05; the account is created only for the invited address." },
   "features/auth/actions.ts#changePasswordAction":
     { self: "Changes the session user's own password (current + new); FT-05 and the A00-5 10-minute bound apply." },
   "features/auth/actions.ts#setNewPasswordAction":
     { self: "Forgot-password final step on the session user's own fresh recovery session (A00-5); FT-05 applies." },
-  "features/billing/actions.ts#addInvoiceItem": "appointments:edit",
+  "features/billing/actions.ts#addInvoiceItem": "billing:collect",
   "features/billing/actions.ts#completeAndBillConsultation": "consultations:edit",
-  "features/billing/actions.ts#createVisitInvoice": "appointments:edit",
-  "features/billing/actions.ts#deleteInvoiceItem": "appointments:edit",
+  "features/billing/actions.ts#createVisitInvoice": "billing:collect",
+  "features/billing/actions.ts#deleteInvoiceItem": "billing:collect",
   "features/billing/actions.ts#getInvoiceReceiptPdfSignedUrl": "appointments:view",
   "features/billing/actions.ts#getVisitBillingDetails": "appointments:view",
-  "features/billing/actions.ts#recordPayment": "appointments:edit",
-  "features/billing/actions.ts#sendConsolidatedConsultationWhatsApp": "consultations:view",
+  "features/billing/actions.ts#recordPayment": "billing:collect",
+  "features/billing/actions.ts#sendConsolidatedConsultationWhatsApp": "prescriptions:view",
   "features/billing/actions.ts#shareReceiptViaWhatsApp": "billing:view",
   "features/billing/reports-actions.ts#getDailyCollectionReport": "billing:view",
-  "features/billing/subscription.ts#getSubscriptionOverview": "billing:view",
+  "features/billing/subscription.ts#getSubscriptionOverview": "clinic:manage",
   "features/clinics/actions.ts#createClinic":
     { authenticated: "Onboarding: a signed-in user without a clinic creates one; create_clinic_with_owner binds the owner membership to auth.uid()." },
   "features/clinics/profile.ts#getClinicProfile": "clinic:view",
@@ -97,12 +128,12 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/consultation/actions.ts#recordFollowUp": "consultations:edit",
   "features/consultation/actions.ts#reopenVisitForAmendment": "consultations:edit",
   "features/consultation/actions.ts#saveConsultationDraft": "consultations:edit",
-  "features/labs/actions.ts#deleteLabDocument": "patients:edit",
-  "features/labs/actions.ts#generateDocumentShareToken": "patients:view",
-  "features/labs/actions.ts#getDocumentSignedUrl": "patients:view",
-  "features/labs/actions.ts#getPatientDocuments": "patients:view",
-  "features/labs/actions.ts#shareLabReportViaWhatsApp": "patients:view",
-  "features/labs/actions.ts#uploadLabDocument": "patients:edit",
+  "features/labs/actions.ts#deleteLabDocument": "labs:edit",
+  "features/labs/actions.ts#generateDocumentShareToken": "labs:view",
+  "features/labs/actions.ts#getDocumentSignedUrl": "labs:view",
+  "features/labs/actions.ts#getPatientDocuments": "labs:view",
+  "features/labs/actions.ts#shareLabReportViaWhatsApp": "labs:view",
+  "features/labs/actions.ts#uploadLabDocument": "labs:edit",
   "features/notifications/actions.ts#getInAppNotifications":
     { member: "Every member reads their own in-app notifications (recipient-scoped)." },
   "features/notifications/actions.ts#getUnreadNotificationCount":
@@ -111,11 +142,15 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks their own notifications read." },
   "features/notifications/actions.ts#markNotificationRead":
     { member: "Every member marks one of their own notifications read." },
+  "features/observability/actions.ts#reportClientRenderError":
+    { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
   "features/patients/actions.ts#createPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",
   "features/patients/actions.ts#getPatientVisitHistory": "patients:view",
   "features/patients/actions.ts#searchPatients": "patients:view",
+  // V2-06 06-04b (T-06-17): the command palette's patient search; four fields per patient, nothing stored.
+  "features/patients/actions.ts#searchPatientsForPalette": "patients:view",
   "features/patients/actions.ts#updatePatient": "patients:edit",
   "features/patients/consent.ts#getCurrentConsent": "patients:view",
   "features/patients/consent.ts#grantConsent": "patients:edit",
@@ -125,23 +160,25 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#addPrescriptionItem": "consultations:edit",
   "features/prescriptions/actions.ts#getDoctorProtocolTemplates": "consultations:view",
   "features/prescriptions/actions.ts#getOrCreateDraftPrescription": "consultations:edit",
-  "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "consultations:view",
+  "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "prescriptions:view",
   "features/prescriptions/actions.ts#getVisitPrescription": "consultations:view",
   "features/prescriptions/actions.ts#removePrescriptionItem": "consultations:edit",
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": "consultations:edit",
   "features/prescriptions/actions.ts#searchMedicines": "consultations:view",
-  "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "consultations:view",
+  "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#getQueueForDate": "appointments:view",
+  // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
+  "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
   "features/queue/actions.ts#transitionQueueState": "appointments:edit",
-  "features/referrals/actions.ts#acknowledgeReferral": "patients:edit",
-  "features/referrals/actions.ts#closeReferralLoop": "patients:edit",
-  "features/referrals/actions.ts#createReferral": "patients:edit",
+  "features/referrals/actions.ts#acknowledgeReferral": "consultations:edit",
+  "features/referrals/actions.ts#closeReferralLoop": "consultations:edit",
+  "features/referrals/actions.ts#createReferral": "consultations:edit",
   "features/referrals/actions.ts#getInboundReferrals": "patients:view",
   "features/referrals/actions.ts#getOutboundReferrals": "patients:view",
   "features/referrals/actions.ts#getPatientReferrals": "patients:view",
-  "features/referrals/actions.ts#getReferralSignedUrl": "patients:view",
-  "features/referrals/actions.ts#shareReferralLetterViaWhatsApp": "patients:view",
+  "features/referrals/actions.ts#getReferralSignedUrl": "consultations:view",
+  "features/referrals/actions.ts#shareReferralLetterViaWhatsApp": "consultations:view",
   "features/settings/actions.ts#deleteDoctorScheduleBlock": "appointments:edit",
   "features/settings/actions.ts#getDoctorScheduleBlocks":
     { member: "Schedule blocks are read by every role that books or runs the day (F4)." },
@@ -166,6 +203,12 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "The clinic's staff list (no contact data beyond what staff:view shows)." },
   "features/staff/actions.ts#inviteStaff": "staff:invite",
   "features/staff/actions.ts#inviteStaffMemberAction": "staff:invite",
+  // V2-05 05-05 (AUTH-05): remove_member re-derives the clinic from the target row and binds it to the active clinic.
+  "features/staff/actions.ts#removeStaff": "staff:invite",
+  // V2-05 05-07b (AUTH-06): resend_invitation / revoke_invitation re-derive the clinic from the invitation row and bind
+  // it to the active clinic; owner/admin invitations need an owner.
+  "features/staff/actions.ts#resendInvite": "staff:invite",
+  "features/staff/actions.ts#revokeInvite": "staff:invite",
   "features/terminology/actions.ts#addConsultationDiagnosis": "consultations:edit",
   "features/terminology/actions.ts#getVisitDiagnoses": "consultations:view",
   "features/terminology/actions.ts#removeConsultationDiagnosis": "consultations:edit",
@@ -202,12 +245,18 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
  * The spec fails on an entry for an action that is not in ACTION_GUARDS or has no reference to forge.
  */
 export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
+  "features/auth/actions.ts#acceptInviteWithPasswordAction":
+    "V2-05 05-07b: public, token-gated; a successful control needs a freshly minted invitation token, a Turnstile pass and a new account, and would create a membership in the shared world. The success paths are covered by tests/integration/auth/accept-invite.spec.ts; the forged variants still run.",
+  "features/staff/actions.ts#resendInvite":
+    "V2-05 05-07b: the guard world holds no invitation, and a resend would enqueue an email.invite job in the shared world; the success path (new version, old link dead, exactly one more email) is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
+  "features/staff/actions.ts#revokeInvite":
+    "V2-05 05-07b: the guard world holds no invitation; the success path is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
   "features/ai/actions.ts#getPatientCatchUpSummaryAction":
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
-  "features/webhooks/actions.ts#testPingWebhook":
-    "Delivers the ping over outbound HTTP at once (dispatchWebhookQueueItem); the test lane's network guard refuses every non-loopback host, so no input can succeed.",
+  "features/staff/actions.ts#removeStaff":
+    "V2-05 05-05: the world's tenant-A membership is the caller's own, which remove_member refuses (SELF_REMOVAL), and removing any other member of the shared world would change the later legs; the successful path is covered by supabase/tests/database/remove_member.test.sql and tests/integration/auth/remove-member.spec.ts. The forged-id variants still run (B's membership: not found).",
 };
 
 const SESSION_RECEIPT: RouteGuard = { kind: "session", permission: "appointments:view", resource: "invoice" };
@@ -215,6 +264,7 @@ const CRON: RouteGuard = { kind: "cron-secret" };
 const V1_KEY: RouteGuard = { kind: "api-v1", key: true };
 const V1_PUBLIC_DOCS: RouteGuard = { kind: "api-v1", key: false };
 const WEBHOOK_OTHER_METHOD: RouteGuard = { kind: "webhook-secret", acceptsPost: false };
+const RUNNER_OTHER_METHOD: RouteGuard = { kind: "runner-secret", post: false };
 
 export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
@@ -222,24 +272,32 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
   // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
   "app/auth/signout/route.ts#POST": { kind: "signout" },
-  "app/api/cron/dispatch-communications/route.ts#GET": CRON,
-  "app/api/cron/dispatch-communications/route.ts#POST": CRON,
-  "app/api/cron/webhooks/route.ts#GET": CRON,
-  "app/api/cron/webhooks/route.ts#POST": CRON,
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
   "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  // V2-06 06-09a (M-OFFLINE): the stamped service worker script, public (`PUBLIC_PAGE_PREFIXES`) and PHI-free; the
+  // browser fetches it with no session on the login page and on every update check.
+  "app/sw.js/route.ts#GET": { kind: "public-asset", contentType: "application/javascript" },
+  // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
+  "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
+  // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
+  "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
+  "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PUT": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PATCH": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#DELETE": RUNNER_OTHER_METHOD,
   "app/api/ready/route.ts#GET": {
     kind: "public-health",
-    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.
-    keys: ["status", "checks", "outbox", "providers", "correlationId", "timestamp"],
+    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller. 04-04 (R-41): `jobs` holds four
+    // booleans (backlog, dead24h, runnerStale, alertsCriticalOpen).
+    keys: ["status", "checks", "outbox", "jobs", "providers", "correlationId", "timestamp"],
     access: ["rpc:readiness_probe"],
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,
   "app/api/patients/[id]/export/route.ts#GET": { kind: "session", permission: "exports:create", resource: "patient" },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {
     kind: "session",
-    permission: "consultations:view",
+    permission: "prescriptions:view",
     resource: "visit",
   },
   "app/api/r/[token]/route.ts#GET": { kind: "public-token", token: "path", wrongType: "appointment" },

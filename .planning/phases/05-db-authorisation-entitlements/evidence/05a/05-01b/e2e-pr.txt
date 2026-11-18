@@ -1,0 +1,11 @@
+# npm run e2e:pr equivalent (desktop-chrome, pixel-7, iphone-15) at f3c6b80 + the F-01 spec edit; retry lines: 0
+[15/205] [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget failed: 0 serious/critical
+[16/205] [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget failed: 0 serious/critical
+[79/205] [desktop-chrome] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden
+[80/205] [desktop-chrome] › tests/e2e/m0/register-patient.spec.ts:62:9 › M0 flow: register patient › receptionist › receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed)
+[158/205] [pixel-7] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden
+[159/205] [pixel-7] › tests/e2e/m0/register-patient.spec.ts:62:9 › M0 flow: register patient › receptionist › receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed)
+[199/205] [iphone-15] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden
+  9 skipped
+  196 passed (2.0m)
+exit 0

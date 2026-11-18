@@ -1,0 +1,141 @@
+06-09d fails-without proof, Vitest: the 06-09d specs (new and changed, with tests/helpers/blip-client.ts) copied into a detached worktree at 78e2fa2 (the code before 06-09d) and run there against the shared local stack, 2026-11-15T08:05:29Z.
+Command: npx vitest run tests/auth/session-auth-reverify-db.spec.ts tests/auth/auth-failure.spec.ts tests/pwa/session-status.spec.ts tests/auth/auth-outage-db.spec.ts --testTimeout=180000 (long timeout so the 78e2fa2 refresh retries, ~25 s per call, finish and print their RV line)
+
+Probe lines (RV, the re-verifier's format):
+RV route token=network -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (50858 ms for two polls)
+RV route token=abort -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (50842 ms for two polls)
+RV route token=503 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (50847 ms for two polls)
+RV route token=500 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (50839 ms for two polls)
+RV route token=520 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (50853 ms for two polls)
+RV route token=429 -> first 503 cookieKept=false; next poll 401 {"error":"unauthenticated"} (5 ms for two polls)
+RV route token=408 -> first 503 cookieKept=false; next poll 401 {"error":"unauthenticated"} (2 ms for two polls)
+RV route token=400gw -> first 401 cookieKept=false; next poll 401 {"error":"unauthenticated"} (1 ms for two polls)
+RV route token=404kong -> first 401 cookieKept=false; next poll 401 {"error":"unauthenticated"} (2 ms for two polls)
+RV route token=401kong -> first 401 cookieKept=false; next poll 401 {"error":"unauthenticated"} (2 ms for two polls)
+RV route token=403html -> first 503 cookieKept=false; next poll 401 {"error":"unauthenticated"} (1 ms for two polls)
+RV route token=401noauth -> first 401 cookieKept=false; next poll 401 {"error":"unauthenticated"} (1 ms for two polls)
+RV proxy token=network -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=0 mark=null (25415 ms)
+RV proxy token=abort -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=0 mark=null (25419 ms)
+RV proxy token=503 -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=0 mark=null (25421 ms)
+RV proxy token=500 -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=0 mark=null (25422 ms)
+RV proxy token=520 -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=0 mark=null (25419 ms)
+RV proxy token=429 -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (4 ms)
+RV proxy token=408 -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (2 ms)
+RV proxy token=400gw -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (1 ms)
+RV proxy token=404kong -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (2 ms)
+RV proxy token=401kong -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (1 ms)
+RV proxy token=403html -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (1 ms)
+RV proxy token=401noauth -> 307 http://localhost/login?next=%2Fpatients authCookieDeletions=1 mark=null (2 ms)
+RV action token=429 -> {"reason":"no_membership"} authCookieDeletions=1
+RV definitive token=400rtnf -> route 401 jarCookie=false; proxy 307 http://localhost/login?next=%2Fpatients deletions=1
+RV revoked -> unexpired route 401; expired route 401 jarCookie=false; proxy 307 deletions=1
+RV user=ok -> 200 {"deploymentId":null,"accessLevel":"full","redirect":null} sessionCookieKept=true
+RV user=network -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=abort -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=503 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=500 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=520 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=429 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=408 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=400gw -> 401 {"error":"unauthenticated"} sessionCookieKept=true
+RV user=404kong -> 401 {"error":"unauthenticated"} sessionCookieKept=true
+RV user=401kong -> 401 {"error":"unauthenticated"} sessionCookieKept=true
+RV user=403html -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=401noauth -> 401 {"error":"unauthenticated"} sessionCookieKept=true
+RV R3 A-only 200 pin=none; +B 409 {"error":"clinic_selection_required"}; -A 200 {"deploymentId":null,"accessLevel":"full","redirect":null}; action tenant=B
+RV R1/R2 removed -> 403
+RV R1/R2 suspended -> 403
+
+Per test:
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > tracer: an expired session with Auth answering is refreshed (route 200, proxy refreshes the cookie) 136ms
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers network: the route answers 503 twice and keeps the cookies  50859ms
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers abort: the route answers 503 twice and keeps the cookies  50842ms
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 503: the route answers 503 twice and keeps the cookies  50847ms
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 500: the route answers 503 twice and keeps the cookies  50842ms
+   ✓ H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 520: the route answers 503 twice and keeps the cookies  50854ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 429: the route answers 503 twice and keeps the cookies 16ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 408: the route answers 503 twice and keeps the cookies 3ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 400gw: the route answers 503 twice and keeps the cookies 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 404kong: the route answers 503 twice and keeps the cookies 3ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401kong: the route answers 503 twice and keeps the cookies 3ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 403html: the route answers 503 twice and keeps the cookies 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401noauth: the route answers 503 twice and keeps the cookies 1ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers network: the proxy keeps the cookies, never redirects to /login, marks the request 25416ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers abort: the proxy keeps the cookies, never redirects to /login, marks the request 25421ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 503: the proxy keeps the cookies, never redirects to /login, marks the request 25421ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 500: the proxy keeps the cookies, never redirects to /login, marks the request 25423ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 520: the proxy keeps the cookies, never redirects to /login, marks the request 25420ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 429: the proxy keeps the cookies, never redirects to /login, marks the request 4ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 408: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 400gw: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 404kong: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401kong: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 403html: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > refresh answers 401noauth: the proxy keeps the cookies, never redirects to /login, marks the request 2ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > server actions: a 429 on the refresh is 'unavailable' (never 'unauthenticated') and keeps the cookies 4ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > L-R3: a refresh that never answers, or keeps failing, ends inside the budget; proxy + route < the client's 10 s 120013ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > L-R2: under the proxy's mark nothing refreshes again; the layout and Today throw AuthUnavailableError (no /login) 180009ms
+   × H-AUTHOUT-R1: expired access token, the refresh fails without a definitive answer > the proxy removes an inbound mark (only the proxy sets it) 32ms
+   ✓ H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > synthetic GoTrue refresh_token_not_found: route 401 and the cookie deleted; proxy /login and the cookie deleted 263ms
+   ✓ H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > a session revoked for real (admin global sign-out): expired → route 401 + deleted, proxy /login + deleted; unexpired → route 401 244ms
+   ✓ H-AUTHOUT-R1 controls: a definitive answer still signs out (no fail-open) > a malformed refresh token (real GoTrue validation_failed) signs out 206ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > tracer: /user ok → 200 29ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers network → 503, cookies kept 2ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers abort → 503, cookies kept 1ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 503 → 503, cookies kept 1ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 500 → 503, cookies kept 1ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 520 → 503, cookies kept 2ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 429 → 503, cookies kept 1ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 408 → 503, cookies kept 1ms
+   × L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 400gw → 503, cookies kept 1ms
+   × L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 404kong → 503, cookies kept 1ms
+   × L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 401kong → 503, cookies kept 1ms
+   ✓ L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 403html → 503, cookies kept 1ms
+   × L-R1: /user answers are classified by GoTrue's code (unexpired token) > /user answers 401noauth → 503, cookies kept 1ms
+   × L-R1: /user answers are classified by GoTrue's code (unexpired token) > under the proxy's mark the route does not call /user at all 22ms
+   × M-REMOVED-R1: the device is pinned to the clinic it resolved > R3 cookie-less: A only (poll pins A) → added to B → removed from A → 403, never B's 200 513ms
+   ✓ M-REMOVED-R1: the device is pinned to the clinic it resolved > the pin is written only when none is set; a dual member without one is not pinned (409)  459ms
+   × M-REMOVED-R1: the device is pinned to the clinic it resolved > the shell's clinic header is resolved like the cookie: its own clinic is pinned, another clinic answers 403, a set cookie wins 438ms
+   × M-REMOVED-R1: the device is pinned to the clinic it resolved > the layout hands the shell its clinic while none is pinned, and nothing once pinned 476ms
+   ✓ M-REMOVED-R1: the device is pinned to the clinic it resolved > R1/R2 (06-09c) still hold: cookie = A, removed from (or suspended in) A with B left → 403  926ms
+   × L-R4: removed from the last clinic > with the clinic pinned: the layout renders MembershipEnded (sign-out, purge), the route 403 441ms
+   ✓ L-R4: removed from the last clinic > a new account without a clinic (no pinned clinic) still goes to /clinic/new 206ms
+ ✓ tests/auth/auth-outage-db.spec.ts (16 tests) 557ms
+   ✓ parseSessionStatus > accepts exactly the three keys with valid values 1ms
+   ✓ parseSessionStatus > refuses any other destination, extra or missing keys, odd levels and inconsistent answers 0ms
+   ✓ readSessionStatus > calls the route same-origin, no-store, manual redirects 2ms
+   ✓ readSessionStatus > 401 → expired, 403 → removed, 200 → ok 0ms
+   ✓ readSessionStatus > 409, 5xx, an opaque redirect, a bad body, a network error or a timeout → unknown (never a sign-out) 23ms
+   ✓ reactToStatus > expired / removed / locked / update / none 0ms
+   ✓ reactToStatus > a lock wins over an update (the page is leaving anyway) 0ms
+   ✓ reactToStatus > no update without both ids (a dev page has no data-dpl-id; a server without an id answers null) 0ms
+   ✓ currentPageDeploymentId > reads Next's global first (Next removes data-dpl-id before hydration), the attribute as a fallback 0ms
+   ✓ startSessionStatusWatch > checks on start, on visible, on online and on the interval while visible 6ms
+   ✓ startSessionStatusWatch > one request at a time: triggers during a pending check share it 0ms
+   ✓ startSessionStatusWatch > error-triggered checks run at most once per ERROR_CHECK_MIN_GAP_MS 0ms
+   ✓ startSessionStatusWatch > requestSessionCheck reaches the running watch, and nothing after stop() 3ms
+   ✓ startSessionStatusWatch > a leaving reaction (expired) stops the watch: no further checks 53ms
+   ✓ startSessionStatusWatch > a 503 changes nothing and the next trigger checks again 3ms
+   ✓ startSessionStatusWatch > 503, 429, a network error and a timeout never sign out; the watch retries with a back-off; a later 401 still signs out 61ms
+   ✓ startSessionStatusWatch > a timed-out check (no answer within the limit) is a failure, not a sign-out 2ms
+   ✓ startSessionStatusWatch > a retry on a hidden page is skipped (the visible trigger checks); a success resets the back-off 109ms
+   × startSessionStatusWatch > 06-09d: the retry delay is the back-off step stretched by the random draw (0–50 %) 59ms
+   × startSessionStatusWatch > 06-09d: every check carries the clinic the shell resolved (a clinic id only) 2ms
+   × startSessionStatusWatch > IND L-1: 'Check for updates' resolves 'failed' (not 'none') when the check got no answer 3ms
+   × retryDelayMs (06-09d L-R3) > is the step at random 0, 1.5 × the step at random 1, in between otherwise; an odd draw is the plain step 0ms
+   ✓ onLocked (D-8: the session is kept) > conceals, runs the lock cleanups, then replaces; never signs out 0ms
+   ✓ onLocked (D-8: the session is kept) > replaces even when a cleanup rejects; a second call does nothing 0ms
+   ✓ onLocked (D-8: the session is kept) > onAppErrorCode: SUBSCRIPTION_LOCKED → a status check; UNAUTHENTICATED → expired sign-out; others untouched 0ms
+   ✓ skew guard > an unrecognised Server Action (Next's own error) is skew: the notice is set, a check is asked for 1ms
+   ✓ skew guard > a ChunkLoadError is skew; a plain error is not (no notice) 0ms
+   ✓ skew guard > startSkewGuard listens to unhandledrejection and error, and stops 0ms
+
+File-level:
+ FAIL tests/auth/auth-failure.spec.ts: Cannot find module '@/lib/auth/auth-failure' (the classifier and transport do not exist at 78e2fa2)
+ IND L-1 'failed' case: cascade at 78e2fa2 (the jitter case before it fails mid-test and leaves its watch running, so 'Check for updates' joins that watch); passes on its own at 78e2fa2 and in every 06-09d run.
+
+ Test Files  3 failed | 1 passed (4)
+      Tests  36 failed | 61 passed (97)
+vitest exit 1
+2026-11-15T08:17:01Z
+ (checked: npx vitest run tests/pwa/session-status.spec.ts -t "IND L-1" at 78e2fa2 → 1 passed, 27 skipped)

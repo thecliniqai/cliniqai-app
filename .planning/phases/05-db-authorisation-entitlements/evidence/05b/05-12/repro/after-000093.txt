@@ -1,0 +1,23 @@
+AI H-1 P1.0 preflight with 1,500 used in the IST trial key (expect over_quota) | over_quota
+AI H-1 P1.1 owner sets timezone '-23' through the table grant | error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+AI H-1 P1.2 preflight after the owner set '-23' | error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+AI H-1 P1.2b preflight after the owner set the IANA zone Etc/GMT+12 (UTC-12) | over_quota
+AI H-1 P1.5 admin (not owner) sets '+00' | error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+AI H-1 P1.6 audit rows for one owner zone change | 1
+AI H-1 distinct trial keys reachable (zones -23, Etc/GMT+12, Asia/Kolkata, Pacific/Kiritimati, +23) | trial:2026-11-14
+AI H-1 pools that still answer ok with 1,500 used in the IST key (one per zone; 0 = no extra pool) | 0
+AI M-1 P2.4 units vs limit 1500 after committing a new and an expired reservation | error:P0001:AI_RESERVATION_EXPIRED
+IND L-6 another doctor commits the reservation | error:P0002:AI_RESERVATION_NOT_FOUND
+IND L-6 another doctor releases the reservation | false
+IND L-2 ai.voice_receptionist with an override (enabled, 5 minutes): preflight | ok
+IND L-2 ai.scribe.voice (no limit key): preflight | error:P0001:AI_QUOTA_NOT_CONFIGURED
+AI L-1 P5.1 / IND M-1 job | last_error | queue row | document_url after the lapse and a claim | cancelled | tenant_not_full | cancelled | [redacted]
+AI L-1 P5.2-P5.4 cleanup after 8 days | renewal | backfill | the reminder claimed again | jobs deleted 1 | renewed | backfill created 0 | claimed again 0
+IND M-2 invite admin then receptionist: second answer | stored pending role | email.invite jobs | {"deduped": false, "replaced_role": "admin"} | receptionist | 2
+IND L-3 / ACC L-1 the removed admin's subscription: is_active | secret unchanged | false | false
+IND L-5 the owner of a locked clinic removes a nurse | removed
+IND L-7 referral to a REMOVED doctor of the target clinic | error:P0001:REFERRAL_TARGET_DOCTOR_INVALID
+IND L-4 keys of the expired clinic's prescription answer | access,clinic,resource_type,restricted,status,verification
+IND L-4 the answer contains the patient's name | false
+AI L-3 P3.4 a nurse clears the objection (rows changed) | denied:AI_OBJECTION_CLEAR_FORBIDDEN
+AI L-3 P3.5 audit rows after a doctor sets and a receptionist clears it | 2

@@ -1,0 +1,12 @@
+06-02c probe (tool output, 2026-11-14T20:49:25Z): who scrolls /dev/ui on load (build of 8049442, desktop-chrome 1280x800, lane lock).
+Method: a throwaway spec (not committed) wrapped Element.prototype.scrollIntoView in an init script, loaded /dev/ui, waited for the date section, read window.scrollY and the logged calls.
+
+    "scrollY": 4758,
+    "scrolls": [
+      "div cmdk-group-heading= :: Actions :: {\"block\":\"nearest\"}",
+      "div cmdk-item= role=option aria-selected=true data-disabled=false data-selected=true data-value=Add walk-in :: Add walk-inEnter :: {\"block\":\"nearest\"}"
+    ]
+  }
+  
+
+Reading: the only scrollIntoView calls on load are cmdk's (06-02b's inline Command specimen: its group heading and its first, active item, block 'nearest'); the DayStrip makes none.

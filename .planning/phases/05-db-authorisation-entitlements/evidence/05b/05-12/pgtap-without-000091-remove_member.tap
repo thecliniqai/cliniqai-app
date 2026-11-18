@@ -1,0 +1,21 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/remove_member.test.sql .. 
+# Failed test 28: "remove_member returns the user and the counts (2 keys, 1 invitation, no webhook subscription (05-12), 2 sessions)"
+#         have: {"user_id": "c5050000-0000-4000-8000-000000000302", "keys_revoked": 2, "invites_revoked": 1, "sessions_revoked": 2}
+#         want: {"user_id": "c5050000-0000-4000-8000-000000000302", "keys_revoked": 2, "invites_revoked": 1, "sessions_revoked": 2, "webhooks_disabled": 0}
+# Failed test 40: "one audit row staff.removed: actor = the caller, counts only (no key, invitation or session ids), the trimmed reason"
+#         have: {"role": "admin", "type": "membership", "actor": "c5050000-0000-4000-8000-000000000103", "entity": "c5050000-0000-4000-8000-00000000a302", "tenant": "c5050000-0000-4000-8000-00000000000a", "metadata": {"role": "doctor", "reason": "Synthetic removal reason", "keys_revoked": 2, "target_user_id": "c5050000-0000-4000-8000-000000000302", "invites_revoked": 1, "sessions_revoked": 2}}
+#         want: {"role": "admin", "type": "membership", "actor": "c5050000-0000-4000-8000-000000000103", "entity": "c5050000-0000-4000-8000-00000000a302", "tenant": "c5050000-0000-4000-8000-00000000000a", "metadata": {"role": "doctor", "reason": "Synthetic removal reason", "keys_revoked": 2, "target_user_id": "c5050000-0000-4000-8000-000000000302", "invites_revoked": 1, "sessions_revoked": 2, "webhooks_disabled": 0}}
+# Failed test 43: "with the session delete refused, remove_member still succeeds and reports sessions_revoked = null"
+#         have: {"user_id": "c5050000-0000-4000-8000-000000000109", "keys_revoked": 0, "invites_revoked": 0, "sessions_revoked": null}
+#         want: {"user_id": "c5050000-0000-4000-8000-000000000109", "keys_revoked": 0, "invites_revoked": 0, "sessions_revoked": null, "webhooks_disabled": 0}
+# Looks like you failed 3 tests of 81
+Failed 3/81 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/remove_member.test.sql (Wstat: 0 Tests: 81 Failed: 3)
+  Failed tests:  28, 40, 43
+Files=1, Tests=81,  1 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL
+error running container: exit 1

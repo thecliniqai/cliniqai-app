@@ -1,0 +1,4 @@
+[e2e teardown] removed run data: 11 tenant(s), 65 auth user(s), 8 storage object(s); verified none remain
+
+  142 skipped
+  490 passed (8.5m)

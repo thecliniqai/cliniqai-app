@@ -1,0 +1,4 @@
+gitleaks ghcr.io/gitleaks/gitleaks:v8.30.1, git mode, --log-opts=763673f..787b7f6 (all commits since the 06-09a fix base, partners' included), local clone of the branch, --redact
+4:38PM INF 17 commits scanned.
+4:38PM INF scanned ~546066 bytes (546.07 KB) in 468ms
+4:38PM INF no leaks found

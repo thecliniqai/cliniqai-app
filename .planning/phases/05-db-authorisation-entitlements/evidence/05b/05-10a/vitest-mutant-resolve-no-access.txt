@@ -1,0 +1,10 @@
+   × public links of a clinic that is not full (SUB-D6) > expired: the prescription resolves to metadata only (restricted, no file); the receipt is unavailable 88ms
+     → expected { status: 'ok', document: { …(10) } } to match object { status: 'ok', document: { …(3) } }
+   × public links of a clinic that is not full (SUB-D6) > a locked trial clinic (not expired): even the prescription is unavailable 11ms
+     → expected { status: 'ok', document: { …(10) } } to deeply equal { status: 'clinic_unavailable' }
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > public links of a clinic that is not full (SUB-D6) > expired: the prescription resolves to metadata only (restricted, no file); the receipt is unavailable
+AssertionError: expected { status: 'ok', document: { …(10) } } to match object { status: 'ok', document: { …(3) } }
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > public links of a clinic that is not full (SUB-D6) > a locked trial clinic (not expired): even the prescription is unavailable
+AssertionError: expected { status: 'ok', document: { …(10) } } to deeply equal { status: 'clinic_unavailable' }
+ Test Files  1 failed (1)
+      Tests  2 failed | 8 passed (10)

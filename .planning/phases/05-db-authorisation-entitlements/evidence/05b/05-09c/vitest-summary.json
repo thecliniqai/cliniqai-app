@@ -1,0 +1,52 @@
+{
+  "commit": "ed96f8d",
+  "note": "full Vitest on the committed tree ed96f8d",
+  "files": 249,
+  "tests": 4901,
+  "passed": 4901,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/api/readiness-probe-db.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/authz/generator-drift.spec.ts": {
+      "tests": 4,
+      "passed": 4
+    },
+    "tests/authz/table-matrix.spec.ts": {
+      "tests": 26,
+      "passed": 26
+    },
+    "tests/ci/pgtap-report.spec.ts": {
+      "tests": 13,
+      "passed": 13
+    },
+    "tests/helpers/subscription.spec.ts": {
+      "tests": 10,
+      "passed": 10
+    },
+    "tests/integration/demo-clinic-seed.spec.ts": {
+      "tests": 5,
+      "passed": 5
+    },
+    "tests/integration/subscription.spec.ts": {
+      "tests": 5,
+      "passed": 5
+    },
+    "tests/security/cross-tenant.spec.ts": {
+      "tests": 21,
+      "passed": 21
+    },
+    "tests/security/guard-actions.spec.ts": {
+      "tests": 625,
+      "passed": 625
+    },
+    "tests/security/p0-01-action-sweep.spec.ts": {
+      "tests": 114,
+      "passed": 114
+    }
+  }
+}

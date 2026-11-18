@@ -1,0 +1,8 @@
+# I-1 negative proof: tests/ops/restore-guards.spec.ts against sql-guard.ts at b5c9e11 (without the login event trigger refusal)
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses CREATE EVENT TRIGGER … ON login 3ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses a quoted, commented, multi-line ON "login" 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 53 passed (55)
+# I-1 with the fix
+ Test Files  1 passed (1)
+      Tests  55 passed (55)

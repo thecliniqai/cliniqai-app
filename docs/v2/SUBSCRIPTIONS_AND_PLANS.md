@@ -519,6 +519,21 @@ else
 end if;
 ```
 
+> **Erratum (V2-05b gate close, 2026-11-15; ruling R-38, CTO under the PO's delegation of 05-P1):** the block above
+> must not test `current_user`. Every `platform.*` RPC is SECURITY DEFINER (§9.2), and inside a definer function
+> `current_user` is always the function owner (`postgres`), so the block as written sends every JWT caller to the SQL
+> branch, where `p_actor` is trusted: any signed-in user could act as any platform admin. The caller is the **session
+> role**: `coalesce(nullif(current_setting('role', true), 'none'), session_user)` (the role PostgREST or `SET ROLE` sets,
+> else the connecting user). Implemented once as `private.platform_actor(p_actor)` (migration 000085), called first by
+> every `platform.*` RPC; the pgTAP loop in `supabase/tests/database/platform_rpcs.test.sql` proves the rule on each RPC
+> (the verbatim `current_user` block fails it). The SQL editor must connect as `postgres`. Recorded in
+> `docs/v2/VERIFICATION_LOG.md` ("V2-05b CTO rulings applied to approved docs").
+>
+> ```sql
+> -- corrected first lines (the rest of the block is unchanged)
+> if coalesce(nullif(current_setting('role', true), 'none'), session_user) in ('postgres', 'service_role') then
+> ```
+
 - `platform.*` functions are `REVOKE EXECUTE … FROM public, anon` and granted to `authenticated` only so the admin UI can call them (each checks `is_platform_admin()` as above). **Tests:** an `authenticated` user who is not a platform admin, and a platform admin at aal1, both get `forbidden`; a JWT caller passing someone else's `p_actor` is recorded as themselves (§11).
 - Every call writes `platform_audit_log` (with `v_channel`) and `subscription_events`.
 

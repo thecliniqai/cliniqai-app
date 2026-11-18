@@ -62,7 +62,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
     tags: [
       { name: "Patients", description: "Patient demographic registry and DPDP Act rights" },
       { name: "Appointments", description: "Clinic appointment scheduling and status transitions" },
-      { name: "Visits", description: "Clinical encounters, vitals, and consultation management" },
+      { name: "Visits", description: "Encounters (scheduling and status; no clinical content through API keys)" },
       { name: "Prescriptions", description: "Doctor-issued e-prescriptions with itemized medication schedules" },
       { name: "Lab Orders", description: "Diagnostic orders, test records, and patient medical documents" },
       { name: "Referrals", description: "Inter-clinic and external specialist medical referrals" },
@@ -155,6 +155,8 @@ export function generateOpenApiSpec(): OpenApiSpec {
         put: {
           tags: ["Patients"],
           summary: "Update patient record",
+          description:
+            "API keys have no clinical access: a body with allergies or chronic_conditions is refused with 403 CLINICAL_ACCESS_DENIED and nothing is written.",
           requestBody: {
             required: true,
             content: {
@@ -209,7 +211,8 @@ export function generateOpenApiSpec(): OpenApiSpec {
         get: {
           tags: ["Patients"],
           summary: "Export patient data (DPDP Right to Access)",
-          description: "Generates either a complete machine-readable JSON archive or a clinic-branded consolidated Medical Summary PDF.",
+          description:
+            "Generates either an allow-listed machine-readable JSON archive or a clinic-branded consolidated Medical Summary PDF. The API key needs the exports:create scope.",
           responses: {
             "200": {
               description: "Export archive (application/json or application/pdf)",
@@ -218,6 +221,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
                 "application/pdf": { schema: { type: "string", format: "binary" } },
               },
             },
+            "403": { description: "The API key does not have the exports:create scope" },
             "404": { $ref: "#/components/responses/NotFound" },
           },
         },
@@ -386,8 +390,9 @@ export function generateOpenApiSpec(): OpenApiSpec {
         },
         patch: {
           tags: ["Visits"],
-          summary: "Update clinical visit (notes, status)",
-          description: "Completing a visit requires clinical safety guards (at least one diagnosis or note).",
+          summary: "Update a visit's status",
+          description:
+            "API keys have no clinical access: a body with clinical content (notes, complaints, vitals, advice, investigations, specialty data) or status 'completed' (signing) is refused with 403 CLINICAL_ACCESS_DENIED. A completed or signed visit is read-only (409 VISIT_LOCKED).",
           requestBody: {
             required: true,
             content: {
@@ -395,8 +400,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
                 schema: {
                   type: "object",
                   properties: {
-                    status: { type: "string", enum: ["in_progress", "completed", "cancelled"] },
-                    clinical_notes: { type: "string" },
+                    status: { type: "string", enum: ["booked", "confirmed", "waiting", "in_consultation", "cancelled", "no_show"] },
                   },
                 },
               },
@@ -692,7 +696,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
             patient_id: { type: "string", format: "uuid" },
             doctor_id: { type: "string", format: "uuid" },
             scheduled_at: { type: "string", format: "date-time" },
-            estimated_duration_minutes: { type: "integer", default: 15 },
+            estimated_duration_minutes: { type: "integer", minimum: 5, maximum: 480, default: 15 },
             origin_type: { type: "string", enum: ["scheduled", "walk_in"] },
             status: { type: "string", enum: ["scheduled", "in_queue", "in_consultation", "completed", "cancelled"] },
             reason_for_visit: { type: "string" },
@@ -706,7 +710,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
             patient_id: { type: "string", format: "uuid" },
             doctor_id: { type: "string", format: "uuid" },
             scheduled_at: { type: "string", format: "date-time" },
-            estimated_duration_minutes: { type: "integer", default: 15 },
+            estimated_duration_minutes: { type: "integer", minimum: 5, maximum: 480, default: 15 },
             reason_for_visit: { type: "string" },
           },
           required: ["patient_id", "doctor_id", "scheduled_at"],
@@ -720,8 +724,9 @@ export function generateOpenApiSpec(): OpenApiSpec {
             status: { type: "string" },
             origin_type: { type: "string" },
             reason_for_visit: { type: "string" },
-            chief_complaints: { type: "array", items: { type: "string" } },
-            clinical_notes: { type: "string" },
+            scheduled_at: { type: "string", format: "date-time", nullable: true },
+            estimated_duration_minutes: { type: "integer" },
+            signed_at: { type: "string", format: "date-time", nullable: true },
             created_at: { type: "string", format: "date-time" },
           },
           required: ["id", "patient_id", "doctor_id"],
@@ -733,7 +738,8 @@ export function generateOpenApiSpec(): OpenApiSpec {
             doctor_id: { type: "string", format: "uuid" },
             origin_type: { type: "string", enum: ["scheduled", "walk_in"], default: "walk_in" },
             reason_for_visit: { type: "string" },
-            chief_complaints: { type: "array", items: { type: "string" } },
+            scheduled_at: { type: "string", format: "date-time" },
+            estimated_duration_minutes: { type: "integer", minimum: 5, maximum: 480, default: 15 },
           },
           required: ["patient_id", "doctor_id"],
         },

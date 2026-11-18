@@ -1,0 +1,99 @@
+/**
+ * 04-03c before-probe (temporary, not committed): runs on the PRE-PLAN code (6cb887e, stack at 000036) and records the
+ * defects 04-03c removes, as counts. Each expectation asserts the OLD behaviour, so this file passing = defect shown.
+ */
+import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { POST as hookPOST, resetHookDedupeForTests } from "@/app/api/auth/send-email/route";
+import { POST as msg91POST } from "@/app/api/webhooks/messaging/[provider]/route";
+import * as messaging from "@/lib/messaging";
+import { getAdminClient } from "../helpers/supabase-admin";
+import { seedTenantWithOwner } from "../helpers/tenants";
+import { signedWebhookHeaders } from "../security/guard/engine";
+import { LOCAL_MAILPIT_API_URL, LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
+
+const ROOT = path.resolve(__dirname, "../..");
+const SECRET = ["probe", randomBytes(12).toString("hex")].join("-");
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
+
+function msg91(body: unknown) {
+  return msg91POST(
+    new NextRequest("http://localhost/api/webhooks/messaging/msg91", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-webhook-secret": SECRET },
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ provider: "msg91" }) }
+  );
+}
+
+async function seed() {
+  const admin = getAdminClient();
+  const o = await seedTenantWithOwner(`Probe ${randomBytes(3).toString("hex")}`);
+  const phone = "+919000000055";
+  const { data: p } = await admin.from("patients").insert({ tenant_id: o.tenantId, full_name: "Synthetic Probe", phone, sex: "other", created_by: o.userId }).select("id").single();
+  const { data: v } = await admin
+    .from("visits")
+    .insert({ tenant_id: o.tenantId, patient_id: p!.id, doctor_id: o.userId, origin_type: "scheduled", scheduled_at: new Date(Date.now() + 86_400_000).toISOString(), status: "booked", created_by: o.userId })
+    .select("id")
+    .single();
+  const replyMsgId = `wamid.probe-${randomBytes(6).toString("hex")}`;
+  const { data: q } = await admin
+    .from("communication_queue")
+    .insert({ tenant_id: o.tenantId, patient_id: p!.id, appointment_id: v!.id, channel: "whatsapp", message_type: "appointment_booked", template_id: "appointment_booked", recipient_phone: phone, status: "sent", external_message_id: replyMsgId })
+    .select("id")
+    .single();
+  return { phone, visitId: v!.id as string, replyMsgId, queueId: q!.id as string };
+}
+
+describe("pre-04-03c behaviour", () => {
+  it("MSG91: the same Delivered report twice writes two audit rows", async () => {
+    vi.stubEnv("MSG91_WEBHOOK_SECRET", SECRET);
+    const c = await seed();
+    const body = { direction: "outbound", status: "Delivered", request_id: c.replyMsgId };
+    await msg91(body);
+    await msg91(body);
+    const { count } = await getAdminClient().from("audit_logs").select("id", { count: "exact", head: true }).eq("entity_id", c.queueId).eq("action", "communication_dlr_delivered");
+    console.log(`PROBE dlr_delivered_audit_rows_after_two_posts=${count}`);
+    expect(count).toBe(2);
+  });
+
+  it("MSG91: the same confirm reply twice sends the acknowledgement twice, directly from the request", async () => {
+    vi.stubEnv("MSG91_WEBHOOK_SECRET", SECRET);
+    const c = await seed();
+    const send = vi.spyOn(messaging, "sendDirectWhatsApp").mockResolvedValue({ success: true } as never);
+    const body = { customerNumber: c.phone.replace("+", ""), replyMsgId: c.replyMsgId, interactive: JSON.stringify({ button_reply: { id: "btn_confirm", title: "Confirm" } }) };
+    await msg91(body);
+    await msg91(body);
+    const acks = send.mock.calls.filter((call) => call[1] === "appointment_confirmed_ack").length;
+    console.log(`PROBE direct_ack_sends_after_two_posts=${acks}`);
+    expect(acks).toBe(2);
+  });
+
+  it("Send Email hook: the same signed delivery on two instances sends two emails", async () => {
+    vi.stubEnv("SEND_EMAIL_HOOK_SECRET", LOCAL_SEND_EMAIL_HOOK_SECRET);
+    vi.stubEnv("EMAIL_PROVIDER", "mailpit");
+    vi.stubEnv("MAILPIT_API_URL", LOCAL_MAILPIT_API_URL);
+    vi.stubEnv("EMAIL_FROM", "no-reply@auth.example.com");
+    const email = `probe-${randomBytes(4).toString("hex")}@example.com`;
+    const f = JSON.parse(readFileSync(path.join(ROOT, "lint-fixtures/auth-hook/recovery.json"), "utf8"));
+    const body = JSON.stringify({ ...f, user: { ...f.user, email } });
+    const headers = signedWebhookHeaders(LOCAL_SEND_EMAIL_HOOK_SECRET, body);
+    const post = () => hookPOST(new NextRequest("http://localhost/api/auth/send-email", { method: "POST", headers: { "content-type": "application/json", ...headers }, body }));
+    expect((await post()).status).toBe(200);
+    resetHookDedupeForTests();
+    expect((await post()).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 1_500));
+    const res = await fetch(`${LOCAL_MAILPIT_API_URL}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`);
+    const n = (((await res.json()) as { messages?: unknown[] }).messages ?? []).length;
+    console.log(`PROBE mailpit_messages_after_two_instances=${n}`);
+    expect(n).toBe(2);
+  });
+});

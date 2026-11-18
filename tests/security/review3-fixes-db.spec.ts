@@ -5,16 +5,20 @@ import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../he
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
-import { enqueueMessage, dispatchQueuedMessage, dispatchPendingQueue } from "@/lib/messaging/dispatcher";
+import { enqueueMessage, enqueueMessageAsSystem, EnqueueError } from "@/lib/jobs/enqueue";
+import type { MessagingProvider } from "@/lib/messaging";
+import { makeDue, onlyFor, recordingProvider, runMessages, syntheticMobile } from "../jobs/message-helpers";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, createVisitInvoice } from "@/features/billing/service";
 import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-10 (review round 3; reviews/review3-adversarial.md = AR3), migration 000024. Local stack, real
-// clients; the admin (service-role) client only seeds rows, reads results and stands in for the cron dispatcher.
-// Each case fails on the 000023 schema.
+// clients; the admin (service-role) client only seeds rows and reads results. Each case fails on the 000023 schema.
+// V2-04 04-03a (pitfall 9 rewrite): members enqueue only through public.enqueue_message and can no longer claim or
+// finish rows (000035); the message.send job (runner, service role, recording provider: no network) sends them.
 
 const admin = getAdminClient();
 
@@ -34,9 +38,12 @@ async function insertRow(table: string, row: Record<string, unknown>): Promise<s
   return data.id as string;
 }
 
+/** 04-03a: synthetic range only (+91 90000 000xx); a queued message may go only to the patient's own number (R-24). */
 function syntheticPhone(): string {
-  return `+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+  return syntheticMobile();
 }
+
+const WORKER = `spec-review3-${randomUUID().slice(0, 8)}`;
 
 const LINK = "https://clinic.example.test/r/" + "a1".repeat(32);
 
@@ -44,6 +51,7 @@ interface Clinic {
   owner: SeededTenant;
   members: Record<"admin" | "doctor" | "receptionist" | "nurse", SeededTenant>;
   patientId: string;
+  phone: string;
 }
 
 async function seedClinic(label: string): Promise<Clinic> {
@@ -55,13 +63,14 @@ async function seedClinic(label: string): Promise<Clinic> {
     receptionist: await addMemberToTenant(t, "receptionist"),
     nurse: await addMemberToTenant(t, "nurse"),
   };
+  const phone = syntheticPhone();
   const patientId = await insertRow("patients", {
     tenant_id: t,
     full_name: `Synthetic Patient ${label}`,
-    phone: syntheticPhone(),
+    phone,
     created_by: owner.userId,
   });
-  return { owner, members, patientId };
+  return { owner, members, patientId, phone };
 }
 
 async function queueRow(id: string) {
@@ -141,27 +150,28 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(row.template_params.document_url).toBe(LINK);
     });
 
-    it("a member cannot claim (and so read) a row it did not enqueue; the service role can", async () => {
+    it("a member cannot claim or finish any row (04-03a: 42501); the runner (service role) sends it", async () => {
       await admin
         .from("communication_queue")
         .update({ next_retry_at: new Date(Date.now() - 1000).toISOString() })
         .eq("id", seededId);
       for (const m of everyone) {
         const { data, error } = await rpc(m.client, "communication_queue_claim", { p_id: seededId });
-        expect(error, m.role).toBeNull();
-        expect(data, m.role).toEqual([]);
+        expect(error?.code, m.role).toBe("42501");
+        expect(data, m.role).toBeNull();
         const fin = await rpc(m.client, "communication_queue_finish", {
           p_id: seededId,
           p_success: true,
           p_external_message_id: "x",
           p_error: null,
         });
-        expect(fin.data, m.role).toEqual([]);
+        expect(fin.error?.code, m.role).toBe("42501");
       }
       expect((await queueRow(seededId)).status).toBe("pending");
 
-      // The cron path (service role) dispatches it, and the sent row keeps no link.
-      expect(await dispatchQueuedMessage(admin, seededId, { providerName: "dev" })).toBe("sent");
+      // The job (service role) sends it, and the sent row keeps no link.
+      makeDue(seededId);
+      await runMessages(recordingProvider(), `${WORKER}-seeded`);
       const sent = await queueRow(seededId);
       expect(sent.status).toBe("sent");
       expect(JSON.stringify(sent.template_params)).not.toContain("https://");
@@ -182,7 +192,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(claim.error).not.toBeNull();
     });
 
-    it("a doctor's prescription share enqueues, sends at once, and leaves no token or link behind", async () => {
+    it("a doctor's prescription share enqueues (pending + one job), the runner sends it, and no token or link stays", async () => {
       const visitId = await insertRow("visits", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,
@@ -201,14 +211,21 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const res = await sharePrescriptionViaWhatsApp(ctxFor(A.members.doctor), prescriptionId);
       expect(res.success).toBe(true);
 
-      const { data: rows } = await admin
-        .from("communication_queue")
-        .select("id, status, template_params, metadata")
-        .eq("tenant_id", A.owner.tenantId)
-        .eq("message_type", "prescription_ready")
-        .contains("metadata", { prescription_id: prescriptionId });
-      expect(rows).toHaveLength(1);
-      const row = rows![0] as { status: string; template_params: Record<string, unknown>; metadata: Record<string, unknown> };
+      const rowsFor = async () =>
+        (
+          await admin
+            .from("communication_queue")
+            .select("id, status, template_params, metadata, created_by")
+            .eq("tenant_id", A.owner.tenantId)
+            .eq("message_type", "prescription_ready")
+            .contains("metadata", { prescription_id: prescriptionId })
+        ).data ?? [];
+      const queued = await rowsFor();
+      expect(queued).toHaveLength(1);
+      expect(queued[0]).toMatchObject({ status: "pending", created_by: A.members.doctor.userId });
+
+      await runMessages(recordingProvider(), `${WORKER}-rx`);
+      const [row] = (await rowsFor()) as Array<{ status: string; template_params: Record<string, unknown>; metadata: Record<string, unknown> }>;
       expect(row.status).toBe("sent");
       expect(row.metadata).not.toHaveProperty("share_token");
       expect(row.metadata).not.toHaveProperty("share_url");
@@ -217,7 +234,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(stored).not.toMatch(/[0-9a-f]{64}/);
     });
 
-    it("a receptionist's lab-report share still enqueues and sends", async () => {
+    it("a nurse's lab-report share still enqueues, and the runner sends it (receptionists: no labs:view since 05-02c)", async () => {
       const documentId = await insertRow("patient_documents", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,
@@ -228,84 +245,100 @@ describe("01-10 review round 3 fixes (000024)", () => {
         mime_type: "application/pdf",
         uploaded_by: A.owner.userId,
       });
-      const res = await shareLabReportViaWhatsApp(ctxFor(A.members.receptionist), documentId);
+      // The least-privileged lab sharer is the nurse since V2-05 05-02c (labs:view); the receptionist is refused.
+      const refused = await shareLabReportViaWhatsApp(ctxFor(A.members.receptionist), documentId);
+      expect(refused.success).toBe(false);
+      const res = await shareLabReportViaWhatsApp(ctxFor(A.members.nurse), documentId);
       expect(res.success).toBe(true);
-      const { data: rows } = await admin
-        .from("communication_queue")
-        .select("status, template_params, metadata")
-        .eq("tenant_id", A.owner.tenantId)
-        .contains("metadata", { document_id: documentId });
+      const read = async () =>
+        (
+          await admin
+            .from("communication_queue")
+            .select("status, template_params, metadata")
+            .eq("tenant_id", A.owner.tenantId)
+            .contains("metadata", { document_id: documentId })
+        ).data ?? [];
+      expect(await read()).toEqual([expect.objectContaining({ status: "pending" })]);
+      await runMessages(recordingProvider(), `${WORKER}-lab`);
+      const rows = await read();
       expect(rows).toHaveLength(1);
-      expect(rows![0].status).toBe("sent");
-      expect(JSON.stringify(rows![0])).not.toContain("/r/");
+      expect(rows[0].status).toBe("sent");
+      expect(JSON.stringify(rows[0])).not.toContain("/r/");
     });
 
     it("tokens never stay in metadata, even when a caller writes them", async () => {
-      const queued = await enqueueMessage(A.members.receptionist.client, {
-        tenantId: A.owner.tenantId,
+      const tokenMetadata = { document_id: "doc-1", share_token: "t".repeat(64), invoice_token: "x", share_url: LINK };
+      // V2-04 04-07a (M-ROLE): the request path refuses metadata outside its allow-list, a token key included.
+      const refused = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
-        recipientPhone: syntheticPhone(),
-        delayUntil: new Date(Date.now() + 3_600_000),
-        metadata: { document_id: "doc-1", share_token: "t".repeat(64), invoice_token: "x", share_url: LINK },
-      });
+        metadata: tokenMetadata,
+      }).catch((e) => e);
+      expect(refused).toBeInstanceOf(EnqueueError);
+      expect(refused.appError).toMatchObject({ code: "VALIDATION_FAILED", reason: "INPUT_INVALID" });
+      // On the system path the 000024 trigger strips the token keys.
+      const queued = await enqueueMessageAsSystem(
+        admin,
+        {
+          patientId: A.patientId,
+          channel: "whatsapp",
+          messageType: "lab_report_uploaded",
+          templateId: "lab_report_uploaded",
+          templateParams: { document_url: LINK },
+          runAt: new Date(Date.now() + 3_600_000),
+          metadata: tokenMetadata,
+        },
+        "system:jobs"
+      );
       expect(queued.status).toBe("pending");
       const row = await queueRow(queued.id);
-      expect(row.metadata).toEqual({ document_id: "doc-1", share_url: LINK });
-      // Not final yet: the link the provider needs is still there for the dispatcher.
+      expect(row.metadata).toEqual({ document_id: "doc-1", share_url: LINK, system_actor: "system:jobs" });
+      // Not final yet: the link the provider needs is still there for the sender.
       expect(row.template_params.document_url).toBe(LINK);
     });
 
-    it("a member can dispatch only its own row; a final failure scrubs the payload", async () => {
-      const queued = await enqueueMessage(A.members.receptionist.client, {
-        tenantId: A.owner.tenantId,
+    it("a final failure scrubs the payload", async () => {
+      const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
-        templateParams: { document_url: LINK },
-        recipientPhone: null, // the send fails: no recipient
-        maxRetries: 1,
-        delayUntil: new Date(Date.now() - 1000).toISOString(), // due, but not dispatched at enqueue
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
+        templateParams: { document_url: LINK, patient_name: "scrub" },
         metadata: { buttons: [{ id: "b", text: "View", url: LINK }] },
       });
       expect((await queueRow(queued.id)).status).toBe("pending");
-
-      expect(await dispatchQueuedMessage(A.members.doctor.client, queued.id, { providerName: "dev" })).toBe("skipped");
-      expect((await queueRow(queued.id)).status).toBe("pending");
-
-      expect(await dispatchQueuedMessage(A.members.receptionist.client, queued.id, { providerName: "dev" })).toBe(
-        "dead_letter"
-      );
+      const refusing: MessagingProvider = {
+        name: "dev",
+        sendSms: async () => ({ success: false, channelUsed: "sms", code: "synthetic_refusal", retryable: false }),
+        sendWhatsApp: async () => ({ success: false, channelUsed: "whatsapp", code: "synthetic_refusal", retryable: false }),
+      };
+      await runMessages(onlyFor(A.phone, refusing), `${WORKER}-scrub`);
       const row = await queueRow(queued.id);
       expect(row.status).toBe("dead_letter");
-      expect(row.retry_count).toBe(1);
       expect(JSON.stringify([row.template_params, row.metadata])).not.toContain("https://");
     });
 
     it("a permanent failure alerts admins without the recipient's phone number", async () => {
-      const phone = syntheticPhone();
-      const queued = await enqueueMessage(A.members.receptionist.client, {
-        tenantId: A.owner.tenantId,
+      const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
-        recipientPhone: phone,
-        maxRetries: 1,
-        delayUntil: new Date(Date.now() - 1000).toISOString(),
       });
-      const refusing = {
-        sendSms: async () => ({ success: false, error: "Synthetic provider refusal" }),
-        sendWhatsApp: async () => ({ success: false, error: "Synthetic provider refusal" }),
-      } as never;
-      expect(await dispatchQueuedMessage(A.members.receptionist.client, queued.id, { provider: refusing })).toBe(
-        "dead_letter"
-      );
+      const refusing: MessagingProvider = {
+        name: "dev",
+        sendSms: async () => ({ success: false, channelUsed: "sms", code: "synthetic_refusal", retryable: false }),
+        sendWhatsApp: async () => ({ success: false, channelUsed: "whatsapp", code: "synthetic_refusal", retryable: false }),
+      };
+      await runMessages(onlyFor(A.phone, refusing), `${WORKER}-alert`);
+      expect((await queueRow(queued.id)).status).toBe("dead_letter");
       const { data: alerts } = await admin
         .from("in_app_notifications")
         .select("message, metadata")
@@ -313,30 +346,20 @@ describe("01-10 review round 3 fixes (000024)", () => {
         .contains("metadata", { queue_id: queued.id });
       expect(alerts).toHaveLength(1);
       const alert = alerts![0] as { message: string; metadata: Record<string, unknown> };
-      expect(alert.metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
-      const digits = phone.replace("+91", "");
-      expect(JSON.stringify(alert)).not.toContain(digits);
+      expect(alert.metadata).toMatchObject({ queue_id: queued.id, message_type: "receipt_issued" });
+      expect(JSON.stringify(alert)).not.toContain(A.phone.replace("+91", ""));
     });
 
-    it("the cron dispatcher (service role) still sends due rows, and the audit row carries no phone number", async () => {
-      const phone = syntheticPhone();
-      const queued = await enqueueMessage(A.members.receptionist.client, {
-        tenantId: A.owner.tenantId,
+    it("the runner (service role) sends due rows, and the audit row carries no phone number", async () => {
+      const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
-        recipientPhone: phone,
-        delayUntil: new Date(Date.now() - 1000).toISOString(),
       });
-      // Make it the oldest due row so the batch picks it up whatever else is queued locally.
-      await admin
-        .from("communication_queue")
-        .update({ created_at: "2000-01-01T00:00:00Z" })
-        .eq("id", queued.id);
-      const summary = await dispatchPendingQueue(admin, { providerName: "dev", limit: 1 });
-      expect(summary.processed).toBe(1);
+      await runMessages(recordingProvider(), `${WORKER}-audit`);
       const row = await queueRow(queued.id);
       expect(row.status).toBe("sent");
       expect(row.template_params.document_url).toBe("[redacted]");
@@ -348,25 +371,28 @@ describe("01-10 review round 3 fixes (000024)", () => {
         .eq("entity_id", queued.id);
       expect(audits).toHaveLength(1);
       const metadata = (audits![0] as { metadata: Record<string, unknown> }).metadata;
-      expect(metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
+      expect(metadata).toMatchObject({ queue_id: queued.id, message_type: "receipt_issued" });
       expect(metadata).not.toHaveProperty("recipient_phone");
-      expect(JSON.stringify(metadata)).not.toContain(phone.replace("+91", ""));
+      expect(JSON.stringify(metadata)).not.toContain(A.phone.replace("+91", ""));
     });
   });
 
   describe("AR3-N2: one live invoice per visit", () => {
+    // V2-05 05-02b (PO-3): doctors do not collect, so the Sign & Bill that collects is the solo-clinic owner's (who
+    // holds billing:collect and is the visit's doctor here); the doctor's routed-to-reception path is covered in
+    // tests/billing/collect-permission.spec.ts.
     async function draftedVisit(): Promise<string> {
       const visitId = await insertRow("visits", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,
-        doctor_id: A.members.doctor.userId,
+        doctor_id: A.owner.userId,
         origin_type: "scheduled",
         status: "in_consultation",
-        scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+        scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
         created_by: A.owner.userId,
       });
       const saved = await saveConsultationDraft(
-        ctxFor(A.members.doctor),
+        ctxFor(A.owner),
         consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." })
       );
       if (!saved.success) throw new Error("draft seed failed");
@@ -374,7 +400,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
     }
 
     const bill = (visitId: string) =>
-      completeAndBillConsultation(ctxFor(A.members.doctor), {
+      completeAndBillConsultation(ctxFor(A.owner), {
         visit_id: visitId,
         patient_id: A.patientId,
         consultation_fee: 500,
@@ -421,7 +447,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("createVisitInvoice on a visit that already has one returns the existing invoice", async () => {
       const visitId = await draftedVisit();
-      const first = await createVisitInvoice(ctxFor(A.members.doctor), invoiceInput(visitId));
+      const first = await createVisitInvoice(ctxFor(A.owner), invoiceInput(visitId));
       expect(first.success).toBe(true);
       const second = await createVisitInvoice(ctxFor(A.members.receptionist), invoiceInput(visitId));
       expect(second.success).toBe(true);
@@ -433,7 +459,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(await invoices(visitId)).toHaveLength(1);
     });
 
-    it("two concurrent Sign & Bill requests by the same doctor create one invoice and at most one payment", async () => {
+    it("two concurrent Sign & Bill requests by the same signer create one invoice and at most one payment", async () => {
       const visitId = await draftedVisit();
       const results = await Promise.all([bill(visitId), bill(visitId)]);
       expect(results.some((r) => r.success)).toBe(true);
@@ -444,7 +470,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("two concurrent resumes after the sign-off create one invoice and exactly one payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
 
       const results = await Promise.all([bill(visitId), bill(visitId)]);
       expect(results.some((r) => r.success && !r.alreadyBilled)).toBe(true);
@@ -458,7 +484,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("the losing request gets the existing invoice as 'already billed' (the shape the modal shows), and no payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [invoice] = await invoices(visitId);
@@ -469,7 +495,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       // The race window: this request read "no invoice yet" just before the other request's insert committed.
       // Its first invoices read is answered as of that moment; everything after runs on the real database.
       let stale = true;
-      const real = A.members.doctor.client;
+      const real = A.owner.client;
       const raced = new Proxy(real, {
         get(target, prop) {
           if (prop === "from") {
@@ -489,7 +515,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         },
       });
 
-      const res = await completeAndBillConsultation({ ...ctxFor(A.members.doctor), db: raced as never }, {
+      const res = await completeAndBillConsultation({ ...ctxFor(A.owner), db: raced as never }, {
         visit_id: visitId,
         patient_id: A.patientId,
         consultation_fee: 500,
@@ -520,12 +546,14 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("a voided (cancelled) invoice can be re-issued, by createVisitInvoice and by a Sign & Bill retry", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [original] = await invoices(visitId);
 
-      const voided = await A.owner.client.from("invoices").update({ status: "cancelled" }).eq("id", original.id);
+      // No member updates invoices since 05-11b (M-INVOICE, 000072) and the app has no void path yet: the void is the
+      // service role's (what a future void command would do).
+      const voided = await admin.from("invoices").update({ status: "cancelled" }).eq("id", original.id);
       expect(voided.error).toBeNull();
 
       // Sign & Bill retry by the signing doctor re-bills the visit once the only invoice is void.
@@ -540,7 +568,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
       // Void that one too; checkout's createVisitInvoice issues a fresh one.
       const live = all.find((i) => i.status !== "cancelled")!;
-      await A.owner.client.from("invoices").update({ status: "cancelled" }).eq("id", live.id);
+      await admin.from("invoices").update({ status: "cancelled" }).eq("id", live.id);
       const reissued = await createVisitInvoice(ctxFor(A.members.receptionist), invoiceInput(visitId));
       expect(reissued.success).toBe(true);
       if (reissued.success) expect(reissued.existing).toBeFalsy();

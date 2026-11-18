@@ -1,0 +1,52 @@
+# 04-07c negative proof: the reviewer's bypass fixtures against workflow-policy.mjs as committed at 0dc606b (before) and now (after)
+## bypass-environment-expression.yml
+# before (0dc606b):
+workflow-policy: PASS (1 workflow(s))
+# exit 0
+# after:
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:6 [staging-no-pr-trigger] staging workflow triggers on `workflow_run`; staging runs only from feature/v2 (push, schedule, dispatch)
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:13 [workflow-run-pinned] workflow_run job `exfil` has no job-level `if:`
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:13 [staging-feature-v2-only] staging job `exfil` has no job-level `if:`
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:15 [environment-literal] job `exfil` computes its Environment (`${{ vars.BK_ENV }}`); name it literally so the policy can see which secrets it gets
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:20 [staging-exact-ref-step] staging job `exfil` must start with the step `[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }` (GitHub's `==` ignores case; bash `=` does not)
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-expression.yml:22 [no-dynamic-secret] `secrets` is indexed by a computed value; read secrets only as `secrets.NAME` or `secrets['NAME']`
+workflow-policy: 6 problem(s) in 1 workflow(s)
+# exit 1
+## bypass-environment-matrix.yml
+# before (0dc606b):
+workflow-policy: PASS (1 workflow(s))
+# exit 0
+# after:
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-matrix.yml:17 [environment-literal] job `exfil` computes its Environment (`${{ matrix.e }}`); name it literally so the policy can see which secrets it gets
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-matrix.yml:19 [staging-exact-ref-step] staging job `exfil` must start with the step `[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }` (GitHub's `==` ignores case; bash `=` does not)
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-matrix.yml:21 [no-dynamic-secret] `secrets` is indexed by a computed value; read secrets only as `secrets.NAME` or `secrets['NAME']`
+workflow-policy: 3 problem(s) in 1 workflow(s)
+# exit 1
+## bypass-environment-case.yml
+# before (0dc606b):
+workflow-policy: PASS (1 workflow(s))
+# exit 0
+# after:
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-case.yml:10 [staging-backup-environment-scope] job `exfil` uses Environment `staging-backup` (no reviewer, backup secrets); only backup.yml may
+workflow-policy: FAIL lint-fixtures/workflows/bypass-environment-case.yml:13 [environment-known] job `exfil` uses Environment `Staging-Backup`; only `staging`, `staging-readonly`, `staging-backup` exist (lower case; GitHub matches names case-insensitively)
+workflow-policy: 2 problem(s) in 1 workflow(s)
+# exit 1
+## bypass-readonly-case.yml
+# before (0dc606b):
+workflow-policy: PASS (1 workflow(s))
+# exit 0
+# after:
+workflow-policy: FAIL lint-fixtures/workflows/bypass-readonly-case.yml:12 [environment-known] job `exfil` uses Environment `STAGING-READONLY`; only `staging`, `staging-readonly`, `staging-backup` exist (lower case; GitHub matches names case-insensitively)
+workflow-policy: FAIL lint-fixtures/workflows/bypass-readonly-case.yml:18 [staging-readonly-secrets-ro] job `exfil` in Environment `staging-readonly` uses secrets.STAGING_DB_URL; only read-only credentials (names ending in _RO) belong there
+workflow-policy: 2 problem(s) in 1 workflow(s)
+# exit 1
+## bypass-workflow-run-name-only.yml
+# before (0dc606b):
+workflow-policy: PASS (1 workflow(s))
+# exit 0
+# after:
+workflow-policy: FAIL lint-fixtures/workflows/bypass-workflow-run-name-only.yml:14 [workflow-run-pinned] workflow_run job `report-failure` does not require `github.event.workflow_run.path == '.github/workflows/<file>'` in its `if:`
+workflow-policy: FAIL lint-fixtures/workflows/bypass-workflow-run-name-only.yml:14 [workflow-run-pinned] workflow_run job `report-failure` does not require `github.event.workflow_run.head_repository.full_name == github.repository` in its `if:`
+workflow-policy: FAIL lint-fixtures/workflows/bypass-workflow-run-name-only.yml:14 [workflow-run-pinned] workflow_run job `report-failure` does not require `contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event)` in its `if:`
+workflow-policy: 3 problem(s) in 1 workflow(s)
+# exit 1

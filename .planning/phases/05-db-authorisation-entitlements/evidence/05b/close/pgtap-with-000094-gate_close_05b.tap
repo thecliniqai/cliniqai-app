@@ -1,0 +1,18 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/gate_close_05b.test.sql .. 
+1..12
+ok 1 - N-1: a reservation that expired while the committing transaction was open is refused (wall clock, not transaction start)
+ok 2 - N-1: the refused commit adds no unit: the period stays at 1,499 of 1,500
+ok 3 - N-1: the system path is refused the same way (no bypass)
+ok 4 - N-1 control: a reservation still live at the wall clock commits to exactly 1,500
+ok 5 - N-1 control: a reservation commits once; a second commit finds nothing
+ok 6 - N-2: a new invitation answers its role
+ok 7 - N-2: a deduped answer names the stored role
+ok 8 - N-2: a replacing answer names the new stored role and the replaced one
+ok 9 - ruling: the owner (who holds every doctor permission) clears a patient's AI objection
+ok 10 - ruling: the owner's clear is audited with actor and role, no PHI
+ok 11 - ruling: an admin and a nurse still cannot clear it
+ok 12 - ruling: the doctor and the receptionist still can
+ok
+All tests successful.
+Files=1, Tests=12,  2 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: PASS

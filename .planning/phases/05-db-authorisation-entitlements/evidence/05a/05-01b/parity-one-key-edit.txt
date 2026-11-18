@@ -1,0 +1,13 @@
+# One-key edit in lib/permissions/matrix.ts: billing:collect removed from receptionist (TS only), then reverted
+   ✓ lib/permissions and authz.role_has_permission agree > owner: every key has the same answer in TypeScript and SQL 0ms
+   ✓ lib/permissions and authz.role_has_permission agree > admin: every key has the same answer in TypeScript and SQL 0ms
+   ✓ lib/permissions and authz.role_has_permission agree > doctor: every key has the same answer in TypeScript and SQL 0ms
+   × lib/permissions and authz.role_has_permission agree > receptionist: every key has the same answer in TypeScript and SQL 2ms
+   ✓ lib/permissions and authz.role_has_permission agree > nurse: every key has the same answer in TypeScript and SQL 0ms
+   ✓ lib/permissions and authz.role_has_permission agree > SQL grants no key the TypeScript union lacks, and knows every key (the owner holds all of them) 0ms
+   ✓ lib/permissions and authz.role_has_permission agree > SQL knows exactly the roles of ROLE_PERMISSIONS 0ms
+   × lib/permissions and authz.role_has_permission agree > the PO-3 set holds on both sides (R-6) 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ 'billing:collect' ] to deeply equal []
+AssertionError: receptionist billing:collect (TS): expected false to be true // Object.is equality
+      Tests  2 failed | 6 passed (8)

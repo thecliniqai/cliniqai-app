@@ -1,0 +1,17 @@
+# 06-04b overflow probe (temporary spec, pixel-7, owner, before the v1 CSS fixes; build of the shell commits' sources)
+# For each page: document scrollWidth vs clientWidth, then the outermost elements whose right edge passes the viewport.
+
+== 360 /patients/<id>
+scrollWidth=533 client=360
+div.flex flex-wrap items-center gap-2.5 self-start lg:self-center right=453 w=416   (patient header actions; DPDP export pair does not wrap)
+button.py-3 px-1 border-b-2 ... right=422 / right=533                                (patient tabs strip, not scrollable)
+
+== 360 /consultation/<id>
+scrollWidth=402 client=360
+div.flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto right=402 w=370              (consult workspace header actions)
+
+== 360 /, /patients, /settings/clinic
+scrollWidth=360 client=360   (tables and chips overflow inside their own scroll containers only)
+
+== 375: same three elements (scrollWidth 534 and 402); 744: no page overflow.
+After the fixes: 08-layout.spec.ts passes at 360/375/744/800/820/1180 on all five screens.

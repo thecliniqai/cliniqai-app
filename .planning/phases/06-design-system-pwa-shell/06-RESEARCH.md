@@ -4,6 +4,26 @@
 **Domain:** Tailwind v4 token system, accessible primitives (Radix/shadcn), Next.js 16.4.6 (Turbopack) PWA shell, hand-written service worker, bundle/Lighthouse reporting, plus the missing V2-DX design exploration that gates it (G2-D)
 **Confidence:** HIGH for the current-state evidence and Next 16 behaviour (version-matched docs in `node_modules/next/dist/docs`); MEDIUM for library compatibility and LHCI wiring; LOW only where tagged `[ASSUMED]`
 
+> **Superseded facts (2026-11-14).** This research is the 2026-11-13 snapshot and its body is left as written. These
+> statements are no longer true. `06-PLAN.md` (revision note of 2026-11-14) is binding:
+> - *V2-DX has run.* "V2-DX has not run" (§Summary, §G2-D split): V2-DX ran and G2-D was signed off on 2026-11-13.
+>   On 2026-11-14 the PO replaced the palette with the CliniQ AI brand theme (VERIFICATION_LOG "PO ruling: CliniQ AI
+>   is a fixed brand name"). The approved input is `v2/phase-dx-design-exploration` at `3a78a5d`.
+> - *Approved CSS.* "`clinic-paper.css` … is copied into 06-01b": the approved values are `clinic-paper.css`
+>   overridden by `cliniq-ai.css` (CliniQ Blue `#246BCE`, Midnight `#0B1A42`, per-status hues, With-doctor border
+>   `#11998D`, radii 6/10/14/20).
+> - *Fonts.* "IBM Plex Sans (local) / Plex woff2 … download once from the IBM/plex GitHub release" (§G2-D split,
+>   Environment Availability, OQ4, A2): the typeface is **Inter** for body/UI (rsms/inter via `@fontsource-variable/inter` 5.2.5)
+>   and **Manrope** for display (google/fonts, subset with fontTools). Both are vendored by V2-DX at `3a78a5d`; no
+>   download is needed.
+> - *₹ glyph.* A2 "Plex Latin subset includes ₹ — unconfirmed" is moot. Inter's latin file lacks U+20B9, its
+>   latin-ext file has it, and Manrope's latin file has it (fontconfig `fc-query`, 2026-11-14).
+> - *Icon.* "Teal `#0E716B` tile with a 'Q'" (§G2-D split, DX-01): the icon is the CliniQ AI mark (blue-to-teal ring
+>   with a stethoscope) on a white tile; masters in `002-icon/{icon,icon-maskable}.svg` at `3a78a5d`.
+> - *Manifest and metadata examples.* The `name`/`short_name`/titles "ClinicQ" and `background_color: "#F6F5F1"` (Patterns 3-4):
+>   the approved values are "CliniQ AI" and `#FFFFFF` (`theme_color` stays `#FFFFFF`). The Patterns 3-4 code is
+>   illustrative.
+
 ---
 
 <user_constraints>

@@ -39,7 +39,8 @@ describe("consultation service guards (01-01c)", () => {
   }
 
   async function storedVitals(visitId: string): Promise<Record<string, unknown>> {
-    const { data } = await owner.client.from("visits").select("vitals").eq("id", visitId).single();
+    // Vitals live in clinical_notes (V2-05 05-02a).
+    const { data } = await owner.client.from("clinical_notes").select("vitals").eq("visit_id", visitId).single();
     return (data?.vitals ?? {}) as Record<string, unknown>;
   }
 
@@ -157,7 +158,7 @@ describe("consultation service guards (01-01c)", () => {
       expect(invoices ?? []).toHaveLength(0);
     });
 
-    it("lets the doctor sign and bill; signer and audit actor are the session doctor", async () => {
+    it("lets the doctor sign and bill (routed to reception, PO-3); signer and audit actor are the session doctor", async () => {
       const visitId = await newVisit();
       await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
@@ -167,10 +168,13 @@ describe("consultation service guards (01-01c)", () => {
         consultation_fee: 500,
         discount: 0,
         additional_items: [],
-        payment_collected: true,
+        // V2-05 05-02b (PO-3): doctors do not collect; a collecting Sign & Bill by a doctor is refused before signing
+        // (tests/billing/collect-permission.spec.ts).
+        payment_collected: false,
         payment_method: "cash",
       });
       expect(res.success).toBe(true);
+      if (res.success) expect(res.paymentRecorded).toBe(false);
 
       const { data: visit } = await owner.client.from("visits").select("status, signed_by").eq("id", visitId).single();
       expect(visit?.status).toBe("completed");

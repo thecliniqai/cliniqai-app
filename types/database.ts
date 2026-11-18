@@ -9,6 +9,78 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_quota_reservations: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          expires_at: string;
+          feature: string;
+          id: string;
+          period: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at: string;
+          feature: string;
+          id?: string;
+          period: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at?: string;
+          feature?: string;
+          id?: string;
+          period?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_quota_reservations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ai_usage_monthly: {
+        Row: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units: number;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Update: {
+          feature?: string;
+          period?: string;
+          tenant_id?: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_monthly_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       api_key_usage_daily: {
         Row: {
           api_key_id: string;
@@ -37,11 +109,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "api_key_usage_daily_api_key_id_fkey";
-            columns: ["api_key_id"];
+            foreignKeyName: "api_key_usage_daily_tenant_api_key_fkey";
+            columns: ["tenant_id", "api_key_id"];
             isOneToOne: false;
             referencedRelation: "api_keys";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "api_key_usage_daily_tenant_id_fkey";
@@ -62,6 +134,7 @@ export type Database = {
           last_used_at: string | null;
           name: string;
           revoked_at: string | null;
+          scopes: string[];
           tenant_id: string;
           updated_at: string;
         };
@@ -75,6 +148,7 @@ export type Database = {
           last_used_at?: string | null;
           name: string;
           revoked_at?: string | null;
+          scopes?: string[];
           tenant_id: string;
           updated_at?: string;
         };
@@ -87,6 +161,7 @@ export type Database = {
           last_used_at?: string | null;
           name?: string;
           revoked_at?: string | null;
+          scopes?: string[];
           tenant_id?: string;
           updated_at?: string;
         };
@@ -143,11 +218,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "audit_logs_api_key_id_fkey";
-            columns: ["api_key_id"];
+            foreignKeyName: "audit_logs_tenant_api_key_fkey";
+            columns: ["tenant_id", "api_key_id"];
             isOneToOne: false;
             referencedRelation: "api_keys";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "audit_logs_tenant_id_fkey";
@@ -319,12 +394,68 @@ export type Database = {
         };
         Relationships: [];
       };
+      clinical_notes: {
+        Row: {
+          advice: string[];
+          chief_complaints: NonNullable<Json>;
+          clinical_notes: string | null;
+          created_at: string;
+          investigations_advised: string[];
+          specialty_data: NonNullable<Json>;
+          tenant_id: string;
+          updated_at: string;
+          visit_id: string;
+          vitals: NonNullable<Json>;
+        };
+        ComputedFields: never;
+        Insert: {
+          advice?: string[];
+          chief_complaints?: NonNullable<Json>;
+          clinical_notes?: string | null;
+          created_at?: string;
+          investigations_advised?: string[];
+          specialty_data?: NonNullable<Json>;
+          tenant_id: string;
+          updated_at?: string;
+          visit_id: string;
+          vitals?: NonNullable<Json>;
+        };
+        Update: {
+          advice?: string[];
+          chief_complaints?: NonNullable<Json>;
+          clinical_notes?: string | null;
+          created_at?: string;
+          investigations_advised?: string[];
+          specialty_data?: NonNullable<Json>;
+          tenant_id?: string;
+          updated_at?: string;
+          visit_id?: string;
+          vitals?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clinical_notes_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
+            isOneToOne: false;
+            referencedRelation: "visits";
+            referencedColumns: ["tenant_id", "id"];
+          },
+        ];
+      };
       communication_queue: {
         Row: {
           appointment_id: string | null;
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -349,6 +480,7 @@ export type Database = {
           channel: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -372,6 +504,7 @@ export type Database = {
           channel?: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -392,18 +525,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "communication_queue_appointment_id_fkey";
-            columns: ["appointment_id"];
+            foreignKeyName: "communication_queue_tenant_appointment_fkey";
+            columns: ["tenant_id", "appointment_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "communication_queue_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "communication_queue_tenant_id_fkey";
@@ -411,6 +537,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "communication_queue_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -448,18 +581,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "consent_records_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "consent_records_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "consent_records_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -506,13 +639,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "consultation_diagnoses_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "consultation_diagnoses_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
@@ -520,11 +646,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "consultation_diagnoses_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "consultation_diagnoses_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "consultation_diagnoses_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -568,11 +701,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "consultations_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "consultations_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
           {
             foreignKeyName: "consultations_tenant_id_fkey";
@@ -580,6 +713,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "consultations_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -616,6 +756,13 @@ export type Database = {
           use_count?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: "doctor_custom_diagnoses_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
           {
             foreignKeyName: "doctor_custom_diagnoses_tenant_id_fkey";
             columns: ["tenant_id"];
@@ -671,6 +818,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "doctor_custom_medicines_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
+          {
             foreignKeyName: "doctor_custom_medicines_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
@@ -712,6 +866,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "doctor_prescription_templates_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
           {
             foreignKeyName: "doctor_prescription_templates_tenant_id_fkey";
             columns: ["tenant_id"];
@@ -767,11 +928,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "document_share_tokens_document_id_fkey";
-            columns: ["document_id"];
+            foreignKeyName: "document_share_tokens_tenant_document_fkey";
+            columns: ["tenant_id", "document_id"];
             isOneToOne: false;
             referencedRelation: "patient_documents";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "document_share_tokens_tenant_id_fkey";
@@ -779,6 +940,42 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      entitlement_keys: {
+        Row: {
+          created_at: string;
+          description: string;
+          key: string;
+          kind: string;
+          owner_doc: string;
+          quota_key: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          description: string;
+          key: string;
+          kind: string;
+          owner_doc: string;
+          quota_key?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          key?: string;
+          kind?: string;
+          owner_doc?: string;
+          quota_key?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_keys_quota_key_fkey";
+            columns: ["quota_key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
           },
         ];
       };
@@ -819,11 +1016,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "follow_ups_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "follow_ups_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
           {
             foreignKeyName: "follow_ups_tenant_id_fkey";
@@ -833,11 +1030,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "follow_ups_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "follow_ups_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "follow_ups_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -907,9 +1111,14 @@ export type Database = {
           expires_at: string;
           id: string;
           invited_address: string;
+          last_sent_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
           role: string;
+          send_count: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash: string | null;
+          token_version: number;
         };
         ComputedFields: never;
         Insert: {
@@ -920,9 +1129,14 @@ export type Database = {
           expires_at: string;
           id?: string;
           invited_address: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role: string;
+          send_count?: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Update: {
           consumed_at?: string | null;
@@ -932,9 +1146,14 @@ export type Database = {
           expires_at?: string;
           id?: string;
           invited_address?: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role?: string;
+          send_count?: number;
           tenant_id?: string;
-          token_hash?: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Relationships: [
           {
@@ -983,18 +1202,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "invoice_items_invoice_id_fkey";
-            columns: ["invoice_id"];
-            isOneToOne: false;
-            referencedRelation: "invoices";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "invoice_items_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoice_items_tenant_invoice_fkey";
+            columns: ["tenant_id", "invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1044,13 +1263,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "invoices_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "invoices_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
@@ -1058,11 +1270,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "invoices_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "invoices_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "invoices_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1077,8 +1296,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1093,8 +1315,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1108,8 +1333,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role?: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id?: string;
           user_id?: string;
         };
@@ -1187,7 +1415,7 @@ export type Database = {
           notes?: string | null;
           original_filename: string;
           patient_id: string;
-          report_date?: string;
+          report_date: string;
           storage_path: string;
           tenant_id: string;
           title: string;
@@ -1215,13 +1443,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "patient_documents_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "patient_documents_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
@@ -1229,11 +1450,18 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "patient_documents_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "patient_documents_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "patient_documents_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1242,6 +1470,7 @@ export type Database = {
           abha_id: string | null;
           address: Json | null;
           age: number | null;
+          ai_processing_objected: boolean;
           allergies: string[] | null;
           chronic_conditions: string[] | null;
           created_at: string;
@@ -1258,6 +1487,8 @@ export type Database = {
           id: string;
           is_deleted: boolean;
           national_health_id: string | null;
+          objected_at: string | null;
+          objection_recorded_by: string | null;
           phone: string;
           preferred_language: string;
           sex: string | null;
@@ -1271,6 +1502,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1287,6 +1519,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1299,6 +1533,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1315,6 +1550,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone?: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1326,45 +1563,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "patients_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      payment_records: {
-        Row: {
-          amount_inr: number;
-          created_at: string;
-          id: string;
-          method: string;
-          paid_at: string;
-          reference: string;
-          tenant_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          amount_inr: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference: string;
-          tenant_id: string;
-        };
-        Update: {
-          amount_inr?: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference?: string;
-          tenant_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "payment_records_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -1415,20 +1613,294 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "payments_invoice_id_fkey";
-            columns: ["invoice_id"];
-            isOneToOne: false;
-            referencedRelation: "invoices";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "payments_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "payments_tenant_invoice_fkey";
+            columns: ["tenant_id", "invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["tenant_id", "id"];
+          },
         ];
+      };
+      plan_entitlements: {
+        Row: {
+          enabled: boolean;
+          key: string;
+          limit_value: number | null;
+          plan_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          enabled?: boolean;
+          key: string;
+          limit_value?: number | null;
+          plan_id: string;
+        };
+        Update: {
+          enabled?: boolean;
+          key?: string;
+          limit_value?: number | null;
+          plan_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_entitlements_key_fkey";
+            columns: ["key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+          {
+            foreignKeyName: "plan_entitlements_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plan_prices: {
+        Row: {
+          active_from: string;
+          active_until: string | null;
+          base_amount_paise: number;
+          billing_model: string;
+          charge_amount_paise: number | null;
+          created_at: string;
+          currency: string;
+          id: string;
+          included_units: number | null;
+          interval: string | null;
+          interval_count: number | null;
+          overage_unit_amount_paise: number | null;
+          plan_id: string;
+          provider: string;
+          provider_plan_id: string | null;
+          tax_inclusive: boolean;
+          tax_rate_bp: number;
+          tiers: Json | null;
+          unit: string | null;
+          unit_amount_paise: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active_from?: string;
+          active_until?: string | null;
+          base_amount_paise: number;
+          billing_model: string;
+          charge_amount_paise?: never;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          included_units?: number | null;
+          interval?: string | null;
+          interval_count?: number | null;
+          overage_unit_amount_paise?: number | null;
+          plan_id: string;
+          provider?: string;
+          provider_plan_id?: string | null;
+          tax_inclusive?: boolean;
+          tax_rate_bp: number;
+          tiers?: Json | null;
+          unit?: string | null;
+          unit_amount_paise?: number | null;
+        };
+        Update: {
+          active_from?: string;
+          active_until?: string | null;
+          base_amount_paise?: number;
+          billing_model?: string;
+          charge_amount_paise?: never;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          included_units?: number | null;
+          interval?: string | null;
+          interval_count?: number | null;
+          overage_unit_amount_paise?: number | null;
+          plan_id?: string;
+          provider?: string;
+          provider_plan_id?: string | null;
+          tax_inclusive?: boolean;
+          tax_rate_bp?: number;
+          tiers?: Json | null;
+          unit?: string | null;
+          unit_amount_paise?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plan_prices_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plans: {
+        Row: {
+          category: string;
+          code: string;
+          created_at: string;
+          description: string | null;
+          first_charge_grace_days: number;
+          id: string;
+          kind: string;
+          name: string;
+          purchasable: boolean;
+          renewal_grace_days: number;
+          status: string;
+          trial_days: number | null;
+          trial_plan_id: string | null;
+          updated_at: string;
+          visibility: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          category: string;
+          code: string;
+          created_at?: string;
+          description?: string | null;
+          first_charge_grace_days?: number;
+          id?: string;
+          kind: string;
+          name: string;
+          purchasable?: boolean;
+          renewal_grace_days?: number;
+          status?: string;
+          trial_days?: number | null;
+          trial_plan_id?: string | null;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Update: {
+          category?: string;
+          code?: string;
+          created_at?: string;
+          description?: string | null;
+          first_charge_grace_days?: number;
+          id?: string;
+          kind?: string;
+          name?: string;
+          purchasable?: boolean;
+          renewal_grace_days?: number;
+          status?: string;
+          trial_days?: number | null;
+          trial_plan_id?: string | null;
+          updated_at?: string;
+          visibility?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "plans_trial_plan_id_fkey";
+            columns: ["trial_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      platform_admins: {
+        Row: {
+          granted_at: string;
+          granted_by: string | null;
+          revoked_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      platform_audit_log: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          channel: string;
+          id: string;
+          occurred_at: string;
+          payload: NonNullable<Json>;
+          target_tenant_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          channel: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          channel?: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          ai_features: NonNullable<Json>;
+          gst_retention_months: number;
+          id: boolean;
+          lock_window_days: number;
+          log_retention_days: number;
+          pending_charge_buffer_hours: number;
+          purge_after_days: number;
+          sac: string;
+          supplier_gstin: string | null;
+          supplier_state: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          ai_features?: NonNullable<Json>;
+          gst_retention_months?: number;
+          id?: boolean;
+          lock_window_days?: number;
+          log_retention_days?: number;
+          pending_charge_buffer_hours?: number;
+          purge_after_days?: number;
+          sac?: string;
+          supplier_gstin?: string | null;
+          supplier_state?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          ai_features?: NonNullable<Json>;
+          gst_retention_months?: number;
+          id?: boolean;
+          lock_window_days?: number;
+          log_retention_days?: number;
+          pending_charge_buffer_hours?: number;
+          purge_after_days?: number;
+          sac?: string;
+          supplier_gstin?: string | null;
+          supplier_state?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       prescription_items: {
         Row: {
@@ -1444,6 +1916,7 @@ export type Database = {
           prescription_id: string;
           sort_order: number;
           special_instructions: string | null;
+          tenant_id: string;
           timing: string | null;
         };
         ComputedFields: never;
@@ -1460,6 +1933,7 @@ export type Database = {
           prescription_id: string;
           sort_order?: number;
           special_instructions?: string | null;
+          tenant_id: string;
           timing?: string | null;
         };
         Update: {
@@ -1475,15 +1949,23 @@ export type Database = {
           prescription_id?: string;
           sort_order?: number;
           special_instructions?: string | null;
+          tenant_id?: string;
           timing?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "prescription_items_prescription_id_fkey";
-            columns: ["prescription_id"];
+            foreignKeyName: "prescription_items_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prescription_items_tenant_prescription_fkey";
+            columns: ["tenant_id", "prescription_id"];
             isOneToOne: false;
             referencedRelation: "prescriptions";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1536,11 +2018,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "prescriptions_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "prescriptions_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
           {
             foreignKeyName: "prescriptions_tenant_id_fkey";
@@ -1550,10 +2032,47 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "prescriptions_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "prescriptions_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "prescriptions_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
+            referencedColumns: ["tenant_id", "id"];
+          },
+        ];
+      };
+      queue_token_counters: {
+        Row: {
+          date: string;
+          last_token: number;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          date: string;
+          last_token: number;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          date?: string;
+          last_token?: number;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "queue_token_counters_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];
@@ -1575,7 +2094,7 @@ export type Database = {
           called_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
-          date?: string;
+          date: string;
           id?: string;
           priority?: string;
           tenant_id: string;
@@ -1602,11 +2121,11 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "queue_tokens_visit_id_fkey";
-            columns: ["visit_id"];
-            isOneToOne: true;
+            foreignKeyName: "queue_tokens_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
+            isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1710,13 +2229,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "referrals_patient_id_fkey";
-            columns: ["patient_id"];
-            isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "referrals_target_tenant_id_fkey";
             columns: ["target_tenant_id"];
             isOneToOne: false;
@@ -1731,11 +2243,25 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "referrals_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "referrals_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "referrals_tenant_referring_doctor_fkey";
+            columns: ["referring_doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "referrals_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -1776,6 +2302,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "schedule_blocks_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
+          {
             foreignKeyName: "schedule_blocks_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
@@ -1784,43 +2317,143 @@ export type Database = {
           },
         ];
       };
-      subscriptions: {
+      subscription_events: {
         Row: {
-          amount_inr: number;
-          created_at: string;
-          current_period_end: string;
+          actor_id: string | null;
+          actor_type: string;
+          from_status: string | null;
           id: string;
-          plan: string;
-          status: string;
+          occurred_at: string;
+          payload: NonNullable<Json>;
+          provider_event_id: string | null;
+          reason: string | null;
+          subject: string;
+          tenant_id: string;
+          to_status: string | null;
+          type: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor_id?: string | null;
+          actor_type: string;
+          from_status?: string | null;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          provider_event_id?: string | null;
+          reason?: string | null;
+          subject?: string;
+          tenant_id: string;
+          to_status?: string | null;
+          type: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          actor_type?: string;
+          from_status?: string | null;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          provider_event_id?: string | null;
+          reason?: string | null;
+          subject?: string;
+          tenant_id?: string;
+          to_status?: string | null;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscription_events_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_ai_settings: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
           tenant_id: string;
           updated_at: string;
         };
         ComputedFields: never;
         Insert: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
           tenant_id: string;
           updated_at?: string;
         };
         Update: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
           tenant_id?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "subscriptions_tenant_id_fkey";
+            foreignKeyName: "tenant_ai_settings_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_entitlement_overrides: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          expires_at: string | null;
+          granted_by: string | null;
+          id: string;
+          key: string;
+          limit_value: number | null;
+          reason: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          enabled: boolean;
+          expires_at?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          key: string;
+          limit_value?: number | null;
+          reason: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          expires_at?: string | null;
+          granted_by?: string | null;
+          id?: string;
+          key?: string;
+          limit_value?: number | null;
+          reason?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_entitlement_overrides_key_fkey";
+            columns: ["key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+          {
+            foreignKeyName: "tenant_entitlement_overrides_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
@@ -1895,6 +2528,127 @@ export type Database = {
           },
         ];
       };
+      tenant_subscriptions: {
+        Row: {
+          access_ends_at: string | null;
+          archive_at: string | null;
+          archived_at: string | null;
+          cancel_at_period_end: boolean;
+          cancel_source: string | null;
+          canceled_at: string | null;
+          comp_until: string | null;
+          created_at: string;
+          current_period_end: string | null;
+          current_period_start: string | null;
+          expired_at: string | null;
+          grace_until: string | null;
+          halted_at: string | null;
+          mandate_authenticated_at: string | null;
+          mandate_display: string | null;
+          mandate_max_paise: number | null;
+          mandate_method: string | null;
+          mandate_revoked_at: string | null;
+          past_due_since: string | null;
+          plan_price_id: string | null;
+          provider: string;
+          provider_customer_id: string | null;
+          provider_subscription_id: string | null;
+          purge_at: string | null;
+          purged_at: string | null;
+          status: string;
+          tenant_id: string;
+          trial_consumed: boolean;
+          trial_end: string | null;
+          trial_start: string | null;
+          updated_at: string;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          access_ends_at?: string | null;
+          archive_at?: string | null;
+          archived_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancel_source?: string | null;
+          canceled_at?: string | null;
+          comp_until?: string | null;
+          created_at?: string;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          expired_at?: string | null;
+          grace_until?: string | null;
+          halted_at?: string | null;
+          mandate_authenticated_at?: string | null;
+          mandate_display?: string | null;
+          mandate_max_paise?: number | null;
+          mandate_method?: string | null;
+          mandate_revoked_at?: string | null;
+          past_due_since?: string | null;
+          plan_price_id?: string | null;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          purge_at?: string | null;
+          purged_at?: string | null;
+          status?: string;
+          tenant_id: string;
+          trial_consumed?: boolean;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string;
+          version?: number;
+        };
+        Update: {
+          access_ends_at?: string | null;
+          archive_at?: string | null;
+          archived_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancel_source?: string | null;
+          canceled_at?: string | null;
+          comp_until?: string | null;
+          created_at?: string;
+          current_period_end?: string | null;
+          current_period_start?: string | null;
+          expired_at?: string | null;
+          grace_until?: string | null;
+          halted_at?: string | null;
+          mandate_authenticated_at?: string | null;
+          mandate_display?: string | null;
+          mandate_max_paise?: number | null;
+          mandate_method?: string | null;
+          mandate_revoked_at?: string | null;
+          past_due_since?: string | null;
+          plan_price_id?: string | null;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          purge_at?: string | null;
+          purged_at?: string | null;
+          status?: string;
+          tenant_id?: string;
+          trial_consumed?: boolean;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_plan_price_id_fkey";
+            columns: ["plan_price_id"];
+            isOneToOne: false;
+            referencedRelation: "plan_prices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenants: {
         Row: {
           accepted_payment_methods: string[] | null;
@@ -1913,6 +2667,7 @@ export type Database = {
           name: string;
           owner_is_practicing_doctor: boolean | null;
           phone: string | null;
+          referral_directory_listed: boolean;
           registration_number: string | null;
           specialties: string[] | null;
           state_medical_council_reg_no: string | null;
@@ -1938,6 +2693,7 @@ export type Database = {
           name: string;
           owner_is_practicing_doctor?: boolean | null;
           phone?: string | null;
+          referral_directory_listed?: boolean;
           registration_number?: string | null;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
@@ -1962,6 +2718,7 @@ export type Database = {
           name?: string;
           owner_is_practicing_doctor?: boolean | null;
           phone?: string | null;
+          referral_directory_listed?: boolean;
           registration_number?: string | null;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
@@ -2012,26 +2769,22 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "visit_revisions_visit_id_fkey";
-            columns: ["visit_id"];
+            foreignKeyName: "visit_revisions_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
             isOneToOne: false;
             referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
       visits: {
         Row: {
-          advice: string[] | null;
-          chief_complaints: Json | null;
-          clinical_notes: string | null;
           created_at: string;
           created_by: string;
           current_revision: number;
           doctor_id: string;
           estimated_duration_minutes: number;
           id: string;
-          investigations_advised: string[] | null;
           is_overbooked: boolean;
           metadata: NonNullable<Json>;
           origin_type: string;
@@ -2041,24 +2794,18 @@ export type Database = {
           signed_at: string | null;
           signed_by: string | null;
           specialty: string;
-          specialty_data: Json | null;
           status: string;
           tenant_id: string;
           updated_at: string;
-          vitals: Json | null;
         };
         ComputedFields: never;
         Insert: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by: string;
           current_revision?: number;
           doctor_id: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type: string;
@@ -2068,23 +2815,17 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Update: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by?: string;
           current_revision?: number;
           doctor_id?: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type?: string;
@@ -2094,19 +2835,17 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id?: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Relationships: [
           {
-            foreignKeyName: "visits_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "visits_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
           {
             foreignKeyName: "visits_tenant_id_fkey";
@@ -2114,6 +2853,20 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "visits_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "visits_tenant_signed_by_fkey";
+            columns: ["signed_by", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
         ];
       };
@@ -2163,18 +2916,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "waitlist_entries_patient_id_fkey";
-            columns: ["patient_id"];
+            foreignKeyName: "waitlist_entries_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
             isOneToOne: false;
-            referencedRelation: "patients";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "waitlist_entries_promoted_visit_id_fkey";
-            columns: ["promoted_visit_id"];
-            isOneToOne: false;
-            referencedRelation: "visits";
-            referencedColumns: ["id"];
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
           },
           {
             foreignKeyName: "waitlist_entries_tenant_id_fkey";
@@ -2183,6 +2929,20 @@ export type Database = {
             referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "waitlist_entries_tenant_patient_fkey";
+            columns: ["tenant_id", "patient_id"];
+            isOneToOne: false;
+            referencedRelation: "patients";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "waitlist_entries_tenant_promoted_visit_fkey";
+            columns: ["tenant_id", "promoted_visit_id"];
+            isOneToOne: false;
+            referencedRelation: "visits";
+            referencedColumns: ["tenant_id", "id"];
+          },
         ];
       };
       webhook_delivery_queue: {
@@ -2190,8 +2950,10 @@ export type Database = {
           created_at: string;
           delivered_at: string | null;
           duration_ms: number | null;
+          event_key: string | null;
           event_type: string;
           id: string;
+          last_error: string | null;
           max_retries: number;
           next_retry_at: string;
           payload: string;
@@ -2207,8 +2969,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload: string;
@@ -2223,8 +2987,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type?: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload?: string;
@@ -2237,18 +3003,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "webhook_delivery_queue_subscription_id_fkey";
-            columns: ["subscription_id"];
-            isOneToOne: false;
-            referencedRelation: "webhook_subscriptions";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "webhook_delivery_queue_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "webhook_delivery_queue_tenant_subscription_fkey";
+            columns: ["tenant_id", "subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "webhook_subscriptions";
+            referencedColumns: ["tenant_id", "id"];
           },
         ];
       };
@@ -2302,6 +3068,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_commit: { Args: { p_reservation: string }; Returns: number };
+      ai_preflight: {
+        Args: { p_feature: string; p_visit_id: string };
+        Returns: string;
+      };
+      ai_release: { Args: { p_reservation: string }; Returns: boolean };
+      ai_reserve: {
+        Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
+        Returns: string;
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -2314,8 +3090,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -2326,8 +3105,37 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      claim_jobs: {
+        Args: {
+          p_batch: number;
+          p_kinds: string[];
+          p_lease_seconds: number;
+          p_per_tenant?: number;
+          p_worker: string;
+        };
+        Returns: {
+          attempts: number;
+          claim_order: number;
+          id: string;
+          kind: string;
+          lease_token: string;
+          max_attempts: number;
+          payload: Json;
+          run_at: string;
+          tenant_id: string;
+        }[];
+      };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
+      communication_queue_apply_dlr: {
+        Args: {
+          p_at: string;
+          p_external_message_id: string;
+          p_reason_code: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       communication_queue_claim: {
         Args: { p_id: string };
         Returns: {
@@ -2335,6 +3143,7 @@ export type Database = {
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -2360,6 +3169,10 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      communication_queue_dead_letter: {
+        Args: { p_error_code: string; p_id: string };
+        Returns: undefined;
+      };
       communication_queue_finish: {
         Args: {
           p_error: string;
@@ -2372,7 +3185,15 @@ export type Database = {
           new_status: string;
         }[];
       };
+      complete_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
+      consume_invitation_for: {
+        Args: { p_token_hash: string; p_user_id: string };
+        Returns: string;
+      };
       consume_reschedule_token: {
         Args: { p_new_at: string; p_token: string };
         Returns: Json;
@@ -2389,21 +3210,88 @@ export type Database = {
           token: string;
         }[];
       };
-      current_user_has_role: {
-        Args: { p_roles: string[]; p_tenant_id: string };
-        Returns: boolean;
-      };
-      current_user_is_admin_or_owner: {
-        Args: { p_tenant_id: string };
-        Returns: boolean;
-      };
       current_user_tenant_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
-      generate_daily_queue_token: {
-        Args: { p_date: string; p_tenant_id: string };
-        Returns: number;
+      defer_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at: string;
+        };
+        Returns: string;
+      };
+      enqueue_message: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_message_system: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_unmatched_reply_system: {
+        Args: {
+          p_dedupe_key: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_to: string;
+        };
+        Returns: string;
+      };
+      enqueue_webhook_event: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_subscription_id?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_webhook_event_system: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_system_actor: string;
+        };
+        Returns: Json;
+      };
+      fail_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at?: string;
+          p_retryable: boolean;
+        };
+        Returns: string;
       };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
@@ -2425,18 +3313,104 @@ export type Database = {
           with_check: string;
         }[];
       };
+      has_permission: {
+        Args: { p_perm: string; p_tenant: string };
+        Returns: boolean;
+      };
+      inbound_webhook_begin: {
+        Args: { p_dedupe_key: string; p_provider: string };
+        Returns: string;
+      };
+      inbound_webhook_finish: {
+        Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
+        Returns: undefined;
+      };
+      invitation_accept_context: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      invitation_issue_token: {
+        Args: { p_invitation_id: string; p_token_version: number };
+        Returns: string;
+      };
+      invite_staff: {
+        Args: { p_email: string; p_role: string; p_tenant: string };
+        Returns: Json;
+      };
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
         Args: { p_schedule: Json };
         Returns: boolean;
       };
+      issue_queue_token: {
+        Args: { p_priority?: string; p_visit_id: string };
+        Returns: {
+          queue_token_id: string;
+          reused: boolean;
+          token_date: string;
+          token_number: number;
+        }[];
+      };
+      jobs_runner_begin: {
+        Args: { p_source: string; p_worker: string };
+        Returns: number;
+      };
+      jobs_runner_end: {
+        Args: {
+          p_claimed: number;
+          p_dead: number;
+          p_done: number;
+          p_error_code: string;
+          p_ok: boolean;
+          p_retried: number;
+          p_run_id: number;
+        };
+        Returns: undefined;
+      };
+      log_audit: {
+        Args: {
+          p_action: string;
+          p_entity_id: string;
+          p_entity_type: string;
+          p_metadata: Json;
+          p_tenant: string;
+        };
+        Returns: number;
+      };
+      my_entitlements: {
+        Args: { p_tenant: string };
+        Returns: {
+          enabled: boolean;
+          key: string;
+          limit_value: number;
+        }[];
+      };
+      my_tenant_access: { Args: { p_tenant: string }; Returns: string };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
         Returns: string;
       };
+      ops_alert_notified: {
+        Args: {
+          p_alert_id: string;
+          p_provider_message_id: string;
+          p_seq: number;
+        };
+        Returns: boolean;
+      };
+      ops_alert_payload: { Args: { p_alert_id: string }; Returns: Json };
       ops_ingest_error: {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
+      };
+      peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
+      permission_matrix: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          perm: string;
+          role: string;
+        }[];
       };
       readiness_probe: {
         Args: { p_expected_migration?: string };
@@ -2455,6 +3429,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      referral_directory_search: {
+        Args: { p_query: string };
+        Returns: {
+          id: string;
+          name: string;
+        }[];
+      };
       referral_source_clinics: {
         Args: { p_ids: string[] };
         Returns: {
@@ -2463,11 +3444,21 @@ export type Database = {
           phone: string;
         }[];
       };
+      release_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      remove_member: {
+        Args: { p_membership_id: string; p_reason: string };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
+      resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
         Returns: Json;
       };
+      revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
       search_medicines: {
         Args: {
@@ -2487,6 +3478,24 @@ export type Database = {
           is_favorite: boolean;
           medicine_name: string;
         }[];
+      };
+      session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
+      set_ai_opt_in: {
+        Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };
+        Returns: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "tenant_ai_settings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       share_object_path: {
         Args: {
@@ -2513,6 +3522,46 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      start_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: number;
+      };
+      tenant_access_for_system: { Args: { p_tenant: string }; Returns: string };
+      tenant_local_date: {
+        Args: { p_at: string; p_tenant: string };
+        Returns: string;
+      };
+      visit_slot: { Args: { p_at: string; p_mins: number }; Returns: unknown };
+      webhook_delivery_claim: {
+        Args: { p_id: string };
+        Returns: {
+          endpoint_url: string;
+          event_type: string;
+          id: string;
+          is_active: boolean;
+          max_retries: number;
+          payload: string;
+          retry_count: number;
+          signing_secret: string;
+          subscription_id: string;
+          subscription_tenant_id: string;
+          tenant_id: string;
+        }[];
+      };
+      webhook_delivery_finish: {
+        Args: {
+          p_duration_ms: number;
+          p_error_code: string;
+          p_id: string;
+          p_retryable: boolean;
+          p_status_code: number;
+          p_success: boolean;
+        };
+        Returns: {
+          new_status: string;
+          next_retry_at: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

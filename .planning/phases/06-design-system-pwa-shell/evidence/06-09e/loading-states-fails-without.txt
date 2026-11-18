@@ -1,0 +1,34 @@
+[1/15] [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI
+[2/15] [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI
+[3/15] [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI
+[4/15] [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI
+[5/15] [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI
+[6/15] [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked
+[7/15] [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff
+[8/15] [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing
+[9/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Dashboard (/)
+[10/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Patients (/patients)
+[11/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Live Queue (/queue)
+  1) [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Live Queue (/queue) 
+    Error: expect(locator).toBeVisible() failed
+    Error: strict mode violation: getByRole('link', { name: 'Live Queue', exact: true }) resolved to 2 elements:
+        1) <a href="/queue" data-nav-id="queue" class="relative flex min-h-control-compact items-center gap-2.5 rounded-sm px-2 text-body-sm font-medium text-(--nav-fg) touch:min-h-control hover:bg-surface-muted hover:text-fg aria-[current=page]:bg-(--nav-active-bg) aria-[current=page]:text-(--nav-active-fg) aria-[current=page]:before:absolute aria-[current=page]:before:inset-y-[7px] aria-[current=page]:before:-left-2.5 aria-[current=page]:before:w-[3px] aria-[current=page]:before:rounded-r-[2px] aria-[curr…>…</a> aka getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Live Queue' })
+        2) <a href="/queue">…</a> aka locator('#main').getByRole('link', { name: 'Live Queue' })
+        at clickNavLink (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/v206-worktree/tests/e2e/shell/support/slow-navigation.ts:71:22)
+    test-results/shell-loading-states-the-s-0ddba-avigation-Live-Queue-queue--desktop-chrome/test-failed-1.png
+    Error Context: test-results/shell-loading-states-the-s-0ddba-avigation-Live-Queue-queue--desktop-chrome/error-context.md
+[12/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Doctor's Cabin (/cabin)
+[13/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Calendar (/calendar)
+  2) [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Calendar (/calendar) 
+    Error: expect(locator).toBeVisible() failed
+    Error: strict mode violation: getByRole('link', { name: 'Calendar', exact: true }) resolved to 2 elements:
+        1) <a href="/calendar" data-nav-id="calendar" class="relative flex min-h-control-compact items-center gap-2.5 rounded-sm px-2 text-body-sm font-medium text-(--nav-fg) touch:min-h-control hover:bg-surface-muted hover:text-fg aria-[current=page]:bg-(--nav-active-bg) aria-[current=page]:text-(--nav-active-fg) aria-[current=page]:before:absolute aria-[current=page]:before:inset-y-[7px] aria-[current=page]:before:-left-2.5 aria-[current=page]:before:w-[3px] aria-[current=page]:before:rounded-r-[2px] aria…>…</a> aka getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Calendar' })
+        2) <a href="/calendar">…</a> aka locator('#main').getByRole('link', { name: 'Calendar' })
+        at clickNavLink (/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/v206-worktree/tests/e2e/shell/support/slow-navigation.ts:71:22)
+    test-results/shell-loading-states-the-s-f84a8-vigation-Calendar-calendar--desktop-chrome/test-failed-1.png
+    Error Context: test-results/shell-loading-states-the-s-f84a8-vigation-Calendar-calendar--desktop-chrome/error-context.md
+[14/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:73:9 › the skeleton shows during a slow client navigation › Billing & Reports (/billing/reports)
+[15/15] [desktop-chrome] › tests/e2e/shell/loading-states.spec.ts:91:7 › the skeleton shows during a slow client navigation › a patient record opened from Patients
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+  2 failed
+  13 passed (14.6s)

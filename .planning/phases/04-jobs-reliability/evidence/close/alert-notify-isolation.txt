@@ -1,0 +1,24 @@
+# Close-run flake root cause: full-run-1 (first phase-evidence attempt at 3888219) failed tests/jobs/alert-notify-db.spec.ts
+# 'a patient's dead-lettered message raises dead_letter': the message runner claimed other files' pending message.send
+# jobs, dead-lettered them after this spec's job, and the alert's ten newest job_ids no longer held it.
+# Reproduced at 3888219 with 36 leftover pending message.send jobs in the local DB:
+#   × ... a patient's dead-lettered message raises dead_letter ...  AssertionError: expected 'clinicOS ops alert…' to contain '<job id>'  (Tests 1 failed | 9 passed (10))
+# The spec now seeds 12 due messages of a second clinic itself and parks other clinics' due messages before its pass.
+
+## Without the park call (spec seeds the other clinic's 12 due messages):
+   × alert.notify → Mailpit > a patient's dead-lettered message raises dead_letter; the email carries no patient or owner identifier 239ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'dead' to be 'pending' // Object.is equality
+      Tests  1 failed | 9 passed (10)
+[teardown] removed run data: 2 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain
+
+## Without the park call and without the new 'other clinic untouched' check (the original assertion alone):
+   × alert.notify → Mailpit > a patient's dead-lettered message raises dead_letter; the email carries no patient or owner identifier 310ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected 'clinicOS ops alert\n\nEnvironment: te…' to contain '21a57489-b2d2-47ba-9643-c521df6c6503'
+      Tests  1 failed | 9 passed (10)
+[teardown] removed run data: 2 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain
+
+## With the fix:
+      Tests  10 passed (10)
+[teardown] removed run data: 2 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

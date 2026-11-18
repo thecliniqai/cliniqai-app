@@ -1,0 +1,56 @@
+1..48
+ok 1 - a referral to a clinic not in the directory is refused (before: inserted)
+ok 2 - a referral to a listed clinic is inserted
+ok 3 - a referral to the referring clinic itself is refused
+ok 4 - a self-referral is refused even when the clinic itself is listed
+ok 5 - every writer is checked: postgres is refused too
+ok 6 - a target that is no clinic at all is refused by the guard before the FK
+ok 7 - an out-of-network referral (no target clinic) is unaffected
+ok 8 - a history snapshot without consent is refused (before: inserted)
+ok 9 - a history snapshot without consent is refused without a target too
+ok 10 - a history snapshot with consent is inserted
+ok 11 - a JSON null snapshot counts as no snapshot
+ok 12 - withdrawing the consent flag while the snapshot stays is refused
+ok 13 - adding a snapshot to a referral without consent is refused
+ok 14 - re-targeting a referral to an unlisted clinic is refused
+ok 15 - re-targeting a referral to another listed clinic is allowed
+ok 16 - after the target leaves the directory, an update that keeps the same target still works
+ok 17 - clearing the target is allowed
+ok 18 - the receiving clinic still cannot change the clinical summary
+ok 19 - the receiving clinic still acknowledges
+ok 20 - the receiving clinic cannot forward the referral to another clinic
+ok 21 - referral_directory_search returns id and name only
+ok 22 - referral_directory_search is SECURITY DEFINER (the caller cannot read other clinics' tenants rows)
+ok 23 - a doctor finds the listed clinics only (not C, not A)
+ok 24 - the caller's own clinic is never listed (B searching)
+ok 25 - at most 20 rows (25 listed clinics match; case-insensitive)
+ok 26 - a lone % is a short query: nothing
+ok 27 - LIKE wildcards are literal (no name contains "%Clinic")
+ok 28 - an underscore is literal too
+ok 29 - a query shorter than 2 characters returns nothing
+ok 30 - a nurse (consultations:view only) is refused
+ok 31 - a receptionist is refused
+ok 32 - anon cannot execute it
+ok 33 - authenticated may execute it (the check is inside)
+ok 34 - tenants.referral_directory_listed is NOT NULL
+ok 35 - a clinic starts unlisted
+ok 36 - the owner (clinic:manage) lists the clinic
+ok 37 - a doctor cannot list the clinic (no clinic:manage: 0 rows)
+ok 38 - another clinic's owner cannot list it
+ok 39 - an API key has no scope by default
+ok 40 - an unknown scope is refused (closed set)
+ok 41 - the owner (exports:create) creates a scoped key
+not ok 42 - an admin (clinic:manage, no exports:create) cannot create a scoped key
+# Failed test 42: "an admin (clinic:manage, no exports:create) cannot create a scoped key"
+#         have: 1
+#         want: denied:API_KEY_SCOPE_FORBIDDEN
+ok 43 - an admin still creates an unscoped key
+not ok 44 - an admin cannot add the scope to a key
+# Failed test 44: "an admin cannot add the scope to a key"
+#         have: 1
+#         want: denied:API_KEY_SCOPE_FORBIDDEN
+ok 45 - an admin may remove the scope
+ok 46 - an admin may edit a scoped key without adding a scope
+ok 47 - the owner adds the scope
+ok 48 - a system writer (no JWT user: the runbook path) is not limited
+# Looks like you failed 2 tests of 48

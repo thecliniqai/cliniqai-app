@@ -1,4 +1,4 @@
-// @ts-nocheck -- imports a module that does not exist at this path (lib/jobs lands in V2-04); linted at a virtual path only.
-import { runDueJobs } from "./internal/runner";
+// @ts-nocheck -- `./internal/runner` resolves only at the virtual path lib/jobs/enqueue.ts (the real module since 04-02).
+import { runJobs } from "./internal/runner";
 
-export const kick = runDueJobs;
+export const kick = runJobs;

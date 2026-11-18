@@ -1,0 +1,38 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_grants.test.sql .. 
+1..24
+ok 1 - the loop sees the billing_internal functions (sanity)
+not ok 2 - authenticated cannot execute any billing_internal function (acceptance 9)
+# Failed test 2: "authenticated cannot execute any billing_internal function (acceptance 9)"
+#     Unexpected records:
+#         ("billing_internal.has_entitlement(uuid,text,timestamp with time zone)")
+ok 3 - anon cannot execute any billing_internal function
+ok 4 - PUBLIC holds EXECUTE on no billing_internal function
+ok 5 - billing_internal: USAGE for service_role only
+ok 6 - every billing_internal / platform function pins search_path ''
+ok 7 - tenant_access_level is SECURITY DEFINER (SUB §6.2)
+ok 8 - platform: USAGE for authenticated and service_role, never anon
+ok 9 - no write privilege for anon or authenticated on any gating table (AI §4.6)
+ok 10 - anon reads no gating table
+ok 11 - authenticated reads exactly the catalogue and the clinic's own subscription and events (overrides and settings: nothing)
+ok 12 - RLS is on for every gating table
+ok 13 - subscription_events is append-only by grants, also for the service role (Pitfall 5)
+ok 14 - and has no trigger (a delete trigger would break the tenant cascade, Pitfall 5)
+ok 15 - the caller-bound wrappers: authenticated only
+ok 16 - tenant_access_for_system: service_role only (R-28)
+ok 17 - my_tenant_access(B) called by a member of A → NULL (SUB §11 cross-tenant)
+ok 18 - my_tenant_access(A) for its owner → its level (incomplete → onboarding)
+ok 19 - my_tenant_access(B) for its owner → full (trialing)
+ok 20 - a member of both clinics reads either clinic's level (member-bound, like the clinic switcher, R-40)
+ok 21 - an unknown clinic → NULL
+ok 22 - anon cannot call my_tenant_access
+ok 23 - a signed-in user cannot call billing_internal.tenant_access_level directly (no USAGE, no EXECUTE)
+ok 24 - a signed-in user cannot call tenant_access_for_system
+# Looks like you failed 1 test of 24
+Failed 1/24 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_grants.test.sql (Wstat: 0 Tests: 24 Failed: 1)
+  Failed test:  2
+Files=1, Tests=24,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: FAIL

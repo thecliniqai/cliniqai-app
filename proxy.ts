@@ -3,18 +3,53 @@ import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
 import { publicEnv } from "@/lib/env";
-import { loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
+import { isApiPath, loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
 import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
+import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
+import { log } from "@/lib/log";
+import {
+  AUTH_STATE_HEADER,
+  AUTH_STATE_UNAVAILABLE,
+  createAuthTransport,
+  keepSessionCookies,
+  PROXY_AUTH_DEADLINE_MS,
+  PROXY_AUTH_REQUEST_BUDGET_MS,
+} from "@/lib/supabase/auth-transport";
+
+/**
+ * The active-clinic pin `/api/session-status` sets (same value as `lib/supabase/server.ts` `ACTIVE_TENANT_COOKIE`,
+ * restated so the proxy does not load the request client; tests/auth/session-auth-close-db.spec.ts asserts they match).
+ */
+export const PROXY_ACTIVE_TENANT_COOKIE = "clinic_active_tenant";
+
+/**
+ * V2-06 06-09d close (re-check L-N4): a request the proxy found definitively signed out (no session, or GoTrue refused
+ * it: a revoked or expired refresh token, a deleted or banned user, an emailed-code session past its 10 minutes) also
+ * forgets the clinic the ended session had pinned. Otherwise the next sign-in on this device (the same user after a
+ * removal, or another user of a shared front-desk device) would resolve the old pin: one spurious "You no longer have
+ * access to this clinic" sign-out, or a new account sent there instead of to `/clinic/new`. HttpOnly cookie, so only a
+ * server answer can expire it (`/auth/signout` does on an explicit sign-out). Not on "Auth unavailable": that keeps
+ * the session, and so the pin.
+ */
+function forgetActiveClinic(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.has(PROXY_ACTIVE_TENANT_COOKIE)) {
+    response.cookies.set(PROXY_ACTIVE_TENANT_COOKIE, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" });
+  }
+  return response;
+}
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
  * inbound value is overwritten, so a caller cannot pick the id its errors are filed under) and echo it on the response.
  * The request headers are cloned each time, so cookies a `setAll` wrote onto `request` before the call are forwarded.
- * `x-vercel-id` is left alone.
+ * `x-vercel-id` is left alone. V2-06 06-09d: the auth-state header is the proxy's alone: an inbound one is always
+ * removed, and it is set only when this proxy found Supabase Auth unavailable (`authUnavailable`).
  */
-function continueWithRequestId(request: NextRequest, requestId: string): NextResponse {
+function continueWithRequestId(request: NextRequest, requestId: string, authUnavailable = false): NextResponse {
   const headers = new Headers(request.headers);
   headers.set(REQUEST_ID_HEADER, requestId);
+  headers.delete(AUTH_STATE_HEADER);
+  if (authUnavailable) headers.set(AUTH_STATE_HEADER, AUTH_STATE_UNAVAILABLE);
   const response = NextResponse.next({ request: { headers } });
   response.headers.set(REQUEST_ID_HEADER, requestId);
   return response;
@@ -42,8 +77,11 @@ function redirectToLogin(request: NextRequest, requestId: string, carry: NextRes
   return response;
 }
 
-/** The no-store headers for a response that deletes the session cookies (it must never be cached). */
-const ENDED_SESSION_CACHE_HEADERS: Record<(typeof SESSION_CACHE_HEADERS)[number], string> = {
+/**
+ * The no-store headers for a response that must never be cached: one that deletes the session cookies, and (V2-06
+ * 06-05, PWA D-4) every signed-in page and RSC response.
+ */
+const NO_STORE_HEADERS: Record<(typeof SESSION_CACHE_HEADERS)[number], string> = {
   "cache-control": "private, no-cache, no-store, must-revalidate, max-age=0",
   expires: "0",
   pragma: "no-cache",
@@ -61,9 +99,12 @@ function continueSignedOut(request: NextRequest, requestId: string, previous: Ne
   for (const name of names) request.cookies.delete(name);
   const response = continueWithRequestId(request, requestId);
   for (const name of names) response.cookies.set(name, "", { path: "/", maxAge: 0 });
-  for (const [key, value] of Object.entries(ENDED_SESSION_CACHE_HEADERS)) response.headers.set(key, value);
+  for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
   return response;
 }
+
+/** Exact paths that never carry a user session: no cookie refresh, no default-deny redirect (they are `/api`). */
+const SESSIONLESS_PATHS: ReadonlySet<string> = new Set(["/api/health", "/api/ready", "/api/jobs/run"]);
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -80,29 +121,45 @@ export async function proxy(request: NextRequest) {
     return continueWithRequestId(request, requestId);
   }
 
-  if (pathname === "/api/health" || pathname === "/api/ready") {
+  // Probes and the job runner (04-02: pg_cron calls it every minute with a bearer, never a session) skip the session
+  // refresh, so they cost no Supabase Auth round trip; they still get a request id.
+  if (SESSIONLESS_PATHS.has(pathname)) {
     return continueWithRequestId(request, requestId);
   }
 
   // @supabase/ssr 0.12 (AUTH_REDESIGN §4.2): `setAll` rebuilds the response with the refreshed cookies and the
   // no-store cache headers it is handed; the proxy returns exactly that response, never a fresh `NextResponse.next()`
   // built after the cookies were set (the cookies would be lost and the next request would refresh again).
+  // V2-06 06-09d (H-AUTHOUT-R1): `setAll` only records the writes; they are applied once the outcome is known
+  // (`applyCookieWrites`), and never after an Auth answer that was not definitive: auth-js deletes the session for a
+  // 429 or an uncoded 4xx on the token refresh, and that deletion must not reach the browser or this request.
   let response = continueWithRequestId(request, requestId);
+  const transport = createAuthTransport({ supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL, budgetMs: PROXY_AUTH_REQUEST_BUDGET_MS });
+  type CookieWrites = { cookies: { name: string; value: string; options: Parameters<typeof response.cookies.set>[2] }[]; headers: Record<string, string> };
+  let pending: CookieWrites[] = [];
+  const applyCookieWrites = () => {
+    for (const { cookies: cookiesToSet, headers } of pending) {
+      cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+      response = continueWithRequestId(request, requestId);
+      cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      // Cache-Control/Expires/Pragma: a response carrying auth cookies must never be cached and served to another user.
+      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    }
+    pending = [];
+  };
 
   const supabase = createServerClient(
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
     publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      global: { fetch: transport.fetch },
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet, headers) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = continueWithRequestId(request, requestId);
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-          // Cache-Control/Expires/Pragma: a response carrying auth cookies must never be cached and served to another user.
-          Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+          const kept = keepSessionCookies(transport, cookiesToSet);
+          if (kept.length > 0) pending.push({ cookies: kept, headers });
         },
       },
     }
@@ -110,15 +167,54 @@ export async function proxy(request: NextRequest) {
 
   // Refresh the session (the only refresh point; refreshing in two places risks refresh-token reuse sign-outs).
   // getClaims() verifies the JWT and refreshes an expired session through the same cookie path.
+  // 06-09d: three outcomes. Signed in; signed out (no session, or a definitive GoTrue refusal: the refresh token is
+  // gone, the session revoked, the user deleted or banned, a token that fails verification); or Auth unavailable (a
+  // network error, a timeout, 5xx, 429, 408, an uncoded or non-GoTrue answer, or no answer within the budget). The
+  // call is bounded: `PROXY_AUTH_REQUEST_BUDGET_MS` (5.5 s; the transport also ends auth-js's own refresh back-off by
+  // then), hard-stopped at `PROXY_AUTH_DEADLINE_MS`, so proxy + route handler stay inside the client's 10 s.
   let signedIn = false;
+  let authUnavailable = false;
   let amr: unknown;
+  let failure = "none";
+  let deadline: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { data } = await supabase.auth.getClaims();
-    signedIn = Boolean(data?.claims?.sub);
-    amr = data?.claims?.amr;
-  } catch {
-    // Treated as signed out: a protected page goes to the login page, a public one renders as it would anyway.
+    const result = await Promise.race([
+      supabase.auth.getClaims(),
+      new Promise<null>((resolve) => {
+        deadline = setTimeout(() => resolve(null), PROXY_AUTH_DEADLINE_MS);
+      }),
+    ]);
+    if (result === null) {
+      authUnavailable = true;
+      failure = "deadline";
+    } else if (result.data?.claims?.sub) {
+      signedIn = true;
+      amr = result.data.claims.amr;
+    } else if (result.error && !isDefinitiveAuthRejection(result.error)) {
+      authUnavailable = true;
+      failure = result.error.name;
+    }
+  } catch (err) {
+    // Not an answer from Auth (auth-js rethrows only non-auth errors): unavailable, never a sign-out.
+    authUnavailable = true;
+    failure = err instanceof Error ? err.name : "unknown";
+  } finally {
+    clearTimeout(deadline);
   }
+
+  if (authUnavailable) {
+    // The session cookies stay as they are (no write of this request reaches the browser), the request continues
+    // marked so that no page, action or handler refreshes again, and no page is sent to /login: pages show their
+    // unavailable state, `/api/session-status` answers 503, actions their generic failure.
+    pending = [];
+    log.warn({ event: "auth.proxy.unavailable", code: failure, requestId });
+    response = continueWithRequestId(request, requestId, true);
+    if (request.method === "GET" || request.method === "HEAD") {
+      for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
+    }
+    return response;
+  }
+  applyCookieWrites();
 
   // H-AUTH (03-13a; A00-5, ruling R-35): a session established with an emailed code (recovery, invite, OTP, signup,
   // magic link; any `amr` method not known to be a password or MFA factor counts as one, and an unreadable `amr`
@@ -128,11 +224,13 @@ export async function proxy(request: NextRequest) {
   // revoked at GoTrue (`signOut({ scope: "local" })` ends this session and its refresh token) and the request goes on
   // signed out, before any page, Server Action or route handler runs.
   if (signedIn && sessionMustEnd(amr)) {
+    transport.restartBudget();
     try {
       await supabase.auth.signOut({ scope: "local" });
     } catch {
       // Fail closed: the cookies are deleted below whatever GoTrue answered.
     }
+    applyCookieWrites();
     response = continueSignedOut(request, requestId, response);
     signedIn = false;
   }
@@ -142,7 +240,22 @@ export async function proxy(request: NextRequest) {
   // methods on a page path are Server Action calls, which authenticate themselves (P0-13 guard manifest), and `/api`
   // handlers authenticate themselves.
   if (!signedIn && (request.method === "GET" || request.method === "HEAD") && pageNeedsSession(pathname)) {
-    return redirectToLogin(request, requestId, response);
+    return forgetActiveClinic(request, redirectToLogin(request, requestId, response));
+  }
+  // L-N4: every other definitively signed-out request (a public page such as /login, an `/api` call, a Server Action).
+  if (!signedIn) forgetActiveClinic(request, response);
+
+  // V2-06 06-05 (PWA_STRATEGY §4 D-4, ruling R-20): a signed-in page or RSC response (GET/HEAD outside /api) is
+  // `private, no-store`, set here rather than relying on Next's default for dynamic pages, so neither the browser's
+  // HTTP cache nor any shared cache keeps patient data and the page is not restored from the back-forward cache.
+  // `/api` handlers set their own headers. A response `setAll` already marked no-store (a refreshed session) keeps that.
+  if (
+    signedIn &&
+    (request.method === "GET" || request.method === "HEAD") &&
+    !isApiPath(normaliseRequestPath(pathname) ?? pathname) &&
+    !(response.headers.get("cache-control") ?? "").includes("no-store")
+  ) {
+    for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
   }
 
   return response;

@@ -1,59 +1,85 @@
 import React from "react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
+import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 
+/**
+ * Alert (V2-06 06-02c; 06-UI-SPEC Alert, DESIGN_SYSTEM §6.8, §6.11): contextual, inline in a page or sheet. Radius-md,
+ * no shadow, padding 10 12; a 16 px icon, a 600 title, the text, and an optional action ("Retry", "Use this patient").
+ * Tones `info` / `success` / `warning` / `danger` on their `*-bg` / `*-fg` pair (every pair ≥ 4.5:1,
+ * evidence/06-01b/contrast.md). Colour is never the only signal: each tone has its own icon.
+ *
+ * Live role: `status` (polite) for info and success, `alert` (assertive) for warning and danger, which are what an
+ * action raises. A static notice that is on the page from the start passes `live="off"` so nothing is announced.
+ *
+ * v1 props kept: `type` (`"error"` reads as `danger`; v1 call sites keep `role="alert"`), `title`, `onDismiss`
+ * (a "Dismiss alert" button), `className`.
+ */
+export type AlertTone = "info" | "success" | "warning" | "danger";
+/** v1 name of the tone. */
 export type AlertType = "info" | "success" | "warning" | "error";
 
 export interface AlertProps {
+  tone?: AlertTone;
   type?: AlertType;
   title?: string;
-  className?: string;
+  /** An action button or link after the text. */
+  action?: React.ReactNode;
   onDismiss?: () => void;
-  children: React.ReactNode;
+  /** Override the live role; `"off"` renders none (a notice present from the start). */
+  live?: "status" | "alert" | "off";
+  className?: string;
+  children?: React.ReactNode;
 }
 
-export function Alert({
-  type = "info",
-  title,
-  className,
-  onDismiss,
-  children,
-}: AlertProps) {
-  const icons = {
-    info: <Info className="w-5 h-5 text-[#1769E0] shrink-0" />,
-    success: <CheckCircle2 className="w-5 h-5 text-[#18794E] shrink-0" />,
-    warning: <AlertTriangle className="w-5 h-5 text-[#9A5B00] shrink-0" />,
-    error: <AlertCircle className="w-5 h-5 text-[#B42318] shrink-0" />,
-  };
+const TONE: Record<AlertTone, string> = {
+  info: "bg-info-bg text-info-fg",
+  success: "bg-success-bg text-success-fg",
+  warning: "bg-warning-bg text-warning-fg",
+  danger: "bg-danger-bg text-danger-fg",
+};
 
-  const typeStyles = {
-    info: "bg-[#EAF2FF] border-[#BFD8FF] text-[#1769E0]",
-    success: "bg-emerald-50 border-emerald-200 text-emerald-800",
-    warning: "bg-amber-50 border-amber-200 text-amber-800",
-    error: "bg-rose-50 border-rose-200 text-rose-800",
-  }[type];
+const ICON: Record<AlertTone, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  info: Info,
+  success: CircleCheck,
+  warning: TriangleAlert,
+  danger: CircleAlert,
+};
 
+export function resolveAlertTone(tone: AlertTone | undefined, type: AlertType | undefined): AlertTone {
+  if (tone) return tone;
+  if (type === "error") return "danger";
+  return type ?? "info";
+}
+
+export function Alert({ tone, type, title, action, onDismiss, live, className, children }: AlertProps) {
+  const resolved = resolveAlertTone(tone, type);
+  const Icon = ICON[resolved];
+  const liveRole = live === "off" ? undefined : (live ?? (resolved === "info" || resolved === "success" ? "status" : "alert"));
   return (
     <div
-      role="alert"
-      className={cn(
-        "p-4 rounded-xl border flex items-start gap-3 shadow-theme-xs",
-        typeStyles,
-        className
-      )}
+      role={liveRole}
+      data-alert={resolved}
+      className={cn("flex items-start gap-2.5 rounded-md px-3 py-2.5 text-body-sm", TONE[resolved], className)}
     >
-      {icons[type]}
-      <div className="grow space-y-0.5 text-sm">
-        {title && <h4 className="font-semibold">{title}</h4>}
-        <div className="text-xs sm:text-sm opacity-90 leading-relaxed">{children}</div>
+      <Icon aria-hidden="true" className="mt-px size-4 shrink-0" strokeWidth={1.75} />
+      <div className="flex min-w-0 grow flex-col gap-0.5">
+        {title && <p className="font-semibold">{title}</p>}
+        {children && <div className="text-body-sm">{children}</div>}
+        {action && <div className="mt-1.5 flex flex-wrap items-center gap-2">{action}</div>}
       </div>
       {onDismiss && (
         <button
+          type="button"
           onClick={onDismiss}
-          className="p-1 rounded-md opacity-60 hover:opacity-100 hover:bg-black/5 transition-opacity cursor-pointer"
           aria-label="Dismiss alert"
+          className={cn(
+            "-my-1 -mr-1.5 inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-current hover:bg-surface/60 touch:size-control",
+            TRANSITION,
+            FOCUS_RING,
+          )}
         >
-          <X className="w-4 h-4" />
+          <X aria-hidden="true" className="size-4" strokeWidth={1.75} />
         </button>
       )}
     </div>

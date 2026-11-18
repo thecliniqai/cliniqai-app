@@ -1,13 +1,23 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
+import http from "node:http";
+import https from "node:https";
 import { validateWebhookEndpoint, isPrivateIp, type HostResolver } from "@/lib/webhooks/ssrf";
 import { generateWebhookSignature, verifyWebhookSignature } from "@/lib/webhooks/signer";
-import { enqueueWebhookEvent, type WebhookDb } from "@/lib/webhooks/outbox";
-import { seedTenantWithOwner } from "../helpers/tenants";
+import { enqueueWebhookEvent, EnqueueError } from "@/lib/jobs/enqueue";
+import { testPingWebhook } from "@/features/webhooks/service";
+import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { ctxFor } from "../helpers/context";
+import { psql } from "../helpers/sql";
+import { seedPatient } from "../jobs/message-helpers";
+import { deliveriesFor, deliveryPayload, deliveryRow, insertDelivery, runHandlerOnce, subscribe, webhookJobsFor } from "../jobs/webhook-helpers";
 import crypto from "crypto";
 
-// V2-03 03-10: the SSRF check and the dispatcher have no test-environment branch; tests inject the resolver and the
-// HTTP client explicitly (production callers pass nothing: https only, system DNS, global fetch).
+// V2-03 03-10: the SSRF check and the deliverer have no test-environment branch; tests inject the resolver and the
+// HTTP client explicitly (production passes nothing: https only, system DNS, the pinned transport).
+// V2-04 04-03b (pitfall 9, assertions kept): the request path only enqueues (`enqueue_webhook_event`, no POST, no
+// background dispatch: the 03-10 second writer is gone); delivery runs in the `webhook.deliver` handler, whose SQL
+// (`webhook_delivery_finish`) owns the backoff. The cron recovery route is deleted (the job runner replaces it).
 const publicDns: HostResolver = async () => ["93.184.216.34"];
 const privateDns: HostResolver = async () => ["10.0.0.5"];
 type FetchArgs = Parameters<typeof fetch>;
@@ -137,497 +147,242 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
     });
   });
 
-  describe("Transactional Outbox Enqueueing (lib/webhooks/outbox.ts)", () => {
-    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
-    let subA: { id: string; secret: string };
-    let subB: { id: string; secret: string };
+  describe("Webhook enqueue (04-03b: lib/jobs/enqueue → public.enqueue_webhook_event)", () => {
+    let tenant: SeededTenant;
+    let subA: { id: string };
+    let subB: { id: string };
     let inactiveSub: { id: string };
 
+    async function prescription(): Promise<string> {
+      const p = await seedPatient(tenant.tenantId, tenant.userId);
+      const { data, error } = await getAdminClient()
+        .from("prescriptions")
+        // Signed: a request raises prescription.issued only at signing (04-07a M-RXEVENT).
+        .insert({ tenant_id: p.tenantId, visit_id: p.visitId, patient_id: p.patientId, doctor_id: tenant.userId, version: 1, status: "active", letterhead_mode: "blank_paper", signed_at: new Date().toISOString() })
+        .select("id, patient_id, visit_id")
+        .single();
+      if (error || !data) throw new Error(`seed prescription failed: ${error?.code}`);
+      return data.id;
+    }
+
+    /**
+     * Every outbound path a background dispatch could take: the pinned transport's modules and global fetch. supabase-js
+     * itself uses fetch for the local stack, so `fetch` counts only calls to a non-loopback host.
+     */
+    function outboundSpies() {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const outboundFetches = () =>
+        fetchSpy.mock.calls
+          .map(([input]) => new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url).hostname)
+          .filter((host) => host !== "127.0.0.1" && host !== "localhost");
+      return { requests: [vi.spyOn(https, "request"), vi.spyOn(http, "request")], outboundFetches };
+    }
+
     beforeAll(async () => {
-      const admin = getAdminClient();
       tenant = await seedTenantWithOwner("Webhooks Outbox Test Clinic");
-
-      // Subscription A: subscribed to appointment.*
-      const secretA = "whsec_" + crypto.randomBytes(24).toString("hex");
-      const { data: createdA } = await (admin.from("webhook_subscriptions") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: "https://partner-a.example.com/webhooks",
-          event_types: ["appointment.booked", "appointment.cancelled"],
-          signing_secret: secretA,
-          is_active: true,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      subA = { id: createdA.id, secret: secretA };
-
-      // Subscription B: subscribed to visit.completed and prescription.issued
-      const secretB = "whsec_" + crypto.randomBytes(24).toString("hex");
-      const { data: createdB } = await (admin.from("webhook_subscriptions") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: "https://partner-b.example.com/webhooks",
-          event_types: ["visit.completed", "prescription.issued"],
-          signing_secret: secretB,
-          is_active: true,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      subB = { id: createdB.id, secret: secretB };
-
-      // Inactive subscription: should never be enqueued
-      const { data: createdInactive } = await (admin.from("webhook_subscriptions") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: "https://partner-inactive.example.com/webhooks",
-          event_types: ["appointment.booked"],
-          signing_secret: "whsec_inactive",
-          is_active: false,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      inactiveSub = { id: createdInactive.id };
+      subA = await subscribe(tenant.tenantId, tenant.userId, ["appointment.booked", "appointment.cancelled"]);
+      subB = await subscribe(tenant.tenantId, tenant.userId, ["visit.completed", "prescription.issued"]);
+      inactiveSub = await subscribe(tenant.tenantId, tenant.userId, ["appointment.booked", "lab_result.ready"], { active: false });
     });
 
-    it("enqueues queue items with exact raw TEXT payload for matching active subscriptions", async () => {
-      const admin = getAdminClient();
-      const payloadData = { appointment_id: "apt-test-999", patient_id: "pat-888" };
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
 
-      const enqueued = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "appointment.booked",
-        payloadData
-      );
+    it("enqueues one raw-TEXT envelope per matching active subscription and performs no POST (before: fire-and-forget dispatch)", async () => {
+      const spies = outboundSpies();
+      const rx = await prescription();
 
-      expect(enqueued.length).toBe(1);
-      expect(enqueued[0].subscription_id).toBe(subA.id);
-      expect(enqueued[0].event_type).toBe("appointment.booked");
-      expect(enqueued[0].status).toBe("pending");
-      expect(enqueued[0].retry_count).toBe(0);
-      expect(enqueued[0].max_retries).toBe(5);
+      const enqueued = await enqueueWebhookEvent(ctxFor(tenant), "prescription.issued", rx);
+      // Give a background dispatch (the pre-04-03b `import("./dispatcher").then(…)`) time to start.
+      await new Promise((r) => setTimeout(r, 100));
 
-      // Verify payload is stored as raw TEXT string
-      expect(typeof enqueued[0].payload).toBe("string");
-      const parsed = JSON.parse(enqueued[0].payload);
-      expect(parsed.event).toBe("appointment.booked");
-      expect(parsed.data).toEqual(payloadData);
+      for (const spy of spies.requests) expect(spy).not.toHaveBeenCalled();
+      expect(spies.outboundFetches()).toEqual([]);
+      expect(enqueued).toEqual({ queued: 1, deliveryIds: [expect.any(String)] });
+      const [row] = deliveriesFor(subB.id).filter((r) => r.id === enqueued.deliveryIds[0]);
+      expect(row).toMatchObject({ status: "pending", retryCount: 0, responseStatus: null });
+      expect(psql(`select max_retries from public.webhook_delivery_queue where id = '${row.id}'`)).toEqual(["5"]);
+      const parsed = JSON.parse(deliveryPayload(row.id));
+      expect(parsed.event).toBe("prescription.issued");
+      expect(parsed.data).toMatchObject({ prescription_id: rx });
       expect(parsed.id).toBeDefined();
+      // Delivery is the runner's: one webhook.deliver job, still pending.
+      expect(webhookJobsFor(row.id)).toEqual([expect.objectContaining({ status: "pending" })]);
     });
 
     it("does not enqueue events to unsubscribed or inactive subscriptions", async () => {
-      const admin = getAdminClient();
-      const enqueued = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "lab_result.ready", // Neither subA nor subB is subscribed to lab_result.ready
-        { test: "no-subscribers" }
+      const [doc] = psql(
+        `insert into public.patient_documents (tenant_id, patient_id, title, storage_path, original_filename, mime_type, ` +
+          `file_size_bytes, uploaded_by) select '${tenant.tenantId}', p.id, 'Synthetic report', ` +
+          `'tenants/${tenant.tenantId}/patients/' || p.id || '/labs/s.pdf', 's.pdf', 'application/pdf', 10, '${tenant.userId}' ` +
+          `from public.patients p where p.tenant_id = '${tenant.tenantId}' limit 1 returning id`
       );
-
-      expect(enqueued.length).toBe(0);
-
-      // Check database to ensure inactive subscription received 0 items
-      const { data: inactiveQueue } = await (admin.from("webhook_delivery_queue") as any)
-        .select("id")
-        .eq("subscription_id", inactiveSub.id);
-      expect(inactiveQueue?.length || 0).toBe(0);
+      const enqueued = await enqueueWebhookEvent(ctxFor(tenant), "lab_result.ready", doc);
+      expect(enqueued).toEqual({ queued: 0, deliveryIds: [] });
+      expect(deliveriesFor(inactiveSub.id)).toEqual([]);
     });
 
     it("enqueues to multiple subscriptions when more than one is subscribed to the same event", async () => {
-      const admin = getAdminClient();
-
-      // Add prescription.issued to subA as well
-      await (admin.from("webhook_subscriptions") as any)
+      await getAdminClient()
+        .from("webhook_subscriptions")
         .update({ event_types: ["appointment.booked", "appointment.cancelled", "prescription.issued"] })
         .eq("id", subA.id);
+      const rx = await prescription();
 
-      const enqueued = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "prescription.issued",
-        { prescription_id: "rx-multi-test" }
+      const enqueued = await enqueueWebhookEvent(ctxFor(tenant), "prescription.issued", rx);
+
+      expect(enqueued.queued).toBe(2);
+      const subIds = psql(
+        `select subscription_id from public.webhook_delivery_queue where id in (${enqueued.deliveryIds.map((i) => `'${i}'`).join(",")}) order by 1`
       );
-
-      expect(enqueued.length).toBe(2);
-      const subIds = enqueued.map((item) => item.subscription_id);
-      expect(subIds).toContain(subA.id);
-      expect(subIds).toContain(subB.id);
+      expect(subIds.sort()).toEqual([subA.id, subB.id].sort());
     });
 
-    it("does not throw or fail calling context even if database error occurs", async () => {
-      // Simulate broken client
-      const brokenClient = {
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                contains: async () => ({ data: null, error: new Error("Simulated DB Offline") }),
-              }),
-            }),
-          }),
-        }),
+    it("a database failure surfaces as EnqueueError with a fixed message; the driver's text never reaches the caller", async () => {
+      const broken = {
+        rpc: async () => ({ data: null, error: { code: "XX000", message: "row (Synthetic Patient, +919000000001) failed" } }),
       };
+      const err = await enqueueWebhookEvent(
+        // Partial test double: only `rpc` is walked.
+        { db: broken as never, tenantId: tenant.tenantId },
+        "prescription.issued",
+        crypto.randomUUID()
+      ).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(EnqueueError);
+      expect((err as EnqueueError).appError.code).toBe("INTERNAL");
+      expect((err as Error).message).toBe("Failed to queue the webhook event.");
+    });
 
-      const result = await enqueueWebhookEvent(
-        // Partial test double: only the query chain enqueueWebhookEvent walks before it sees the error.
-        brokenClient as unknown as WebhookDb,
-        "invalid-tenant-id",
-        "appointment.booked",
-        { dummy: "payload" }
-      );
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(0);
+    it("the test ping is queued (queued: true), creates one row for that subscription and sends nothing", async () => {
+      const spies = outboundSpies();
+      const result = await testPingWebhook(ctxFor(tenant), subA.id);
+      await new Promise((r) => setTimeout(r, 100));
+      for (const spy of spies.requests) expect(spy).not.toHaveBeenCalled();
+      expect(spies.outboundFetches()).toEqual([]);
+      expect(result).toEqual({ success: true, queued: true });
+      const pings = psql(`select id from public.webhook_delivery_queue where subscription_id = '${subA.id}' and event_type = 'ping'`);
+      expect(pings).toHaveLength(1);
+      expect(deliveryRow(pings[0]).status).toBe("pending");
+      expect(psql(`select count(*) from public.webhook_delivery_queue where subscription_id <> '${subA.id}' and tenant_id = '${tenant.tenantId}' and event_type = 'ping'`)).toEqual(["0"]);
     });
   });
 
-  describe("Webhook Dispatcher & Exponential Backoff (Task 2)", () => {
-    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
-    let sub: { id: string; secret: string; endpoint: string };
+  describe("Webhook delivery & exponential backoff (rewritten to the webhook.deliver handler)", () => {
+    let tenant: SeededTenant;
+    let sub: { id: string; secret: string; url: string };
 
     beforeAll(async () => {
-      const admin = getAdminClient();
       tenant = await seedTenantWithOwner("Dispatcher Test Clinic");
-
-      const secret = "whsec_" + crypto.randomBytes(24).toString("hex");
-      const { data: created } = await (admin.from("webhook_subscriptions") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: "https://mock-partner.example.com/receiver",
-          event_types: ["appointment.booked"],
-          signing_secret: secret,
-          is_active: true,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      sub = { id: created.id, secret, endpoint: "https://mock-partner.example.com/receiver" };
+      sub = await subscribe(tenant.tenantId, tenant.userId, ["appointment.booked"], { host: "mock-partner.example.com", path: "/receiver" });
     });
 
-    /**
-     * A pending queue item inserted directly. `enqueueWebhookEvent` also starts a background dispatch of the same row
-     * with the production transport (no injected fetch), which races the dispatch under test on the same row (two
-     * writers, no claim; atomic claiming is V2-04). The dispatcher tests therefore insert the row themselves.
-     */
-    async function insertQueueItem(test: string, subscriptionId = sub.id) {
-      const { data, error } = await getAdminClient()
-        .from("webhook_delivery_queue")
-        .insert({
-          tenant_id: tenant.tenantId,
-          subscription_id: subscriptionId,
-          event_type: "appointment.booked",
-          payload: JSON.stringify({ test }),
-          status: "pending",
-          retry_count: 0,
-          max_retries: 5,
-        })
-        .select("id")
-        .single();
-      expect(error).toBeNull();
-      return data as { id: string };
-    }
-
-    it("verifies exponential backoff delay calculation per D-10", async () => {
-      const { calculateWebhookBackoff } = await import("@/lib/webhooks/dispatcher");
-      expect(calculateWebhookBackoff(1)).toBe(60 * 1000); // 1 minute
-      expect(calculateWebhookBackoff(2)).toBe(5 * 60 * 1000); // 5 minutes
-      expect(calculateWebhookBackoff(3)).toBe(15 * 60 * 1000); // 15 minutes
-      expect(calculateWebhookBackoff(4)).toBe(60 * 60 * 1000); // 1 hour
-      expect(calculateWebhookBackoff(5)).toBe(6 * 60 * 60 * 1000); // 6 hours
-    });
-
-    it("marks queue item 'delivered' on HTTP 200 with response_status and latency", async () => {
-      const admin = getAdminClient();
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
-
-      const enqueued = await insertQueueItem("delivery-success");
-
+    it("marks the row 'delivered' on HTTP 200 with response_status and latency (legacy fetch seam: headers, no redirect)", async () => {
+      const id = await insertDelivery(tenant.tenantId, sub.id);
       const send = fakeFetch(() => new Response(JSON.stringify({ received: true }), { status: 200, statusText: "OK" }));
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
+
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toEqual({ outcome: "done" });
       expect(send).toHaveBeenCalledTimes(1);
       const [url, init] = send.mock.calls[0];
-      expect(url).toBe(sub.endpoint);
+      expect(url).toBe(sub.url);
       expect(init?.headers).toHaveProperty("X-ClinicQ-Signature");
       expect(init?.headers).toHaveProperty("Content-Type", "application/json");
       expect(init?.redirect).toBe("manual");
-      expect(result.success).toBe(true);
-      expect(result.status).toBe("delivered");
-      expect(result.responseStatus).toBe(200);
-      expect(typeof result.durationMs).toBe("number");
+      expect(init?.body).toBe(deliveryPayload(id));
 
-      // Verify DB record
-      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
-        .select("*")
-        .eq("id", enqueued.id)
-        .single();
-      expect(updated.status).toBe("delivered");
-      expect(updated.response_status).toBe(200);
-      expect(updated.delivered_at).toBeDefined();
+      expect(deliveryRow(id)).toMatchObject({ status: "delivered", responseStatus: 200 });
+      expect(psql(`select (delivered_at is not null) || '|' || (duration_ms >= 0) from public.webhook_delivery_queue where id = '${id}'`)).toEqual(["true|true"]);
     });
 
-    it("increments retry_count and sets next_retry_at on HTTP 500 error", async () => {
-      const admin = getAdminClient();
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
-
-      const enqueued = await insertQueueItem("delivery-retry");
-
+    it("increments retry_count and sets next_retry_at ~1 minute ahead on HTTP 500", async () => {
+      const id = await insertDelivery(tenant.tenantId, sub.id);
       const send = fakeFetch(() => new Response("Server error", { status: 500 }));
-      const beforeDispatch = Date.now();
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
+
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toMatchObject({ outcome: "retry", code: "http_500" });
       expect(send).toHaveBeenCalledTimes(1);
-
-      expect(result.success).toBe(false);
-      expect(result.status).toBe("pending");
-      expect(result.retryCount).toBe(1);
-      expect(result.responseStatus).toBe(500);
-
-      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
-        .select("*")
-        .eq("id", enqueued.id)
-        .single();
-      expect(updated.status).toBe("pending");
-      expect(updated.retry_count).toBe(1);
-      // next_retry_at should be ~1m in the future (backoff for retry 1)
-      const nextRetryEpoch = new Date(updated.next_retry_at).getTime();
-      expect(nextRetryEpoch).toBeGreaterThanOrEqual(beforeDispatch + 55000);
+      const row = deliveryRow(id);
+      expect(row).toMatchObject({ status: "pending", retryCount: 1, responseStatus: 500 });
+      expect(row.dueInSeconds).toBeGreaterThanOrEqual(55);
     });
 
-    it("marks status as 'failed' after 5 unsuccessful retry attempts", async () => {
-      const admin = getAdminClient();
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
-
-      // Insert directly with retry_count: 4
-      const { data: queueItem, error: insertErr } = await (admin.from("webhook_delivery_queue") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          subscription_id: sub.id,
-          event_type: "appointment.booked",
-          payload: JSON.stringify({ test: "exhaust-retries" }),
-          status: "pending",
-          retry_count: 4,
-          max_retries: 5,
-        })
-        .select()
-        .single();
-      expect(insertErr).toBeNull();
-      expect(queueItem).toBeDefined();
-
+    it("marks status 'failed' after the fifth unsuccessful attempt", async () => {
+      const id = await insertDelivery(tenant.tenantId, sub.id, { retry_count: 4 });
       const send = fakeFetch(() => {
         throw new Error("Network connection refused");
       });
-      const result = await dispatchWebhookQueueItem(admin, queueItem.id, { resolve: publicDns, fetch: send });
-      expect(send).toHaveBeenCalledTimes(1);
-      expect(result.success).toBe(false);
-      expect(result.status).toBe("failed");
-      expect(result.retryCount).toBe(5);
 
-      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
-        .select("*")
-        .eq("id", queueItem.id)
-        .single();
-      expect(updated.status).toBe("failed");
-      expect(updated.retry_count).toBe(5);
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toMatchObject({ outcome: "dead" });
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(deliveryRow(id)).toMatchObject({ status: "failed", retryCount: 5 });
     });
 
     it("immediately fails items with SSRF violations without retrying", async () => {
-      const admin = getAdminClient();
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
-
-      // Create SSRF subscription targeting private subnet
-      const { data: ssrfSub, error: ssrfErr } = await (admin.from("webhook_subscriptions") as any)
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: "https://10.0.0.1/evil",
-          event_types: ["appointment.booked"],
-          signing_secret: "whsec_ssrf",
-          is_active: true,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      expect(ssrfErr).toBeNull();
-      expect(ssrfSub).toBeDefined();
-
-      const enqueued = await insertQueueItem("ssrf-blocked", ssrfSub.id);
-
+      const ssrfSub = await subscribe(tenant.tenantId, tenant.userId, ["appointment.booked"], { host: "10.0.0.1", path: "/evil" });
+      const id = await insertDelivery(tenant.tenantId, ssrfSub.id);
       const send = fakeFetch(() => new Response("ok", { status: 200 }));
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
-      expect(send).not.toHaveBeenCalled();
-      expect(result.success).toBe(false);
-      expect(result.status).toBe("failed");
-      expect(result.responseStatus).toBe(400);
 
-      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
-        .select("*")
-        .eq("id", enqueued.id)
-        .single();
-      expect(updated.status).toBe("failed");
-      expect(updated.response_status).toBe(400);
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toEqual({ outcome: "dead", code: "ssrf_blocked" });
+      expect(send).not.toHaveBeenCalled();
+      expect(deliveryRow(id)).toMatchObject({ status: "failed", responseStatus: 400 });
     });
   });
 
-  describe("Dispatcher transport options (V2-03 03-10: no test-environment branch)", () => {
-    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
+  describe("Deliverer transport options (V2-03 03-10: no test-environment branch)", () => {
+    let tenant: SeededTenant;
 
     beforeAll(async () => {
       tenant = await seedTenantWithOwner("Dispatcher Options Clinic");
     });
 
-    /** A pending queue item for its own subscription (inserted directly, so no other subscription is involved). */
+    /** A pending delivery row for its own subscription. */
     async function queueItemFor(endpoint: string): Promise<string> {
-      const admin = getAdminClient();
-      const { data: s, error: sErr } = await admin
-        .from("webhook_subscriptions")
-        .insert({
-          tenant_id: tenant.tenantId,
-          endpoint_url: endpoint,
-          event_types: ["appointment.booked"],
-          signing_secret: "whsec_" + crypto.randomBytes(16).toString("hex"),
-          is_active: true,
-          created_by: tenant.userId,
-        })
-        .select("id")
-        .single();
-      expect(sErr).toBeNull();
-      const { data: q, error: qErr } = await admin
-        .from("webhook_delivery_queue")
-        .insert({
-          tenant_id: tenant.tenantId,
-          subscription_id: s!.id,
-          event_type: "appointment.booked",
-          payload: JSON.stringify({ test: "transport-options" }),
-          status: "pending",
-          retry_count: 0,
-          max_retries: 5,
-        })
-        .select("id")
-        .single();
-      expect(qErr).toBeNull();
-      return q!.id;
-    }
-
-    async function rowOf(id: string) {
-      const { data } = await getAdminClient()
-        .from("webhook_delivery_queue")
-        .select("status, response_status, retry_count")
-        .eq("id", id)
-        .single();
-      return data as { status: string; response_status: number | null; retry_count: number };
+      const url = new URL(endpoint);
+      const s = await subscribe(tenant.tenantId, tenant.userId, ["appointment.booked"], { host: url.host, path: url.pathname });
+      await getAdminClient().from("webhook_subscriptions").update({ endpoint_url: endpoint }).eq("id", s.id);
+      return insertDelivery(tenant.tenantId, s.id);
     }
 
     it("fails an http:// endpoint without allowHttp inside Vitest and never sends (before: allowed by the VITEST branch)", async () => {
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
       const id = await queueItemFor("http://plain-partner.example.test/hook");
       const send = fakeFetch(() => new Response("ok", { status: 200 }));
 
-      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: publicDns, fetch: send });
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toEqual({ outcome: "dead", code: "ssrf_blocked" });
 
       expect(send).not.toHaveBeenCalled();
-      expect(result).toMatchObject({ success: false, status: "failed", responseStatus: 400 });
-      expect(result.error).toContain("HTTPS");
-      expect(await rowOf(id)).toMatchObject({ status: "failed", response_status: 400 });
+      expect(deliveryRow(id)).toMatchObject({ status: "failed", responseStatus: 400 });
     });
 
     it("delivers to http:// only when the caller passes allowHttp", async () => {
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
       const id = await queueItemFor("http://plain-partner.example.test/hook");
       const send = fakeFetch(() => new Response("ok", { status: 200 }));
 
-      const result = await dispatchWebhookQueueItem(getAdminClient(), id, {
-        allowHttp: true,
-        resolve: publicDns,
-        fetch: send,
-      });
+      expect(await runHandlerOnce(id, { allowHttp: true, resolve: publicDns, fetch: send })).toEqual({ outcome: "done" });
 
       expect(send).toHaveBeenCalledTimes(1);
-      expect(result).toMatchObject({ success: true, status: "delivered", responseStatus: 200 });
+      expect(deliveryRow(id)).toMatchObject({ status: "delivered", responseStatus: 200 });
     });
 
     it("fails a hostname that resolves to a private address and never sends (before: .test hosts skipped DNS)", async () => {
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
       const id = await queueItemFor("https://rebind.example.test/hook");
       const send = fakeFetch(() => new Response("ok", { status: 200 }));
 
-      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: privateDns, fetch: send });
+      expect(await runHandlerOnce(id, { resolve: privateDns, fetch: send })).toMatchObject({ outcome: "dead" });
 
       expect(send).not.toHaveBeenCalled();
-      expect(result).toMatchObject({ success: false, status: "failed", responseStatus: 400 });
-      expect(await rowOf(id)).toMatchObject({ status: "failed", response_status: 400 });
+      expect(deliveryRow(id)).toMatchObject({ status: "failed", responseStatus: 400 });
     });
 
     it("does not follow a redirect: a 302 to the metadata address is a failed attempt, not a delivery", async () => {
-      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
       const id = await queueItemFor("https://redirecting.example.test/hook");
       const send = fakeFetch(
         () => new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data" } }),
       );
 
-      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: publicDns, fetch: send });
+      expect(await runHandlerOnce(id, { resolve: publicDns, fetch: send })).toMatchObject({ outcome: "retry", code: "http_302" });
 
       expect(send).toHaveBeenCalledTimes(1);
       expect(send.mock.calls[0][1]?.redirect).toBe("manual");
-      expect(result).toMatchObject({ success: false, status: "pending", responseStatus: 302, retryCount: 1 });
-      expect(await rowOf(id)).toMatchObject({ status: "pending", response_status: 302, retry_count: 1 });
-    });
-  });
-
-  describe("Webhook Cron Recovery Endpoint (Task 2)", () => {
-    const originalCronSecret = process.env.CRON_SECRET;
-
-    beforeAll(() => {
-      process.env.CRON_SECRET = "test_cron_secret_777888";
-    });
-
-    afterAll(() => {
-      process.env.CRON_SECRET = originalCronSecret;
-    });
-
-    it("rejects unauthorized calls missing CRON_SECRET with HTTP 401", async () => {
-      const { GET: cronGet } = await import("@/app/api/cron/webhooks/route");
-      const { NextRequest } = await import("next/server");
-
-      const req = new NextRequest("http://localhost:3000/api/cron/webhooks");
-      const res = await cronGet(req);
-      expect(res.status).toBe(401);
-      const json = await res.json();
-      expect(json.error).toContain("CRON_SECRET");
-    });
-
-    it("rejects unauthorized calls with invalid Bearer token with HTTP 401", async () => {
-      const { POST: cronPost } = await import("@/app/api/cron/webhooks/route");
-      const { NextRequest } = await import("next/server");
-
-      const req = new NextRequest("http://localhost:3000/api/cron/webhooks", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer wrong_secret",
-        },
-      });
-      const res = await cronPost(req);
-      expect(res.status).toBe(401);
-    });
-
-    it("succeeds with valid CRON_SECRET Bearer token and returns summary with HTTP 200", async () => {
-      const { GET: cronGet } = await import("@/app/api/cron/webhooks/route");
-      const { NextRequest } = await import("next/server");
-
-      const req = new NextRequest("http://localhost:3000/api/cron/webhooks", {
-        headers: {
-          authorization: `Bearer ${process.env.CRON_SECRET}`,
-        },
-      });
-      const res = await cronGet(req);
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.success).toBe(true);
-      expect(json.timestamp).toBeDefined();
-      expect(typeof json.processed).toBe("number");
-      expect(typeof json.delivered).toBe("number");
-      expect(typeof json.retried).toBe("number");
-      expect(typeof json.failed).toBe("number");
+      expect(deliveryRow(id)).toMatchObject({ status: "pending", responseStatus: 302, retryCount: 1 });
     });
   });
 });

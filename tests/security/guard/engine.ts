@@ -25,6 +25,7 @@ import { Webhook } from "standardwebhooks";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
 import { publicEnv } from "@/lib/env";
+import { mintRunnerToken } from "@/lib/jobs/auth";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
@@ -80,9 +81,10 @@ export const TENANT_TABLES = [
   "api_key_usage_daily", "api_keys", "audit_logs", "communication_queue", "consent_records", "consultation_diagnoses",
   "consultations", "doctor_custom_diagnoses", "doctor_custom_medicines", "doctor_prescription_templates",
   "document_share_tokens", "follow_ups", "in_app_notifications", "invitations", "invoice_items", "invoices",
-  "memberships", "patient_documents", "patients", "payment_records", "payments", "prescriptions", "queue_tokens",
-  "referrals", "schedule_blocks", "subscriptions", "tenant_messaging_config", "visit_revisions", "visits",
-  "waitlist_entries", "webhook_delivery_queue", "webhook_subscriptions",
+  "memberships", "patient_documents", "patients", "payments", "prescriptions", "queue_tokens",
+  "referrals", "schedule_blocks", "subscription_events", "tenant_entitlement_overrides", "tenant_messaging_config",
+  "tenant_subscriptions", "visit_revisions", "visits", "waitlist_entries", "webhook_delivery_queue",
+  "webhook_subscriptions",
 ] as const;
 
 /** Every table a guarded entry point could write: the tenant tables plus `tenants` and `prescription_items`. */
@@ -137,7 +139,7 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
     if (g.permission !== null) return v(`manifest says membership-only but ${g.call} checks ${g.permission}`);
     return [];
   }
-  const kind = "self" in guard ? "self-only" : "authenticated-only";
+  const kind = "self" in guard ? "self-only" : "publicToken" in guard ? "public token-gated" : "authenticated-only";
   if (g) return v(`manifest says ${kind} but the body reaches ${g.call}(${g.permission ?? ""})`);
   return [];
 }
@@ -406,14 +408,16 @@ export async function unauthenticatedActionLeg(
   slot: RequestSlot,
   c: ActionCase,
   fn: (...args: unknown[]) => unknown,
-  b: GuardWorld["b"]
+  b: GuardWorld["b"],
+  opts: { publicToken?: boolean } = {}
 ): Promise<Violation[]> {
   const o = await invokeAction(slot, anonClient(), fn, argsFor(c, b));
   const out: Violation[] = [];
   const leg = "unauthenticated";
   if (!o.threw && !isFailureShape(o.value)) out.push({ key: c.key, leg, detail: `not refused: returned ${brief(serialise(o.value))}` });
   const msg = messageOf(o);
-  if (msg !== undefined && !GENERIC_FAILURE_MESSAGE.has(c.name) && !AUTH_FAILURE.test(msg)) {
+  // A public token-gated action (05-07b) refuses a forged token with its own fixed text, not a sign-in prompt.
+  if (msg !== undefined && !opts.publicToken && !GENERIC_FAILURE_MESSAGE.has(c.name) && !AUTH_FAILURE.test(msg)) {
     out.push({ key: c.key, leg, detail: `failure is not an authentication failure: ${brief(msg)}` });
   }
   if (o.access.length > 0) out.push({ key: c.key, leg, detail: `data access without a session: ${o.access.join(", ")}` });
@@ -909,6 +913,64 @@ export async function cronRouteLeg(
   return [...expectStatus(c, leg, r, [401]), ...expectNoIds(c, leg, r)];
 }
 
+/**
+ * V2-04 04-02 `runner-secret` route (`/api/jobs/run`, RL-23, R-18, R-49: the bearer is a token minted from the secret). `setSecret` stubs JOBS_RUNNER_SECRET (undefined =
+ * unset); `member` is a signed-in clinic member's request client. POST: every refusal is 401 `{"ok":false}` with no
+ * ids and no request-client access; the control with the right bearer is 200 with exactly the six count keys. Any other
+ * method: 405 with `Allow: POST` and an empty body, with or without the bearer.
+ */
+export async function runnerRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "runner-secret" }>,
+  setSecret: (value: string | undefined) => void,
+  member: object,
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const secret = randomBytes(32).toString("hex");
+  const refused = async (leg: string, headers: Record<string, string>, client: object = anonClient()) => {
+    const r = await callRoute(slot, client, c, { headers });
+    if (!guard.post) {
+      out.push(...expectStatus(c, leg, r, [405]));
+      if (r.headers.get("allow") !== "POST") out.push(routeV(c, leg, `Allow is ${r.headers.get("allow")}, expected POST`));
+      if (r.body !== "") out.push(routeV(c, leg, `405 has a body: ${brief(r.body)}`));
+      return;
+    }
+    out.push(...expectStatus(c, leg, r, [401]), ...expectNoIds(c, leg, r), ...expectNoAccess(c, leg, r));
+    if (r.body !== '{"ok":false}') out.push(routeV(c, leg, `401 body is not {"ok":false}: ${brief(r.body)}`));
+  };
+
+  setSecret(undefined);
+  await refused("JOBS_RUNNER_SECRET unset, no header", {});
+  await refused("JOBS_RUNNER_SECRET unset, 'Bearer undefined'", { authorization: "Bearer undefined" });
+  await refused("JOBS_RUNNER_SECRET unset, empty bearer", { authorization: "Bearer " });
+  setSecret(secret);
+  const now = () => Math.floor(Date.now() / 1000);
+  await refused("no header", {});
+  await refused("wrong bearer", { authorization: `Bearer ${randomBytes(32).toString("hex")}` });
+  await refused("different-length bearer", { authorization: `Bearer ${secret.slice(0, 8)}` });
+  await refused("the raw secret as bearer (R-49)", { authorization: `Bearer ${secret}` });
+  await refused("a token of another secret", { authorization: `Bearer ${mintRunnerToken(randomBytes(32).toString("hex"))}` });
+  await refused("a stale token", { authorization: `Bearer ${mintRunnerToken(secret, now() - 300)}` });
+  await refused("token without Bearer", { authorization: mintRunnerToken(secret) });
+  await refused("a signed-in member, no bearer", {}, member);
+
+  if (!guard.post) {
+    await refused("other method with a valid token", { authorization: `Bearer ${mintRunnerToken(secret)}` });
+    return out;
+  }
+  const control = await callRoute(slot, anonClient(), c, { headers: { authorization: `Bearer ${mintRunnerToken(secret)}` } });
+  out.push(...expectStatus(c, "control: right bearer", control, [200]), ...expectNoIds(c, "control", control));
+  try {
+    const keys = Object.keys(JSON.parse(control.body) as Record<string, unknown>).sort();
+    const want = ["claimed", "dead", "done", "durationMs", "ok", "retried"];
+    if (keys.join(",") !== want.join(",")) out.push(routeV(c, "control", `keys ${keys.join(",")}, expected ${want.join(",")}`));
+  } catch {
+    out.push(routeV(c, "control", "body is not JSON"));
+  }
+  return out;
+}
+
 /** `/api/v1` with the switch in the given state. */
 export async function apiV1RouteLeg(
   slot: RequestSlot,
@@ -952,6 +1014,71 @@ export async function healthRouteLeg(
   }
   const extra = keys.filter((k) => !guard.keys.includes(k));
   if (extra.length > 0) out.push(routeV(c, "probe", `keys outside the allowlist: ${extra.join(", ")}`));
+  return out;
+}
+
+/**
+ * `public-asset` route (06-09b): anonymous 200 with the declared content type, no data access, no cookie, no ids or
+ * tenant B values; a signed-in member gets the byte-identical body (nothing personalised) and no data access either.
+ */
+export async function publicAssetRouteLeg(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "public-asset" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const anon = await callRoute(slot, anonClient(), c);
+  const member = await callRoute(slot, world.roles.owner.client, c);
+  for (const [leg, r] of [["anonymous", anon], ["signed-in member", member]] as const) {
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoIds(c, leg, r), ...expectNoB(c, leg, r, world));
+    out.push(...expectNoAccess(c, leg, r));
+    const type = r.headers.get("content-type") ?? "";
+    if (!type.startsWith(guard.contentType)) out.push(routeV(c, leg, `content-type ${type || "(none)"}, expected ${guard.contentType}`));
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+  }
+  if (member.body !== anon.body) out.push(routeV(c, "signed-in member", "body differs from the anonymous one (personalised)"));
+  return out;
+}
+
+/**
+ * `session-status` route (06-06): no session 401 and no membership 403, each touching nothing but the membership
+ * lookup and carrying no ids; a member 200 whose keys are within `keys`; `no-store` on every answer; a forged
+ * `?tenant=<B>` answers exactly what the plain call answers, with nothing of tenant B.
+ */
+export async function sessionStatusRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-status" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const anon = await callRoute(slot, anonClient(), c);
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c);
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  const member = await callRoute(slot, world.roles.receptionist.client, c);
+  out.push(...expectStatus(c, "member", member, [200]), ...expectNoIds(c, "member", member), ...expectNoB(c, "member", member, world));
+  noStore("member", member);
+  let keys: string[] = [];
+  try {
+    keys = Object.keys(JSON.parse(member.body) as Record<string, unknown>);
+  } catch {
+    out.push(routeV(c, "member", "body is not JSON"));
+  }
+  const extra = keys.filter((k) => !guard.keys.includes(k));
+  if (extra.length > 0) out.push(routeV(c, "member", `keys outside the allowlist: ${extra.join(", ")}`));
+
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (forged.body !== member.body) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
   return out;
 }
 

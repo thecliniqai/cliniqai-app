@@ -1,0 +1,547 @@
+{
+ "scans": {
+  "owner-consult-1180-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-consult-1180": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-consult-1280-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-consult-1280": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-consult-360-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "button-name(1)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-consult-360": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-consult-820-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-consult-820": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-1180-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-1180": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-1280-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-1280": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-360-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-360": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-820-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patient-820": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-1180-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-1180": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-1280-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-1280": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-360-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-360": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-820-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-patients-820": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-settings-1180-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-settings-1180": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-settings-1280-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-settings-1280": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-settings-360-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-settings-360": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-settings-820-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "owner-settings-820": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-1180-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-1180": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-1280-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-1280": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-360-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-360": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-820-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "owner-today-820": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "palette-open-1280": {
+   "url": "/patients",
+   "scope": "[data-overlay=command]",
+   "serious_critical": [],
+   "other": []
+  },
+  "palette-open-360": {
+   "url": "/",
+   "scope": "[data-overlay=command]",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-consult-1180-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-consult-1180": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-consult-1280-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-consult-1280": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-consult-360-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "button-name(1)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-consult-360": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-consult-820-whole-page": {
+   "url": "/consultation/<id>",
+   "scope": "page",
+   "serious_critical": [
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-consult-820": {
+   "url": "/consultation/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-1180-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-1180": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-1280-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-1280": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-360-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-360": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-820-whole-page": {
+   "url": "/patients/<id>",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patient-820": {
+   "url": "/patients/<id>",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-1180-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-1180": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-1280-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-1280": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-360-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-360": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-820-whole-page": {
+   "url": "/patients",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-patients-820": {
+   "url": "/patients",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-settings-1180-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-settings-1180": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-settings-1280-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-settings-1280": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-settings-360-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-settings-360": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-settings-820-whole-page": {
+   "url": "/settings/clinic",
+   "scope": "page",
+   "serious_critical": [
+    "label(32)",
+    "select-name(1)"
+   ],
+   "other": []
+  },
+  "receptionist-settings-820": {
+   "url": "/settings/clinic",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-1180-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-1180": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-1280-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-1280": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-360-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-360": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-820-whole-page": {
+   "url": "/",
+   "scope": "page",
+   "serious_critical": [],
+   "other": []
+  },
+  "receptionist-today-820": {
+   "url": "/",
+   "scope": "page without #main",
+   "serious_critical": [],
+   "other": []
+  }
+ },
+ "gated": {
+  "scans": 42,
+  "serious_critical": 0
+ },
+ "whole_page": {
+  "scans": 40,
+  "serious_critical": 24,
+  "ids": {
+   "select-name": 14,
+   "button-name": 2,
+   "label": 8
+  }
+ }
+}

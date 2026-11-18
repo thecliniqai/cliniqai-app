@@ -1,0 +1,5 @@
+layout-no-redirect: exit=1 Tests  7 failed | 40 passed (47)
+page-auth-no-locked: exit=1 Tests  3 failed | 44 passed (47)
+page-catches-no-locked: exit=1 Tests  3 failed | 44 passed (47)
+destination-no-canonical: exit=1 Tests  8 failed | 39 passed (47)
+none-as-full: exit=1 Tests  5 failed | 42 passed (47)

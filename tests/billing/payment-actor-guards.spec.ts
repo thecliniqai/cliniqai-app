@@ -6,7 +6,11 @@
  *
  * - H-PAY: a direct `payments` INSERT cannot name another actor in `recorded_by` (forced to auth.uid()) and cannot
  *   carry a command id (only record_payment writes one); record_payment never replays another actor's row as its own.
- * - M-AUDITSYS: a direct `audit_logs` INSERT cannot claim the system, another user, an API key or another role.
+ *   Since V2-05 05-11b (M-INVOICE, migration 000072) the direct INSERT is refused outright (privilege revoked; paying
+ *   is record_payment only); the 000029 actor guard stays behind the revoke.
+ * - M-AUDITSYS: a direct `audit_logs` INSERT cannot claim the system, another user, an API key or another role. Since
+ *   V2-05 05-02c (R-20) the direct INSERT is refused outright (privilege revoked) and a user's row goes through
+ *   `log_audit`, which takes the actor from the session; the 000029 guard stays behind the revoke (audit_v2.test.sql).
  * - Low: record_payment works inside a savepoint (the outbox check no longer compares xmin with the top-level xid).
  */
 import { randomUUID } from "node:crypto";
@@ -19,6 +23,9 @@ import { psqlSession } from "../helpers/sql";
 let admin: TestDb;
 let owner: SeededTenant;
 let nurse: SeededTenant;
+// PO-3 (V2-05 05-02b): only billing:collect holders write payments; the H-PAY and savepoint cases run as the front desk
+// (they were the nurse's while every member could collect). The audit cases below keep the nurse.
+let collector: SeededTenant;
 let other: SeededTenant; // a member of another clinic only (the reviewer's u2)
 
 async function seedInvoice(t: SeededTenant, total: number): Promise<string> {
@@ -59,6 +66,7 @@ beforeAll(async () => {
   admin = getAdminClient();
   owner = await seedTenantWithOwner("Guard Clinic A");
   nurse = await addMemberToTenant(owner.tenantId, "nurse");
+  collector = await addMemberToTenant(owner.tenantId, "receptionist");
   other = await seedTenantWithOwner("Guard Clinic C");
   await insertReturningId(admin, "webhook_subscriptions", {
     tenant_id: owner.tenantId,
@@ -71,24 +79,28 @@ beforeAll(async () => {
 });
 
 describe("H-PAY: direct payments INSERT through PostgREST", () => {
-  it("a nurse naming another user in recorded_by is stored as the nurse (actor forced to auth.uid())", async () => {
+  it("a receptionist cannot insert a payment directly at all (05-11b: record_payment only), naming anyone", async () => {
     const invoiceId = await seedInvoice(owner, 100);
-    const { error } = await nurse.client.from("payments").insert({
-      tenant_id: owner.tenantId,
-      invoice_id: invoiceId,
-      amount: 1,
-      payment_method: "cash",
-      recorded_by: other.userId,
-    });
-    expect(error).toBeNull();
-    const rows = await paymentsOf(invoiceId);
-    expect(rows.map((r) => [r.recorded_by, r.recorded_by_system])).toEqual([[nurse.userId, null]]);
+    for (const recordedBy of [other.userId, collector.userId]) {
+      const { error } = await collector.client.from("payments").insert({
+        tenant_id: owner.tenantId,
+        invoice_id: invoiceId,
+        amount: 1,
+        payment_method: "cash",
+        recorded_by: recordedBy,
+      });
+      expect(error?.code).toBe("42501");
+      expect(error?.message).toBe("permission denied for table payments");
+    }
+    expect(await paymentsOf(invoiceId)).toEqual([]);
+    const { data: inv } = await admin.from("invoices").select("status").eq("id", invoiceId).single();
+    expect(inv?.status).toBe("issued");
   });
 
   it("the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it", async () => {
     const invoiceId = await seedInvoice(owner, 100);
     const commandId = randomUUID();
-    const { error } = await nurse.client.from("payments").insert({
+    const { error } = await collector.client.from("payments").insert({
       tenant_id: owner.tenantId,
       invoice_id: invoiceId,
       amount: 99999,
@@ -97,10 +109,10 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       command_id: commandId,
     });
     expect(error?.code).toBe("42501");
-    expect(error?.message).toBe("COMMAND_ID_RPC_ONLY");
+    expect(error?.message).toBe("permission denied for table payments");
     expect(await paymentsOf(invoiceId)).toEqual([]);
 
-    const replay = await nurse.client.rpc("record_payment", {
+    const replay = await collector.client.rpc("record_payment", {
       p_tenant_id: owner.tenantId,
       p_invoice_id: invoiceId,
       p_amount: 99999,
@@ -125,7 +137,7 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       recorded_by: owner.userId,
       command_id: commandId,
     });
-    const { data, error } = await nurse.client.rpc("record_payment", {
+    const { data, error } = await collector.client.rpc("record_payment", {
       p_tenant_id: owner.tenantId,
       p_invoice_id: invoiceId,
       p_amount: 40,
@@ -159,21 +171,21 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       p_reference: "",
       p_command_id: randomUUID(),
     };
-    const first = await nurse.client.rpc("record_payment", args);
+    const first = await collector.client.rpc("record_payment", args);
     expect(first.error).toBeNull();
-    const second = await nurse.client.rpc("record_payment", args);
+    const second = await collector.client.rpc("record_payment", args);
     expect(second.error).toBeNull();
     expect((second.data as { replayed: boolean; payment_id: string }).replayed).toBe(true);
     expect((second.data as { payment_id: string }).payment_id).toBe((first.data as { payment_id: string }).payment_id);
     const rows = await paymentsOf(invoiceId);
-    expect(rows.map((r) => [r.recorded_by, r.command_id])).toEqual([[nurse.userId, args.p_command_id]]);
+    expect(rows.map((r) => [r.recorded_by, r.command_id])).toEqual([[collector.userId, args.p_command_id]]);
   });
 });
 
 describe("Low: record_payment inside a savepoint (outbox subject check)", () => {
   it("succeeds inside SAVEPOINT and writes its outbox row; the marker does not outlive the call", async () => {
     const invoiceId = await seedInvoice(owner, 100);
-    const claims = JSON.stringify({ sub: nurse.userId, role: "authenticated" });
+    const claims = JSON.stringify({ sub: collector.userId, role: "authenticated" });
     const out = psqlSession([
       "begin",
       "set local role authenticated",
@@ -190,7 +202,7 @@ describe("Low: record_payment inside a savepoint (outbox subject check)", () => 
   });
 
   it("succeeds inside a plpgsql exception block", () => {
-    const claims = JSON.stringify({ sub: nurse.userId, role: "authenticated" });
+    const claims = JSON.stringify({ sub: collector.userId, role: "authenticated" });
     return seedInvoice(owner, 50).then((invoiceId) => {
       const out = psqlSession([
         "begin",
@@ -207,7 +219,7 @@ describe("Low: record_payment inside a savepoint (outbox subject check)", () => 
   });
 });
 
-describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
+describe("M-AUDITSYS: audit_logs writes through PostgREST", () => {
   async function auditRow(entityId: string) {
     const { data, error } = await admin
       .from("audit_logs")
@@ -217,7 +229,7 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
     return data ?? [];
   }
 
-  it("a nurse claiming the system (the reviewer's row) is stored as the nurse, role nurse, without system_actor", async () => {
+  it("a nurse claiming the system (the reviewer's row) is refused, and log_audit refuses a payment event outside record_payment (05-11b)", async () => {
     const entityId = randomUUID();
     const { error } = await nurse.client.from("audit_logs").insert({
       tenant_id: owner.tenantId,
@@ -229,13 +241,32 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
       entity_id: entityId,
       metadata: { system_actor: "system:payment_webhook", invoice_id: entityId },
     });
-    expect(error).toBeNull();
+    expect(error?.code).toBe("42501");
+    expect(await auditRow(entityId)).toEqual([]);
+    const { error: forged } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "invoice.payment_recorded",
+      p_entity_type: "payment",
+      p_entity_id: entityId,
+      p_metadata: { system_actor: "system:payment_webhook", invoice_id: entityId },
+    });
+    expect(forged).toMatchObject({ code: "42501", message: "AUDIT_ACTION_FORBIDDEN" });
+    expect(await auditRow(entityId)).toEqual([]);
+    // An allow-listed event goes through log_audit as the nurse, without system_actor.
+    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "patient.view",
+      p_entity_type: "patient",
+      p_entity_id: entityId,
+      p_metadata: { system_actor: "system:payment_webhook", view_context: "profile" },
+    });
+    expect(rpcError).toBeNull();
     expect(await auditRow(entityId)).toEqual([
-      { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: { invoice_id: entityId } },
+      { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: { view_context: "profile" } },
     ]);
   });
 
-  it("a nurse naming another user, an API key and the owner role is stored as the nurse", async () => {
+  it("a nurse naming another user, an API key and the owner role is refused, and no row is written", async () => {
     const entityId = randomUUID();
     const apiKeyId = await insertReturningId(admin, "api_keys", {
       tenant_id: owner.tenantId,
@@ -254,7 +285,17 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
       entity_type: "patient",
       entity_id: entityId,
     });
-    expect(error).toBeNull();
+    expect(error?.code).toBe("42501");
+    expect(await auditRow(entityId)).toEqual([]);
+    // log_audit has no actor, role, type or key argument at all: the same write is the nurse's.
+    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "patient.update",
+      p_entity_type: "patient",
+      p_entity_id: entityId,
+      p_metadata: null as unknown as Record<string, never>,
+    });
+    expect(rpcError).toBeNull();
     expect(await auditRow(entityId)).toEqual([
       { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: null },
     ]);

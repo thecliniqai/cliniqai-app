@@ -1,0 +1,13 @@
+# 06-04b targeted e2e runs (lane lock, --retries=0)
+
+## palette.spec ×10 (--repeat-each=10, desktop-chrome), after the route.fetch fix
+  58 passed (1.1m)
+
+## affected specs after 0e95669's product fixes (j-a5, m0, 06-update, shell, forms, 08-layout; desktop-chrome, pixel-7, iphone-15)
+  2 failed
+  53 skipped
+  126 passed (4.6m)
+the 2 failed: 06-update typed-input (pixel-7) and skew (iphone-15), test-side, fixed in the same commit (deviation 10e/10f); the 4 ✘ lines besides are the known-bug expected failures
+
+## 06-update.spec ×3 on desktop-chrome, pixel-7, iphone-15 after the spec fixes
+  59 passed (1.6m)

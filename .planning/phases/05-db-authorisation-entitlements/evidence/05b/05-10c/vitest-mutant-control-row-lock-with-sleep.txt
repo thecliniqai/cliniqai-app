@@ -1,0 +1,13 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/ai/ai-reserve-concurrency.spec.ts (4 tests) 4442ms
+   ✓ ai_reserve under concurrency (05-10c) > at limit − 1, two parallel reservations give exactly one id and one AI_OVER_QUOTA (8 rounds)  3449ms
+   ✓ ai_reserve under concurrency (05-10c) > the reservation commits to exactly one unit; the quota is then full  369ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  06:25:28
+   Duration  4.80s (transform 53ms, setup 9ms, collect 42ms, tests 4.44s, environment 0ms, prepare 20ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

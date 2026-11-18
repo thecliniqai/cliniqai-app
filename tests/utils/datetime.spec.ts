@@ -3,8 +3,11 @@ import {
   DEFAULT_CLINIC_TZ,
   addDaysYmd,
   ageInYears,
+  clockOf,
+  daysBetweenYmd,
   dayWindowUtc,
   isValidTimeZone,
+  isIanaZoneName,
   isYmd,
   nextNDays,
   rangeWindowUtc,
@@ -64,6 +67,17 @@ describe("lib/datetime: clinic today across the IST midnight (00:00-05:30 IST)",
     expect(ymdOf("2026-11-12T20:30:00Z", "UTC")).toBe("2026-11-12");
     expect(() => ymdOf("not a date", IST)).toThrow(RangeError);
   });
+
+  // CI 43712054628: the calendar placed visits with Date#getHours() (the process's or the browser's zone), so the server
+  // render (UTC) and hydration (IST) disagreed. clockOf reads the clinic's zone whatever the process zone is.
+  it("clockOf gives a visit's wall-clock hour and minute in the clinic zone", () => {
+    expect(clockOf("2026-11-17T05:30:00.000Z", IST)).toEqual({ hour: 11, minute: 0 });
+    expect(clockOf("2026-11-17T05:30:00+00:00", "UTC")).toEqual({ hour: 5, minute: 30 });
+    expect(clockOf("2026-11-12T18:30:00.000Z", IST)).toEqual({ hour: 0, minute: 0 });
+    expect(clockOf("2026-11-12T18:29:00.000Z", IST)).toEqual({ hour: 23, minute: 59 });
+    expect(clockOf("2026-11-17T15:00:00.000Z", "America/New_York")).toEqual({ hour: 10, minute: 0 });
+    expect(() => clockOf("not a date", IST)).toThrow(RangeError);
+  });
 });
 
 describe("lib/datetime: day windows are half-open in the clinic zone", () => {
@@ -122,6 +136,17 @@ describe("lib/datetime: calendar arithmetic", () => {
     expect(addDaysYmd("2026-03-01", -6)).toBe("2026-02-23");
   });
 
+  it("daysBetweenYmd counts calendar days across months, years and leap days; null for a non-date (06-08)", () => {
+    expect(daysBetweenYmd("2026-11-13", "2026-11-13")).toBe(0);
+    expect(daysBetweenYmd("2026-11-12", "2026-11-13")).toBe(1);
+    expect(daysBetweenYmd("2026-12-31", "2027-01-01")).toBe(1);
+    expect(daysBetweenYmd("2028-02-28", "2028-03-01")).toBe(2);
+    expect(daysBetweenYmd("2026-11-13", "2026-11-01")).toBe(-12);
+    expect(daysBetweenYmd("2024-11-13", "2026-11-13")).toBe(730);
+    expect(daysBetweenYmd("2026-11-13T10:00:00Z", "2026-11-13")).toBeNull();
+    expect(daysBetweenYmd("not a date", "2026-11-13")).toBeNull();
+  });
+
   it("nextNDays lists the clinic dates after today, tomorrow first", () => {
     expect(nextNDays(IST, 5, new Date("2026-12-29T19:00:00Z"))).toEqual([
       "2026-12-31",
@@ -158,6 +183,16 @@ describe("lib/datetime: calendar arithmetic", () => {
     expect(resolveTimeZone("Not/AZone")).toBe(IST);
     expect(resolveTimeZone(null)).toBe(IST);
     expect(resolveTimeZone("Asia/Dubai")).toBe("Asia/Dubai");
+  });
+
+  // V2-05 05-12 (H-AITZ): what a clinic may store (the database CHECK tenants_timezone_iana enforces the same rule).
+  it("a clinic zone must be an IANA zone name: offsets, unknown names and blanks are refused", () => {
+    for (const ok of ["Asia/Kolkata", "asia/kolkata", "America/New_York", "UTC", "Etc/GMT+12", "Pacific/Kiritimati"]) {
+      expect(isIanaZoneName(ok), ok).toBe(true);
+    }
+    for (const bad of ["+05:30", "-05:00", "-0500", "+05", "Not/AZone", "", " ", null, 5]) {
+      expect(isIanaZoneName(bad), String(bad)).toBe(false);
+    }
   });
 });
 

@@ -1,0 +1,72 @@
+06-09c fails-without proof, e2e: the 06-09c e2e specs (new and changed) and the three gallery section files copied into a detached worktree at 735e558; npm run e2e:build there; desktop-chrome under the e2e-lane lock, 2026-11-15T06:27:09Z.
+Command: npx playwright test tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts tests/e2e/design/keyboard/data-and-dates.spec.ts tests/e2e/shell/toasts.spec.ts tests/e2e/shell/palette.spec.ts tests/e2e/pwa/09-outage-and-removal.spec.ts --project=desktop-chrome
+Result: 16 failed, 32 passed (2.4m). The H-AUTHOUT client case passes at 735e558 as well (the client already ignored a 503: the defect was the route's 401, proven in fails-without-vitest.txt); every other 06-09c case fails:
+
+1) tests/e2e/design/keyboard/data-and-dates.spec.ts:184:7 › DateField typing › dd/mm/yyyy: slashes come by themselves, d/m/yyyy is read, a non-date shows how to fix it, clearing clears
+    Error: expect(locator).toHaveText(expected) failed
+    Locator:  getByTestId('date-review-value')
+    Expected: "none"
+    Received: "2026-02-01"
+2) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:68:5 › M-VITALS: a critical reading behind three high ones is shown first, inline, with an icon, 'critical' and a tint
+    Error: expect(locator).toHaveText(expected) failed
+    Locator: locator('[data-specimen="Critical behind three high"] [data-vitals="summary"]').locator('[data-vital-flag]')
+3) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:84:5 › M-RXKEYS: the help names each key's frequency, each tile shows its key, and the key picks exactly that tile
+    Error: expect(received).toEqual(expected) // deep equality
+4) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:108:5 › M-RXKEYS: '5' then Enter adds nothing; '5d' is 5 days with the usual frequency; '25' then Enter asks for the unit
+    Error: expect(locator).toHaveText(expected) failed
+    Locator: getByRole('group', { name: 'Prescription', exact: true }).locator('[data-dose-builder]').getByRole('alert')
+    Expected: "5 picked SOS. Type the duration, such as 5d, or choose “Add to prescription”."
+    Error: element(s) not found
+5) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:144:5 › M-RXKEYS: a tap on a duration tile or the stepper beats unfinished typed digits; other keys are refused, the line kept
+    Error: expect(locator).toHaveText(expected) failed
+    Locator:  getByRole('group', { name: 'Prescription', exact: true }).locator('[data-dose-builder]').locator('output')
+    Expected: "7 days"
+    Received: "1…"
+6) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:175:5 › M-PICKER: Enter while a newer search runs does nothing; the answer to what is typed is what Enter acts on
+    Error: expect(locator).toHaveText(expected) failed
+    Locator:  getByRole('group', { name: 'Patient picker', exact: true }).locator('[data-picker-result]')
+    Expected: "No patient picked"
+    Received: "Added Synthetic Patient 01 to the queue"
+7) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:196:5 › M-PICKER: a failed search ends the loading row and says so; Enter does nothing
+    Error: expect(locator).toHaveText(expected) failed
+    Locator: getByRole('group', { name: 'Patient picker', exact: true }).getByRole('alert')
+    Expected: "Couldn't search patients. Try again."
+    Error: element(s) not found
+8) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:213:5 › M-INFANTAGE: 0 years switches to months and asks for them; 1 year is 12 months and reads back as 12 m
+    Error: expect(locator).toHaveValue(expected) failed
+    Locator:  locator('#dates').getByRole('group', { name: 'Age or date of birth', exact: true }).getByRole('combobox', { name: 'Age unit' })
+    Expected: "m"
+    Received: "y"
+9) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:241:5 › IND L-7: an age set from outside fills the age box (editing a patient), and so does a new outside value
+    Error: expect(locator).toHaveValue(expected) failed
+    Locator:  locator('#dates').getByRole('group', { name: 'Patient age (editing)' }).getByRole('textbox', { name: 'Age' })
+    Expected: "42"
+    Received: ""
+10) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:255:5 › IND L-6: no age error while moving inside the age group; a failing save is reported and keeps the input
+    Error: expect(locator).toHaveCount(expected) failed
+    Locator:  locator('[data-quick-register]').getByText('Enter an age or a date of birth')
+    Expected: 0
+    Received: 1
+11) tests/e2e/design/keyboard/review-fixes-06-09c.spec.ts:281:5 › IND L-5: a Button with no type inside a form is a submit button: offline it neither clicks nor submits on Enter
+    Error: expect(locator).toHaveAttribute(expected) failed
+    Locator:  getByTestId('offline-submit-implicit')
+    Expected: "true"
+    Received: ""
+12) tests/e2e/pwa/09-outage-and-removal.spec.ts:145:7 › M-REMOVED: removed from the active clinic with another clinic left › @golden on the next resume the open page signs out and purges; signing in again opens the clinic that is left
+    Error: page.waitForURL: Timeout 2000ms exceeded.
+13) tests/e2e/pwa/09-outage-and-removal.spec.ts:159:7 › M-REMOVED: removed from the active clinic with another clinic left › a full page load after the removal signs out too and never shows the other clinic's shell
+    TimeoutError: page.waitForURL: Timeout 20000ms exceeded.
+14) tests/e2e/shell/palette.spec.ts:158:7 › owner › Enter before the answer to what is typed opens nothing; after the answer it acts
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "/"
+    Received: "/patients/new"
+15) tests/e2e/shell/toasts.spec.ts:90:7 › Check for updates when the check fails (a network error): 'Couldn't check for updates', never 'latest version'
+    Error: expect(locator).toBeVisible() failed
+    Locator: locator('section[aria-live][aria-label^="Notifications"]').getByRole('status').filter({ hasText: 'Couldn\'t check for updates. Try again when you\'re online.' })
+    Expected: visible
+    Error: element(s) not found
+16) tests/e2e/shell/toasts.spec.ts:90:7 › Check for updates when the check fails (a 503): 'Couldn't check for updates', never 'latest version'
+    Error: expect(locator).toBeVisible() failed
+    Locator: locator('section[aria-live][aria-label^="Notifications"]').getByRole('status').filter({ hasText: 'Couldn\'t check for updates. Try again when you\'re online.' })
+    Expected: visible
+    Error: element(s) not found

@@ -2,16 +2,17 @@
 
 import React from "react";
 import {
-  Stethoscope,
   Activity,
   Clock,
   Users,
   CheckCircle2,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/brand-mark";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 export function ClinicShowcasePanel() {
   return (
-    <div className="hidden lg:flex lg:w-1/2 min-h-screen bg-slate-50/70 border-r border-gray-200 relative overflow-hidden flex-col justify-between p-10 xl:p-14 select-none">
+    <div className="hidden lg:flex lg:w-1/2 min-h-app bg-slate-50/70 border-r border-gray-200 relative overflow-hidden flex-col justify-between p-10 xl:p-14 select-none">
       {/* Decorative Blueprint Background Grid Pattern */}
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
@@ -35,12 +36,10 @@ export function ClinicShowcasePanel() {
       {/* Top Header: Brand */}
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#1769E0] text-white flex items-center justify-center shadow-theme-xs">
-            <Stethoscope className="w-5 h-5" />
-          </div>
+          <BrandMark size={44} decorative />
           <div>
-            <span className="text-lg font-bold tracking-tight text-gray-900 block leading-tight">
-              ClinicOS
+            <span className="font-display text-title-1 text-gray-900 block leading-tight">
+              {PRODUCT_NAME}
             </span>
             <span className="text-[11px] font-medium text-gray-500 tracking-wide">
               Healthcare Operating System
@@ -52,7 +51,7 @@ export function ClinicShowcasePanel() {
       {/* Centerpiece: Headline + Live Clinic Simulation Card */}
       <div className="relative z-10 my-8 space-y-6 max-w-xl">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-[#1769E0] border border-blue-100 mb-3">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-accent border border-blue-100 mb-3">
             <span>High-Throughput Outpatient Operations</span>
           </div>
           <p className="text-2xl xl:text-3xl font-extrabold tracking-tight text-gray-900 leading-snug">
@@ -68,7 +67,7 @@ export function ClinicShowcasePanel() {
           {/* Card Header: Doctor & Room Status */}
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-blue-50 text-[#1769E0] flex items-center justify-center font-bold text-xs">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-accent flex items-center justify-center font-bold text-xs">
                 DR
               </div>
               <div>
@@ -90,7 +89,7 @@ export function ClinicShowcasePanel() {
           {/* Current Called Token Bar */}
           <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 bg-[#1769E0] text-white text-xs font-bold rounded-lg shadow-2xs font-mono">
+              <span className="px-2.5 py-1 bg-accent text-white text-xs font-bold rounded-lg shadow-2xs tabular-nums">
                 Token #18
               </span>
               <div>
@@ -98,12 +97,12 @@ export function ClinicShowcasePanel() {
                   Anita Sharma <span className="font-normal text-gray-500 text-[11px]">(42y · Female)</span>
                 </p>
                 <p className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
-                  <Activity className="w-3 h-3 text-[#1769E0]" />
+                  <Activity className="w-3 h-3 text-accent" />
                   <span>BP 120/80 mmHg · SpO2 99% · Pulse 72 bpm</span>
                 </p>
               </div>
             </div>
-            <span className="text-[10px] font-semibold text-[#1769E0] bg-white px-2 py-0.5 rounded-md border border-blue-100">
+            <span className="text-[10px] font-semibold text-accent bg-white px-2 py-0.5 rounded-md border border-blue-100">
               Active Call
             </span>
           </div>
@@ -115,7 +114,7 @@ export function ClinicShowcasePanel() {
                 <Users className="w-3 h-3 text-amber-500" />
                 <span>Waiting</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 3 Patients
               </div>
             </div>
@@ -125,7 +124,7 @@ export function ClinicShowcasePanel() {
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 <span>Completed</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 14 Today
               </div>
             </div>
@@ -135,7 +134,7 @@ export function ClinicShowcasePanel() {
                 <Clock className="w-3 h-3 text-blue-500" />
                 <span>Avg Wait</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 6.5 mins
               </div>
             </div>

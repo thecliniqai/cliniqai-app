@@ -1,0 +1,15 @@
+   × verifyTurnstile (fake siteverify) > a timeout fails closed: the fake answers after the bound, the check does not wait for it 314ms
+     → expected { ok: true } to deeply equal { ok: false, reason: 'timeout' }
+   × verifyTurnstile (fake siteverify) > the default bound is 3 s: an answer after 4.5 s is a timeout 3005ms
+     → expected { ok: true } to deeply equal { ok: false, reason: 'timeout' }
+   × verifyTurnstile (fake siteverify) > an HTTP 500 and an unreachable server fail closed (unavailable) 3ms
+     → expected { ok: true } to deeply equal { ok: false, reason: 'unavailable' }
+ FAIL  tests/auth/turnstile-verify.spec.ts > verifyTurnstile (fake siteverify) > a timeout fails closed: the fake answers after the bound, the check does not wait for it
+AssertionError: expected { ok: true } to deeply equal { ok: false, reason: 'timeout' }
+ FAIL  tests/auth/turnstile-verify.spec.ts > verifyTurnstile (fake siteverify) > the default bound is 3 s: an answer after 4.5 s is a timeout
+AssertionError: expected { ok: true } to deeply equal { ok: false, reason: 'timeout' }
+ FAIL  tests/auth/turnstile-verify.spec.ts > verifyTurnstile (fake siteverify) > an HTTP 500 and an unreachable server fail closed (unavailable)
+AssertionError: expected { ok: true } to deeply equal { ok: false, reason: 'unavailable' }
+     94|       expectedHostname: HOST,
+ Test Files  1 failed (1)
+      Tests  3 failed | 7 passed (10)

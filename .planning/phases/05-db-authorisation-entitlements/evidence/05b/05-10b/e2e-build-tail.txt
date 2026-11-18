@@ -1,0 +1,36 @@
+├ ƒ /api/v1/referrals/[id]
+├ ƒ /api/v1/visits
+├ ƒ /api/v1/visits/[id]
+├ ƒ /api/visits/[id]/prescription-pdf
+├ ƒ /api/webhooks/messaging/[provider]
+├ ƒ /auth/signout
+├ ƒ /billing/locked
+├ ƒ /billing/locked/staff
+├ ƒ /billing/register
+├ ƒ /billing/reports
+├ ƒ /cabin
+├ ƒ /calendar
+├ ○ /clinic/new
+├ ƒ /consultation/[id]
+├ ○ /forgot-password
+├ ƒ /join
+├ ○ /login
+├ ƒ /onboarding/billing
+├ ƒ /patients
+├ ƒ /patients/[id]
+├ ƒ /patients/new
+├ ƒ /profile
+├ ƒ /queue
+├ ƒ /r/[token]
+├ ƒ /referrals
+├ ƒ /reports/view
+├ ƒ /reschedule/[token]
+├ ƒ /settings/billing
+├ ƒ /settings/clinic
+├ ƒ /settings/developer
+├ ƒ /staff
+└ ƒ /visits
+ƒ Proxy (Middleware)
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+[e2e:build] output scan clean (1421 files); stamp written for build Wii35wqrVRLJ8j5MLL2XL

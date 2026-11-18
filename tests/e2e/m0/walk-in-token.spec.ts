@@ -5,8 +5,9 @@
  * status `waiting`, that doctor) and one `queue_tokens` row with the next token number for today, and the patient's
  * card in the live queue shows that token.
  *
- * Characterised as-is: v1 numbers tokens per clinic per day (`generate_daily_queue_token(tenant, date)`, max + 1),
- * not per doctor, so "next number" is the tenant's next number today.
+ * Characterised as-is: tokens are numbered per clinic per day, not per doctor, so "next number" is the tenant's next
+ * number today (v1 read max + 1; since V2-05 05-08 a per-clinic, per-day counter row, `issue_queue_token` since 05-11a, which
+ * continues from the day's maximum).
  */
 import { expect, test } from "../fixtures";
 import { appToday, maxTokenToday, run, seedPatient, testTag, tokenOf, visitsOf } from "../support/m0-data";

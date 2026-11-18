@@ -1,122 +1,99 @@
-"use client";
-
-import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Building2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { acceptInvite } from "@/features/staff/actions";
-import { FormMessage } from "@/components/auth/auth-form-parts";
-import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+import { inviteTokenHash } from "@/features/staff/invite";
+import { publicEnv } from "@/lib/env";
+import { en } from "@/messages/en";
+import { roleLabel } from "@/lib/email/templates/invite";
+import { JoinAcceptButton, JoinSetPasswordForm } from "./join-forms";
 
 /**
- * Minimal invitation acceptance (AUTH-04a, ruling R4): an invitee who already has an account signs in, opens the
- * invitation link again and accepts. Setting a password from the invite (new staff) arrives with AUTH-06.
+ * `/join?token=…` (V2-05 05-07b; AUTH-06, AUTH_REDESIGN §3.2; minimal functional form, R-31: the styled page and
+ * journey J-A2 are V2-11's).
+ *
+ * GET has no side effect (link scanners open it): the page hashes the token and asks `peek_invitation` (anon) for the
+ * status, the clinic's name, the role and a masked address; nothing is consumed or minted here. Then:
+ *   - not pending (unknown, expired, revoked, used) → a fixed message;
+ *   - signed in → "Accept invitation" (`acceptInvite` → `consume_invitation`: the session's confirmed address must be
+ *     the invited one);
+ *   - signed out → a set-password form for a new invitee (Turnstile + password; `acceptInviteWithPasswordAction`) and
+ *     "Sign in to accept" for an existing account.
+ * The token is never logged; the page is public (`lib/auth/public-paths.ts`).
  */
-function JoinClinicContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token")?.trim() ?? "";
+export const dynamic = "force-dynamic";
 
-  const [supabase] = useState(() => createClient());
-  const [session, setSession] = useState<"checking" | "signed_out" | { email: string }>("checking");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type Peek =
+  | { status: "pending"; clinicName: string; role: string; maskedEmail: string }
+  | { status: "not_found" | "expired" | "revoked" | "used" | "incomplete" };
 
-  useEffect(() => {
-    let active = true;
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (!active) return;
-        setSession(data.user ? { email: data.user.email ?? "" } : "signed_out");
-      })
-      .catch(() => {
-        if (active) setSession("signed_out");
-      });
-    return () => {
-      active = false;
-    };
-  }, [supabase]);
+async function peek(token: string | undefined): Promise<Peek> {
+  if (!token) return { status: "incomplete" };
+  const hash = inviteTokenHash(token);
+  if (hash === null) return { status: "not_found" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("peek_invitation", { p_token_hash: hash });
+  if (error || data === null || typeof data !== "object" || Array.isArray(data)) return { status: "not_found" };
+  const d = data as Record<string, unknown>;
+  if (d.status === "pending" && typeof d.clinic_name === "string" && typeof d.role === "string" && typeof d.masked_email === "string") {
+    return { status: "pending", clinicName: d.clinic_name, role: d.role, maskedEmail: d.masked_email };
+  }
+  if (d.status === "expired" || d.status === "revoked" || d.status === "used") return { status: d.status };
+  return { status: "not_found" };
+}
 
-  const handleAccept = async () => {
-    if (loading) return;
-    setError(null);
-    setLoading(true);
-    const result = await acceptInvite(token);
-    if (!result.success) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
-    router.replace("/");
-    router.refresh();
-  };
+async function signedInEmail(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user ? (data.user.email ?? "") : null;
+}
+
+const M = en.auth.invite;
+
+export default async function JoinClinicPage({ searchParams }: { searchParams: Promise<{ token?: string | string[] }> }) {
+  const raw = (await searchParams).token;
+  const token = (Array.isArray(raw) ? raw[0] : raw)?.trim() || undefined;
+  const invitation = await peek(token);
+  const email = invitation.status === "pending" ? await signedInEmail() : null;
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 shadow-theme-sm space-y-6">
         <div className="text-center flex flex-col items-center">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center mb-4 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center mb-4 shadow-2xs">
             <Building2 className="w-6 h-6" aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Join your clinic</h1>
-          <p className="text-sm text-gray-500 mt-1.5 max-w-xs">Accept your invitation to the clinic team on ClinicOS.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">{M.title}</h1>
+          <p className="text-sm text-gray-600 mt-1.5 max-w-xs">{M.intro}</p>
         </div>
 
-        <FormMessage id="join-error" tone="error" message={error} />
-
-        {!token ? (
-          <p className="text-sm text-gray-700 text-center">
-            This invitation link is incomplete. Ask your clinic to send it again.
+        {invitation.status !== "pending" ? (
+          <p className="text-sm text-gray-700 text-center" role="status">
+            {M[invitation.status]}
           </p>
-        ) : session === "checking" ? (
-          <p className="text-sm text-gray-500 text-center" role="status">
-            Checking your sign-in…
-          </p>
-        ) : session === "signed_out" ? (
-          <div className="space-y-4 text-center">
-            <p className="text-sm text-gray-700">Sign in to accept this invitation.</p>
-            <p className="text-sm text-gray-500">After signing in, open the invitation link again.</p>
-            <Link
-              href="/login"
-              className="inline-flex w-full items-center justify-center min-h-[44px] px-4 rounded-lg bg-[#1769E0] text-white text-sm font-semibold hover:bg-[#0F5AB8] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1769E0]"
-            >
-              Sign in
-            </Link>
-          </div>
         ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-700 text-center">
-              Signed in as <span className="font-semibold text-gray-900 break-all">{session.email}</span>
-            </p>
-            <Button
-              type="button"
-              variant="primary"
-              loading={loading}
-              onClick={handleAccept}
-              aria-describedby="join-error"
-              className="w-full h-11 text-sm font-semibold"
-            >
-              Accept invitation
-            </Button>
+          <div className="space-y-6">
+            <dl className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm space-y-2">
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-600">Clinic</dt>
+                <dd className="font-semibold text-gray-900 text-right break-words">{invitation.clinicName}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-600">Role</dt>
+                <dd className="font-semibold text-gray-900">{roleLabel(invitation.role)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-600">Invited address</dt>
+                <dd className="font-semibold text-gray-900 break-all">{invitation.maskedEmail}</dd>
+              </div>
+            </dl>
+
+            {email !== null ? (
+              <JoinAcceptButton token={token ?? ""} email={email} />
+            ) : (
+              <JoinSetPasswordForm token={token ?? ""} siteKey={publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY} />
+            )}
           </div>
         )}
       </div>
     </main>
-  );
-}
-
-export default function JoinClinicPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gray-50/70 flex items-center justify-center">
-          <p className="text-sm text-gray-500">Loading invitation…</p>
-        </div>
-      }
-    >
-      <JoinClinicContent />
-    </Suspense>
   );
 }

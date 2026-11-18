@@ -1,0 +1,7 @@
+npx vitest run (full lane, shared local stack, schema through 000078) at 13556fe, 2026-11-14
+ Test Files  274 passed (274)
+      Tests  5652 passed (5652)
+   Duration  418.48s (transform 2.20s, setup 1.36s, collect 18.24s, tests 375.02s, environment 14ms, prepare 5.50s)
+[teardown] removed run data: 209 tenant(s), 417 auth user(s), 1425 storage object(s); verified none remain
+exit 0
+failed test lines (FAIL / ✗): 0

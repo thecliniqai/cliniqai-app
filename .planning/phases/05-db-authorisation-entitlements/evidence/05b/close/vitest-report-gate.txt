@@ -1,0 +1,8 @@
+$ node scripts/ci/assert-vitest-report.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b/full-run-1.json
+vitest-report-gate: files=260 tests=5080 passed=5080 failed=0 skipped/todo=0 floor=4826 required=173
+vitest-report-gate: PASS
+exit 0
+$ node scripts/ci/assert-vitest-report.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b/full-run-2.json
+vitest-report-gate: files=260 tests=5080 passed=5080 failed=0 skipped/todo=0 floor=4826 required=173
+vitest-report-gate: PASS
+exit 0

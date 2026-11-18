@@ -1,0 +1,31 @@
+{
+  "commit": "3310845",
+  "files": 248,
+  "tests": 4876,
+  "passed": 4876,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/api/readiness-probe-db.spec.ts": {
+      "tests": 8,
+      "passed": 8
+    },
+    "tests/ci/clinical-notes-backfill-inline.spec.ts": {
+      "tests": 3,
+      "passed": 3
+    },
+    "tests/ci/pgtap-report.spec.ts": {
+      "tests": 13,
+      "passed": 13
+    },
+    "tests/security/membership-guard.spec.ts": {
+      "tests": 26,
+      "passed": 26
+    },
+    "tests/security/role-rls.spec.ts": {
+      "tests": 15,
+      "passed": 15
+    }
+  }
+}

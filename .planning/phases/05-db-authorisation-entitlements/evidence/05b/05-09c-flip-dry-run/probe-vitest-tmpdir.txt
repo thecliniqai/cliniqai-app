@@ -1,0 +1,6 @@
+# Vitest probe under the flip with the nested lock's TMPDIR inside the scratchpad (long path with a UUID): 8 files red, every failure a temp-path artefact (tsx IPC socket path too long, inventory temp files, the restore-drill path guard, a UUID-shaped path segment), none an access failure
+ Test Files  8 failed | 241 passed (249)
+      Tests  32 failed | 4869 passed (4901)
+# The same 8 files under the flip with TMPDIR = <os tmpdir>/clinicos-flip
+ Test Files  8 passed (8)
+      Tests  142 passed (142)

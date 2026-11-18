@@ -5,7 +5,8 @@
  * copied; everything the app reads is set explicitly to a local-stack or offline value, and the result must pass
  * `assertLocalAppServerEnv` (the test-lane rules with `NODE_ENV=production` allowed). `__NEXT_PROCESSED_ENV=true`
  * stops `@next/env` from filling anything from a developer's `.env*` files (pinned by
- * tests/setup/next-env-flag.spec.ts), and `NODE_OPTIONS` preloads the server-side socket guard. The local stack's
+ * tests/setup/next-env-flag.spec.ts), and `NODE_OPTIONS` preloads the server-side socket guard (and, 06-09d, the
+ * per-device Auth refresh fault hook, `server-auth-faults.cjs`). The local stack's
  * keys come from `npx supabase status` (never from the shell or a file).
  *
  * Plain Node + relative imports only: used by the Playwright config, `build.ts`/`serve.ts` (via tsx) and Vitest.
@@ -14,11 +15,16 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   E2E_APP_ENV,
+  E2E_DEPLOYMENT_ID,
   E2E_PWNED_API_BASE_URL,
   E2E_TURNSTILE_SITE_KEY,
+  E2E_TURNSTILE_VERIFY_URL,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_MAILPIT_API_URL,
+  LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_PASS_SECRET_KEY,
   assertLocalAppServerEnv,
   loadLocalStackKeys,
   type EnvMap,
@@ -33,10 +39,14 @@ export const E2E_BASE_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 export const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
 /** The e2e server's cron bearer (synthetic); `POST /api/diag/error` authenticates with it (03-09b). */
 export const E2E_CRON_SECRET = "e2e-not-real";
+/** V2-04 04-02: the e2e server's `/api/jobs/run` bearer (the lane's synthetic one; the guard allows no other). */
+export const E2E_JOBS_RUNNER_SECRET = LOCAL_JOBS_RUNNER_SECRET;
 /** The e2e server's auth-email sender address (03-11b; Mailpit accepts any). */
 export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
+/** V2-06 06-09d: per-device Auth refresh faults for the server (rule files; a no-op without one). */
+export const SERVER_AUTH_FAULTS = path.join(ROOT, "tests/e2e/support/server-auth-faults.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
 export const BUILD_STAMP_FILE = path.join(ROOT, ".next/e2e-build-stamp.json");
 export const BUILD_ID_FILE = path.join(ROOT, ".next/BUILD_ID");
@@ -86,7 +96,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: keys.anonKey,
     SUPABASE_SECRET_KEY: keys.serviceRoleKey,
     NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
-    MESSAGING_PROVIDER: "dev",
+    // V2-04 04-03a (R-9): a runner pass in e2e sends nothing and writes no .planning/dev-messages.txt.
+    MESSAGING_PROVIDER: "sink",
     MSG91_AUTH_KEY: "x",
     AI_ENABLED: "false",
     AI_PROVIDER: "mock",
@@ -96,8 +107,16 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
     ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
     DIAG_ERROR_ROUTE_ENABLED: "true",
+    // V2-04 04-02: the job runner route answers the synthetic bearer and runs the drill kinds
+    // (tests/e2e/jobs/run-route.spec.ts; scripts/ops/scheduler-local-e2e.ts drives it from pg_cron on macOS).
+    JOBS_RUNNER_SECRET: E2E_JOBS_RUNNER_SECRET,
+    JOBS_DRILL_ENABLED: "true",
+    // V2-04 04-04 (R-1): alert.notify jobs the runner claims email the synthetic ops inbox through Mailpit.
+    OPS_ALERT_EMAIL: LOCAL_OPS_ALERT_EMAIL,
     // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
     // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
+    // V2-04 04-00b: the e2e server stays on Mailpit; RESEND_API_KEY is never set here (the guard forbids it in every
+    // test lane). The Resend sender is proven against a loopback fake in Vitest (tests/auth/send-email-hook-resend.spec.ts).
     EMAIL_PROVIDER: "mailpit",
     MAILPIT_API_URL: LOCAL_MAILPIT_API_URL,
     EMAIL_FROM: E2E_EMAIL_FROM,
@@ -110,7 +129,15 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // test key. The browser never reaches Cloudflare: tests/e2e/fixtures.ts fulfils the widget script with
     // tests/e2e/support/turnstile-stub.js, and local GoTrue has CAPTCHA off, so the lane proves the token wiring.
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_TURNSTILE_SITE_KEY,
-    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
+    // V2-05 05-07b (R-46): invite acceptance verifies the widget token server-side against the loopback fake
+    // siteverify global setup starts (tests/e2e/support/turnstile-verify-server.ts), with Cloudflare's always-pass
+    // test secret (built at run time).
+    TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET_KEY,
+    TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL,
+    // V2-06 06-06 (R-21): a fixed deployment id for build and serve: Next writes it as `data-dpl-id` and
+    // `/api/session-status` reports it, so they agree; tests/e2e/pwa/06-update.spec.ts changes the answer with page.route.
+    NEXT_DEPLOYMENT_ID: E2E_DEPLOYMENT_ID,
+    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}" --require "${SERVER_AUTH_FAULTS}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);
   return env;

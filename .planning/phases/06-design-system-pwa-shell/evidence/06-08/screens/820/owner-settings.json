@@ -1,0 +1,25 @@
+{
+  "id": "owner-settings",
+  "width": 820,
+  "path": "/settings/clinic",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [
+    {
+      "id": "label",
+      "impact": "critical",
+      "nodes": 32
+    },
+    {
+      "id": "select-name",
+      "impact": "critical",
+      "nodes": 1
+    }
+  ],
+  "horizontalScroll": false
+}

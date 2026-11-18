@@ -1,0 +1,35 @@
+1..14
+not ok 1 - an admin cannot read the owner invitation's token_hash (H-INVITE)
+# Failed test 1: "an admin cannot read the owner invitation's token_hash (H-INVITE)"
+#         have: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+#         want: denied:permission denied for table invitations
+not ok 2 - not even the owner reads a token_hash back
+# Failed test 2: "not even the owner reads a token_hash back"
+#         have: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+#         want: denied:permission denied for table invitations
+not ok 3 - nor filter on it (no oracle)
+# Failed test 3: "nor filter on it (no oracle)"
+#         have: 1
+#         want: denied:permission denied for table invitations
+ok 4 - the staff page columns stay readable for staff:invite
+not ok 5 - catalogue: no SELECT on token_hash for authenticated (INSERT kept), nothing for anon
+# Failed test 5: "catalogue: no SELECT on token_hash for authenticated (INSERT kept), nothing for anon"
+not ok 6 - the admin's second account cannot redeem the owner invitation (H-INVITE repro)
+# Failed test 6: "the admin's second account cannot redeem the owner invitation (H-INVITE repro)"
+#         have: b11b0000-0000-4000-8000-00000000000a
+#         want: denied:INVITATION_EMAIL_MISMATCH
+ok 7 - and is not a member of the clinic
+not ok 8 - nor can the admin's own account
+# Failed test 8: "nor can the admin's own account"
+#         have: error:23505:duplicate key value violates unique constraint "unique_user_tenant"
+#         want: denied:INVITATION_EMAIL_MISMATCH
+not ok 9 - the invited address with an unconfirmed email cannot redeem yet
+# Failed test 9: "the invited address with an unconfirmed email cannot redeem yet"
+#         have: b11b0000-0000-4000-8000-00000000000a
+#         want: denied:INVITATION_EMAIL_UNCONFIRMED
+ok 10 - an unknown hash keeps its message
+ok 11 - the invitee (confirmed, address equal ignoring case) redeems it and gets the clinic id
+ok 12 - with the invited role
+ok 13 - and the invitation records who consumed it
+ok 14 - a second redemption is refused
+# Looks like you failed 7 tests of 14

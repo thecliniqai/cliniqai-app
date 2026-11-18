@@ -1,0 +1,493 @@
+{
+ "generated_by": "tests/e2e/design/overlays-axe.spec.ts (PR lane, desktop-chrome) on the build of 13556fe",
+ "widths": {
+  "360": {
+   "dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 268,
+     "width": 328,
+     "height": 244
+    }
+   },
+   "alert-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 296,
+     "width": 328,
+     "height": 188
+    }
+   },
+   "responsive-sheet": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 335,
+     "width": 360,
+     "height": 445
+    }
+   },
+   "drawer": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 445,
+     "width": 360,
+     "height": 335
+    }
+   },
+   "popover": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 418,
+     "width": 240,
+     "height": 214
+    }
+   },
+   "menu": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 418,
+     "width": 196,
+     "height": 263
+    }
+   },
+   "tooltip": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 154,
+     "y": 338,
+     "width": 115,
+     "height": 24
+    }
+   },
+   "command-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 0,
+     "width": 360,
+     "height": 780
+    }
+   },
+   "modal-adapter": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 285,
+     "width": 328,
+     "height": 210
+    }
+   },
+   "toast": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": null,
+    "smallTargets": null,
+    "box": {
+     "x": 16,
+     "y": 708,
+     "width": 328,
+     "height": 60
+    }
+   }
+  },
+  "820": {
+   "dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 190,
+     "y": 468,
+     "width": 440,
+     "height": 244
+    }
+   },
+   "alert-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 190,
+     "y": 505,
+     "width": 440,
+     "height": 170
+    }
+   },
+   "responsive-sheet": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 372,
+     "y": 0,
+     "width": 448,
+     "height": 1180
+    }
+   },
+   "drawer": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 845,
+     "width": 820,
+     "height": 335
+    }
+   },
+   "popover": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 916,
+     "width": 240,
+     "height": 214
+    }
+   },
+   "menu": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 618,
+     "width": 196,
+     "height": 263
+    }
+   },
+   "tooltip": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 154,
+     "y": 244,
+     "width": 115,
+     "height": 24
+    }
+   },
+   "command-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 110,
+     "y": 142,
+     "width": 600,
+     "height": 427
+    }
+   },
+   "modal-adapter": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 190,
+     "y": 503,
+     "width": 440,
+     "height": 174
+    }
+   },
+   "toast": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": null,
+    "smallTargets": null,
+    "box": {
+     "x": 571,
+     "y": 1100,
+     "width": 229,
+     "height": 60
+    }
+   }
+  },
+  "1180": {
+   "dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 370,
+     "y": 296,
+     "width": 440,
+     "height": 228
+    }
+   },
+   "alert-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 370,
+     "y": 329,
+     "width": 440,
+     "height": 162
+    }
+   },
+   "responsive-sheet": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 732,
+     "y": 0,
+     "width": 448,
+     "height": 820
+    }
+   },
+   "drawer": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 501,
+     "width": 1180,
+     "height": 319
+    }
+   },
+   "popover": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 38,
+     "y": 564,
+     "width": 240,
+     "height": 158
+    }
+   },
+   "menu": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 434,
+     "width": 196,
+     "height": 203
+    }
+   },
+   "tooltip": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 164,
+     "y": 108,
+     "width": 115,
+     "height": 24
+    }
+   },
+   "command-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 290,
+     "y": 98,
+     "width": 600,
+     "height": 371
+    }
+   },
+   "modal-adapter": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 370,
+     "y": 327,
+     "width": 440,
+     "height": 166
+    }
+   },
+   "toast": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": null,
+    "smallTargets": null,
+    "box": {
+     "x": 945,
+     "y": 754,
+     "width": 215,
+     "height": 46
+    }
+   }
+  },
+  "1280": {
+   "dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 420,
+     "y": 286,
+     "width": 440,
+     "height": 228
+    }
+   },
+   "alert-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 420,
+     "y": 319,
+     "width": 440,
+     "height": 162
+    }
+   },
+   "responsive-sheet": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 832,
+     "y": 0,
+     "width": 448,
+     "height": 800
+    }
+   },
+   "drawer": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 0,
+     "y": 481,
+     "width": 1280,
+     "height": 319
+    }
+   },
+   "popover": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 88,
+     "y": 554,
+     "width": 240,
+     "height": 158
+    }
+   },
+   "menu": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 16,
+     "y": 424,
+     "width": 196,
+     "height": 203
+    }
+   },
+   "tooltip": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 214,
+     "y": 98,
+     "width": 115,
+     "height": 24
+    }
+   },
+   "command-dialog": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 340,
+     "y": 96,
+     "width": 600,
+     "height": 371
+    }
+   },
+   "modal-adapter": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": false,
+    "smallTargets": [],
+    "box": {
+     "x": 420,
+     "y": 317,
+     "width": 440,
+     "height": 166
+    }
+   },
+   "toast": {
+    "seriousOrCritical": [],
+    "violations": [],
+    "horizontalScroll": null,
+    "smallTargets": null,
+    "box": {
+     "x": 1045,
+     "y": 734,
+     "width": 215,
+     "height": 46
+    }
+   }
+  }
+ }
+}

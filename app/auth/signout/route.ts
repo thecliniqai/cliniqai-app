@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_TENANT_COOKIE, createClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -18,11 +18,21 @@ import { isSameOriginRequest } from "@/lib/auth/same-origin";
  *   neither signal, gets 403 and nothing is touched (no client is created).
  * - Form field `scope`: `local` (default, this device) or `global` (every device of the user); anything else 400.
  * - No session: still 303 → `/login` (idempotent).
+ * - Fetch callers (V2-06 06-09a H-WEBKIT, M-EVERYWHERE): `hardSignOut()` sends the header `x-clinicos-signout: fetch`
+ *   and gets JSON, never a redirect: 200 `{ scope, revoked: true }` when GoTrue revoked, 502 `{ scope, revoked: false }`
+ *   when it could not (this device's cookies are deleted anyway). WebKit never settles a `redirect: "manual"` fetch of
+ *   a 303 carrying `Clear-Site-Data`, so a redirect answer left iPhones on the patient screen.
+ * - Form posts (no JavaScript): 303 → `/login`, or `/login?signout=partial` when a `global` revocation failed, so
+ *   "Sign out of all devices" never reports a success it did not get.
  *
  * The full PWA "hard sign-out" (cache + IndexedDB wipe, `hardSignOut()`) is V2-06 (PWA-02).
  */
 
 const MODULE = "auth.signout";
+/** Same values as `lib/auth/hard-sign-out.ts` (`SIGN_OUT_FETCH_HEADER`/`_VALUE`); restated so the route has no client import. */
+const FETCH_HEADER = "x-clinicos-signout";
+const FETCH_VALUE = "fetch";
+const SIGNED_OUT_HEADERS = { "clear-site-data": '"cache"', "cache-control": "no-store" } as const;
 const SCOPES = ["local", "global"] as const;
 type Scope = (typeof SCOPES)[number];
 
@@ -48,9 +58,15 @@ async function readScope(request: NextRequest): Promise<Scope | null> {
   return SCOPES.find((s) => s === value) ?? null;
 }
 
-/** Deletes every Supabase auth cookie on this request (used only when GoTrue could not be reached). */
+/** Deletes every Supabase auth cookie on this request (every sign-out, whatever GoTrue answered). */
 async function dropAuthCookies(): Promise<void> {
-  const store = await cookies();
+  let store: Awaited<ReturnType<typeof cookies>>;
+  try {
+    store = await cookies();
+  } catch {
+    // Outside a request scope (route-level test harnesses) there is no cookie store, so no cookie to delete.
+    return;
+  }
   for (const { name } of store.getAll()) {
     if (/^sb-[a-z0-9-]+-auth-token(?:-code-verifier)?(?:\.\d+)?$/.test(name)) store.delete(name);
   }
@@ -87,16 +103,23 @@ export async function POST(request: NextRequest): Promise<Response> {
     log.warn({ event: "auth.signout.failed", requestId, module: MODULE, code: errorTag(err) });
   }
   // supabase-js keeps the local session when GoTrue answers with anything but 401/403/404 (or cannot be reached);
-  // this device is signed out regardless.
-  if (failed) await dropAuthCookies();
+  // this device is signed out regardless. 06-09d: always, not only on a failure: the cookie client keeps the session
+  // cookies after an Auth answer that is not definitive (`keepSessionCookies`), and a gateway's 404/401 to `/logout`
+  // is such an answer although supabase-js reports the sign-out as done.
+  await dropAuthCookies();
 
-  log.info({ event: "auth.signout.done", requestId, module: MODULE, reason: scope });
-  return new NextResponse(null, {
-    status: 303,
-    headers: {
-      location: "/login",
-      "clear-site-data": '"cache"',
-      "cache-control": "no-store",
-    },
-  });
+  const fetchCaller = request.headers.get(FETCH_HEADER) === FETCH_VALUE;
+  const status = fetchCaller ? (failed ? 502 : 200) : 303;
+  // `status` 502 = this device signed out, GoTrue's revocation failed (the `auth.signout.failed` line above has why).
+  log.info({ event: "auth.signout.done", requestId, module: MODULE, reason: scope, status });
+  const response = fetchCaller
+    ? NextResponse.json({ scope, revoked: !failed }, { status, headers: SIGNED_OUT_HEADERS })
+    : new NextResponse(null, {
+        status,
+        headers: { location: failed && scope === "global" ? "/login?signout=partial" : "/login", ...SIGNED_OUT_HEADERS },
+      });
+  // 06-09c (M-REMOVED): the clinic this device had open is forgotten on every sign-out, so the next sign-in (the same
+  // user after a removal, or another user of this device) never resolves a clinic picked in the ended session.
+  if (request.cookies.has(ACTIVE_TENANT_COOKIE)) response.cookies.delete(ACTIVE_TENANT_COOKIE);
+  return response;
 }

@@ -1,0 +1,28 @@
+# 04-00 AFTER: npm run e2e:build (exit 0, output scan clean, 1352 files) then npm run e2e:pr (desktop, Pixel 7, iPhone 15), tree at bc8bbb1 + partners' uncommitted files, 2026-11-13T05:30:29Z
+# Proves Next bundles instrumentation.ts register() -> lib/env-server (import "server-only") and the e2e server boots under the new env rules.
+
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+[e2e teardown] removed run data: 2 tenant(s), 23 auth user(s), 6 storage object(s); verified none remain
+
+  7 skipped
+  188 passed (2.4m)
+exit=0

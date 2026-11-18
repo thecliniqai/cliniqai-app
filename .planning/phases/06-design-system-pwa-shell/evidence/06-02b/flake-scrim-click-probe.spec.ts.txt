@@ -1,0 +1,35 @@
+import { expect, test } from "../../fixtures";
+import { storageStatePath } from "../../support/run-data";
+test.use({ storageState: storageStatePath("owner") });
+test("probe scrim clicks", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/dev/ui");
+  await expect(page.getByRole("heading", { level: 1, name: "Component gallery" })).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).__ev = [];
+    for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+      document.addEventListener(t, (e) => (window as any).__ev.push(`${t}@${(e.target as HTMLElement).tagName}${(e.target as HTMLElement).dataset?.scrim !== undefined ? "[scrim]" : ""}`), true);
+    }
+  });
+  const opener = page.getByTestId("dialog-open");
+  const dialog = page.getByRole("dialog", { name: "Edit visit reason" });
+  const results: string[] = [];
+  for (let i = 0; i < 80; i++) {
+    const waitTurn = i % 2 === 1;
+    await opener.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    if (waitTurn) await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+    await page.evaluate(() => ((window as any).__ev = []));
+    const at = await page.evaluate(() => { const e = document.elementFromPoint(8, 8) as HTMLElement; return `${e.tagName}${e.dataset.scrim !== undefined ? "[scrim]" : ""} anim=${document.getAnimations().length}`; });
+    await page.mouse.click(8, 8);
+    let closed = true;
+    try { await expect(dialog).toHaveCount(0, { timeout: 1500 }); } catch { closed = false; }
+    const ev = await page.evaluate(() => (window as any).__ev.join(","));
+    results.push(`${i} wait=${waitTurn} closed=${closed} at=${at} ev=${ev}`);
+    if (!closed) { await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0); }
+  }
+  console.log(results.join("\n"));
+});

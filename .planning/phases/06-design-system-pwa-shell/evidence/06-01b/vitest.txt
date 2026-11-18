@@ -1,0 +1,29 @@
+# Full Vitest lane on the 06-01b tree (763673f, private worktree; shared local stack): npx vitest run
+ FAIL  tests/ops/backup-roundtrip-db.spec.ts [ tests/ops/backup-roundtrip-db.spec.ts ]
+Error: age is not installed: run ops/bin/install-age.sh (pinned release, SHA-256 verified)
+ FAIL  tests/ops/restore-guards.spec.ts [ tests/ops/restore-guards.spec.ts ]
+Error: age is not installed: run ops/bin/install-age.sh (pinned release, SHA-256 verified)
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ Test Files  5 failed | 262 passed (267)
+      Tests  4 failed | 5462 passed (5466)
+Error: teardown: checking tenant ages failed: URI too long
+
+# The two 'age is not installed' files: the private worktree lacked the git-ignored .cache/ops-bin/age; copied from the shared worktree, rerun:
+# npx vitest run backup-roundtrip-db restore-guards invoice-totals-db hosted-dump-diff drill-lib-db   (763673f)
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ Test Files  3 failed | 2 passed (5)
+      Tests  4 failed | 70 passed (74)
+
+# Same five files on the plan base ef24000 (private worktree, same stack):
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ Test Files  3 failed | 2 passed (5)
+      Tests  4 failed | 70 passed (74)

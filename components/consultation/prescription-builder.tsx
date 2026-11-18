@@ -399,7 +399,7 @@ export function PrescriptionBuilder({
       {/* 1. TOP HEADER & TOOLBAR */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-serif font-black text-brand-600">℞</span>
+          <span className="text-xl font-serif font-black text-accent-fg">℞</span>
           <div>
             <h3 className="text-sm font-bold text-gray-900">
               Electronic Prescription Builder (CDCI Drug Master)
@@ -428,7 +428,7 @@ export function PrescriptionBuilder({
             onClick={openTemplateDrawer}
             className="min-h-[36px] px-3 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center gap-1.5 shadow-2xs"
           >
-            <BookOpen className="h-3.5 w-3.5 text-brand-600" />
+            <BookOpen className="h-3.5 w-3.5 text-accent-fg" />
             <span>Protocol Templates</span>
           </button>
         </div>
@@ -482,7 +482,7 @@ export function PrescriptionBuilder({
           Search CDCI Medicine or Brand Name:
         </label>
         <div className="relative">
-          <Search className="h-4 w-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="h-4 w-4 text-fg-subtle absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             id="medicine-search-input"
             ref={searchInputRef}
@@ -494,13 +494,13 @@ export function PrescriptionBuilder({
               if (searchResults.length > 0) setIsDropdownOpen(true);
             }}
             placeholder="Type brand name (e.g. Augmentin, Dolo) or generic salt (e.g. Paracetamol, Amoxicillin)..."
-            className="w-full min-h-[44px] pl-10 pr-10 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+            className="w-full min-h-[44px] pl-10 pr-10 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring bg-white"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-fg-subtle hover:text-gray-600 rounded"
               aria-label="Clear medicine search"
             >
               <X className="h-3.5 w-3.5" />
@@ -554,7 +554,7 @@ export function PrescriptionBuilder({
                   )}
                 </div>
 
-                <div className="text-[11px] text-brand-600 font-semibold shrink-0">
+                <div className="text-[11px] text-accent-fg font-semibold shrink-0">
                   Select ℞
                 </div>
               </button>
@@ -572,13 +572,13 @@ export function PrescriptionBuilder({
                     cdci_brand_id: null,
                   })
                 }
-                className="w-full min-h-[44px] p-3 text-left hover:bg-brand-50/60 bg-gray-50/50 flex items-center gap-2 transition-colors text-brand-700"
+                className="w-full min-h-[44px] p-3 text-left hover:bg-accent-subtle/60 bg-gray-50/50 flex items-center gap-2 transition-colors text-accent-fg"
               >
-                <Plus className="h-4 w-4 text-brand-600" />
+                <Plus className="h-4 w-4 text-accent-fg" />
                 <span className="text-xs font-semibold">
                   + Add as custom medicine: &quot;{query.trim()}&quot;
                 </span>
-                <span className="text-[11px] text-gray-400 ml-auto font-normal">
+                <span className="text-[11px] text-fg-subtle ml-auto font-normal">
                   Saves to personal doctor formulary
                 </span>
               </button>
@@ -589,10 +589,10 @@ export function PrescriptionBuilder({
 
       {/* 4. 1-TAP FAST DOSAGE CHIP STAGING PANEL */}
       {stagedDrug && (
-        <div className="rounded-xl border-2 border-brand-500 bg-brand-50/20 p-4 space-y-4 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between pb-2 border-b border-brand-200">
+        <div className="rounded-xl border-2 border-accent bg-accent-subtle/20 p-4 space-y-4 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between pb-2 border-b border-accent-border">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-accent-fg">
                 Configure Dosage & Instructions:
               </span>
               <h4 className="text-sm font-bold text-gray-900 uppercase">
@@ -605,7 +605,7 @@ export function PrescriptionBuilder({
             <button
               type="button"
               onClick={() => setStagedDrug(null)}
-              className="p-1 rounded text-gray-400 hover:text-gray-600"
+              className="p-1 rounded text-fg-subtle hover:text-gray-600"
               aria-label="Cancel drug configuration"
             >
               <X className="h-4 w-4" />
@@ -630,7 +630,7 @@ export function PrescriptionBuilder({
                     }}
                     className={`min-h-[38px] px-3.5 rounded-lg text-xs font-bold transition-all ${
                       isSelected
-                        ? "bg-brand-600 text-white shadow-xs"
+                        ? "bg-accent text-white shadow-xs"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
@@ -643,7 +643,7 @@ export function PrescriptionBuilder({
                 placeholder="Custom (e.g. 1-0-2)"
                 value={customFrequency}
                 onChange={(e) => setCustomFrequency(e.target.value)}
-                className="w-32 min-h-[38px] px-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500"
+                className="w-32 min-h-[38px] px-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -663,7 +663,7 @@ export function PrescriptionBuilder({
                     onClick={() => setFoodRelation(rel)}
                     className={`min-h-[38px] px-3.5 rounded-lg text-xs font-semibold transition-all ${
                       isSelected
-                        ? "bg-brand-600 text-white shadow-xs"
+                        ? "bg-accent text-white shadow-xs"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
@@ -692,7 +692,7 @@ export function PrescriptionBuilder({
                     }}
                     className={`min-h-[38px] px-3.5 rounded-lg text-xs font-semibold transition-all ${
                       isSelected
-                        ? "bg-brand-600 text-white shadow-xs"
+                        ? "bg-accent text-white shadow-xs"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
@@ -705,7 +705,7 @@ export function PrescriptionBuilder({
                 placeholder="Custom (e.g. 15 days)"
                 value={customDuration}
                 onChange={(e) => setCustomDuration(e.target.value)}
-                className="w-36 min-h-[38px] px-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500"
+                className="w-36 min-h-[38px] px-2.5 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -717,13 +717,13 @@ export function PrescriptionBuilder({
               value={specialInstructions}
               onChange={(e) => setSpecialInstructions(e.target.value)}
               placeholder="Special instructions (e.g. With warm water, Do not crush)..."
-              className="flex-1 w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500"
+              className="flex-1 w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent"
             />
 
             <button
               type="button"
               onClick={handleAddStagedDrug}
-              className="w-full sm:w-auto min-h-[44px] px-5 rounded-lg bg-brand-600 text-white hover:bg-brand-700 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+              className="w-full sm:w-auto min-h-[44px] px-5 rounded-lg bg-accent text-white hover:bg-accent-pressed text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-colors"
             >
               <Check className="h-4 w-4" />
               <span>Add to Prescription</span>
@@ -751,7 +751,7 @@ export function PrescriptionBuilder({
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
+                    <span className="text-xs font-bold text-fg-subtle">#{index + 1}</span>
                     <span className="text-xs font-bold text-gray-900 uppercase">
                       {item.medicine_name}
                     </span>
@@ -776,7 +776,7 @@ export function PrescriptionBuilder({
                 <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                   {/* Dosage Pills */}
                   <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    <span className="px-2 py-1 rounded bg-brand-50 text-brand-800 border border-brand-200">
+                    <span className="px-2 py-1 rounded bg-accent-subtle text-accent-fg border border-accent-border">
                       {item.dosage}
                     </span>
                     {item.timing && (
@@ -795,7 +795,7 @@ export function PrescriptionBuilder({
                     disabled={disabled}
                     onClick={() => setItemToDelete(item.id)}
                     aria-label="Remove medication"
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-fg-subtle hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -815,7 +815,7 @@ export function PrescriptionBuilder({
               placeholder="Name this template (e.g. Viral Fever 3-day)..."
               value={newTemplateName}
               onChange={(e) => setNewTemplateName(e.target.value)}
-              className="min-h-[38px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500"
+              className="min-h-[38px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent"
             />
             <button
               type="button"
@@ -863,13 +863,13 @@ export function PrescriptionBuilder({
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-brand-600" />
+                <BookOpen className="h-5 w-5 text-accent-fg" />
                 <h4 className="text-sm font-bold text-gray-900">Doctor Protocol Templates</h4>
               </div>
               <button
                 type="button"
                 onClick={() => setIsTemplateModalOpen(false)}
-                className="p-1 rounded text-gray-400 hover:text-gray-600"
+                className="p-1 rounded text-fg-subtle hover:text-gray-600"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -884,14 +884,14 @@ export function PrescriptionBuilder({
                 savedTemplates.map((template) => (
                   <div
                     key={template.id}
-                    className="p-3.5 rounded-lg border border-gray-200 bg-white hover:border-brand-300 transition-colors space-y-2"
+                    className="p-3.5 rounded-lg border border-gray-200 bg-white hover:border-accent-border transition-colors space-y-2"
                   >
                     <div className="flex items-center justify-between">
                       <h5 className="text-xs font-bold text-gray-900">{template.template_name}</h5>
                       <button
                         type="button"
                         onClick={() => handleApplyTemplate(template)}
-                        className="min-h-[32px] px-3 rounded bg-brand-50 text-brand-700 text-xs font-semibold hover:bg-brand-100 transition-colors"
+                        className="min-h-[32px] px-3 rounded bg-accent-subtle text-accent-fg text-xs font-semibold hover:bg-selected transition-colors"
                       >
                         Apply Template
                       </button>

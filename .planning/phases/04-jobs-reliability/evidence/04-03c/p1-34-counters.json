@@ -1,0 +1,69 @@
+{
+ "tool": "scripts/ci/p1-34-counters.mjs",
+ "commit": "4f7f6a755942f8d8228b264cba58610cde4d9d49",
+ "boundary_messages": {
+  "P1-34": 0,
+  "P1-21": 0,
+  "P1-25": 0,
+  "P1-15": 0,
+  "P0-12": 0,
+  "flagged": []
+ },
+ "service_role_factories": [
+  "lib/supabase/system.ts"
+ ],
+ "system_module_importers": {
+  "factory": [
+   "app/api/jobs/run/route.ts",
+   "app/api/v1/appointments/[id]/route.ts",
+   "app/api/v1/appointments/route.ts",
+   "app/api/v1/lab-orders/[id]/route.ts",
+   "app/api/v1/lab-orders/route.ts",
+   "app/api/v1/patients/[id]/export/route.ts",
+   "app/api/v1/patients/[id]/route.ts",
+   "app/api/v1/patients/route.ts",
+   "app/api/v1/prescriptions/[id]/route.ts",
+   "app/api/v1/prescriptions/route.ts",
+   "app/api/v1/referrals/[id]/route.ts",
+   "app/api/v1/referrals/route.ts",
+   "app/api/v1/visits/[id]/route.ts",
+   "app/api/v1/visits/route.ts",
+   "app/api/webhooks/messaging/[provider]/route.ts",
+   "features/auth/system.ts",
+   "features/billing/system.ts",
+   "features/sharing/system.ts"
+  ],
+  "feature_system": [
+   "app/api/auth/send-email/route.ts",
+   "app/api/r/[token]/route.ts",
+   "app/api/reports/view/route.ts",
+   "app/api/reschedule/[token]/route.ts",
+   "app/api/webhooks/messaging/[provider]/route.ts",
+   "app/r/[token]/page.tsx",
+   "app/reports/view/page.tsx",
+   "features/sharing/system.ts"
+  ],
+  "non_canonical": []
+ },
+ "exception_register": [
+  "app/api/v1/**",
+  "lib/api/**"
+ ],
+ "exception_register_entries": 2,
+ "exception_register_importers": [
+  "app/api/v1/appointments/[id]/route.ts",
+  "app/api/v1/appointments/route.ts",
+  "app/api/v1/lab-orders/[id]/route.ts",
+  "app/api/v1/lab-orders/route.ts",
+  "app/api/v1/patients/[id]/export/route.ts",
+  "app/api/v1/patients/[id]/route.ts",
+  "app/api/v1/patients/route.ts",
+  "app/api/v1/prescriptions/[id]/route.ts",
+  "app/api/v1/prescriptions/route.ts",
+  "app/api/v1/referrals/[id]/route.ts",
+  "app/api/v1/referrals/route.ts",
+  "app/api/v1/visits/[id]/route.ts",
+  "app/api/v1/visits/route.ts"
+ ],
+ "cron_dir_exists": false
+}

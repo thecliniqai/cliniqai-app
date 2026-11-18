@@ -6,17 +6,35 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { visitInTenant } from "@/lib/auth/tenant-refs";
 import { Referral } from "@/lib/db/types";
-import { getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { createReferralSchema, closeReferralLoopSchema, acknowledgeReferralSchema } from "./schema";
 import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHistorySnapshot } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { mapDbError } from "@/lib/db/errors";
+
+/** Fixed texts for the referral directory/consent trigger's reasons (migration 000062). */
+const REFERRAL_INSERT_MESSAGES = {
+  REFERRAL_TARGET_NOT_LISTED: "That clinic is not in the referral directory. Check the clinic ID with the partner clinic.",
+  REFERRAL_CONSENT_REQUIRED: "Clinical history can only be shared with the patient's consent.",
+  // 05-11b (000074): the target doctor must be an owner or doctor of the target clinic.
+  REFERRAL_TARGET_DOCTOR_INVALID: "That doctor does not practise at the selected clinic. Choose a doctor of that clinic.",
+} as const;
+
+/**
+ * Answer when the referral's DPDP consent record could not be written (V2-05 05a review IND L7, plan 05-11c): the
+ * referral is withdrawn (history cleared, cancelled) and the action fails, so the history is never shared without a
+ * consent record.
+ */
+export const REFERRAL_CONSENT_WRITE_FAILED =
+  "The patient's consent could not be recorded, so the referral was not sent. Try again.";
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -39,7 +57,7 @@ export async function createReferral(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -81,12 +99,15 @@ export async function createReferral(
     if (input.referral_type === "in_network" && input.patient_consents_history_sharing) {
       // Query past 5 encounters
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pastVisits } = await (supabase.from("visits") as any)
-        .select("id, created_at, chief_complaints, vitals, specialty")
+      const { data: pastVisitRows } = await (supabase.from("visits") as any)
+        .select(`id, created_at, specialty, ${clinicalNotesEmbed(["chief_complaints", "vitals"])}`)
         .eq("patient_id", input.patient_id)
         .eq("tenant_id", session.tenantId)
         .order("created_at", { ascending: false })
         .limit(5);
+      // Complaints and vitals come from clinical_notes (V2-05 05-02a).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pastVisits: any[] | null = pastVisitRows ? pastVisitRows.map(withClinicalNotes) : null;
 
       const encounterList: ConsentedHistorySnapshot["encounters"] = [];
 
@@ -133,25 +154,6 @@ export async function createReferral(
         consented_by_patient: true,
         encounters: encounterList,
       };
-
-      // Record DPDP consent in consent_records
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("consent_records") as any).insert({
-        tenant_id: session.tenantId,
-        patient_id: input.patient_id,
-        consent_type: "referral_history_sharing",
-        status: "granted",
-        recorded_by: session.userId,
-        note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
-      });
-
-      await recordAudit(ctx, {
-        action: "patient.consent.granted",
-        entityType: "consent",
-        metadata: {
-          consent_type: "referral_history_sharing",
-        },
-      });
     }
 
     // 5. Insert referral record
@@ -184,8 +186,53 @@ export async function createReferral(
       .single();
 
     if (insertErr || !referral) {
+      // The directory/consent trigger (V2-05 05-06, migration 000062) refuses a target clinic that is not listed in
+      // the referral directory (or is this clinic) and a history snapshot without the patient's consent.
+      const mapped = mapDbError(insertErr, REFERRAL_INSERT_MESSAGES);
+      if (mapped.reason && mapped.reason in REFERRAL_INSERT_MESSAGES) {
+        return { success: false, error: mapped.message };
+      }
       log.error({ event: "referrals.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create referral." };
+    }
+
+    // 5b. Record the DPDP consent only once the referral exists (before 05-06 it was written first, so a refused
+    // referral left a consent record behind). The write is checked (05-11c, IND L7): if it fails, the referral is
+    // withdrawn (history cleared, cancelled; the referring clinic cannot delete it) and the action fails, so the target
+    // clinic never holds the history without a consent record. One transaction for both writes is the V2-11 referral
+    // command (RPC).
+    if (consentedSnapshot) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: consentErr } = await (supabase.from("consent_records") as any).insert({
+        tenant_id: session.tenantId,
+        patient_id: input.patient_id,
+        consent_type: "referral_history_sharing",
+        status: "granted",
+        recorded_by: session.userId,
+        note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
+      });
+      if (consentErr) {
+        log.error({ event: "referrals.consent_insert.failed", code: errorTag(consentErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: withdrawn, error: withdrawErr } = await (supabase.from("referrals") as any)
+          .update({ consented_history_snapshot: null, status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", referral.id)
+          .eq("tenant_id", session.tenantId)
+          .select("id");
+        if (withdrawErr || !Array.isArray(withdrawn) || withdrawn.length !== 1) {
+          // The history stays with the target clinic without a consent record: alert-worthy.
+          log.error({ event: "referrals.consent_withdraw.failed", code: withdrawErr ? errorTag(withdrawErr) : "ROW_NOT_AFFECTED", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        }
+        return { success: false, error: REFERRAL_CONSENT_WRITE_FAILED };
+      }
+
+      await recordAudit(ctx, {
+        action: "patient.consent.granted",
+        entityType: "consent",
+        metadata: {
+          consent_type: "referral_history_sharing",
+        },
+      });
     }
 
     // 6. Generate and archive branded PDF referral letter
@@ -373,7 +420,7 @@ export async function acknowledgeReferral(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -427,7 +474,7 @@ export async function closeReferralLoop(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -470,14 +517,14 @@ export async function closeReferralLoop(
 }
 
 /**
- * Returns a short-lived (3600s) signed URL for the referral letter PDF.
+ * Returns a short-lived (5-minute, `VIEW_LINK_TTL_SECONDS`; 06-09b N-1) signed URL for the referral letter PDF.
  */
 export async function getReferralSignedUrl(
   ctx: ServiceContext,
   referralId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:view");
+  assertPerm(ctx.role, "consultations:view");
   const session = ctx;
 
   try {
@@ -503,7 +550,7 @@ export async function getReferralSignedUrl(
     const { signedUrl } = await getSignedUrl(
       {
         path: referralLetterPath(referral.tenant_id, referral.id),
-        expiresInSeconds: 3600,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): a view, the 300 s cap
         bucket: "clinic-records",
       },
       storageProvider
@@ -562,7 +609,7 @@ export async function shareReferralLetterViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "consultations:view");
     const session = ctx;
 
     // 1. Fetch referral record joined with patient and tenant
@@ -594,10 +641,10 @@ export async function shareReferralLetterViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #8 (referral_letter_issued)
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
     await enqueueMessage(
-      supabase,
+      ctx,
       {
-        tenantId: session.tenantId,
         patientId: ref.patient_id,
         channel: "whatsapp",
         messageType: "referral_letter_issued",

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { inviteStaff } from "@/features/staff/actions";
+import { inviteNotice } from "./invite-notice";
 
 /** `canInviteAdmin`: only owners may invite an admin (P0-02); the server and the database enforce it too. */
 export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: boolean }) {
@@ -15,12 +16,12 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
   const [role, setRole] = useState("doctor");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [lastInvitedEmail, setLastInvitedEmail] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLastInvitedEmail(null);
+    setNotice(null);
 
     const formData = new FormData();
     formData.append("email", email);
@@ -29,7 +30,7 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
     startTransition(async () => {
       const res = await inviteStaff(formData);
       if (res.success) {
-        setLastInvitedEmail(email.trim());
+        setNotice(inviteNotice(email.trim(), res));
         setEmail("");
         router.refresh();
       } else {
@@ -97,10 +98,13 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
       </form>
 
       <div aria-live="polite">
-        {lastInvitedEmail && (
-          <div className="flex items-start gap-2 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+        {notice && (
+          <div
+            className="flex items-start gap-2 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800"
+            data-testid="invite-staff-notice"
+          >
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
-            <span>Invitation created for {lastInvitedEmail}.</span>
+            <span>{notice}</span>
           </div>
         )}
       </div>

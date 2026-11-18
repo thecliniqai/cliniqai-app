@@ -1,0 +1,9 @@
+# 05-09b static checks (tree = 1621d40; exit codes from the tools)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+> node scripts/ci/local-drift.mjs
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2547 lines equal the committed snapshot)
+authz:gen: generated outputs equal the generator (tests/authz/generator-drift.spec.ts and table-matrix.spec.ts in the full run)
+migration-immutability: migration-immutability: PASS (base 091cc38 @ 091cc38 [--base]; 84 applied unchanged; 1 new above 84)

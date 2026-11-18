@@ -1,0 +1,10 @@
+ RUN  v3.2.7 v206-0605-base
+   × 03-12b public paths (enumerated from app/) > exactly the (auth), share-token, reschedule and offline pages are public; every other page is protected 2ms
+   × 03-12b public paths (enumerated from app/) > 06-05: the PWA assets exist and each is reachable signed out (public prefix, or skipped by the proxy matcher) 0ms
+   × 03-12b public paths (enumerated from app/) > prefixes match whole segments only 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ 'app/(auth)/forgot-password', …(5) ] to deeply equal [ 'app/(auth)/forgot-password', …(6) ]
+AssertionError: expected [] to deeply equal ArrayContaining{…}
+AssertionError: /manifest.webmanifest: expected true to be false // Object.is equality
+ Test Files  1 failed (1)
+      Tests  3 failed | 58 passed (61)

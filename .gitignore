@@ -8,9 +8,15 @@ node_modules
 # CI report outputs (V2-02 02-01), uploaded as artifacts, never committed
 /inventory.json
 /vitest-report.json
+/pgtap-report.tap
 /gitleaks.sarif
 /npm-audit-full.json
 /test-results
+# V2-06 design-lane captures (tests/e2e/design/**): outside test-results/, which Playwright empties on every run
+/design-captures
+# V2-06 06-07: route-JS report output (CI `build` job artifact) and Lighthouse CI's working directory
+/route-js
+.lighthouseci/
 playwright-report
 blob-report
 # Playwright per-run seed data and signed-in storage states (V2-02 02-03a); never committed
@@ -74,8 +80,14 @@ pnpm-debug.log*
 # Planning research cache
 .planning/**/.cache
 
+# Pinned ops tools downloaded by ops/bin/install-age.sh (V2-04 04-05a); checksum-verified, never committed
+/.cache/
+
 # Supabase CLI local state (V2-01a)
 supabase/.branches/
+# Restore-drill stack CLI state (V2-04 04-05a; service-version pins for K-6 go here, never committed)
+ops/restore-drill/supabase/.branches/
+ops/restore-drill/supabase/.temp/
 
 # P0-13 CI canary copy (scripts/ci/guard-canary.mjs deletes it; never commit it)
 /features/__guard_canary__/

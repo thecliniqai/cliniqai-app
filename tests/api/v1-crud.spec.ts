@@ -206,9 +206,11 @@ describe("External REST API CRUD & Schema Verification (REQ-api-access, D-03, D-
           authorization: `Bearer ${keyA.rawToken}`,
           "content-type": "application/json",
         },
+        // Demographics only: allergies and chronic conditions are refused for API keys (05-11d, N-6;
+        // tests/api/v1-patients-no-clinical.spec.ts).
         body: JSON.stringify({
-          chronic_conditions: ["Type 2 Diabetes"],
-          allergies: ["Sulfa drugs"],
+          full_name: "Synthetic Updated Name",
+          age: 41,
         }),
       });
 
@@ -216,8 +218,8 @@ describe("External REST API CRUD & Schema Verification (REQ-api-access, D-03, D-
       expect(res.status).toBe(200);
 
       const json = await res.json();
-      expect(json.data.chronic_conditions).toContain("Type 2 Diabetes");
-      expect(json.data.allergies).toContain("Sulfa drugs");
+      expect(json.data.full_name).toBe("Synthetic Updated Name");
+      expect(json.data.age).toBe(41);
 
       // Check audit log
       const admin = getAdminClient();

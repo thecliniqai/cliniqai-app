@@ -1,0 +1,6 @@
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > a confirmed account: the password path refuses and changes nothing; signed in, acceptInvite redeems 137ms
+     → expected { ok: true } to deeply equal { ok: false, …(1) }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > a confirmed account: the password path refuses and changes nothing; signed in, acceptInvite redeems
+AssertionError: expected { ok: true } to deeply equal { ok: false, …(1) }
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)

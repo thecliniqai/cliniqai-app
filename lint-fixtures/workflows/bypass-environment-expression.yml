@@ -1,0 +1,23 @@
+# Fixture (V2-04 04-07c, review C M-1 case 1; passed the policy before 04-07c): the Environment comes from a variable,
+# the trigger is workflow_run (any fork PR's CI run can start it) and the secret name is computed, so no name-based rule
+# saw a staging workflow -> environment-literal, no-dynamic-secret, staging-no-pr-trigger, staging-feature-v2-only,
+# staging-exact-ref-step, workflow-run-pinned.
+name: Fixture bypass environment expression
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  exfil:
+    runs-on: ubuntu-24.04
+    environment: ${{ vars.BK_ENV }}
+    strategy:
+      matrix:
+        n: [STAGING_BACKUP_DB_URL]
+    steps:
+      - name: Reads a secret by a computed name
+        env:
+          DB: ${{ secrets[matrix.n] }}
+        run: echo "fixture"

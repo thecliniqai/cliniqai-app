@@ -1,0 +1,53 @@
+06-09d close fails-without proof, e2e (L-N3): app/(auth)/forgot-password/page.tsx reverted to e7d99ce (the page creates the shared browser client on mount), everything else at the fixed tree; npm run e2e:build (exit 0, output scan clean, build T687WCW1DopwkfGRZGhMT), then, under the e2e lane lock, 2026-11-15:
+Command: npx playwright test tests/e2e/pwa/12-forgot-password-refresh.spec.ts --project=desktop-chrome --project=pixel-7 --retries=0 --reporter=line
+Lines below: the failure blocks and the summary (server log lines and attachment paths omitted; cookie values are compared as SHA-256 prefixes, never printed).
+
+Running 10 tests using 1 worker
+
+[9/10] [desktop-chrome] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+
+  1) [desktop-chrome] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+
+    Error: the auth cookies are untouched
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 6
+    + Received  + 1
+
+    - Array [
+    -   Array [
+    -     "sb-127-auth-token",
+    -     "f184d84ce2c5dc36",
+    -   ],
+    - ]
+    + Array []
+
+    > 107 |     expect(await authCookieDigests(context), "the auth cookies are untouched").toEqual(before);
+
+[10/10] [pixel-7] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+
+  2) [pixel-7] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+
+    Error: the auth cookies are untouched
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 6
+    + Received  + 1
+
+    - Array [
+    -   Array [
+    -     "sb-127-auth-token",
+    -     "c236a9fadbd1e22f",
+    -   ],
+    - ]
+    + Array []
+
+    > 107 |     expect(await authCookieDigests(context), "the auth cookies are untouched").toEqual(before);
+
+[e2e teardown] removed run data: 6 tenant(s), 11 auth user(s), 0 storage object(s); verified none remain
+  2 failed
+    [desktop-chrome] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+    [pixel-7] › tests/e2e/pwa/12-forgot-password-refresh.spec.ts:77:5 › L-N3: /forgot-password during a refresh rate limit sends no browser refresh and keeps the session; requesting a code works
+  8 passed (10.9s)

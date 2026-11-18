@@ -1,0 +1,2 @@
+  ✓  6 [desktop-chrome] › tests/e2e/a11y/settings-billing-screens.spec.ts:54:7 › Subscription & Billing (owner) › shows the trialing clinic's status, access and dates from tenant_subscriptions; axe and layout at 360/820/1280 (1.4s)
+  ✓  7 [desktop-chrome] › tests/e2e/a11y/settings-billing-screens.spec.ts:80:7 › Subscription & Billing (doctor) › a doctor (no clinic:manage) is refused with the fixed text and sees no subscription data (165ms)

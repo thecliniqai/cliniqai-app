@@ -1,0 +1,123 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 62ms
+[WebServer] ✓ Running next.config.ts took 24ms
+
+Running 12 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (1.4s)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (1.1s)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (1.3s)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (1.0s)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (1.1s)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (927ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (913ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (863ms)
+  ✓   9 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:32:5 › book a free slot → booked visit at that time, visible on the calendar (2.0s)
+  ✘  10 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:57:5 › overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked (6.0s)
+  ✓  11 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:101:7 › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) (6.1s)
+  ✘  12 [desktop-chrome] › tests/e2e/m0/cancel-appointment.spec.ts:24:5 › cancel a booked visit → cancelled, slot free again for a booking without override (6.2s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:57:5 › overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog', { name: 'Schedule Appointment' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('dialog', { name: 'Schedule Appointment' }) with timeout 5000ms
+      - waiting for getByRole('dialog', { name: 'Schedule Appointment' })
+
+
+       at m0/support/calendar.ts:19
+
+      17 |   await ux.click(page.getByRole("button", { name: "+ Book Appointment" }), "+ Book Appointment");
+      18 |   const drawer = bookingDrawer(page);
+    > 19 |   await expect(drawer).toBeVisible();
+         |                        ^
+      20 |   await expect(drawer.getByLabel(/^Appointment Date/)).toHaveValue(date);
+      21 |   return drawer;
+      22 | }
+        at openBookingDrawer (tests/e2e/m0/support/calendar.ts:19:24)
+        at tests/e2e/m0/book-appointment.spec.ts:77:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m0-book-appointment-overbo-edd14-books-it-flagged-overbooked-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m0-book-appointment-overbo-edd14-books-it-flagged-overbooked-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/m0-book-appointment-overbo-edd14-books-it-flagged-overbooked-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/m0-book-appointment-overbo-edd14-books-it-flagged-overbooked-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:101:7 › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) 
+
+    Expected to fail, but passed.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m0-book-appointment-owner--15739--patient-known-v1-bug-F-04--desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/m0-book-appointment-owner--15739--patient-known-v1-bug-F-04--desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/m0-book-appointment-owner--15739--patient-known-v1-bug-F-04--desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [desktop-chrome] › tests/e2e/m0/cancel-appointment.spec.ts:24:5 › cancel a booked visit → cancelled, slot free again for a booking without override 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('E2E Synthetic Cancelled 62cacc', { exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" getByText('E2E Synthetic Cancelled 62cacc', { exact: true }) with timeout 5000ms
+      - waiting for getByText('E2E Synthetic Cancelled 62cacc', { exact: true })
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      50 |   });
+      51 |   await ux.click(card.getByRole("button", { name: "Cancel Appointment" }), "Cancel Appointment (+ confirm OK)");
+    > 52 |   await expect(page.getByText(bookedName, { exact: true })).toHaveCount(0);
+         |                                                             ^
+      53 |   ux.done();
+      54 |
+      55 |   expect((await visitById(visitId))?.status).toBe("cancelled");
+        at tests/e2e/m0/cancel-appointment.spec.ts:52:61
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/m0-cancel-appointment-canc-6883c--a-booking-without-override-desktop-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/m0-cancel-appointment-canc-6883c--a-booking-without-override-desktop-chrome/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/m0-cancel-appointment-canc-6883c--a-booking-without-override-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/m0-cancel-appointment-canc-6883c--a-booking-without-override-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:57:5 › overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked 
+    [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:101:7 › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) 
+    [desktop-chrome] › tests/e2e/m0/cancel-appointment.spec.ts:24:5 › cancel a booked visit → cancelled, slot free again for a booking without override 
+  9 passed (34.2s)

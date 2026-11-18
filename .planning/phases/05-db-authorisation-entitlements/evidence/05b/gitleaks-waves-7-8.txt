@@ -1,0 +1,7 @@
+# gitleaks v8.30.1 (repo .gitleaks.toml, --redact) over the 05b wave 7-8 commits 7c08c11..d539f1c (5f81f67, 0e3c895, 6037598, 5fbf707, d539f1c), then the full history
+INF 5 commits scanned.
+INF scanned ~2720432 bytes (2.72 MB) in 855ms
+INF no leaks found
+INF 889 commits scanned.
+INF scanned ~104677094 bytes (104.68 MB) in 35.8s
+INF no leaks found

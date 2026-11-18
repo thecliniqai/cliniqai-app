@@ -1,0 +1,2 @@
+npx playwright test tests/e2e/pwa/09-outage-and-removal.spec.ts tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts --project=desktop-chrome --project=pixel-7 --project=iphone-15 --retries=0 --repeat-each=4 (spec fix of b904d8f, build of b11e398)
+  72 passed (2.5m)

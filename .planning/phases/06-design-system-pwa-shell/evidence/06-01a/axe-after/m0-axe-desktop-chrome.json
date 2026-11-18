@@ -1,0 +1,504 @@
+{
+  "commit": "78056850627e87df6cf86b37bce63ac0dd3c6340",
+  "project": "m0-axe-desktop-chrome",
+  "routes": [
+    {
+      "route": "/billing/register",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/billing/reports",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 5
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    },
+    {
+      "route": "/billing/reports",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/billing/reports",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 5
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 2
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    },
+    {
+      "route": "/cabin",
+      "role": "doctor",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/cabin",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        }
+      ],
+      "passes": 20,
+      "incomplete": 1
+    },
+    {
+      "route": "/calendar",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/calendar",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 55
+        }
+      ],
+      "passes": 20,
+      "incomplete": 1
+    },
+    {
+      "route": "/consultation/[id]",
+      "role": "doctor",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/consultation/fe46b4a4-836f-4101-8979-6f25329ca7cd",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 18
+        }
+      ],
+      "passes": 24,
+      "incomplete": 1
+    },
+    {
+      "route": "/forgot-password",
+      "role": null,
+      "project": "m0-axe-desktop-chrome",
+      "url": "/forgot-password",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [],
+      "passes": 25,
+      "incomplete": 1
+    },
+    {
+      "route": "/",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 5
+        }
+      ],
+      "passes": 22,
+      "incomplete": 0
+    },
+    {
+      "route": "/login",
+      "role": null,
+      "project": "m0-axe-desktop-chrome",
+      "url": "/login",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [],
+      "passes": 25,
+      "incomplete": 1
+    },
+    {
+      "route": "/patients/[id]",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/patients/b0bc9e1b-f838-4b53-80f3-116f75144fac",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 9
+        }
+      ],
+      "passes": 20,
+      "incomplete": 0
+    },
+    {
+      "route": "/patients/new",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/patients/new",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    },
+    {
+      "route": "/patients",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/patients",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 6
+        },
+        {
+          "id": "target-size",
+          "impact": "serious",
+          "help": "All touch targets must be 24px large, or leave sufficient space",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/target-size?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 1
+    },
+    {
+      "route": "/profile",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/profile",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 18
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 31
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 25,
+      "incomplete": 0
+    },
+    {
+      "route": "/queue",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/queue",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        }
+      ],
+      "passes": 23,
+      "incomplete": 0
+    },
+    {
+      "route": "/referrals",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/referrals",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 2
+        }
+      ],
+      "passes": 22,
+      "incomplete": 0
+    },
+    {
+      "route": "/settings/billing",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/settings/billing",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        }
+      ],
+      "passes": 20,
+      "incomplete": 0
+    },
+    {
+      "route": "/settings/clinic",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/settings/clinic",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 18
+        },
+        {
+          "id": "label",
+          "impact": "critical",
+          "help": "Form elements must have labels",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label?application=playwright",
+          "nodes": 32
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 1
+        }
+      ],
+      "passes": 24,
+      "incomplete": 1
+    },
+    {
+      "route": "/settings/developer",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/settings/developer",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 4
+        }
+      ],
+      "passes": 20,
+      "incomplete": 0
+    },
+    {
+      "route": "/staff",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/staff",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 6
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    },
+    {
+      "route": "/visits",
+      "role": "owner",
+      "project": "m0-axe-desktop-chrome",
+      "url": "/visits",
+      "tags": [
+        "wcag2a",
+        "wcag2aa",
+        "wcag21aa",
+        "wcag22aa"
+      ],
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=playwright",
+          "nodes": 10
+        },
+        {
+          "id": "select-name",
+          "impact": "critical",
+          "help": "Select element must have an accessible name",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/select-name?application=playwright",
+          "nodes": 3
+        }
+      ],
+      "passes": 24,
+      "incomplete": 0
+    }
+  ]
+}

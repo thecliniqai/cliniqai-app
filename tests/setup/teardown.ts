@@ -10,7 +10,8 @@
  *      nothing, keep everything for inspection;
  *   2. storage objects under each run tenant's prefixes (no FK ties them to rows, so the cascade misses them);
  *   3. `DELETE FROM tenants` — every tenant-scoped table cascades from `tenants`;
- *   4. delete run auth users (memberships, sessions and identities cascade);
+ *   4. delete run auth users (memberships, sessions and identities cascade); first their `platform_admins` rows
+ *      (V2-05 05-09b: no `tenant_id`, so the tenant cascade misses them, and the FK RESTRICTs the user delete);
  *   5. verify nothing created during the run remains.
  * `session_replication_role = replica` is never used: it disables the FK triggers that implement the cascade.
  *
@@ -25,12 +26,19 @@ import os from "node:os";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalTestEnv } from "./test-env";
+import { psql } from "../helpers/sql";
 
 /** Columns referencing auth.users with NO ACTION (migrations 000002–000013); checked against the live catalog by
  * tests/setup/teardown.spec.ts so the list cannot drift. Every one of these tables has `tenant_id`. */
 export const NO_ACTION_USER_REFS: ReadonlyArray<readonly [table: string, column: string]> = [
   ["invitations", "created_by"],
   ["invitations", "consumed_by"],
+  // V2-05 05-05: who removed a member / revoked an invitation (NO ACTION: the record outlives nothing but its clinic).
+  ["invitations", "revoked_by"],
+  ["memberships", "removed_by"],
+  // V2-05 05-10c: who accepted the AI terms for the clinic / who recorded a patient's AI objection.
+  ["tenant_ai_settings", "accepted_by"],
+  ["patients", "objection_recorded_by"],
   ["patients", "created_by"],
   ["audit_logs", "actor_id"],
   ["consent_records", "recorded_by"],
@@ -176,11 +184,12 @@ async function runTenantIds(admin: SupabaseClient, since: string, userIds: strin
     for (const row of m ?? []) ids.add(row.tenant_id as string);
   }
   // Never delete a tenant that predates the run: a pre-existing tenant joined by a run user is a leak, not run data.
-  if (ids.size) {
+  // Chunked like the leak checks: one `in` list of every run tenant id passes the gateway's URL limit (~200 ids).
+  for (const part of chunks([...ids], TENANT_CHUNK)) {
     const { data: old, error: oErr } = await admin
       .from("tenants")
       .select("id")
-      .in("id", [...ids])
+      .in("id", part)
       .lt("created_at", since);
     if (oErr) throw new Error(`teardown: checking tenant ages failed: ${oErr.message}`);
     for (const row of old ?? []) ids.delete(row.id as string);
@@ -269,6 +278,26 @@ export async function findLeakedReferences(
   return leaks;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * V2-05 05-09b: removes the `platform_admins` rows of run users (as `postgres`: no API role, not even the service role,
+ * may write that table). The table has no `tenant_id` and its `user_id` FK is ON DELETE RESTRICT (an admin is revoked,
+ * never deleted by a user delete), so without this a run user made an admin would block its own deletion. Each removal
+ * is audited by the table's trigger (`platform_admin.deleted`, no tenant); the run's audit rows go at the end.
+ * Returns the number of rows removed.
+ */
+export function removeRunPlatformAdmins(userIds: string[]): number {
+  let removed = 0;
+  for (const part of chunks(userIds)) {
+    if (!part.every((id) => UUID_RE.test(id))) throw new Error("teardown: unexpected user id");
+    const list = part.map((id) => `'${id}'`).join(",");
+    const out = psql(`with d as (delete from public.platform_admins where user_id in (${list}) returning 1) select count(*) from d`);
+    removed += Number(out[0] ?? 0);
+  }
+  return removed;
+}
+
 export async function teardownRun(
   rootDir: string,
   marker: RunMarker,
@@ -294,6 +323,8 @@ export async function teardownRun(
     if (error) throw new Error(`teardown: deleting run tenants failed: ${error.message}`);
   }
 
+  removeRunPlatformAdmins(userIds);
+
   for (const id of userIds) {
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) throw new Error(`teardown: deleting a run auth user failed: ${error.message}`);
@@ -317,6 +348,15 @@ export async function teardownRun(
       `teardown: run data remains after teardown (tenants ${tenantsLeft}, users ${usersLeft}, objects ${objectsLeft})`,
     );
   }
+
+  // V2-04 04-03c: the inbound dedupe store (ops.inbound_webhook_events) has no tenant, so tenant deletion does not
+  // reach it. Remove the keys this run recorded (the Send Email hook and MSG91 route calls of every spec); no worker is
+  // running any more, so nothing races this. Keys only (provider, id, timestamps): no personal data either way.
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(marker.startedAt)) throw new Error("teardown: unexpected run marker");
+  psql(`delete from ops.inbound_webhook_events where received_at >= '${marker.startedAt}'::timestamptz`);
+  // V2-05 05-09b: the platform audit trail has no tenant either (it outlives clinics by design); on the local test
+  // stack the run's rows (platform_admins grants/removals, platform.* calls) are removed like the dedupe keys.
+  psql(`delete from public.platform_audit_log where occurred_at >= '${marker.startedAt}'::timestamptz`);
 
   for (const file of SIDE_EFFECT_FILES) {
     if (!marker.preexistingFiles.includes(file)) fs.rmSync(path.join(rootDir, file), { force: true });

@@ -97,6 +97,8 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
           }),
           insert: () => Promise.resolve({ data: null, error: null }),
         }),
+        // The user-path audit row goes through public.log_audit (V2-05 05-02c).
+        rpc: async () => ({ data: 1, error: null }),
       } as any;
 
       const res = await updateDoctorAvailability(
@@ -195,6 +197,8 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
           }),
           insert: () => Promise.resolve({ data: null, error: null }),
         }),
+        // The user-path audit row goes through public.log_audit (V2-05 05-02c).
+        rpc: async () => ({ data: 1, error: null }),
       } as any;
 
       const res = await updateDoctorAvailability(

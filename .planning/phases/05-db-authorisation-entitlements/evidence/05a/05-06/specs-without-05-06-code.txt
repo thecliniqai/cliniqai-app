@@ -1,0 +1,223 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T03:24:45.469Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:24:45.519Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:24:45.536Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T03:24:45.544Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ❯ tests/api/export-scope.spec.ts (6 tests | 4 failed) 401ms
+   × /api/v1 patient export requires the exports:create key scope (05-06) > a key without the scope gets 403 with a fixed body, for JSON and PDF, and nothing is exported or audited 54ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1 patient export requires the exports:create key scope (05-06) > a key with the scope gets the archive (200) and the export is audited 17ms
+     → expected { …(26) } to not have property "created_by"
+   ✓ /api/v1 patient export requires the exports:create key scope (05-06) > a scoped key of another clinic still gets 404 for this clinic's patient 7ms
+   × /api/v1 patient export requires the exports:create key scope (05-06) > removing the scope from a key stops its exports 13ms
+     → expected 200 to be 403 // Object.is equality
+   × /api/v1 patient export requires the exports:create key scope (05-06) > the service refuses an API-key context whose key lacks the scope (covers every API-key caller) 8ms
+     → The instanceof assertion needs a constructor but undefined was given.
+   ✓ /api/v1 patient export requires the exports:create key scope (05-06) > the database refuses an unknown scope (closed set) 1ms
+{"ts":"2026-11-14T03:24:46.233Z","level":"error","event":"referrals.create_insert.failed","tenantId":"d5aaeacb-abf5-4c66-afa1-8ab9005a9bf7","code":"P0001"}
+ ❯ tests/referrals/referrals-flow.spec.ts (14 tests | 2 failed) 523ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 1. Referral Urgency & Types Specification > validates valid urgency levels (routine, priority, urgent) 2ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 1. Referral Urgency & Types Specification > validates valid status transitions (sent -> acknowledged -> completed, cancelled) 1ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 1. Referral Urgency & Types Specification > requires DPDP consent when sharing clinical history with in-network clinics 0ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 1. Referral Urgency & Types Specification > rejects in-network referral without target_tenant_id 2ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 2. Out-of-Network Referral & Branded PDF Generation > creates out-of-network referral with specialist name and facility 110ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 2. Out-of-Network Referral & Branded PDF Generation > generates a valid 3600-second signed URL for the referral letter PDF 5ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 2. Out-of-Network Referral & Branded PDF Generation > retrieves outbound referrals including patient details 2ms
+   × Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > refuses an in-network referral to a clinic not in the referral directory, leaving no referral or consent record (05-06) 18ms
+     → expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+   × Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > creates in-network referral and logs DPDP consent entry in consent_records 48ms
+     → the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > allows target clinic (Tenant B) to view and acknowledge the inbound referral 12ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > allows originating clinic (Tenant A) to Close the Loop with specialist return notes 8ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > retrieves all referrals for a specific patient under the clinic 2ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 4. Multi-Tenant Boundary & Access Protection (T-04-11) > proves Tenant B cannot view Tenant A outbound referrals 2ms
+   ✓ Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 4. Multi-Tenant Boundary & Access Protection (T-04-11) > proves Tenant B cannot close the loop on Tenant A referral 2ms
+ ❯ tests/dpdp/export-dto.spec.ts (7 tests | 3 failed) 370ms
+   ✓ DPDP export: minimal DTOs on the local stack (05-06) > exports every entity, each with content 4ms
+   × DPDP export: minimal DTOs on the local stack (05-06) > every key of the generated export is inside the allow-list (before: whole rows) 6ms
+     → patient: keys outside the allow-list: expected [ 'tenant_id', 'created_by', …(7) ] to deeply equal []
+   × DPDP export: minimal DTOs on the local stack (05-06) > no storage path, staff user id or clinic id appears in the patient data 8ms
+     → expected '{"patient":{"id":"66158444-34ba-4fee-…' not to contain 'tenants/76b9dd51-f6e9-4604-8095-c7952…'
+   × DPDP export: a planted internal column never reaches the bundle (05-06) > exportPatientDpdpArchive drops a column the database returns but the allow-list does not name 1ms
+     → expected '{"patient":{"id":"p1","full_name":"Sy…' not to contain 'internal_planted'
+   ✓ export-dto functions > pickFields copies only listed own properties and ignores non-objects 0ms
+   ✓ export-dto functions > toExportDtos tolerates missing collections and keeps nested items to their own lists 0ms
+   ✓ export-dto functions > no allow-list names a storage path, token hash, staff id or tenant id 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/export-scope.spec.ts > /api/v1 patient export requires the exports:create key scope (05-06) > a key without the scope gets 403 with a fixed body, for JSON and PDF, and nothing is exported or audited
+AssertionError: expected 200 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 200[39m
+
+ ❯ tests/api/export-scope.spec.ts:94:26
+     92|     for (const format of ["json", "pdf"]) {
+     93|       const res = await exportAs(unscoped.raw, patientId, format);
+     94|       expect(res.status).toBe(403);
+       |                          ^
+     95|       const body = await res.json();
+     96|       expect(body.error.code).toBe("FORBIDDEN");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  tests/api/export-scope.spec.ts > /api/v1 patient export requires the exports:create key scope (05-06) > a key with the scope gets the archive (200) and the export is audited
+AssertionError: expected { …(26) } to not have property "created_by"
+
+[32m- Expected:[39m 
+undefined
+
+[31m+ Received:[39m 
+"25ff5ab9-8b24-4901-b863-8a5f012723aa"
+
+ ❯ tests/api/export-scope.spec.ts:109:30
+    107|     const json = await res.json();
+    108|     expect(json.patient.full_name).toBe("Synthetic Export Scope Patien…
+    109|     expect(json.patient).not.toHaveProperty("created_by");
+       |                              ^
+    110|     expect(await exportAuditCount(A.tenantId, patientId)).toBe(1);
+    111|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  tests/api/export-scope.spec.ts > /api/v1 patient export requires the exports:create key scope (05-06) > removing the scope from a key stops its exports
+AssertionError: expected 200 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 200[39m
+
+ ❯ tests/api/export-scope.spec.ts:122:60
+    120|     const { error } = await admin.from("api_keys").update({ scopes: []…
+    121|     expect(error).toBeNull();
+    122|     expect((await exportAs(scoped.raw, patientId)).status).toBe(403);
+       |                                                            ^
+    123|   });
+    124| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  tests/api/export-scope.spec.ts > /api/v1 patient export requires the exports:create key scope (05-06) > the service refuses an API-key context whose key lacks the scope (covers every API-key caller)
+AssertionError: The instanceof assertion needs a constructor but undefined was given.
+ ❯ tests/api/export-scope.spec.ts:128:17
+    126|     const ctx = mockCtx(admin, { tenantId: A.tenantId, userId: A.userI…
+    127|     const err = await exportPatientDpdpArchive(ctx, patientId, { skipA…
+    128|     expect(err).toBeInstanceOf(ExportScopeMissingError);
+       |                 ^
+    129|     expect(err).toBeInstanceOf(PermissionDeniedError);
+    130|     // An API-key context without a key id is refused too.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  tests/dpdp/export-dto.spec.ts > DPDP export: minimal DTOs on the local stack (05-06) > every key of the generated export is inside the allow-list (before: whole rows)
+AssertionError: patient: keys outside the allow-list: expected [ 'tenant_id', 'created_by', …(7) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "tenant_id",[39m
+[31m+   "created_by",[39m
+[31m+   "updated_at",[39m
+[31m+   "hfr_facility_id",[39m
+[31m+   "whatsapp_opt_out",[39m
+[31m+   "is_deleted",[39m
+[31m+   "status",[39m
+[31m+   "erased_at",[39m
+[31m+   "erasure_reason",[39m
+[31m+ ][39m
+
+ ❯ expectSubset tests/dpdp/export-dto.spec.ts:37:58
+     35| function expectSubset(keys: Iterable<string>, allowed: readonly string…
+     36|   const extra = [...keys].filter((k) => !allowed.includes(k));
+     37|   expect(extra, `${label}: keys outside the allow-list`).toEqual([]);
+       |                                                          ^
+     38| }
+     39| 
+ ❯ expectBundleWithinAllowList tests/dpdp/export-dto.spec.ts:42:3
+ ❯ tests/dpdp/export-dto.spec.ts:174:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  tests/dpdp/export-dto.spec.ts > DPDP export: minimal DTOs on the local stack (05-06) > no storage path, staff user id or clinic id appears in the patient data
+AssertionError: expected '{"patient":{"id":"66158444-34ba-4fee-…' not to contain 'tenants/76b9dd51-f6e9-4604-8095-c7952…'
+
+Expected: [32m"tenants/76b9dd51-f6e9-4604-8095-c795264d6049/patients/66158444-34ba-4fee-8ecf-bc74ab2a55aa/labs/84d202cd-de6e-42c0-bff2-0fd006b7883a.pdf"[39m
+Received: [31m"{"patient":{"id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","full_name":"Synthetic Export DTO Patient","phone":"+919882645243","date_of_birth":null,"sex":"female","address":null,"abha_id":null,"created_by":"587a51d6-7970-4085-a56f-203b6bd4364a","created_at":"2026-11-14T03:24:46.781741+00:00","updated_at":"2026-11-14T03:24:46.781741+00:00","hfr_facility_id":null,"national_health_id":null,"age":37,"allergies":["Synthetic allergen"],"chronic_conditions":[],"emergency_contact":null,"preferred_language":"en","whatsapp_opt_out":false,"guardian_name":null,"guardian_phone":null,"guardian_relationship":null,"is_deleted":false,"status":"active","erased_at":null,"erasure_reason":null},"encounters":[{"id":"e914faed-2a37-4a59-b215-013c81edf54a","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","patient_id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","doctor_id":"9c8be801-5c80-426e-81af-ebf054c83aa5","origin_type":"walk_in","status":"booked","scheduled_at":null,"estimated_duration_minutes":15,"reason_for_visit":"Synthetic follow-up","is_overbooked":false,"created_by":"587a51d6-7970-4085-a56f-203b6bd4364a","created_at":"2026-11-14T03:24:46.784557+00:00","updated_at":"2026-11-14T03:24:46.784557+00:00","vitals":{"pulse":72},"chief_complaints":[],"clinical_notes":"Synthetic clinical note","specialty":"general_physician","specialty_data":{},"investigations_advised":[],"advice":[],"current_revision":1,"signed_at":null,"signed_by":null,"metadata":{}}],"prescriptions":[{"id":"2f7a0439-7cc3-43e5-b2fd-64c1ddc29b80","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","visit_id":"e914faed-2a37-4a59-b215-013c81edf54a","patient_id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","doctor_id":"9c8be801-5c80-426e-81af-ebf054c83aa5","version":1,"status":"active","letterhead_mode":"blank_paper","pdf_storage_path":"76b9dd51-f6e9-4604-8095-c795264d6049/e914faed-2a37-4a59-b215-013c81edf54a/rx_v1.pdf","signed_at":null,"amendment_reason":null,"created_at":"2026-11-14T03:24:46.790548+00:00","updated_at":"2026-11-14T03:24:46.790548+00:00","prescription_items":[{"id":"89bef6cd-b42d-493e-a659-3662fe0ef80d","dosage":"1-0-1","timing":null,"duration":"5 days","dose_form":null,"tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","created_at":"2026-11-14T03:24:46.793605+00:00","sort_order":0,"generic_name":null,"cdci_brand_id":null,"medicine_name":"Synthetic Tablet 250","cdci_generic_id":null,"prescription_id":"2f7a0439-7cc3-43e5-b2fd-64c1ddc29b80","special_instructions":null}]}],"documents":[{"id":"dca2d9e6-8fcd-4e32-8751-f6432ea49324","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","patient_id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","visit_id":"e914faed-2a37-4a59-b215-013c81edf54a","title":"Synthetic Lab Report","document_type":"lab_report","original_filename":"synthetic.pdf","storage_path":"tenants/76b9dd51-f6e9-4604-8095-c795264d6049/patients/66158444-34ba-4fee-8ecf-bc74ab2a55aa/labs/84d202cd-de6e-42c0-bff2-0fd006b7883a.pdf","file_size_bytes":1024,"mime_type":"application/pdf","report_date":"2026-11-14","notes":null,"is_abnormal":false,"uploaded_by":"9c8be801-5c80-426e-81af-ebf054c83aa5","created_at":"2026-11-14T03:24:46.796947+00:00","updated_at":"2026-11-14T03:24:46.796947+00:00"}],"billing":{"invoices":[{"id":"e6cb00fe-2804-43b3-80c5-1bc99d0d514c","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","visit_id":"e914faed-2a37-4a59-b215-013c81edf54a","patient_id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","invoice_number":"DTO-c8af8582","subtotal":500,"discount":0,"tax":0,"total_amount":500,"status":"paid","created_at":"2026-11-14T03:24:46.799648+00:00","updated_at":"2026-11-14T03:24:46.799648+00:00","invoice_items":[{"id":"90e3cc8c-3bad-484c-96fe-794b4b78e3dc","quantity":1,"item_type":"consultation","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","created_at":"2026-11-14T03:24:46.801924+00:00","invoice_id":"e6cb00fe-2804-43b3-80c5-1bc99d0d514c","unit_price":500,"description":"Synthetic consultation","total_price":500}]}],"payments":[{"id":"c7a14b67-39ac-46ac-a817-a6f80f557598","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","invoice_id":"e6cb00fe-2804-43b3-80c5-1bc99d0d514c","amount":500,"payment_method":"cash","reference_number":null,"notes":"Synthetic internal note","recorded_by":"587a51d6-7970-4085-a56f-203b6bd4364a","recorded_at":"2026-11-14T03:24:46.804011+00:00","command_id":null,"recorded_by_system":null}]},"consent_records":[{"id":"b2905544-8739-4fde-b7bb-abea6238e5f5","tenant_id":"76b9dd51-f6e9-4604-8095-c795264d6049","patient_id":"66158444-34ba-4fee-8ecf-bc74ab2a55aa","consent_type":"treatment","status":"granted","recorded_by":"587a51d6-7970-4085-a56f-203b6bd4364a","recorded_at":"2026-11-14T03:24:46.805911+00:00","note":null}]}"[39m
+
+ ❯ tests/dpdp/export-dto.spec.ts:180:22
+    178|     const { export_metadata, ...data } = bundle;
+    179|     const text = JSON.stringify(data);
+    180|     expect(text).not.toContain(storagePath);
+       |                      ^
+    181|     expect(text).not.toContain("rx_v1.pdf");
+    182|     expect(text).not.toContain("storage_path");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  tests/dpdp/export-dto.spec.ts > DPDP export: a planted internal column never reaches the bundle (05-06) > exportPatientDpdpArchive drops a column the database returns but the allow-list does not name
+AssertionError: expected '{"patient":{"id":"p1","full_name":"Sy…' not to contain 'internal_planted'
+
+Expected: [32m"internal_planted"[39m
+Received: [31m"{"patient":{"id":"p1","full_name":"Synthetic Planted Patient","created_by":"u1","tenant_id":"t1","internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"},"encounters":[{"id":"v1","status":"completed","metadata":{"x":1},"internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf","vitals":null,"chief_complaints":null,"clinical_notes":"Synthetic note","specialty_data":null,"investigations_advised":null,"advice":null}],"prescriptions":[{"id":"rx1","pdf_storage_path":"tenants/t1/rx.pdf","prescription_items":[{"medicine_name":"Synthetic","cdci_brand_id":"c1"}],"internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"}],"documents":[{"id":"d1","title":"Synthetic Report","uploaded_by":"u1","internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"}],"billing":{"invoices":[{"id":"i1","invoice_number":"S-1","invoice_items":[{"description":"Synthetic","tenant_id":"t1"}],"internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"}],"payments":[{"id":"pay1","amount":1,"command_id":"cmd","recorded_by":"u1","internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"}]},"consent_records":[{"id":"c1","consent_type":"treatment","recorded_by":"u1","internal_planted":"synthetic-internal","storage_path":"tenants/x/y.pdf"}]}"[39m
+
+ ❯ tests/dpdp/export-dto.spec.ts:227:22
+    225|     void _meta;
+    226|     const text = JSON.stringify(data);
+    227|     expect(text).not.toContain("internal_planted");
+       |                      ^
+    228|     expect(text).not.toContain("storage_path");
+    229|     expect(text).not.toContain("created_by");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  tests/referrals/referrals-flow.spec.ts > Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > refuses an in-network referral to a clinic not in the referral directory, leaving no referral or consent record (05-06)
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "That clinic is not in the referral directory. Check the clinic ID with the partner clinic.",[39m
+[31m+   "error": "Failed to create referral.",[39m
+[2m    "success": false,[22m
+[2m  }[22m
+
+ ❯ tests/referrals/referrals-flow.spec.ts:173:19
+    171|         letterhead_mode: "blank_paper",
+    172|       });
+    173|       expect(res).toEqual({
+       |                   ^
+    174|         success: false,
+    175|         error: "That clinic is not in the referral directory. Check th…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  tests/referrals/referrals-flow.spec.ts > Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > creates in-network referral and logs DPDP consent entry in consent_records
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ tests/referrals/referrals-flow.spec.ts:239:35
+    237| 
+    238|       expect(consentRecord).toBeDefined();
+    239|       expect(consentRecord?.note).toContain(tenantB.tenantId);
+       |                                   ^
+    240|     });
+    241| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  9 failed | 18 passed (27)
+   Start at  08:54:44
+   Duration  2.19s (transform 124ms, setup 18ms, collect 409ms, tests 1.29s, environment 0ms, prepare 68ms)
+
+[teardown] removed run data: 5 tenant(s), 6 auth user(s), 2 storage object(s); verified none remain

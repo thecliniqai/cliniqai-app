@@ -4,8 +4,8 @@ export const TENANT_OWNED_TABLES = [
   "tenants",
   "memberships",
   "invitations",
-  "subscriptions",
-  "payment_records",
+  // V2-05 05-09c: the v1 `subscriptions` / `payment_records` are dropped (000086); the clinic's SaaS subscription.
+  "tenant_subscriptions",
   "patients",
   "audit_logs",
   "consent_records",

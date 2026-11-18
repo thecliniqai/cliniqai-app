@@ -1,0 +1,524 @@
+{
+ "generatedBy": "playwright json reporter, npm run e2e:pr at 6e3a0fc in a detached worktree (own .next)",
+ "stats": {
+  "startTime": "2026-11-14T07:54:48.079Z",
+  "duration": 161438.88,
+  "expected": 249,
+  "skipped": 26,
+  "unexpected": 0,
+  "flaky": 0
+ },
+ "statusCounts": {
+  "skipped": 26,
+  "expected": 249
+ },
+ "retried": [],
+ "unexpected": [],
+ "flaky": [],
+ "plan06_04aAndGuards": [
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard not-found at 360px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard error at 360px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard loading at 360px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > root not-found at 360px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard not-found at 360px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard error at 360px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > dashboard loading at 360px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 360px > root not-found at 360px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard not-found at 820px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard error at 820px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard loading at 820px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > root not-found at 820px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard not-found at 820px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard error at 820px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > dashboard loading at 820px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 820px > root not-found at 820px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard not-found at 1180px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard error at 1180px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard loading at 1180px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > root not-found at 1180px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard not-found at 1180px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard error at 1180px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > dashboard loading at 1180px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1180px > root not-found at 1180px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard not-found at 1280px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard error at 1280px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard loading at 1280px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > root not-found at 1280px",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard not-found at 1280px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard error at 1280px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > dashboard loading at 1280px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "design/route-states-axe.spec.ts",
+   "title": "route states at 1280px > root not-found at 1280px",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A owner > owner: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A owner > owner: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A doctor > doctor: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A doctor > doctor: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A receptionist > receptionist: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "journeys/journey-09-clinic-isolation.spec.ts",
+   "title": "clinic A receptionist > receptionist: clinic B's patient and visit URLs are refused with no B data in DOM or network",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "observability/client-error.spec.ts",
+   "title": "a client render error shows the boundary without its message and lands in ops.error_events once",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "observability/client-error.spec.ts",
+   "title": "a client render error shows the boundary without its message and lands in ops.error_events once",
+   "project": "pixel-7",
+   "expected": "skipped",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "a dashboard notFound() renders the dashboard not-found inside the shell",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "an unmatched URL renders the root not-found outside the shell with HTTP 404",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "a slow client navigation shows the loading skeleton inside the shell, then the page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "the diagnostic render error shows the error state with Try again and no message",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "a dashboard notFound() renders the dashboard not-found inside the shell",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "an unmatched URL renders the root not-found outside the shell with HTTP 404",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "a slow client navigation shows the loading skeleton inside the shell, then the page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "shell/route-states.spec.ts",
+   "title": "the diagnostic render error shows the error state with Try again and no message",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "owner session > owner opens the app on its landing page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "owner session > owner opens the app on its landing page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "owner session > owner opens the app on its landing page",
+   "project": "iphone-15",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "admin session > admin opens the app on its landing page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "admin session > admin opens the app on its landing page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "admin session > admin opens the app on its landing page",
+   "project": "iphone-15",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "doctor session > doctor opens the app on its landing page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "doctor session > doctor opens the app on its landing page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "doctor session > doctor opens the app on its landing page",
+   "project": "iphone-15",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "nurse session > nurse opens the app on its landing page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "nurse session > nurse opens the app on its landing page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "nurse session > nurse opens the app on its landing page",
+   "project": "iphone-15",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "receptionist session > receptionist opens the app on its landing page",
+   "project": "desktop-chrome",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "receptionist session > receptionist opens the app on its landing page",
+   "project": "pixel-7",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "file": "smoke.spec.ts",
+   "title": "receptionist session > receptionist opens the app on its landing page",
+   "project": "iphone-15",
+   "expected": "passed",
+   "status": "expected",
+   "retries": 0
+  }
+ ]
+}

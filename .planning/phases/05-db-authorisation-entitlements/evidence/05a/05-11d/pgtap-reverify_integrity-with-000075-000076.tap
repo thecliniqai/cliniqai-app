@@ -1,0 +1,69 @@
+# db version: 000076
+# HEAD: ad3123a (migrations 000075-000076 applied by db reset --local)
+/Users/sid/Code/clinicOS/supabase/tests/database/reverify_integrity.test.sql .. 
+1..61
+ok 1 - N-1 repro: a doctor cannot move a signed Rx item onto another patient's Rx
+ok 2 - an Rx item's keys are immutable on a system path too
+ok 3 - N-1 repro: a doctor cannot move a signed diagnosis to another visit
+ok 4 - N-1 repro: nor to another visit and patient together
+ok 5 - a diagnosis's keys are immutable on a system path too
+ok 6 - a diagnosis cannot name a patient other than its visit's
+ok 7 - control: the doctor records a diagnosis for the open visit's own patient
+ok 8 - N-1 repro: a signed Rx item cannot be edited
+ok 9 - N-1 repro: nor deleted, even by the signing doctor
+ok 10 - nor can an item be added to a signed Rx
+ok 11 - a signed visit's diagnosis cannot be edited
+ok 12 - nor deleted
+ok 13 - nor can one be added to a signed visit
+ok 14 - control: the items of an open visit stay editable
+ok 15 - the signed item is unchanged
+ok 16 - N-8 repro: a squatted number is ignored; the row gets previous + 1
+ok 17 - N-2 repro: a '{}' snapshot is replaced by the signed note
+ok 18 - N-2: the snapshot holds the signed vitals
+ok 19 - N-2: and the signed diagnoses and Rx items
+ok 20 - N-2: and the signature it amends
+ok 21 - the next amendment is numbered 2 (a client 1 is ignored)
+ok 22 - N-8: the squat does not block the doctor's reopen
+ok 23 - a reopened visit's Rx items are editable (amendment path)
+ok 24 - and its diagnoses
+ok 25 - the doctor finalizes the amendment
+ok 26 - after finalizing, the items are locked again
+ok 27 - a second amendment is numbered 3
+ok 28 - its snapshot is the amended, re-signed content
+ok 29 - on a system path too the snapshot and number come from the database
+ok 30 - another clinic's owner is refused before anything is read
+ok 31 - N-3 repro (MI6): a negative charge is refused
+ok 32 - N-3 repro (MI7): the line total is price x quantity, not the typed 1
+ok 33 - the invoice follows
+ok 34 - an UPDATE of the line total alone is recomputed too
+ok 35 - the receptionist collects ₹100 of ₹500 through record_payment
+ok 36 - N-3 repro (MI5): the doctor cannot lower the bill to what was collected
+ok 37 - the invoice is unchanged, not paid
+ok 38 - a reduction that leaves a balance due is still allowed
+ok 39 - a collector cannot remove the charge that was partly paid either (no refund path)
+ok 40 - the balance is collected through record_payment: paid
+ok 41 - a paid invoice's items cannot be added to
+ok 42 - or changed
+ok 43 - the paid invoice is intact
+ok 44 - an item never moves to another invoice (every path)
+ok 45 - items brought down to the amount paid (system path) leave the invoice issued: only record_payment sets paid
+ok 46 - a doctor who is not the visit's doctor is refused by the item policy, as before (the guard reveals nothing)
+ok 47 - catalogue: both invoice item CHECKs are validated (000076)
+ok 48 - N-5 repro: a receptionist cannot register a patient as created by the owner
+ok 49 - control: as itself it can
+ok 50 - N-5 repro: created_by never changes
+ok 51 - control: other demographics stay editable
+ok 52 - N-7 repro: "/<TAB>/host" is refused
+ok 53 - a newline after the slash is refused
+ok 54 - a control character anywhere is refused
+ok 55 - a protocol-relative link stays refused
+ok 56 - the app's in-app links are accepted
+ok 57 - D7i finds the planted legacy line
+ok 58 - 000075's NOT VALID constraint is added over it (expand)
+ok 59 - 000076's VALIDATE stops on it (no automatic remedy)
+ok 60 - the line is corrected (with the clinic)
+ok 61 - VALIDATE succeeds once corrected
+ok
+All tests successful.
+Files=1, Tests=61,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: PASS

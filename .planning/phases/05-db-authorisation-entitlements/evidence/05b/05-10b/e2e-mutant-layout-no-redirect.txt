@@ -1,0 +1,125 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 58ms
+[WebServer] ✓ Running next.config.ts took 22ms
+
+Running 19 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (602ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (448ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (489ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (395ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (379ms)
+  ✘   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (30.1s)
+  ✘   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (30.1s)
+  ✘   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (30.1s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation until "load"
+      navigated to "http://127.0.0.1:3100/"
+    ============================================================
+
+      44 |     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      45 |
+    > 46 |     await page.waitForURL((url) => url.pathname === ACCESS_LANDING[accessUser], { timeout: 30_000 });
+         |                ^
+      47 |     await expect(page.getByRole("main")).toBeVisible();
+      48 |     await page.context().storageState({ path: accessStatePath(accessUser) });
+      49 |   });
+        at /Users/sid/Code/clinicOS/tests/e2e/auth.setup.ts:46:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-locked-owner-f14dd-and-lands-on-billing-locked-setup/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth.setup.ts-locked-owner-f14dd-and-lands-on-billing-locked-setup/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-locked-owner-f14dd-and-lands-on-billing-locked-setup/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth.setup.ts-locked-owner-f14dd-and-lands-on-billing-locked-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation until "load"
+      navigated to "http://127.0.0.1:3100/"
+    ============================================================
+
+      44 |     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      45 |
+    > 46 |     await page.waitForURL((url) => url.pathname === ACCESS_LANDING[accessUser], { timeout: 30_000 });
+         |                ^
+      47 |     await expect(page.getByRole("main")).toBeVisible();
+      48 |     await page.context().storageState({ path: accessStatePath(accessUser) });
+      49 |   });
+        at /Users/sid/Code/clinicOS/tests/e2e/auth.setup.ts:46:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-locked-recep-74e3e-nds-on-billing-locked-staff-setup/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth.setup.ts-locked-recep-74e3e-nds-on-billing-locked-staff-setup/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-locked-recep-74e3e-nds-on-billing-locked-staff-setup/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth.setup.ts-locked-recep-74e3e-nds-on-billing-locked-staff-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation until "load"
+      navigated to "http://127.0.0.1:3100/"
+    ============================================================
+
+      44 |     await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      45 |
+    > 46 |     await page.waitForURL((url) => url.pathname === ACCESS_LANDING[accessUser], { timeout: 30_000 });
+         |                ^
+      47 |     await expect(page.getByRole("main")).toBeVisible();
+      48 |     await page.context().storageState({ path: accessStatePath(accessUser) });
+      49 |   });
+        at /Users/sid/Code/clinicOS/tests/e2e/auth.setup.ts:46:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-onboarding-o-61157-lands-on-onboarding-billing-setup/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/auth.setup.ts-onboarding-o-61157-lands-on-onboarding-billing-setup/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth.setup.ts-onboarding-o-61157-lands-on-onboarding-billing-setup/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/auth.setup.ts-onboarding-o-61157-lands-on-onboarding-billing-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked 
+    [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff 
+    [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing 
+  11 did not run
+  5 passed (1.6m)
+exit=1

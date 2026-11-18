@@ -1,0 +1,48 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql .. 
+# Failed test 1: "1,499 used + one EXPIRED reservation → ok (an expired reservation stops counting at expires_at)"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: ok
+# Failed test 2: "1,499 used + one LIVE reservation → over_quota"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: over_quota
+# Failed test 3: "ai_reserve at the limit (units + live reservations) raises AI_OVER_QUOTA"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: error:P0001:AI_OVER_QUOTA
+# Failed test 4: "ai_reserve with only an expired reservation at limit − 1 succeeds: one live reservation"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 1
+# Failed test 19: "ai_commit adds exactly one unit (7 → 8) and deletes the reservation"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 8/0
+# Failed test 20: "ai_commit without a usage row creates it with 1 unit"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 1
+# Failed test 21: "ai_release deletes the reservation and adds no unit"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 7/0
+# Failed test 23: "another clinic's reservation cannot be committed (not found)"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: error:P0002:AI_RESERVATION_NOT_FOUND
+# Failed test 24: "another clinic's reservation cannot be released (it stays)"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 1
+# Failed test 25: "a receptionist cannot commit a reservation"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: error:P0001:AI_FORBIDDEN
+# Failed test 26: "a nurse cannot release a reservation"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: error:P0001:AI_FORBIDDEN
+# Failed test 27: "a call reserved before a lock is still metered: ai_commit works at any access level"
+#         have: error:42703:column "created_by" of relation "ai_quota_reservations" does not exist
+#         want: 4
+# Looks like you failed 12 tests of 41
+Failed 12/41 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/ai_quota.test.sql (Wstat: 0 Tests: 41 Failed: 12)
+  Failed tests:  1-4, 19-21, 23-27
+Files=1, Tests=41,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL
+error running container: exit 1

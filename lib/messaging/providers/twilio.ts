@@ -3,6 +3,7 @@ import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
+  SendOptions,
 } from "../types";
 import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 import { errorTag } from "@/lib/errors/error-tag";
@@ -31,7 +32,8 @@ export class TwilioProvider implements MessagingProvider {
   async sendSms(
     to: string,
     templateId: string,
-    params: Record<string, string>
+    params: Record<string, string>,
+    options?: SendOptions
   ): Promise<MessagingSendResult> {
     const synthetic = syntheticRecipientRefusal(to, "sms");
     if (synthetic) return synthetic;
@@ -56,7 +58,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
-          signal: providerSignal(),
+          signal: providerSignal(options?.signal),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",
@@ -99,7 +101,8 @@ export class TwilioProvider implements MessagingProvider {
     to: string,
     templateId: string,
     params: Record<string, string>,
-    buttons?: InteractiveButton[]
+    buttons?: InteractiveButton[],
+    options?: SendOptions
   ): Promise<MessagingSendResult> {
     const synthetic = syntheticRecipientRefusal(to, "whatsapp");
     if (synthetic) return synthetic;
@@ -133,7 +136,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
-          signal: providerSignal(),
+          signal: providerSignal(options?.signal),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",

@@ -4,13 +4,11 @@ import {
   calculateNextEligibleSendTime,
   evaluateMessageEligibility,
 } from "@/lib/messaging/governance";
-import {
-  calculateBackoffDelay,
-  enqueueMessage,
-  dispatchPendingQueue,
-} from "@/lib/messaging/dispatcher";
-import { GET, POST } from "@/app/api/cron/dispatch-communications/route";
-import { NextRequest } from "next/server";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
+import { createMessageSendHandler } from "@/lib/jobs/internal/handlers/message-send";
+import type { ClaimedJob, JobContext } from "@/lib/jobs/internal/types";
+import { DevLoggerProvider, type MessagingProvider } from "@/lib/messaging";
+import { mockCtx } from "../helpers/context";
 
 describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02, T-05-03)", () => {
   const originalEnv = { ...process.env };
@@ -103,187 +101,111 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
     });
   });
 
-  describe("3. Outbox Queue Enqueueing & Backoff Calculation", () => {
-    it("calculateBackoffDelay produces progressive backoffs", () => {
-      expect(calculateBackoffDelay(1)).toBe(60000); // 1 min
-      expect(calculateBackoffDelay(2)).toBe(300000); // 5 min
-      expect(calculateBackoffDelay(3)).toBe(900000); // 15 min
-    });
+  // V2-04 04-03a (pitfall 9 rewrite): the request only enqueues through the RPC; the message.send job sends.
+  describe("3. Outbox enqueue (request path)", () => {
+    it("enqueueMessage calls enqueue_message with the session tenant, returns pending, and sends nothing", async () => {
+      const rpc = vi.fn().mockResolvedValue({ data: { id: "queue-123", status: "pending", deduped: false }, error: null });
+      const from = vi.fn(() => {
+        throw new Error("direct table access attempted");
+      });
+      const sendSms = vi.spyOn(DevLoggerProvider.prototype, "sendSms");
+      const sendWhatsApp = vi.spyOn(DevLoggerProvider.prototype, "sendWhatsApp");
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const ctx = mockCtx({ rpc, from }, { tenantId: "00000000-0000-4000-8000-0000000000a1" });
 
-    it("enqueueMessage inserts into communication_queue with pending status", async () => {
-      const mockInsert = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: "queue-123",
-              tenant_id: "tenant-1",
-              channel: "whatsapp",
-              message_type: "appointment_booked",
-              status: "pending",
-              retry_count: 0,
-            },
-            error: null,
-          }),
-        }),
+      const item = await enqueueMessage(ctx, {
+        patientId: "00000000-0000-4000-8000-00000000000b",
+        channel: "whatsapp",
+        messageType: "appointment_booked",
+        templateId: "appointment_booked",
+        recipientPhone: "+919000000012",
       });
 
-      const mockClient = {
-        from: vi.fn().mockReturnValue({
-          insert: mockInsert,
-        }),
-      };
-
-      const item = await enqueueMessage(
-        mockClient as never,
-        {
-          tenantId: "tenant-1",
-          patientId: "patient-1",
-          channel: "whatsapp",
-          messageType: "appointment_booked",
-          templateId: "appointment_booked_en",
-          recipientPhone: "+919876543210",
-        }
+      expect(item).toEqual({ id: "queue-123", status: "pending", deduped: false });
+      expect(rpc).toHaveBeenCalledTimes(1);
+      expect(rpc).toHaveBeenCalledWith(
+        "enqueue_message",
+        expect.objectContaining({
+          p_tenant_id: "00000000-0000-4000-8000-0000000000a1",
+          p_patient_id: "00000000-0000-4000-8000-00000000000b",
+          p_template_id: "appointment_booked",
+          p_dedupe_key: null,
+        })
       );
-
-      expect(item.id).toBe("queue-123");
-      expect(item.status).toBe("pending");
-      expect(mockClient.from).toHaveBeenCalledWith("communication_queue");
+      expect(from).not.toHaveBeenCalled();
+      // Before 04-03a the row was claimed and sent inside this call.
+      expect(sendSms).not.toHaveBeenCalled();
+      expect(sendWhatsApp).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
-  describe("4. Dispatch Lifecycle & Audit Logging (T-05-02)", () => {
-    it("dispatchPendingQueue marks sent and logs audit record on delivery success", async () => {
-      const pendingItem = {
-        id: "msg-1",
+  describe("4. Send lifecycle and audit logging (T-05-02), now in the message.send handler", () => {
+    function job(): ClaimedJob {
+      return {
+        id: "job-1",
+        kind: "message.send",
+        tenantId: "tenant-1",
+        payload: { queue_id: "00000000-0000-4000-8000-0000000000c1" },
+        attempts: 1,
+        maxAttempts: 5,
+        leaseToken: "lease-1",
+        runAt: new Date().toISOString(),
+      };
+    }
+
+    it("claims through the RPC, sends once, finishes as sent and audits without the phone", async () => {
+      const claimed = {
+        id: "00000000-0000-4000-8000-0000000000c1",
         tenant_id: "tenant-1",
+        patient_id: null,
+        appointment_id: null,
         channel: "sms",
         message_type: "appointment_reminder",
         template_id: "reminder_en",
-        recipient_phone: "+919876543210",
-        template_params: { patient_name: "Anita" },
-        status: "pending",
-        retry_count: 0,
-        max_retries: 3,
+        recipient_phone: "+919000000012",
+        template_params: { patient_name: "Synthetic" },
+        metadata: {},
       };
-
-      const mockAuditInsert = vi.fn().mockResolvedValue({ data: null, error: null });
+      const auditInsert = vi.fn().mockResolvedValue({ data: null, error: null });
       // AR3-N1 (000024): each row is claimed and finished through the SECURITY DEFINER RPCs, never by direct UPDATE.
-      const mockRpc = vi.fn().mockImplementation((name: string) => {
-        if (name === "communication_queue_claim") {
-          return Promise.resolve({ data: [{ ...pendingItem, status: "processing" }], error: null });
-        }
+      const rpc = vi.fn().mockImplementation((name: string) => {
+        if (name === "communication_queue_claim") return Promise.resolve({ data: [claimed], error: null });
         if (name === "communication_queue_finish") {
           return Promise.resolve({ data: [{ new_status: "sent", new_retry_count: 0 }], error: null });
         }
         return Promise.resolve({ data: null, error: { message: "unexpected rpc" } });
       });
-
-      const mockClient = {
-        rpc: mockRpc,
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") {
-            return {
-              select: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  lte: vi.fn().mockReturnValue({
-                    order: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue({ data: [{ id: pendingItem.id }], error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              update: vi.fn(() => {
-                throw new Error("direct queue update attempted");
-              }),
-            };
-          }
-          if (table === "audit_logs") {
-            return {
-              insert: mockAuditInsert,
-            };
-          }
-          return {};
-        }),
-      };
-
-      const summary = await dispatchPendingQueue(mockClient as never, {
-        providerName: "dev",
+      const from = vi.fn().mockImplementation((table: string) => {
+        if (table === "audit_logs") return { insert: auditInsert };
+        throw new Error(`unexpected table ${table}`);
       });
+      const sendSms = vi.fn(async () => ({ success: true, channelUsed: "sms" as const, externalMessageId: "ext-1" }));
+      const provider: MessagingProvider = { name: "dev", sendSms, sendWhatsApp: vi.fn() };
+      const handler = createMessageSendHandler({ provider: () => provider });
+      const ctx = { db: { rpc, from }, signal: new AbortController().signal, now: () => new Date() } as unknown as JobContext;
 
-      expect(summary.processed).toBe(1);
-      expect(summary.succeeded).toBe(1);
-      expect(summary.failed).toBe(0);
-      expect(mockRpc).toHaveBeenCalledWith("communication_queue_claim", { p_id: "msg-1" });
-      expect(mockRpc).toHaveBeenCalledWith("communication_queue_finish", {
-        p_id: "msg-1",
+      const result = await handler.run(job(), { queue_id: claimed.id }, ctx);
+
+      expect(result).toEqual({ outcome: "done" });
+      expect(sendSms).toHaveBeenCalledTimes(1);
+      expect(rpc).toHaveBeenCalledWith("communication_queue_claim", { p_id: claimed.id });
+      expect(rpc).toHaveBeenCalledWith("communication_queue_finish", {
+        p_id: claimed.id,
         p_success: true,
-        p_external_message_id: expect.any(String),
+        p_external_message_id: "ext-1",
         p_error: null,
       });
-      expect(mockAuditInsert).toHaveBeenCalledWith(
+      expect(auditInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "communication_sent",
           tenant_id: "tenant-1",
-          entity_id: "msg-1",
-          metadata: expect.objectContaining({ queue_id: "msg-1", message_type: "appointment_reminder" }),
+          entity_id: claimed.id,
+          metadata: expect.objectContaining({ queue_id: claimed.id, message_type: "appointment_reminder" }),
         })
       );
       // No recipient phone in the audit trail (01-10).
-      expect(mockAuditInsert.mock.calls[0][0].metadata).not.toHaveProperty("recipient_phone");
-      expect(JSON.stringify(mockAuditInsert.mock.calls[0][0])).not.toContain("9876543210");
-    });
-
-    it("enqueueMessage dispatches only the row it inserted, and reads back no payload columns", async () => {
-      const mockSelect = vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({ data: { id: "queue-9", status: "pending" }, error: null }),
-      });
-      const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
-      const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
-      const mockClient = { from: vi.fn().mockReturnValue({ insert: mockInsert }), rpc: mockRpc };
-
-      await enqueueMessage(mockClient as never, {
-        tenantId: "tenant-1",
-        channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
-        recipientPhone: "+919876543210",
-      });
-
-      expect(mockSelect).toHaveBeenCalledWith("id, status");
-      expect(mockInsert.mock.calls[0][0]).not.toHaveProperty("status");
-      expect(mockInsert.mock.calls[0][0]).not.toHaveProperty("created_by");
-      expect(mockRpc).toHaveBeenCalledTimes(1);
-      expect(mockRpc).toHaveBeenCalledWith("communication_queue_claim", { p_id: "queue-9" });
-      expect(mockClient.from).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("5. Cron Recovery Endpoint Security (T-05-04)", () => {
-    it("rejects unauthorized request without Bearer CRON_SECRET with HTTP 401", async () => {
-      process.env.CRON_SECRET = "secret-token-123";
-
-      const req = new NextRequest("http://localhost:3000/api/cron/dispatch-communications", {
-        headers: { authorization: "Bearer invalid-secret" },
-      });
-
-      const res = await GET(req);
-      expect(res.status).toBe(401);
-      const data = await res.json();
-      expect(data.error).toContain("Unauthorized");
-    });
-
-    it("accepts valid Bearer CRON_SECRET and returns dispatch summary", async () => {
-      process.env.CRON_SECRET = "secret-token-123";
-
-      const req = new NextRequest("http://localhost:3000/api/cron/dispatch-communications", {
-        headers: { authorization: "Bearer secret-token-123" },
-      });
-
-      const res = await POST(req);
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.success).toBe(true);
-      expect(data).toHaveProperty("processed");
+      expect(JSON.stringify(auditInsert.mock.calls[0][0])).not.toContain("9000000012");
     });
   });
 });

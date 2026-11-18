@@ -48,7 +48,7 @@ export function DpdpExportActions({ patientId }: DpdpExportActionsProps) {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="secondary"
         size="sm"
@@ -78,7 +78,7 @@ export function DpdpExportActions({ patientId }: DpdpExportActionsProps) {
             <Download className="w-3.5 h-3.5" />
           )
         }
-        className="h-9 font-medium bg-[#1769E0] text-white hover:bg-[#155cc0]"
+        className="h-9 font-medium bg-accent text-white hover:bg-accent-hover"
       >
         {isExportingPdf ? "Generating PDF..." : "Download Medical Summary (PDF)"}
       </Button>

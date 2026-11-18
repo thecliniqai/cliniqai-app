@@ -61,6 +61,8 @@ jobs:
         run: npm run inventory -- --out inventory.json
       - name: AI-06 L1 policy checks
         run: npm run ci:ai-l1
+      - name: UI policy (DESIGN_SYSTEM §10; report mode, enforced rules fail)
+        run: npm run ci:ui-policy -- --summary "$GITHUB_STEP_SUMMARY"
       # V2-03 03-01 (I-07, R-15): .env.example is generated from lib/env.ts; this compares without printing it.
       - name: .env.example matches the env schema
         run: node scripts/ci/env-example.mjs --check
@@ -144,6 +146,32 @@ jobs:
       # service_role/PUBLIC). A migration ships its regenerated snapshot, so every grant/policy change is reviewed.
       - name: Schema and privileges match the committed snapshot
         run: node scripts/drift/schema-snapshot.mjs --local --check
+      # V2-04 04-05a: tests/ops/backup-roundtrip-db.spec.ts runs ops/backup/backup.sh with the pinned age release and
+      # the digest-pinned postgres/aws-cli images (ops/bin/pins.env); install and pull them before the lane.
+      - name: Backup tools (pinned age release, pinned images)
+        run: |
+          ops/bin/install-age.sh
+          # shellcheck disable=SC2016 # the variables expand in the inner `bash -c`, after pins.env is sourced
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 -- bash -c '. ops/bin/pins.env && docker pull -q "$POSTGRES_IMAGE" && docker pull -q "$AWS_CLI_IMAGE"'
+      # V2-05 05-01a: `supabase test db` runs pg_prove in this image; the tag is the one the pinned Supabase CLI
+      # (package.json "supabase": "2.120.0") pulls, so bump it with the CLI. Only the image pull is retried.
+      - name: Pre-pull pg_prove
+        run: node scripts/ci/retry.mjs --attempts 3 --delay 30 -- docker pull -q public.ecr.aws/supabase/pg_prove:3.36
+      # V2-05 05-01a (P1-01): every supabase/tests/database/*.test.sql file against the migrated stack
+      # (scripts/test-pgtap.mjs: `supabase test db --local`, TAP teed to the report). Never retried: a test that passes
+      # only on retry is a defect.
+      - name: pgTAP (RLS matrix and constraints)
+        run: npm run test:pgtap -- pgtap-report.tap
+      - name: pgTAP report gate (0 not ok, 0 SKIP/TODO, every plan complete, total >= floor, required files)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/assert-pgtap-report.mjs pgtap-report.tap
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: pgtap-report
+          path: pgtap-report.tap
+          if-no-files-found: warn
+          retention-days: 14
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
@@ -211,14 +239,28 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-build-placeholder-not-a-key
           NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
           MESSAGING_PROVIDER: dev
+      # V2-06 06-07 (P2-02, PWA_STRATEGY §3.9, R-5): first-load JS per app route from the Turbopack manifests, gzip -9.
+      # Report-only: budgets in scripts/ci/route-js-budgets.json never fail this job (V2-15 adds --enforce). Exit 2 (a
+      # manifest or chunk missing from the build) does fail it: the build output is broken.
+      - name: Route JS report (report-only)
+        run: node scripts/ci/route-js.mjs --out route-js --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: route-js
+          path: route-js/
+          if-no-files-found: error
+          retention-days: 14
 
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
-  # specs), iphone-15 (@golden). The checkout has no .env by construction; the app server is built and served only
-  # through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
+  # specs), iphone-15 (@golden), pwa-ipados (V2-06 06-06 spec 10 only). The checkout has no .env by construction; the
+  # app server is built and served only through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
+  # V2-06 (CI 43712054628): 45 minutes, was 30. The lane takes about 20 minutes on a normal runner; one runner was 1.5x
+  # slower on every test (median per-test ratio 1.50 against 43705726084), which puts even a green lane at the old limit
+  # and a lane with failures (three attempts each, TEST_STRATEGY §8) cancelled with no report or traces uploaded.
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -236,7 +278,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
-      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15). OS packages are
+      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15/pwa-ipados). OS packages are
       # not cached, so `install-deps` always runs; the browser download is skipped on a cache hit.
       - name: Install browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -257,8 +299,11 @@ jobs:
           -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       - name: e2e build (guarded env, output marker scan, build stamp)
         run: npm run e2e:build
+      # The lane stops itself before the job limit (40 of the 45 minutes, after about 3 of setup), so the run summary
+      # and the playwright-pr artifact are produced even then (a cancelled job runs no `!cancelled()` step). Retries
+      # stay as configured: 2 on CI, reported, never a pass (TEST_STRATEGY §8).
       - name: Playwright PR lane
-        run: npm run e2e:pr
+        run: npm run e2e:pr -- --global-timeout=2400000
       - name: Run summary (retried and failed tests; report only)
         if: ${{ !cancelled() }}
         run: node scripts/ci/playwright-summary.mjs playwright-report/results.json

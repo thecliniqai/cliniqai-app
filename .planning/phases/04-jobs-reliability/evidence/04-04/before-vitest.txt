@@ -1,0 +1,1365 @@
+# 04-04 before-run: the plan's new/changed specs on pre-plan code d159dc4 (throwaway worktree, stack reset to 000038).
+# Copied in: tests/jobs/alert-*.ts, alerts-db.spec.ts, tests/api/{health-probes,readiness-probe-db}.spec.ts, tests/config/{env-schema,env-boot}.spec.ts, tests/setup/{test-env-guard.spec,test-env}.ts, tests/e2e/support/app-env.ts
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-0404-before
+
+ ✓ tests/config/env-boot.spec.ts (12 tests) 2580ms
+   ✓ boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)  787ms
+   ✓ boot: instrumentation.ts register() (every server instance) > the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)  782ms
+ ❯ tests/jobs/alerts-db.spec.ts (33 tests | 33 failed) 992ms
+   × ops.evaluate_alerts(): quiet baseline > with nothing to report every rule is quiet: no alert, no notify job 55ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × ops.evaluate_alerts(): quiet baseline > the nine rules are registered with the planned severities, enabled, each with its function 34ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select rule || '|' || severity || '|' || enabled || '|' || fn from ops.alert_rules order by rule
+ERROR:  relation "ops.alert_rules" does not exist
+LINE 1: ...' || severity || '|' || enabled || '|' || fn from ops.alert_...
+                                                             ^
+
+   × dead_letter (warn) > a dead job opens one alert and one alert.notify job; a second evaluation inside the cooldown only refreshes it 35ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × dead_letter (warn) > a dead-lettered message row or a failed webhook delivery fires it too (counts only) 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into public.tenants (id, name) values ('00000000-0000-4000-8000-00000000a1e7', 'Alerts spec clinic') -c insert into public.communication_queue (tenant_id, channel, message_type, template_id, status, updated_at) values ('00000000-0000-4000-8000-00000000a1e7', 'whatsapp', 'appointment_reminder', 'appointment_reminder', 'dead_letter', now()) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × dead_letter (warn) > stays quiet for a job that died before the 15-minute window 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '16 minutes', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × dead_letter (warn) > R-36: a dead alert.notify job never raises dead_letter 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('alert.notify', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × queue_lag (warn): p95 of first claim minus run_at over 15 minutes, at least 5 samples > fires with p95 150 s over 5 samples 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 5) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × queue_lag (warn): p95 of first claim minus run_at over 15 minutes, at least 5 samples > stays quiet with 4 slow samples, and when the p95 is under 120 s 34ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 4) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × queue_oldest_due (critical) > fires when a due pending job has waited 6 minutes, naming its id 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × queue_oldest_due (critical) > stays quiet at 4 minutes 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '4 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × runner_stale (critical): Vault holds jobs_runner_url and no ok runner pass in 5 minutes > fires with a runner URL in Vault and no runner pass, or only a failed one 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × runner_stale (critical): Vault holds jobs_runner_url and no ok runner pass in 5 minutes > stays quiet with a recent ok pass, and without the Vault secret (local and CI stacks) 34ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c insert into ops.job_runner_runs (worker, source, started_at, finished_at, ok) values ('test:alerts-spec', 'test', now() - interval '1 minute', now() - interval '1 minute' + interval '2 seconds', true) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lease_expiry (warn): more than 3 expired leases in 15 minutes > fires with 4 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 4) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lease_expiry (warn): more than 3 expired leases in 15 minutes > stays quiet with 3, and with 4 older than the window 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 3) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_burst (warn): more than 20 error events in 10 minutes > fires with 21 (one row, or several fingerprints) 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 21, 'test', 'Error', 'synthetic alerts spec') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_burst (warn): more than 20 error events in 10 minutes > stays quiet with 20, and with 21 seen 11 minutes ago 27ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 20, 'test', 'Error', 'synthetic alerts spec') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_sink_overflow (warn, R-46): the sink dropped events today or yesterday (UTC) > fires for an overflow row of today with dropped = 3, and for yesterday 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 0, 3) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_sink_overflow (warn, R-46): the sink dropped events today or yesterday (UTC) > stays quiet for an older day or a zero count 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 2, 5) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_sink_size (warn, R-46): ops.error_events above the size parameter (default 50 MB) > fires when the parameter is below the table's size (lowered in the rolled-back transaction) 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c update ops.alert_rules set params = '{"max_bytes": 1}'::jsonb where rule = 'error_sink_size' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × error_sink_size (warn, R-46): ops.error_events above the size parameter (default 50 MB) > stays quiet at the default threshold 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select params ->> 'max_bytes' from ops.alert_rules where rule = 'error_sink_size'
+ERROR:  relation "ops.alert_rules" does not exist
+LINE 1: select params ->> 'max_bytes' from ops.alert_rules where rul...
+                                           ^
+
+   × backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > fires for a 14-hour-old ok run 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '14 hours', now() - interval '14 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > a deliberately failed run raises it at once, even with an ok run 2 hours earlier 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '2 hours', now() - interval '2 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c insert into ops.backup_runs (environment, started_at, finished_at, status, error_code) values ('local', now() - interval '0 hours', now() - interval '0 hours' + interval '1 minute', 'failed', 'drill_forced') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > stays quiet with no backup rows, a recent ok run, or a failure an ok run already followed 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lifecycle: cooldown, resolution, robustness > two clean evaluations resolve an alert; firing again opens a new one with notification 1 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c delete from ops.jobs where kind = 'test.alerts_dead' -c select 'E|' || ops.evaluate_alerts() -c select 'C|' || clean_evaluations || '|' || status from ops.alerts -c select 'E|' || ops.evaluate_alerts() -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lifecycle: cooldown, resolution, robustness > an expired cooldown enqueues notification n + 1; inside the cooldown, or never notified, nothing new 33ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c update ops.alerts set notified_at = now() - interval '61 minutes', notify_count = 1 where rule = 'dead_letter' -c select 'E|' || ops.evaluate_alerts() -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lifecycle: cooldown, resolution, robustness > a rule whose parameters break does not stop the others; a disabled rule never fires 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c update ops.alert_rules set params = '{"window_minutes": "x"}'::jsonb where rule = 'dead_letter' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × lifecycle: cooldown, resolution, robustness > with every rule firing, details hold only numbers, booleans, null, ISO timestamps and UUID lists 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into public.tenants (id, name) values ('00000000-0000-4000-8000-00000000a1e7', 'Alerts spec clinic') -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c insert into public.communication_queue (tenant_id, channel, message_type, template_id, status, updated_at) values ('00000000-0000-4000-8000-00000000a1e7', 'whatsapp', 'appointment_reminder', 'appointment_reminder', 'dead_letter', now()) -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 5) -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 4) -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 21, 'test', 'Error', 'synthetic alerts spec') -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 0, 3) -c update ops.alert_rules set params = '{"max_bytes": 1}'::jsonb where rule = 'error_sink_size' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '14 hours', now() - interval '14 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × access: nothing reachable from an API role > no API role executes the evaluator or a rule; the handler RPCs are service_role only 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('anon', 'ops.evaluate_alerts()', 'execute') || '|' || has_function_privilege('authenticated', 'ops.evaluate_alerts()', 'execute') || '|' || has_function_privilege('service_role', 'ops.evaluate_alerts()', 'execute')
+ERROR:  function "ops.evaluate_alerts()" does not exist
+
+   × access: nothing reachable from an API role > every new function is SECURITY DEFINER with an empty search_path 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select prosecdef || '|' || array_to_string(proconfig, ',') from pg_proc where oid = 'ops.evaluate_alerts()'::regprocedure
+ERROR:  function "ops.evaluate_alerts()" does not exist
+LINE 1: ...o_string(proconfig, ',') from pg_proc where oid = 'ops.evalu...
+                                                             ^
+
+   × access: nothing reachable from an API role > the tables are closed: RLS on, no policy, no privilege for anon, authenticated or service_role 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select relrowsecurity from pg_class where oid = 'ops.alerts'::regclass
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: select relrowsecurity from pg_class where oid = 'ops.alerts'...
+                                                        ^
+
+   × access: nothing reachable from an API role > through PostgREST: anon is refused the handler RPCs; the service role reads nothing for an unknown alert 16ms
+     → expected 'PGRST202' to be '42501' // Object.is equality
+   × access: nothing reachable from an API role > ops_alert_notified is idempotent per notification and keeps only an id-shaped provider id 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c insert into ops.alerts (id, rule, severity) values ('00000000-0000-4000-8000-0000000a1e70', 'dead_letter', 'warn') -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'mailpit-id-1', 1) -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'mailpit-id-again', 1) -c select 'S|' || notify_count || '|' || provider_message_id from ops.alerts -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'free text with spaces +919000000001', 2) -c select 'S|' || notify_count || '|' || coalesce(provider_message_id, 'null') || '|' || (notified_at is not null) from ops.alerts -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   × access: nothing reachable from an API role > pg_cron evaluates every 5 minutes as postgres (one row; the lane paused it) 31ms
+     → expected [] to deeply equal [ Array(1) ]
+ ❯ tests/jobs/alert-drill-db.spec.ts (1 test | 1 skipped) 149ms
+   ↓ alert drill (local): dead drill job → dead_letter alert → alert.notify → one email > drill.always_fail dies after two passes, raises dead_letter and mails the ops inbox exactly once
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: ...qscan = off; explain select exists (select 1 from ops.alerts...
+                                                             ^
+ ❯ tests/api/readiness-probe-db.spec.ts (8 tests | 3 failed) 519ms
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon executes it through PostgREST and gets booleans only (no count, no version) 24ms
+     → expected [ 'db', 'messages_backlog', …(4) ] to deeply equal [ 'alerts_critical_open', 'db', …(8) ]
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > schema_current answers only for the exact six-digit version asked 13ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > EXPECTED_MIGRATION is the newest migration file (bump it with every new migration) 0ms
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table 326ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc begin; set local enable_seqscan = off; explain select exists (select 1 from ops.alerts a where a.status = 'open' and a.severity = 'critical'); rollback;
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: ...qscan = off; explain select exists (select 1 from ops.alerts...
+                                                             ^
+
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > 04-04: each job flag answers its condition (seeded in a rolled-back session), never a count 35ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.alerts -c delete from vault.secrets where name = 'jobs_runner_url' -c select 'P|' || public.readiness_probe(null)::text -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > is SECURITY DEFINER with search_path pinned to the empty string 30ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > only anon may execute it; authenticated, service_role and PUBLIC may not; the 000025 overload is gone 60ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon can execute no other SECURITY DEFINER function in public 31ms
+ ✓ tests/setup/test-env-guard.spec.ts (83 tests) 175ms
+ ❯ tests/api/health-probes.spec.ts (15 tests | 4 failed) 49ms
+   ✓ GET /api/health (liveness) > returns 200 with status, uptime, and null region/release when the platform sets none 2ms
+   ✓ GET /api/health (liveness) > reports Vercel's region and the deployed commit (R-26, R-30) 0ms
+   ✓ GET /api/health (liveness) > drops platform values that are not a region or a SHA 0ms
+   × GET /api/ready (readiness RPC, no service role) > returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws) 17ms
+     → expected [ 'checks', 'correlationId', …(4) ] to deeply equal [ 'checks', 'correlationId', …(5) ]
+   × GET /api/ready (readiness RPC, no service role) > asks for the build's expected migration through the cookie-less client, never the cookie session 1ms
+     → expected undefined to deeply equal { backlog: true, dead24h: false, …(2) }
+   × GET /api/ready (readiness RPC, no service role) > 04-04: job flags only as booleans; all four or none (a database behind 000039 answers jobs: null, schema behind) 1ms
+     → {"jobs_backlog":1,"jobs_dead_24h":false,"runner_stale":true,"alerts_critical_open":false}: expected 200 to be 503 // Object.is equality
+   ✓ GET /api/ready (readiness RPC, no service role) > is not ready (503, schema behind) when the expected migration is not applied 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > refuses an answer carrying counts instead of booleans (the 000025 shape) 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > reports the sink messaging provider as disabled: it sends nothing (04-03a, R-9) 9ms
+   ✓ GET /api/ready (readiness RPC, no service role) > reports AI, messaging and email from the env schema, never by calling a provider 16ms
+   × GET /api/ready (readiness RPC, no service role) > returns 503 with no error text when the RPC fails, logging only an error code 1ms
+     → expected [ 'checks', 'correlationId', …(4) ] to deeply equal [ 'checks', 'correlationId', …(5) ]
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 503 when the client throws, and when the RPC answers an unexpected shape 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > bypasses Supabase auth session refresh for /api/v1 routes when the API is on 1ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/health straight through 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/ready straight through 0ms
+ ❯ tests/config/env-schema.spec.ts (256 tests | 2 failed) 33ms
+   ✓ env schema: complete profiles pass > a complete synthetic production profile parses, flags as booleans 1ms
+   ✓ env schema: complete profiles pass > staging may run MESSAGING_PROVIDER=disabled until the accounts exist (R-16) 0ms
+   ✓ env schema: complete profiles pass > production with AI on and a complete provider configuration parses 0ms
+   ✓ env schema: complete profiles pass > the ci build profile parses as tier ci (K-6) 0ms
+   ✓ env schema: complete profiles pass > the e2e app server environment parses as tier e2e (K-6) 0ms
+   ✓ env schema: complete profiles pass > development and test default the app URL and the offline messaging provider 0ms
+   ✓ env schema: complete profiles pass > blank values count as unset 0ms
+   ✓ env schema: the tier > NODE_ENV=production without APP_ENV throws 0ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=development (it would switch the rules off) 0ms
+   ✓ env schema: the tier > NODE_ENV=production cannot claim APP_ENV=test (it would switch the rules off) 0ms
+   ✓ env schema: the tier > an unknown APP_ENV throws without echoing it 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > production > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses dev messaging 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no messaging provider 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its auth key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without a sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses msg91 without its webhook secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses twilio without a WhatsApp sender 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses gupshup without credentials 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses mock AI 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a loopback Supabase URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack publishable key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the local-stack secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no secret key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses an http app URL 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses no cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a short cron secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the public API on 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 key 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale R2 secret 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses a stale storage switch 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old anon key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the old service-role key name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses the C-3 webhook secret name 0ms
+   ✓ env schema: staging and production are fail-closed > staging > refuses AI on without a key 0ms
+   ✓ env schema: staging and production are fail-closed > production refuses the disabled messaging provider (staging allows it) 0ms
+   ✓ env schema: staging and production are fail-closed > MESSAGING_PROVIDER=sink parses in staging and every local tier and is refused in production (04-03a, R-9) 0ms
+   ✓ env schema: staging and production are fail-closed > lists every broken rule at once, never a value 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without RESEND_API_KEY (no silent fallback), naming the key 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without RESEND_API_KEY (no silent fallback), naming the key 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses resend without the sender address or the hook secret 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses resend without the sender address or the hook secret 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > resend needs its key, the sender address and the hook secret in the local tiers too 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > production refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender) 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > staging refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender) 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a value that is not a Resend key is refused in every tier, never echoed 0ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > the key is server only: a NEXT_PUBLIC_ name for it, or a Resend key in any public name, is refused in every tier 1ms
+   ✓ env schema: the Resend provider (04-00b, PO decision 2026-11-13) > a padded Resend key is refused naming the key, never the value 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be a real provider 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > production requires the hook secret even if the provider were not ses 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > staging must choose: disabled parses until the SES account exists (R-16), mailpit is refused 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > ses needs the sender address, the IAM key pair and the hook secret in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the SES key pair has the IAM user shape; values are never echoed 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the hook secret must be v1,whsec_<base64> of at least 24 bytes 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > the local synthetic hook secret parses in the local tiers and is refused in staging and production 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > mailpit needs a loopback API URL and a sender address; a non-loopback Mailpit URL is refused in every tier 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > EMAIL_FROM must be an address (the message says so, without the value) 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > defaults to disabled in development, test and ci; the e2e server runs Mailpit with the local secret 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > names no email value in the Error message (04-00b: the Resend key too) 0ms
+   ✓ env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31) > names no SES value in the Error message 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > production without ERROR_INGEST_KEY throws; staging and the local tiers may leave it unset 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in production, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in staging, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a short ERROR_INGEST_KEY throws in ci, without echoing it 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in production 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a local placeholder ERROR_INGEST_KEY throws in staging 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15) 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > DIAG_ERROR_ROUTE_ENABLED=true parses in staging (PO action E9) and e2e; it defaults to false 0ms
+   ✓ env schema: error sink and diagnostic route (03-09b, R-7, R-18) > a non-boolean DIAG_ERROR_ROUTE_ENABLED throws 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > production without JOBS_RUNNER_SECRET throws naming it 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > staging without JOBS_RUNNER_SECRET throws naming it 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in production, never echoed 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in staging, never echoed 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in test, never echoed 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > JOBS_RUNNER_SECRET_NEXT equal to the current secret throws naming the key 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > JOBS_RUNNER_SECRET_NEXT needs a current secret and the same shape 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > the runner secret must not be the cron secret (a dedicated secret, R-16) 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > a padded runner secret or rotation slot is refused in every tier (both are secret names) 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > the local tiers may leave the runner secret unset (the route then refuses every call) 0ms
+   ✓ env schema: job runner secret and drill switch (04-02) > production with JOBS_DRILL_ENABLED=true throws (R-32); staging may drill; it defaults to false 0ms
+   × env schema: job runner secret and drill switch (04-02) > production without OPS_ALERT_EMAIL, or with a malformed address, throws naming the key (04-04, R-1) 3ms
+     → expected undefined to be 'ops-alerts@synthetic-clinic.example.o…' // Object.is equality
+   × env schema: job runner secret and drill switch (04-02) > the e2e app server emails alerts to the synthetic ops inbox (04-04) 0ms
+     → expected undefined to be 'ops-alerts@example.test' // Object.is equality
+   ✓ env schema: job runner secret and drill switch (04-02) > the e2e app server runs the drill kinds with its synthetic runner secret 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > production must have PWNED_CHECK=on (unset and off throw) 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > defaults to off with the public API everywhere else; staging may run either way until the PO sets it 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > a value other than on|off throws 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in production 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in staging 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > PWNED_API_BASE_URL cannot be overridden in ci 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > test and e2e accept only a loopback override; development accepts any URL 0ms
+   ✓ env schema: breached-password check (03-12a, FT-05, R-17) > on in a loopback tier needs the loopback override (a test lane never reaches the public API) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production requires a key (unset throws) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000AA 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000AB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 1x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 2x00000000000000000000BB 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production refuses the Cloudflare test key 3x00000000000000000000FF 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > staging is optional: unset, a test key or a real key all parse (PO action E7 sets the real one) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > development, test, e2e and ci accept only Cloudflare's test keys (and default to no widget) 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > a value that is not site-key shaped throws in every tier 0ms
+   ✓ env schema: Turnstile site key (03-12c, C43, R-17, R-22) > the e2e app server builds with the always-pass test key (R-22) 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > e2e with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci with a non-loopback app URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > test with a non-loopback Supabase URL throws 0ms
+   ✓ env schema: build tiers (ci, e2e, test) are loopback-only (K-6) > ci requires an explicit app URL and messaging provider (no development defaults) 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_API_KEY throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_MODEL_NAME throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true without AI_BASE_URL throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > NODE_ENV=production + AI_ENABLED=true with the mock provider throws 0ms
+   ✓ env schema: AI-06 L1 (AI_ENABLED=true needs a complete provider in a production build) > outside a production build an incomplete AI config parses (the AI layer fails closed at runtime) 0ms
+   ✓ env schema: every tier > MESSAGING_PROVIDER=msg91 without MSG91_AUTH_KEY throws (no fallback to the dev logger) 0ms
+   ✓ env schema: every tier > an old key name alone says where the value went 0ms
+   ✓ env schema: every tier > shape errors name the key and the allowed values, never the received value 0ms
+   ✓ env schema: every tier > names no value in the Error message either (the whole text) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > ci > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > e2e > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > test > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_secret_ key as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an upper-case, space-padded secret prefix as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local service_role JWT as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses a JWT of another role as the publishable key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an sb_publishable_ key as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses an anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses the local anon JWT as the secret key, naming the key and no value 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > development > refuses both keys swapped at once 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > the local stack's own keys parse in the local tiers 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > production requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K) > staging requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused) 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > production refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses a preview or development deployment and accepts production or no Vercel at all 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses any branch but feature/v2; production is not bound to a branch here 0ms
+   ✓ env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11) 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > SUPABASE_SECRET_KEY=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > MSG91_AUTH_KEY=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > MSG91_WEBHOOK_SECRET=" " is refused as missing in production 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid CRON_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SUPABASE_SECRET_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_AUTH_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid MSG91_WEBHOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SEND_EMAIL_HOOK_SECRET with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid ERROR_INGEST_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > a valid SES_SECRET_ACCESS_KEY with surrounding whitespace is refused naming the key, never the value 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > the padding rule holds in every tier (a padded secret in the test tier is refused too) 0ms
+   ✓ env schema: blank and padded secrets (04-00, review A L-1) > the rule covers every credential-shaped schema name and no public or non-secret one 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://localhost./ as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://0.0.0.0 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.0.0.2 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://127.1 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://[::] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses NEXT_PUBLIC_APP_URL=https://app.localhost. as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://localhost./ as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://0.0.0.0 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://[::ffff:127.0.0.1] as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > staging refuses NEXT_PUBLIC_SUPABASE_URL=https://127.0.0.2 as loopback 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo, a path and a query as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with userinfo only as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a path as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a query as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a lone ? as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > production refuses a Supabase URL with a fragment as not a bare origin, never echoing it 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > the app URL must be a bare origin too (staging) 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > a bare hosted origin passes, with or without the trailing slash 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > the test, e2e and ci tiers still accept the local stack (and refuse a non-loopback host) 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.0.0.1) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(127.255.255.254) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(0.0.0.0) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::1]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7f00:1]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:7fff:ffff]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:0:0]) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(db.localhost.) = true 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(128.0.0.1) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::2]) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost([::ffff:8000:1]) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(localhost.example.org) = false 0ms
+   ✓ env schema: loopback forms and bare origins (04-00, review A L-2) > isLoopbackHost(notlocalhost) = false 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/jobs/alert-drill-db.spec.ts [ tests/jobs/alert-drill-db.spec.ts ]
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc delete from ops.alerts
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ resetAlertState tests/jobs/alert-helpers.ts:30:3
+ ❯ tests/jobs/alert-drill-db.spec.ts:32:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/46]⎯
+
+ FAIL  tests/jobs/alert-drill-db.spec.ts [ tests/jobs/alert-drill-db.spec.ts ]
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc delete from ops.alerts
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ resetAlertState tests/jobs/alert-helpers.ts:30:3
+ ❯ tests/jobs/alert-drill-db.spec.ts:40:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/46]⎯
+
+ FAIL  tests/jobs/alert-email.spec.ts [ tests/jobs/alert-email.spec.ts ]
+Error: Cannot find module '@/lib/jobs/internal/handlers/alert-notify' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-0404-before/tests/jobs/alert-email.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/jobs/alert-email.spec.ts:9:1
+      7|  */
+      8| import { describe, expect, it } from "vitest";
+      9| import { alertDetailLines, renderAlertEmail, type AlertPayload } from …
+       | ^
+     10| import VECTORS from "../fixtures/scrub-vectors.json";
+     11| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/46]⎯
+
+ FAIL  tests/jobs/alert-notify-db.spec.ts [ tests/jobs/alert-notify-db.spec.ts ]
+Error: Cannot find module '@/lib/jobs/internal/handlers/alert-notify' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-0404-before/tests/jobs/alert-notify-db.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/jobs/alert-notify-db.spec.ts:17:1
+     15| import { afterAll, afterEach, beforeAll, describe, expect, it, vi } fr…
+     16| import { DisabledMessagingProvider } from "@/lib/messaging";
+     17| import { ALERT_NOTIFY_HANDLERS } from "@/lib/jobs/internal/handlers/al…
+       | ^
+     18| import { getAdminClient } from "../helpers/supabase-admin";
+     19| import { psql } from "../helpers/sql";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/46]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 42 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws)
+AssertionError: expected [ 'checks', 'correlationId', …(4) ] to deeply equal [ 'checks', 'correlationId', …(5) ]
+
+- Expected
++ Received
+
+  [
+    "checks",
+    "correlationId",
+-   "jobs",
+    "outbox",
+    "providers",
+    "status",
+    "timestamp",
+  ]
+
+ ❯ tests/api/health-probes.spec.ts:110:38
+    108|     expect(res.headers.get("Cache-Control")).toBe("no-store");
+    109|     const body = await res.json();
+    110|     expect(Object.keys(body).sort()).toEqual(READY_KEYS);
+       |                                      ^
+    111|     expect(body.status).toBe("ready");
+    112|     expect(body.checks).toEqual({ database: "ok", schema: "current" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/46]⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > asks for the build's expected migration through the cookie-less client, never the cookie session
+AssertionError: expected undefined to deeply equal { backlog: true, dead24h: false, …(2) }
+
+- Expected: 
+{
+  "alertsCriticalOpen": false,
+  "backlog": true,
+  "dead24h": false,
+  "runnerStale": true,
+}
+
++ Received: 
+undefined
+
+ ❯ tests/api/health-probes.spec.ts:129:23
+    127|     expect(state.cookieClientCalls).toBe(0);
+    128|     expect(body.outbox).toEqual({ messagesBacklog: false, messagesFail…
+    129|     expect(body.jobs).toEqual({ backlog: true, dead24h: false, runnerS…
+       |                       ^
+    130|   });
+    131| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/46]⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > 04-04: job flags only as booleans; all four or none (a database behind 000039 answers jobs: null, schema behind)
+AssertionError: {"jobs_backlog":1,"jobs_dead_24h":false,"runner_stale":true,"alerts_critical_open":false}: expected 200 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 200
+
+ ❯ tests/api/health-probes.spec.ts:142:47
+    140|       state.client = fakeProbe({ db: true, schema_current: true, ...FL…
+    141|       const res = await getReady();
+    142|       expect(res.status, JSON.stringify(bad)).toBe(503);
+       |                                               ^
+    143|       expect((await res.json()).jobs).toBeNull();
+    144|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/46]⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > returns 503 with no error text when the RPC fails, logging only an error code
+AssertionError: expected [ 'checks', 'correlationId', …(4) ] to deeply equal [ 'checks', 'correlationId', …(5) ]
+
+- Expected
++ Received
+
+  [
+    "checks",
+    "correlationId",
+-   "jobs",
+    "outbox",
+    "providers",
+    "status",
+    "timestamp",
+  ]
+
+ ❯ tests/api/health-probes.spec.ts:235:38
+    233|     expect(res.status).toBe(503);
+    234|     const body = await res.json();
+    235|     expect(Object.keys(body).sort()).toEqual(READY_KEYS);
+       |                                      ^
+    236|     expect(body).toMatchObject({ status: "not_ready", checks: { databa…
+    237|     expect(JSON.stringify(body)).not.toContain("LEAK-password");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/46]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon executes it through PostgREST and gets booleans only (no count, no version)
+AssertionError: expected [ 'db', 'messages_backlog', …(4) ] to deeply equal [ 'alerts_critical_open', 'db', …(8) ]
+
+- Expected
++ Received
+
+  [
+-   "alerts_critical_open",
+    "db",
+-   "jobs_backlog",
+-   "jobs_dead_24h",
+    "messages_backlog",
+    "messages_failed_24h",
+-   "runner_stale",
+    "schema_current",
+    "webhooks_backlog",
+    "webhooks_failed_24h",
+  ]
+
+ ❯ tests/api/readiness-probe-db.spec.ts:73:38
+     71|     expect(error).toBeNull();
+     72|     const body = data as Record<string, unknown>;
+     73|     expect(Object.keys(body).sort()).toEqual(["db", ...FLAGS, "schema_…
+       |                                      ^
+     74|     expect(body.db).toBe(true);
+     75|     expect(body.schema_current).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/46]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc begin; set local enable_seqscan = off; explain select exists (select 1 from ops.alerts a where a.status = 'open' and a.severity = 'critical'); rollback;
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: ...qscan = off; explain select exists (select 1 from ops.alerts...
+                                                             ^
+
+ ❯ psql tests/api/readiness-probe-db.spec.ts:41:15
+     39|   const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
+     40|   if (!projectId) throw new Error("project_id not found in supabase/co…
+     41|   const out = execFileSync("docker", ["exec", `supabase_db_${projectId…
+       |               ^
+     42|     encoding: "utf8",
+     43|   });
+ ❯ tests/api/readiness-probe-db.spec.ts:116:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/46]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > 04-04: each job flag answers its condition (seeded in a rolled-back session), never a count
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.alerts -c delete from vault.secrets where name = 'jobs_runner_url' -c select 'P|' || public.readiness_probe(null)::text -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ flags tests/api/readiness-probe-db.spec.ts:128:21
+ ❯ tests/api/readiness-probe-db.spec.ts:141:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/46]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: job runner secret and drill switch (04-02) > production without OPS_ALERT_EMAIL, or with a malformed address, throws naming the key (04-04, R-1)
+AssertionError: expected undefined to be 'ops-alerts@synthetic-clinic.example.o…' // Object.is equality
+
+- Expected: 
+"ops-alerts@synthetic-clinic.example.org"
+
++ Received: 
+undefined
+
+ ❯ tests/config/env-schema.spec.ts:565:50
+    563| 
+    564|   it("production without OPS_ALERT_EMAIL, or with a malformed address,…
+    565|     expect(parseEnv(PRODUCTION).OPS_ALERT_EMAIL).toBe("ops-alerts@synt…
+       |                                                  ^
+    566|     expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: undefined })).to…
+    567|     expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: "   " })).toCont…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/46]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: job runner secret and drill switch (04-02) > the e2e app server emails alerts to the synthetic ops inbox (04-04)
+AssertionError: expected undefined to be 'ops-alerts@example.test' // Object.is equality
+
+- Expected: 
+"ops-alerts@example.test"
+
++ Received: 
+undefined
+
+ ❯ tests/config/env-schema.spec.ts:581:33
+    579|   it("the e2e app server emails alerts to the synthetic ops inbox (04-…
+    580|     const env = parseEnv(buildAppServerEnv({ source: {}, keys: { anonK…
+    581|     expect(env.OPS_ALERT_EMAIL).toBe("ops-alerts@example.test");
+       |                                 ^
+    582|   });
+    583| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > ops.evaluate_alerts(): quiet baseline > with nothing to report every rule is quiet: no alert, no notify job
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:152:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > ops.evaluate_alerts(): quiet baseline > the nine rules are registered with the planned severities, enabled, each with its function
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select rule || '|' || severity || '|' || enabled || '|' || fn from ops.alert_rules order by rule
+ERROR:  relation "ops.alert_rules" does not exist
+LINE 1: ...' || severity || '|' || enabled || '|' || fn from ops.alert_...
+                                                             ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/alerts-db.spec.ts:159:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > dead_letter (warn) > a dead job opens one alert and one alert.notify job; a second evaluation inside the cooldown only refreshes it
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:176:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > dead_letter (warn) > a dead-lettered message row or a failed webhook delivery fires it too (counts only)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into public.tenants (id, name) values ('00000000-0000-4000-8000-00000000a1e7', 'Alerts spec clinic') -c insert into public.communication_queue (tenant_id, channel, message_type, template_id, status, updated_at) values ('00000000-0000-4000-8000-00000000a1e7', 'whatsapp', 'appointment_reminder', 'appointment_reminder', 'dead_letter', now()) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:189:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > dead_letter (warn) > stays quiet for a job that died before the 15-minute window
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '16 minutes', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:199:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > dead_letter (warn) > R-36: a dead alert.notify job never raises dead_letter
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('alert.notify', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:203:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > queue_lag (warn): p95 of first claim minus run_at over 15 minutes, at least 5 samples > fires with p95 150 s over 5 samples
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 5) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:211:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > queue_lag (warn): p95 of first claim minus run_at over 15 minutes, at least 5 samples > stays quiet with 4 slow samples, and when the p95 is under 120 s
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 4) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:218:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > queue_oldest_due (critical) > fires when a due pending job has waited 6 minutes, naming its id
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:226:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > queue_oldest_due (critical) > stays quiet at 4 minutes
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '4 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:236:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > runner_stale (critical): Vault holds jobs_runner_url and no ok runner pass in 5 minutes > fires with a runner URL in Vault and no runner pass, or only a failed one
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:242:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > runner_stale (critical): Vault holds jobs_runner_url and no ok runner pass in 5 minutes > stays quiet with a recent ok pass, and without the Vault secret (local and CI stacks)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c insert into ops.job_runner_runs (worker, source, started_at, finished_at, ok) values ('test:alerts-spec', 'test', now() - interval '1 minute', now() - interval '1 minute' + interval '2 seconds', true) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:254:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lease_expiry (warn): more than 3 expired leases in 15 minutes > fires with 4
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 4) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:261:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lease_expiry (warn): more than 3 expired leases in 15 minutes > stays quiet with 3, and with 4 older than the window
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 3) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:268:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_burst (warn): more than 20 error events in 10 minutes > fires with 21 (one row, or several fingerprints)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 21, 'test', 'Error', 'synthetic alerts spec') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:275:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_burst (warn): more than 20 error events in 10 minutes > stays quiet with 20, and with 21 seen 11 minutes ago
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 20, 'test', 'Error', 'synthetic alerts spec') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:282:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_sink_overflow (warn, R-46): the sink dropped events today or yesterday (UTC) > fires for an overflow row of today with dropped = 3, and for yesterday
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 0, 3) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:289:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_sink_overflow (warn, R-46): the sink dropped events today or yesterday (UTC) > stays quiet for an older day or a zero count
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 2, 5) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:296:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_sink_size (warn, R-46): ops.error_events above the size parameter (default 50 MB) > fires when the parameter is below the table's size (lowered in the rolled-back transaction)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c update ops.alert_rules set params = '{"max_bytes": 1}'::jsonb where rule = 'error_sink_size' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:303:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > error_sink_size (warn, R-46): ops.error_events above the size parameter (default 50 MB) > stays quiet at the default threshold
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select params ->> 'max_bytes' from ops.alert_rules where rule = 'error_sink_size'
+ERROR:  relation "ops.alert_rules" does not exist
+LINE 1: select params ->> 'max_bytes' from ops.alert_rules where rul...
+                                           ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/alerts-db.spec.ts:310:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > fires for a 14-hour-old ok run
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '14 hours', now() - interval '14 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:317:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > a deliberately failed run raises it at once, even with an ok run 2 hours earlier
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '2 hours', now() - interval '2 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c insert into ops.backup_runs (environment, started_at, finished_at, status, error_code) values ('local', now() - interval '0 hours', now() - interval '0 hours' + interval '1 minute', 'failed', 'drill_forced') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:324:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > backup_stale (critical): backups recorded, none ok in 13 hours, or the latest run failed > stays quiet with no backup rows, a recent ok run, or a failure an ok run already followed
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:331:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lifecycle: cooldown, resolution, robustness > two clean evaluations resolve an alert; firing again opens a new one with notification 1
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c delete from ops.jobs where kind = 'test.alerts_dead' -c select 'E|' || ops.evaluate_alerts() -c select 'C|' || clean_evaluations || '|' || status from ops.alerts -c select 'E|' || ops.evaluate_alerts() -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:339:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lifecycle: cooldown, resolution, robustness > an expired cooldown enqueues notification n + 1; inside the cooldown, or never notified, nothing new
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c select 'E|' || ops.evaluate_alerts() -c update ops.alerts set notified_at = now() - interval '61 minutes', notify_count = 1 where rule = 'dead_letter' -c select 'E|' || ops.evaluate_alerts() -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:366:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lifecycle: cooldown, resolution, robustness > a rule whose parameters break does not stop the others; a disabled rule never fires
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c update ops.alert_rules set params = '{"window_minutes": "x"}'::jsonb where rule = 'dead_letter' -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:380:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > lifecycle: cooldown, resolution, robustness > with every rule firing, details hold only numbers, booleans, null, ISO timestamps and UUID lists
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c delete from ops.jobs -c delete from ops.job_runner_runs -c delete from ops.backup_runs -c delete from ops.error_events -c delete from ops.error_event_overflow -c delete from vault.secrets where name = 'jobs_runner_url' -c delete from public.communication_queue where status = 'dead_letter' -c delete from public.webhook_delivery_queue where status = 'failed' -c insert into public.tenants (id, name) values ('00000000-0000-4000-8000-00000000a1e7', 'Alerts spec clinic') -c insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values ('test.alerts_dead', 'alerts-spec:' || gen_random_uuid(), 'dead', 2, 2, now() - interval '1 minute', 'drill_failure') -c insert into public.communication_queue (tenant_id, channel, message_type, template_id, status, updated_at) values ('00000000-0000-4000-8000-00000000a1e7', 'whatsapp', 'appointment_reminder', 'appointment_reminder', 'dead_letter', now()) -c insert into ops.jobs (kind, dedupe_key, status, attempts, run_at, first_claimed_at, finished_at) select 'test.alerts_lag', 'alerts-spec:' || gen_random_uuid(), 'done', 1, now() - make_interval(secs => 150), now(), now() from generate_series(1, 5) -c insert into ops.jobs (kind, dedupe_key, run_at) values ('test.alerts_pending', 'alerts-spec:' || gen_random_uuid(), now() - interval '6 minutes') -c select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url') -c insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at, last_lease_expired_at) select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '1 minute' from generate_series(1, 4) -c insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values (md5(random()::text) || md5(random()::text), (now() at time zone 'UTC')::date, now() - interval '1 minute', now() - interval '1 minute', 21, 'test', 'Error', 'synthetic alerts spec') -c insert into ops.error_event_overflow (day, dropped) values ((now() at time zone 'UTC')::date - 0, 3) -c update ops.alert_rules set params = '{"max_bytes": 1}'::jsonb where rule = 'error_sink_size' -c insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ('local', now() - interval '14 hours', now() - interval '14 hours' + interval '1 minute', 'ok', 'local/2026-11-13T010203Z.tar.age', 1024, 60) -c select 'E|' || ops.evaluate_alerts() -c select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || (resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule -c select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ run tests/jobs/alerts-db.spec.ts:89:16
+ ❯ tests/jobs/alerts-db.spec.ts:387:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > no API role executes the evaluator or a rule; the handler RPCs are service_role only
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('anon', 'ops.evaluate_alerts()', 'execute') || '|' || has_function_privilege('authenticated', 'ops.evaluate_alerts()', 'execute') || '|' || has_function_privilege('service_role', 'ops.evaluate_alerts()', 'execute')
+ERROR:  function "ops.evaluate_alerts()" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/alerts-db.spec.ts:433:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > every new function is SECURITY DEFINER with an empty search_path
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select prosecdef || '|' || array_to_string(proconfig, ',') from pg_proc where oid = 'ops.evaluate_alerts()'::regprocedure
+ERROR:  function "ops.evaluate_alerts()" does not exist
+LINE 1: ...o_string(proconfig, ',') from pg_proc where oid = 'ops.evalu...
+                                                             ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/alerts-db.spec.ts:451:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > the tables are closed: RLS on, no policy, no privilege for anon, authenticated or service_role
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select relrowsecurity from pg_class where oid = 'ops.alerts'::regclass
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: select relrowsecurity from pg_class where oid = 'ops.alerts'...
+                                                        ^
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/alerts-db.spec.ts:458:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > through PostgREST: anon is refused the handler RPCs; the service role reads nothing for an unknown alert
+AssertionError: expected 'PGRST202' to be '42501' // Object.is equality
+
+Expected: "42501"
+Received: "PGRST202"
+
+ ❯ tests/jobs/alerts-db.spec.ts:473:33
+    471|     const anon = anonClient();
+    472|     const payload = await anon.rpc("ops_alert_payload", { p_alert_id: …
+    473|     expect(payload.error?.code).toBe("42501");
+       |                                 ^
+    474|     const notified = await anon.rpc("ops_alert_notified", { p_alert_id…
+    475|     expect(notified.error?.code).toBe("42501");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > ops_alert_notified is idempotent per notification and keeps only an id-shaped provider id
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c delete from ops.alerts -c insert into ops.alerts (id, rule, severity) values ('00000000-0000-4000-8000-0000000a1e70', 'dead_letter', 'warn') -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'mailpit-id-1', 1) -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'mailpit-id-again', 1) -c select 'S|' || notify_count || '|' || provider_message_id from ops.alerts -c select 'N|' || public.ops_alert_notified('00000000-0000-4000-8000-0000000a1e70', 'free text with spaces +919000000001', 2) -c select 'S|' || notify_count || '|' || coalesce(provider_message_id, 'null') || '|' || (notified_at is not null) from ops.alerts -c rollback
+ERROR:  relation "ops.alerts" does not exist
+LINE 1: delete from ops.alerts
+                    ^
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ tests/jobs/alerts-db.spec.ts:482:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/46]⎯
+
+ FAIL  tests/jobs/alerts-db.spec.ts > access: nothing reachable from an API role > pg_cron evaluates every 5 minutes as postgres (one row; the lane paused it)
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- [
+-   "*/5 * * * *|select ops.evaluate_alerts()|postgres",
+- ]
++ []
+
+ ❯ tests/jobs/alerts-db.spec.ts:497:126
+    495| 
+    496|   it("pg_cron evaluates every 5 minutes as postgres (one row; the lane…
+    497|     expect(psql("select schedule || '|' || command || '|' || username …
+       |                                                                                                                              ^
+    498|       "*/5 * * * *|select ops.evaluate_alerts()|postgres",
+    499|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/46]⎯
+
+
+ Test Files  7 failed | 2 passed (9)
+      Tests  42 failed | 365 passed | 1 skipped (408)
+   Start at  22:52:21
+   Duration  5.78s (transform 158ms, setup 45ms, collect 226ms, tests 4.50s, environment 0ms, prepare 168ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

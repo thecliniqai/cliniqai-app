@@ -72,16 +72,16 @@ export function DashboardNav({ tenantName, role }: DashboardNavProps) {
   ];
 
   return (
-    <header className="border-b border-[#E5E4E0] bg-white sticky top-0 z-30">
+    <header className="border-b border-border bg-white sticky top-0 z-30">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="font-semibold text-lg text-[#1A1A1A] flex items-center gap-2">
-            <span className="w-8 h-8 rounded bg-[#1769E0] text-white flex items-center justify-center font-bold text-sm">
+          <Link href="/" className="font-semibold text-lg text-fg flex items-center gap-2">
+            <span className="w-8 h-8 rounded bg-accent text-white flex items-center justify-center font-bold text-sm">
               CQ
             </span>
             <span>{tenantName}</span>
           </Link>
-          <span className="text-xs uppercase font-medium bg-[#F0EFEA] text-[#555] px-2 py-0.5 rounded">
+          <span className="text-xs uppercase font-medium bg-sunken text-fg-secondary px-2 py-0.5 rounded">
             {role}
           </span>
         </div>
@@ -95,8 +95,8 @@ export function DashboardNav({ tenantName, role }: DashboardNavProps) {
                 href={item.href}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   item.active
-                    ? "bg-[#1769E0]/10 text-[#1769E0] font-semibold"
-                    : "text-[#555] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]"
+                    ? "bg-accent/10 text-accent font-semibold"
+                    : "text-fg-secondary hover:text-fg hover:bg-canvas"
                 }`}
                 aria-current={item.active ? "page" : undefined}
               >

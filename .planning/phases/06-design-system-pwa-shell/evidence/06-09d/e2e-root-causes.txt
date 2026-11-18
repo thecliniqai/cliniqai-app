@@ -1,0 +1,16 @@
+Root cause of PR-lane run 1's one failure (Playwright trace of the failed test, request rows of its network log; synthetic data).
+
+[desktop-chrome] 09-outage-and-removal › M-REMOVED › a full page load after the removal signs out too: page.goto("/patients") net::ERR_ABORTED
+  2026-11-15T08:38:34.198Z GET /login 200
+  2026-11-15T08:38:34.475Z GET / 200
+  2026-11-15T08:38:34.483Z GET / 200
+  2026-11-15T08:38:34.599Z GET /api/session-status 403
+  2026-11-15T08:38:34.601Z POST / 200
+  2026-11-15T08:38:34.608Z GET /patients 200
+  2026-11-15T08:38:34.621Z GET /patients 200
+  2026-11-15T08:38:34.630Z GET /patients -1
+  2026-11-15T08:38:34.657Z POST / 200
+  2026-11-15T08:38:34.657Z POST /auth/signout 200
+  2026-11-15T08:38:34.711Z GET /login 200
+  (the GET / and /patients 200 rows before 08:38:34.630 are RSC fetches and prefetches with `?_rsc=`, query not shown)
+  → the shell's start poll (08:38:34.599, after sign-in) was still in flight when the test removed the membership; it answered 403, hardSignOut posted /auth/signout and replaced to /login, which aborted the spec's goto (/patients -1). /login and the purge are the designed outcome; the race was in the spec (06-06 wave note: wait for the page's initial status answer before changing what it will answer). Fix b904d8f: dualMember waits for the first 200. Proof: 09 + 11 on desktop-chrome, pixel-7, iphone-15 with --repeat-each=4 --retries=0: 72 passed (e2e-repeat.txt).

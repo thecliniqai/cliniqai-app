@@ -1,0 +1,83 @@
+# 04-07d N-1 negative proof (tool output captured 2026-11-13T20:26:13Z)
+# Local stack at migration 000043 (000043 claim_jobs, before 000044). Specs: the 04-07d N-1 specs as committed.
+# Expected: all three rotation specs fail.
+
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-13T20:26:19.670Z","level":"info","event":"jobs.run.completed","durationMs":23000,"count":30}
+ ❯ tests/jobs/parallel-dispatch-db.spec.ts (8 tests | 3 failed | 5 skipped) 4744ms
+   ↓ runJobs over the live queue > tracer: a job enqueued in SQL is claimed by runJobs and ends done with attempts = 1
+   ↓ runJobs over the live queue > 8 parallel runners over 200 jobs in 3 tenants handle each job exactly once
+   ↓ tenant fairness (04-07b M-FAIR) > review A M-1 repro through the real runner: A's 30 older jobs do not starve B's one
+   ↓ tenant fairness (04-07b M-FAIR) > claim_jobs picks round-robin across tenants even when p_per_tenant is not below the batch
+   × tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches 2409ms
+     → expected 41 to be less than or equal to 2
+   × tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > bound: with 23 backlogged tenants every one is served within ceil(23 / 10) = 3 batches 1479ms
+     → expected Set{ …(10) } to deeply equal Set{ …(23) }
+   × tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > through the real runner with the route's configuration: the 11th tenant's job runs among the first 2 batches (20 jobs) 753ms
+     → expected -1 to be greater than or equal to 0
+   ↓ 8 parallel runners over 200 queued messages (04-03a, real message.send handler) > send each message exactly once: 200 provider calls, 200 distinct rows, 0 duplicates
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts > tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches
+AssertionError: expected 41 to be less than or equal to 2
+ ❯ tests/jobs/parallel-dispatch-db.spec.ts:242:23
+    240|     const first = batches.findIndex((b) => b.includes(victim));
+    241|     expect(first).toBeGreaterThanOrEqual(0);
+    242|     expect(first + 1).toBeLessThanOrEqual(2);
+       |                       ^
+    243|     // The per-tenant cap and the round-robin still hold: every batch …
+    244|     for (const b of batches) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts > tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > bound: with 23 backlogged tenants every one is served within ceil(23 / 10) = 3 batches
+AssertionError: expected Set{ …(10) } to deeply equal Set{ …(23) }
+
+- Expected
++ Received
+
+  Set {
+    "094de9df-3503-473e-a454-96e46f65e894",
+    "102b0bcf-e4b3-4398-b8c2-4587734e55d5",
+    "2056a1c5-00ff-48e7-a335-3fcc5fdf2235",
+    "84e430ac-7a0b-4fef-a36f-26f06022e145",
+    "a9f6004e-6725-4cdc-896d-a3455d82e1c4",
+    "bd705ae3-ccd5-495b-b43b-7a1a24efe5f1",
+    "bdeab50d-3dc7-4569-bcaf-6c4b01ef6f89",
+    "c0531830-7c19-40b1-ab70-90ddab57dcc4",
+    "d8b3462c-bca7-4830-9dc2-af56c99c06de",
+    "e07fa5c1-dc03-411c-8db4-ca6d3756b210",
+  }
+
+ ❯ tests/jobs/parallel-dispatch-db.spec.ts:259:37
+    257| 
+    258|     expect(batches).toHaveLength(3);
+    259|     expect(new Set(batches.flat())).toEqual(new Set(all));
+       |                                     ^
+    260|   });
+    261| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts > tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > through the real runner with the route's configuration: the 11th tenant's job runs among the first 2 batches (20 jobs)
+AssertionError: expected -1 to be greater than or equal to 0
+ ❯ tests/jobs/parallel-dispatch-db.spec.ts:296:16
+    294|     expect(order.length).toBeGreaterThanOrEqual(2 * RUN_PASS_CONFIG.ba…
+    295|     const at = order.indexOf(victimJob);
+    296|     expect(at).toBeGreaterThanOrEqual(0);
+       |                ^
+    297|     expect(at).toBeLessThan(2 * RUN_PASS_CONFIG.batch);
+    298|     expect(jobRows(k).find((r) => r.id === victimJob)).toMatchObject({…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 5 skipped (8)
+   Start at  01:56:14
+   Duration  5.19s (transform 86ms, setup 8ms, collect 91ms, tests 4.74s, environment 0ms, prepare 26ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

@@ -1,0 +1,13 @@
+{
+  "id": "install-card",
+  "width": 1180,
+  "path": "/",
+  "capture": "viewport",
+  "axe": {
+    "scope": "[data-install-card]",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}

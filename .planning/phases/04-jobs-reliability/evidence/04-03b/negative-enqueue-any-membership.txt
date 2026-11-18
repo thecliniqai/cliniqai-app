@@ -1,0 +1,14 @@
+   ↓ public.enqueue_webhook_event: every role's events are queued (R-19) > a receptionist raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job
+   ↓ public.enqueue_webhook_event: every role's events are queued (R-19) > a doctor raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a subject of another clinic → P0002 SUBJECT_MISMATCH, no row 65ms
+   × tenant binding (R-6 revised; 03-07 D1 finding 2) > a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row 16ms
+     → expected null to match object { code: 'P0002', …(1) }
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a non-member tenant, a null tenant and anon are refused 45ms
+   ↓ closed event set, subject state and idempotency > an event outside the closed set → EVENT_NOT_ALLOWED; a subscription id on a lifecycle event → INPUT_INVALID
+   ↓ test ping (R-26; 03-13d limit) > a receptionist → 42501; another clinic's subscription → P0002; no rows
+   ↓ test ping (R-26; 03-13d limit) > an admin's ping queues one row for that subscription only; the sixth inside 60 s → RATE_LIMITED
+   ↓ public.enqueue_webhook_event_system (service role) > authenticated and anon → 42501
+   ↓ public.enqueue_webhook_event_system (service role) > an actor outside the closed set → ACTOR_INVALID; ping → EVENT_NOT_ALLOWED; a missing subject → P0002
+   ↓ public.enqueue_webhook_event_system (service role) > a known actor → the tenant comes from the subject row
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 2 passed | 17 skipped (20)

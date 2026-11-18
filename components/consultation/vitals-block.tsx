@@ -101,7 +101,7 @@ export function VitalsBlock({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 mb-4">
         <div>
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#1769E0]" />
+            <Activity className="w-5 h-5 text-accent" />
             Vital Signs
           </h3>
           {(recordedBy || recordedAt) && (
@@ -119,7 +119,7 @@ export function VitalsBlock({
             size="sm"
             onClick={() => setIsEditing(!isEditing)}
             aria-label="Edit vitals"
-            className="text-xs text-[#1769E0] hover:text-[#1455B3] gap-1.5"
+            className="text-xs text-accent hover:text-accent-hover gap-1.5"
           >
             {isEditing ? (
               <>
@@ -150,7 +150,7 @@ export function VitalsBlock({
                 min={50}
                 max={250}
               />
-              <span className="text-gray-400 font-medium">/</span>
+              <span className="text-fg-subtle font-medium">/</span>
               <Input
                 type="number"
                 placeholder="Dia"
@@ -242,7 +242,7 @@ export function VitalsBlock({
         /* Read / Dashboard Summary Cards */
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           {/* BP */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
                 <Heart className="w-3.5 h-3.5 text-rose-500" /> BP
@@ -255,16 +255,16 @@ export function VitalsBlock({
                   {vitals.systolic}/{vitals.diastolic} <span className="text-xs text-gray-500 font-normal">mmHg</span>
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>
 
           {/* Pulse */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
-                <Activity className="w-3.5 h-3.5 text-[#1769E0]" /> Pulse
+                <Activity className="w-3.5 h-3.5 text-accent" /> Pulse
               </span>
               {pulseBadge && <Badge color={pulseBadge.color} size="sm">{pulseBadge.label}</Badge>}
             </div>
@@ -274,13 +274,13 @@ export function VitalsBlock({
                   {vitals.pulse} <span className="text-xs text-gray-500 font-normal">bpm</span>
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>
 
           {/* SpO2 */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
                 <Wind className="w-3.5 h-3.5 text-sky-500" /> SpO2
@@ -293,13 +293,13 @@ export function VitalsBlock({
                   {vitals.spo2} <span className="text-xs text-gray-500 font-normal">%</span>
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>
 
           {/* Temp */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
                 <Thermometer className="w-3.5 h-3.5 text-amber-500" /> Temp
@@ -312,13 +312,13 @@ export function VitalsBlock({
                   {vitals.temperature} <span className="text-xs text-gray-500 font-normal">°F</span>
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>
 
           {/* Weight & Height */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
                 <Weight className="w-3.5 h-3.5 text-gray-600" /> Wt / Ht
@@ -328,17 +328,17 @@ export function VitalsBlock({
               {vitals.weight || vitals.height ? (
                 <span>
                   {vitals.weight ? `${vitals.weight}kg` : "--"}{" "}
-                  <span className="text-gray-400 font-normal">/</span>{" "}
+                  <span className="text-fg-subtle font-normal">/</span>{" "}
                   {vitals.height ? `${vitals.height}cm` : "--"}
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>
 
           {/* BMI */}
-          <div className="rounded-lg border border-gray-100 bg-[#F7F6F3]/50 p-3 flex flex-col justify-between">
+          <div className="rounded-lg border border-gray-100 bg-canvas/50 p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
               <span className="flex items-center gap-1 font-medium">
                 <Ruler className="w-3.5 h-3.5 text-indigo-500" /> BMI
@@ -351,7 +351,7 @@ export function VitalsBlock({
                   {bmiInfo.val} <span className="text-xs text-gray-500 font-normal">kg/m²</span>
                 </span>
               ) : (
-                <span className="text-gray-400 font-normal text-sm">--</span>
+                <span className="text-fg-subtle font-normal text-sm">--</span>
               )}
             </div>
           </div>

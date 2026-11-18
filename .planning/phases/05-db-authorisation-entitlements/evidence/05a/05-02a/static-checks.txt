@@ -1,0 +1,20 @@
+## commit 5dd7e1e
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit 
+## npx eslint .
+✖ 387 problems (0 errors, 387 warnings)
+  0 errors and 23 warnings potentially fixable with the `--fix` option.
+
+## npm run inventory
+exit 0
+## npm run authz:gen -- --check
+exit 0
+## npm run db:drift:local
+> clinicos@0.1.0 db:drift:local
+> node scripts/ci/local-drift.mjs
+
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+## typecheck exit code (re-run): 0

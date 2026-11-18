@@ -1,0 +1,91 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/ai/ai-commit-expiry-race.spec.ts (2 tests | 1 failed) 4712ms
+   × ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500 3111ms
+     → expected null to match object { code: 'P0001', …(1) }
+   ✓ ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > control: a commit that waits on the lock and gets it while the reservation is still live lands exactly one unit  1181ms
+ ❯ tests/staff/invite-dedupe-role.spec.ts (2 tests | 2 failed) 2479ms
+   × a deduped invitation names the stored role (re-verification N-2) > owner 1 invites as admin (open transaction) while owner 2 invites as receptionist: owner 2 is told admin 2140ms
+     → expected { success: true, …(2) } to deeply equal { success: true, …(3) }
+   × a deduped invitation names the stored role (re-verification N-2) > every answer carries the stored role: sent, already pending and replaced (sequential) 32ms
+     → expected { success: true, …(2) } to match object { Object (success, outcome, ...) }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ai/ai-commit-expiry-race.spec.ts > ai_commit after the usage-row lock, at the wall clock (re-verification N-1) > a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500
+AssertionError: expected null to match object { code: 'P0001', …(1) }
+
+[32m- Expected:[39m 
+{
+  "code": "P0001",
+  "message": "AI_RESERVATION_EXPIRED",
+}
+
+[31m+ Received:[39m 
+null
+
+ ❯ tests/ai/ai-commit-expiry-race.spec.ts:132:26
+    130|     await holder;
+    131|     const result = await commit;
+    132|     expect(result.error).toMatchObject({ code: "P0001", message: "AI_R…
+       |                          ^
+    133|     expect(mapDbError(result.error!)).toMatchObject({ code: "CONFLICT"…
+    134|     expect(units()).toBe(String(TRIAL_LIMIT - 1));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/staff/invite-dedupe-role.spec.ts > a deduped invitation names the stored role (re-verification N-2) > owner 1 invites as admin (open transaction) while owner 2 invites as receptionist: owner 2 is told admin
+AssertionError: expected { success: true, …(2) } to deeply equal { success: true, …(3) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "inviteId": "b3971996-5803-47fe-9665-3a2d8744d529",[22m
+[2m    "outcome": "already_pending",[22m
+[32m-   "role": "admin",[39m
+[2m    "success": true,[22m
+[2m  }[22m
+
+ ❯ tests/staff/invite-dedupe-role.spec.ts:86:20
+     84|     expect(firstId).toMatch(UUID);
+     85| 
+     86|     expect(second).toEqual({ success: true, inviteId: firstId, outcome…
+       |                    ^
+     87|     if (!second.success) return;
+     88|     // What the staff form shows: the stored role, not the one owner 2…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/staff/invite-dedupe-role.spec.ts > a deduped invitation names the stored role (re-verification N-2) > every answer carries the stored role: sent, already pending and replaced (sequential)
+AssertionError: expected { success: true, …(2) } to match object { Object (success, outcome, ...) }
+(1 matching property omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "outcome": "sent",[22m
+[32m-   "role": "nurse",[39m
+[2m    "success": true,[22m
+[2m  }[22m
+
+ ❯ tests/staff/invite-dedupe-role.spec.ts:105:57
+    103|   it("every answer carries the stored role: sent, already pending and …
+    104|     const email = address(`n2-seq-${randomUUID().slice(0, 8)}@example.…
+    105|     expect(await inviteStaff({ email, role: "nurse" })).toMatchObject(…
+       |                                                         ^
+    106|     const again = await inviteStaff({ email, role: "nurse" });
+    107|     expect(again).toMatchObject({ success: true, outcome: "already_pen…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 1 passed (4)
+   Start at  08:39:56
+   Duration  7.77s (transform 144ms, setup 13ms, collect 140ms, tests 7.19s, environment 0ms, prepare 42ms)
+
+[teardown] removed run data: 2 tenant(s), 4 auth user(s), 0 storage object(s); verified none remain

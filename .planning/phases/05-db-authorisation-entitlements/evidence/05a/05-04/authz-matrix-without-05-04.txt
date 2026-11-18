@@ -1,0 +1,113 @@
+# Regenerated authz_matrix.test.sql (05-04 DELETE rules) run against the stack at 000051 (before 000052). Failing cells by target:
+   9 public.tenant_messaging_config delete:
+   9 public.referrals delete:
+   9 public.consultations delete:
+   8 public.in_app_notifications delete:
+   8 public.doctor_prescription_templates delete:
+   8 public.doctor_custom_medicines delete:
+   8 public.doctor_custom_diagnoses delete:
+   4 public.prescription_items delete:
+   4 public.patient_documents delete:
+   4 public.follow_ups delete:
+   4 public.consultation_diagnoses delete:
+   3 public.invoice_items delete:
+   2 public.waitlist_entries delete:
+   2 public.visits delete:
+   2 public.queue_tokens delete:
+   2 public.prescriptions delete:
+   1 public.schedule_blocks delete:
+   1 Failed tests:
+
+# Failed cell names:
+# Failed test 210: "public.visits delete: owner of A"
+# Failed test 211: "public.visits delete: admin of A"
+# Failed test 298: "public.consultations delete: owner of A"
+# Failed test 299: "public.consultations delete: admin of A"
+# Failed test 300: "public.consultations delete: doctor of A"
+# Failed test 301: "public.consultations delete: second doctor of A"
+# Failed test 302: "public.consultations delete: nurse of A"
+# Failed test 303: "public.consultations delete: receptionist of A"
+# Failed test 306: "public.consultations delete: dual member (doctor A, receptionist B), header A"
+# Failed test 307: "public.consultations delete: dual member, header B"
+# Failed test 308: "public.consultations delete: dual member, no header"
+# Failed test 343: "public.consultation_diagnoses delete: admin of A"
+# Failed test 344: "public.consultation_diagnoses delete: doctor of A"
+# Failed test 345: "public.consultation_diagnoses delete: second doctor of A"
+# Failed test 350: "public.consultation_diagnoses delete: dual member (doctor A, receptionist B), header A"
+# Failed test 386: "public.prescriptions delete: owner of A"
+# Failed test 387: "public.prescriptions delete: admin of A"
+# Failed test 431: "public.prescription_items delete: admin of A"
+# Failed test 432: "public.prescription_items delete: doctor of A"
+# Failed test 433: "public.prescription_items delete: second doctor of A"
+# Failed test 438: "public.prescription_items delete: dual member (doctor A, receptionist B), header A"
+# Failed test 518: "public.invoice_items delete: owner of A"
+# Failed test 519: "public.invoice_items delete: admin of A"
+# Failed test 523: "public.invoice_items delete: receptionist of A"
+# Failed test 606: "public.queue_tokens delete: owner of A"
+# Failed test 607: "public.queue_tokens delete: admin of A"
+# Failed test 650: "public.waitlist_entries delete: owner of A"
+# Failed test 651: "public.waitlist_entries delete: admin of A"
+# Failed test 698: "public.schedule_blocks delete: nurse of A"
+# Failed test 739: "public.follow_ups delete: admin of A"
+# Failed test 740: "public.follow_ups delete: doctor of A"
+# Failed test 741: "public.follow_ups delete: second doctor of A"
+# Failed test 746: "public.follow_ups delete: dual member (doctor A, receptionist B), header A"
+# Failed test 827: "public.patient_documents delete: admin of A"
+# Failed test 831: "public.patient_documents delete: receptionist of A"
+# Failed test 835: "public.patient_documents delete: dual member, header B"
+# Failed test 836: "public.patient_documents delete: dual member, no header"
+# Failed test 914: "public.referrals delete: owner of A"
+# Failed test 915: "public.referrals delete: admin of A"
+# Failed test 916: "public.referrals delete: doctor of A"
+# Failed test 917: "public.referrals delete: second doctor of A"
+# Failed test 918: "public.referrals delete: nurse of A"
+# Failed test 919: "public.referrals delete: receptionist of A"
+# Failed test 922: "public.referrals delete: dual member (doctor A, receptionist B), header A"
+# Failed test 923: "public.referrals delete: dual member, header B"
+# Failed test 924: "public.referrals delete: dual member, no header"
+# Failed test 958: "public.doctor_custom_diagnoses delete: owner of A"
+# Failed test 959: "public.doctor_custom_diagnoses delete: admin of A"
+# Failed test 961: "public.doctor_custom_diagnoses delete: second doctor of A"
+# Failed test 962: "public.doctor_custom_diagnoses delete: nurse of A"
+# Failed test 963: "public.doctor_custom_diagnoses delete: receptionist of A"
+# Failed test 966: "public.doctor_custom_diagnoses delete: dual member (doctor A, receptionist B), header A"
+# Failed test 967: "public.doctor_custom_diagnoses delete: dual member, header B"
+# Failed test 968: "public.doctor_custom_diagnoses delete: dual member, no header"
+# Failed test 1002: "public.doctor_custom_medicines delete: owner of A"
+# Failed test 1003: "public.doctor_custom_medicines delete: admin of A"
+# Failed test 1005: "public.doctor_custom_medicines delete: second doctor of A"
+# Failed test 1006: "public.doctor_custom_medicines delete: nurse of A"
+# Failed test 1007: "public.doctor_custom_medicines delete: receptionist of A"
+# Failed test 1010: "public.doctor_custom_medicines delete: dual member (doctor A, receptionist B), header A"
+# Failed test 1011: "public.doctor_custom_medicines delete: dual member, header B"
+# Failed test 1012: "public.doctor_custom_medicines delete: dual member, no header"
+# Failed test 1046: "public.doctor_prescription_templates delete: owner of A"
+# Failed test 1047: "public.doctor_prescription_templates delete: admin of A"
+# Failed test 1049: "public.doctor_prescription_templates delete: second doctor of A"
+# Failed test 1050: "public.doctor_prescription_templates delete: nurse of A"
+# Failed test 1051: "public.doctor_prescription_templates delete: receptionist of A"
+# Failed test 1054: "public.doctor_prescription_templates delete: dual member (doctor A, receptionist B), header A"
+# Failed test 1055: "public.doctor_prescription_templates delete: dual member, header B"
+# Failed test 1056: "public.doctor_prescription_templates delete: dual member, no header"
+# Failed test 1134: "public.in_app_notifications delete: owner of A"
+# Failed test 1135: "public.in_app_notifications delete: admin of A"
+# Failed test 1137: "public.in_app_notifications delete: second doctor of A"
+# Failed test 1138: "public.in_app_notifications delete: nurse of A"
+# Failed test 1139: "public.in_app_notifications delete: receptionist of A"
+# Failed test 1142: "public.in_app_notifications delete: dual member (doctor A, receptionist B), header A"
+# Failed test 1143: "public.in_app_notifications delete: dual member, header B"
+# Failed test 1144: "public.in_app_notifications delete: dual member, no header"
+# Failed test 1178: "public.tenant_messaging_config delete: owner of A"
+# Failed test 1179: "public.tenant_messaging_config delete: admin of A"
+# Failed test 1180: "public.tenant_messaging_config delete: doctor of A"
+# Failed test 1181: "public.tenant_messaging_config delete: second doctor of A"
+# Failed test 1182: "public.tenant_messaging_config delete: nurse of A"
+# Failed test 1183: "public.tenant_messaging_config delete: receptionist of A"
+# Failed test 1186: "public.tenant_messaging_config delete: dual member (doctor A, receptionist B), header A"
+# Failed test 1187: "public.tenant_messaging_config delete: dual member, header B"
+# Failed test 1188: "public.tenant_messaging_config delete: dual member, no header"
+  Failed tests:  210-211, 298-303, 306-308, 343-345, 350
+# Looks like you failed 87 tests of 2200
+Files=1, Tests=2200,  0 wallclock secs ( 0.05 usr  0.02 sys +  0.01 cusr  0.02 csys =  0.10 CPU)
+Result: FAIL
+error running container: exit 1
