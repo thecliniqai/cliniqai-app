@@ -15,6 +15,7 @@
  * read back with the service-role client, the expected date with SQL in the same test. Synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { checkInVisit } from "@/features/queue/service";
 import type { ServiceContext } from "@/lib/auth/context";
 import { DEFAULT_CLINIC_TZ, ymdOf } from "@/lib/datetime";
@@ -75,7 +76,8 @@ describe("50 parallel check-ins (05-08, acceptance 7)", () => {
     // Every RPC name the check-in has used is gated, so older code (generate_daily_queue_token before 05-08,
     // next_queue_token + a member insert before 05-11a) runs under the same interleaving.
     const gates = {
-      rpc: { issue_queue_token: tokenRpc, next_queue_token: tokenRpc, generate_daily_queue_token: tokenRpc },
+      // V2-07 07-01: the token is issued inside the check_in_visit command (the barrier holds the command).
+      rpc: { check_in_visit: tokenRpc, issue_queue_token: tokenRpc, next_queue_token: tokenRpc, generate_daily_queue_token: tokenRpc },
       insert: { queue_tokens: tokenInsert },
     };
     const contexts: ServiceContext[] = desks.map((desk) => {
@@ -84,7 +86,7 @@ describe("50 parallel check-ins (05-08, acceptance 7)", () => {
     });
 
     const before = sqlToday(owner.tenantId);
-    const results = await Promise.all(visitIds.map((id, i) => checkInVisit(contexts[i % contexts.length], id, "normal")));
+    const results = await Promise.all(visitIds.map((id, i) => checkInVisit(contexts[i % contexts.length], id, "normal", randomUUID())));
     const after = sqlToday(owner.tenantId);
 
     // Every check-in reached the RPC barrier (no caller dropped out before its RPC); since 05-11a no member writes the
@@ -149,12 +151,12 @@ describe("50 parallel check-ins (05-08, acceptance 7)", () => {
     const before = counterOf();
 
     const tokenRpc = createBarrier(2);
-    const gates = { rpc: { issue_queue_token: tokenRpc, next_queue_token: tokenRpc }, insert: {} };
+    const gates = { rpc: { check_in_visit: tokenRpc, issue_queue_token: tokenRpc, next_queue_token: tokenRpc }, insert: {} };
     const contexts: ServiceContext[] = desks.map((desk) => {
       const ctx = ctxFor(desk);
       return { ...ctx, db: gateClient(ctx.db, gates) };
     });
-    const [a, b] = await Promise.all(contexts.map((ctx) => checkInVisit(ctx, visit.id as string, "normal")));
+    const [a, b] = await Promise.all(contexts.map((ctx) => checkInVisit(ctx, visit.id as string, "normal", randomUUID())));
 
     expect(a).toMatchObject({ success: true });
     expect(b).toMatchObject({ success: true });
@@ -169,8 +171,8 @@ describe("50 parallel check-ins (05-08, acceptance 7)", () => {
     expect(counterOf()).toBe(before + 1);
 
     // A third, later check-in of the same visit returns the same token too.
-    const again = await checkInVisit(ctxFor(desks[0]), visit.id as string, "urgent");
-    expect(again).toEqual({ success: true, tokenNumber: a.tokenNumber, queueTokenId: a.queueTokenId });
+    const again = await checkInVisit(ctxFor(desks[0]), visit.id as string, "urgent", randomUUID());
+    expect(again).toEqual({ success: true, tokenNumber: a.tokenNumber, queueTokenId: a.queueTokenId, replayed: false });
     expect(counterOf()).toBe(before + 1);
   }, 60_000);
 });

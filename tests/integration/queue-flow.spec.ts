@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { randomUUID } from "node:crypto";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
@@ -67,7 +68,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     walkInVisitId = visitRes.visitId;
 
     // 2. Check in the walk-in visit to issue token
-    const checkInRes = await checkInVisit(ctxFor(tenant), walkInVisitId, "normal");
+    const checkInRes = await checkInVisit(ctxFor(tenant), walkInVisitId, "normal", randomUUID());
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     expect(checkInRes.tokenNumber).toBe(1);
@@ -126,7 +127,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     expect(initialVisit?.status).toBe("booked");
 
     // 2. Check in the scheduled visit
-    const checkInRes = await checkInVisit(ctxFor(tenant), scheduledVisitId, "normal");
+    const checkInRes = await checkInVisit(ctxFor(tenant), scheduledVisitId, "normal", randomUUID());
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     // Should receive sequential token #2

@@ -361,6 +361,10 @@ const REQUIRED_FILES = [
   // V2-07 07-02 (create_invoice, collect_payment).
   "tests/billing/create-invoice-rpc.spec.ts",
   "tests/billing/collect-payment-rpc.spec.ts",
+  // V2-07 07-01 (sign_consultation, reopen/finalize amendment, check_in_visit).
+  "tests/consultation/sign-consultation-rpc.spec.ts",
+  "tests/consultation/amendment-rpc.spec.ts",
+  "tests/queue/check-in-rpc.spec.ts",
 ];
 
 const file = process.argv[2];

@@ -471,7 +471,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("two concurrent resumes after the sign-off create one invoice and exactly one payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId, randomUUID())).success).toBe(true);
 
       const results = await Promise.all([bill(visitId), bill(visitId)]);
       expect(results.some((r) => r.success && !r.alreadyBilled)).toBe(true);
@@ -485,7 +485,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("the losing request gets the existing invoice as 'already billed' (the shape the modal shows), and no payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId, randomUUID())).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [invoice] = await invoices(visitId);
@@ -547,7 +547,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("a voided (cancelled) invoice can be re-issued, by createVisitInvoice and by a Sign & Bill retry", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId, randomUUID())).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [original] = await invoices(visitId);

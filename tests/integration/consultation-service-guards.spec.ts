@@ -5,6 +5,7 @@
  * Runs on the local stack with each seeded user's own JWT client (RLS applies).
  */
 import { beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
 import { createVisit, recordVisitVitals } from "@/features/visits/service";
@@ -127,11 +128,11 @@ describe("consultation service guards (01-01c)", () => {
       await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       for (const actor of [receptionist, nurse]) {
-        expect((await completeAndSignConsultation(ctxFor(actor), visitId)).success).toBe(false);
+        expect((await completeAndSignConsultation(ctxFor(actor), visitId, randomUUID())).success).toBe(false);
         expect(
-          (await reopenVisitForAmendment(ctxFor(actor), visitId, "Synthetic amendment reason text")).success
+          (await reopenVisitForAmendment(ctxFor(actor), visitId, "Synthetic amendment reason text", randomUUID())).success
         ).toBe(false);
-        expect((await finalizeVisitAmendment(ctxFor(actor), visitId)).success).toBe(false);
+        expect((await finalizeVisitAmendment(ctxFor(actor), visitId, randomUUID())).success).toBe(false);
       }
 
       const { data } = await owner.client.from("visits").select("status, signed_by").eq("id", visitId).single();
@@ -228,7 +229,7 @@ describe("consultation service guards (01-01c)", () => {
       await saveConsultationDraft(ctxFor(owner), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       // The owner signs a visit assigned to `doctor`.
-      const res = await completeAndSignConsultation(ctxFor(owner), visitId);
+      const res = await completeAndSignConsultation(ctxFor(owner), visitId, randomUUID());
       expect(res.success).toBe(true);
 
       const events = await completedEventsFor(visitId);
@@ -248,7 +249,7 @@ describe("consultation service guards (01-01c)", () => {
     it("refuses a second sign-off: signer, signed_at and the outbox are unchanged", async () => {
       const visitId = await newVisit();
       await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
-      expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(doctor), visitId, randomUUID())).success).toBe(true);
 
       const { data: before } = await owner.client
         .from("visits")
@@ -256,7 +257,7 @@ describe("consultation service guards (01-01c)", () => {
         .eq("id", visitId)
         .single();
 
-      const second = await completeAndSignConsultation(ctxFor(owner), visitId);
+      const second = await completeAndSignConsultation(ctxFor(owner), visitId, randomUUID());
       expect(second.success).toBe(false);
 
       const { data: after } = await owner.client
@@ -278,12 +279,12 @@ describe("consultation service guards (01-01c)", () => {
     it("refuses to sign a visit reopened for amendment (signed_at still set)", async () => {
       const visitId = await newVisit();
       await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
-      expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(doctor), visitId, randomUUID())).success).toBe(true);
       expect(
-        (await reopenVisitForAmendment(ctxFor(doctor), visitId, "Synthetic amendment reason text")).success
+        (await reopenVisitForAmendment(ctxFor(doctor), visitId, "Synthetic amendment reason text", randomUUID())).success
       ).toBe(true);
 
-      const res = await completeAndSignConsultation(ctxFor(owner), visitId);
+      const res = await completeAndSignConsultation(ctxFor(owner), visitId, randomUUID());
       expect(res.success).toBe(false);
 
       const { data: visit } = await owner.client.from("visits").select("status, signed_by").eq("id", visitId).single();

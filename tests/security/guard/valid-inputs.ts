@@ -139,8 +139,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/consultation/actions.ts#recordFollowUp": {
     args: (a) => [{ visitId: a.visit, patientId: a.patient, doctorId: a.ownerUser, followUpDate: dateAhead(7), notes: "Synthetic note", ...acting(a) }],
   },
+  "features/consultation/actions.ts#finalizeVisitAmendment": { args: (a) => [a.reopenedVisit, randomUUID()] },
   "features/consultation/actions.ts#reopenVisitForAmendment": {
-    args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail"],
+    args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail", randomUUID()],
   },
   "features/consultation/actions.ts#saveConsultationDraft": {
     args: (a) => [{ ...consultationDraftInput({ visit_id: a.visit }), ...acting(a) }],
@@ -173,7 +174,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
-  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal"] },
+  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal", randomUUID()] },
   // The clinic acknowledges a referral it received (05-06: from the unrelated clinic S, not a self-referral).
   "features/referrals/actions.ts#acknowledgeReferral": { args: (a) => [a.inboundReferral] },
   "features/referrals/actions.ts#closeReferralLoop": {
