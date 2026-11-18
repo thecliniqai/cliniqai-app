@@ -3168,6 +3168,15 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      check_in_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_priority: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       claim_jobs: {
         Args: {
           p_batch: number;
@@ -3382,6 +3391,14 @@ export type Database = {
         };
         Returns: string;
       };
+      finalize_visit_amendment: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
         Returns: string;
@@ -3541,6 +3558,15 @@ export type Database = {
         Args: { p_membership_id: string; p_reason: string };
         Returns: Json;
       };
+      reopen_visit_for_amendment: {
+        Args: {
+          p_client_request_id: string;
+          p_reason: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
@@ -3611,6 +3637,14 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      sign_consultation: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       start_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: number;

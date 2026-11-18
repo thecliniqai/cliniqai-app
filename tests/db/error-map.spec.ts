@@ -70,6 +70,13 @@ describe("mapDbError: SQLSTATE table", () => {
     // V2-07 07-00 (000095): the idempotent command helpers.
     ["P0001 CLIENT_REQUEST_ID_REQUIRED (07-00)", { code: "P0001", message: "CLIENT_REQUEST_ID_REQUIRED" }, "VALIDATION_FAILED", "CLIENT_REQUEST_ID_REQUIRED"],
     ["P0001 COMMAND_NOT_CLAIMED (07-00, a programming fault)", { code: "P0001", message: "COMMAND_NOT_CLAIMED" }, "INTERNAL", "COMMAND_NOT_CLAIMED"],
+    // V2-07 07-01 (000097): the clinical commands.
+    ["P0001 ALREADY_SIGNED (07-01)", { code: "P0001", message: "ALREADY_SIGNED" }, "CONFLICT", "ALREADY_SIGNED"],
+    ["P0001 SIGN_CONTENT_REQUIRED (07-01)", { code: "P0001", message: "SIGN_CONTENT_REQUIRED" }, "PRECONDITION_FAILED", "SIGN_CONTENT_REQUIRED"],
+    ["P0001 VISIT_NOT_SIGNED (07-01)", { code: "P0001", message: "VISIT_NOT_SIGNED" }, "CONFLICT", "VISIT_NOT_SIGNED"],
+    ["P0001 AMENDMENT_NOT_OPEN (07-01)", { code: "P0001", message: "AMENDMENT_NOT_OPEN" }, "CONFLICT", "AMENDMENT_NOT_OPEN"],
+    ["P0001 AMENDMENT_REASON_INVALID (07-01)", { code: "P0001", message: "AMENDMENT_REASON_INVALID" }, "VALIDATION_FAILED", "AMENDMENT_REASON_INVALID"],
+    ["P0001 VISIT_NOT_CHECKABLE (07-01)", { code: "P0001", message: "VISIT_NOT_CHECKABLE" }, "CONFLICT", "VISIT_NOT_CHECKABLE"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

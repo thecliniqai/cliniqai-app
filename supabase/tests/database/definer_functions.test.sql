@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(79);
+select plan(87);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -181,6 +181,10 @@ insert into c2c_definer values
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.create_invoice', 'bound', 'p_tenant_id = active clinic; billing:collect, or consultations:edit on the visit''s own doctor; the visit is looked up in that clinic only (000096, 07-02, R-1)'),
   ('public.collect_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; the visit is looked up in that clinic only (000096, 07-02, R-7)'),
+  ('public.sign_consultation', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
+  ('public.reopen_visit_for_amendment', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
+  ('public.finalize_visit_amendment', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
+  ('public.check_in_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('private.command_claim', 'bound', 'user path: p_tenant_id = the active, full clinic; system path = service role + a system actor; idempotent command claim (000095, 07-00, R-2)'),
   ('private.command_complete', 'bound', 'completes only the claim the caller''s own transaction made (000095, 07-00, R-2)'),
@@ -249,6 +253,8 @@ insert into c2c_definer values
   ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
   ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)'),
   ('private.step_create_invoice', 'internal', 'step: the visit''s live invoice or a new one; called by create_invoice and collect_payment after their guard block, no API grant (000096, 07-02)'),
+  ('private.step_sign_consultation', 'internal', 'step: the sign-off body (visit, prescriptions, audit, outbox); called by sign_consultation after its guard block, no API grant (000097, 07-01)'),
+  ('private.step_check_in', 'internal', 'step: the check-in body (token, waiting status, audit); called by check_in_visit after its guard block, no API grant (000097, 07-01)'),
   ('private.step_record_payment', 'internal', 'step: the payment body shared by record_payment and collect_payment after their guard block, no API grant (000096, 07-02)'),
   ('private.tenants_create_default_location', 'internal', 'trigger: every new clinic gets its default location (000095, 07-00, R-5)'),
   ('private.fill_default_location', 'internal', 'trigger: visits, queue_tokens and invoices get the clinic''s default location when none is given (000095, 07-00, R-5)'),
@@ -318,6 +324,9 @@ select set_eq(
     'private.command_claim:authenticated,service_role', 'private.command_complete:authenticated,service_role',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',
+    'public.sign_consultation:authenticated', 'public.reopen_visit_for_amendment:authenticated',
+    'public.finalize_visit_amendment:authenticated', 'public.check_in_visit:authenticated',
+    'private.step_sign_consultation:', 'private.step_check_in:',
     'private.tenants_create_default_location:', 'private.fill_default_location:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
@@ -420,6 +429,14 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000
   'error:P0002:VISIT_NOT_FOUND', 'create_invoice: acting in A, naming clinic B, is not found (000096, 07-02)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.collect_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', '[]'::jsonb, 1, 'cash', '', '', 'c2c00000-0000-4000-8000-0000000c0012')$$),
   'error:P0002:VISIT_NOT_FOUND', 'collect_payment: acting in A, naming clinic B, is not found (000096, 07-02)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.sign_consultation('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0021')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'sign_consultation: acting in A, naming clinic B, is not found (000097, 07-01)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.reopen_visit_for_amendment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'Synthetic amendment reason', 'c2c00000-0000-4000-8000-0000000c0022')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'reopen_visit_for_amendment: acting in A, naming clinic B, is not found (000097, 07-01)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.finalize_visit_amendment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0023')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'finalize_visit_amendment: acting in A, naming clinic B, is not found (000097, 07-01)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.check_in_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'normal', 'c2c00000-0000-4000-8000-0000000c0024')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'check_in_visit: acting in A, naming clinic B, is not found (000097, 07-01)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
   'false', 'has_permission: acting in A, nothing in B');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
@@ -468,6 +485,8 @@ insert into c2c_access values
   ('private.command_claim', 'refuses'), ('private.command_complete', 'neutral'),
   ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
+  ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
+  ('public.finalize_visit_amendment', 'refuses'), ('public.check_in_visit', 'refuses'),
   ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
   -- 05-12 (IND L-5): the owner of a locked/onboarding clinic may still remove staff; everyone else is refused.
@@ -563,6 +582,14 @@ select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-00
   'error:P0002:VISIT_NOT_FOUND', 'locked B: create_invoice is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.collect_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', '[]'::jsonb, 1, 'cash', '', '', 'c2c00000-0000-4000-8000-0000000c0014')$$),
   'error:P0002:VISIT_NOT_FOUND', 'locked B: collect_payment is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.sign_consultation('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0031')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: sign_consultation is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.reopen_visit_for_amendment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'Synthetic amendment reason', 'c2c00000-0000-4000-8000-0000000c0032')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: reopen_visit_for_amendment is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.finalize_visit_amendment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0033')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: finalize_visit_amendment is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.check_in_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'normal', 'c2c00000-0000-4000-8000-0000000c0034')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: check_in_visit is refused');
 select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
   'false', 'locked B: has_permission is false');
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),

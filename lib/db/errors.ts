@@ -107,6 +107,15 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // claim this transaction did not make is a programming fault.
   CLIENT_REQUEST_ID_REQUIRED: "VALIDATION_FAILED",
   COMMAND_NOT_CLAIMED: "INTERNAL",
+  // V2-07 07-01 (migration 000097): the clinical commands. A second sign-off / an unsigned visit to amend / a visit that
+  // is not reopened / a visit that can no longer be queued conflict with the visit's state; a sign-off needs a diagnosis
+  // or a clinical note; the amendment reason is 10-500 characters.
+  ALREADY_SIGNED: "CONFLICT",
+  SIGN_CONTENT_REQUIRED: "PRECONDITION_FAILED",
+  VISIT_NOT_SIGNED: "CONFLICT",
+  AMENDMENT_NOT_OPEN: "CONFLICT",
+  AMENDMENT_REASON_INVALID: "VALIDATION_FAILED",
+  VISIT_NOT_CHECKABLE: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

@@ -1361,8 +1361,10 @@ function private.session_age_fresh_seconds() returns integer lang=sql security_d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
 function private.share_invoice_allowed(p_tenant uuid, p_invoice uuid) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=0d7decea17a88bcad93da79e0b7cea6b
+function private.step_check_in(p_tenant_id uuid, p_visit_id uuid, p_priority text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e52245274cac9ac074337fda50a09026
 function private.step_create_invoice(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3fb46cc5f9b0f670f4112eeb30f763d7
 function private.step_record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_notes text, p_command_id uuid, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6017701be758fe938bf6d5f0a466a9d7
+function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d07c15b50cbfd1733f709068a6033262
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
@@ -1376,6 +1378,7 @@ function public.ai_preflight(p_feature text, p_visit_id uuid) returns text lang=
 function public.ai_release(p_reservation uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=199e81dc685bba11e2f1b67e94851ac7
 function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=e2c219dfea379facf0f1091dceef692e
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=56513894c378b055578a75ff0c5cf811
+function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b3081a71c9178535feaf231fd3d66a78
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a989ea795a0a4f28ec1b54a5850537b9
 function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e1b92d76263ceb26ffd585604fb44bbb
 function public.collect_payment(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_amount numeric, p_method text, p_reference text, p_notes text, p_client_request_id uuid, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=00a7b2c1c7f05410926c6dff071815ea
@@ -1402,6 +1405,7 @@ function public.enqueue_unmatched_reply_system(p_system_actor text, p_to text, p
 function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e2e07e8a190c641bad7ff81ee18db4fd
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
+function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=159933cb65308fe8e11dbbfefb45abe4
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=e9664f3ad32e0f637f11878c0c0d3a22
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=ef59d2e5f5d66d16af6acd6bd1d2d539
@@ -1436,6 +1440,7 @@ function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, nam
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=a433c27c9b1bd65985e013540a174237
+function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a8b1e298abf96383e762452615a6be4d
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.resend_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7a640654f8320e8d78f49d73d52cd671
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=8218bd99a29a3a267eb8bdd527a52b16
@@ -1450,6 +1455,7 @@ function public.share_token_hash(p_token text) returns text lang=sql security_de
 function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=cc84a93d00d4693405f611c8d810b0ef
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
+function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4eed1a88e61a312483d66ddd40a238d9
 function public.start_job(p_id uuid, p_lease_token uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=643c9082f0a2c4993b6a14af853fcffe
 function public.tenant_access_for_system(p_tenant uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=21b8e3014c3091e4804cf3c71e11f875
 function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) returns date lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=37da67f026e0f7eb758481de0c10f21a
@@ -1540,6 +1546,7 @@ grant function public.ai_release(p_reservation uuid) EXECUTE to service_role
 grant function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to service_role
+grant function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
 grant function public.clinical_notes_guard() EXECUTE to service_role
 grant function public.collect_payment(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_amount numeric, p_method text, p_reference text, p_notes text, p_client_request_id uuid, p_discount numeric, p_tax numeric) EXECUTE to authenticated
@@ -1571,6 +1578,7 @@ grant function public.enqueue_unmatched_reply_system(p_system_actor text, p_to t
 grant function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) EXECUTE to authenticated
 grant function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) EXECUTE to service_role
 grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
+grant function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to authenticated
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to service_role
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to anon
@@ -1620,6 +1628,7 @@ grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authentic
 grant function public.referrals_target_update_guard() EXECUTE to service_role
 grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.remove_member(p_membership_id uuid, p_reason text) EXECUTE to authenticated
+grant function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.reschedule_token_visit(p_token text) EXECUTE to service_role
 grant function public.resend_invitation(p_invitation_id uuid) EXECUTE to authenticated
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to anon
@@ -1639,6 +1648,7 @@ grant function public.share_token_hash(p_token text) EXECUTE to service_role
 grant function public.share_token_object(p_token text, p_kinds text[]) EXECUTE to service_role
 grant function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) EXECUTE to service_role
 grant function public.share_type_roles(p_type text) EXECUTE to service_role
+grant function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.start_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.tenant_access_for_system(p_tenant uuid) EXECUTE to service_role
 grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to authenticated

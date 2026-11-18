@@ -63,6 +63,8 @@
  *          helpers: 3 dual-member and 1 locked leg) + clinic_locations 38 = 8036 (48 files, every one required).
  *   8040 — V2-07 07-02 (000096 billing_commands): 8036 + definer_functions 4 (create_invoice and collect_payment: 1 acting-in-A
  *          and 1 locked-clinic leg each) = 8040 (48 files).
+ *   8048 — V2-07 07-01 (000097 clinical_commands): 8040 + definer_functions 8 (sign_consultation, reopen_visit_for_amendment,
+ *          finalize_visit_amendment and check_in_visit: 1 acting-in-A and 1 locked-clinic leg each) = 8048 (48 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -74,7 +76,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8040;
+export const FLOOR = 8048;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
