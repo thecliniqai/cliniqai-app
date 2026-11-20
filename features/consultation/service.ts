@@ -683,11 +683,16 @@ export const CLINICAL_COMMAND_MESSAGES = {
   IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
   ALREADY_SIGNED: "This consultation is already signed.",
   SIGN_CONTENT_REQUIRED: "Cannot sign off consultation without recording at least one diagnosis or clinical note.",
+  VISIT_NOT_SIGNABLE: "Check the patient in before signing this consultation.",
   VISIT_NOT_SIGNED: "Only signed, completed consultations can be reopened for amendment.",
   AMENDMENT_NOT_OPEN: "This consultation is not open for amendment.",
   AMENDMENT_REASON_INVALID:
     "A valid reason for amendment of at least 10 characters is required for medical audit compliance.",
 } as const satisfies DbErrorMessages;
+
+/** The amendment reason is 10 to 500 characters (the audit row holds it, whose values are bounded at 500; V2-07 07-04a F-11). */
+export const AMENDMENT_REASON_TOO_SHORT_MESSAGE = CLINICAL_COMMAND_MESSAGES.AMENDMENT_REASON_INVALID;
+export const AMENDMENT_REASON_TOO_LONG_MESSAGE = "The reason for amendment must be 500 characters or fewer.";
 
 const signRpcResultSchema = z.object({
   visit_id: z.string().uuid(),
@@ -702,10 +707,10 @@ const reopenRpcResultSchema = z.object({
   replayed: z.boolean(),
 });
 
+// No free text in a stored command result (V2-07 07-04a F-5): the amendment reason stays in `visit_revisions`.
 const finalizeRpcResultSchema = z.object({
   visit_id: z.string().uuid(),
   version: z.number().int(),
-  amendment_reason: z.string(),
   replayed: z.boolean(),
 });
 
@@ -745,9 +750,9 @@ export async function completeAndSignConsultation(
   );
   if (!outcome.ok) return commandFailure(outcome.error);
 
-  if (!outcome.value.replayed) {
-    await archiveInitialPrescriptionPdf(ctx, visitId);
-  }
+  // After the commit (R-4). A replay means the first call's response may have been lost after the commit, so the archive is
+  // rendered then too when it is missing (V2-07 07-04a F-7).
+  await archiveInitialPrescriptionPdf(ctx, visitId, outcome.value.replayed ? { onlyIfMissing: true } : {});
 
   return { success: true, visitId, replayed: outcome.value.replayed };
 }
@@ -757,8 +762,13 @@ export async function completeAndSignConsultation(
  * call inside a transaction), best-effort: the record is already signed whatever happens here. Shared by the sign-off
  * and by Sign & Bill (`complete_and_bill`, V2-07 07-03).
  */
-export async function archiveInitialPrescriptionPdf(ctx: ServiceContext, visitId: string): Promise<void> {
+export async function archiveInitialPrescriptionPdf(
+  ctx: ServiceContext,
+  visitId: string,
+  options: { onlyIfMissing?: boolean } = {}
+): Promise<void> {
   try {
+    if (options.onlyIfMissing && (await prescriptionPdfArchived(ctx, visitId, 1))) return;
     const payload = await buildVisitPdfPayload(ctx, visitId, 1);
     if (payload) {
       await generateAndArchivePrescriptionPdf(ctx, payload);
@@ -766,6 +776,26 @@ export async function archiveInitialPrescriptionPdf(ctx: ServiceContext, visitId
   } catch (pdfErr) {
     log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
+}
+
+/**
+ * True when the visit's latest prescription already records the archive of `version` (`pdf_storage_path` ends with
+ * `rx_v<version>.pdf`, written by `generateAndArchivePrescriptionPdf` after the upload). A visit with no prescription row
+ * has nothing to record the archive on, so it counts as not archived (the render is harmless: the upload overwrites).
+ * Also true when the latest prescription is of another version: the command this replay belongs to has been superseded.
+ */
+async function prescriptionPdfArchived(ctx: ServiceContext, visitId: string, version: number): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (ctx.db.from("prescriptions") as any)
+    .select("version, pdf_storage_path")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return false;
+  if (Number(data.version) !== version) return true;
+  return typeof data.pdf_storage_path === "string" && data.pdf_storage_path.endsWith(`/rx_v${version}.pdf`);
 }
 
 export type ReopenVisitForAmendmentResult =
@@ -791,7 +821,10 @@ export async function reopenVisitForAmendment(
 
   const cleanReason = (reason || "").trim();
   if (cleanReason.length < 10) {
-    return { success: false, error: CLINICAL_COMMAND_MESSAGES.AMENDMENT_REASON_INVALID, code: "VALIDATION_FAILED", reason: "AMENDMENT_REASON_INVALID" };
+    return { success: false, error: AMENDMENT_REASON_TOO_SHORT_MESSAGE, code: "VALIDATION_FAILED", reason: "AMENDMENT_REASON_INVALID" };
+  }
+  if (cleanReason.length > 500) {
+    return { success: false, error: AMENDMENT_REASON_TOO_LONG_MESSAGE, code: "VALIDATION_FAILED", reason: "AMENDMENT_REASON_INVALID" };
   }
   const ids = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
   if (!ids.success) {
@@ -847,18 +880,34 @@ export async function finalizeVisitAmendment(
   );
   if (!outcome.ok) return commandFailure(outcome.error);
 
-  const { version, amendment_reason: amendmentReason, replayed } = outcome.value;
-  if (!replayed) {
-    // Regenerate and archive the stamped amended PDF (v2, v3), after the commit.
-    try {
+  const { version, replayed } = outcome.value;
+  // Regenerate and archive the stamped amended PDF (v2, v3), after the commit. A replay means the first call's response may
+  // have been lost after the commit: the PDF is rendered then too when that version is not archived yet (F-7).
+  try {
+    if (!replayed || !(await prescriptionPdfArchived(ctx, visitId, version))) {
+      // The reason is read back from the amendment row (the stored command result holds no free text, F-5).
+      const amendmentReason = await latestAmendmentReason(ctx, visitId);
       const payload = await buildVisitPdfPayload(ctx, visitId, version, amendmentReason);
       if (payload) {
         await generateAndArchivePrescriptionPdf(ctx, payload);
       }
-    } catch (pdfErr) {
-      log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
+  } catch (pdfErr) {
+    log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
 
   return { success: true, visitId, version, replayed };
+}
+
+/** The reason of the visit's latest amendment row (the reopen wrote it; the finalize stamps it on the amended PDF). */
+async function latestAmendmentReason(ctx: ServiceContext, visitId: string): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (ctx.db.from("visit_revisions") as any)
+    .select("amendment_reason")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .order("revision_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return typeof data?.amendment_reason === "string" ? data.amendment_reason : null;
 }

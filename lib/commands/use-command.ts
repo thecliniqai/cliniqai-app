@@ -14,6 +14,13 @@ import { onAppErrorCode } from "@/lib/pwa/lock";
  * already used for a different request (`IDEMPOTENCY_MISMATCH`), or when the form calls {@link CommandRunner.reset}
  * (the user changed the inputs after an error, so the next submit is a new request).
  *
+ * Unknown outcome (V2-07 07-04a F-13): after a failure that does not say whether the command committed (a thrown
+ * network error or timeout, `DEPENDENCY_FAILED`, `INTERNAL`) the runner is `unresolved`. While it is, `reset()` does NOT
+ * issue a new id: editing the form must not turn a possibly committed payment into a second, different one. The id is
+ * released only by {@link CommandRunner.settle} (the form has reloaded the state and knows what happened) or
+ * {@link CommandRunner.startOver} (the user explicitly abandons the submit), or when a retry succeeds or the server says
+ * the id was used for another request.
+ *
  * While a call is in flight it is registered with the dirty guard (`registerBusy`, PWA §3.7: the app never reloads
  * itself over a running command). A failed `Result` is passed to `onAppErrorCode` (a locked clinic triggers the status
  * check; an expired session signs out). A second `run` while one is in flight returns the first call's promise, so a
@@ -52,15 +59,37 @@ export interface CommandRunner {
    * wrapper) and must send the id it is given.
    */
   run<T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>>;
-  /** Starts a new logical submit: the next `run` uses a fresh id (call it when the user edits the inputs after an error). */
+  /**
+   * Starts a new logical submit: the next `run` uses a fresh id (call it when the user edits the inputs after an error).
+   * A no-op while an attempt is in flight or while the outcome of the last attempt is unknown ({@link unresolved}).
+   */
   reset(): void;
+  /** The form has reloaded the server state after an unknown outcome: `reset()` may issue a new id again. The id is kept until then. */
+  settle(): void;
+  /** Explicitly abandons the current submit, whatever its outcome: the next `run` uses a fresh id. No-op while in flight. */
+  startOver(): void;
+  /** True after a failure whose outcome is unknown (see above) until `settle()`, `startOver()` or a success. */
+  readonly unresolved: boolean;
   /** The id the next attempt will send, if a submit is open (after an error); null when the next `run` starts fresh. */
   currentId(): string | null;
   readonly inFlight: boolean;
 }
 
+/** Failure codes that do not say whether the command committed: the response may have been lost after the commit. */
+const OUTCOME_UNKNOWN_CODES: readonly string[] = ["DEPENDENCY_FAILED", "INTERNAL"];
+
+/** The text a form shows when the user changes a submit whose last attempt may have been saved (offers "Start over"). */
+export const OUTCOME_UNKNOWN_MESSAGE =
+  "The last attempt may have been saved. Check before adding it again, or choose Start over to enter it afresh.";
+
+/** True for a failure code that does not say whether the command committed (a form reloads its state before it asks again). */
+export function isOutcomeUnknownCode(code: string): boolean {
+  return OUTCOME_UNKNOWN_CODES.includes(code);
+}
+
 export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): CommandRunner {
   let id: string | null = null;
+  let unresolved = false;
   let pending: Promise<Result<unknown>> | null = null;
 
   const attempt = async <T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>> => {
@@ -76,10 +105,19 @@ export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): Comm
       }
       if (result.ok) {
         id = null;
+        unresolved = false;
       } else {
         deps.onAppErrorCode(result.error.code);
         // The id belongs to another request: retrying it can never succeed, so the next submit is a new one.
-        if (result.error.code === "IDEMPOTENCY_MISMATCH" && id === sent) id = null;
+        if (result.error.code === "IDEMPOTENCY_MISMATCH" && id === sent) {
+          id = null;
+          unresolved = false;
+        } else if (isOutcomeUnknownCode(result.error.code)) {
+          unresolved = true;
+        } else {
+          // A refusal that is known to have rolled back (validation, conflict, forbidden): nothing may be committed.
+          unresolved = false;
+        }
       }
       return result;
     } finally {
@@ -97,7 +135,19 @@ export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): Comm
       return p;
     },
     reset() {
-      if (!pending) id = null;
+      if (!pending && !unresolved) id = null;
+    },
+    settle() {
+      unresolved = false;
+    },
+    startOver() {
+      if (!pending) {
+        id = null;
+        unresolved = false;
+      }
+    },
+    get unresolved() {
+      return unresolved;
     },
     currentId: () => id,
     get inFlight() {
@@ -109,6 +159,12 @@ export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): Comm
 export interface UseCommand {
   run<T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>>;
   reset(): void;
+  /** See {@link CommandRunner.settle}: the form reloaded the state after an unknown outcome. */
+  settle(): void;
+  /** See {@link CommandRunner.startOver}: the user explicitly abandons the submit (the form clears its error too). */
+  startOver(): void;
+  /** True after a failure whose outcome is unknown, until `settle()`, `startOver()` or a success (see {@link CommandRunner}). */
+  unresolved: boolean;
   /** True while a call is in flight (disable the submit button). */
   pending: boolean;
   /** The last failure of the current submit, cleared by the next attempt, a success or `reset()`. */
@@ -122,6 +178,7 @@ export function useCommand(): UseCommand {
   const mounted = useRef(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
+  const [unresolved, setUnresolved] = useState(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -136,17 +193,33 @@ export function useCommand(): UseCommand {
     setError(null);
     try {
       const result = await r.run(call);
-      if (mounted.current) setError(result.ok ? null : result.error);
+      if (mounted.current) {
+        setError(result.ok ? null : result.error);
+        setUnresolved(r.unresolved);
+      }
       return result;
     } finally {
       if (mounted.current) setPending(false);
     }
   }, []);
 
+  // An edit after an unknown outcome keeps the id (and the error text: the user still has to find out what happened).
   const reset = useCallback(() => {
-    runner.current?.reset();
+    const r = runner.current;
+    r?.reset();
+    if (!r?.unresolved) setError(null);
+  }, []);
+
+  const settle = useCallback(() => {
+    runner.current?.settle();
+    setUnresolved(false);
+  }, []);
+
+  const startOver = useCallback(() => {
+    runner.current?.startOver();
+    setUnresolved(runner.current?.unresolved ?? false);
     setError(null);
   }, []);
 
-  return { run, reset, pending, error };
+  return { run, reset, settle, startOver, unresolved, pending, error };
 }

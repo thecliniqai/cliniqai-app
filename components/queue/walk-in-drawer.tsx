@@ -8,7 +8,7 @@ import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { searchPatients } from "@/features/patients/actions";
 import { enqueueWalkIn } from "@/features/queue/actions";
-import { useCommand } from "@/lib/commands/use-command";
+import { OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
@@ -39,12 +39,28 @@ export function WalkInDrawer({
 
   // One client_request_id per logical submit (V2-07 07-03): the walk-in (patient, visit, token) is one command, and a
   // retry after an error re-sends the same id so a committed registration replays instead of running twice.
-  const { run: runCommand, reset: resetCommand } = useCommand();
+  const { run: runCommand, reset: resetCommand, startOver: startOverCommand, unresolved } = useCommand();
   const lastSubmit = useRef<string | null>(null);
-  /** A submit whose inputs differ from the failed one before it is a new request, not a retry. */
-  const startSubmit = (fingerprint: string) => {
-    if (lastSubmit.current !== fingerprint) resetCommand();
+  /**
+   * A submit whose inputs differ from the failed one before it is a new request, not a retry, with one exception: after a
+   * failure whose outcome is unknown (network, timeout) the patient may already be registered, so the id is kept and a
+   * changed submit is refused until the user explicitly starts over (V2-07 07-04a F-13). Returns false when refused.
+   */
+  const startSubmit = (fingerprint: string): boolean => {
+    if (lastSubmit.current !== fingerprint) {
+      if (unresolved) {
+        setError(OUTCOME_UNKNOWN_MESSAGE);
+        return false;
+      }
+      resetCommand();
+    }
     lastSubmit.current = fingerprint;
+    return true;
+  };
+  const handleStartOver = () => {
+    startOverCommand();
+    lastSubmit.current = null;
+    setError(null);
   };
 
   // Search state
@@ -124,7 +140,10 @@ export function WalkInDrawer({
       const selectedDoc = doctors.find((d) => d.id === doctorId);
       const durationMins = selectedDoc?.default_slot_duration_minutes || 15;
       const reasonForVisit = reason || "Walk-In Consultation";
-      startSubmit(JSON.stringify(["existing", patient.id, doctorId, reasonForVisit]));
+      if (!startSubmit(JSON.stringify(["existing", patient.id, doctorId, reasonForVisit]))) {
+        setLoading(false);
+        return;
+      }
 
       // One command: the walk-in visit and its queue token, together or not at all.
       const res = await runCommand((clientRequestId) =>
@@ -175,7 +194,10 @@ export function WalkInDrawer({
         date_of_birth: newPatient.date_of_birth || null,
         abha_id: null,
       };
-      startSubmit(JSON.stringify(["new", patientFields, doctorId, reasonForVisit]));
+      if (!startSubmit(JSON.stringify(["new", patientFields, doctorId, reasonForVisit]))) {
+        setLoading(false);
+        return;
+      }
 
       // One command: the patient, the walk-in visit and the queue token, together or not at all. A failure leaves no
       // orphan patient behind, so the retry cannot register the same person twice.
@@ -308,6 +330,11 @@ export function WalkInDrawer({
           {error && (
             <div className="p-3.5 mb-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
               <span className="font-semibold">{error}</span>
+              {unresolved && (
+                <Button type="button" variant="secondary" size="sm" onClick={handleStartOver} className="ms-auto shrink-0">
+                  Start over
+                </Button>
+              )}
             </div>
           )}
 

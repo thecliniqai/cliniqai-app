@@ -408,6 +408,10 @@ export const BOOKING_COMMAND_MESSAGES = {
   INTERNAL: "Failed to book appointment.",
 } as const satisfies DbErrorMessages;
 
+/** Fixed text when the booking message template is not configured for this clinic (a fault of ours, not of the form; G-5). */
+export const BOOKING_MESSAGE_CONFIG_MESSAGE =
+  "The appointment could not be booked because the booking message is not set up. Contact support.";
+
 const registerAndBookRpcResultSchema = z.object({
   patient_id: z.string().uuid(),
   patient_created: z.boolean(),
@@ -490,7 +494,21 @@ export async function registerAndBook(
     BOOKING_COMMAND_MESSAGES,
     { event: "visits.register_and_book.failed" }
   );
-  if (!outcome.ok) return outcome;
+  if (!outcome.ok) {
+    // The booking message's template is not request-callable (ops.message_templates): a configuration fault, not an input
+    // problem ("check the details" would send the user in circles). The booking rolled back; the fault is logged by tag
+    // only (V2-07 07-04a G-5).
+    if (outcome.error.reason === "TEMPLATE_NOT_ALLOWED") {
+      log.error({
+        event: "visits.register_and_book.template_not_allowed",
+        code: "TEMPLATE_NOT_ALLOWED",
+        requestId: await getRequestId(),
+        tenantId: ctx.tenantId,
+      });
+      return { ok: false, error: appError("INTERNAL", { message: BOOKING_MESSAGE_CONFIG_MESSAGE, reason: "TEMPLATE_NOT_ALLOWED" }) };
+    }
+    return outcome;
+  }
   const v = outcome.value;
   return {
     ok: true,

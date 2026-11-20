@@ -6,7 +6,7 @@ import { recordAudit } from "@/lib/audit/audit";
 import type { ServiceContext } from "@/lib/auth/context";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
+import { uploadFile, downloadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -283,6 +283,23 @@ export async function compileAndArchiveReceiptPdf(
   const payload = await compileReceiptPayload(invoiceIdOrVisitId, ctx.db, ctx.tenantId);
   if (!payload) return null;
   return generateAndArchiveReceiptPdf(ctx, payload);
+}
+
+/**
+ * True when the receipt of the invoice is already in storage (V2-07 07-04a F-7: a replayed Sign & Bill renders the receipt
+ * only when the first call's post-commit step never got there). The path is the deterministic one `renderAndArchiveReceipt`
+ * writes; any read failure counts as missing, so the receipt is rendered again (the upload overwrites).
+ */
+export async function receiptArchived(ctx: ServiceContext, invoiceId: string): Promise<boolean> {
+  try {
+    await downloadFile(
+      { path: `${ctx.tenantId}/receipts/inv_${invoiceId}.pdf`, bucket: "prescriptions" },
+      getStorageProviderForDb(ctx.db, "prescriptions")
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

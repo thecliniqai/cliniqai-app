@@ -15,8 +15,17 @@ export interface AmendmentModalProps {
   onSuccess?: () => void;
 }
 
-export function AmendmentModal({
-  isOpen,
+/**
+ * The dialog's form exists only while it is open: closing unmounts it, so opening it again starts with an empty reason,
+ * no error and a fresh command runner (a new `client_request_id`). That replaces the old reset during render, which ran a
+ * side effect (`reopen.reset()`, a state update in the hook) while rendering (V2-07 07-04a F-12).
+ */
+export function AmendmentModal(props: AmendmentModalProps) {
+  if (!props.isOpen) return null;
+  return <AmendmentForm {...props} />;
+}
+
+function AmendmentForm({
   onClose,
   visitId,
   completedDate = "recently",
@@ -29,23 +38,8 @@ export function AmendmentModal({
   // One client_request_id per amendment submit: a retry after an error re-sends it (the server replays or runs fresh).
   const reopen = useCommand();
 
-  // Reset form state on open, during render rather than in an effect (same trigger; React Compiler
-  // `set-state-in-effect`, V2-06 06-08).
-  const [resetFor, setResetFor] = useState<boolean | null>(null);
-  if (resetFor !== isOpen) {
-    setResetFor(isOpen);
-    if (isOpen) {
-      setReason("");
-      setError(null);
-      reopen.reset();
-      setSubmitting(false);
-    }
-  }
-
   // Keyboard navigation: Escape key closes modal
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !submitting) {
         onClose();
@@ -59,9 +53,7 @@ export function AmendmentModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose, submitting]);
-
-  if (!isOpen) return null;
+  }, [onClose, submitting]);
 
   const isReasonValid = reason.trim().length >= 10;
   const nextVersion = currentVersion + 1;

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useTransition } from "react";
 import { QueueItem } from "./queue-card";
 import {
-  createVisitInvoice,
+  createInvoice,
   collectPayment,
   getVisitBillingDetails,
   addInvoiceItem,
@@ -34,8 +34,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
-import { useCommand } from "@/lib/commands/use-command";
-import { appError } from "@/lib/errors/app-error";
+import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
+import { invoiceItemFieldErrors } from "@/features/billing/schema";
 
 interface CheckoutDrawerProps {
   isOpen: boolean;
@@ -86,8 +86,10 @@ export function CheckoutDrawer({
   const [paymentNotes, setPaymentNotes] = useState("");
   // One client_request_id per checkout submit (V2-07 R-10): created on the first attempt, resent when that attempt is
   // retried after an error (a lost response replays the recorded checkout instead of paying twice), rotated once it
-  // succeeds, reset when the drawer opens again or the user changes what is being collected.
-  const { run: runCommand, reset: resetCommand } = useCommand();
+  // succeeds, reset when the drawer opens again or the user changes what is being collected. After a failure whose
+  // outcome is unknown (network, timeout, INTERNAL) the id is kept and changing the form does not rotate it until the
+  // billing details have been reloaded (V2-07 07-04a F-13): a committed-but-lost payment must not become a second one.
+  const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -101,7 +103,7 @@ export function CheckoutDrawer({
   // Load existing billing details whenever drawer opens
   useEffect(() => {
     if (isOpen && visit?.id) {
-      resetCommand();
+      startOverCommand();
       setError(null);
       setSuccessNotice(null);
       setWhatsAppStatus(null);
@@ -128,7 +130,7 @@ export function CheckoutDrawer({
           setLoadingBilling(false);
         });
     }
-  }, [isOpen, visit?.id, defaultFee, resetCommand]);
+  }, [isOpen, visit?.id, defaultFee, startOverCommand]);
 
   // A changed bill or payment after an error is a new request, not a retry of the failed one.
   useEffect(() => {
@@ -158,6 +160,13 @@ export function CheckoutDrawer({
   }, [invoice, draftNetPayable]);
 
   if (!isOpen || !visit || !patient) return null;
+
+  // Field errors of the custom charge, shown only for what the user has typed (an untouched row is not an error).
+  const chargeFieldErrors = invoiceItemFieldErrors({ description: procedureDescription, unit_price: procedureFee, quantity: 1 });
+  const chargeErrors = {
+    description: procedureDescription !== "" ? chargeFieldErrors.description : undefined,
+    unit_price: procedureFee !== "" ? chargeFieldErrors.unit_price : undefined,
+  };
 
   // Handler for adding charge item
   const handleAddProcedure = async (desc?: string, fee?: number) => {
@@ -235,6 +244,29 @@ export function CheckoutDrawer({
     }
   };
 
+  // After a failure whose outcome is unknown the command may have committed: reload what the server holds, show it, and only
+  // then let the form issue a new request id (V2-07 07-04a F-13). If the reload itself fails, the id stays and the
+  // message tells the user to check before collecting again.
+  const reloadAfterUnknownOutcome = async (): Promise<void> => {
+    try {
+      const updated = await getVisitBillingDetails(visit.id);
+      setBillingData(updated);
+      if (updated.success && updated.invoice) {
+        setAmountToPay(updated.balanceDue);
+        if (updated.balanceDue === 0 && updated.invoice.status === "paid") {
+          setIsCompleted(true);
+          setError(null);
+          setSuccessNotice("This payment was recorded before the connection was lost. Nothing more to collect.");
+          onSuccess();
+        }
+      }
+      settleCommand();
+    } catch (err: unknown) {
+      reportClientError("billing.visit_billing_reload.failed", err);
+      setError("Could not confirm whether the payment was saved. Close this screen and open it again to check before collecting again.");
+    }
+  };
+
   // Handler for checkout and collecting payment
   const handleCheckoutAndPay = (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,25 +311,25 @@ export function CheckoutDrawer({
           );
           if (!res.ok) {
             setError(res.error.message || "Failed to record payment.");
+            if (isOutcomeUnknownCode(res.error.code)) await reloadAfterUnknownOutcome();
             return;
           }
         } else if (!invoice) {
-          // Nothing to collect (a fully discounted bill): the invoice alone, still one command.
-          const res = await runCommand(async (clientRequestId) => {
-            const created = await createVisitInvoice({
+          // Nothing to collect (a fully discounted bill): the invoice alone, still one command with its real error codes
+          // (a locked clinic, a signed-out session or an id mismatch reach the hook, V2-07 07-04a F-10).
+          const res = await runCommand((clientRequestId) =>
+            createInvoice({
               visit_id: visit.id,
               patient_id: patient.id,
               items: itemsPayload,
               discount,
               tax: 0,
               client_request_id: clientRequestId,
-            });
-            return created.success
-              ? { ok: true as const, value: created.invoice.id }
-              : { ok: false as const, error: appError("CONFLICT", { message: created.error }) };
-          });
+            })
+          );
           if (!res.ok) {
             setError(res.error.message || "Failed to generate invoice.");
+            if (isOutcomeUnknownCode(res.error.code)) await reloadAfterUnknownOutcome();
             return;
           }
         }
@@ -764,8 +796,11 @@ export function CheckoutDrawer({
                     <div className="col-span-7">
                       <Input
                         placeholder="Custom procedure or service"
+                        aria-label="Custom procedure or service"
                         value={procedureDescription}
                         onChange={(e) => setProcedureDescription(e.target.value)}
+                        invalid={Boolean(chargeErrors.description)}
+                        aria-describedby={chargeErrors.description ? "custom-charge-description-error" : undefined}
                         className="text-xs rounded-xl"
                       />
                     </div>
@@ -775,11 +810,14 @@ export function CheckoutDrawer({
                         <Input
                           type="number"
                           placeholder="Fee"
+                          aria-label="Fee"
                           min="0"
                           value={procedureFee}
                           onChange={(e) =>
                             setProcedureFee(e.target.value === "" ? "" : Number(e.target.value))
                           }
+                          invalid={Boolean(chargeErrors.unit_price)}
+                          aria-describedby={chargeErrors.unit_price ? "custom-charge-fee-error" : undefined}
                           className="ps-6 text-xs rounded-xl"
                         />
                       </div>
@@ -793,13 +831,25 @@ export function CheckoutDrawer({
                           isAddingItem ||
                           !procedureDescription.trim() ||
                           typeof procedureFee !== "number" ||
-                          procedureFee <= 0
+                          procedureFee <= 0 ||
+                          Boolean(chargeErrors.description || chargeErrors.unit_price)
                         }
                         className="w-full text-xs font-semibold h-10 rounded-xl border-gray-300 hover:bg-gray-100 cursor-pointer"
                       >
                         Add
                       </Button>
                     </div>
+                    {/* Field-level errors of the custom charge (the bounds the database enforces, V2-07 07-04a F-8) */}
+                    {chargeErrors.description && (
+                      <p id="custom-charge-description-error" role="alert" className="col-span-12 text-label text-danger-fg">
+                        {chargeErrors.description}
+                      </p>
+                    )}
+                    {chargeErrors.unit_price && (
+                      <p id="custom-charge-fee-error" role="alert" className="col-span-12 text-label text-danger-fg">
+                        {chargeErrors.unit_price}
+                      </p>
+                    )}
                   </div>
                 </div>
 

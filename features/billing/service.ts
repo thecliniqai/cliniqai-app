@@ -27,6 +27,7 @@ import type { InteractiveButton } from "@/lib/messaging/types";
 import {
   compileAndArchiveReceiptPdf,
   generateAndArchiveReceiptPdf,
+  receiptArchived,
 } from "./pdf/generator";
 import { callCommand } from "@/lib/commands/call-command";
 import { errorTag, log } from "@/lib/log";
@@ -107,11 +108,22 @@ async function invoiceWithItems(
   return { invoice: invoice as Invoice, items: (items || []) as InvoiceItem[] };
 }
 
+/** One fixed text per invoice-item reason of `private.invoice_items_normalize` (000099, F-8), shared by the billing commands. */
+const INVOICE_ITEM_REASON_MESSAGES = {
+  ITEM_COUNT_INVALID: "An invoice needs between 1 and 50 items.",
+  ITEM_DESCRIPTION_INVALID: "Each item needs a description of 1 to 200 characters without control characters.",
+  ITEM_PRICE_INVALID: "Each item price must be between ₹0 and ₹10,00,000.",
+  ITEM_QUANTITY_INVALID: "Each item quantity must be a whole number from 1 to 99.",
+  INVOICE_TOTAL_INVALID: "The bill total is too large.",
+} as const;
+
 /** Fixed, data-free texts by reason or code for `create_invoice` and `collect_payment` (V2-07 07-02). The driver message never reaches the caller. */
 export const INVOICE_COMMAND_MESSAGES = {
   NOT_FOUND: "Visit not found or access denied.",
   FORBIDDEN: BILLING_COLLECT_FORBIDDEN_MESSAGE,
   VALIDATION_FAILED: "Validation failed for invoice items.",
+  // One text per cause (V2-07 07-04a F-8; the database raises one reason per cause).
+  ...INVOICE_ITEM_REASON_MESSAGES,
   AMOUNT_INVALID: "Payment amount must be greater than zero.",
   METHOD_INVALID: "Invalid payment details.",
   OVERPAYMENT: "The amount is more than the balance due on this invoice.",
@@ -145,16 +157,28 @@ export interface CollectPaymentValue {
   replayed: boolean;
 }
 
+/** What `create_invoice` returns to the checkout (V2-07 07-04a F-10). */
+export interface CreateInvoiceValue {
+  invoiceId: string;
+  invoiceNumber: string;
+  status: "draft" | "issued" | "paid" | "cancelled";
+  totalAmount: number;
+  /** True when the visit already had a live invoice (AR3-N2): that invoice is returned and nothing was created. */
+  existing: boolean;
+  /** True when this client_request_id was already created: nothing new was written. */
+  replayed: boolean;
+}
+
 /**
  * Creates the visit's invoice as one atomic command (V2-07 07-02): `public.create_invoice` locks the visit, takes the
  * number from `generate_tenant_invoice_number` (no fallback: a failure fails the command), inserts the invoice and its
  * items and writes the `invoice.create` audit row in one transaction. A visit that already has a live invoice gets it
  * back (`existing: true`, nothing written, AR3-N2).
+ *
+ * Returns a `Result` with the real `AppError` code and reason (V2-07 07-04a F-10), as `collectPayment` does: the client's
+ * `useCommand` needs the code (a locked clinic, a signed-out session, an id mismatch) and the reason.
  */
-export async function createVisitInvoice(
-  ctx: ServiceContext,
-  input: CreateInvoiceInput
-): Promise<CreateInvoiceResult> {
+export async function createInvoice(ctx: ServiceContext, input: CreateInvoiceInput): Promise<Result<CreateInvoiceValue>> {
   const parseResult = createInvoiceSchema.safeParse(input);
   if (!parseResult.success) {
     const fieldErrors: Record<string, string[]> = {};
@@ -164,9 +188,8 @@ export async function createVisitInvoice(
       fieldErrors[field].push(issue.message);
     }
     return {
-      success: false,
-      error: "Validation failed for invoice items.",
-      fieldErrors,
+      ok: false,
+      error: appError("VALIDATION_FAILED", { message: "Validation failed for invoice items.", fieldErrors }),
     };
   }
 
@@ -175,12 +198,12 @@ export async function createVisitInvoice(
 
     // PO-3: a collector, or the visit's own doctor (Sign & Bill). Checked before any write; the command repeats it.
     if (!(await mayInvoiceVisit(ctx, data.visit_id))) {
-      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+      return { ok: false, error: appError("FORBIDDEN", { message: BILLING_COLLECT_FORBIDDEN_MESSAGE }) };
     }
 
     // The visit must be this clinic's visit of the invoiced patient (P0-13: the FKs and RLS do not check this).
     if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
-      return { success: false, error: "Visit not found or access denied." };
+      return { ok: false, error: appError("NOT_FOUND", { message: INVOICE_COMMAND_MESSAGES.NOT_FOUND }) };
     }
 
     const outcome = await callCommand(
@@ -197,15 +220,53 @@ export async function createVisitInvoice(
       INVOICE_COMMAND_MESSAGES,
       { event: "billing.invoice_create.failed" }
     );
-    if (!outcome.ok) return { success: false, error: outcome.error.message };
+    if (!outcome.ok) return outcome;
+    const v = outcome.value;
+    return {
+      ok: true,
+      value: {
+        invoiceId: v.invoice_id,
+        invoiceNumber: v.invoice_number,
+        status: v.status,
+        totalAmount: v.total_amount,
+        existing: v.existing,
+        replayed: v.replayed ?? false,
+      },
+    };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: appError("INTERNAL", {
+        message: clientErrorMessage(err, "Failed to create visit invoice.", "billing.invoice_create.failed"),
+      }),
+    };
+  }
+}
 
-    const loaded = await invoiceWithItems(ctx, outcome.value.invoice_id);
+/**
+ * {@link createInvoice} with the invoice and its items loaded for the caller (the legacy `{ success }` shape, kept for the
+ * services and tests that read the created rows).
+ */
+export async function createVisitInvoice(
+  ctx: ServiceContext,
+  input: CreateInvoiceInput
+): Promise<CreateInvoiceResult> {
+  const created = await createInvoice(ctx, input);
+  if (!created.ok) {
+    return {
+      success: false,
+      error: created.error.message,
+      ...(created.error.fieldErrors ? { fieldErrors: created.error.fieldErrors } : {}),
+    };
+  }
+  try {
+    const loaded = await invoiceWithItems(ctx, created.value.invoiceId);
     if (!loaded) return { success: false, error: INVOICE_COMMAND_MESSAGES.INTERNAL };
     return {
       success: true,
       invoice: loaded.invoice,
       items: loaded.items,
-      ...(outcome.value.existing ? { existing: true } : {}),
+      ...(created.value.existing ? { existing: true } : {}),
     };
   } catch (err: unknown) {
     return {
@@ -738,6 +799,8 @@ export const COMPLETE_AND_BILL_MESSAGES = {
   ALREADY_SIGNED: "This consultation is already signed.",
   ALREADY_BILLED: SIGN_AND_BILL_ALREADY_DONE_MESSAGE,
   SIGN_CONTENT_REQUIRED: "Cannot sign off consultation without recording at least one diagnosis or clinical note.",
+  VISIT_NOT_SIGNABLE: "Check the patient in before signing this consultation.",
+  ...INVOICE_ITEM_REASON_MESSAGES,
   AMOUNT_INVALID: "Payment amount must be greater than zero.",
   METHOD_INVALID: "Invalid payment details.",
   OVERPAYMENT: "The amount is more than the balance due on this invoice.",
@@ -837,15 +900,20 @@ export async function completeAndBillConsultation(
     }
     const done = outcome.value;
 
-    // 2. After the commit (R-4), best-effort, only for the request that did the work.
+    // 2. After the commit (R-4), best-effort, and idempotent (V2-07 07-04a F-7, G-2): a replay means the first call's
+    // response may have been lost after the commit, so the steps that follow the commit must still happen once. The
+    // prescription PDF is rendered when it is not archived yet, the receipt when it is not in storage, and the one
+    // consolidated WhatsApp message carries a per-visit dedupe key, so a repeat queues nothing new.
     if (!done.replayed && !done.resumed) {
       // The sign-off happened in this command: the initial archival prescription PDF (v1).
       await archiveInitialPrescriptionPdf(ctx, data.visit_id);
+    } else {
+      await archiveInitialPrescriptionPdf(ctx, data.visit_id, { onlyIfMissing: true });
     }
 
-    // AR3-N2: the visit already had its invoice (made at the desk before the sign-off), or this is a replay: return it
-    // and stop (no second payment, receipt or WhatsApp message).
-    if (done.already_billed || done.replayed) {
+    // AR3-N2: the visit already had its invoice (made at the desk before the sign-off): return it and stop (no payment,
+    // receipt or WhatsApp message followed in this command, so none is made up now either).
+    if (done.already_billed) {
       return {
         success: true,
         visitId: data.visit_id,
@@ -853,14 +921,16 @@ export async function completeAndBillConsultation(
         invoiceNumber: done.invoice_number ?? null,
         pdfStoragePath: null,
         paymentRecorded: done.payment_recorded,
-        ...(done.already_billed ? { alreadyBilled: true } : {}),
+        alreadyBilled: true,
         replayed: done.replayed,
       };
     }
 
-    // 2b. Generate and archive Receipt PDF to storage immediately
+    // 2b. Generate and archive Receipt PDF to storage immediately (a replay: only when it is missing)
     try {
-      await compileAndArchiveReceiptPdf(ctx, done.invoice_id);
+      if (!done.replayed || !(await receiptArchived(ctx, done.invoice_id))) {
+        await compileAndArchiveReceiptPdf(ctx, done.invoice_id);
+      }
     } catch (pdfErr) {
       log.warn({ event: "billing.receipt_pdf_generate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
@@ -887,6 +957,9 @@ export async function completeAndBillConsultation(
         visitId: data.visit_id,
         invoiceId: done.invoice_id,
         patientId: data.patient_id,
+        // One automatic consolidated message per visit, whatever the retries do (V2-07 07-04a F-7, G-2). A manual resend
+        // from the visit register carries no key and is never deduplicated.
+        dedupeKey: `consultation_documents:${data.visit_id}`,
       });
       whatsAppSent = waRes.success;
       whatsAppError = waRes.error || null;
@@ -909,7 +982,7 @@ export async function completeAndBillConsultation(
       whatsAppError,
       rxShareUrl,
       invoiceShareUrl,
-      replayed: false,
+      replayed: done.replayed,
     };
   } catch (err: unknown) {
     return {
@@ -1221,6 +1294,12 @@ export interface SendConsolidatedConsultationWhatsAppInput {
   visitId: string;
   invoiceId?: string;
   patientId?: string;
+  /**
+   * Business dedupe key of the message (see `EnqueueMessageInput.dedupeKey`): the same key queues one message. Sign & Bill
+   * passes a per-visit key so its post-commit steps can run again after a lost response without a second message; a manual
+   * resend passes none.
+   */
+  dedupeKey?: string;
 }
 
 /**
@@ -1417,19 +1496,22 @@ export async function sendConsolidatedConsultationWhatsApp(
         // No tokens in metadata (AR3-N1); the links in template_params and buttons are redacted after sending.
         buttons,
       },
+      dedupeKey: input.dedupeKey ?? null,
     });
 
-    // 10. Record consolidated audit log
-    await recordAudit(ctx, {
-      action: "consultation.share_consolidated_whatsapp",
-      entityType: "visit",
-      entityId: input.visitId,
-      metadata: {
-        prescription_id: rx?.id,
-        invoice_id: invoiceId,
-        queue_id: queueItem?.id,
-      },
-    });
+    // 10. Record consolidated audit log (a deduplicated repeat queued nothing new, so it is not audited again)
+    if (!queueItem?.deduped) {
+      await recordAudit(ctx, {
+        action: "consultation.share_consolidated_whatsapp",
+        entityType: "visit",
+        entityId: input.visitId,
+        metadata: {
+          prescription_id: rx?.id,
+          invoice_id: invoiceId,
+          queue_id: queueItem?.id,
+        },
+      });
+    }
 
     return {
       success: true,

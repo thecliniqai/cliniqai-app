@@ -9,7 +9,7 @@ import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { searchPatients } from "@/features/patients/actions";
 import { registerAndBook } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
-import { useCommand } from "@/lib/commands/use-command";
+import { OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
@@ -57,12 +57,29 @@ export function BookingDrawer({
 
   // One client_request_id per logical submit (V2-07 07-03): registering the patient and booking the slot is one
   // command, and a retry after an error re-sends the same id so a committed booking replays instead of running twice.
-  const { run: runCommand, reset: resetCommand } = useCommand();
+  const { run: runCommand, reset: resetCommand, startOver: startOverCommand, unresolved } = useCommand();
   const lastSubmit = useRef<string | null>(null);
-  /** A submit whose inputs differ from the failed one before it (e.g. the overbook confirmation) is a new request. */
-  const startSubmit = (fingerprint: string) => {
-    if (lastSubmit.current !== fingerprint) resetCommand();
+  /**
+   * A submit whose inputs differ from the failed one before it (e.g. the overbook confirmation) is a new request, with one
+   * exception: after a failure whose outcome is unknown (network, timeout) the booking may already exist, so the id is kept
+   * and a changed submit is refused until the user explicitly starts over (V2-07 07-04a F-13). Returns false when refused.
+   */
+  const startSubmit = (fingerprint: string): boolean => {
+    if (lastSubmit.current !== fingerprint) {
+      if (unresolved) {
+        setError(OUTCOME_UNKNOWN_MESSAGE);
+        return false;
+      }
+      resetCommand();
+    }
     lastSubmit.current = fingerprint;
+    return true;
+  };
+  const handleStartOver = () => {
+    startOverCommand();
+    lastSubmit.current = null;
+    setError(null);
+    setOverbookOpen(false);
   };
 
   // Form Fields
@@ -90,6 +107,8 @@ export function BookingDrawer({
   // Overbook Dialog State
   const [overbookOpen, setOverbookOpen] = useState(false);
   const [conflictingVisit, setConflictingVisit] = useState<Visit | null>(null);
+  // Why the slot is not free (SLOT_TAKEN, SLOT_OFF_DUTY or SLOT_BLOCKED): the dialog says which (V2-07 07-04a G-4).
+  const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
 
   const resetPatientState = () => {
     setTab("search");
@@ -104,6 +123,7 @@ export function BookingDrawer({
     });
     setError(null);
     setConflictingVisit(null);
+    setConflictReason(undefined);
     setOverbookOpen(false);
   };
 
@@ -187,7 +207,7 @@ export function BookingDrawer({
       // and the server checks it; never the browser's zone (CI 43712054628).
       const scheduledIso = zonedDateTimeToUtcIso(date, time, timeZone);
       const overbooked = isOverbooked || isOverbookedDefault;
-      startSubmit(
+      const allowed = startSubmit(
         JSON.stringify([
           tab === "new" ? patientFields : chosenPatient?.id,
           doctorId,
@@ -199,6 +219,11 @@ export function BookingDrawer({
           overrideBlock,
         ])
       );
+      if (!allowed) {
+        setOverbookOpen(false);
+        setLoading(false);
+        return;
+      }
 
       // 3. One command: [register the patient] + slot check + visit + booking message, together or not at all. A
       // refused slot registers nobody, so the overbook confirmation below cannot register the patient a second time.
@@ -221,6 +246,7 @@ export function BookingDrawer({
       if (!result.ok) {
         if (isSlotConflictReason(result.error.reason)) {
           setConflictingVisit(null);
+          setConflictReason(result.error.reason);
           setOverbookOpen(true);
           setLoading(false);
           return;
@@ -284,6 +310,11 @@ export function BookingDrawer({
           {error && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
               <span className="font-semibold">{error}</span>
+              {unresolved && (
+                <Button type="button" variant="secondary" size="sm" onClick={handleStartOver} className="ms-auto shrink-0">
+                  Start over
+                </Button>
+              )}
             </div>
           )}
 
@@ -524,6 +555,7 @@ export function BookingDrawer({
         onClose={() => setOverbookOpen(false)}
         onConfirm={() => handleBook(true)}
         conflictingVisit={conflictingVisit}
+        conflictReason={conflictReason}
         scheduledTimeStr={`${time} on ${date}`}
         loading={loading}
       />

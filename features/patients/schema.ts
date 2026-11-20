@@ -66,7 +66,17 @@ export const patientSchema = z
       .nullable(),
     allergies: z.array(z.string()).optional(),
     chronic_conditions: z.array(z.string()).optional(),
-    emergency_contact: z.record(z.unknown()).optional().nullable(),
+    // The three keys the app writes (edit-patient-modal) and reads (patient detail, DPDP export); the front-desk commands'
+    // `private.patient_input_normalize` refuses any other key (V2-07 07-04a G-6).
+    emergency_contact: z
+      .object({
+        name: z.string().max(200).optional(),
+        phone: z.string().max(200).optional(),
+        relation: z.string().max(200).optional(),
+      })
+      .strict()
+      .optional()
+      .nullable(),
     abha_id: z
       .string()
       .optional()

@@ -8,7 +8,6 @@ import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as billingService from "./service";
 import type {
-  CreateInvoiceResult,
   RecordPaymentResult,
   GetVisitBillingResult,
   GetReceiptPdfResult,
@@ -16,7 +15,7 @@ import type {
 } from "./service";
 
 export type {
-  CreateInvoiceResult,
+  CreateInvoiceValue,
   RecordPaymentResult,
   GetVisitBillingResult,
   CompleteAndBillResult,
@@ -40,11 +39,15 @@ function revalidate(...paths: string[]) {
   }
 }
 
-export async function createVisitInvoice(input: CreateInvoiceInput): Promise<CreateInvoiceResult> {
+/**
+ * Creates the visit's invoice as one atomic command (V2-07 07-02, 07-04a F-10). Returns a `Result` (with the `AppError`
+ * code the client's `useCommand` needs, as `collectPayment` does); `client_request_id` is required.
+ */
+export async function createInvoice(input: CreateInvoiceInput): Promise<CommandResult<billingService.CreateInvoiceValue>> {
   const resolved = await resolveServiceContext("billing:collect");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await billingService.createVisitInvoice(resolved.ctx, input);
-  if (result.success) revalidate("/queue", `/consultation/${result.invoice.visit_id}`);
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await billingService.createInvoice(resolved.ctx, input);
+  if (result.ok) revalidate("/queue", `/consultation/${input.visit_id}`);
   return result;
 }
 
