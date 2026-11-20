@@ -205,7 +205,7 @@ BEGIN
             v_off_duty := NOT v_in_shift;
         END IF;
         IF v_off_duty THEN
-            v_out := v_out || 'off_duty';
+            v_out := array_append(v_out, 'off_duty');
         END IF;
     END IF;
 
@@ -213,7 +213,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM public.schedule_blocks b
                 WHERE b.tenant_id = p_tenant_id AND (b.doctor_id = p_doctor_id OR b.doctor_id IS NULL)
                   AND b.start_time < v_end AND b.end_time > p_start) THEN
-        v_out := v_out || 'blocked';
+        v_out := array_append(v_out, 'blocked');
     END IF;
 
     -- 3. A booked visit of the doctor: the rows visits_no_double_booking (000063) keeps apart.
@@ -221,7 +221,7 @@ BEGIN
                 WHERE v.tenant_id = p_tenant_id AND v.doctor_id = p_doctor_id AND v.origin_type = 'scheduled'
                   AND v.scheduled_at IS NOT NULL AND NOT v.is_overbooked AND v.status NOT IN ('cancelled', 'no_show')
                   AND public.visit_slot(v.scheduled_at, v.estimated_duration_minutes) && tstzrange(p_start, v_end, '[)')) THEN
-        v_out := v_out || 'taken';
+        v_out := array_append(v_out, 'taken');
     END IF;
     RETURN v_out;
 END;
