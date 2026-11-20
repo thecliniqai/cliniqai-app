@@ -1,0 +1,3 @@
+Maskable safe zone (W3C: circle of radius 40% = 204.8 px on 512)
+Method: rasterised 002-icon/icon-maskable.svg at 512 px; farthest pixel that differs from the corner background colour.
+Farthest painted glyph point: 184.8 px → INSIDE the safe zone

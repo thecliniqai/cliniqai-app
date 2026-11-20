@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinicOS — Calm Clinical Palette</title>
+<style>
+:root{
+  color-scheme:light;
+  --canvas:#FFFFFF; --surface:#FFFFFF; --surface-soft:#F8FAF9; --surface-muted:#F1F5F3;
+  --ink:#182B27; --ink-secondary:#425650; --ink-muted:#71817B; --ink-subtle:#96A39E;
+  --border:#E3EAE6; --border-strong:#CDD9D2;
+  --primary:#176B5B; --primary-hover:#12584B; --primary-pressed:#0D493F;
+  --primary-soft:#EAF4F0; --primary-tint:#F3F8F5;
+  --accent:#B58A55; --accent-soft:#F7F1E8;
+  --focus:#2879B8; --focus-halo:#EAF3FA;
+  --success:#26734D; --success-bg:#EAF5EE;
+  --warning:#98651E; --warning-bg:#FBF3E5;
+  --danger:#B54848; --danger-bg:#FBEDED;
+  --info:#356F9B; --info-bg:#EAF2F8;
+  --radius:14px; --shadow:0 8px 28px rgba(24,43,39,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:15px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:auto;padding:48px 24px 72px}
+header{padding:12px 0 28px;border-bottom:1px solid var(--border);margin-bottom:28px}
+.eyebrow{color:var(--primary);font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
+h1{font-size:34px;line-height:1.15;letter-spacing:-.035em;margin:10px 0}
+h2{font-size:18px;letter-spacing:-.02em;margin:0 0 16px}
+h3{font-size:14px;margin:0 0 5px}
+p{margin:0;color:var(--ink-muted)}
+.lead{max-width:700px;font-size:16px}
+section{margin:28px 0}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.swatch{overflow:hidden;border:1px solid var(--border);border-radius:12px;background:white}
+.color{height:72px}
+.meta{padding:10px 11px}
+.meta strong{display:block;font-size:13px}
+.meta code{font-size:12px;color:var(--ink-muted)}
+.group-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-muted);font-weight:700;margin:20px 0 10px}
+.demo{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+.app-card{border:1px solid var(--border);border-radius:16px;padding:18px;background:white}
+.topline{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.brand{font-weight:750;letter-spacing:-.03em;font-size:19px}
+.brand span{color:var(--primary)}
+.pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:650}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:650;font-size:13px}
+.btn-primary{background:var(--primary);color:white}
+.btn-secondary{background:var(--primary-soft);color:var(--primary)}
+.btn-quiet{background:white;border:1px solid var(--border-strong);color:var(--ink-secondary)}
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.stat{background:var(--surface-soft);border:1px solid var(--border);border-radius:12px;padding:12px}
+.stat b{font-size:22px;display:block;letter-spacing:-.04em}
+.stat small{color:var(--ink-muted)}
+.patient{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border)}
+.patient strong{display:block;font-size:13px}
+.patient small{color:var(--ink-muted)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.note{background:var(--accent-soft);border-left:3px solid var(--accent);padding:12px 14px;border-radius:8px;color:#6D5434;font-size:13px}
+.type-sample{padding:12px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:18px}
+.type-sample:last-child{border:0}
+.type-sample span:first-child{color:var(--ink-muted);font-size:12px;min-width:110px}
+.type-sample strong{font-weight:600}
+.focus{outline:2px solid var(--focus);outline-offset:3px;box-shadow:0 0 0 5px white,0 0 0 7px var(--focus-halo)}
+footer{margin-top:32px;color:var(--ink-muted);font-size:12px}
+@media(max-width:700px){main{padding:28px 16px 48px}h1{font-size:28px}.demo{grid-template-columns:1fr}.statrow{grid-template-columns:1fr 1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="eyebrow">ClinicOS · Visual system</div>
+  <h1>Calm confidence. Clear care.</h1>
+  <p class="lead">A bright, white-first clinical workspace with deep botanical teal, soft mineral neutrals and a restrained warm accent. Premium without feeling luxurious; approachable without feeling playful.</p>
+</header>
+
+<section class="panel">
+  <h2>01 · Foundation</h2>
+  <div class="group-label">Canvas, surfaces & structure</div>
+  <div class="grid">
+    <div class="swatch"><div class="color" style="background:#FFFFFF"></div><div class="meta"><strong>Canvas</strong><code>#FFFFFF</code></div></div>
+    <div class="swatch"><div class="color" style="background:#F8FAF9"></div><div class="meta"><strong>Soft surface</strong><code>#F8FAF9</code></div></div>
+    <div class="swatch"><div class="color" style="background:#F1F5F3"></div><div class="meta"><strong>Muted surface</strong><code>#F1F5F3</code></div></div>
+    <div class="swatch"><div class="color" style="background:#E3EAE6"></div><div class="meta"><strong>Hairline border</strong><code>#E3EAE6</code></div></div>
+    <div class="swatch"><div class="color" style="background:#182B27"></div><div class="meta"><strong>Primary ink</strong><code>#182B27</code></div></div>
+    <div class="swatch"><div class="color" style="background:#71817B"></div><div class="meta"><strong>Muted ink</strong><code>#71817B</code></div></div>
+  </div>
+  <div class="group-label">Brand & interaction</div>
+  <div class="grid">
+    <div class="swatch"><div class="color" style="background:#176B5B"></div><div class="meta"><strong>Botanical teal</strong><code>#176B5B</code></div></div>
+    <div class="swatch"><div class="color" style="background:#12584B"></div><div class="meta"><strong>Teal hover</strong><code>#12584B</code></div></div>
+    <div class="swatch"><div class="color" style="background:#EAF4F0"></div><div class="meta"><strong>Teal wash</strong><code>#EAF4F0</code></div></div>
+    <div class="swatch"><div class="color" style="background:#B58A55"></div><div class="meta"><strong>Warm brass</strong><code>#B58A55</code></div></div>
+    <div class="swatch"><div class="color" style="background:#2879B8"></div><div class="meta"><strong>Focus blue</strong><code>#2879B8</code></div></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>02 · Status & clinical meaning</h2>
+  <p>Use colour semantically and consistently. Keep the majority of the interface neutral; status colour should help scanning, not decorate the screen.</p>
+  <div class="grid" style="margin-top:16px">
+    <div class="swatch"><div class="color" style="background:#EAF5EE"></div><div class="meta"><strong style="color:#26734D">Completed · #26734D</strong><code>Background #EAF5EE</code></div></div>
+    <div class="swatch"><div class="color" style="background:#FBF3E5"></div><div class="meta"><strong style="color:#98651E">Waiting · #98651E</strong><code>Background #FBF3E5</code></div></div>
+    <div class="swatch"><div class="color" style="background:#FBEDED"></div><div class="meta"><strong style="color:#B54848">Critical · #B54848</strong><code>Background #FBEDED</code></div></div>
+    <div class="swatch"><div class="color" style="background:#EAF2F8"></div><div class="meta"><strong style="color:#356F9B">Information · #356F9B</strong><code>Background #EAF2F8</code></div></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px">
+    <span class="pill" style="background:#EAF2F8;color:#356F9B">Booked</span>
+    <span class="pill" style="background:#FBF3E5;color:#98651E">Waiting</span>
+    <span class="pill" style="background:#EAF4F0;color:#176B5B">With doctor</span>
+    <span class="pill" style="background:#F7F1E8;color:#80613B">To bill</span>
+    <span class="pill" style="background:#EAF5EE;color:#26734D">Done</span>
+    <span class="pill" style="background:#FBEDED;color:#B54848">No-show</span>
+  </div>
+  <div class="note" style="margin-top:16px"><strong>Clinical safety:</strong> Reserve the danger palette for urgent, destructive or clinically important states. Allergy alerts should remain unmistakable and must never rely on colour alone.</div>
+</section>
+
+<section class="panel">
+  <h2>03 · In-product feel</h2>
+  <div class="demo">
+    <div class="app-card">
+      <div class="topline"><div class="brand"><span>clinic</span>OS</div><span class="pill" style="background:#EAF4F0;color:#176B5B">● Clinic open</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><h2 style="margin:0">Good morning, Dr. Rao</h2><p style="font-size:13px">Here’s your clinic at a glance.</p></div><button class="btn btn-primary">+ New appointment</button></div>
+      <div class="statrow">
+        <div class="stat"><b>24</b><small>Today’s visits</small></div>
+        <div class="stat"><b>08</b><small>Waiting</small></div>
+        <div class="stat"><b>₹8,450</b><small>Collected</small></div>
+      </div>
+      <h3 style="margin-top:18px">Patient queue</h3>
+      <div class="patient"><div><strong>Ananya Sharma</strong><small>10:30 am · Follow-up</small></div><span class="pill" style="background:#FBF3E5;color:#98651E">Waiting</span></div>
+      <div class="patient"><div><strong>Rahul Deshmukh</strong><small>10:45 am · Consultation</small></div><span class="pill" style="background:#EAF4F0;color:#176B5B">With doctor</span></div>
+      <div class="patient"><div><strong>Meera Kulkarni</strong><small>11:00 am · New patient</small></div><span class="pill" style="background:#EAF2F8;color:#356F9B">Booked</span></div>
+    </div>
+    <div class="app-card">
+      <h3>Actions & controls</h3><p style="font-size:13px;margin-bottom:16px">Quiet hierarchy, clear primary action.</p>
+      <div style="display:grid;gap:10px">
+        <button class="btn btn-primary">Save consultation</button>
+        <button class="btn btn-secondary">Create prescription</button>
+        <button class="btn btn-quiet">Reschedule visit</button>
+        <button class="btn btn-quiet focus">Keyboard focus state</button>
+      </div>
+      <div class="note" style="margin-top:18px">Warm brass is an occasional editorial accent for highlights, not a second primary action colour.</div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>04 · Typography & rhythm</h2>
+  <p>Recommended: Inter or IBM Plex Sans. Use weight and spacing for hierarchy; avoid excessive colour or all-caps labels.</p>
+  <div style="margin-top:14px">
+    <div class="type-sample"><span>Display · 32/40</span><strong style="font-size:30px;letter-spacing:-.04em">Your clinic, in control.</strong></div>
+    <div class="type-sample"><span>Heading · 22/30</span><strong style="font-size:22px">Today’s appointments</strong></div>
+    <div class="type-sample"><span>Subheading · 16/24</span><strong style="font-size:16px">Patient information</strong></div>
+    <div class="type-sample"><span>Body · 14/22</span><span style="color:var(--ink-secondary)">Clear, readable details for busy clinical workflows.</span></div>
+    <div class="type-sample"><span>Caption · 12/18</span><span style="color:var(--ink-muted)">Updated just now · Front desk</span></div>
+  </div>
+</section>
+
+<footer>ClinicOS palette concept · White-first, light-only interface · Use the same semantic tokens across desktop, tablet, mobile and patient-facing workflows.</footer>
+</main>
+</body>
+</html>

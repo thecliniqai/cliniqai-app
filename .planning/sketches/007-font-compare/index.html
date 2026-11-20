@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Font compare — Plex vs Inter vs Geist</title>
+<style>
+  :root{--ink:#182B27;--muted:#5C6C66;--border:#E3EAE6;--primary:#176B5B;--soft:#F8FAF9}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  header{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  h1{font-size:15px;margin:0;font-weight:600}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:#fff;padding:6px 12px;font:inherit;cursor:pointer;color:var(--muted)}
+  .seg button[aria-pressed="true"]{background:var(--primary);color:#fff}
+  .hint{color:var(--muted);font-size:12px}
+  main{padding:16px 20px 40px}
+  figure{margin:0 0 28px}
+  figcaption{font-size:12px;color:var(--muted);margin:0 0 6px}
+  img{display:block;width:100%;max-width:1280px;border:1px solid var(--border);border-radius:8px}
+  .phone img{max-width:390px}
+  .live a{color:var(--primary);margin-right:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Font comparison</h1>
+  <div class="seg" role="group" aria-label="Font">
+    <button data-font="plex" aria-pressed="false">IBM Plex (current)</button>
+    <button data-font="inter" aria-pressed="true">Inter</button>
+    <button data-font="geist" aria-pressed="false">Geist</button>
+  </div>
+  <span class="hint">Keys 1 / 2 / 3 flip fonts on the same screen. Same sizes and layout; only the font changes.</span>
+</header>
+<main>
+  <p class="live">Live prototypes:
+    <a href="../004-consult/index.html">Consult · Plex</a><a href="../004-consult/index.html?font=inter">Consult · Inter</a><a href="../004-consult/index.html?font=geist">Consult · Geist</a>
+    <a href="../003-today/index.html?font=inter">Today · Inter</a><a href="../003-today/index.html?font=geist">Today · Geist</a></p>
+  <figure><figcaption>Consult · desktop 1280×800</figcaption><img data-shot="consult-desktop" alt="Consult desktop"></figure>
+  <figure><figcaption>Today · desktop 1280×800</figcaption><img data-shot="today-desktop" alt="Today desktop"></figure>
+  <figure class="phone"><figcaption>Consult · phone 390×844</figcaption><img data-shot="consult-phone" alt="Consult phone"></figure>
+</main>
+<script>
+  const set = f => {
+    document.querySelectorAll("[data-shot]").forEach(i => { i.src = "shots/" + i.dataset.shot + "-" + f + ".png"; i.alt = i.dataset.shot + " in " + f; });
+    document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.font === f)));
+  };
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => set(b.dataset.font)));
+  addEventListener("keydown", e => { const m = {"1":"plex","2":"inter","3":"geist"}[e.key]; if (m) set(m); });
+  set("inter");
+</script>
+</body>
+</html>
