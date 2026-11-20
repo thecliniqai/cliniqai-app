@@ -3141,6 +3141,13 @@ export type Database = {
         Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
         Returns: string;
       };
+      available_slots: {
+        Args: { p_date: string; p_doctor_id: string };
+        Returns: {
+          slot_end: string;
+          slot_start: string;
+        }[];
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -3272,6 +3279,18 @@ export type Database = {
           new_status: string;
         }[];
       };
+      complete_and_bill: {
+        Args: {
+          p_client_request_id: string;
+          p_discount: number;
+          p_items: Json;
+          p_payment: Json;
+          p_tax: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       complete_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
@@ -3363,6 +3382,19 @@ export type Database = {
           p_to: string;
         };
         Returns: string;
+      };
+      enqueue_walk_in: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id: string;
+          p_duration_minutes?: number;
+          p_new_patient: Json;
+          p_patient_id: string;
+          p_priority: string;
+          p_reason?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
       };
       enqueue_webhook_event: {
         Args: {
@@ -3549,6 +3581,22 @@ export type Database = {
           name: string;
           phone: string;
         }[];
+      };
+      register_and_book: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id: string;
+          p_duration_minutes: number;
+          p_new_patient: Json;
+          p_overbook: boolean;
+          p_override_block?: boolean;
+          p_override_off_duty?: boolean;
+          p_patient_id: string;
+          p_reason?: string;
+          p_scheduled_at: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
       };
       release_job: {
         Args: { p_id: string; p_lease_token: string };

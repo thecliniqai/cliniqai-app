@@ -116,6 +116,13 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   AMENDMENT_NOT_OPEN: "CONFLICT",
   AMENDMENT_REASON_INVALID: "VALIDATION_FAILED",
   VISIT_NOT_CHECKABLE: "CONFLICT",
+  // V2-07 07-03 (migration 000098): the front-desk commands. The doctor's slot is taken / outside the clinic-local shifts /
+  // inside a schedule block (register_and_book; the overbook confirmation re-sends with the override); a visit this user
+  // signed that already has its invoice (complete_and_bill). PATIENT_NOT_FOUND / DOCTOR_NOT_FOUND are P0002 (→ NOT_FOUND).
+  SLOT_TAKEN: "CONFLICT",
+  SLOT_OFF_DUTY: "CONFLICT",
+  SLOT_BLOCKED: "CONFLICT",
+  ALREADY_BILLED: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
