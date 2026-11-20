@@ -25,3 +25,27 @@ Neither found a Critical or High. Under the lean process every finding below is 
 
 Backlog entries go to `docs/v2/V2_MASTER_ROADMAP.md` §10 notes at close (F-9 → V2-08, T-2 → V2-14, command_results
 retention → V2-13).
+
+# Round 1 for 07-03 (000098 at 1a6c796)
+
+Same two reviewers, fresh context. No Critical or High. Fixed in the same 07-04a round.
+
+| ID | Source | Sev | Finding | Decision |
+|---|---|---|---|---|
+| G-1 | rev 1, adv L-1 | M | `register_and_book`: the off-duty override hides a block or taken-slot conflict and always stores `is_overbooked = true`, so a free in-shift slot booked with the flag stays bookable (double booking, outside the exclusion constraint) | **Fix 07-04a:** evaluate off-duty, block and taken independently; each override clears only its own conflict; `is_overbooked = p_overbook OR (off-duty overridden AND the slot really is off duty)`; tests: override + block, override + taken, override on a free slot then a second booking → `SLOT_TAKEN` |
+| G-2 | rev 2 | M | A replayed Sign & Bill skips the receipt, consolidated WhatsApp and Rx PDF, so a response lost after commit never produces them | **Fix 07-04a with F-7:** on `replayed` run the post-commit steps (idempotent: per-visit WhatsApp dedupe key, archive-if-missing); skip only for `already_billed`; test |
+| G-3 | rev 3 | L | `available_slots` lists nothing for a doctor with no stored schedule while booking treats NULL as unrestricted; past slots of today are listed | **Fix 07-04a:** drop past slots. NULL-schedule rule → **backlog V2-08** (decided with the booking sheet that consumes it) |
+| G-4 | rev 4 | L | Overbook dialog lost its cause (taken / off duty / blocked) | **Fix 07-04a:** pass `error.reason`; cause-specific text |
+| G-5 | rev 5 | L | A template/config fault in the booking message fails the booking with "check the details" | **Fix 07-04a:** `TEMPLATE_NOT_ALLOWED` → INTERNAL with a fixed config text, logged with an error tag |
+| G-6 | rev 6 | L | `emergency_contact` accepts any JSON object ≤ 2 KB | **Fix 07-04a:** pin the key set to the old `patientSchema` shape |
+| G-7 | rev 7 | — | Mismatch cases missing for `p_reason`, `p_duration_minutes`, `p_override_block`; override combinations; replay post-commit | **Fix 07-04a:** add |
+| G-8 | adv L-2 | L | `request_hash` is an unsalted md5 over the new patient's PHI | **Fix 07-04a:** keyed digest (pgcrypto `hmac`, sha256) with a random key held in a private, ungranted table created by the migration; applies to every command's hash |
+| G-9 | adv L-3 | L | `p_doctor_id` can be any active member (a receptionist can be "Dr.") | **Fix 07-04a:** require a clinician role (owner/doctor, per `lib/permissions/matrix.ts`) in `step_create_visit`, `slot_conflict` and `available_slots` |
+
+# 07-04 contract (from the 07-03 writer inventory)
+
+- `invoices`: no request-path writer inserts headers any more → **revoke INSERT from `authenticated`** in 000099 (pgTAP).
+- `invoice_items` insert/delete (`addInvoiceItem`/`deleteInvoiceItem`), `visits` status/draft updates, `patients` insert/update,
+  `/api/v1` writers: still in use → **not revoked**; owners V2-10 (items), V2-08 (visit status commands: reschedule, cancel,
+  no-show, P1-20), V2-12 (`/api/v1`). Recorded in 07-SUMMARY.
+- `createVisit`/`createPatient` services stay for waitlist promotion, the patients/new page and `/api/v1`.
