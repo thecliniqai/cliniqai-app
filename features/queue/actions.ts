@@ -7,9 +7,16 @@ import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { QueuePriority } from "@/lib/db/types";
 import * as queueService from "./service";
-import type { TransitionStateResult, GetQueueResult, PaletteQueueMatch, EnqueueWalkInInput, WalkInValue } from "./service";
+import type {
+  GetQueueResult,
+  PaletteQueueMatch,
+  EnqueueWalkInInput,
+  WalkInValue,
+  StartConsultationValue,
+  CompleteVisitValue,
+} from "./service";
 
-export type { CheckInResult, TransitionStateResult, GetQueueResult, PaletteQueueMatch } from "./service";
+export type { CheckInResult, GetQueueResult, PaletteQueueMatch } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
@@ -58,14 +65,34 @@ export async function enqueueWalkIn(
   return result;
 }
 
-export async function transitionQueueState(
+/**
+ * "Start Consultation" as one atomic command (V2-08 08-01b, R-1): a booked, confirmed or no-show visit is checked in first, then
+ * moved to `in_consultation`, in one transaction. `Result` with the `AppError` code `useCommand` needs; `client_request_id` is
+ * required (the same id replays the first result). Owner and doctor only (`consultations:edit`).
+ */
+export async function startConsultation(
   visitId: string,
-  targetState: "in_consultation" | "completed"
-): Promise<TransitionStateResult> {
+  clientRequestId: string
+): Promise<CommandResult<StartConsultationValue>> {
+  const resolved = await resolveServiceContext("consultations:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId);
+  if (result.ok) revalidate("/queue", "/calendar", "/cabin", "/");
+  return result;
+}
+
+/**
+ * Completes an unsigned waiting or in-consultation visit at the desk as one atomic command (V2-08 08-01b); a visit that is
+ * already completed (the checkout after a sign-off) is a no-op that stamps the queue token's completion time.
+ */
+export async function completeVisit(
+  visitId: string,
+  clientRequestId: string
+): Promise<CommandResult<CompleteVisitValue>> {
   const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await queueService.transitionQueueState(resolved.ctx, visitId, targetState);
-  if (result.success) revalidate("/queue", "/calendar", "/cabin", "/");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId);
+  if (result.ok) revalidate("/queue", "/calendar", "/cabin", "/");
   return result;
 }
 

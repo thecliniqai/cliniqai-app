@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { transitionQueueState } from "@/features/queue/actions";
+import { startConsultation } from "@/features/queue/actions";
+import { useCommand } from "@/lib/commands/use-command";
 import { Button } from "@/components/ui/button";
 import {
   Stethoscope,
@@ -70,20 +71,28 @@ interface MyQueueCardProps {
 export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const start = useCommand();
 
   const { patient, vitals, token_number, priority, reason_for_visit } = visit;
 
   const handleStartConsultation = async () => {
     try {
       setIsStarting(true);
-      if (visit.status === "waiting") {
-        await transitionQueueState(visit.id, "in_consultation");
+      setStartError(null);
+      // A waiting visit is started by the command (check-in, if still needed, and in_consultation in one transaction); a visit
+      // already in consultation just opens. Never navigate on a refusal: the consult page would not be able to sign the visit.
+      if (visit.status !== "in_consultation") {
+        const res = await start.run((clientRequestId) => startConsultation(visit.id, clientRequestId));
+        if (!res.ok) {
+          setStartError(res.error.message);
+          return;
+        }
       }
       router.push(`/consultation/${visit.id}`);
     } catch (err) {
       reportClientError("queue.transition.failed", err);
-      // Fallback navigation
-      router.push(`/consultation/${visit.id}`);
+      setStartError("Could not start the consultation. Try again.");
     } finally {
       setIsStarting(false);
     }
@@ -266,6 +275,12 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
           <span className="font-semibold text-blue-950">Reason: </span>
           {reason_for_visit}
         </div>
+      )}
+
+      {startError && (
+        <p role="alert" className="mb-2 text-xs font-medium text-red-600">
+          {startError}
+        </p>
       )}
 
       {/* Action CTA Floor (minimum 44px touch target) */}

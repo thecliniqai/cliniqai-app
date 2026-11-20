@@ -11,7 +11,7 @@ import {
   shareReceiptViaWhatsApp,
   GetVisitBillingResult,
 } from "@/features/billing/actions";
-import { transitionQueueState } from "@/features/queue/actions";
+import { completeVisit } from "@/features/queue/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -90,6 +90,8 @@ export function CheckoutDrawer({
   // outcome is unknown (network, timeout, INTERNAL) the id is kept and changing the form does not rotate it until the
   // billing details have been reloaded (V2-07 07-04a F-13): a committed-but-lost payment must not become a second one.
   const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
+  // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
+  const completeCommand = useCommand();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -335,8 +337,8 @@ export function CheckoutDrawer({
         }
 
         // 3. Complete queue encounter
-        const queueRes = await transitionQueueState(visit.id, "completed");
-        if (!queueRes.success) {
+        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+        if (!queueRes.ok) {
           reportClientError("queue.checkout_transition.failed", null);
         }
 
@@ -1080,7 +1082,11 @@ export function CheckoutDrawer({
                   <Button
                     type="button"
                     onClick={async () => {
-                      await transitionQueueState(visit.id, "completed");
+                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+                      if (!done.ok) {
+                        setError(done.error.message);
+                        return;
+                      }
                       setIsCompleted(true);
                       onSuccess();
                     }}
