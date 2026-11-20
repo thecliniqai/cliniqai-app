@@ -76,6 +76,9 @@
  *          scheduling_exclusion keeps its 26 (the restore case now uses the no-show rebook) = 8101 (50 files).
  *   8143 — V2-08 08-02 (000101 patient_search_register): 8101 + definer_functions 2 (register_patient: 1 acting-in-A and 1
  *          locked-clinic leg) + patient_search 40 (new file, every one required) = 8143 (51 files).
+ *   8174 — V2-08 08-03a (000102 today_realtime): 8143 + today_signals 31 (new file, every one required); the two private
+ *          functions and the authz helper add rows to existing exact sets (definer_functions, authz_helpers), no test
+ *          = 8174 (52 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -87,7 +90,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8143;
+export const FLOOR = 8174;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -170,6 +173,7 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/visit_state_machine.test.sql",
   // V2-08 08-02
   "supabase/tests/database/patient_search.test.sql",
+  "supabase/tests/database/today_signals.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

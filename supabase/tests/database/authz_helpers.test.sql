@@ -106,6 +106,7 @@ select set_eq(
     'authz.role_has_permission(text, text) authenticated',
     'authz.role_has_permission(text, text) service_role',
     'authz.tenant_ids_with(text) authenticated',
+    'authz.today_topic_allowed(text) authenticated',
     'public.current_user_tenant_ids() authenticated',
     'public.current_user_tenant_ids() service_role',
     'public.has_permission(uuid, text) authenticated',

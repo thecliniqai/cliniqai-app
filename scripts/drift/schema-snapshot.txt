@@ -1264,6 +1264,7 @@ function authz.member_tenant_ids() returns SETOF uuid lang=sql security_definer=
 function authz.permission_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=f9032f0e1089e1445e3a742918005918
 function authz.role_has_permission(p_role text, p_perm text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=52690dd0cb8049b6adc57d0444ea83da
 function authz.tenant_ids_with(p_perm text) returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=d0919a591f797246d43823d0fb648e12
+function authz.today_topic_allowed(p_topic text) returns boolean lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=48a7549e9d88c039772ce857ff631bf7
 function billing_internal.entitlement_limit(p_tenant uuid, p_key text, p_now timestamp with time zone) returns bigint lang=sql security_definer=f volatility=s config=search_path="" body_md5=4d7e98bc38ee2e0935456a7d71fce744
 function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=950af52dbeabf38b996b4e397eb100a8
 function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=ed44fb47cdda32fe78dfd8ea4e175628
@@ -1380,6 +1381,8 @@ function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) retur
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
+function private.today_signal() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=f2a85c2705838c6ad667fe27c5cb7176
+function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=0411ba64557b426e48555d5d84e2f82e
 function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0f99f95ea14e2873713e5c943fb21baf
 function private.visit_transition_allowed(p_from text, p_to text, p_signed boolean) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=d2449a1356e9fe1add6a813ad21c580a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
@@ -1537,6 +1540,7 @@ grant function authz.permission_keys() EXECUTE to service_role
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to authenticated
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to service_role
 grant function authz.tenant_ids_with(p_perm text) EXECUTE to authenticated
+grant function authz.today_topic_allowed(p_topic text) EXECUTE to authenticated
 grant function billing_internal.entitlement_limit(p_tenant uuid, p_key text, p_now timestamp with time zone) EXECUTE to service_role
 grant function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone) EXECUTE to service_role
 grant function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) EXECUTE to service_role
@@ -2725,6 +2729,7 @@ trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE
 trigger public.api_keys.api_keys_scope_guard CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
 trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
+trigger public.clinical_notes.clinical_notes_today_signal CREATE TRIGGER clinical_notes_today_signal AFTER UPDATE OF vitals ON public.clinical_notes FOR EACH ROW WHEN ((old.vitals IS DISTINCT FROM new.vitals)) EXECUTE FUNCTION private.today_signal()
 trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TRIGGER communication_queue_apply_early_dlr AFTER UPDATE OF external_message_id ON public.communication_queue FOR EACH ROW WHEN (((new.external_message_id IS NOT NULL) AND (old.external_message_id IS DISTINCT FROM new.external_message_id))) EXECUTE FUNCTION ops.communication_queue_apply_early_dlr()
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
@@ -2742,12 +2747,14 @@ trigger public.patients.patients_ai_objection_audit CREATE TRIGGER patients_ai_o
 trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_objection_stamp BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_stamp()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
+trigger public.payments.payments_today_signal CREATE TRIGGER payments_today_signal AFTER INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_admins_audit AFTER INSERT OR DELETE OR UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION private.platform_admins_audit()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
 trigger public.queue_tokens.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
+trigger public.queue_tokens.queue_tokens_today_signal CREATE TRIGGER queue_tokens_today_signal AFTER INSERT OR UPDATE ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
 trigger public.tenants.tenants_create_default_location CREATE TRIGGER tenants_create_default_location AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.tenants_create_default_location()
@@ -2758,4 +2765,6 @@ trigger public.visits.a_fill_default_location CREATE TRIGGER a_fill_default_loca
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.visits.visits_integrity_guard CREATE TRIGGER visits_integrity_guard BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_integrity_guard()
 trigger public.visits.visits_status_transition_guard CREATE TRIGGER visits_status_transition_guard BEFORE UPDATE OF status ON public.visits FOR EACH ROW WHEN ((old.status IS DISTINCT FROM new.status)) EXECUTE FUNCTION private.visits_status_transition_guard()
+trigger public.visits.visits_today_signal_insert CREATE TRIGGER visits_today_signal_insert AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.today_signal()
+trigger public.visits.visits_today_signal_update CREATE TRIGGER visits_today_signal_update AFTER UPDATE OF status, scheduled_at, doctor_id ON public.visits FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) OR (old.scheduled_at IS DISTINCT FROM new.scheduled_at) OR (old.doctor_id IS DISTINCT FROM new.doctor_id))) EXECUTE FUNCTION private.today_signal()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()
