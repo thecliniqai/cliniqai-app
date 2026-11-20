@@ -5,8 +5,8 @@
  * without touching any screen markup. At 360, 820 and 1280 px this spec checks, through the real app:
  *   - the doctor's consultation workspace shows the seeded note and vitals (the page reads the new table);
  *   - the nurse's queue card shows the seeded vitals summary; the receptionist's card for the same visit does not;
- *   - the receptionist's consultation URL (still served, known gap P1-07, V2-08) renders without the note and without
- *     a literal "undefined"/"null";
+ *   - the receptionist's consultation URL is not served (V2-08 08-01a closed P1-07): the user lands on their own home
+ *     screen, with no note and no literal "undefined"/"null";
  *   - no serious/critical axe rule appears that the M0 baseline (02-03b, committed reports) did not already have on
  *     these routes on a PR-lane device (the v1 a11y debt is owned by V2-06…V2-11): BLOCKING on new rule ids; the
  *     counts are attached as a report.
@@ -135,17 +135,16 @@ for (const size of WIDTHS) {
         await check(page, testInfo, `queue-receptionist-${size.width}`, "/queue");
       });
 
-      test(`consultation URL renders no note and no "undefined" (P1-07 open) (${size.width}px)`, async ({ page }, testInfo) => {
+      test(`consultation URL is not served: no note, no "undefined" (P1-07) (${size.width}px)`, async ({ page }) => {
         const visitId = await seededVisit(testTag());
         await page.setViewportSize(size);
         const response = await page.goto(`/consultation/${visitId}`);
         expect(response?.status()).toBeLessThan(500);
+        await expect(page).not.toHaveURL(new RegExp(`/consultation/${visitId}`));
+        await expect(page.getByLabel(NOTES_LABEL)).toHaveCount(0);
         const text = await page.locator("body").innerText();
         expect(text).not.toContain(NOTE);
         expect(text).not.toMatch(/\bundefined\b/);
-        const notes = page.getByLabel(NOTES_LABEL);
-        if (await notes.count()) await expect(notes).toHaveValue("");
-        await check(page, testInfo, `consultation-receptionist-${size.width}`, "/consultation/[id]");
       });
     });
   });

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
+import { hasPerm } from "@/lib/permissions";
+import { navForRole } from "@/lib/nav/nav-for-role";
 import { RECORD_ID, RecordLookupError, redirectIfTenantLocked, redirectIfUnauthenticated, withPageAuth } from "@/lib/auth/page";
 
 /**
@@ -9,14 +11,24 @@ import { RECORD_ID, RecordLookupError, redirectIfTenantLocked, redirectIfUnauthe
  * visit (or a malformed id) still answers 404 on a full page load instead of a streamed 200 (06-04a deviation 1;
  * `journey-09-clinic-isolation`). Same conditions as the page: the visit in the session's clinic (RLS) with its
  * patient. Reads ids only.
+ *
+ * V2-08 08-01a (P1-07): the role must hold `consultations:view` (owner, doctor, nurse). Checked before the visit is
+ * read, so a receptionist or admin learns nothing about it: they go to their own home screen. The page repeats the check.
  */
+class ConsultationDenied extends Error {}
+
 async function ConsultationLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   // A malformed id is "not found" (it can name no visit); checked first, so the database never sees it.
   if (!RECORD_ID.test(id)) notFound();
   let visible = false;
+  let homeIfDenied: string | null = null;
   try {
     const membership = await getActiveMembership();
+    if (!hasPerm(membership.role, "consultations:view")) {
+      homeIfDenied = navForRole(membership.role).home;
+      throw new ConsultationDenied();
+    }
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("visits")
@@ -28,6 +40,7 @@ async function ConsultationLayout({ children, params }: { children: ReactNode; p
     const patient = data ? (data as { patient: unknown }).patient : null;
     visible = data !== null && (Array.isArray(patient) ? patient.length > 0 : patient !== null);
   } catch (err) {
+    if (err instanceof ConsultationDenied) redirect(homeIfDenied as string);
     redirectIfUnauthenticated(err);
     await redirectIfTenantLocked(err);
     // 06-09c (IND L-2): any other failure (a transient database or Auth error) is not "no such record": the route

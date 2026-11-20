@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { hasPerm } from "@/lib/permissions";
+import { navForRole } from "@/lib/nav/nav-for-role";
 import {
   getPatientConsultationHistory,
   PastVisitEncounter,
@@ -35,6 +36,9 @@ async function ConsultationPage(props: ConsultationPageProps) {
   } catch {
     redirect("/login");
   }
+
+  // P1-07: the layout refuses first (it is the full-load path); the page repeats it for a client navigation.
+  if (!hasPerm(membership.role, "consultations:view")) redirect(navForRole(membership.role).home);
 
   // 1. Fetch visit and joined patient details
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
