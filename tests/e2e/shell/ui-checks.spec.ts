@@ -9,15 +9,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "../fixtures";
+import { hasPerm } from "@/lib/permissions";
 import { readRunData, storageStatePath, type E2eRole } from "../support/run-data";
 import { DESIGN_WIDTHS } from "../design/support/widths";
 import { axeShell, noHorizontalScroll, OUT } from "./support/shell";
 
-const SCREENS: Array<{ slug: string; url: () => string; focusMode?: boolean }> = [
+const SCREENS: Array<{ slug: string; url: () => string; focusMode?: boolean; needs?: "consultations:view" }> = [
   { slug: "today", url: () => "/" },
   { slug: "patients", url: () => "/patients" },
   { slug: "patient", url: () => `/patients/${readRunData().tenantA.patientId}` },
-  { slug: "consult", url: () => `/consultation/${readRunData().tenantA.visitId}`, focusMode: true },
+  { slug: "consult", url: () => `/consultation/${readRunData().tenantA.visitId}`, focusMode: true, needs: "consultations:view" },
   { slug: "settings", url: () => "/settings/clinic" },
 ];
 const ROLES_CHECKED: E2eRole[] = ["owner", "receptionist"];
@@ -34,7 +35,8 @@ for (const role of ROLES_CHECKED) {
       test(`${role} at ${w.width}px: the shell on Today, Patients, a patient, the consult and Settings`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width: w.width, height: w.height });
         const whole: Record<string, Array<{ id: string; impact: string | null | undefined }>> = {};
-        for (const screen of SCREENS) {
+        // The consult needs consultations:view (V2-08 08-01a, P1-07): the receptionist is redirected away from it.
+        for (const screen of SCREENS.filter((s) => !s.needs || hasPerm(role, s.needs))) {
           await page.goto(screen.url());
           await expect(page.getByRole("main")).toBeVisible();
           await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
