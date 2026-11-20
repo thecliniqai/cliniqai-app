@@ -22,5 +22,6 @@ export const CLIENT_ROUTE_PATTERNS = [
   "/settings/clinic",
   "/settings/developer",
   "/staff",
+  "/today",
   "/visits",
 ] as const;

@@ -41,7 +41,7 @@ export async function checkInVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId);
-  if (result.success) revalidate("/queue", "/calendar");
+  if (result.success) revalidate("/queue", "/calendar", "/today");
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
     queueTokenId: ok.queueTokenId,
