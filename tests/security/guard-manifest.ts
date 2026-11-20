@@ -109,7 +109,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/billing/actions.ts#addInvoiceItem": "billing:collect",
   "features/billing/actions.ts#collectPayment": "billing:collect",
   "features/billing/actions.ts#completeAndBillConsultation": "consultations:edit",
-  "features/billing/actions.ts#createVisitInvoice": "billing:collect",
+  "features/billing/actions.ts#createInvoice": "billing:collect",
   "features/billing/actions.ts#deleteInvoiceItem": "billing:collect",
   "features/billing/actions.ts#getInvoiceReceiptPdfSignedUrl": "appointments:view",
   "features/billing/actions.ts#getVisitBillingDetails": "appointments:view",

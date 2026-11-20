@@ -88,6 +88,33 @@ export function commandResultRows(tenantId: string, clientRequestId: string): st
   );
 }
 
+/**
+ * F-5 (V2-07 07-04a): the stored result of a command holds ids, numbers, amounts, statuses and flags only, never free text
+ * (an amendment reason, notes, a reference, a name could carry PHI and the table is kept for the retention window). It also checks
+ * that the request hash is a keyed 64-hex digest (G-8).
+ * Reads the stored `command_results.result` (superuser) and fails when a string value is anything but a token: a uuid, a
+ * timestamp, a number such as an invoice number, or a status word, i.e. no whitespace and at most 64 characters. Returns the
+ * parsed result so a spec can go on to compare it.
+ */
+export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: string): Record<string, unknown> {
+  const [line] = psql(
+    `select request_hash || '|' || result::text from private.command_results where tenant_id = '${tenantId}' and client_request_id = '${clientRequestId}'`
+  );
+  if (!line) throw new Error(`no stored result for ${clientRequestId}`);
+  const [hash, raw] = [line.slice(0, line.indexOf("|")), line.slice(line.indexOf("|") + 1)];
+  // G-8 (000099): the request hash is a keyed HMAC-SHA256 digest (64 hex characters), not an md5 of the payload.
+  if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`request hash of ${clientRequestId} is not a 64-hex keyed digest`);
+  const result = JSON.parse(raw) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(result)) {
+    if (typeof value === "string") {
+      if (!/^[A-Za-z0-9_.:+\-]{1,64}$/.test(value)) throw new Error(`stored result key ${key} holds free text (${value.length} characters)`);
+    } else if (value !== null && typeof value !== "number" && typeof value !== "boolean") {
+      throw new Error(`stored result key ${key} holds a ${typeof value}, not a scalar`);
+    }
+  }
+  return result;
+}
+
 /** `payment.recorded` outbox rows whose payload names the payment. */
 export async function outboxOfPayment(paymentId: string) {
   const { data, error } = await getAdminClient()

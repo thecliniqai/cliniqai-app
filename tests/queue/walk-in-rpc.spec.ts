@@ -22,7 +22,7 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { psql } from "../helpers/sql";
-import { auditRows, commandResultRows } from "../helpers/billing-commands";
+import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import { tokensOfVisit } from "../helpers/clinical-commands";
 import {
   callWalkIn,
@@ -117,6 +117,8 @@ describe("enqueue_walk_in: one transaction", () => {
       ]);
     }
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.enqueue_walk_in|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("existing patient: no patient is created, one visit and token", async () => {
@@ -178,6 +180,16 @@ describe("enqueue_walk_in: one transaction", () => {
     expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
   });
 
+  // G-9 (07-04a): the doctor must be a clinician (owner/doctor), not any active member.
+  it.each(["receptionist", "nurse", "admin"] as const)("a %s cannot be the doctor of a walk-in: DOCTOR_NOT_FOUND, nothing is written", async (role) => {
+    const m = marker();
+    const args = walkInArgs(tenantA, { p_new_patient: newPatient(m), p_doctor_id: members[role].userId });
+    const res = await callWalkIn(tenantA.client, args);
+    expect(res.error).toMatchObject({ code: "P0002", message: "DOCTOR_NOT_FOUND" });
+    expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
+    expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+  });
+
   it("an unknown or another clinic's patient is PATIENT_NOT_FOUND and writes nothing", async () => {
     const foreign = await seedPatient(tenantB);
     for (const id of [randomUUID(), foreign]) {
@@ -222,7 +234,14 @@ describe("enqueue_walk_in: idempotency and races", () => {
     const other = await addMemberToTenant(tenantA.tenantId, "doctor");
     const args = walkInArgs(tenantA, { p_patient_id: patientId });
     expect((await callWalkIn(tenantA.client, args)).error).toBeNull();
-    for (const over of [{ p_doctor_id: other.userId }, { p_priority: "vip" }, { p_patient_id: null, p_new_patient: newPatient(m) }]) {
+    // Every input is part of the request hash (G-7): doctor, priority, patient, reason and duration.
+    for (const over of [
+      { p_doctor_id: other.userId },
+      { p_priority: "vip" },
+      { p_reason: "A different reason" },
+      { p_duration_minutes: 30 },
+      { p_patient_id: null, p_new_patient: newPatient(m) },
+    ]) {
       const res = await callWalkIn(tenantA.client, { ...args, ...over } as never);
       expect(mapDbError(res.error), JSON.stringify(over)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
     }
@@ -251,6 +270,11 @@ describe("enqueue_walk_in: input", () => {
     ["an impossible date of birth", async () => ({ p_new_patient: newPatient(marker(), { date_of_birth: "2031-02-31" }) })],
     ["an age of 131", async () => ({ p_new_patient: newPatient(marker(), { age: 131 }) })],
     ["a sex outside the set", async () => ({ p_new_patient: newPatient(marker(), { sex: "x" }) })],
+    // G-6 (07-04a): the emergency contact is {name, phone, relation} strings of up to 200 characters, nothing else.
+    ["an emergency contact with another key", async () => ({ p_new_patient: newPatient(marker(), { emergency_contact: { name: "A", ssn: "123" } }) })],
+    ["an emergency contact with a non-string value", async () => ({ p_new_patient: newPatient(marker(), { emergency_contact: { name: { first: "A" } } }) })],
+    ["an emergency contact with a 201-character value", async () => ({ p_new_patient: newPatient(marker(), { emergency_contact: { name: "x".repeat(201) } }) })],
+    ["an emergency contact that is an array", async () => ({ p_new_patient: newPatient(marker(), { emergency_contact: ["a"] }) })],
     ["a priority outside the set", async () => ({ p_new_patient: newPatient(marker()), p_priority: "emergency" })],
     ["a duration of 4 minutes", async () => ({ p_new_patient: newPatient(marker()), p_duration_minutes: 4 })],
     ["a missing doctor", async () => ({ p_new_patient: newPatient(marker()), p_doctor_id: null })],
@@ -270,6 +294,19 @@ describe("enqueue_walk_in: input", () => {
     const res = await callWalkIn(tenantA.client, walkInArgs(tenantA, { p_new_patient: newPatient(m), p_client_request_id: null as unknown as string }));
     expect(res.error).toMatchObject({ code: "P0001", message: "CLIENT_REQUEST_ID_REQUIRED" });
     expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
+  });
+
+  it("stores an emergency contact of name, phone and relation (G-6), and none as null", async () => {
+    const m = marker();
+    const contact = { name: "Synthetic Relative", phone: "+919800000001", relation: "Spouse" };
+    expect((await callWalkIn(tenantA.client, walkInArgs(tenantA, { p_new_patient: newPatient(m, { emergency_contact: contact }) }))).error).toBeNull();
+    const [withContact] = await patientsMarked(tenantA.tenantId, m);
+    const { data } = await getAdminClient().from("patients").select("emergency_contact").eq("id", withContact.id).single();
+    expect(data?.emergency_contact).toEqual(contact);
+    const m2 = marker();
+    expect((await callWalkIn(tenantA.client, walkInArgs(tenantA, { p_new_patient: newPatient(m2, { emergency_contact: null }) }))).error).toBeNull();
+    const [none] = await patientsMarked(tenantA.tenantId, m2);
+    expect((await getAdminClient().from("patients").select("emergency_contact").eq("id", none.id).single()).data?.emergency_contact).toBeNull();
   });
 
   it("normalises the phone (+91, ten digits) and the name; an unmarked optional field stays empty", async () => {

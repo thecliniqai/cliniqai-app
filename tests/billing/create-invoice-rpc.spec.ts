@@ -13,7 +13,7 @@ import { publicEnv } from "@/lib/env";
 import { mapDbError } from "@/lib/db/errors";
 import { hasPerm } from "@/lib/permissions";
 import type { UserRole } from "@/lib/db/types";
-import { BILLING_COLLECT_FORBIDDEN_MESSAGE, createVisitInvoice } from "@/features/billing/service";
+import { BILLING_COLLECT_FORBIDDEN_MESSAGE, INVOICE_COMMAND_MESSAGES, createInvoice, createVisitInvoice } from "@/features/billing/service";
 import { addMemberToTenant, createDualMembershipUser, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import type { TestDb } from "../helpers/db";
@@ -31,6 +31,7 @@ import {
   invoicesOfVisit,
   itemsOfInvoice,
   seedVisit,
+  expectDataOnlyStoredResult,
 } from "../helpers/billing-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -111,6 +112,8 @@ describe("create_invoice: one transaction", () => {
       },
     ]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.create_invoice|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("a visit with a live invoice gets it back (existing: true) and nothing is written", async () => {
@@ -226,9 +229,11 @@ describe("create_invoice: idempotency", () => {
     const { visitId } = await seedVisit(tenantA);
     const args = createInvoiceArgs(tenantA, visitId);
     expect((await callCreateInvoice(tenantA.client, args)).error).toBeNull();
-    const changed = await callCreateInvoice(tenantA.client, { ...args, p_discount: 0 });
-    expect(changed.data).toBeNull();
-    expect(mapDbError(changed.error)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
+    for (const over of [{ p_discount: 0 }, { p_tax: 5 }, { p_items: [{ description: "Other", unit_price: 1, quantity: 1 }] as never }]) {
+      const changed = await callCreateInvoice(tenantA.client, { ...args, ...over });
+      expect(changed.data, JSON.stringify(over)).toBeNull();
+      expect(mapDbError(changed.error), JSON.stringify(over)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
+    }
     expect((await invoicesOfVisit(visitId))[0].discount).toBe(50);
   });
 
@@ -271,28 +276,35 @@ describe("create_invoice: idempotency", () => {
 });
 
 describe("create_invoice: input", () => {
-  const bad: [string, unknown][] = [
-    ["an empty list", []],
-    ["a non-array", { description: "x", unit_price: 1 }],
-    ["null", null],
-    ["a missing description", [{ unit_price: 10, quantity: 1 }]],
-    ["a blank description", [{ description: "   ", unit_price: 10, quantity: 1 }]],
-    ["a negative price", [{ description: "x", unit_price: -1, quantity: 1 }]],
-    ["a price that is not a number", [{ description: "x", unit_price: "10", quantity: 1 }]],
-    ["a price above the bound", [{ description: "x", unit_price: 1000000.01, quantity: 1 }]],
-    ["quantity 0", [{ description: "x", unit_price: 10, quantity: 0 }]],
-    ["a fractional quantity", [{ description: "x", unit_price: 10, quantity: 1.5 }]],
-    ["an unknown item type", [{ item_type: "gift", description: "x", unit_price: 10, quantity: 1 }]],
-    ["51 items", Array.from({ length: 51 }, () => ({ description: "x", unit_price: 1, quantity: 1 }))],
-    ["a subtotal beyond the column", Array.from({ length: 50 }, () => ({ description: "x", unit_price: 1000000, quantity: 99 }))],
+  // One reason per cause (V2-07 07-04a F-8; 000099): the form shows a field-level text for each.
+  const bad: [string, unknown, string][] = [
+    ["an empty list", [], "ITEM_COUNT_INVALID"],
+    ["a non-array", { description: "x", unit_price: 1 }, "ITEM_COUNT_INVALID"],
+    ["null", null, "ITEM_COUNT_INVALID"],
+    ["51 items", Array.from({ length: 51 }, () => ({ description: "x", unit_price: 1, quantity: 1 })), "ITEM_COUNT_INVALID"],
+    ["a missing description", [{ unit_price: 10, quantity: 1 }], "ITEM_DESCRIPTION_INVALID"],
+    ["a blank description", [{ description: "   ", unit_price: 10, quantity: 1 }], "ITEM_DESCRIPTION_INVALID"],
+    ["a description over 200 characters", [{ description: "d".repeat(201), unit_price: 10, quantity: 1 }], "ITEM_DESCRIPTION_INVALID"],
+    ["a description with a control character", [{ description: "fee\u0007", unit_price: 10, quantity: 1 }], "ITEM_DESCRIPTION_INVALID"],
+    ["a negative price", [{ description: "x", unit_price: -1, quantity: 1 }], "ITEM_PRICE_INVALID"],
+    ["a price that is not a number", [{ description: "x", unit_price: "10", quantity: 1 }], "ITEM_PRICE_INVALID"],
+    ["a price above the bound", [{ description: "x", unit_price: 1000000.01, quantity: 1 }], "ITEM_PRICE_INVALID"],
+    ["quantity 0", [{ description: "x", unit_price: 10, quantity: 0 }], "ITEM_QUANTITY_INVALID"],
+    ["quantity 100", [{ description: "x", unit_price: 10, quantity: 100 }], "ITEM_QUANTITY_INVALID"],
+    ["a fractional quantity", [{ description: "x", unit_price: 10, quantity: 1.5 }], "ITEM_QUANTITY_INVALID"],
+    ["a quantity that is not a number", [{ description: "x", unit_price: 10, quantity: "2" }], "ITEM_QUANTITY_INVALID"],
+    ["an unknown item type", [{ item_type: "gift", description: "x", unit_price: 10, quantity: 1 }], "INPUT_INVALID"],
+    ["an item that is not an object", ["fee"], "INPUT_INVALID"],
+    ["a subtotal beyond the column", Array.from({ length: 50 }, () => ({ description: "x", unit_price: 1000000, quantity: 99 })), "INVOICE_TOTAL_INVALID"],
   ];
-  it.each(bad)("%s is INPUT_INVALID and writes nothing", async (_name, items) => {
+  it.each(bad)("%s is %s and writes nothing", async (_name, items, reason) => {
     const { visitId } = await seedVisit(tenantA);
     const args = createInvoiceArgs(tenantA, visitId, { p_items: items as never });
     const { data, error } = await callCreateInvoice(tenantA.client, args);
     expect(data).toBeNull();
-    expect(error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    expect(error).toMatchObject({ code: "P0001", message: reason });
     expect(mapDbError(error).code).toBe("VALIDATION_FAILED");
+    expect(mapDbError(error).reason).toBe(reason);
     expect(await invoicesOfVisit(visitId)).toEqual([]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
   });
@@ -348,6 +360,58 @@ describe("create_invoice: who may call it", () => {
       // A role that cannot be a visit's doctor in the database cannot have an own visit: only "any visit" applies.
       expect(mayOwn).toBe(mayAny);
     }
+  });
+
+  // F-10 (07-04a): the Result-returning command the checkout's zero-amount path uses carries the real AppError code and reason.
+  describe("createInvoice (the Result-returning service)", () => {
+    const input = (v: { visitId: string; patientId: string }, over: Record<string, unknown> = {}) => ({
+      visit_id: v.visitId,
+      patient_id: v.patientId,
+      items: [{ item_type: "consultation" as const, description: "Synthetic fee", unit_price: 200, quantity: 1 }],
+      discount: 0,
+      tax: 0,
+      client_request_id: randomUUID(),
+      ...over,
+    });
+
+    it("creates the invoice, replays on the same id, and returns the existing invoice for a new id", async () => {
+      const v = await seedVisit(tenantA);
+      const req = input(v);
+      const first = await createInvoice(ctxFor(tenantA), req);
+      expect(first).toMatchObject({ ok: true, value: { existing: false, replayed: false, status: "issued", totalAmount: 200 } });
+      expect(await createInvoice(ctxFor(tenantA), req)).toMatchObject({ ok: true, value: { replayed: true, existing: false } });
+      expect(await createInvoice(ctxFor(tenantA), input(v))).toMatchObject({
+        ok: true,
+        value: { existing: true, invoiceId: (first as { value: { invoiceId: string } }).value.invoiceId },
+      });
+      expect(await invoicesOfVisit(v.visitId)).toHaveLength(1);
+    });
+
+    it("an id reused for another bill is IDEMPOTENCY_MISMATCH (the hook rotates it), not a generic CONFLICT", async () => {
+      const v = await seedVisit(tenantA);
+      const req = input(v);
+      expect((await createInvoice(ctxFor(tenantA), req)).ok).toBe(true);
+      const other = await createInvoice(ctxFor(tenantA), { ...req, discount: 10 });
+      expect(other).toMatchObject({ ok: false, error: { code: "IDEMPOTENCY_MISMATCH", message: INVOICE_COMMAND_MESSAGES.IDEMPOTENCY_MISMATCH } });
+    });
+
+    it("a refusal keeps its code: FORBIDDEN for a colleague's visit, NOT_FOUND for another clinic's, VALIDATION_FAILED with field errors", async () => {
+      const v = await seedVisit(tenantA, tenantA.userId);
+      expect(await createInvoice(ctxFor(members.doctor), input(v))).toMatchObject({ ok: false, error: { code: "FORBIDDEN", message: BILLING_COLLECT_FORBIDDEN_MESSAGE } });
+      const foreign = await seedVisit(tenantB);
+      expect(await createInvoice(ctxFor(tenantA), input(foreign))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+      const invalid = await createInvoice(ctxFor(tenantA), input(v, { items: [] }));
+      expect(invalid).toMatchObject({ ok: false, error: { code: "VALIDATION_FAILED", fieldErrors: { items: expect.any(Array) } } });
+      expect(await invoicesOfVisit(v.visitId)).toEqual([]);
+    });
+
+    it("a database refusal of the items reaches the caller as its own reason with its own text (F-8)", async () => {
+      const v = await seedVisit(tenantA);
+      // Past the zod bound on purpose (the database repeats it): call the command through the service with a price the schema
+      // would refuse by calling the RPC directly, then map it the way the service does.
+      const { error } = await callCreateInvoice(tenantA.client, createInvoiceArgs(tenantA, v.visitId, { p_items: [{ description: "x", unit_price: 2_000_000, quantity: 1 }] as never }));
+      expect(mapDbError(error, INVOICE_COMMAND_MESSAGES)).toMatchObject({ code: "VALIDATION_FAILED", reason: "ITEM_PRICE_INVALID", message: INVOICE_COMMAND_MESSAGES.ITEM_PRICE_INVALID });
+    });
   });
 
   it("the service refuses a colleague's visit with the fixed text before any write", async () => {

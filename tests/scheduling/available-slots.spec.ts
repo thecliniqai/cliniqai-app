@@ -185,6 +185,38 @@ describe("available_slots: the clinic's time zone", () => {
   });
 });
 
+describe("available_slots: only the future (G-3) and only clinicians (G-9)", () => {
+  /** The clinic-local (IST) dates of yesterday and today, from the database clock. */
+  const clinicDates = () => {
+    const [row] = psql("select ((now() at time zone 'Asia/Kolkata')::date - 1)::text || ',' || (now() at time zone 'Asia/Kolkata')::date::text");
+    const [yesterday, today] = row.split(",");
+    return { yesterday, today };
+  };
+
+  it("a day in the past lists nothing; today lists only slots that start from now on", async () => {
+    const doc = await newDoctor(tenantA, weekSchedule([{ start: "00:00", end: "23:45" }]));
+    const { yesterday, today } = clinicDates();
+    expect(await slotsOf(tenantA.client, doc.userId, yesterday)).toEqual([]);
+    const todays = await slotsOf(tenantA.client, doc.userId, today);
+    const now = Date.now();
+    for (const [start] of todays) expect(new Date(start).getTime(), start).toBeGreaterThanOrEqual(now - 5_000);
+    // The same schedule on a future day has the whole grid, so today's list really was cut at now.
+    const future = await slotsOf(tenantA.client, doc.userId, DAY);
+    expect(future.length).toBe(95);
+    expect(todays.length).toBeLessThan(95);
+  });
+
+  it.each(["receptionist", "nurse", "admin"] as const)("a %s is not a clinician: no slots, even with a schedule stored", async (role) => {
+    await setSchedule(tenantA.tenantId, members[role].userId, weekSchedule([{ start: "10:00", end: "11:00" }]));
+    expect(await slotsOf(tenantA.client, members[role].userId)).toEqual([]);
+  });
+
+  it("the owner of the clinic is a clinician: slots are listed", async () => {
+    await setSchedule(tenantA.tenantId, tenantA.userId, weekSchedule([{ start: "10:00", end: "11:00" }]));
+    expect((await slotsOf(tenantA.client, tenantA.userId)).length).toBe(4);
+  });
+});
+
 describe("available_slots: who sees what", () => {
   it("another clinic's doctor, a non-doctor member of the wrong clinic and an unknown id have no slots", async () => {
     const docB = await newDoctor(tenantB, weekSchedule([{ start: "10:00", end: "11:00" }]));

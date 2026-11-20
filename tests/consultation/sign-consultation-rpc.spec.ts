@@ -21,8 +21,9 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { installScopedFault, leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { createBarrier, gateClient } from "../helpers/write-barrier";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { psql } from "../helpers/sql";
-import { auditRows, commandResultRows } from "../helpers/billing-commands";
+import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import {
   callSign,
   deactivateSubscription,
@@ -117,6 +118,8 @@ describe("sign_consultation: one transaction", () => {
       expect(JSON.parse(issued[0].payload).data).toEqual({ prescription_id: id, patient_id: v.patientId, visit_id: v.visitId });
     }
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.sign_consultation|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("a clinic without a webhook subscription: signed and audited, no outbox row", async () => {
@@ -162,7 +165,7 @@ describe("sign_consultation: one transaction", () => {
       expect(error?.code).toBe("XX000");
     });
 
-    expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null, signed_by: null });
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null, signed_by: null });
     expect((await prescriptionsOfVisit(v.visitId))[0].signed_at).toBeNull();
     expect(await writes(tenantA.tenantId, v.visitId, v.prescriptionIds, args.p_client_request_id)).toEqual({ audit: 0, completed: 0, issued: 0, claim: 0 });
 
@@ -184,7 +187,7 @@ describe("sign_consultation: one transaction", () => {
       fault.remove();
       await deactivateSubscription(hook);
     }
-    expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null });
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null });
     expect((await prescriptionsOfVisit(v.visitId))[0].signed_at).toBeNull();
     expect(await writes(tenantA.tenantId, v.visitId, v.prescriptionIds, args.p_client_request_id)).toEqual({ audit: 0, completed: 0, issued: 0, claim: 0 });
   });
@@ -201,6 +204,37 @@ describe("sign_consultation: one transaction", () => {
     expect(mapDbError(res.error)).toMatchObject({ code: "CONFLICT", reason: "ALREADY_SIGNED" });
     expect(await visitRow(v.visitId)).toMatchObject({ signed_at: signedAt, signed_by: tenantA.userId });
     expect(await writes(tenantA.tenantId, v.visitId, v.prescriptionIds, again.p_client_request_id)).toEqual({ audit: 1, completed: 1, issued: 1, claim: 0 });
+  });
+});
+
+// F-6 (07-04a): only a visit in the queue or in the consultation is signed (a signature emits guaranteed webhooks).
+describe("sign_consultation: the visit's status", () => {
+  it.each(["booked", "confirmed", "cancelled", "no_show"] as const)("a %s visit is VISIT_NOT_SIGNABLE: nothing is signed, audited or queued", async (status) => {
+    const v = await seedClinicalVisit(tenantA, { diagnosis: true, status });
+    const args = signArgs(tenantA, v.visitId);
+    const res = await callSign(members.doctor.client, args);
+    expect(res.error).toMatchObject({ code: "P0001", message: "VISIT_NOT_SIGNABLE" });
+    expect(mapDbError(res.error)).toMatchObject({ code: "CONFLICT", reason: "VISIT_NOT_SIGNABLE" });
+    expect(await visitRow(v.visitId)).toMatchObject({ status, signed_at: null });
+    expect(await auditRows(tenantA.tenantId, "visit.complete_and_sign", v.visitId)).toEqual([]);
+    expect(await outboxRows(tenantA.tenantId, "visit.completed", v.visitId)).toEqual([]);
+    expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+  });
+
+  it.each(["waiting", "in_consultation"] as const)("a %s visit is signed", async (status) => {
+    const v = await seedClinicalVisit(tenantA, { diagnosis: true, status });
+    expect((await callSign(members.doctor.client, signArgs(tenantA, v.visitId))).error).toBeNull();
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "completed", signed_by: members.doctor.userId });
+  });
+
+  it("the service reports it with the fixed 'check the patient in' text", async () => {
+    const v = await seedClinicalVisit(tenantA, { diagnosis: true, status: "booked", doctorId: members.doctor.userId });
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, randomUUID())).toMatchObject({
+      success: false,
+      error: "Check the patient in before signing this consultation.",
+      code: "CONFLICT",
+      reason: "VISIT_NOT_SIGNABLE",
+    });
   });
 });
 
@@ -286,7 +320,7 @@ describe("sign_consultation: who may call it", () => {
       expect((await visitRow(v.visitId)).signed_by).toBe(members[role].userId);
     } else {
       expect(error?.code).toBe("42501");
-      expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null });
+      expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null });
       expect(await writes(tenantA.tenantId, v.visitId, v.prescriptionIds)).toEqual({ audit: 0, completed: 0, issued: 0, claim: 0 });
     }
   });
@@ -309,7 +343,7 @@ describe("sign_consultation: who may call it", () => {
       expect(res.error).toMatchObject({ code: "P0002", message: "VISIT_NOT_FOUND" });
       expect(mapDbError(res.error).code).toBe("NOT_FOUND");
     }
-    expect(await visitRow(visitB.visitId)).toMatchObject({ status: "booked", signed_at: null });
+    expect(await visitRow(visitB.visitId)).toMatchObject({ status: "waiting", signed_at: null });
     expect(await writes(tenantB.tenantId, visitB.visitId, visitB.prescriptionIds)).toEqual({ audit: 0, completed: 0, issued: 0, claim: 0 });
   });
 
@@ -347,6 +381,29 @@ describe("completeAndSignConsultation (service)", () => {
       reason: "ALREADY_SIGNED",
     });
     expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, "not-a-uuid")).toMatchObject({ success: false, code: "VALIDATION_FAILED" });
+    expect(await auditRows(tenantA.tenantId, "visit.complete_and_sign", v.visitId)).toHaveLength(1);
+  });
+
+  // F-7 (07-04a): a replay means the first call's response may have been lost after the commit, so the archive that follows
+  // the commit is rendered then too, when it is missing; an archive that is already there is left alone.
+  it("a replay renders the prescription PDF when the first call's post-commit step never archived it, and does nothing when it did", async () => {
+    const admin = getAdminClient();
+    const v = await seedClinicalVisit(tenantA, { doctorId: members.doctor.userId, diagnosis: true, prescriptions: 1 });
+    const id = randomUUID();
+    const pdfPath = async () => (await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", v.visitId).single()).data?.pdf_storage_path ?? null;
+    const archives = async () => (await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length;
+
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: false });
+    expect(await pdfPath()).toMatch(/rx_v1\.pdf$/);
+    expect(await archives()).toBe(1);
+    // Untouched replay: the archive is there, nothing is rendered again.
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
+    expect(await archives()).toBe(1);
+    // The first call died right after the commit: no archive recorded.
+    await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
+    expect(await pdfPath()).toMatch(/rx_v1\.pdf$/);
+    expect(await archives()).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.complete_and_sign", v.visitId)).toHaveLength(1);
   });
 

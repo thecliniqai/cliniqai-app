@@ -39,6 +39,7 @@ import {
   outboxOfPayment,
   paymentsOfInvoice,
   subscribePaymentEvents,
+  expectDataOnlyStoredResult,
 } from "../helpers/billing-commands";
 import {
   callSign,
@@ -50,7 +51,7 @@ import {
   subscribeSignEvents,
   visitRow,
 } from "../helpers/clinical-commands";
-import { callCompleteAndBill, completeAndBillArgs } from "../helpers/front-desk-commands";
+import { callCompleteAndBill, completeAndBillArgs, messagesOfVisit } from "../helpers/front-desk-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 
@@ -134,6 +135,8 @@ describe("complete_and_bill: one transaction", () => {
     expect(await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).toHaveLength(1);
     expect(await outboxOfPayment(payment.id)).toHaveLength(1);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.complete_and_bill|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("without a payment: the invoice stays issued and nothing is paid", async () => {
@@ -195,7 +198,7 @@ describe("complete_and_bill: one transaction", () => {
       expect(JSON.stringify(viaService)).not.toContain("SPIKE_FAULT");
     });
 
-    expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null, signed_by: null });
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null, signed_by: null });
     expect((await prescriptionsOfVisit(v.visitId))[0].signed_at).toBeNull();
     expect(await writes(tenantFault, v.visitId, v.prescriptionIds)).toEqual(NOTHING);
     expect(commandResultRows(tenantFault.tenantId, args.p_client_request_id)).toEqual([]);
@@ -207,7 +210,7 @@ describe("complete_and_bill: one transaction", () => {
     const res = await callCompleteAndBill(tenantA.client, args);
     expect(res.error).toMatchObject({ code: "P0001", message: "OVERPAYMENT" });
     expect(mapDbError(res.error)).toMatchObject({ code: "CONFLICT", reason: "OVERPAYMENT" });
-    expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null });
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null });
     expect(await writes(tenantA, v.visitId, v.prescriptionIds)).toEqual(NOTHING);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
 
@@ -300,7 +303,16 @@ describe("complete_and_bill: idempotency and races", () => {
     const v = await seedClinicalVisit(tenantA);
     const args = completeAndBillArgs(tenantA, v.visitId);
     expect((await callCompleteAndBill(tenantA.client, args)).error).toBeNull();
-    for (const over of [{ p_discount: 0 }, { p_payment: { method: "card" } }, { p_payment: null as never }]) {
+    // Every input is part of the request hash (T-1, G-7): bill, discount, tax, method, reference, amount and whether to collect.
+    for (const over of [
+      { p_discount: 0 },
+      { p_tax: 5 },
+      { p_items: [{ item_type: "consultation", description: "Another fee", unit_price: 700, quantity: 1 }] as never },
+      { p_payment: { method: "card" } },
+      { p_payment: { method: "cash", reference: "UTR-9" } },
+      { p_payment: { method: "cash", amount: 10 } },
+      { p_payment: null as never },
+    ]) {
       const res = await callCompleteAndBill(tenantA.client, { ...args, ...over });
       expect(mapDbError(res.error), JSON.stringify(over)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
     }
@@ -334,8 +346,8 @@ describe("complete_and_bill: idempotency and races", () => {
 
 describe("complete_and_bill: input", () => {
   it.each([
-    ["no items", { p_items: [] }, "INPUT_INVALID"],
-    ["an item without a description", { p_items: [{ item_type: "other", unit_price: 5, quantity: 1 }] }, "INPUT_INVALID"],
+    ["no items", { p_items: [] }, "ITEM_COUNT_INVALID"],
+    ["an item without a description", { p_items: [{ item_type: "other", unit_price: 5, quantity: 1 }] }, "ITEM_DESCRIPTION_INVALID"],
     ["a negative discount", { p_discount: -1 }, "INPUT_INVALID"],
     ["a payment with an unknown key", { p_payment: { method: "cash", mystery: 1 } }, "INPUT_INVALID"],
     ["a payment method outside the set", { p_payment: { method: "barter" } }, "METHOD_INVALID"],
@@ -347,7 +359,7 @@ describe("complete_and_bill: input", () => {
     const args = completeAndBillArgs(tenantA, v.visitId, over as never);
     const res = await callCompleteAndBill(tenantA.client, args);
     expect(res.error).toMatchObject({ code: "P0001", message: reason });
-    expect(await visitRow(v.visitId)).toMatchObject({ status: "booked", signed_at: null });
+    expect(await visitRow(v.visitId)).toMatchObject({ status: "waiting", signed_at: null });
     expect(await writes(tenantA, v.visitId, v.prescriptionIds)).toEqual(NOTHING);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
   });
@@ -386,7 +398,7 @@ describe("complete_and_bill: who may call it", () => {
       expect(res.error).toBeNull();
     } else {
       expect(res.error?.code).toBe("42501");
-      expect(await visitRow(others.visitId)).toMatchObject({ status: "booked", signed_at: null });
+      expect(await visitRow(others.visitId)).toMatchObject({ status: "waiting", signed_at: null });
       expect(await writes(tenantA, others.visitId, others.prescriptionIds)).toEqual(NOTHING);
     }
   });
@@ -445,16 +457,98 @@ describe("completeAndBillConsultation (service)", () => {
     ...over,
   });
 
-  it("signs, bills and collects in one call; a repeat of the same id returns the first result and does nothing more", async () => {
+  it("signs, bills and collects in one call; a repeat of the same id returns the first result and writes nothing new", async () => {
     const v = await seedClinicalVisit(tenantA, { diagnosis: true });
     const req = input(v);
     const first = await completeAndBillConsultation(ctxFor(tenantA), req);
     expect(first).toMatchObject({ success: true, visitId: v.visitId, paymentRecorded: true, replayed: false });
     const replay = await completeAndBillConsultation(ctxFor(tenantA), req);
     expect(replay).toMatchObject({ success: true, invoiceId: (first as { invoiceId: string }).invoiceId, paymentRecorded: true, replayed: true });
-    // R-4: the replay sends no receipt and no WhatsApp message.
-    expect(replay).not.toHaveProperty("whatsAppSent");
     expect(await writes(tenantA, v.visitId, v.prescriptionIds)).toMatchObject({ signAudit: 1, invoices: 1, payments: 1 });
+  });
+
+  // V2-07 07-04a (F-7, G-2): a response lost after the commit must not lose the steps that follow it. A replay runs them
+  // again, idempotently: the prescription PDF and the receipt are rendered when they are missing, and the one consolidated
+  // WhatsApp message has a per-visit dedupe key, so nothing is queued twice.
+  describe("post-commit steps after a replay (F-7, G-2)", () => {
+    const admin = getAdminClient();
+    const receiptPath = (invoiceId: string) => `${tenantA.tenantId}/receipts/inv_${invoiceId}.pdf`;
+    const receiptExists = async (invoiceId: string) => {
+      const { data } = await admin.storage.from("prescriptions").download(receiptPath(invoiceId));
+      return data !== null;
+    };
+    const rxPath = async (visitId: string) =>
+      ((await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", visitId).order("version", { ascending: false }).limit(1).single()).data as {
+        pdf_storage_path: string | null;
+      }).pdf_storage_path;
+    const consolidated = async (visitId: string) => (await messagesOfVisit(visitId)).filter((m) => m.template_id === "consultation_documents");
+    const pdfAudits = async (rxId: string, invoiceId: string) => ({
+      rx: (await auditRows(tenantA.tenantId, "prescription.generate_pdf", rxId)).length,
+      receipt: (await auditRows(tenantA.tenantId, "invoice.generate_receipt_pdf", invoiceId)).length,
+    });
+
+    /** A visit whose patient has a mobile number the message accepts (the seed's number is not one). */
+    const messageableVisit = async () => {
+      const v = await seedClinicalVisit(tenantA, { diagnosis: true });
+      const { error } = await admin.from("patients").update({ phone: "+919876543210" }).eq("id", v.patientId);
+      if (error) throw new Error(error.message);
+      return v;
+    };
+
+    it("the first call archives the prescription PDF and the receipt and queues one consolidated message; an untouched replay does none of it again", async () => {
+      const v = await messageableVisit();
+      const req = input(v);
+      const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string };
+      expect(first.success).toBe(true);
+      expect(await rxPath(v.visitId)).toMatch(/rx_v1\.pdf$/);
+      expect(await receiptExists(first.invoiceId)).toBe(true);
+      expect(await consolidated(v.visitId)).toHaveLength(1);
+      const before = await pdfAudits(v.prescriptionIds[0], first.invoiceId);
+
+      const replay = await completeAndBillConsultation(ctxFor(tenantA), req);
+      expect(replay).toMatchObject({ success: true, replayed: true });
+      expect(await pdfAudits(v.prescriptionIds[0], first.invoiceId)).toEqual(before);
+      expect(await consolidated(v.visitId)).toHaveLength(1);
+    });
+
+    it("a replay after a lost post-commit renders the missing prescription PDF and receipt, and still queues one message", async () => {
+      const v = await messageableVisit();
+      const req = input(v);
+      const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string };
+      expect(first.success).toBe(true);
+      // Simulate the first call dying right after the commit: no archive, no receipt (the queued message stays: it may or may not
+      // have been queued before the loss, and a repeat must not add a second).
+      const path = await rxPath(v.visitId);
+      expect(path).toBeTruthy();
+      await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
+      await admin.storage.from("prescriptions").remove([path as string, receiptPath(first.invoiceId)]);
+      expect(await receiptExists(first.invoiceId)).toBe(false);
+      const before = await pdfAudits(v.prescriptionIds[0], first.invoiceId);
+
+      const replay = await completeAndBillConsultation(ctxFor(tenantA), req);
+      expect(replay).toMatchObject({ success: true, invoiceId: first.invoiceId, paymentRecorded: true, replayed: true });
+      expect(await rxPath(v.visitId)).toMatch(/rx_v1\.pdf$/);
+      expect(await receiptExists(first.invoiceId)).toBe(true);
+      const after = await pdfAudits(v.prescriptionIds[0], first.invoiceId);
+      expect(after.rx).toBe(before.rx + 1);
+      expect(after.receipt).toBe(before.receipt + 1);
+      expect(await consolidated(v.visitId)).toHaveLength(1);
+      // The command itself wrote nothing new.
+      expect(await writes(tenantA, v.visitId, v.prescriptionIds)).toMatchObject({ signAudit: 1, invoices: 1, payments: 1 });
+    });
+
+    it("a replay of an already-billed result (the desk made the invoice first) runs no receipt or message step", async () => {
+      const v = await seedClinicalVisit(tenantA, { diagnosis: true });
+      const desk = await callCreateInvoice(tenantA.client, createInvoiceArgs(tenantA, v.visitId));
+      expect(desk.error).toBeNull();
+      const req = input(v);
+      const first = await completeAndBillConsultation(ctxFor(tenantA), req);
+      expect(first).toMatchObject({ success: true, alreadyBilled: true });
+      const replay = await completeAndBillConsultation(ctxFor(tenantA), req);
+      expect(replay).toMatchObject({ success: true, alreadyBilled: true, replayed: true });
+      expect(await consolidated(v.visitId)).toHaveLength(0);
+      expect(await receiptExists((replay as { invoiceId: string }).invoiceId)).toBe(false);
+    });
   });
 
   it("an already-signed-and-billed visit is the fixed 'already done' failure; a malformed request id is refused before any call", async () => {

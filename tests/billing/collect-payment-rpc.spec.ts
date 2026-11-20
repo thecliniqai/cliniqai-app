@@ -34,6 +34,7 @@ import {
   paymentsOfInvoice,
   seedVisit,
   subscribePaymentEvents,
+  expectDataOnlyStoredResult,
 } from "../helpers/billing-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -100,6 +101,8 @@ describe("collect_payment: one transaction", () => {
     ]);
     expect(await outboxOfPayment(r.payment_id)).toEqual([expect.objectContaining({ tenant_id: tenantA.tenantId, subscription_id: endpointA })]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.collect_payment|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("a visit with an invoice: the payment is added to it, the items are ignored, nothing is created", async () => {
@@ -237,7 +240,18 @@ describe("collect_payment: idempotency and races", () => {
     const { visitId } = await seedVisit(tenantA);
     const args = collectPaymentArgs(tenantA, visitId, { p_amount: 300 });
     expect((await callCollectPayment(tenantA.client, args)).error).toBeNull();
-    for (const over of [{ p_amount: 301 }, { p_method: "card" }, { p_items: [] as never }, { p_notes: "other" }]) {
+    // Every input the command acts on is part of the request hash (T-1): a retry may repeat a request, never change it.
+    const changed = [
+      { p_amount: 301 },
+      { p_method: "card" },
+      { p_items: [] as never },
+      { p_notes: "other" },
+      { p_reference: "UTR-2" },
+      { p_discount: 10 },
+      { p_tax: 5 },
+      { p_items: [{ item_type: "consultation", description: "Another fee", unit_price: 500, quantity: 1 }] as never },
+    ];
+    for (const over of changed) {
       const res = await callCollectPayment(tenantA.client, { ...args, ...over });
       expect(mapDbError(res.error), JSON.stringify(over)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
     }
@@ -308,7 +322,7 @@ describe("collect_payment: input", () => {
     ["an unknown method", { p_method: "bitcoin" }, "METHOD_INVALID"],
     ["a reference over 100 characters", { p_reference: "x".repeat(101) }, "INPUT_INVALID"],
     ["notes over 500 characters", { p_notes: "x".repeat(501) }, "INPUT_INVALID"],
-    ["no items and no invoice", { p_items: [] as never }, "INPUT_INVALID"],
+    ["no items and no invoice", { p_items: [] as never }, "ITEM_COUNT_INVALID"],
     ["a negative discount", { p_discount: -1 }, "INPUT_INVALID"],
   ];
   it.each(bad)("%s is refused and writes nothing", async (_name, over, reason) => {

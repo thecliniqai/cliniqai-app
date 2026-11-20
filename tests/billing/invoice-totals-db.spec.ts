@@ -117,7 +117,9 @@ describe("M-INVOICE: invoices and payments are not writable through the Data API
     expect(await invoiceState(invoiceId)).toBe("500/500/issued");
   });
 
-  it("an invoice cannot be created already paid (Sign & Bill INSERT)", async () => {
+  // V2-07 07-04a (000099, the 07-04 contract): no API role inserts an invoice header at all any more (the definer step of
+  // create_invoice / collect_payment / complete_and_bill does), so a doctor cannot create one already paid either.
+  it("an invoice cannot be created through the Data API, paid or not (Sign & Bill goes through complete_and_bill)", async () => {
     const patientId = await insertReturningId(admin, "patients", {
       tenant_id: owner.tenantId,
       full_name: "Synthetic Totals Patient",
@@ -140,7 +142,19 @@ describe("M-INVOICE: invoices and payments are not writable through the Data API
       total_amount: 0,
       status: "paid",
     });
-    expect(error).toMatchObject({ code: "42501", message: "INVOICE_STATUS_RPC_ONLY" });
+    expect(error).toMatchObject({ code: "42501", message: "permission denied for table invoices" });
+    const unpaid = await doctor.client.from("invoices").insert({
+      tenant_id: owner.tenantId,
+      visit_id: visitId,
+      patient_id: patientId,
+      invoice_number: `TOT-${randomUUID()}`,
+      subtotal: 500,
+      total_amount: 500,
+      status: "issued",
+    });
+    expect(unpaid.error).toMatchObject({ code: "42501", message: "permission denied for table invoices" });
+    const { count } = await admin.from("invoices").select("id", { count: "exact", head: true }).eq("visit_id", visitId);
+    expect(count).toBe(0);
   });
 });
 

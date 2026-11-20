@@ -370,6 +370,10 @@ const REQUIRED_FILES = [
   "tests/visits/register-and-book-rpc.spec.ts",
   "tests/billing/complete-and-bill-rpc.spec.ts",
   "tests/scheduling/available-slots.spec.ts",
+  // V2-07 07-04a (the review fix round): the booking message configuration fault and the overbook cause texts. The FLOOR is
+  // re-measured at the V2-07 gate.
+  "tests/visits/booking-template-fault.spec.ts",
+  "tests/visits/slot-conflict-text.spec.ts",
 ];
 
 const file = process.argv[2];

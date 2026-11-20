@@ -28,7 +28,7 @@ import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { createBarrier, gateClient } from "../helpers/write-barrier";
 import { psql, psqlAsync } from "../helpers/sql";
-import { auditRows, commandResultRows } from "../helpers/billing-commands";
+import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import {
   callRegisterAndBook,
   messagesOfVisit,
@@ -89,7 +89,8 @@ describe("register_and_book: catalog", () => {
   it("the shared steps have no API grant", () => {
     for (const fn of [
       "private.step_create_patient(uuid, jsonb)",
-      "private.slot_conflict(uuid, uuid, timestamptz, integer, text)",
+      "private.slot_conflicts(uuid, uuid, timestamptz, integer, text)",
+      "private.command_request_hash(jsonb)",
       "private.step_enqueue_booking_message(uuid, uuid, uuid, uuid, timestamptz, text)",
     ]) {
       expect(
@@ -150,6 +151,8 @@ describe("register_and_book: one transaction", () => {
       expect.objectContaining({ actor_id: members.receptionist.userId, entity_type: "visit", metadata: expect.objectContaining({ origin_type: "scheduled" }) }),
     ]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.register_and_book|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("existing patient: no patient is created; a doctor name that already starts with Dr. is kept", async () => {
@@ -342,6 +345,91 @@ describe("register_and_book: the slot", () => {
   });
 });
 
+describe("register_and_book: each override clears only its own conflict (G-1)", () => {
+  const week = 8;
+  const offDuty = (dow: number) => ist(week, dow, 14, 0); // between the two shifts
+  const inShift = (dow: number) => ist(week, dow, 11, 0);
+
+  it("an off-duty override does not hide a block: SLOT_BLOCKED until the block is overridden too; then it books, flagged overbooked", async () => {
+    await seedBlock(tenantA, offDuty(0), ist(week, 0, 15, 0), tenantA.userId);
+    const m = marker();
+    const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, offDuty(0), { p_new_patient: newPatient(m), p_override_off_duty: true }));
+    expect(res.error).toMatchObject({ code: "P0001", message: "SLOT_BLOCKED" });
+    expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
+
+    const both = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, offDuty(0), { p_patient_id: await seedPatient(tenantA), p_override_off_duty: true, p_override_block: true }));
+    expect(both.error).toBeNull();
+    expect((await visitsOfPatient((both.data as { patient_id: string }).patient_id))[0].is_overbooked).toBe(true);
+  });
+
+  it("an off-duty override does not hide a taken slot: SLOT_TAKEN, and nothing is registered", async () => {
+    await seedBookedVisit(tenantA, await seedPatient(tenantA), tenantA.userId, offDuty(1));
+    const m = marker();
+    const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, offDuty(1), { p_new_patient: newPatient(m), p_override_off_duty: true, p_override_block: true }));
+    expect(res.error).toMatchObject({ code: "P0001", message: "SLOT_TAKEN" });
+    expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
+  });
+
+  it("a block override does not hide a taken slot: SLOT_TAKEN", async () => {
+    await seedBlock(tenantA, inShift(2), ist(week, 2, 12, 0), tenantA.userId);
+    await seedBookedVisit(tenantA, await seedPatient(tenantA), tenantA.userId, inShift(2));
+    const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(2), { p_patient_id: await seedPatient(tenantA), p_override_block: true }));
+    expect(res.error).toMatchObject({ code: "P0001", message: "SLOT_TAKEN" });
+  });
+
+  it("an off-duty override on a free, in-shift slot books an ordinary booking (not overbooked) that holds the slot: a second booking is SLOT_TAKEN", async () => {
+    const first = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(3), { p_patient_id: await seedPatient(tenantA), p_override_off_duty: true }));
+    expect(first.error).toBeNull();
+    expect((await visitsOfPatient((first.data as { patient_id: string }).patient_id))[0].is_overbooked).toBe(false);
+    const again = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(3), { p_patient_id: await seedPatient(tenantA), p_override_off_duty: true }));
+    expect(again.error).toMatchObject({ message: "SLOT_TAKEN" });
+    const plain = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(3), { p_patient_id: await seedPatient(tenantA) }));
+    expect(plain.error).toMatchObject({ message: "SLOT_TAKEN" });
+  });
+
+  it("a block override on a free slot (no block there) is an ordinary booking that holds the slot", async () => {
+    const first = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(4), { p_patient_id: await seedPatient(tenantA), p_override_block: true }));
+    expect(first.error).toBeNull();
+    expect((await visitsOfPatient((first.data as { patient_id: string }).patient_id))[0].is_overbooked).toBe(false);
+    const again = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, inShift(4), { p_patient_id: await seedPatient(tenantA), p_override_block: true }));
+    expect(again.error).toMatchObject({ message: "SLOT_TAKEN" });
+  });
+
+  it("an off-duty override on a slot that really is off duty books flagged overbooked, and that visit does not hold the slot", async () => {
+    for (let i = 0; i < 2; i++) {
+      const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, offDuty(4), { p_patient_id: await seedPatient(tenantA), p_override_off_duty: true }));
+      expect(res.error).toBeNull();
+      expect((await visitsOfPatient((res.data as { patient_id: string }).patient_id))[0].is_overbooked).toBe(true);
+    }
+  });
+
+  it("p_overbook still skips every check and flags the visit", async () => {
+    await seedBlock(tenantA, offDuty(5), ist(week, 5, 15, 0), tenantA.userId);
+    await seedBookedVisit(tenantA, await seedPatient(tenantA), tenantA.userId, offDuty(5));
+    const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, offDuty(5), { p_patient_id: await seedPatient(tenantA), p_overbook: true }));
+    expect(res.error).toBeNull();
+    expect((await visitsOfPatient((res.data as { patient_id: string }).patient_id))[0].is_overbooked).toBe(true);
+  });
+});
+
+describe("register_and_book: the doctor is a clinician (G-9)", () => {
+  it.each(["receptionist", "nurse", "admin"] as const)("a %s cannot be the doctor of a booking: DOCTOR_NOT_FOUND, nothing is registered", async (role) => {
+    const m = marker();
+    const args = registerAndBookArgs(tenantA, ist(9, 0, 11, 0), { p_new_patient: newPatient(m), p_doctor_id: members[role].userId });
+    const res = await callRegisterAndBook(tenantA.client, args);
+    expect(res.error).toMatchObject({ code: "P0002", message: "DOCTOR_NOT_FOUND" });
+    expect(await patientsMarked(tenantA.tenantId, m)).toEqual([]);
+    expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+  });
+
+  it("an owner or a doctor can", async () => {
+    for (const doctorId of [tenantA.userId, docB.userId]) {
+      const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(9, 1, 11, 0), { p_patient_id: await seedPatient(tenantA), p_doctor_id: doctorId }));
+      expect(res.error, doctorId).toBeNull();
+    }
+  });
+});
+
 describe("register_and_book: concurrency", () => {
   it("four desks book one slot with four new patients at once: one visit, three SLOT_TAKEN, one patient, one message", async () => {
     const desks = await Promise.all(Array.from({ length: 4 }, () => addMemberToTenant(tenantA.tenantId, "receptionist")));
@@ -417,7 +505,16 @@ describe("register_and_book: idempotency", () => {
     const patientId = await seedPatient(tenantA);
     const args = registerAndBookArgs(tenantA, ist(5, 1, 11, 0), { p_patient_id: patientId });
     expect((await callRegisterAndBook(tenantA.client, args)).error).toBeNull();
-    for (const over of [{ p_scheduled_at: ist(5, 1, 12, 0) }, { p_doctor_id: docB.userId }, { p_overbook: true }, { p_override_block: true }]) {
+    // Every input that the command acts on is part of the request hash (G-7): a retry may repeat a request, never change it.
+    for (const over of [
+      { p_scheduled_at: ist(5, 1, 12, 0) },
+      { p_doctor_id: docB.userId },
+      { p_overbook: true },
+      { p_override_block: true },
+      { p_override_off_duty: true },
+      { p_reason: "A different reason" },
+      { p_duration_minutes: 30 },
+    ]) {
       const res = await callRegisterAndBook(tenantA.client, { ...args, ...over });
       expect(mapDbError(res.error), JSON.stringify(over)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
     }

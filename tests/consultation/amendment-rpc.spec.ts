@@ -14,7 +14,12 @@ import { publicEnv } from "@/lib/env";
 import { mapDbError } from "@/lib/db/errors";
 import { hasPerm } from "@/lib/permissions";
 import type { UserRole } from "@/lib/db/types";
-import { finalizeVisitAmendment, reopenVisitForAmendment } from "@/features/consultation/service";
+import {
+  AMENDMENT_REASON_TOO_LONG_MESSAGE,
+  AMENDMENT_REASON_TOO_SHORT_MESSAGE,
+  finalizeVisitAmendment,
+  reopenVisitForAmendment,
+} from "@/features/consultation/service";
 import { addMemberToTenant, createDualMembershipUser, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import type { TestDb } from "../helpers/db";
 import { ctxFor } from "../helpers/context";
@@ -22,7 +27,8 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { createBarrier, gateClient } from "../helpers/write-barrier";
-import { auditRows, commandResultRows } from "../helpers/billing-commands";
+import { getAdminClient } from "../helpers/supabase-admin";
+import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import {
   callFinalize,
   callReopen,
@@ -98,6 +104,8 @@ describe("reopen_visit_for_amendment: one transaction", () => {
     const { data, error } = await callReopen(members.doctor.client, args);
     expect(error).toBeNull();
     expect(data).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false });
+    // F-5: the amendment reason is not in the stored result.
+    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false });
 
     expect(await visitRow(v.visitId)).toMatchObject({ status: "in_consultation", signed_at: signedBefore, current_revision: 2 });
     const [revision] = await revisionsOfVisit(v.visitId);
@@ -172,7 +180,9 @@ describe("finalize_visit_amendment: one transaction", () => {
     const args = finalizeArgs(tenantA, v.visitId);
     const { data, error } = await callFinalize(members.doctor.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: v.visitId, version: 2, amendment_reason: "Corrected the dosage after the review", replayed: false });
+    // F-5 (07-04a): the result carries no free text; the reason is in the prescription and the revision row.
+    expect(data).toEqual({ visit_id: v.visitId, version: 2, replayed: false });
+    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, version: 2, replayed: false });
 
     const [rx] = await prescriptionsOfVisit(v.visitId);
     expect(rx).toMatchObject({ id: v.prescriptionIds[0], version: 2, amendment_reason: "Corrected the dosage after the review" });
@@ -193,7 +203,7 @@ describe("finalize_visit_amendment: one transaction", () => {
     expect((await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId))).data).toMatchObject({ version: 2 });
     expect((await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }))).data).toMatchObject({ revision_number: 2 });
     const third = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId));
-    expect(third.data).toMatchObject({ version: 3, amendment_reason: "Second correction for the audit" });
+    expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 3, amendment_reason: "Second correction for the audit" });
   });
 
@@ -383,6 +393,50 @@ describe("amendment (service)", () => {
     expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
     expect(await finalizeVisitAmendment(doctorCtx, v.visitId, randomUUID())).toMatchObject({ success: false, reason: "AMENDMENT_NOT_OPEN" });
     expect(await finalizeVisitAmendment(doctorCtx, v.visitId, "not-a-uuid")).toMatchObject({ success: false, code: "VALIDATION_FAILED" });
+  });
+
+  // F-11 (07-04a): the reason has two bounds and each has its own message.
+  it("a reason of more than 500 characters gets its own message (not the 'at least 10 characters' one) and no command runs", async () => {
+    const v = await signedVisit(tenantA);
+    const doctorCtx = ctxFor(members.doctor);
+    const long = await reopenVisitForAmendment(doctorCtx, v.visitId, "r".repeat(501), randomUUID());
+    expect(long).toMatchObject({
+      success: false,
+      error: AMENDMENT_REASON_TOO_LONG_MESSAGE,
+      code: "VALIDATION_FAILED",
+      reason: "AMENDMENT_REASON_INVALID",
+    });
+    expect(AMENDMENT_REASON_TOO_LONG_MESSAGE).not.toBe(AMENDMENT_REASON_TOO_SHORT_MESSAGE);
+    expect(AMENDMENT_REASON_TOO_LONG_MESSAGE).toMatch(/500/);
+    const short = await reopenVisitForAmendment(doctorCtx, v.visitId, "too short", randomUUID());
+    expect(short).toMatchObject({ success: false, error: AMENDMENT_REASON_TOO_SHORT_MESSAGE });
+    expect(await revisionsOfVisit(v.visitId)).toEqual([]);
+    // The limits themselves are in: 10 and 500 characters are accepted.
+    expect((await reopenVisitForAmendment(doctorCtx, v.visitId, "r".repeat(500), randomUUID())).success).toBe(true);
+  });
+
+  // F-7 (07-04a): the amended PDF is rendered after a replay when its version is not archived (the first call may have died
+  // right after the commit); it reads the reason from the amendment row now that the stored result holds none (F-5).
+  it("a replayed finalize renders the missing amended PDF, stamped with the reason from the revision, and renders nothing when it is archived", async () => {
+    const admin = getAdminClient();
+    const v = await signedVisit(tenantA);
+    const doctorCtx = ctxFor(members.doctor);
+    expect((await reopenVisitForAmendment(doctorCtx, v.visitId, "Synthetic amendment reason text", randomUUID())).success).toBe(true);
+    const finalizeId = randomUUID();
+    const pdfPath = async () => (await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", v.visitId).single()).data?.pdf_storage_path ?? null;
+    const archives = async () => (await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length;
+
+    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: false });
+    expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
+    const archived = await archives();
+
+    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
+    expect(await archives()).toBe(archived);
+
+    await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
+    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
+    expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
+    expect(await archives()).toBe(archived + 1);
   });
 
   it("a receptionist is refused with the permission text before any command runs", async () => {

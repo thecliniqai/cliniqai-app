@@ -91,7 +91,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   },
   "features/billing/actions.ts#completeAndBillConsultation": {
     args: (a) => [{
-      visit_id: a.visit,
+      // A waiting visit with a diagnosis and no invoice: the sign-off signs only waiting or in-consultation visits (07-04a F-6).
+      visit_id: a.waitingVisit,
       patient_id: a.patient,
       consultation_fee: 500,
       additional_items: [],
@@ -105,7 +106,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       ...acting(a),
     }],
   },
-  "features/billing/actions.ts#createVisitInvoice": {
+  "features/billing/actions.ts#createInvoice": {
     args: (a) => [{
       visit_id: a.visit,
       patient_id: a.patient,
@@ -141,6 +142,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: (a) => [{ visitId: a.visit, patientId: a.patient, doctorId: a.ownerUser, followUpDate: dateAhead(7), notes: "Synthetic note", ...acting(a) }],
   },
   "features/consultation/actions.ts#finalizeVisitAmendment": { args: (a) => [a.reopenedVisit, randomUUID()] },
+  "features/consultation/actions.ts#completeAndSignConsultation": { args: (a) => [a.waitingVisit, randomUUID()] },
   "features/consultation/actions.ts#reopenVisitForAmendment": {
     args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail", randomUUID()],
   },

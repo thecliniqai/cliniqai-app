@@ -91,6 +91,70 @@ describe("createCommandRunner", () => {
     expect(sent).toEqual(["id-1", "id-2", "id-2"]);
   });
 
+  describe("an unknown outcome keeps the id until the state is reloaded (V2-07 07-04a F-13)", () => {
+    // A committed-but-lost payment, then the user edits the form: a new id would record a second, different payment.
+    it.each([
+      ["a thrown network error", async () => { throw new Error("fetch failed"); }],
+      ["DEPENDENCY_FAILED", async () => fail("DEPENDENCY_FAILED")],
+      ["INTERNAL", async () => fail("INTERNAL")],
+    ])("after %s, reset() keeps the id and unresolved stays true", async (_name, lost) => {
+      const { runner } = setup();
+      const sent: string[] = [];
+      await runner.run<number>(async (id) => (sent.push(id), lost()));
+      expect(runner.unresolved).toBe(true);
+      runner.reset();
+      expect(runner.currentId()).toBe("id-1");
+      await runner.run(async (id) => (sent.push(id), fail("CONFLICT")));
+      expect(sent).toEqual(["id-1", "id-1"]);
+    });
+
+    it("settle() (the form reloaded the state) lets the next reset() issue a new id; the id itself is kept until then", async () => {
+      const { runner } = setup();
+      await runner.run<number>(async () => fail("INTERNAL"));
+      runner.reset();
+      expect(runner.currentId()).toBe("id-1");
+      runner.settle();
+      expect(runner.unresolved).toBe(false);
+      expect(runner.currentId()).toBe("id-1");
+      runner.reset();
+      expect(runner.currentId()).toBeNull();
+    });
+
+    it("startOver() (the user abandons the submit) releases the id at once, and is ignored while a call is in flight", async () => {
+      const { runner } = setup();
+      await runner.run<number>(async () => fail("DEPENDENCY_FAILED"));
+      runner.startOver();
+      expect(runner.currentId()).toBeNull();
+      expect(runner.unresolved).toBe(false);
+
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const inFlight = runner.run(async () => (await gate, fail("INTERNAL")));
+      runner.startOver();
+      expect(runner.currentId()).toBe("id-2");
+      release();
+      await inFlight;
+      expect(runner.unresolved).toBe(true);
+    });
+
+    it("a known refusal (CONFLICT, VALIDATION_FAILED) is not unresolved: an edit after it is a new request", async () => {
+      const { runner } = setup();
+      await runner.run<number>(async () => fail("DEPENDENCY_FAILED"));
+      await runner.run<number>(async () => fail("CONFLICT")); // the retry got a definite answer
+      expect(runner.unresolved).toBe(false);
+      runner.reset();
+      expect(runner.currentId()).toBeNull();
+    });
+
+    it("a success after an unknown outcome clears it and rotates the id", async () => {
+      const { runner } = setup();
+      await runner.run<number>(async () => fail("INTERNAL"));
+      expect((await runner.run(async () => ok(1))).ok).toBe(true);
+      expect(runner.unresolved).toBe(false);
+      expect(runner.currentId()).toBeNull();
+    });
+  });
+
   it("a second run while one is in flight returns the first call's result and sends nothing (a double click)", async () => {
     const { runner } = setup();
     let release!: () => void;

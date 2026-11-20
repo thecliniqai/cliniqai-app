@@ -19,6 +19,8 @@ export type CheckInArgs = Fns["check_in_visit"]["Args"];
 export interface ClinicalVisitOptions {
   /** The visit's doctor (default: the clinic owner). */
   doctorId?: string;
+  /** The visit's status (default `waiting`: the sign-off needs `waiting` or `in_consultation`, 07-04a F-6). */
+  status?: "booked" | "confirmed" | "waiting" | "in_consultation" | "cancelled" | "no_show";
   /** A clinical note (default "Synthetic clinical note."); null leaves the note empty. */
   notes?: string | null;
   /** Add one diagnosis (default false). */
@@ -38,6 +40,11 @@ export async function seedClinicalVisit(t: Pick<SeededTenant, "tenantId" | "user
   const admin = getAdminClient();
   const doctorId = opts.doctorId ?? t.userId;
   const base = await seedVisit(t, doctorId);
+  // A sign-off needs a visit that is in the queue or in consultation (07-04a F-6); the seed default is `booked`.
+  {
+    const { error } = await admin.from("visits").update({ status: opts.status ?? "waiting" }).eq("id", base.visitId);
+    if (error) throw new Error(`seed visit status failed: ${error.message}`);
+  }
   const notes = opts.notes === undefined ? "Synthetic clinical note." : opts.notes;
   if (notes !== null) {
     const { error } = await admin.from("clinical_notes").update({ clinical_notes: notes }).eq("visit_id", base.visitId);

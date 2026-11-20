@@ -21,7 +21,7 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { psql } from "../helpers/sql";
-import { auditRows, commandResultRows, seedVisit } from "../helpers/billing-commands";
+import { auditRows, commandResultRows, seedVisit, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import { callCheckIn, checkInArgs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -85,6 +85,8 @@ describe("check_in_visit: one transaction", () => {
       }),
     ]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.check_in_visit|true"]);
+    // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
+    expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id);
   });
 
   it("rollback: a fault on the visit update takes the token and the audit row with it; the same id then succeeds", async () => {

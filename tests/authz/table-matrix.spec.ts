@@ -294,7 +294,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   ],
   "public.invoices": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit)",
-    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
+    "rpc_only", // V2-07 07-04a (000099): headers are inserted only by private.step_create_invoice (create_invoice, collect_payment, complete_and_bill)
     "rpc_only", // 05-11b M-INVOICE: totals and status are derived; paid only through record_payment
   ],
   "public.invoice_items": [

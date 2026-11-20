@@ -440,9 +440,11 @@ describe("01-10 review round 3 fixes (000024)", () => {
         invoice_number: `SYN-${n}-${randomUUID().slice(0, 8)}`,
         status: "issued",
       });
-      const first = await A.owner.client.from("invoices").insert(row("1"));
+      // No API role inserts invoice headers any more (000099); the unique index is proved with the service role, the one
+      // writer of this kind left outside the definer step.
+      const first = await admin.from("invoices").insert(row("1"));
       expect(first.error).toBeNull();
-      const second = await A.owner.client.from("invoices").insert(row("2"));
+      const second = await admin.from("invoices").insert(row("2"));
       expect(second.error?.code).toBe("23505");
       expect(await invoices(visitId)).toHaveLength(1);
     });
