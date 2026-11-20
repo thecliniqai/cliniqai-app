@@ -74,6 +74,9 @@
  *   6385 — V2-08 08-02, unchanged: REQUIRED_FILES + the four 08-02 specs (tests/patients/search-patients-db.spec.ts,
  *          search-route.spec.ts, find-duplicates-db.spec.ts, register-patient-rpc.spec.ts; 242 in total). The patient specs
  *          that tested the removed select-star search (10 cases) went with it; the suite grew by 45.
+ *   6385 — V2-08 08-03a, unchanged: REQUIRED_FILES + the seven 08-03a specs (tests/realtime/today-signals.spec.ts,
+ *          tests/today/{get-today-board,live,announcer,schema}.spec.ts, tests/pwa/safe-refresh.spec.ts,
+ *          tests/supabase/realtime-token.spec.ts; 249 in total). The floor is re-measured at the next gate; the suite only grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -399,6 +402,14 @@ const REQUIRED_FILES = [
   "tests/patients/search-route.spec.ts",
   "tests/patients/find-duplicates-db.spec.ts",
   "tests/patients/register-patient-rpc.spec.ts",
+  // V2-08 08-03a (Today's read model, live updates, the Realtime isolation spec, the safe refresh).
+  "tests/realtime/today-signals.spec.ts",
+  "tests/today/get-today-board.spec.ts",
+  "tests/today/live.spec.ts",
+  "tests/today/announcer.spec.ts",
+  "tests/today/schema.spec.ts",
+  "tests/pwa/safe-refresh.spec.ts",
+  "tests/supabase/realtime-token.spec.ts",
 ];
 
 const file = process.argv[2];

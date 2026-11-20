@@ -289,6 +289,7 @@ const OTHER_TITLES: ReadonlyArray<[RegExp, string]> = [
   [/^\/referrals(\/|$)/, "Referrals"],
   [/^\/calendar(\/|$)/, "Calendar"],
   [/^\/queue(\/|$)/, "Live Queue"],
+  [/^\/today(\/|$)/, "Today"],
   [/^\/cabin(\/|$)/, "Doctor's Cabin"],
   [/^\/$/, "Dashboard"],
 ];
@@ -323,4 +324,4 @@ export function isFocusMode(pathname: string): boolean {
 }
 
 /** Live views refetched on resume and on `online` (06-UI-SPEC §6 "Resume and refresh"). */
-export const LIVE_VIEWS: readonly string[] = ["/", "/queue", "/calendar", "/cabin"];
+export const LIVE_VIEWS: readonly string[] = ["/", "/queue", "/calendar", "/cabin", "/today"];

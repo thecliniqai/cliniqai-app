@@ -14,6 +14,7 @@ import {
 import { visit, type BackStack } from "@/lib/nav/back-stack";
 import { barsHidden, useKeyboardState } from "@/lib/pwa/keyboard-aware";
 import { browserResumeListen, startResumeRefresh } from "@/lib/pwa/resume";
+import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
 import { cn } from "@/lib/utils";
 import { BottomBar } from "./bottom-bar";
 import { CommandPalette } from "./command-palette";
@@ -96,7 +97,8 @@ export function AppShell({
     () =>
       startResumeRefresh({
         pathname: () => currentPath.current,
-        refresh: () => router.refresh(),
+        // Only while the server answers: a refresh that fails mid-flight becomes a full navigation and loses the screen.
+        refresh: () => void refreshWhenReachable(() => router.refresh()),
         isVisible: () => document.visibilityState === "visible",
         listen: browserResumeListen,
         now: () => Date.now(),

@@ -191,7 +191,7 @@ describe("weekly quota summary (R-8)", () => {
   const WEEKLY = "select 'W|' || coalesce(ops.enqueue_quota_weekly_summary()::text, 'null')";
   const WEEKLY_ROWS =
     "select 'Q|' || a.id || '|' || a.severity || '|' || a.status || '|' || a.notify_seq_enqueued || '|' || " +
-    "(select string_agg(j.dedupe_key, ',' order by j.created_at) from ops.jobs j where j.kind = 'alert.notify' and j.payload ->> 'alert_id' = a.id::text) " +
+    "(select string_agg(j.dedupe_key, ',' order by j.created_at, j.dedupe_key) from ops.jobs j where j.kind = 'alert.notify' and j.payload ->> 'alert_id' = a.id::text) " +
     "from ops.alerts a where a.rule = 'quota_weekly_summary' order by a.first_seen";
 
   it("opens one info alert per ISO week with its alert.notify job; a second call the same week does nothing", () => {
