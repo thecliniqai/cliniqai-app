@@ -12,7 +12,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
-import { AUDIT_ACTIONS, AUDIT_METADATA_KEYS, recordAudit } from "@/lib/audit/audit";
+import { AUDIT_ACTIONS, AUDIT_METADATA_KEYS, COMMAND_ONLY_AUDIT_ACTIONS, recordAudit } from "@/lib/audit/audit";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
@@ -87,6 +87,30 @@ describe("log_audit through PostgREST (INT L-5)", () => {
     const longValue = await call(receptionist, "patient.view", entityId, { reason: "x".repeat(501) });
     expect(longValue.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
     expect(await rowsFor(entityId)).toEqual([]);
+  });
+
+  // V2-07 07-04a (migration 000099, F-1): the five actions only a command writes. Before, any member could write them
+  // here and forge a sign-off, an amendment, a check-in or an invoice in the trail.
+  it.each([...COMMAND_ONLY_AUDIT_ACTIONS])("a receptionist cannot forge %s (only the command writes it) and nothing is written", async (action) => {
+    const entityId = randomUUID();
+    const { error } = await call(receptionist, action, entityId, null);
+    expect(error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    const asOwner = await call(owner, action, entityId, null);
+    expect(asOwner.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    expect(await rowsFor(entityId)).toEqual([]);
+  });
+
+  it("the command-only actions are in neither allow-list, and the SQL writer for them has no API grant", () => {
+    for (const action of COMMAND_ONLY_AUDIT_ACTIONS) {
+      expect(AUDIT_ACTIONS as readonly string[]).not.toContain(action);
+      expect(psql("select unnest(private.audit_client_actions())")).not.toContain(action);
+    }
+    expect(
+      psql(
+        "select r || ':' || has_function_privilege(r, 'private.log_command_audit(uuid, text, text, uuid, jsonb)', 'EXECUTE') " +
+          "from unnest(array['anon','authenticated','service_role']) r order by 1"
+      )
+    ).toEqual(["anon:false", "authenticated:false", "service_role:false"]);
   });
 
   it("the owner's in-app DPDP export audit (exports:create) is still written", async () => {

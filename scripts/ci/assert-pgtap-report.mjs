@@ -67,6 +67,10 @@
  *          finalize_visit_amendment and check_in_visit: 1 acting-in-A and 1 locked-clinic leg each) = 8048 (48 files).
  *   8054 — V2-07 07-03 (000098 front_desk_commands): 8048 + definer_functions 6 (enqueue_walk_in, register_and_book and
  *          complete_and_bill: 1 acting-in-A and 1 locked-clinic leg each) = 8054 (48 files).
+ *   8083 — V2-07 07-04a (000099 command_review_fixes): 8054 - 4 definer_functions (the claim helpers lost their API grant, so
+ *          their 4 legs go) + 4 clinic_locations (command_hash_key and the keyed hash; the claim leg now asserts the
+ *          refusal) + 31 command_review_fixes (new file) - 2 billing_rpc_only (the three insert-guard cases and the formula case go: nobody inserts an invoice as an API role
+ *          now; the direct-insert refusal and the definer-role insert replace them) = 8083 (49 files, every one required).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -78,7 +82,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8054;
+export const FLOOR = 8083;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -155,6 +159,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/gate_close_05b.test.sql",
   // V2-07 07-00 (000095: clinic locations, command_results)
   "supabase/tests/database/clinic_locations.test.sql",
+  // V2-07 07-04a (000099: command review fixes)
+  "supabase/tests/database/command_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

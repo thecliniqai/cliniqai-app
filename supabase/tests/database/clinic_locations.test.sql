@@ -8,10 +8,12 @@
 --   4. RLS and grants: members read their active clinic's locations only; nobody but the owner role writes; anon reads
 --      nothing.
 --   5. command_results: RLS on, no policy, no privilege for any API role; command_claim / command_complete are definer
---      with search_path '' and lock_timeout 2s, executable by authenticated and service_role, not anon.
+--      with search_path '' and lock_timeout 2s, executable by no API role since 000099 (07-04a F-4: only the definer
+--      commands call them); command_hash_key (000099, G-8): RLS on, no policy, no privilege, one 32-byte key, and the
+--      keyed request hash is stable for one payload, differs per payload and is not executable by any API role.
 -- Synthetic data only; the file rolls back.
 begin;
-select plan(38);
+select plan(42);
 
 insert into auth.users (id, email) values
   ('c0950000-0000-4000-8000-000000000101', 'c095-owner-a@example.test'),
@@ -212,10 +214,10 @@ select is(
   (select array_agg(f || ':' || r || ':' || has_function_privilege(r, f, 'EXECUTE')::text order by f, r)
      from unnest(array['private.command_claim(uuid, uuid, text, text, text)', 'private.command_complete(uuid, uuid, jsonb)']) f
     cross join unnest(array['anon', 'authenticated', 'service_role']) r),
-  array['private.command_claim(uuid, uuid, text, text, text):anon:false', 'private.command_claim(uuid, uuid, text, text, text):authenticated:true',
-        'private.command_claim(uuid, uuid, text, text, text):service_role:true', 'private.command_complete(uuid, uuid, jsonb):anon:false',
-        'private.command_complete(uuid, uuid, jsonb):authenticated:true', 'private.command_complete(uuid, uuid, jsonb):service_role:true'],
-  'the claim helpers are executable by authenticated and service_role (callers are the command functions), not anon');
+  array['private.command_claim(uuid, uuid, text, text, text):anon:false', 'private.command_claim(uuid, uuid, text, text, text):authenticated:false',
+        'private.command_claim(uuid, uuid, text, text, text):service_role:false', 'private.command_complete(uuid, uuid, jsonb):anon:false',
+        'private.command_complete(uuid, uuid, jsonb):authenticated:false', 'private.command_complete(uuid, uuid, jsonb):service_role:false'],
+  'the claim helpers are executable by no API role (F-4: only the definer command functions call them)');
 select is(
   (select array_agg(p.proname || ':' || p.prosecdef::text order by p.proname)
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -225,9 +227,31 @@ select is(
   (select array_agg(f || ':' || has_function_privilege('authenticated', f, 'EXECUTE')::text order by f)
      from unnest(array['private.tenants_create_default_location()', 'private.fill_default_location()']) f),
   array['private.fill_default_location():false', 'private.tenants_create_default_location():false'], 'the trigger functions are not executable by authenticated');
-select is(
+select alike(
   pg_temp.val_as('c0950000-0000-4000-8000-000000000101', null, $$ select private.command_claim('c0950000-0000-4000-8000-00000000000a', null, 'x', 'h')::text $$),
-  'error:P0001', 'command_claim without an id is refused (CLIENT_REQUEST_ID_REQUIRED, P0001)');
+  'denied:permission denied for function command_claim%', 'command_claim called by a signed-in user directly is refused (no EXECUTE, 42501)');
+
+-- command_hash_key and the keyed request hash (000099, G-8) ---------------------------------------------------------
+select is(
+  (select c.relrowsecurity::text || ':' || (select count(*)::text from pg_policies p where p.schemaname = 'private' and p.tablename = 'command_hash_key')
+          || ':' || (select count(*)::text || '/' || min(octet_length(k.key))::text from private.command_hash_key k)
+     from pg_class c where c.oid = 'private.command_hash_key'::regclass),
+  'true:0:1/32', 'command_hash_key: RLS enabled, no policy, exactly one 32-byte key');
+select is(
+  (select array_agg(r || ':' || has_table_privilege(r, 'private.command_hash_key', 'SELECT')::text
+                         || ':' || has_function_privilege(r, 'private.command_request_hash(jsonb)', 'EXECUTE')::text order by r)
+     from unnest(array['anon', 'authenticated', 'service_role']) r),
+  array['anon:false:false', 'authenticated:false:false', 'service_role:false:false'],
+  'command_hash_key and command_request_hash: no privilege for any API role');
+select is(
+  (select private.command_request_hash('{"a": 1, "b": "synthetic"}'::jsonb) = private.command_request_hash('{"b": "synthetic", "a": 1}'::jsonb)
+      and private.command_request_hash('{"a": 1}'::jsonb) <> private.command_request_hash('{"a": 2}'::jsonb)
+      and private.command_request_hash('{"a": 1}'::jsonb) ~ '^[0-9a-f]{64}$'),
+  true, 'the request hash is a 64-hex digest: stable for one payload (key order aside) and different for another');
+select is(
+  (select private.command_request_hash('{"a": 1}'::jsonb) <> encode(extensions.digest('{"a": 1}', 'sha256'), 'hex')
+      and private.command_request_hash('{"a": 1}'::jsonb) <> md5('{"a": 1}')),
+  true, 'the request hash is keyed: it is not the plain sha256 or md5 of the payload');
 
 select * from finish();
 rollback;

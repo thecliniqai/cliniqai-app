@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(93);
+select plan(89);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -189,8 +189,10 @@ insert into c2c_definer values
   ('public.register_and_book', 'bound', 'p_tenant_id = active clinic with appointments:edit (+ patients:edit for a new patient); patient and doctor are looked up in that clinic only (000098, 07-03, R-1)'),
   ('public.complete_and_bill', 'bound', 'p_tenant_id = active clinic with consultations:edit (+ billing:collect with a payment); the visit is looked up in that clinic only (000098, 07-03, R-1, R-7)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
-  ('private.command_claim', 'bound', 'user path: p_tenant_id = the active, full clinic; system path = service role + a system actor; idempotent command claim (000095, 07-00, R-2)'),
-  ('private.command_complete', 'bound', 'completes only the claim the caller''s own transaction made (000095, 07-00, R-2)'),
+  ('private.command_claim', 'internal', 'idempotent command claim: user path p_tenant_id = the active, full clinic, system path = service role + a system actor; called only by the definer commands, no API grant since 000099 (07-00, R-2; 07-04a F-4)'),
+  ('private.command_complete', 'internal', 'completes only the claim the caller''s own transaction made; called only by the definer commands, no API grant since 000099 (07-00, R-2; 07-04a F-4)'),
+  ('private.command_request_hash', 'internal', 'the keyed request digest of a command (HMAC-SHA256 with the key in private.command_hash_key); called by the definer commands, no API grant (000099, 07-04a, G-8)'),
+  ('private.log_command_audit', 'internal', 'the audit writer for the five actions only a command writes (log_audit refuses them); called by the definer steps, no API grant (000099, 07-04a, F-1)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05); a locked/onboarding clinic only by its owner (000092, 05-12)'),
   ('public.invite_staff', 'bound', 'p_tenant in tenant_ids_with(staff:invite): the active clinic; owner/admin invitations by owners (000088, 05-07a)'),
@@ -327,7 +329,7 @@ select set_eq(
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
     'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
     'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:',
-    'private.command_claim:authenticated,service_role', 'private.command_complete:authenticated,service_role',
+    'private.command_claim:', 'private.command_complete:', 'private.command_request_hash:', 'private.log_command_audit:',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',
     'public.sign_consultation:authenticated', 'public.reopen_visit_for_amendment:authenticated',
@@ -400,15 +402,8 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select set_config('clinicos.record_payment_id', 'c2c00000-0000-4000-8000-000000009999', true), private.outbox_payment_recorded('c2c00000-0000-4000-8000-000000009999')$$),
   '1', 'outbox_payment_recorded: acting in B it runs');
-select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
-  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0001', 'synthetic.command', 'hash-1')$$),
-  'error:P0002:NOT_FOUND%', 'command_claim: acting in A, a claim in clinic B is refused');
-select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
-  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0001', 'synthetic.command', 'hash-1')$$),
-  '1', 'command_claim: acting in B the claim is made (a fresh claim answers NULL)');
-select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
-  $$select private.command_complete('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0002', '{}'::jsonb)$$),
-  'error:P0001:COMMAND_NOT_CLAIMED%', 'command_complete: a claim this transaction did not make is never completed');
+-- command_claim / command_complete: no API grant since 000099 (07-04a F-4); their behaviour is tested through definer wrappers in
+-- tests/commands/command-results.spec.ts, their grants in the set_eq above.
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
   '0', 'referral_source_clinics: acting in A, clinic A is not a source of A''s incoming referrals');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
@@ -496,7 +491,6 @@ create temp table c2c_access(fn text primary key, handling text not null) on com
 insert into c2c_access values
   ('public.change_member_role', 'refuses'), ('public.create_share_token', 'refuses'), ('public.revoke_share_token', 'refuses'),
   ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
-  ('private.command_claim', 'refuses'), ('private.command_complete', 'neutral'),
   ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
   ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
@@ -580,9 +574,6 @@ select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select set_config('clinicos.record_payment_id', 'c2c00000-0000-4000-8000-000000009999', true), private.outbox_payment_recorded('c2c00000-0000-4000-8000-000000009999')$$),
   'error:P0001:OUTBOX_SUBJECT_INVALID%', 'locked B: outbox_payment_recorded is refused');
-select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
-  $$select private.command_claim('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-0000000c0003', 'synthetic.command', 'hash-1')$$),
-  'error:P0002:NOT_FOUND%', 'locked B: command_claim is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
   '0', 'locked B: referral_source_clinics lists nothing');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),

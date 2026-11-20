@@ -5,7 +5,8 @@
  *   - `prosecdef` equals the expected value (R-1: INVOKER unless the command writes a table whose direct writes are
  *     revoked for `authenticated`, then DEFINER with the record_payment guard block);
  *   - `proconfig` pins `search_path=""` and `lock_timeout=2s`;
- *   - EXECUTE is not held by PUBLIC or `anon`, is held by `authenticated`, and by `service_role` exactly when expected;
+ *   - EXECUTE is not held by PUBLIC or `anon`, is held by `authenticated`, and by `service_role` exactly when expected
+ *     (a `noApiGrant` helper: held by neither);
  *   - for a user-facing command (default): the signature has `p_tenant_id uuid` and a REQUIRED `p_client_request_id
  *     uuid` (no default, PWA-06a) and returns `jsonb`.
  * Every command spec calls it once for its functions, so the pattern cannot drift per plan. Anon refusal at the API
@@ -21,6 +22,8 @@ export interface CommandCatalogExpectation {
   definer: boolean;
   /** Whether `service_role` may execute it (a system path exists). Default false. */
   serviceRole?: boolean;
+  /** True for a `private.*` helper only the definer commands call: neither `authenticated` nor `service_role` may execute it (V2-07 07-04a F-4). */
+  noApiGrant?: boolean;
   /** Default true: a user-facing command with `p_tenant_id` and a required `p_client_request_id`. False for `private.*` helpers. */
   command?: boolean;
 }
@@ -45,11 +48,16 @@ export function expectCommandCatalog(spec: CommandCatalogExpectation): void {
   );
   expect(grantees, `${spec.signature}: PUBLIC must not execute`).not.toContain("PUBLIC");
   expect(grantees, `${spec.signature}: anon must not execute`).not.toContain("anon");
-  expect(grantees, `${spec.signature}: authenticated executes`).toContain("authenticated");
-  if (spec.serviceRole !== undefined) {
-    expect(grantees.includes("service_role"), `${spec.signature}: service_role executes`).toBe(spec.serviceRole);
-  } else {
+  if (spec.noApiGrant) {
+    expect(grantees, `${spec.signature}: authenticated does not execute`).not.toContain("authenticated");
     expect(grantees, `${spec.signature}: service_role does not execute`).not.toContain("service_role");
+  } else {
+    expect(grantees, `${spec.signature}: authenticated executes`).toContain("authenticated");
+    if (spec.serviceRole !== undefined) {
+      expect(grantees.includes("service_role"), `${spec.signature}: service_role executes`).toBe(spec.serviceRole);
+    } else {
+      expect(grantees, `${spec.signature}: service_role does not execute`).not.toContain("service_role");
+    }
   }
   expect(psql(`select has_function_privilege('anon', ${oid}, 'EXECUTE')`), `${spec.signature}: anon privilege`).toEqual(["f"]);
 

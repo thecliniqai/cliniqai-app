@@ -84,6 +84,13 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 ALREADY_BILLED (07-03)", { code: "P0001", message: "ALREADY_BILLED" }, "CONFLICT", "ALREADY_BILLED"],
     ["P0002 PATIENT_NOT_FOUND (07-03)", { code: "P0002", message: "PATIENT_NOT_FOUND" }, "NOT_FOUND", "PATIENT_NOT_FOUND"],
     ["P0002 DOCTOR_NOT_FOUND (07-03)", { code: "P0002", message: "DOCTOR_NOT_FOUND" }, "NOT_FOUND", "DOCTOR_NOT_FOUND"],
+    // V2-07 07-04a (000099): the sign-off status rule and the per-cause invoice item reasons.
+    ["P0001 VISIT_NOT_SIGNABLE (07-04a)", { code: "P0001", message: "VISIT_NOT_SIGNABLE" }, "CONFLICT", "VISIT_NOT_SIGNABLE"],
+    ["P0001 ITEM_COUNT_INVALID (07-04a)", { code: "P0001", message: "ITEM_COUNT_INVALID" }, "VALIDATION_FAILED", "ITEM_COUNT_INVALID"],
+    ["P0001 ITEM_DESCRIPTION_INVALID (07-04a)", { code: "P0001", message: "ITEM_DESCRIPTION_INVALID" }, "VALIDATION_FAILED", "ITEM_DESCRIPTION_INVALID"],
+    ["P0001 ITEM_PRICE_INVALID (07-04a)", { code: "P0001", message: "ITEM_PRICE_INVALID" }, "VALIDATION_FAILED", "ITEM_PRICE_INVALID"],
+    ["P0001 ITEM_QUANTITY_INVALID (07-04a)", { code: "P0001", message: "ITEM_QUANTITY_INVALID" }, "VALIDATION_FAILED", "ITEM_QUANTITY_INVALID"],
+    ["P0001 INVOICE_TOTAL_INVALID (07-04a)", { code: "P0001", message: "INVOICE_TOTAL_INVALID" }, "VALIDATION_FAILED", "INVOICE_TOTAL_INVALID"],
     ["P0001 unregistered reason", { code: "P0001", message: "SOME_FUTURE_REASON" }, "CONFLICT", "SOME_FUTURE_REASON"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

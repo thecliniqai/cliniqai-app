@@ -123,6 +123,14 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   SLOT_OFF_DUTY: "CONFLICT",
   SLOT_BLOCKED: "CONFLICT",
   ALREADY_BILLED: "CONFLICT",
+  // V2-07 07-04a (migration 000099): a visit that is not waiting or in consultation cannot be signed (F-6); one reason per
+  // invoice-item cause (F-8) instead of the generic INPUT_INVALID.
+  VISIT_NOT_SIGNABLE: "CONFLICT",
+  ITEM_COUNT_INVALID: "VALIDATION_FAILED",
+  ITEM_DESCRIPTION_INVALID: "VALIDATION_FAILED",
+  ITEM_PRICE_INVALID: "VALIDATION_FAILED",
+  ITEM_QUANTITY_INVALID: "VALIDATION_FAILED",
+  INVOICE_TOTAL_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

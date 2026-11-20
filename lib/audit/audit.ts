@@ -8,6 +8,10 @@ import { getRequestId } from "@/lib/log/request-id";
  * Every audit action the app writes. The user path (`log_audit`) accepts exactly these, without the reserved prefixes
  * `dpdp.`, `auth.`, `billing.`, `ops.` (except `dpdp.data_export`, which needs exports:create), and refuses anything else
  * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
+ *
+ * V2-07 07-04a (migration 000099, F-1): the actions only an atomic command writes are NOT in this list: `visit.complete_and_sign`,
+ * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}).
+ * The commands write them through `private.log_command_audit`; `log_audit` refuses them, so no member can forge them.
  */
 export const AUDIT_ACTIONS = [
   "patient.create",
@@ -21,7 +25,6 @@ export const AUDIT_ACTIONS = [
   "visit.confirm",
   "visit.cancel",
   "visit.auto_promoted_from_waitlist",
-  "queue.check_in",
   "queue.transition",
   "waitlist.add",
   "waitlist.promote",
@@ -36,13 +39,9 @@ export const AUDIT_ACTIONS = [
   "prescription.item_remove",
   "prescription.template_save",
   "prescription.generate_pdf",
-  "visit.complete_and_sign",
-  "visit.reopen_for_amendment",
-  "visit.amend_finalized",
   "clinic.settings.update",
   "user.profile.update",
   "staff.member.update",
-  "invoice.create",
   "invoice.item_add",
   "invoice.item_remove",
   "invoice.payment_recorded",
@@ -72,6 +71,15 @@ export const AUDIT_ACTIONS = [
   "appointment.cancel",
   "lab_order.create",
   "prescription.create",
+] as const;
+
+/** Written only inside the atomic commands (`private.log_command_audit`, 000099); `public.log_audit` refuses them. */
+export const COMMAND_ONLY_AUDIT_ACTIONS = [
+  "visit.complete_and_sign",
+  "visit.reopen_for_amendment",
+  "visit.amend_finalized",
+  "invoice.create",
+  "queue.check_in",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

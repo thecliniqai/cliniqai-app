@@ -18,27 +18,42 @@ let tenantA: SeededTenant;
 let tenantB: SeededTenant;
 let otherInA: SeededTenant;
 
+/**
+ * Since 000099 (07-04a F-4) the claim helpers have no API grant: only the definer commands call them. The specs call them
+ * the way a command does, through session-local SECURITY DEFINER wrappers created as the superuser before the role
+ * switch: the wrapper runs as the owner, while `auth.uid()`, the request headers and the `role` setting stay the
+ * caller's (exactly what a definer command sees).
+ */
+const WRAPPERS = [
+  "create function pg_temp.w_claim(uuid, uuid, text, text, text) returns jsonb language sql security definer as " +
+    "$$ select private.command_claim($1, $2, $3, $4, $5) $$",
+  "create function pg_temp.w_complete(uuid, uuid, jsonb) returns jsonb language sql security definer as " +
+    "$$ select private.command_complete($1, $2, $3) $$",
+  "grant execute on function pg_temp.w_claim(uuid, uuid, text, text, text), pg_temp.w_complete(uuid, uuid, jsonb) to authenticated, service_role",
+];
+
 /** Statements that open a transaction acting as `user` in `tenantId` (the app's JWT claims and active-clinic header). */
 function asUser(user: SeededTenant, tenantId: string = user.tenantId): string[] {
   const claims = JSON.stringify({ sub: user.userId, role: "authenticated" });
   const headers = JSON.stringify({ "x-clinicos-tenant": tenantId });
   return [
     "begin",
+    ...WRAPPERS,
     "set local role authenticated",
     `select set_config('request.jwt.claims', '${claims}', true)`,
     `select set_config('request.headers', '${headers}', true)`,
   ];
 }
 
-const asSystem = (): string[] => ["begin", "set local role service_role"];
+const asSystem = (): string[] => ["begin", ...WRAPPERS, "set local role service_role"];
 
 function claim(tenantId: string, id: string | null, command: string, hash: string, systemActor: string | null = null): string {
   const q = (v: string | null) => (v === null ? "null" : `'${v}'`);
-  return `select coalesce(private.command_claim('${tenantId}', ${q(id)}, '${command}', '${hash}', ${q(systemActor)})::text, 'NULL')`;
+  return `select coalesce(pg_temp.w_claim('${tenantId}', ${q(id)}, '${command}', '${hash}', ${q(systemActor)})::text, 'NULL')`;
 }
 
 function complete(tenantId: string, id: string, result: object): string {
-  return `select private.command_complete('${tenantId}', '${id}', '${JSON.stringify(result)}'::jsonb)::text`;
+  return `select pg_temp.w_complete('${tenantId}', '${id}', '${JSON.stringify(result)}'::jsonb)::text`;
 }
 
 const rowsOf = (tenantId: string, id: string) =>
@@ -232,7 +247,7 @@ describe("concurrent duplicate claims", () => {
       [...asUser(tenantA), `set local application_name = '${sessionB}'`, claim(tenantA.tenantId, id, "cmd.one", hash2), "commit"].join("; ") + ";"
     );
     // psqlAsync (-c, not -q) also prints the command tags; keep the statements' own output.
-    const output = (lines: string[]) => lines.filter((l) => !/^(BEGIN|SET|DO|COMMIT|ROLLBACK)$/.test(l));
+    const output = (lines: string[]) => lines.filter((l) => !/^(BEGIN|SET|DO|COMMIT|ROLLBACK|CREATE FUNCTION|GRANT)$/.test(l));
     // Settle both together: the second can reject (IDEMPOTENCY_MISMATCH) before the first resolves, and awaiting them
     // one after the other left that rejection unhandled for a moment (CI run 44304509920, "Unhandled Rejection").
     const [a, b] = await Promise.allSettled([first, second]);
@@ -279,9 +294,30 @@ describe("surface and catalog", () => {
     expect(psql("select has_table_privilege('service_role', 'private.command_results', 'SELECT')")).toEqual(["f"]);
   });
 
-  it("catalog (the shared assertion): the claim helpers are definer, pinned, and not executable by anon; a real command passes the command form", () => {
-    expectCommandCatalog({ signature: "private.command_claim(uuid, uuid, text, text, text)", definer: true, serviceRole: true, command: false });
-    expectCommandCatalog({ signature: "private.command_complete(uuid, uuid, jsonb)", definer: true, serviceRole: true, command: false });
+  it("catalog (the shared assertion): the claim helpers are definer, pinned, and executable by no API role (F-4)", () => {
+    expectCommandCatalog({ signature: "private.command_claim(uuid, uuid, text, text, text)", definer: true, noApiGrant: true, command: false });
+    expectCommandCatalog({ signature: "private.command_complete(uuid, uuid, jsonb)", definer: true, noApiGrant: true, command: false });
+  });
+
+  it("F-4: a signed-in user or the service role calling a claim helper directly is refused (no EXECUTE, 42501)", () => {
+    const id = randomUUID();
+    const direct = (role: string) => [
+      "begin",
+      `set local role ${role}`,
+      `select private.command_claim('${tenantA.tenantId}', '${id}', 'cmd.one', 'h1', null)`,
+      "rollback",
+    ];
+    expect(() => psqlSession(direct("authenticated"))).toThrow(/permission denied for function command_claim/);
+    expect(() => psqlSession(direct("service_role"))).toThrow(/permission denied for function command_claim/);
+    expect(() => psqlSession(["begin", "set local role authenticated", `select private.command_complete('${tenantA.tenantId}', '${id}', '{}'::jsonb)`, "rollback"])).toThrow(
+      /permission denied for function command_complete/
+    );
+  });
+
+  it("F-4: a system claim needs the service role's `role` setting, not just a missing session (a postgres session with a system actor is ACTOR_INVALID)", () => {
+    expect(() =>
+      psqlSession(["begin", ...WRAPPERS, claim(tenantA.tenantId, randomUUID(), "cmd.one", "h1", "system:payment_webhook"), "rollback"])
+    ).toThrow(/ACTOR_INVALID/);
   });
 
   it("the shared catalog assertion is not vacuous: it fails for a wrong definer flag and for a function with no client_request_id", () => {

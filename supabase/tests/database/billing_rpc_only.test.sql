@@ -9,7 +9,7 @@
 --   3. adding or removing a charge recomputes the totals and the paid/issued status in the database.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(25);
+select plan(23);
 
 -- Fixtures ---------------------------------------------------------------------------------------------------------
 -- Clinic A: owner (OA), receptionist (RC), doctor (DR), nurse (NU). One patient, DR's visit, its invoice (issued, one
@@ -79,6 +79,35 @@ begin
 end;
 $f$;
 
+-- The same as the signed-in user, but in the owner's role: how private.step_create_invoice (SECURITY DEFINER, called by
+-- create_invoice / collect_payment / complete_and_bill) inserts an invoice header since 000099 revoked INSERT from
+-- `authenticated` (V2-07 07-04a). auth.uid() is the session's, so the invoice guard triggers see the real caller.
+create function pg_temp.as_definer(p_user uuid, p_header uuid, p_sql text, p_keep boolean default false) returns text
+language plpgsql as $f$
+declare
+  v_rows bigint;
+  v_out text;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+  perform set_config('request.headers',
+    case when p_header is null then '' else json_build_object('x-clinicos-tenant', p_header)::text end, true);
+  begin
+    execute p_sql;
+    get diagnostics v_rows = row_count;
+    v_out := v_rows::text;
+    if not p_keep then
+      raise exception 'b11b sentinel' using errcode = 'P0S11';
+    end if;
+  exception
+    when sqlstate 'P0S11' then null;
+    when insufficient_privilege then v_out := 'denied:' || sqlerrm;
+    when others then v_out := 'error:' || sqlstate || ':' || sqlerrm;
+  end;
+  return v_out;
+end;
+$f$;
+
 create function pg_temp.pay_sql(p_amount numeric, p_cmd text) returns text language sql as $f$
   select format($q$select public.record_payment('b11b0000-0000-4000-8000-00000000020a',
       'b11b0000-0000-4000-8000-000000002005', %s, 'cash', '', %L::uuid)$q$, p_amount, p_cmd)
@@ -102,21 +131,16 @@ select is(pg_temp.invoice_state(), '500.00/500.00/issued', 'the invoice is uncha
 select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000-4000-8000-00000000020a',
   $$insert into public.invoices (tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount, status)
     values ('b11b0000-0000-4000-8000-00000000020a', 'b11b0000-0000-4000-8000-000000002003',
-            'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, 0, 'paid')$$),
-  'denied:INVOICE_STATUS_RPC_ONLY', 'Sign & Bill cannot create an invoice that is already paid');
-select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000-4000-8000-00000000020a',
-  $$insert into public.invoices (tenant_id, visit_id, patient_id, invoice_number, subtotal, discount, tax, total_amount, status)
-    values ('b11b0000-0000-4000-8000-00000000020a', 'b11b0000-0000-4000-8000-000000002003',
-            'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, -50, 0, 0, 'issued')$$),
-  'error:P0001:INPUT_INVALID', 'a negative discount is refused');
-select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000-4000-8000-00000000020a',
+            'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, 300, 'issued')$$),
+  'denied:permission denied for table invoices', 'no API role inserts an invoice header at all (000099, 07-04 contract)');
+select is(pg_temp.as_definer('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000-4000-8000-00000000020a',
   $$insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, discount, tax, total_amount, status)
     values ('b11b0000-0000-4000-8000-000000002007', 'b11b0000-0000-4000-8000-00000000020a',
             'b11b0000-0000-4000-8000-000000002003', 'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, 20, 5, 1,
             'issued')$$, true),
-  '1', 'the doctor''s Sign & Bill INSERT still works');
-select is((select total_amount::text from public.invoices where id = 'b11b0000-0000-4000-8000-000000002007'), '285.00',
-  'and its total is the formula''s (300 - 20 + 5), not the typed 1');
+  '1', 'the definer step''s role (private.step_create_invoice) still inserts the header of the doctor''s Sign & Bill');
+-- (000099: the insert guard's status and formula rules apply to the API roles' own INSERT, which no longer exists; the definer
+-- step writes the status and totals itself, tested by tests/billing/create-invoice-rpc.spec.ts.)
 
 -- 2. payments only through record_payment ------------------------------------------------------------------------------
 select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000202', 'b11b0000-0000-4000-8000-00000000020a',
