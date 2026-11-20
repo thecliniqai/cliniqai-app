@@ -1,0 +1,357 @@
+{
+ "tool": "scripts/phase-evidence.mjs --ci-run",
+ "recorded_at": "2026-11-20T15:35:46.897Z",
+ "conclusion": "success",
+ "createdAt": "2026-11-20T15:10:17Z",
+ "databaseId": 44760574035,
+ "event": "pull_request",
+ "headBranch": "v2/phase-07-atomic-server-commands",
+ "headSha": "9b79e9110687bb15f5d9e0668371eb047359336d",
+ "jobs": [
+  {
+   "name": "static",
+   "conclusion": "success",
+   "startedAt": "2026-11-20T15:10:22Z",
+   "completedAt": "2026-11-20T15:12:39Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035/job/136371688169"
+  },
+  {
+   "name": "e2e",
+   "conclusion": "success",
+   "startedAt": "2026-11-20T15:10:22Z",
+   "completedAt": "2026-11-20T15:35:22Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035/job/136371688863"
+  },
+  {
+   "name": "test",
+   "conclusion": "success",
+   "startedAt": "2026-11-20T15:10:21Z",
+   "completedAt": "2026-11-20T15:32:21Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035/job/136371688949"
+  },
+  {
+   "name": "build",
+   "conclusion": "success",
+   "startedAt": "2026-11-20T15:10:21Z",
+   "completedAt": "2026-11-20T15:11:49Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035/job/136371688997"
+  },
+  {
+   "name": "security",
+   "conclusion": "success",
+   "startedAt": "2026-11-20T15:10:22Z",
+   "completedAt": "2026-11-20T15:12:05Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035/job/136371689240"
+  }
+ ],
+ "status": "completed",
+ "updatedAt": "2026-11-20T15:35:23Z",
+ "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/44760574035",
+ "workflowName": "CI",
+ "pgtap": {
+  "artifact": "ci-pgtap-report.tap",
+  "gate": "PASS",
+  "files": 49,
+  "total": 8083,
+  "passed": 8083,
+  "failed": 0,
+  "skipped": 0,
+  "per_file": [
+   {
+    "name": "supabase/tests/database/access_lock_rls.test.sql",
+    "planned": 26,
+    "ran": 26,
+    "passed": 26
+   },
+   {
+    "name": "supabase/tests/database/actor_bindings_audit.test.sql",
+    "planned": 34,
+    "ran": 34,
+    "passed": 34
+   },
+   {
+    "name": "supabase/tests/database/admin_policies.test.sql",
+    "planned": 32,
+    "ran": 32,
+    "passed": 32
+   },
+   {
+    "name": "supabase/tests/database/ai_gating_l2.test.sql",
+    "planned": 115,
+    "ran": 115,
+    "passed": 115
+   },
+   {
+    "name": "supabase/tests/database/ai_quota.test.sql",
+    "planned": 41,
+    "ran": 41,
+    "passed": 41
+   },
+   {
+    "name": "supabase/tests/database/amendment_snapshot.test.sql",
+    "planned": 60,
+    "ran": 60,
+    "passed": 60
+   },
+   {
+    "name": "supabase/tests/database/api_keys_notices_columns.test.sql",
+    "planned": 26,
+    "ran": 26,
+    "passed": 26
+   },
+   {
+    "name": "supabase/tests/database/audit_v2.test.sql",
+    "planned": 24,
+    "ran": 24,
+    "passed": 24
+   },
+   {
+    "name": "supabase/tests/database/authz_completeness.test.sql",
+    "planned": 6,
+    "ran": 6,
+    "passed": 6
+   },
+   {
+    "name": "supabase/tests/database/authz_helpers.test.sql",
+    "planned": 77,
+    "ran": 77,
+    "passed": 77
+   },
+   {
+    "name": "supabase/tests/database/authz_matrix.test.sql",
+    "planned": 6336,
+    "ran": 6336,
+    "passed": 6336
+   },
+   {
+    "name": "supabase/tests/database/billing_access.test.sql",
+    "planned": 45,
+    "ran": 45,
+    "passed": 45
+   },
+   {
+    "name": "supabase/tests/database/billing_catalogue.test.sql",
+    "planned": 30,
+    "ran": 30,
+    "passed": 30
+   },
+   {
+    "name": "supabase/tests/database/billing_entitlements.test.sql",
+    "planned": 30,
+    "ran": 30,
+    "passed": 30
+   },
+   {
+    "name": "supabase/tests/database/billing_grants.test.sql",
+    "planned": 24,
+    "ran": 24,
+    "passed": 24
+   },
+   {
+    "name": "supabase/tests/database/billing_rpc_only.test.sql",
+    "planned": 23,
+    "ran": 23,
+    "passed": 23
+   },
+   {
+    "name": "supabase/tests/database/clinic_locations.test.sql",
+    "planned": 42,
+    "ran": 42,
+    "passed": 42
+   },
+   {
+    "name": "supabase/tests/database/clinical_notes.test.sql",
+    "planned": 53,
+    "ran": 53,
+    "passed": 53
+   },
+   {
+    "name": "supabase/tests/database/clinical_notes_backfill.test.sql",
+    "planned": 9,
+    "ran": 9,
+    "passed": 9
+   },
+   {
+    "name": "supabase/tests/database/command_review_fixes.test.sql",
+    "planned": 31,
+    "ran": 31,
+    "passed": 31
+   },
+   {
+    "name": "supabase/tests/database/composite_fks.test.sql",
+    "planned": 111,
+    "ran": 111,
+    "passed": 111
+   },
+   {
+    "name": "supabase/tests/database/contract_05a.test.sql",
+    "planned": 18,
+    "ran": 18,
+    "passed": 18
+   },
+   {
+    "name": "supabase/tests/database/definer_functions.test.sql",
+    "planned": 89,
+    "ran": 89,
+    "passed": 89
+   },
+   {
+    "name": "supabase/tests/database/delete_rules.test.sql",
+    "planned": 35,
+    "ran": 35,
+    "passed": 35
+   },
+   {
+    "name": "supabase/tests/database/domain_policies.test.sql",
+    "planned": 42,
+    "ran": 42,
+    "passed": 42
+   },
+   {
+    "name": "supabase/tests/database/drop_v1_subscriptions.test.sql",
+    "planned": 4,
+    "ran": 4,
+    "passed": 4
+   },
+   {
+    "name": "supabase/tests/database/fk_indexes.test.sql",
+    "planned": 4,
+    "ran": 4,
+    "passed": 4
+   },
+   {
+    "name": "supabase/tests/database/gate_close_05b.test.sql",
+    "planned": 12,
+    "ran": 12,
+    "passed": 12
+   },
+   {
+    "name": "supabase/tests/database/grants.test.sql",
+    "planned": 15,
+    "ran": 15,
+    "passed": 15
+   },
+   {
+    "name": "supabase/tests/database/invitation_accept_context.test.sql",
+    "planned": 17,
+    "ran": 17,
+    "passed": 17
+   },
+   {
+    "name": "supabase/tests/database/invitation_binding.test.sql",
+    "planned": 14,
+    "ran": 14,
+    "passed": 14
+   },
+   {
+    "name": "supabase/tests/database/invitations_v2.test.sql",
+    "planned": 75,
+    "ran": 75,
+    "passed": 75
+   },
+   {
+    "name": "supabase/tests/database/memberships_bounds_cleanup.test.sql",
+    "planned": 7,
+    "ran": 7,
+    "passed": 7
+   },
+   {
+    "name": "supabase/tests/database/migration_edge_cases_fk.test.sql",
+    "planned": 21,
+    "ran": 21,
+    "passed": 21
+   },
+   {
+    "name": "supabase/tests/database/migration_edge_cases_overlap.test.sql",
+    "planned": 9,
+    "ran": 9,
+    "passed": 9
+   },
+   {
+    "name": "supabase/tests/database/migration_edge_cases_visit_integrity.test.sql",
+    "planned": 17,
+    "ran": 17,
+    "passed": 17
+   },
+   {
+    "name": "supabase/tests/database/platform_rpcs.test.sql",
+    "planned": 80,
+    "ran": 80,
+    "passed": 80
+   },
+   {
+    "name": "supabase/tests/database/queue_tokens.test.sql",
+    "planned": 34,
+    "ran": 34,
+    "passed": 34
+   },
+   {
+    "name": "supabase/tests/database/referrals_rules.test.sql",
+    "planned": 48,
+    "ran": 48,
+    "passed": 48
+   },
+   {
+    "name": "supabase/tests/database/remove_member.test.sql",
+    "planned": 81,
+    "ran": 81,
+    "passed": 81
+   },
+   {
+    "name": "supabase/tests/database/reverify_integrity.test.sql",
+    "planned": 61,
+    "ran": 61,
+    "passed": 61
+   },
+   {
+    "name": "supabase/tests/database/review_fixes_05b.test.sql",
+    "planned": 42,
+    "ran": 42,
+    "passed": 42
+   },
+   {
+    "name": "supabase/tests/database/scheduling_exclusion.test.sql",
+    "planned": 26,
+    "ran": 26,
+    "passed": 26
+   },
+   {
+    "name": "supabase/tests/database/search_medicines_extension_schema.test.sql",
+    "planned": 6,
+    "ran": 6,
+    "passed": 6
+   },
+   {
+    "name": "supabase/tests/database/signed_visit_fields.test.sql",
+    "planned": 26,
+    "ran": 26,
+    "passed": 26
+   },
+   {
+    "name": "supabase/tests/database/storage_policies.test.sql",
+    "planned": 46,
+    "ran": 46,
+    "passed": 46
+   },
+   {
+    "name": "supabase/tests/database/subscription_invariant.test.sql",
+    "planned": 14,
+    "ran": 14,
+    "passed": 14
+   },
+   {
+    "name": "supabase/tests/database/tenant_local_dates.test.sql",
+    "planned": 20,
+    "ran": 20,
+    "passed": 20
+   },
+   {
+    "name": "supabase/tests/database/visit_integrity.test.sql",
+    "planned": 45,
+    "ran": 45,
+    "passed": 45
+   }
+  ],
+  "problems": []
+ }
+}

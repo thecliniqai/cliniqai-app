@@ -799,7 +799,7 @@ Every phase below states the seven fields that prompt §11 requires: objective, 
 - *Tests:* Playwright screenshot + axe on `/dev/ui`; unit tests for primitives' keyboard and focus behaviour; the M0 characterisation suite.
 - *Evidence:* CI links, the screenshot set, the bundle report, design review notes.
 
-**V2-07 Atomic server commands** (prompt Phase 4) · L · G4
+**V2-07 Atomic server commands** (prompt Phase 4) · L · G4 · **Status 2026-11-20: built, verified (CI 44760574035), PR #11 awaiting the G4 gate; summary `.planning/phases/07-atomic-server-commands/07-SUMMARY.md` (backlog added: F-9 → V2-08, G-3 → V2-08, T-2 → V2-14, command_results purge → V2-13)**
 - *Objective:* every critical write is one transaction.
 - *Scope:* P1-05, P1-04 (in-tx audit), BACKEND D2-D4, PR-5 to PR-7, **PWA-06a** (`client_request_id` idempotency on every write RPC).
 - *Dependencies:* V2-05; the D1 spike report (V2-03).
