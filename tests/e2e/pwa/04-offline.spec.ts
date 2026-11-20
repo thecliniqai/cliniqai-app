@@ -111,12 +111,26 @@ test("offline: the walk-in drawer and patient form submit buttons are disabled w
   await expect(save).toBeDisabled();
   await expect(save).toHaveAccessibleDescription(OFFLINE_REASON);
   await page.getByLabel(/^Full name/).press("Enter"); // implicit submission is cancelled too
-  // Keys on the focused button, not a forced click: on a phone the offline banner sits over the foot of the bottom sheet,
-  // and a click at the button's centre would land on the banner (outside the sheet, which dismisses it).
+  // The offline banner must not cover the sheet's foot (V2-08 08-03a, carried from 08-02): the point at the button's centre
+  // is the button itself, so a click reaches it (and does nothing, the button being disabled) instead of landing on the
+  // banner outside the sheet and dismissing it.
+  const banner = page.locator("[data-offline-banner] p");
+  await expect(banner).toBeVisible();
+  const hit = await save.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return top === el || el.contains(top);
+  });
+  expect(hit, "the banner does not cover the sheet's submit button").toBe(true);
+  const sheetBox = (await sheet.boundingBox())!;
+  const bannerBox = (await banner.boundingBox())!;
+  expect(sheetBox.y + sheetBox.height, "the sheet ends above the banner").toBeLessThanOrEqual(bannerBox.y + 1);
+  await save.click({ force: true });
+  await expect(sheet, "the click did not dismiss the sheet").toBeVisible();
   await save.focus();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Space");
-  expect(await formSubmits(), "neither Enter nor Space on the button submits offline").toBe(0);
+  expect(await formSubmits(), "neither a click, Enter nor Space on the button submits offline").toBe(0);
   await context.setOffline(false);
   await expect(save).toBeEnabled();
   await expect(save).toHaveAccessibleDescription("");

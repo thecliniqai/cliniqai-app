@@ -25,6 +25,8 @@ const NOT_IN_NAV: Record<string, string> = {
   "/profile": "the account menu (My Profile)",
   "/billing/register": "a v1 redirect to /billing/reports (IA §1 row 12)",
   "/diag/client-error": "an e2e/staging diagnostic page, off in production",
+  // V2-08 08-03a: the new Today is reached by URL until 08-03b's cut-over makes it the nav's Today and deletes this entry.
+  "/today": "08-03b makes it the navigation's Today (R-14); until then reached by URL",
 };
 
 test.beforeEach(({}, testInfo) => {

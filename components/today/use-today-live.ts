@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerCleanup } from "@/lib/pwa/cleanup";
-import { realtimeClient } from "@/lib/supabase/client";
 import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
 
 /**
@@ -108,12 +107,20 @@ export function useTodayLive(tenantId: string): { state: LiveState; refreshNow: 
   useEffect(() => {
     const live = createTodayLive({
       subscribe: ({ onSignal, onStatus }) => {
-        const client = realtimeClient();
-        const channel = client.channel(`today:${tenantId}`, { config: { private: true } });
-        channel.on("broadcast", { event: "today" }, () => onSignal());
-        channel.subscribe((status) => onStatus(status === "SUBSCRIBED"));
+        // The Supabase client is a separate chunk, loaded after the board is on screen: it is not part of the route's first-load JS.
+        let closed = false;
+        let close: (() => void) | null = null;
+        void import("@/lib/supabase/client").then(({ realtimeClient }) => {
+          if (closed) return;
+          const client = realtimeClient();
+          const channel = client.channel(`today:${tenantId}`, { config: { private: true } });
+          channel.on("broadcast", { event: "today" }, () => onSignal());
+          channel.subscribe((status) => onStatus(status === "SUBSCRIBED"));
+          close = () => void client.removeChannel(channel);
+        });
         return () => {
-          void client.removeChannel(channel);
+          closed = true;
+          close?.();
         };
       },
       refresh: () => refreshRef.current(),
