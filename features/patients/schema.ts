@@ -96,6 +96,29 @@ export const patientSchema = z
 
 export type PatientInput = z.infer<typeof patientSchema>;
 
+/** What a form sends for a new patient (before the schema's phone normalisation and age / date-of-birth derivation). */
+export type NewPatientInput = z.input<typeof patientSchema>;
+
+/**
+ * The `p_new_patient` object of the front-desk commands (V2-07 07-03: `enqueue_walk_in`, `register_and_book`) from a
+ * parsed {@link patientSchema} result: exactly the keys `private.patient_input_normalize` accepts, in the snake_case the
+ * database reads. The database validates the same rules again; it never trusts this mapping.
+ */
+export function newPatientPayload(data: PatientInput): Record<string, unknown> {
+  return {
+    full_name: data.full_name,
+    phone: data.phone,
+    date_of_birth: data.date_of_birth,
+    age: data.age,
+    sex: data.sex ?? null,
+    address: data.address ?? null,
+    allergies: data.allergies ?? [],
+    chronic_conditions: data.chronic_conditions ?? [],
+    emergency_contact: data.emergency_contact ?? null,
+    abha_id: data.abha_id,
+  };
+}
+
 export interface PatientVisitVitals {
   bp_sys?: number | null;
   bp_dia?: number | null;

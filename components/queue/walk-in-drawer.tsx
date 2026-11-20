@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { createPatient, searchPatients } from "@/features/patients/actions";
-import { createVisit } from "@/features/visits/actions";
-import { checkInVisit } from "@/features/queue/actions";
-import { newClientRequestId } from "@/lib/commands/use-command";
+import { searchPatients } from "@/features/patients/actions";
+import { enqueueWalkIn } from "@/features/queue/actions";
+import { useCommand } from "@/lib/commands/use-command";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
@@ -37,6 +36,16 @@ export function WalkInDrawer({
   const [tab, setTab] = useState<"search" | "new">("search");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // One client_request_id per logical submit (V2-07 07-03): the walk-in (patient, visit, token) is one command, and a
+  // retry after an error re-sends the same id so a committed registration replays instead of running twice.
+  const { run: runCommand, reset: resetCommand } = useCommand();
+  const lastSubmit = useRef<string | null>(null);
+  /** A submit whose inputs differ from the failed one before it is a new request, not a retry. */
+  const startSubmit = (fingerprint: string) => {
+    if (lastSubmit.current !== fingerprint) resetCommand();
+    lastSubmit.current = fingerprint;
+  };
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,28 +123,24 @@ export function WalkInDrawer({
     try {
       const selectedDoc = doctors.find((d) => d.id === doctorId);
       const durationMins = selectedDoc?.default_slot_duration_minutes || 15;
+      const reasonForVisit = reason || "Walk-In Consultation";
+      startSubmit(JSON.stringify(["existing", patient.id, doctorId, reasonForVisit]));
 
-      // 1. Create walk-in visit
-      const visitRes = await createVisit({
-        patient_id: patient.id,
-        doctor_id: doctorId,
-        origin_type: "walk_in",
-        reason_for_visit: reason || "Walk-In Consultation",
-        estimated_duration_minutes: durationMins,
-        is_overbooked: false,
-      });
-
-      if (!visitRes.success) {
-        setError(visitRes.error);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Check into queue
-      // 07-03 replaces this client chain with one command; until then each check-in is its own submit.
-      const queueRes = await checkInVisit(visitRes.visitId, "normal", newClientRequestId());
-      if (!queueRes.ok) {
-        setError(queueRes.error.message);
+      // One command: the walk-in visit and its queue token, together or not at all.
+      const res = await runCommand((clientRequestId) =>
+        enqueueWalkIn(
+          {
+            patient_id: patient.id,
+            doctor_id: doctorId,
+            priority: "normal",
+            reason_for_visit: reasonForVisit,
+            estimated_duration_minutes: durationMins,
+          },
+          clientRequestId
+        )
+      );
+      if (!res.ok) {
+        setError(res.error.message);
         setLoading(false);
         return;
       }
@@ -162,43 +167,32 @@ export function WalkInDrawer({
     try {
       const selectedDoc = doctors.find((d) => d.id === doctorId);
       const durationMins = selectedDoc?.default_slot_duration_minutes || 15;
-
-      // 1. Create Patient
-      const patientRes = await createPatient({
+      const reasonForVisit = reason || "Walk-In Consultation";
+      const patientFields = {
         full_name: newPatient.full_name,
         phone: newPatient.phone,
         age: newPatient.age,
         date_of_birth: newPatient.date_of_birth || null,
         abha_id: null,
-      });
+      };
+      startSubmit(JSON.stringify(["new", patientFields, doctorId, reasonForVisit]));
 
-      if (!patientRes.success) {
-        setError(patientRes.error);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Create Visit
-      const visitRes = await createVisit({
-        patient_id: patientRes.patientId,
-        doctor_id: doctorId,
-        origin_type: "walk_in",
-        reason_for_visit: reason || "Walk-In Consultation",
-        estimated_duration_minutes: durationMins,
-        is_overbooked: false,
-      });
-
-      if (!visitRes.success) {
-        setError(visitRes.error);
-        setLoading(false);
-        return;
-      }
-
-      // 3. Issue Token & Check In
-      // 07-03 replaces this client chain with one command; until then each check-in is its own submit.
-      const queueRes = await checkInVisit(visitRes.visitId, "normal", newClientRequestId());
-      if (!queueRes.ok) {
-        setError(queueRes.error.message);
+      // One command: the patient, the walk-in visit and the queue token, together or not at all. A failure leaves no
+      // orphan patient behind, so the retry cannot register the same person twice.
+      const res = await runCommand((clientRequestId) =>
+        enqueueWalkIn(
+          {
+            new_patient: patientFields,
+            doctor_id: doctorId,
+            priority: "normal",
+            reason_for_visit: reasonForVisit,
+            estimated_duration_minutes: durationMins,
+          },
+          clientRequestId
+        )
+      );
+      if (!res.ok) {
+        setError(res.error.message);
         setLoading(false);
         return;
       }

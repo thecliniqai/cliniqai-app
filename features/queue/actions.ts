@@ -7,7 +7,7 @@ import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { QueuePriority } from "@/lib/db/types";
 import * as queueService from "./service";
-import type { TransitionStateResult, GetQueueResult, PaletteQueueMatch } from "./service";
+import type { TransitionStateResult, GetQueueResult, PaletteQueueMatch, EnqueueWalkInInput, WalkInValue } from "./service";
 
 export type { CheckInResult, TransitionStateResult, GetQueueResult, PaletteQueueMatch } from "./service";
 
@@ -40,6 +40,22 @@ export async function checkInVisit(
     queueTokenId: ok.queueTokenId,
     replayed: ok.replayed,
   }));
+}
+
+/**
+ * Registers a walk-in as one atomic command (V2-07 07-03): [new patient] + walk-in visit + queue token in one
+ * transaction. `Result` with the `AppError` code `useCommand` needs; `client_request_id` is required (the same id replays
+ * the first result and writes nothing new). The service repeats the finer `patients:edit` check for a new patient.
+ */
+export async function enqueueWalkIn(
+  input: EnqueueWalkInInput,
+  clientRequestId: string
+): Promise<CommandResult<WalkInValue>> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await queueService.enqueueWalkIn(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/queue", "/calendar", "/patients");
+  return result;
 }
 
 export async function transitionQueueState(

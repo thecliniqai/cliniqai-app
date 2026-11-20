@@ -52,6 +52,8 @@ export const completeAndBillSchema = z.object({
   payment_collected: z.boolean().default(true),
   payment_method: z.enum(["cash", "upi", "card"]).default("cash"),
   reference_number: z.string().max(100).nullable().optional(),
+  /** One id per logical submit (V2-07 07-03, PWA-06a): the same id replays the first result and writes nothing new. */
+  client_request_id: z.string().uuid("Invalid request ID"),
 });
 
 export const addInvoiceItemSchema = z.object({

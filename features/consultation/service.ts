@@ -746,18 +746,26 @@ export async function completeAndSignConsultation(
   if (!outcome.ok) return commandFailure(outcome.error);
 
   if (!outcome.value.replayed) {
-    // Initial archival PDF v1, after the commit (best-effort; the record is already signed).
-    try {
-      const payload = await buildVisitPdfPayload(ctx, visitId, 1);
-      if (payload) {
-        await generateAndArchivePrescriptionPdf(ctx, payload);
-      }
-    } catch (pdfErr) {
-      log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
+    await archiveInitialPrescriptionPdf(ctx, visitId);
   }
 
   return { success: true, visitId, replayed: outcome.value.replayed };
+}
+
+/**
+ * The initial archival PDF (v1) of a just-signed consultation, rendered and stored AFTER the commit (R-4: no external
+ * call inside a transaction), best-effort: the record is already signed whatever happens here. Shared by the sign-off
+ * and by Sign & Bill (`complete_and_bill`, V2-07 07-03).
+ */
+export async function archiveInitialPrescriptionPdf(ctx: ServiceContext, visitId: string): Promise<void> {
+  try {
+    const payload = await buildVisitPdfPayload(ctx, visitId, 1);
+    if (payload) {
+      await generateAndArchivePrescriptionPdf(ctx, payload);
+    }
+  } catch (pdfErr) {
+    log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+  }
 }
 
 export type ReopenVisitForAmendmentResult =

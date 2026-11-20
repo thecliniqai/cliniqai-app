@@ -151,18 +151,27 @@ export interface ActiveDoctorOption {
   specialty?: string | null;
 }
 
-export const bookAppointmentSchema = z.object({
-  patient_id: z.string().uuid("Invalid patient ID"),
-  doctor_id: z.string().uuid("Invalid doctor ID"),
-  scheduled_at: z.string().datetime({ offset: true }),
-  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
-  reason_for_visit: z.string().max(500).nullable().optional(),
-  is_overbooked: z.boolean().default(false),
-  override_off_duty: z.boolean().optional().default(false),
-  override_block: z.boolean().optional().default(false),
-});
+/**
+ * `register_and_book` input (V2-07 07-03): an existing patient or a new one (the patient form's fields, parsed by
+ * `patientSchema` in the service), the doctor's slot, and the overbook / override flags the booking drawer sends.
+ */
+export const registerAndBookSchema = z
+  .object({
+    patient_id: z.string().uuid("Invalid patient ID").nullable().optional(),
+    new_patient: z.unknown().nullable().optional(),
+    doctor_id: z.string().uuid("Invalid doctor ID"),
+    scheduled_at: z.string().datetime({ offset: true }),
+    estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
+    reason_for_visit: z.string().max(500).nullable().optional(),
+    is_overbooked: z.boolean().default(false),
+    override_off_duty: z.boolean().optional().default(false),
+    override_block: z.boolean().optional().default(false),
+  })
+  .refine((v) => (v.patient_id ? 1 : 0) + (v.new_patient ? 1 : 0) === 1, {
+    message: "Select or register a patient.",
+  });
 
-export type BookAppointmentInput = z.input<typeof bookAppointmentSchema>;
+export type RegisterAndBookInput = z.input<typeof registerAndBookSchema>;
 
 export const createScheduleBlockSchema = z.object({
   doctor_id: z.string().uuid("Invalid doctor ID").nullable().optional(),

@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { CreateInvoiceInput, CollectPaymentInput, RecordPaymentInput, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
+import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as billingService from "./service";
 import type {
   CreateInvoiceResult,
   RecordPaymentResult,
   GetVisitBillingResult,
-  CompleteAndBillResult,
   GetReceiptPdfResult,
   SendConsolidatedConsultationWhatsAppInput,
 } from "./service";
@@ -20,6 +20,7 @@ export type {
   RecordPaymentResult,
   GetVisitBillingResult,
   CompleteAndBillResult,
+  CompleteAndBillValue,
   GetReceiptPdfResult,
   SendConsolidatedConsultationWhatsAppInput,
 } from "./service";
@@ -86,16 +87,24 @@ export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof b
 }
 
 /**
- * Solo Doctor Workflow: seals the consultation and bills the visit. The service chain re-checks each callee's
- * permission (sign: consultations:edit; invoice: billing:collect or the visit's own doctor; payment, only when
- * `payment_collected`: billing:collect, checked before anything is signed; WhatsApp: prescriptions:view).
+ * Solo Doctor Workflow as one atomic command (V2-07 07-03): signs the consultation, creates the invoice and, when the fee
+ * is collected, records the payment, all in one transaction. Returns a `Result` (with the `AppError` code the client's
+ * `useCommand` needs); `client_request_id` is required. The command checks each part's permission (sign:
+ * consultations:edit; invoice: billing:collect or the visit's own doctor; payment, only when `payment_collected`:
+ * billing:collect, refused before anything is signed); the receipt PDF and WhatsApp follow after the commit.
  */
-export async function completeAndBillConsultation(input: CompleteAndBillInput): Promise<CompleteAndBillResult> {
+export async function completeAndBillConsultation(
+  input: CompleteAndBillInput
+): Promise<CommandResult<billingService.CompleteAndBillValue>> {
   const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
   if (result.success) revalidate(`/consultation/${result.visitId}`, "/queue", "/cabin", "/billing");
-  return result;
+  return toCommandResult(result, (ok) => {
+    const { success, ...value } = ok;
+    void success;
+    return value;
+  });
 }
 
 export async function getInvoiceReceiptPdfSignedUrl(invoiceId: string): Promise<GetReceiptPdfResult> {

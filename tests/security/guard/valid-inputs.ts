@@ -101,6 +101,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       payment_collected: false,
       payment_method: "cash",
       reference_number: null,
+      client_request_id: randomUUID(),
       ...acting(a),
     }],
   },
@@ -175,6 +176,16 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
   "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal", randomUUID()] },
+  "features/queue/actions.ts#enqueueWalkIn": {
+    args: (a) => [{
+      patient_id: a.patient,
+      doctor_id: a.ownerUser,
+      priority: "normal",
+      reason_for_visit: "Synthetic walk-in",
+      estimated_duration_minutes: 15,
+      ...acting(a),
+    }, randomUUID()],
+  },
   // The clinic acknowledges a referral it received (05-06: from the unrelated clinic S, not a self-referral).
   "features/referrals/actions.ts#acknowledgeReferral": { args: (a) => [a.inboundReferral] },
   "features/referrals/actions.ts#closeReferralLoop": {
@@ -244,18 +255,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       ...acting(a),
     }],
   },
-  "features/visits/actions.ts#createVisit": {
-    args: (a) => [{
-      patient_id: a.patient,
-      doctor_id: a.ownerUser,
-      origin_type: "walk_in",
-      estimated_duration_minutes: 15,
-      is_overbooked: false,
-      ...acting(a),
-    }],
-  },
   "features/visits/actions.ts#updateVisitStatus": { args: (a) => [a.visit, "confirmed"] },
-  "features/visits/scheduling.ts#bookAppointment": {
+  "features/visits/scheduling.ts#registerAndBook": {
     args: (a) => [{
       patient_id: a.patient,
       doctor_id: a.ownerUser,
@@ -266,7 +267,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       override_off_duty: true,
       override_block: true,
       ...acting(a),
-    }],
+    }, randomUUID()],
   },
   "features/visits/scheduling.ts#createScheduleBlock": {
     args: (a) => {

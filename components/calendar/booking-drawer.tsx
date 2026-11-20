@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { createPatient, searchPatients } from "@/features/patients/actions";
-import { bookAppointment } from "@/features/visits/scheduling";
+import { searchPatients } from "@/features/patients/actions";
+import { registerAndBook } from "@/features/visits/scheduling";
+import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
+import { useCommand } from "@/lib/commands/use-command";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
@@ -52,6 +54,16 @@ export function BookingDrawer({
   const [tab, setTab] = useState<"search" | "new">("search");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // One client_request_id per logical submit (V2-07 07-03): registering the patient and booking the slot is one
+  // command, and a retry after an error re-sends the same id so a committed booking replays instead of running twice.
+  const { run: runCommand, reset: resetCommand } = useCommand();
+  const lastSubmit = useRef<string | null>(null);
+  /** A submit whose inputs differ from the failed one before it (e.g. the overbook confirmation) is a new request. */
+  const startSubmit = (fingerprint: string) => {
+    if (lastSubmit.current !== fingerprint) resetCommand();
+    lastSubmit.current = fingerprint;
+  };
 
   // Form Fields
   const [doctorId, setDoctorId] = useState(defaultDoctorId || doctors[0]?.id || "");
@@ -145,33 +157,21 @@ export function BookingDrawer({
     setError(null);
 
     try {
-      let patientIdToBook = chosenPatient?.id;
-
-      // 1. If new patient tab, create patient first
+      // 1. The patient: an existing one, or the new patient's fields (registered by the same command as the booking).
+      const patientFields = {
+        full_name: newPatient.full_name,
+        phone: newPatient.phone,
+        age: newPatient.age,
+        date_of_birth: newPatient.date_of_birth || null,
+        abha_id: null,
+      };
       if (tab === "new") {
         if (!newPatient.full_name || !newPatient.phone) {
           setError("Patient full name and phone number are required.");
           setLoading(false);
           return;
         }
-
-        const patientRes = await createPatient({
-          full_name: newPatient.full_name,
-          phone: newPatient.phone,
-          age: newPatient.age,
-          date_of_birth: newPatient.date_of_birth || null,
-          abha_id: null,
-        });
-
-        if (!patientRes.success) {
-          setError(patientRes.error);
-          setLoading(false);
-          return;
-        }
-        patientIdToBook = patientRes.patientId;
-      }
-
-      if (!patientIdToBook) {
+      } else if (!chosenPatient?.id) {
         setError("Please select or register a patient.");
         setLoading(false);
         return;
@@ -186,27 +186,46 @@ export function BookingDrawer({
       // 2. The instant of the picked clinic date and time in the clinic's zone (ADR-016, P1-21), as the timeline shows it
       // and the server checks it; never the browser's zone (CI 43712054628).
       const scheduledIso = zonedDateTimeToUtcIso(date, time, timeZone);
+      const overbooked = isOverbooked || isOverbookedDefault;
+      startSubmit(
+        JSON.stringify([
+          tab === "new" ? patientFields : chosenPatient?.id,
+          doctorId,
+          scheduledIso,
+          duration,
+          reason,
+          overbooked,
+          overrideOffDuty,
+          overrideBlock,
+        ])
+      );
 
-      // 3. Book appointment
-      const result = await bookAppointment({
-        patient_id: patientIdToBook,
-        doctor_id: doctorId,
-        scheduled_at: scheduledIso,
-        estimated_duration_minutes: duration,
-        reason_for_visit: reason || null,
-        is_overbooked: isOverbooked || isOverbookedDefault,
-        override_off_duty: overrideOffDuty,
-        override_block: overrideBlock,
-      });
+      // 3. One command: [register the patient] + slot check + visit + booking message, together or not at all. A
+      // refused slot registers nobody, so the overbook confirmation below cannot register the patient a second time.
+      const result = await runCommand((clientRequestId) =>
+        registerAndBook(
+          {
+            ...(tab === "new" ? { new_patient: patientFields } : { patient_id: chosenPatient?.id }),
+            doctor_id: doctorId,
+            scheduled_at: scheduledIso,
+            estimated_duration_minutes: duration,
+            reason_for_visit: reason || null,
+            is_overbooked: overbooked,
+            override_off_duty: overrideOffDuty,
+            override_block: overrideBlock,
+          },
+          clientRequestId
+        )
+      );
 
-      if (!result.success) {
-        if (result.conflict) {
-          setConflictingVisit(result.conflictingVisit || null);
+      if (!result.ok) {
+        if (isSlotConflictReason(result.error.reason)) {
+          setConflictingVisit(null);
           setOverbookOpen(true);
           setLoading(false);
           return;
         }
-        setError(result.error);
+        setError(result.error.message);
         setLoading(false);
         return;
       }

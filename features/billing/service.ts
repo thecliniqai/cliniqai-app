@@ -20,7 +20,7 @@ import {
   addInvoiceItemSchema,
   AddInvoiceItemInput,
 } from "./schema";
-import { completeAndSignConsultation } from "@/features/consultation/service";
+import { archiveInitialPrescriptionPdf } from "@/features/consultation/service";
 import { createShareToken } from "@/features/sharing/tokens";
 import { enqueueMessage } from "@/lib/jobs/enqueue";
 import type { InteractiveButton } from "@/lib/messaging/types";
@@ -32,7 +32,7 @@ import { callCommand } from "@/lib/commands/call-command";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
-import { appError, type Result } from "@/lib/errors/app-error";
+import { appError, type AppErrorCode, type Result } from "@/lib/errors/app-error";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
@@ -714,48 +714,65 @@ export type CompleteAndBillResult =
       /** The invoice's number (the existing invoice's number when `alreadyBilled`). */
       invoiceNumber?: string | null;
       /**
-       * AR3-N2: another request had already billed this visit; `invoiceId` / `invoiceNumber` are that invoice and
-       * nothing else ran (no payment, receipt or message). The modal shows "already billed", never "payment pending".
+       * AR3-N2: the visit already had a live invoice (made at the desk before the sign-off); `invoiceId` /
+       * `invoiceNumber` are that invoice and no payment, receipt or message followed. The modal shows "already billed",
+       * never "payment pending".
        */
       alreadyBilled?: boolean;
+      /** True when this client_request_id was already completed: nothing new was written (R-4: no receipt, no message). */
+      replayed?: boolean;
     }
-  | { success: false; error: string };
+  | { success: false; error: string; code?: AppErrorCode; reason?: string };
+
+/** What a successful Sign & Bill gives the modal (the success branch of {@link CompleteAndBillResult}). */
+export type CompleteAndBillValue = Omit<Extract<CompleteAndBillResult, { success: true }>, "success">;
 
 export const SIGN_AND_BILL_ALREADY_DONE_MESSAGE =
   "This consultation is already signed and billed. Open the visit at checkout to view the invoice.";
 
-/**
- * IR2-L1: where a "Sign & Bill" for `visitId` stands for the acting user.
- * - "resume": completed and signed by `ctx.userId` (an earlier Sign & Bill whose billing step failed) with no invoice;
- * - "already_billed": completed and signed by `ctx.userId` and an invoice exists;
- * - "sign": anything else (not signed yet, or signed by someone else / reopened: completeAndSignConsultation decides).
- */
-async function signedVisitAwaitingInvoice(
-  ctx: ServiceContext,
-  visitId: string
-): Promise<"resume" | "already_billed" | "sign"> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: visit } = await (ctx.db.from("visits") as any)
-    .select("id, status, signed_at, signed_by")
-    .eq("id", visitId)
-    .eq("tenant_id", ctx.tenantId)
-    .maybeSingle();
-  if (!visit || visit.status !== "completed" || !visit.signed_at || visit.signed_by !== ctx.userId) {
-    return "sign";
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invoices, error } = await (ctx.db.from("invoices") as any)
-    .select("id")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", ctx.tenantId)
-    .neq("status", "cancelled")
-    .limit(1);
-  if (error) return "sign";
-  return Array.isArray(invoices) && invoices.length > 0 ? "already_billed" : "resume";
-}
+/** Fixed, data-free texts by reason or code for `complete_and_bill` (V2-07 07-03). The driver message never reaches the caller. */
+export const COMPLETE_AND_BILL_MESSAGES = {
+  NOT_FOUND: "Visit not found or access denied.",
+  FORBIDDEN: "You do not have permission to sign and bill this consultation.",
+  VALIDATION_FAILED: "Validation failed for invoice items.",
+  ALREADY_SIGNED: "This consultation is already signed.",
+  ALREADY_BILLED: SIGN_AND_BILL_ALREADY_DONE_MESSAGE,
+  SIGN_CONTENT_REQUIRED: "Cannot sign off consultation without recording at least one diagnosis or clinical note.",
+  AMOUNT_INVALID: "Payment amount must be greater than zero.",
+  METHOD_INVALID: "Invalid payment details.",
+  OVERPAYMENT: "The amount is more than the balance due on this invoice.",
+  INVOICE_NOT_PAYABLE: "This invoice is already settled or cancelled.",
+  LOCK_TIMEOUT: "This consultation is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  CONFLICT: "The consultation changed while saving. Refresh and try again.",
+  INTERNAL: "Failed to complete and bill consultation.",
+} as const satisfies DbErrorMessages;
+
+const completeAndBillRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  signed_at: z.string(),
+  sealed_prescriptions: z.number().int(),
+  resumed: z.boolean(),
+  invoice_id: z.string().uuid(),
+  invoice_number: z.string(),
+  total_amount: z.number(),
+  already_billed: z.boolean(),
+  payment_recorded: z.boolean(),
+  invoice_status: z.string(),
+  paid_total: z.number(),
+  replayed: z.boolean(),
+});
 
 /**
- * Solo Doctor Workflow: Seals consultation prescription and records visit billing in one atomic step.
+ * Solo Doctor Workflow: signs the consultation and bills the visit as ONE atomic command (`public.complete_and_bill`,
+ * V2-07 07-03, R-7): the sign-off (or the resume of a visit this user signed that has no invoice yet, IR2-L1), the
+ * invoice and, when `payment_collected`, the payment commit together or not at all. Nothing is signed when the invoice or
+ * the payment fails, and a failure is reported as a failure (never as a success with `paymentRecorded: false`). The
+ * receipt PDF, the prescription archive and the consolidated WhatsApp message run AFTER the commit (R-4), skipped on a
+ * replay of the same `client_request_id`.
+ *
+ * Permissions (also checked in the command): `consultations:edit`; `billing:collect` when the payment is collected,
+ * refused before anything is signed (PO-3); the invoice needs `billing:collect` or the visit's own doctor.
  */
 export async function completeAndBillConsultation(
   ctx: ServiceContext,
@@ -766,6 +783,7 @@ export async function completeAndBillConsultation(
     return {
       success: false,
       error: parseResult.error.issues[0]?.message || "Invalid input",
+      code: "VALIDATION_FAILED",
     };
   }
 
@@ -779,26 +797,15 @@ export async function completeAndBillConsultation(
     // 0. PO-3: collecting at the doctor's desk needs billing:collect (the owner of a solo clinic holds it). A doctor
     // without it is refused BEFORE anything is signed or billed; the modal offers only "route to reception" to them.
     if (data.payment_collected && !hasPerm(ctx.role, "billing:collect")) {
-      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE, code: "FORBIDDEN" };
     }
 
-    // 1. Sign off and finalize consultation & prescription. IR2-L1: a retry after the sign-off committed but billing
-    // failed resumes at billing: a visit already completed and signed by this same user, with no invoice yet, is not
-    // re-signed (P1-23) and goes straight to step 2. Anything else that is already signed is refused as before.
-    const resume = await signedVisitAwaitingInvoice(ctx, data.visit_id);
-    if (resume === "already_billed") {
-      return { success: false, error: SIGN_AND_BILL_ALREADY_DONE_MESSAGE };
-    }
-    if (resume !== "resume") {
-      // Not rewired in 07-01: 07-03's complete_and_bill replaces this chain. A fresh id per call keeps today's behaviour
-      // (a repeat of a signed visit is refused as already signed).
-      const signResult = await completeAndSignConsultation(ctx, data.visit_id, randomUUID());
-      if (!signResult.success) {
-        return { success: false, error: signResult.error };
-      }
+    // The visit must be this clinic's visit of the billed patient (P0-13: the FKs and RLS do not check this).
+    if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
+      return { success: false, error: COMPLETE_AND_BILL_MESSAGES.NOT_FOUND, code: "NOT_FOUND" };
     }
 
-    // 2. Create Invoice
+    // 1. One command: sign (or resume), invoice, optional payment.
     const items = [
       {
         item_type: "consultation" as const,
@@ -808,56 +815,57 @@ export async function completeAndBillConsultation(
       },
       ...data.additional_items,
     ];
+    const outcome = await callCommand(
+      ctx,
+      "complete_and_bill",
+      {
+        p_visit_id: data.visit_id,
+        p_items: invoiceItemsPayload(items),
+        p_discount: toPaise(data.discount),
+        p_tax: 0,
+        p_payment: data.payment_collected
+          ? { method: data.payment_method, reference: data.reference_number ?? null }
+          : null,
+        p_client_request_id: data.client_request_id,
+      },
+      completeAndBillRpcResultSchema,
+      COMPLETE_AND_BILL_MESSAGES,
+      { event: "billing.complete_and_bill.failed" }
+    );
+    if (!outcome.ok) {
+      return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
+    }
+    const done = outcome.value;
 
-    const invoiceResult = await createVisitInvoice(ctx, {
-      visit_id: data.visit_id,
-      patient_id: data.patient_id,
-      items,
-      discount: data.discount,
-      tax: 0,
-      // Not rewired in 07-02: 07-03's complete_and_bill replaces this chain. A fresh id per call keeps today's
-      // behaviour (a repeat finds the live invoice and returns alreadyBilled).
-      client_request_id: randomUUID(),
-    });
-
-    if (!invoiceResult.success) {
-      return { success: false, error: invoiceResult.error };
+    // 2. After the commit (R-4), best-effort, only for the request that did the work.
+    if (!done.replayed && !done.resumed) {
+      // The sign-off happened in this command: the initial archival prescription PDF (v1).
+      await archiveInitialPrescriptionPdf(ctx, data.visit_id);
     }
 
-    // AR3-N2: a concurrent or repeated Sign & Bill for this visit already created the live invoice. Return it and stop:
-    // no second payment, receipt or WhatsApp message. The request that created the invoice does those.
-    if (invoiceResult.existing) {
+    // AR3-N2: the visit already had its invoice (made at the desk before the sign-off), or this is a replay: return it
+    // and stop (no second payment, receipt or WhatsApp message).
+    if (done.already_billed || done.replayed) {
       return {
         success: true,
         visitId: data.visit_id,
-        invoiceId: invoiceResult.invoice.id,
-        invoiceNumber: invoiceResult.invoice.invoice_number ?? null,
+        invoiceId: done.invoice_id,
+        invoiceNumber: done.invoice_number ?? null,
         pdfStoragePath: null,
-        paymentRecorded: false,
-        alreadyBilled: true,
+        paymentRecorded: done.payment_recorded,
+        ...(done.already_billed ? { alreadyBilled: true } : {}),
+        replayed: done.replayed,
       };
     }
 
-    // 3. Record payment if collected
-    let paymentRecorded = false;
-    if (data.payment_collected && invoiceResult.invoice.total_amount > 0) {
-      const payResult = await recordPayment(ctx, {
-        invoice_id: invoiceResult.invoice.id,
-        amount: invoiceResult.invoice.total_amount,
-        payment_method: data.payment_method,
-        reference_number: data.reference_number ?? undefined,
-      });
-      paymentRecorded = payResult.success;
-    }
-
-    // 3b. Generate and archive Receipt PDF to storage immediately
+    // 2b. Generate and archive Receipt PDF to storage immediately
     try {
-      await compileAndArchiveReceiptPdf(ctx, invoiceResult.invoice.id);
+      await compileAndArchiveReceiptPdf(ctx, done.invoice_id);
     } catch (pdfErr) {
       log.warn({ event: "billing.receipt_pdf_generate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
-    // 4. Retrieve signed PDF path if generated
+    // 3. Retrieve signed PDF path if generated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rxRows } = await (supabase.from("prescriptions") as any)
       .select("pdf_storage_path")
@@ -867,7 +875,7 @@ export async function completeAndBillConsultation(
       .limit(1);
     const rxRow = rxRows && rxRows.length > 0 ? rxRows[0] : null;
 
-    // 5. Automated Single Consolidated WhatsApp Dispatch:
+    // 4. Automated Single Consolidated WhatsApp Dispatch:
     // Sends both prescription and invoice links together in a single WhatsApp message to avoid double message costs.
     let whatsAppSent = false;
     let whatsAppError: string | null = null;
@@ -877,7 +885,7 @@ export async function completeAndBillConsultation(
     try {
       const waRes = await sendConsolidatedConsultationWhatsApp(ctx, {
         visitId: data.visit_id,
-        invoiceId: invoiceResult.invoice.id,
+        invoiceId: done.invoice_id,
         patientId: data.patient_id,
       });
       whatsAppSent = waRes.success;
@@ -893,14 +901,15 @@ export async function completeAndBillConsultation(
     return {
       success: true,
       visitId: data.visit_id,
-      invoiceId: invoiceResult.invoice.id,
-      invoiceNumber: invoiceResult.invoice.invoice_number ?? null,
+      invoiceId: done.invoice_id,
+      invoiceNumber: done.invoice_number ?? null,
       pdfStoragePath: rxRow?.pdf_storage_path || null,
-      paymentRecorded,
+      paymentRecorded: done.payment_recorded,
       whatsAppSent,
       whatsAppError,
       rxShareUrl,
       invoiceShareUrl,
+      replayed: false,
     };
   } catch (err: unknown) {
     return {
