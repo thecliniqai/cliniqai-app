@@ -28,7 +28,7 @@ import { VisitDetail } from "./visit-detail";
  * The Today board (V2-08 08-03a; 06-UI-SPEC §7; `003-today`): the front desk's day in five lanes.
  * - below 768 px: a lane switch (Booked · Waiting · Doctor · Bill · Done, with counts), one lane at a time, a row tap opens
  *   the visit in the bottom drawer;
- * - 768 to 1279 px: two panes (the lane switch and one lane on the left, `minmax(330px, 44%)`, the selected visit on the
+ * - 768 to 1279 px: two panes (the lane switch and one lane on the left, `minmax(320px, 44%)`, the selected visit on the
  *   right), each scrolling on its own inside `100dvh` minus the bar;
  * - 1280 px and up: Booked, Waiting, With doctor and To bill side by side and Done as a column that expands; a row tap opens
  *   the visit in the side sheet.
@@ -216,7 +216,7 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
         <div
           data-board=""
           className={
-            "flex flex-col gap-3 md:grid md:h-[calc(100dvh-var(--spacing-bar)-13rem)] md:min-h-96 md:grid-cols-[minmax(330px,44%)_minmax(0,1fr)] md:gap-4 " +
+            "flex flex-col gap-3 md:grid md:h-[calc(100dvh-var(--spacing-bar)-13rem)] md:min-h-96 md:grid-cols-[minmax(320px,44%)_minmax(0,1fr)] md:gap-4 " +
             (doneOpen
               ? "xl:grid-cols-[repeat(5,minmax(0,1fr))] "
               : "xl:grid-cols-[repeat(4,minmax(0,1fr))_2.75rem] ") +
