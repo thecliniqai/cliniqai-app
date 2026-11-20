@@ -216,3 +216,81 @@ the notes commit follows them.
 - `node scripts/ci/local-drift.mjs`: PASS (0 statements). `node scripts/drift/schema-snapshot.mjs --local --write` then `--check`:
   PASS (2751 lines). `npm run db:types` produces no further diff.
 - `npm run e2e:build`; `npx playwright test tests/e2e/m0 --project=desktop-chrome`: 18 passed.
+
+## 08-02 Patient search, PatientPicker, QuickRegister, registration command
+
+Commits (branch `v2/phase-08-front-desk`, base 7f1f4db): 8be80ed (migration 000101 + pgTAP + registries), 16b93ee (fix: EXPECTED_MIGRATION),
+c0413ac (fix: ui-checks receptionist list), a7e6db8 (app), d502e0d (specs); the notes commit follows them.
+
+### What changed
+
+1. Migration `000101_patient_search_register.sql`. Trigram GIN indexes on `patients(full_name, phone, abha_id)` (pg_trgm schema resolved
+   in a DO block, as 000021 does). `public.search_patients(query, limit)` STABLE INVOKER: minimal columns, two letters or three digits,
+   `% _ * \ , ( )` become spaces (no wildcard oracle), rank 1 exact mobile / 2 digits contained / 3 name prefix / 4 trigram similarity
+   (>= 0.4) / 5 substring or ABHA, then last visit (waiting, in consultation or completed), name; limit capped at 25. `public.find_patient_duplicates`
+   STABLE INVOKER (same mobile; same name with the same dob or an age within 2), up to 10, reasons `same_mobile | same_name_dob | same_name_age`.
+   `private.patient_input_normalize` and `private.step_create_patient` carry `ai_processing_objected` (stamp and audit come from the existing
+   triggers). `public.register_patient(tenant, patient, request)` definer command, `patients:edit`, result `patient_id, replayed`.
+   No `(tenant_id, patient_id, scheduled_at)` index: `idx_visits_tenant_patient` already serves the last-visit lookup.
+2. App. `GET /api/patients/search` (`app/api/patients/search/route.ts`): 401, 403, 403 `SUBSCRIPTION_LOCKED`, 503, 500, `private, no-store`,
+   `{ patients: [{ id, name, ageSex, phoneLast4, lastVisit }] }`. `features/patients/search.ts` (client-safe types and `fetchPatientHits`),
+   service `searchPatients` (RPC) and `findDuplicates`, `register.ts` (`registerPatient` over `callCommand`), `register-input.ts` (form values to input),
+   action `registerPatient`. `components/clinical/ai-objection-field.tsx` (interim notice, on the AI-02 label list), `QuickRegisterForm` (async
+   `findDuplicates`, candidates with age and sex, objection field, `saveStatus`, `onEdit`, `defaultValues`), `components/front-desk/{patient-search,
+   register-patient-sheet,front-desk-sheets,use-duplicate-lookup,legacy-patient-row}`; `FrontDeskSheets` mounted in the dashboard layout hosts `?new=1`
+   (`phone`, `name` prefill). Palette patient group uses the route with an AbortController. Nav "Register patient", Today and Patients link `/patients?new=1`;
+   `next.config.ts` redirects `/patients/new` (308) to it.
+3. Deleted: `app/(dashboard)/patients/new/**`, `createPatient` and `searchPatients` and `searchPatientsForPalette` actions, the select-star
+   `findPotentialDuplicates` path, `duplicate-warning-banner.tsx`, the directory table's remote search (it already held the whole list), waivers
+   for `patients/new/page.tsx` and the directory table (the waitlist drawer's went from 2 sites to 1). `age-dob-input.tsx` stays (the v1 walk-in, booking
+   and waitlist drawers use it). `createPatient` (service) stays for `/api/v1`, with `buildPatientSearchFilter` (the v1 list and the visits register use it).
+4. Registries: pgTAP definer registry (+2, plan 95), `assert-pgtap-report.mjs` (FLOOR 8101 -> 8143, `patient_search.test.sql`), `assert-vitest-report.mjs`
+   REQUIRED_FILES + 4 specs (242), guard manifest (`registerPatient`; new route kind `session-search` with its engine legs in `tests/security/guard/engine.ts`),
+   `types/database.ts`, schema snapshot (2760 lines), `lib/observability/client-routes.ts`, `EXPECTED_MIGRATION` = 000101.
+
+### Tests
+
+- pgTAP: new `patient_search.test.sql` (40: indexes, EXPLAIN uses each trigram index on 5,000 rows with sequential scans off, catalog and grants, ranking, minimal
+  columns, no-oracle queries, tenant isolation, locked clinic, duplicates, register_patient with objection stamp/audit/replay/refusals); `definer_functions` +2.
+  Full pgTAP: 8143 in 51 files, PASS; gate PASS.
+- Vitest: `tests/patients/search-patients-db.spec.ts` (7), `search-route.spec.ts` (8), `find-duplicates-db.spec.ts` (7), `register-patient-rpc.spec.ts` (33: catalog, one
+  transaction, objection, rollback fault on the audit row, replay, concurrency, IDEMPOTENCY_MISMATCH per field, input matrix, role matrix, anon, cross-tenant,
+  dual membership, service, form mapping: age 34 gives 1 January of the birth year, 8 months an exact date). Updated: guard manifest/routes/valid-inputs, nav, locked
+  redirects, dpdp-rights, p0-01 forged overrides (now `registerPatient`), phone-search, palette-search-db (queue part only), dedup (age/phone part), ai-l1 and waiver specs.
+  Affected set run: `tests/patients tests/ci tests/nav tests/observability tests/commands tests/pwa tests/audit`, the three guard specs, p0-01 specs, dpdp-rights,
+  v1-crud, readiness probe, locked redirects: green (1260 + 2180 in two runs after the one waiver failure was fixed).
+- E2E (desktop-chrome, pixel-7, plus iphone-15 for the journey): `journeys/journey-03-register-patient.spec.ts` (@golden; registers with the objection, DB row and stamp,
+  axe on the sheet, duplicate banner with age and sex, "Use this patient", one row), `m0/register-patient.spec.ts`, `shell/palette.spec.ts`, `shell/nav-per-role`,
+  `shell/ui-checks`, journeys, `design/keyboard/clinical-b` and `review-fixes-06-09c`, `pwa/04-offline`, `09`, `11`: all passed.
+
+### Deviations
+
+- **Route guard kind.** The `session` kind assumes an `[id]` resource and a 404 leg; a search route has neither, so the manifest gained `session-search` (denial legs reused,
+  plus: tenant B's patient searched by name and number gives an empty list, tenant A's own is listed with exactly the keys, no full number, `no-store`).
+- **Duplicate lookup stays a server action** (`findPotentialDuplicates`, `dedup.ts`, as the plan keeps `dedup*.ts`). It queues behind other actions (R-20); it is advisory and debounced 400 ms.
+- **`patientSchema` gained optional `ai_processing_objected`** and `newPatientPayload` always sends it (false by default), so walk-in and booking commands carry it too.
+  The normalised patient (and so the request hash) now includes the key.
+- **PatientSearch is used in the waitlist drawer** (no e2e covers it); the walk-in and booking drawers keep their markup and search through the route with
+  `legacy-patient-row.ts` (masked mobile, `42 y`); they leave in 08-03b and 08-04b. Their search needs two letters or three digits now.
+- **Waiver spec** `a waiver downgrades only its own rule...` now builds a copy of the register with a virtual `app/(dashboard)/...` entry (the last real route-group waiver left with its page).
+- **`pwa/04-offline`**: the sheet slides in (transition starts after first paint), and on a phone the offline banner overlays the foot of the bottom sheet, so a forced click on the
+  button landed on the banner and dismissed the sheet. The spec waits for the sheet to be on screen and presses Enter and Space on the focused button instead. (UI note for later: the
+  offline banner covers the bottom of a bottom sheet.)
+- **Coordinator fixes folded in** (CI 44819102045): `EXPECTED_MIGRATION` bump (16b93ee) and the receptionist's consult page removed from `shell/ui-checks` (c0413ac).
+  No other e2e spec opens `/consultation/` as a receptionist or admin (checked every storage state).
+
+### What the next plan must know
+
+- **Every new migration must bump `app/api/ready/expected-migration.ts` in the same commit** (000102 next); `tests/api/readiness-probe-db.spec.ts` fails otherwise.
+- `PatientSearch` (`components/front-desk/patient-search.tsx`) and `registerHref(query)` are ready for the walk-in and booking sheets; `RegisterPatientSheet` takes `onRegistered(patientId)` to continue
+  with the new patient instead of opening the profile. `QuickRegisterForm` returns `aiObjected`; `enqueueWalkIn` / `register_and_book` take it in `new_patient.ai_processing_objected`.
+- `find_patient_duplicates` and `searchPatients` share the shape `PatientHit`; 08-05 replaces the duplicate function body (AI-14), keep its columns.
+- The search needs two letters or three digits (client mirror: `isSearchableQuery`). The palette's Today-queue group is still a server action.
+- A `?new=1` link on any dashboard page opens the sheet; `phone` and `name` prefill it.
+
+### Commands run (counts)
+
+- `npx supabase db reset --local`, `npm run db:types`; `npm run test:pgtap` (8143, 51 files, PASS), `node scripts/ci/assert-pgtap-report.mjs`: PASS.
+- `node scripts/ci/local-drift.mjs`: PASS (0 statements); `node scripts/drift/schema-snapshot.mjs --local --write` then `--check`: PASS (2760 lines).
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (430 warnings, 6 fewer than 08-01b). `npm run inventory`: exit 0. `npm run ci:ui-policy`: PASS (delta negative). `npm run ci:ai-l1`: PASS.
+- `npm run e2e:build`; the e2e lanes above (no retries; each failure root-caused).
