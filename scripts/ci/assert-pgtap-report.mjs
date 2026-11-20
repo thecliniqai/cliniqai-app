@@ -71,6 +71,9 @@
  *          their 4 legs go) + 4 clinic_locations (command_hash_key and the keyed hash; the claim leg now asserts the
  *          refusal) + 31 command_review_fixes (new file) - 2 billing_rpc_only (the three insert-guard cases and the formula case go: nobody inserts an invoice as an API role
  *          now; the direct-insert refusal and the definer-role insert replace them) = 8083 (49 files, every one required).
+ *   8101 — V2-08 08-01b (000100 visit_state_machine): 8083 + definer_functions 4 (start_consultation and complete_visit: 1
+ *          acting-in-A and 1 locked-clinic leg each) + visit_state_machine 14 (new file, every one required);
+ *          scheduling_exclusion keeps its 26 (the restore case now uses the no-show rebook) = 8101 (50 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -82,7 +85,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8083;
+export const FLOOR = 8101;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -161,6 +164,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/clinic_locations.test.sql",
   // V2-07 07-04a (000099: command review fixes)
   "supabase/tests/database/command_review_fixes.test.sql",
+  // V2-08 08-01b
+  "supabase/tests/database/visit_state_machine.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

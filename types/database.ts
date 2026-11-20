@@ -3295,6 +3295,14 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      complete_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_invitation_for: {
         Args: { p_token_hash: string; p_user_id: string };
@@ -3686,6 +3694,14 @@ export type Database = {
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       sign_consultation: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      start_consultation: {
         Args: {
           p_client_request_id: string;
           p_tenant_id: string;

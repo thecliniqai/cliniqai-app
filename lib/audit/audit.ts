@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
  * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
  *
  * V2-07 07-04a (migration 000099, F-1): the actions only an atomic command writes are NOT in this list: `visit.complete_and_sign`,
- * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}).
+ * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}).
  * The commands write them through `private.log_command_audit`; `log_audit` refuses them, so no member can forge them.
  */
 export const AUDIT_ACTIONS = [
@@ -80,6 +80,8 @@ export const COMMAND_ONLY_AUDIT_ACTIONS = [
   "visit.amend_finalized",
   "invoice.create",
   "queue.check_in",
+  "visit.consultation_start",
+  "visit.complete_at_desk",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -137,6 +139,7 @@ export const AUDIT_METADATA_KEYS = [
   "amendment_reason",
   "follow_up_date",
   "items_count",
+  "late_arrival",
   "is_custom",
   "is_chronic",
   "template_name",
