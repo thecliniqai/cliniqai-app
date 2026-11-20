@@ -365,6 +365,11 @@ const REQUIRED_FILES = [
   "tests/consultation/sign-consultation-rpc.spec.ts",
   "tests/consultation/amendment-rpc.spec.ts",
   "tests/queue/check-in-rpc.spec.ts",
+  // V2-07 07-03 (enqueue_walk_in, register_and_book, complete_and_bill, available_slots).
+  "tests/queue/walk-in-rpc.spec.ts",
+  "tests/visits/register-and-book-rpc.spec.ts",
+  "tests/billing/complete-and-bill-rpc.spec.ts",
+  "tests/scheduling/available-slots.spec.ts",
 ];
 
 const file = process.argv[2];

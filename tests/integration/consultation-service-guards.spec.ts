@@ -152,6 +152,7 @@ describe("consultation service guards (01-01c)", () => {
         additional_items: [],
         payment_collected: true,
         payment_method: "cash",
+        client_request_id: randomUUID(),
       });
       expect(res.success).toBe(false);
 
@@ -173,6 +174,7 @@ describe("consultation service guards (01-01c)", () => {
         // (tests/billing/collect-permission.spec.ts).
         payment_collected: false,
         payment_method: "cash",
+        client_request_id: randomUUID(),
       });
       expect(res.success).toBe(true);
       if (res.success) expect(res.paymentRecorded).toBe(false);

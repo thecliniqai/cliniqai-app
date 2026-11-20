@@ -497,6 +497,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
         additional_items: [],
         payment_collected: false,
         payment_method: "cash",
+        client_request_id: randomUUID(),
       });
     async function invoiceCount(visitId: string): Promise<number> {
       const { data } = await admin.from("invoices").select("id").eq("visit_id", visitId);

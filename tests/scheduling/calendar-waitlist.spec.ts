@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
-import { bookAppointment } from "@/features/visits/scheduling-service";
+import { registerAndBook } from "@/features/visits/scheduling-service";
 import { addToWaitlist, getWaitlistForDate } from "@/features/waitlist/service";
 import { cancelVisit } from "@/features/visits/service";
 
@@ -66,7 +67,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("1. Booking an appointment occupies the slot on the doctor's calendar", async () => {
-    const res = await bookAppointment(
+    const res = await registerAndBook(
       ctxFor(tenant),
       {
         patient_id: patient1Id,
@@ -75,12 +76,13 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Cardiac checkup",
         is_overbooked: false,
-      }
+      },
+      randomUUID()
     );
 
-    expect(res.success).toBe(true);
-    if (!res.success) return;
-    originalVisitId = res.visitId;
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    originalVisitId = res.value.visitId;
 
     // Verify visit saved in DB
     const { data: visitRow } = await tenant.client
@@ -95,7 +97,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("2. Attempting a second booking at the same time without override flag is rejected with conflict warning", async () => {
-    const res = await bookAppointment(
+    const res = await registerAndBook(
       ctxFor(tenant),
       {
         patient_id: patient2Id,
@@ -104,18 +106,18 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Routine follow-up",
         is_overbooked: false,
-      }
+      },
+      randomUUID()
     );
 
-    // Must be rejected with conflict
-    expect(res.success).toBe(false);
-    if (res.success) return;
-    expect(res.conflict).toBe(true);
-    expect(res.conflictingVisit?.id).toBe(originalVisitId);
+    // Must be rejected with conflict (the drawer then offers the overbook confirmation)
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatchObject({ code: "CONFLICT", reason: "SLOT_TAKEN" });
   });
 
   it("3. Confirming overbook override successfully schedules the second appointment with is_overbooked: true", async () => {
-    const res = await bookAppointment(
+    const res = await registerAndBook(
       ctxFor(tenant),
       {
         patient_id: patient2Id,
@@ -124,12 +126,13 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Urgent consultation",
         is_overbooked: true, // Overbooking confirmed
-      }
+      },
+      randomUUID()
     );
 
-    expect(res.success).toBe(true);
-    if (!res.success) return;
-    overbookedVisitId = res.visitId;
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    overbookedVisitId = res.value.visitId;
 
     // Verify visit saved in DB with is_overbooked = true
     const { data: visitRow } = await tenant.client

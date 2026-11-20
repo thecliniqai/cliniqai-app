@@ -113,6 +113,7 @@ describe("Billing Zod Validation Schemas (REQ-billing-invoicing)", () => {
       consultation_fee: 600,
       payment_collected: true,
       payment_method: "cash" as const,
+      client_request_id: "33333333-3333-4333-8333-333333333333",
     };
 
     const parsed = completeAndBillSchema.safeParse(valid);
@@ -123,5 +124,15 @@ describe("Billing Zod Validation Schemas (REQ-billing-invoicing)", () => {
       expect(parsed.data.additional_items).toEqual([]);
       expect(parsed.data.discount).toBe(0);
     }
+  });
+
+  it("completeAndBillSchema requires a client_request_id (V2-07 07-03, PWA-06a)", () => {
+    const base = {
+      visit_id: "11111111-1111-1111-1111-111111111111",
+      patient_id: "22222222-2222-2222-2222-222222222222",
+      consultation_fee: 600,
+    };
+    expect(completeAndBillSchema.safeParse(base).success).toBe(false);
+    expect(completeAndBillSchema.safeParse({ ...base, client_request_id: "not-a-uuid" }).success).toBe(false);
   });
 });

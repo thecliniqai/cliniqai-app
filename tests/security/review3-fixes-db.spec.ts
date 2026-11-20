@@ -408,6 +408,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         additional_items: [],
         payment_collected: true,
         payment_method: "cash",
+        client_request_id: randomUUID(),
       });
 
     async function invoices(visitId: string) {
@@ -483,49 +484,18 @@ describe("01-10 review round 3 fixes (000024)", () => {
       }
     });
 
-    it("the losing request gets the existing invoice as 'already billed' (the shape the modal shows), and no payment", async () => {
+    it("a visit whose invoice was made at the desk first: Sign & Bill signs it and returns that invoice as 'already billed' (the shape the modal shows), with no payment", async () => {
+      // V2-07 07-03: the sign-off, invoice and payment are one command under the visit lock, so the old race (a stale
+      // "no invoice yet" read) cannot happen; the case that remains is a live invoice that already existed (AR3-N2).
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId, randomUUID())).success).toBe(true);
-      const first = await bill(visitId);
-      expect(first.success).toBe(true);
+      const desk = await createVisitInvoice(ctxFor(A.owner), invoiceInput(visitId));
+      expect(desk.success).toBe(true);
       const [invoice] = await invoices(visitId);
       const { data: inv } = await admin.from("invoices").select("invoice_number").eq("id", invoice.id).single();
       const invoiceNumber = (inv as unknown as { invoice_number: string }).invoice_number;
       expect(invoiceNumber).toBeTruthy();
 
-      // The race window: this request read "no invoice yet" just before the other request's insert committed.
-      // Its first invoices read is answered as of that moment; everything after runs on the real database.
-      let stale = true;
-      const real = A.owner.client;
-      const raced = new Proxy(real, {
-        get(target, prop) {
-          if (prop === "from") {
-            return (table: string) => {
-              if (table === "invoices" && stale) {
-                stale = false;
-                const chain: Record<string, unknown> = {};
-                for (const m of ["select", "eq", "neq", "limit"]) chain[m] = () => chain;
-                chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [], error: null });
-                return chain;
-              }
-              return target.from(table as never);
-            };
-          }
-          const value = Reflect.get(target, prop, target);
-          return typeof value === "function" ? value.bind(target) : value;
-        },
-      });
-
-      const res = await completeAndBillConsultation({ ...ctxFor(A.owner), db: raced as never }, {
-        visit_id: visitId,
-        patient_id: A.patientId,
-        consultation_fee: 500,
-        discount: 0,
-        additional_items: [],
-        payment_collected: true,
-        payment_method: "cash",
-      });
-      expect(stale).toBe(false);
+      const res = await bill(visitId);
       expect(res).toMatchObject({
         success: true,
         alreadyBilled: true,
@@ -541,8 +511,10 @@ describe("01-10 review round 3 fixes (000024)", () => {
           expect(state.message).toContain(invoiceNumber);
         }
       }
+      const { data: signed } = await admin.from("visits").select("status, signed_by").eq("id", visitId).single();
+      expect(signed).toMatchObject({ status: "completed", signed_by: A.owner.userId });
       expect(await invoices(visitId)).toHaveLength(1);
-      expect(await paymentCount([invoice.id])).toBe(1);
+      expect(await paymentCount([invoice.id])).toBe(0);
     });
 
     it("a voided (cancelled) invoice can be re-issued, by createVisitInvoice and by a Sign & Bill retry", async () => {

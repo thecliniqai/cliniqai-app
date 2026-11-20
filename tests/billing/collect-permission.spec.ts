@@ -105,6 +105,7 @@ describe("billing:collect (05-02b, PO-3)", () => {
     additional_items: [],
     payment_collected: collected,
     payment_method: "cash" as const,
+    client_request_id: randomUUID(),
   });
 
   beforeAll(async () => {
@@ -181,7 +182,7 @@ describe("billing:collect (05-02b, PO-3)", () => {
       const visitId = await readyToSign(doctor.userId, doctor);
       const before = await visitState(visitId);
       const res = await completeAndBillConsultation(ctxFor(doctor), signAndBill(visitId, true));
-      expect(res).toEqual({ success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE });
+      expect(res).toEqual({ success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE, code: "FORBIDDEN" });
       expect(await visitState(visitId)).toEqual(before);
       expect(before.signed_at).toBeNull();
       expect(await invoicesOfVisit(visitId)).toEqual([]);
