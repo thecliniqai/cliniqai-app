@@ -589,6 +589,8 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
       });
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, visitId);
       const token = url.split("/reschedule/")[1];
+      // booked -> waiting -> completed: the visit state machine (000100) has no direct booked -> completed.
+      await admin.from("visits").update({ status: "waiting" }).eq("id", visitId);
       await admin.from("visits").update({ status: "completed" }).eq("id", visitId);
 
       expect((await rescheduleGet(token)).status).toBe(400);

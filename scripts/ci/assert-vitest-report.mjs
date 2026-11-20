@@ -68,6 +68,9 @@
  *          both fixed in the same plan; the count is what the floor uses.) V2-07 added no spec outside tests/e2e that
  *          REQUIRED_FILES lacks (checked against the V2-06 head d86b332: 13 files, all present). REQUIRED_FILES + the two
  *          08-01a specs (tests/commands/save-state.spec.ts, tests/staff/doctor-picker.spec.ts; 235 in total).
+ *   6385 — V2-08 08-01b, unchanged: REQUIRED_FILES + the three 08-01b specs (tests/queue/start-consultation-rpc.spec.ts,
+ *          tests/queue/complete-visit-rpc.spec.ts, tests/visits/state-machine.spec.ts; 238 in total). The floor is re-measured at
+ *          the next gate; the suite only grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -384,6 +387,10 @@ const REQUIRED_FILES = [
   // V2-08 08-01a (useCommand SaveStatus mapping, doctor picker R-2).
   "tests/commands/save-state.spec.ts",
   "tests/staff/doctor-picker.spec.ts",
+  // V2-08 08-01b (start_consultation, complete_visit, the visit state machine parity).
+  "tests/queue/start-consultation-rpc.spec.ts",
+  "tests/queue/complete-visit-rpc.spec.ts",
+  "tests/visits/state-machine.spec.ts",
 ];
 
 const file = process.argv[2];

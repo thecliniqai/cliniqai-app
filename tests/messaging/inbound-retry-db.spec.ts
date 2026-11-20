@@ -168,6 +168,7 @@ describe("M-INBOUND: a transient failure answers 500 and the provider's retry co
 
   it("a cancel for a visit that moved on is a business no-op: 200 `ignored`, no retry needed", async () => {
     const c = await seedConversation("retry-moved-on");
+    psql(`update public.visits set status = 'waiting' where id = '${c.visitId}'`);
     psql(`update public.visits set status = 'in_consultation' where id = '${c.visitId}'`);
     const body = track(buttonReply(c, "btn_cancel"));
     expect(await postMsg91(body)).toEqual(OK);

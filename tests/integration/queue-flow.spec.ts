@@ -4,7 +4,7 @@ import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { ctxFor } from "../helpers/context";
-import { checkInVisit, transitionQueueState, getQueueForDate } from "@/features/queue/service";
+import { checkInVisit, startConsultation, completeVisit, getQueueForDate } from "@/features/queue/service";
 
 describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -145,9 +145,9 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
   it("3. Moving patient from 'waiting' to 'in_consultation' sets called_at timestamp", async () => {
 
-    const transitionRes = await transitionQueueState(ctxFor(tenant), walkInVisitId, "in_consultation");
+    const transitionRes = await startConsultation(ctxFor(tenant), walkInVisitId, randomUUID());
 
-    expect(transitionRes.success).toBe(true);
+    expect(transitionRes.ok).toBe(true);
 
     // Verify visit status is now 'in_consultation'
     const { data: visitRow } = await tenant.client
@@ -171,9 +171,9 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
   it("4. Completing visit sets completed_at and removes patient from active waiting count", async () => {
 
-    const transitionRes = await transitionQueueState(ctxFor(tenant), walkInVisitId, "completed");
+    const transitionRes = await completeVisit(ctxFor(tenant), walkInVisitId, randomUUID());
 
-    expect(transitionRes.success).toBe(true);
+    expect(transitionRes.ok).toBe(true);
 
     // Verify visit status is now 'completed'
     const { data: visitRow } = await tenant.client

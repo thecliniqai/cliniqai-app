@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
-import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
 import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/service";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
@@ -131,9 +131,9 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("4. Doctor calls patient into consultation room: transitions status to 'in_consultation'", async () => {
-    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
+    const transitionRes = await startConsultation(ctxFor(tenantA), visitAId, randomUUID());
 
-    expect(transitionRes.success).toBe(true);
+    expect(transitionRes.ok).toBe(true);
 
     const { data: visitRow } = await tenantA.client
       .from("visits")
@@ -355,8 +355,8 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("9. Complete consultation: transitions status directly to 'completed' and verifies history retrieval", async () => {
-    const compRes = await transitionQueueState(ctxFor(tenantA), visitAId, "completed");
-    expect(compRes.success).toBe(true);
+    const compRes = await completeVisit(ctxFor(tenantA), visitAId, randomUUID());
+    expect(compRes.ok).toBe(true);
 
     const { data: visitRow } = await tenantA.client
       .from("visits")

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
-import { transitionQueueState } from "@/features/queue/service";
+import { startConsultation } from "@/features/queue/service";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,
@@ -75,8 +75,8 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     visitAId = visitRes.visitId;
 
     // 2. Transition status to in_consultation
-    const queueRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
-    expect(queueRes.success).toBe(true);
+    const queueRes = await startConsultation(ctxFor(tenantA), visitAId, randomUUID());
+    expect(queueRes.ok).toBe(true);
 
     // 3. Save consultation SOAP clinical documentation
     const draftRes = await saveConsultationDraft(

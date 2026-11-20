@@ -16,7 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ServiceContext } from "@/lib/auth/context";
-import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { checkInVisit, startConsultation } from "@/features/queue/service";
 import { cancelVisit, confirmAppointment, updateVisitStatus } from "@/features/visits/service";
 import { promoteWaitlistEntry } from "@/features/waitlist/service";
 import { acknowledgeReferral } from "@/features/referrals/service";
@@ -131,7 +131,15 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
     expect(await rowOf("visits", C.visit)).toEqual(before);
     const { data: tokens } = await admin.from("queue_tokens").select("id").eq("visit_id", C.visit);
     expect(tokens ?? []).toEqual([]);
-    expect((await checkInVisit(ctxA, A.visit, "normal", randomUUID())).success).toBe(true);
+    // Control: a walk-in of A (A.visit is booked days ahead, which a check-in refuses since 000100, R-8).
+    const walkIn = await insertRow("visits", {
+      tenant_id: ownerA.tenantId,
+      patient_id: A.patient,
+      doctor_id: ownerA.userId,
+      origin_type: "walk_in",
+      created_by: ownerA.userId,
+    });
+    expect((await checkInVisit(ctxA, walkIn, "normal", randomUUID())).success).toBe(true);
   });
 
   it("updateVisitStatus, confirmAppointment, cancelVisit: C's visit refused and unchanged", async () => {
@@ -157,10 +165,13 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
     expect((await cancelVisit(ctxA, control)).success).toBe(true);
   });
 
-  it("transitionQueueState: C's visit refused and unchanged", async () => {
+  it("startConsultation: C's visit refused and unchanged, no A queue token points at it", async () => {
     const before = await rowOf("visits", C.visit);
-    expect((await transitionQueueState(ctxA, C.visit, "in_consultation")).success).toBe(false);
+    const res = await startConsultation(ctxA, C.visit, randomUUID());
+    expect(res).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
     expect(await rowOf("visits", C.visit)).toEqual(before);
+    const { data: tokens } = await admin.from("queue_tokens").select("id").eq("visit_id", C.visit);
+    expect(tokens ?? []).toEqual([]);
   });
 
   it("promoteWaitlistEntry: C's entry refused and unchanged, no A visit for C's patient", async () => {

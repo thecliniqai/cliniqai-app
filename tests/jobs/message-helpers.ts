@@ -34,7 +34,13 @@ export interface SeededPatient {
 }
 
 /** A patient (synthetic number) and one visit in `tenantId`, inserted with the admin client. */
-export async function seedPatient(tenantId: string, createdBy: string, doctorId: string = createdBy): Promise<SeededPatient> {
+export async function seedPatient(
+  tenantId: string,
+  createdBy: string,
+  doctorId: string = createdBy,
+  /** The visit's status at insert (the visit state machine, 000100, refuses most later updates). */
+  status: "booked" | "confirmed" | "waiting" | "in_consultation" = "in_consultation"
+): Promise<SeededPatient> {
   const admin = getAdminClient();
   const phone = syntheticMobile();
   const { data: patient, error: pErr } = await admin
@@ -50,7 +56,7 @@ export async function seedPatient(tenantId: string, createdBy: string, doctorId:
       patient_id: patient.id,
       doctor_id: doctorId,
       origin_type: "walk_in",
-      status: "in_consultation",
+      status,
       estimated_duration_minutes: 15,
       created_by: createdBy,
     })

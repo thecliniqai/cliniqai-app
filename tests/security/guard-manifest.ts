@@ -172,7 +172,9 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/queue/actions.ts#getQueueForDate": "appointments:view",
   // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
   "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
-  "features/queue/actions.ts#transitionQueueState": "appointments:edit",
+  // V2-08 08-01b: the visit state machine's two desk commands replace the open status setter.
+  "features/queue/actions.ts#startConsultation": "consultations:edit",
+  "features/queue/actions.ts#completeVisit": "appointments:edit",
   "features/referrals/actions.ts#acknowledgeReferral": "consultations:edit",
   "features/referrals/actions.ts#closeReferralLoop": "consultations:edit",
   "features/referrals/actions.ts#createReferral": "consultations:edit",

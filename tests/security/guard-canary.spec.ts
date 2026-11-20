@@ -68,7 +68,7 @@ const routeCase = routeCases(inventory).find((c) => c.key === ROUTE_KEY);
 /** Ids that exist nowhere: the fixture takes no arguments, the engine only needs the shape. */
 const NO_TENANT_B = Object.fromEntries(
   ["tenant", "ownerUser", "membership", "patient", "visit", "invoice", "invoiceItem", "document", "prescription",
-    "rxItem", "referral", "block", "waitlist", "notification", "webhookSub", "apiKey", "diagnosis", "signedVisit", "reopenedVisit", "waitingVisit", "callerUser"].map((k) => [k, randomUUID()])
+    "rxItem", "referral", "block", "waitlist", "notification", "webhookSub", "apiKey", "diagnosis", "signedVisit", "reopenedVisit", "waitingVisit", "startableVisit", "completableVisit", "callerUser"].map((k) => [k, randomUUID()])
 ) as unknown as TenantBIds;
 
 describe("P0-13 canary: an unguarded action and route are caught", () => {

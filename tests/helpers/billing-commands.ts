@@ -23,8 +23,24 @@ export interface SeededVisit {
   patientId: string;
 }
 
+export interface SeedVisitOptions {
+  /**
+   * The status the visit is INSERTED with (default: the column default, `booked`). The visit state machine (000100) refuses
+   * most status updates, so a spec that needs another state seeds it here instead of updating (V2-08 08-01b).
+   */
+  status?: "booked" | "confirmed" | "waiting" | "in_consultation" | "completed" | "cancelled" | "no_show";
+  /** Insert a scheduled visit at this time instead of a walk-in (a clinic-local day other than today exercises R-8). */
+  scheduledAt?: string;
+  /** Mark a scheduled visit overbooked, so seeded visits of one doctor never collide on the slot constraint. */
+  overbooked?: boolean;
+}
+
 /** A fresh synthetic patient and visit in `t`'s clinic; `doctorId` defaults to the clinic owner. */
-export async function seedVisit(t: Pick<SeededTenant, "tenantId" | "userId">, doctorId?: string): Promise<SeededVisit> {
+export async function seedVisit(
+  t: Pick<SeededTenant, "tenantId" | "userId">,
+  doctorId?: string,
+  opts: SeedVisitOptions = {}
+): Promise<SeededVisit> {
   const admin = getAdminClient();
   const patientId = await insertReturningId(admin, "patients", {
     tenant_id: t.tenantId,
@@ -36,7 +52,10 @@ export async function seedVisit(t: Pick<SeededTenant, "tenantId" | "userId">, do
     tenant_id: t.tenantId,
     patient_id: patientId,
     doctor_id: doctorId ?? t.userId,
-    origin_type: "walk_in",
+    origin_type: opts.scheduledAt ? "scheduled" : "walk_in",
+    ...(opts.scheduledAt ? { scheduled_at: opts.scheduledAt } : {}),
+    ...(opts.status ? { status: opts.status } : {}),
+    ...(opts.overbooked ? { is_overbooked: true } : {}),
     created_by: t.userId,
   });
   return { visitId, patientId };

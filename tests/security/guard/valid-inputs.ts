@@ -177,7 +177,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
-  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal", randomUUID()] },
+  // V2-08 08-01b: a booking checks in only on its own day (R-8), so the controls use queued walk-ins.
+  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.waitingVisit, "normal", randomUUID()] },
+  "features/queue/actions.ts#startConsultation": { args: (a) => [a.startableVisit, randomUUID()] },
+  "features/queue/actions.ts#completeVisit": { args: (a) => [a.completableVisit, randomUUID()] },
   "features/queue/actions.ts#enqueueWalkIn": {
     args: (a) => [{
       patient_id: a.patient,
