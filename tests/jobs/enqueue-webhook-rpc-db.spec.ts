@@ -17,6 +17,7 @@
  *   the writers are not executable by API roles.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { enqueueWebhookEvent, enqueueWebhookEventAsSystem, EnqueueError } from "@/lib/jobs/enqueue";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
@@ -453,7 +454,7 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
     const rx = draft.prescriptionId;
     expect(rxRows(rx)).toEqual([]);
 
-    expect((await completeAndSignConsultation(doctorCtx, p.visitId)).success).toBe(true);
+    expect((await completeAndSignConsultation(doctorCtx, p.visitId, randomUUID())).success).toBe(true);
     const rows = rxRows(rx);
     expect(rows.map((r) => r.eventKey)).toEqual([`prescription.issued:${rx}:signed`]);
     expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId });

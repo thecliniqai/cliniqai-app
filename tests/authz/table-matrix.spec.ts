@@ -165,6 +165,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.invoice_items": "perm(billing:collect)",
   "public.payments": "rpc_only",
   "public.queue_token_counters": "rpc_only",
+  "public.clinic_locations": "rpc_only", // V2-07 07-00 (000095): read-only for members
   "public.queue_tokens": "rpc_only",
   "public.waitlist_entries": "rpc_only",
   "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
@@ -293,7 +294,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   ],
   "public.invoices": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit)",
-    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
+    "rpc_only", // V2-07 07-04a (000099): headers are inserted only by private.step_create_invoice (create_invoice, collect_payment, complete_and_bill)
     "rpc_only", // 05-11b M-INVOICE: totals and status are derived; paid only through record_payment
   ],
   "public.invoice_items": [

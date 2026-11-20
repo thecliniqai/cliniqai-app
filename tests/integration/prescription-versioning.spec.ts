@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { transitionQueueState } from "@/features/queue/service";
@@ -152,7 +153,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   });
 
   it("2. Call completeAndSignConsultation: transitions visit to 'completed' and seals prescription v1", async () => {
-    const signRes = await completeAndSignConsultation(ctxFor(tenantA), visitAId);
+    const signRes = await completeAndSignConsultation(ctxFor(tenantA), visitAId, randomUUID());
     expect(signRes.success).toBe(true);
 
     // Verify visit status is completed and signed_at is recorded
@@ -264,7 +265,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     const invalidRes = await reopenVisitForAmendment(
       ctxFor(tenantA),
       visitAId,
-      "Too short"
+      "Too short", randomUUID()
     );
     expect(invalidRes.success).toBe(false);
 
@@ -273,7 +274,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     const reopenRes = await reopenVisitForAmendment(
       ctxFor(tenantA),
       visitAId,
-      validReason
+      validReason, randomUUID()
     );
 
     expect(reopenRes.success).toBe(true);
@@ -335,7 +336,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(addRes.success).toBe(true);
 
     // 6. Doctor finalizes amendment
-    const finalizeRes = await finalizeVisitAmendment(ctxFor(tenantA), visitAId);
+    const finalizeRes = await finalizeVisitAmendment(ctxFor(tenantA), visitAId, randomUUID());
     expect(finalizeRes.success).toBe(true);
     if (finalizeRes.success) {
       expect(finalizeRes.version).toBe(2);
@@ -386,7 +387,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     const maliciousReopen = await reopenVisitForAmendment(
       ctxFor(tenantB),
       visitAId,
-      "Malicious unauthorized attempt to reopen Tenant A visit"
+      "Malicious unauthorized attempt to reopen Tenant A visit", randomUUID()
     );
     expect(maliciousReopen.success).toBe(false);
 

@@ -39,6 +39,10 @@ export interface TenantRowIds {
   visit: string;
   /** A completed, signed visit of the same patient (amendment flows). */
   signedVisit: string;
+  /** A signed visit reopened for amendment (in_consultation, with its revision row): the finalize flow (V2-07 07-01). */
+  reopenedVisit: string;
+  /** A visit in the queue (`waiting`) with a diagnosis and no invoice: the sign-off flows sign only waiting or in-consultation visits (V2-07 07-04a F-6). */
+  waitingVisit: string;
   invoice: string;
   invoiceItem: string;
   document: string;
@@ -164,7 +168,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     age: 41,
     created_by: u,
   });
-  const [visit, signedVisit, document, referral, block, waitlist, notification, webhookSub, apiKey] = await Promise.all([
+  const [visit, signedVisit, reopenedVisit, waitingVisit, document, referral, block, waitlist, notification, webhookSub, apiKey] = await Promise.all([
     insertRow(admin, "visits", {
       tenant_id: t,
       patient_id: patient,
@@ -183,6 +187,25 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       scheduled_at: daysAhead(-1, -offset).toISOString(),
       signed_at: daysAhead(-1, 30 - offset).toISOString(),
       signed_by: u,
+      created_by: u,
+    }),
+    insertRow(admin, "visits", {
+      tenant_id: t,
+      patient_id: patient,
+      doctor_id: u,
+      origin_type: "walk_in",
+      status: "in_consultation",
+      scheduled_at: daysAhead(-2, -offset).toISOString(),
+      signed_at: daysAhead(-2, 30 - offset).toISOString(),
+      signed_by: u,
+      created_by: u,
+    }),
+    insertRow(admin, "visits", {
+      tenant_id: t,
+      patient_id: patient,
+      doctor_id: u,
+      origin_type: "walk_in",
+      status: "waiting",
       created_by: u,
     }),
     insertRow(admin, "patient_documents", {
@@ -245,6 +268,21 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       created_by: u,
     }),
   ]);
+  // The amendment row that reopened `reopenedVisit` (its number and snapshot are filled by the database).
+  await insertRow(admin, "visit_revisions", {
+    tenant_id: t,
+    visit_id: reopenedVisit,
+    amended_by: u,
+    amendment_reason: "Synthetic amendment reason for the guard world",
+    revision_number: 1,
+    snapshot: {},
+  });
+  await insertRow(admin, "consultation_diagnoses", {
+    tenant_id: t,
+    visit_id: waitingVisit,
+    patient_id: patient,
+    diagnosis_name: "Synthetic diagnosis",
+  });
   const [invoice, prescription, diagnosis] = await Promise.all([
     insertRow(admin, "invoices", {
       tenant_id: t,
@@ -318,6 +356,8 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     patient,
     visit,
     signedVisit,
+    reopenedVisit,
+    waitingVisit,
     invoice,
     invoiceItem,
     document,

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
@@ -73,6 +74,7 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
         ],
         discount: 50.0,
         tax: 0,
+        client_request_id: randomUUID(),
       }
     );
 

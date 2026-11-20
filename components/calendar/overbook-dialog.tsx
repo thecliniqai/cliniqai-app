@@ -5,12 +5,15 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { Visit } from "@/lib/db/types";
+import { overbookCauseText } from "@/features/visits/slot-conflicts";
 
 export interface OverbookDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   conflictingVisit?: Visit | null;
+  /** Why the slot is not free: `SLOT_TAKEN` (default), `SLOT_OFF_DUTY` or `SLOT_BLOCKED` (the reason the booking command raised). */
+  conflictReason?: string;
   scheduledTimeStr?: string;
   loading?: boolean;
 }
@@ -20,15 +23,17 @@ export function OverbookDialog({
   onClose,
   onConfirm,
   conflictingVisit,
+  conflictReason,
   scheduledTimeStr,
   loading = false,
 }: OverbookDialogProps) {
+  const text = overbookCauseText(conflictReason);
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Slot Already Booked"
-      description="Double-booking conflict detected (D-06)"
+      title={text.title}
+      description={text.description}
       maxWidth="md"
     >
       <div className="space-y-4">
@@ -38,14 +43,9 @@ export function OverbookDialog({
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="text-sm text-amber-900 leading-relaxed">
-            <p className="font-semibold text-amber-950">
-              Another appointment is already scheduled
-            </p>
+            <p className="font-semibold text-amber-950">{text.headline}</p>
             <p className="mt-1 text-xs text-amber-800">
-              A booking exists at{" "}
-              <span className="font-semibold text-amber-950">
-                {scheduledTimeStr || "this time"}
-              </span>
+              {text.detail(scheduledTimeStr || "this time")}
               {conflictingVisit?.reason_for_visit && (
                 <span> ({conflictingVisit.reason_for_visit})</span>
               )}
@@ -54,9 +54,7 @@ export function OverbookDialog({
           </div>
         </div>
 
-        <p className="text-xs text-gray-600 leading-relaxed">
-          Would you like to intentionally overbook this doctor&apos;s slot? Overbooked appointments will be flagged on the schedule and marked for special triage.
-        </p>
+        <p className="text-xs text-gray-600 leading-relaxed">{text.question}</p>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-3 pt-2">

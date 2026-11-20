@@ -606,11 +606,13 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.invoice), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), invoice_number: "'AUTHZ-0001'" },
     insert: { id: q(FX.row(13)), tenant_id: A, visit_id: q(FX.visit2), patient_id: q(FX.patient), invoice_number: "'AUTHZ-0002'" },
     update: "status",
-    rules: { select: billingRead(ownVisit), insert: billingWrite(ownVisit), update: rpcOnly, delete: rpcOnly },
+    rules: { select: billingRead(ownVisit), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
       "05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). " +
       "05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only " +
-      "through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql)",
+      "through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql). " +
+      "V2-07 07-04a (000099): no INSERT privilege either; headers are written only by private.step_create_invoice " +
+      "(create_invoice, collect_payment, complete_and_bill)",
   },
   {
     kind: "table",
@@ -655,6 +657,18 @@ export const TARGETS: readonly Target[] = [
     note:
       "written by issue_queue_token (SECURITY DEFINER, 05-11a M-TOKEN): no INSERT privilege; UPDATE only of priority, " +
       "called_at, completed_at (column grant), so token_number/date cannot be forged",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "clinic_locations",
+    key: ["tenant_id", "is_default"],
+    fixture: { tenant_id: A, is_default: "true" },
+    inBase: true,
+    insert: { tenant_id: A, name: "'Synthetic second location'" },
+    update: "name",
+    rules: selectOnly(full),
+    note: "the clinic's branches (V2-07 R-5): one default 'Main' per clinic, created by the tenants trigger; SELECT: any member of the active, full clinic; written only by the migration owner / service role (owners manage locations in v2.1)",
   },
   {
     kind: "table",

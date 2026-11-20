@@ -2,24 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
+import { contextFailureToAppError } from "@/lib/commands/context-error";
+import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { ScheduleBlock } from "@/lib/db/types";
 import * as schedulingService from "./scheduling-service";
 import type {
-  BookAppointmentInput,
+  RegisterAndBookInput,
+  RegisterAndBookValue,
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
   CheckSlotResult,
-  BookAppointmentResult,
 } from "./scheduling-service";
 
 export type {
-  BookAppointmentInput,
+  RegisterAndBookInput,
+  RegisterAndBookValue,
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
   CheckSlotResult,
-  BookAppointmentResult,
 } from "./scheduling-service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
@@ -79,13 +81,18 @@ export async function checkSlotAvailability(
 }
 
 /**
- * Books an appointment on the doctor's day timeline.
- * If slot is occupied or off-duty and `is_overbooked` is false, returns conflict details for confirmation dialog.
+ * Registers a patient (when new) and books the appointment as one atomic command (V2-07 07-03): the slot check, the
+ * visit, the booking message and the audit rows commit together or not at all. A slot that is taken, off duty or
+ * blocked answers CONFLICT (reasons SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED) and writes nothing, so the overbook
+ * confirmation can re-send with `is_overbooked`. `client_request_id` is required (the same id replays the first result).
  */
-export async function bookAppointment(input: BookAppointmentInput): Promise<BookAppointmentResult> {
+export async function registerAndBook(
+  input: RegisterAndBookInput,
+  clientRequestId: string
+): Promise<CommandResult<RegisterAndBookValue>> {
   const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await schedulingService.bookAppointment(resolved.ctx, input);
-  if (result.success) revalidate("/calendar", "/queue");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/queue", "/patients");
   return result;
 }

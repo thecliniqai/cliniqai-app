@@ -355,6 +355,25 @@ const REQUIRED_FILES = [
   "tests/auth/session-auth-close-db.spec.ts",
   // 06-09e (G3 design review): the BottomBar caption, palette shortcut label and initials mappings.
   "tests/design/design-review-09e.spec.ts",
+  // V2-07 07-00 (command_claim/command_complete, the client command runner). The FLOOR is re-measured at the V2-07 gate.
+  "tests/commands/command-results.spec.ts",
+  "tests/commands/use-command.spec.ts",
+  // V2-07 07-02 (create_invoice, collect_payment).
+  "tests/billing/create-invoice-rpc.spec.ts",
+  "tests/billing/collect-payment-rpc.spec.ts",
+  // V2-07 07-01 (sign_consultation, reopen/finalize amendment, check_in_visit).
+  "tests/consultation/sign-consultation-rpc.spec.ts",
+  "tests/consultation/amendment-rpc.spec.ts",
+  "tests/queue/check-in-rpc.spec.ts",
+  // V2-07 07-03 (enqueue_walk_in, register_and_book, complete_and_bill, available_slots).
+  "tests/queue/walk-in-rpc.spec.ts",
+  "tests/visits/register-and-book-rpc.spec.ts",
+  "tests/billing/complete-and-bill-rpc.spec.ts",
+  "tests/scheduling/available-slots.spec.ts",
+  // V2-07 07-04a (the review fix round): the booking message configuration fault and the overbook cause texts. The FLOOR is
+  // re-measured at the V2-07 gate.
+  "tests/visits/booking-template-fault.spec.ts",
+  "tests/visits/slot-conflict-text.spec.ts",
 ];
 
 const file = process.argv[2];

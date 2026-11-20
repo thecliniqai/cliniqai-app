@@ -2,7 +2,7 @@
  * Visit duration bounds (V2-05 05a review M-DURATION: INT M-1, IND L1; plan 05-11c app side). The database refuses an
  * `estimated_duration_minutes` outside 5–480 (`visits_duration_range`, 05-11a). Every writer validates the same bounds
  * first (`features/visits/duration.ts`), so a caller gets a validation answer rather than a database error:
- *   - the app schemas (`createVisit`, `bookAppointmentSchema`) accept 5–480 (before: 5–180, so a legitimate 4-hour
+ *   - the app schemas (`createVisit`, `registerAndBookSchema`) accept 5–480 (before: 5–180, so a legitimate 4-hour
  *     procedure slot was refused in the app while the database allows it);
  *   - `POST /api/v1/visits` and `POST /api/v1/appointments` answer 422 for a zero, negative, fractional, oversized or
  *     non-number duration and store nothing (before: 0/negative/non-number silently became 15, a 10^6-minute booking
@@ -14,7 +14,7 @@ import { NextRequest } from "next/server";
 import { POST as postVisit } from "@/app/api/v1/visits/route";
 import { POST as postAppointment } from "@/app/api/v1/appointments/route";
 import { createVisit } from "@/features/visits/service";
-import { bookAppointmentSchema } from "@/features/visits/schema";
+import { registerAndBookSchema } from "@/features/visits/schema";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 import { ctxFor } from "../helpers/context";
@@ -103,10 +103,10 @@ describe("visit duration bounds 5–480 on every writer (05-11c, M-DURATION)", (
   }
 
   describe("app schemas", () => {
-    it("bookAppointmentSchema accepts 5 and 480 and refuses 4, 481 and a fraction", () => {
+    it("registerAndBookSchema accepts 5 and 480 and refuses 4, 481 and a fraction", () => {
       const base = { patient_id: patientId ?? "00000000-0000-4000-8000-000000000001", doctor_id: "00000000-0000-4000-8000-000000000002", scheduled_at: istAt(40, 10, 0) };
-      for (const ok of [5, 480]) expect(bookAppointmentSchema.safeParse({ ...base, estimated_duration_minutes: ok }).success).toBe(true);
-      for (const bad of [4, 481, 7.5]) expect(bookAppointmentSchema.safeParse({ ...base, estimated_duration_minutes: bad }).success).toBe(false);
+      for (const ok of [5, 480]) expect(registerAndBookSchema.safeParse({ ...base, estimated_duration_minutes: ok }).success).toBe(true);
+      for (const bad of [4, 481, 7.5]) expect(registerAndBookSchema.safeParse({ ...base, estimated_duration_minutes: bad }).success).toBe(false);
     });
 
     it("createVisit books a 480-minute visit (before: refused above 180) and refuses 481 with a field error", async () => {

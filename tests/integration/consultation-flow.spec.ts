@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { checkInVisit, transitionQueueState } from "@/features/queue/service";
@@ -78,7 +79,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("2. Check-in visit: transitions status from 'booked' -> 'waiting' and generates token", async () => {
-    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal");
+    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal", randomUUID());
 
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;

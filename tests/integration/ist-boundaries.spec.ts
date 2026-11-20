@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
@@ -100,7 +101,7 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
 
     const before = sqlTenantDate(ist.tenantId);
     useClinicClock(AT_0030_IST_13_NOV);
-    const res = await checkInVisit(ctxFor(ist), visitId, "normal");
+    const res = await checkInVisit(ctxFor(ist), visitId, "normal", randomUUID());
     vi.useRealTimers();
     const after = sqlTenantDate(ist.tenantId);
 
@@ -113,7 +114,7 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
 
     const before = sqlTenantDate(newYork.tenantId);
     useClinicClock(AT_0030_IST_13_NOV);
-    const res = await checkInVisit(ctxFor(newYork), visitId, "normal");
+    const res = await checkInVisit(ctxFor(newYork), visitId, "normal", randomUUID());
     vi.useRealTimers();
     const after = sqlTenantDate(newYork.tenantId);
 

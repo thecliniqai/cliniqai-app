@@ -127,11 +127,11 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
 
   it("checkInVisit: C's visit refused, no A queue token points at it, C's visit unchanged", async () => {
     const before = await rowOf("visits", C.visit);
-    expect((await checkInVisit(ctxA, C.visit)).success).toBe(false);
+    expect((await checkInVisit(ctxA, C.visit, "normal", randomUUID())).success).toBe(false);
     expect(await rowOf("visits", C.visit)).toEqual(before);
     const { data: tokens } = await admin.from("queue_tokens").select("id").eq("visit_id", C.visit);
     expect(tokens ?? []).toEqual([]);
-    expect((await checkInVisit(ctxA, A.visit)).success).toBe(true);
+    expect((await checkInVisit(ctxA, A.visit, "normal", randomUUID())).success).toBe(true);
   });
 
   it("updateVisitStatus, confirmAppointment, cancelVisit: C's visit refused and unchanged", async () => {

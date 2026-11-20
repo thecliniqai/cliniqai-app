@@ -1,33 +1,35 @@
 import "server-only";
 
-import { assertPerm } from "@/lib/permissions";
+import { z } from "zod";
+import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant } from "@/lib/auth/tenant-refs";
-import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { isDateOnly, isUuid } from "@/lib/utils/filter-values";
 import { dayWindowUtc, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
-import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { Visit, DoctorWeeklySchedule, ScheduleBlock } from "@/lib/db/types";
 import {
-  bookAppointmentSchema,
+  registerAndBookSchema,
   createScheduleBlockSchema,
-  type BookAppointmentInput,
+  type RegisterAndBookInput,
   type CreateScheduleBlockInput,
 } from "./schema";
 import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
-import { createVisit } from "./service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { unaffectedRowsError } from "@/lib/db/errors";
+import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
+import { callCommand } from "@/lib/commands/call-command";
+import { clientRequestIdSchema } from "@/lib/commands/request-id";
+import { patientSchema, newPatientPayload } from "@/features/patients/schema";
+import { SLOT_TAKEN_MESSAGE } from "./service";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import type { AppErrorCode } from "@/lib/errors/app-error";
+import { appError, type Result } from "@/lib/errors/app-error";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
 
-export type { BookAppointmentInput, CreateScheduleBlockInput };
+export type { RegisterAndBookInput, CreateScheduleBlockInput };
 
 export type CreateScheduleBlockResult =
   | { success: true; block: ScheduleBlock }
@@ -393,170 +395,180 @@ export async function checkSlotAvailability(
   }
 }
 
-export type BookAppointmentResult =
-  | { success: true; visitId: string }
-  | {
-      success: false;
-      conflict?: boolean;
-      isOffDuty?: boolean;
-      isBlocked?: boolean;
-      conflictingVisit?: Visit | null;
-      error: string;
-      /** CONFLICT with reason VISITS_NO_DOUBLE_BOOKING when the database refused the slot (V2-05 05-08). */
-      code?: AppErrorCode;
-      reason?: string;
-    };
+/** Fixed, data-free texts by reason or code for `register_and_book` (V2-07 07-03). The driver message never reaches the caller. */
+export const BOOKING_COMMAND_MESSAGES = {
+  NOT_FOUND: "Patient or doctor not found in this clinic.",
+  FORBIDDEN: "You do not have permission to book appointments.",
+  VALIDATION_FAILED: "Please check the patient and appointment details.",
+  SLOT_TAKEN: SLOT_TAKEN_MESSAGE,
+  SLOT_OFF_DUTY: "Selected time is outside doctor shift hours. Confirmation required to book off-duty slot.",
+  SLOT_BLOCKED: "The doctor is unavailable at this time. Confirmation required to book a blocked slot.",
+  LOCK_TIMEOUT: "The calendar is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to book appointment.",
+} as const satisfies DbErrorMessages;
+
+/** Fixed text when the booking message template is not configured for this clinic (a fault of ours, not of the form; G-5). */
+export const BOOKING_MESSAGE_CONFIG_MESSAGE =
+  "The appointment could not be booked because the booking message is not set up. Contact support.";
+
+const registerAndBookRpcResultSchema = z.object({
+  patient_id: z.string().uuid(),
+  patient_created: z.boolean(),
+  visit_id: z.string().uuid(),
+  message_enqueued: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export interface RegisterAndBookValue {
+  patientId: string;
+  patientCreated: boolean;
+  visitId: string;
+  /** False when the patient has no usable mobile number (the booking stands, no message is queued). */
+  messageEnqueued: boolean;
+  /** True when this client_request_id was already booked: nothing new was written. */
+  replayed: boolean;
+}
 
 /**
- * Books an appointment on the doctor's day timeline.
- * If slot is occupied or off-duty and `is_overbooked` is false, returns conflict details for confirmation dialog.
+ * Registers a patient (when new) and books the appointment as one atomic command (`public.register_and_book`, V2-07
+ * 07-03): the slot is checked against the doctor's shifts, schedule blocks and booked visits in the clinic's time zone
+ * (unless overbooked), the visit is inserted under the `visits_no_double_booking` exclusion, and the `appointment_booked`
+ * message is queued, all in one transaction. A slot refusal (`SLOT_TAKEN`, `SLOT_OFF_DUTY`, `SLOT_BLOCKED`, all
+ * CONFLICT) writes nothing, so no orphan patient is left; the drawer then offers the overbooking confirmation.
  */
-export async function bookAppointment(ctx: ServiceContext, input: BookAppointmentInput): Promise<BookAppointmentResult> {
-  const supabase = ctx.db;
-  const session = ctx;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-  } catch (err: unknown) {
-    return { success: false, error: clientErrorMessage(err, "Failed to book appointment.", "visits.book_appointment.failed") };
-  }
-
-  const parseResult = bookAppointmentSchema.safeParse(input);
-  if (!parseResult.success) {
+export async function registerAndBook(
+  ctx: ServiceContext,
+  input: RegisterAndBookInput,
+  clientRequestId: string
+): Promise<Result<RegisterAndBookValue>> {
+  const parsed = registerAndBookSchema.safeParse(input);
+  const id = clientRequestIdSchema.safeParse(clientRequestId);
+  if (!parsed.success || !id.success) {
     return {
-      success: false,
-      error: parseResult.error.issues[0]?.message || "Invalid appointment details",
+      ok: false,
+      error: appError("VALIDATION_FAILED", {
+        message: parsed.success ? BOOKING_COMMAND_MESSAGES.VALIDATION_FAILED : (parsed.error.issues[0]?.message ?? BOOKING_COMMAND_MESSAGES.VALIDATION_FAILED),
+      }),
     };
   }
+  const data = parsed.data;
 
-  const data = parseResult.data;
-
-  // 1. Check slot availability (unless user explicitly confirmed overbook/override)
-  if (!data.is_overbooked) {
-    const slotCheck = await checkSlotAvailability(
-      ctx,
-      data.doctor_id,
-      data.scheduled_at,
-      data.estimated_duration_minutes
-    );
-
-    if (slotCheck.checkFailed) {
-      // Fail closed (F8): never book a slot whose availability could not be verified
-      return { success: false, error: "Could not verify slot availability. Please try again." };
-    }
-
-    if (!slotCheck.available) {
-      if (slotCheck.isBlocked && !data.override_block) {
-        return {
-          success: false,
-          conflict: true,
-          isBlocked: true,
-          error: `Doctor is unavailable / blocked: ${slotCheck.blockReason || "Time blocked"}`,
-        };
-      }
-      if (slotCheck.isOffDuty && !data.override_off_duty) {
-        return {
-          success: false,
-          conflict: true,
-          isOffDuty: true,
-          error: "Selected time is outside doctor shift hours. Confirmation required to book off-duty slot.",
-        };
-      }
-      if (slotCheck.conflictingVisit) {
-        return {
-          success: false,
-          conflict: true,
-          conflictingVisit: slotCheck.conflictingVisit,
-          error: "Slot is already booked. Confirmation is required to overbook this slot.",
-        };
-      }
-    }
+  if (!hasPerm(ctx.role, "appointments:edit") || (data.new_patient && !hasPerm(ctx.role, "patients:edit"))) {
+    return { ok: false, error: appError("FORBIDDEN", { message: BOOKING_COMMAND_MESSAGES.FORBIDDEN }) };
   }
 
-  // 2. Create the visit (same context, so createVisit's own permission check applies)
-  const visitRes = await createVisit(ctx, {
-    patient_id: data.patient_id,
-    doctor_id: data.doctor_id,
-    origin_type: "scheduled",
-    scheduled_at: data.scheduled_at,
-    estimated_duration_minutes: data.estimated_duration_minutes,
-    reason_for_visit: data.reason_for_visit || null,
-    is_overbooked: data.is_overbooked || data.override_off_duty,
-  });
-
-  if (!visitRes.success) {
-    if (visitRes.conflict) {
-      // The slot was free at the check above but another booking won the race: the `visits_no_double_booking`
-      // exclusion constraint refused this insert (V2-05 05-08, acceptance 6). Reported like an occupied slot, so the
-      // booking drawer offers the overbook confirmation.
-      return { success: false, conflict: true, error: visitRes.error, code: visitRes.code, reason: visitRes.reason };
+  let newPatient: Record<string, unknown> | null = null;
+  if (data.new_patient) {
+    const patient = patientSchema.safeParse(data.new_patient);
+    if (!patient.success) {
+      const fieldErrors: Record<string, string[]> = {};
+      for (const issue of patient.error.issues) {
+        const field = issue.path[0]?.toString() || "form";
+        (fieldErrors[field] ||= []).push(issue.message);
+      }
+      return {
+        ok: false,
+        error: appError("VALIDATION_FAILED", { message: patient.error.issues[0]?.message ?? "Please correct the highlighted errors.", fieldErrors }),
+      };
     }
-    return {
-      success: false,
-      error: visitRes.error,
-    };
+    newPatient = newPatientPayload(patient.data);
   }
 
-  // 3. Queue Event #1 (appointment_booked) outbox notification
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: patient } = await (supabase.from("patients") as any)
-      .select("full_name, phone")
-      .eq("id", data.patient_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (patient?.phone) {
-      const formattedDateTime = new Date(data.scheduled_at).toLocaleString("en-IN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Kolkata",
+  const outcome = await callCommand(
+    ctx,
+    "register_and_book",
+    {
+      p_patient_id: data.patient_id ?? null,
+      p_new_patient: newPatient,
+      p_doctor_id: data.doctor_id,
+      p_scheduled_at: data.scheduled_at,
+      p_duration_minutes: data.estimated_duration_minutes,
+      p_overbook: data.is_overbooked,
+      p_client_request_id: clientRequestId,
+      p_reason: data.reason_for_visit || null,
+      p_override_off_duty: data.override_off_duty,
+      p_override_block: data.override_block,
+    },
+    registerAndBookRpcResultSchema,
+    BOOKING_COMMAND_MESSAGES,
+    { event: "visits.register_and_book.failed" }
+  );
+  if (!outcome.ok) {
+    // The booking message's template is not request-callable (ops.message_templates): a configuration fault, not an input
+    // problem ("check the details" would send the user in circles). The booking rolled back; the fault is logged by tag
+    // only (V2-07 07-04a G-5).
+    if (outcome.error.reason === "TEMPLATE_NOT_ALLOWED") {
+      log.error({
+        event: "visits.register_and_book.template_not_allowed",
+        code: "TEMPLATE_NOT_ALLOWED",
+        requestId: await getRequestId(),
+        tenantId: ctx.tenantId,
       });
-
-      // Find doctor name if available
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: doctorMember } = await (supabase.from("memberships") as any)
-        .select("full_name")
-        .eq("user_id", data.doctor_id)
-        .eq("tenant_id", session.tenantId)
-        .maybeSingle();
-
-      const doctorName = formatDoctorDisplayName(doctorMember?.full_name);
-
-      // V2-04 04-03a: queued through the enqueue RPC (tenant from the visit, constrained to ctx.tenantId); the job runner
-      // sends it. One booking message per visit, even when the action is retried (R-24).
-      await enqueueMessage(
-        ctx,
-        {
-          patientId: data.patient_id,
-          visitId: visitRes.visitId,
-          dedupeKey: `appointment_booked:${visitRes.visitId}`,
-          channel: "whatsapp",
-          messageType: "appointment_booked",
-          templateId: "appointment_booked",
-          templateParams: {
-            patient_name: patient.full_name || "Patient",
-            doctor_name: doctorName,
-            date_time: formattedDateTime,
-          },
-          recipientPhone: patient.phone,
-          metadata: {
-            buttons: [
-              { id: "btn_confirm", text: "Confirm" },
-              { id: "btn_cancel", text: "Cancel" },
-              { id: "btn_reschedule", text: "Reschedule" },
-            ],
-          },
-        }
-      );
+      return { ok: false, error: appError("INTERNAL", { message: BOOKING_MESSAGE_CONFIG_MESSAGE, reason: "TEMPLATE_NOT_ALLOWED" }) };
     }
-  } catch (commErr) {
-    log.error({ event: "visits.booking_notification.failed", code: errorTag(commErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    // Booking itself still succeeded
+    return outcome;
   }
-
+  const v = outcome.value;
   return {
-    success: true,
-    visitId: visitRes.visitId,
+    ok: true,
+    value: {
+      patientId: v.patient_id,
+      patientCreated: v.patient_created,
+      visitId: v.visit_id,
+      messageEnqueued: v.message_enqueued,
+      replayed: v.replayed,
+    },
+  };
+}
+
+/** Fixed texts for the slot list (a read: no client_request_id). */
+export const AVAILABLE_SLOTS_MESSAGES = {
+  FORBIDDEN: "You do not have permission to view appointment slots.",
+  VALIDATION_FAILED: "Pick a doctor and a date.",
+  INTERNAL: "Failed to load available slots.",
+} as const satisfies DbErrorMessages;
+
+export interface AvailableSlot {
+  /** ISO instants; the slot is the half-open interval [start, end). */
+  start: string;
+  end: string;
+}
+
+const availableSlotRowsSchema = z.array(z.object({ slot_start: z.string(), slot_end: z.string() }));
+
+/**
+ * The doctor's free slots on a clinic-local date (V2-07 07-03, R-8, PR-7): `public.available_slots`, computed in the
+ * database in the clinic's time zone from the weekly shifts, the schedule blocks and the booked, non-overbooked
+ * visits. No UI uses it yet (the booking sheet and the reschedule route switch in V2-08). `appointments:view`.
+ */
+export async function getAvailableSlots(
+  ctx: ServiceContext,
+  doctorId: string,
+  date: string
+): Promise<Result<AvailableSlot[]>> {
+  if (!hasPerm(ctx.role, "appointments:view")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: AVAILABLE_SLOTS_MESSAGES.FORBIDDEN }) };
+  }
+  if (!isUuid(doctorId) || !isDateOnly(date)) {
+    return { ok: false, error: appError("VALIDATION_FAILED", { message: AVAILABLE_SLOTS_MESSAGES.VALIDATION_FAILED }) };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db as any).rpc("available_slots", { p_doctor_id: doctorId, p_date: date });
+  if (error) {
+    const mapped = mapDbError(error, AVAILABLE_SLOTS_MESSAGES);
+    if (mapped.code === "INTERNAL") {
+      log.error({ event: "visits.available_slots.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    }
+    return { ok: false, error: mapped };
+  }
+  const rows = availableSlotRowsSchema.safeParse(data ?? []);
+  if (!rows.success) {
+    log.error({ event: "visits.available_slots.failed", code: "result_shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, error: appError("INTERNAL", { message: AVAILABLE_SLOTS_MESSAGES.INTERNAL }) };
+  }
+  return {
+    ok: true,
+    value: rows.data.map((r) => ({ start: new Date(r.slot_start).toISOString(), end: new Date(r.slot_end).toISOString() })),
   };
 }

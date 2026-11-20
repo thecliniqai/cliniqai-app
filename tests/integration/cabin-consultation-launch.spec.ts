@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { ctxFor } from "../helpers/context";
@@ -53,7 +54,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     visitAId = createRes.visitId;
 
     // Step B: Check in visit via Queue
-    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal");
+    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal", randomUUID());
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     expect(checkInRes.tokenNumber).toBeGreaterThanOrEqual(1);

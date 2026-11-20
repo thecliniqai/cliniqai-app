@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { checkSlotAvailability, bookAppointment } from "@/features/visits/scheduling-service";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { confirmAppointment } from "@/features/visits/service";
 import { mockCtx } from "../helpers/context";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
@@ -257,105 +257,9 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
     });
   });
 
-  describe("4. Soft-Block Emergency Override Workflow (T-03.3-06)", () => {
-    it("rejects booking during off-duty slot without override flag", async () => {
-      const mockClient = createMockSupabase();
-
-      const bookResult = await bookAppointment(
-        mockCtx(mockClient, mockSession),
-        {
-          patient_id: "11111111-1111-4111-8111-111111111111",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          scheduled_at: "2026-10-19T09:00:00.000Z", // 2:30 PM IST off-duty break
-          estimated_duration_minutes: 15,
-          reason_for_visit: "Regular checkup",
-          is_overbooked: false,
-          override_off_duty: false,
-        }
-      );
-
-      expect(bookResult.success).toBe(false);
-      if (!bookResult.success) {
-        expect(bookResult.conflict).toBe(true);
-        expect(bookResult.isOffDuty).toBe(true);
-      }
-    });
-
-    it("successfully creates appointment when emergency override is confirmed with justification", async () => {
-      const insertedVisits: any[] = [];
-      const mockClient = createMockSupabase({ insertedVisits });
-
-      const bookResult = await bookAppointment(
-        mockCtx(mockClient, mockSession),
-        {
-          patient_id: "11111111-1111-4111-8111-111111111111",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          scheduled_at: "2026-10-19T09:00:00.000Z", // 2:30 PM IST off-duty break
-          estimated_duration_minutes: 15,
-          reason_for_visit: "[EMERGENCY OVERRIDE] Severe acute trauma approved by Dr.",
-          is_overbooked: true,
-          override_off_duty: true,
-        }
-      );
-
-      expect(bookResult.success).toBe(true);
-      expect(insertedVisits.length).toBe(1);
-      expect(insertedVisits[0].is_overbooked).toBe(true);
-      expect(insertedVisits[0].reason_for_visit).toContain("[EMERGENCY OVERRIDE]");
-    });
-
-    it("successfully books when overriding a doctor schedule block for an emergency", async () => {
-      const scheduleBlocks = [
-        {
-          id: "block-ot-1",
-          tenant_id: "tenant-100",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          start_time: "2026-10-19T04:00:00.000Z", // 09:30 IST
-          end_time: "2026-10-19T06:00:00.000Z",   // 11:30 IST
-          reason: "In Operation Theatre",
-          all_day: false,
-        },
-      ];
-
-      const insertedVisits: any[] = [];
-      const mockClient = createMockSupabase({ scheduleBlocks, insertedVisits });
-
-      // First try without override -> should be blocked
-      const blockedRes = await bookAppointment(
-        mockCtx(mockClient, mockSession),
-        {
-          patient_id: "11111111-1111-4111-8111-111111111111",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          scheduled_at: "2026-10-19T04:30:00.000Z", // 10:00 IST (during OT block)
-          estimated_duration_minutes: 15,
-          override_block: false,
-        }
-      );
-
-      expect(blockedRes.success).toBe(false);
-      if (!blockedRes.success) {
-        expect(blockedRes.isBlocked).toBe(true);
-        expect(blockedRes.error).toContain("In Operation Theatre");
-      }
-
-      // Second try with emergency override -> succeeds
-      const overrideRes = await bookAppointment(
-        mockCtx(mockClient, mockSession),
-        {
-          patient_id: "11111111-1111-4111-8111-111111111111",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          scheduled_at: "2026-10-19T04:30:00.000Z",
-          estimated_duration_minutes: 15,
-          reason_for_visit: "[EMERGENCY OVERRIDE] Patient in ICU needing immediate consult",
-          is_overbooked: true,
-          override_block: true,
-        }
-      );
-
-      expect(overrideRes.success).toBe(true);
-      expect(insertedVisits.length).toBe(1);
-    });
-  });
+  // 4. Soft-block emergency overrides (T-03.3-06): the off-duty and block checks and their overrides run inside the
+  // register_and_book command since V2-07 07-03, so they are proven against the real database in
+  // tests/visits/register-and-book-rpc.spec.ts (SLOT_OFF_DUTY, SLOT_BLOCKED, p_override_off_duty, p_override_block).
 
   describe("5. Soft-Book & Manual Appointment Confirmation (Soft-Book / Confirmed State Transition)", () => {
     it("transitions booked visit to confirmed with staff metadata and audit trail", async () => {

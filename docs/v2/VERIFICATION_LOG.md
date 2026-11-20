@@ -898,3 +898,17 @@ subscriptions can. A clinic that starts with one branch and grows needs a differ
 | Trial | Branches added during the trial are free until it ends |
 | To confirm with Razorpay (PO, during KYC) | Variable "as presented" debits on UPI AutoPay and e-mandate; the mandate maximum for our category; pre-debit notices; switching flow without double debits |
 | Owner phase | V2-13B (scope grows; estimate +20–30 %); branch data hook in V2-07/V2-08; branch screens v2.1 |
+
+### PO rulings for V2-07 scope (2026-11-18)
+
+| Item | Ruling |
+|---|---|
+| Branch data hook | Lands in **V2-07**, not V2-08: `clinic_locations` (one default location per clinic, backfilled), `location_id` on visits, appointments, queue and invoices. The V2-07 command RPCs write `location_id` (default location for now). Branch screens stay v2.1 |
+| Per-flow feature flags | **Dropped.** BACKEND_MIGRATION_PLAN D3's `TX_<FLOW>=on` flags and "old path kept for one release" are not built. Production will be a fresh instance with no live clinics, so each flow switches to its RPC directly and the old multi-statement path is deleted in the same plan. Supersedes that part of D3 |
+
+### V2-07: proposed architecture erratum for PO approval (2026-11-20)
+
+| Item | Proposal | Status |
+|---|---|---|
+| Command security mode | The P1-05 atomic commands are `SECURITY DEFINER` with the `record_payment` guard block (actor rule, active-clinic tenant check, `has_permission`, every row filtered by tenant, `search_path = ''`, EXECUTE for `authenticated` only), not `SECURITY INVOKER` as TARGET §7.1 and §2.3 say. Reason: the in-transaction audit and outbox writers and the RPC-only tables are not writable by `authenticated`. Read-only queries stay INVOKER. Text: TARGET §7.1 erratum 2026-11-20 | **Pending PO** (V2-07 gate); the adversarial review checks every definer command |
+| Timeouts | Per-function `lock_timeout = '2s'`, not per-function `statement_timeout` (D1 spike finding 3). TARGET §7.5 erratum 2026-11-20 | Applied (measured fact) |

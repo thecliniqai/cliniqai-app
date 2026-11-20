@@ -394,6 +394,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      clinic_locations: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_default: boolean;
+          name: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_default?: boolean;
+          name: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_default?: boolean;
+          name?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinic_locations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_notes: {
         Row: {
           advice: string[];
@@ -1223,6 +1256,7 @@ export type Database = {
           discount: number;
           id: string;
           invoice_number: string;
+          location_id: string;
           patient_id: string;
           status: string;
           subtotal: number;
@@ -1238,6 +1272,7 @@ export type Database = {
           discount?: number;
           id?: string;
           invoice_number: string;
+          location_id?: string;
           patient_id: string;
           status?: string;
           subtotal?: number;
@@ -1252,6 +1287,7 @@ export type Database = {
           discount?: number;
           id?: string;
           invoice_number?: string;
+          location_id?: string;
           patient_id?: string;
           status?: string;
           subtotal?: number;
@@ -1268,6 +1304,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "invoices_tenant_patient_fkey";
@@ -2084,6 +2127,7 @@ export type Database = {
           created_at: string;
           date: string;
           id: string;
+          location_id: string;
           priority: string;
           tenant_id: string;
           token_number: number;
@@ -2096,6 +2140,7 @@ export type Database = {
           created_at?: string;
           date: string;
           id?: string;
+          location_id?: string;
           priority?: string;
           tenant_id: string;
           token_number: number;
@@ -2107,6 +2152,7 @@ export type Database = {
           created_at?: string;
           date?: string;
           id?: string;
+          location_id?: string;
           priority?: string;
           tenant_id?: string;
           token_number?: number;
@@ -2119,6 +2165,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "queue_tokens_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "queue_tokens_tenant_visit_fkey";
@@ -2786,6 +2839,7 @@ export type Database = {
           estimated_duration_minutes: number;
           id: string;
           is_overbooked: boolean;
+          location_id: string;
           metadata: NonNullable<Json>;
           origin_type: string;
           patient_id: string;
@@ -2807,6 +2861,7 @@ export type Database = {
           estimated_duration_minutes?: number;
           id?: string;
           is_overbooked?: boolean;
+          location_id?: string;
           metadata?: NonNullable<Json>;
           origin_type: string;
           patient_id: string;
@@ -2827,6 +2882,7 @@ export type Database = {
           estimated_duration_minutes?: number;
           id?: string;
           is_overbooked?: boolean;
+          location_id?: string;
           metadata?: NonNullable<Json>;
           origin_type?: string;
           patient_id?: string;
@@ -2853,6 +2909,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "visits_tenant_location_fkey";
+            columns: ["tenant_id", "location_id"];
+            isOneToOne: false;
+            referencedRelation: "clinic_locations";
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "visits_tenant_patient_fkey";
@@ -3078,6 +3141,13 @@ export type Database = {
         Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
         Returns: string;
       };
+      available_slots: {
+        Args: { p_date: string; p_doctor_id: string };
+        Returns: {
+          slot_end: string;
+          slot_start: string;
+        }[];
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -3105,6 +3175,15 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      check_in_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_priority: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       claim_jobs: {
         Args: {
           p_batch: number;
@@ -3124,6 +3203,21 @@ export type Database = {
           run_at: string;
           tenant_id: string;
         }[];
+      };
+      collect_payment: {
+        Args: {
+          p_amount: number;
+          p_client_request_id: string;
+          p_discount?: number;
+          p_items: Json;
+          p_method: string;
+          p_notes: string;
+          p_reference: string;
+          p_tax?: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
@@ -3185,6 +3279,18 @@ export type Database = {
           new_status: string;
         }[];
       };
+      complete_and_bill: {
+        Args: {
+          p_client_request_id: string;
+          p_discount: number;
+          p_items: Json;
+          p_payment: Json;
+          p_tax: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       complete_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
@@ -3199,6 +3305,17 @@ export type Database = {
         Returns: Json;
       };
       create_clinic_with_owner: { Args: { p_name: string }; Returns: string };
+      create_invoice: {
+        Args: {
+          p_client_request_id: string;
+          p_discount?: number;
+          p_items: Json;
+          p_tax?: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       create_reschedule_token: {
         Args: { p_visit_id: string };
         Returns: string;
@@ -3266,6 +3383,19 @@ export type Database = {
         };
         Returns: string;
       };
+      enqueue_walk_in: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id: string;
+          p_duration_minutes?: number;
+          p_new_patient: Json;
+          p_patient_id: string;
+          p_priority: string;
+          p_reason?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       enqueue_webhook_event: {
         Args: {
           p_event_type: string;
@@ -3292,6 +3422,14 @@ export type Database = {
           p_retryable: boolean;
         };
         Returns: string;
+      };
+      finalize_visit_amendment: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
@@ -3444,12 +3582,37 @@ export type Database = {
           phone: string;
         }[];
       };
+      register_and_book: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id: string;
+          p_duration_minutes: number;
+          p_new_patient: Json;
+          p_overbook: boolean;
+          p_override_block?: boolean;
+          p_override_off_duty?: boolean;
+          p_patient_id: string;
+          p_reason?: string;
+          p_scheduled_at: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       release_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
       remove_member: {
         Args: { p_membership_id: string; p_reason: string };
+        Returns: Json;
+      };
+      reopen_visit_for_amendment: {
+        Args: {
+          p_client_request_id: string;
+          p_reason: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
         Returns: Json;
       };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
@@ -3522,6 +3685,14 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      sign_consultation: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       start_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: number;

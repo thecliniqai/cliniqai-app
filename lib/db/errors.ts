@@ -102,6 +102,35 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // is 42501 (→ FORBIDDEN by SQLSTATE).
   AI_RESERVATION_EXPIRED: "CONFLICT",
   AI_QUOTA_NOT_CONFIGURED: "PRECONDITION_FAILED",
+  // V2-07 07-00 (migration 000095, R-2): private.command_claim / command_complete. A write command needs its
+  // client_request_id (PWA-06a; IDEMPOTENCY_MISMATCH above covers the same id used for another request); completing a
+  // claim this transaction did not make is a programming fault.
+  CLIENT_REQUEST_ID_REQUIRED: "VALIDATION_FAILED",
+  COMMAND_NOT_CLAIMED: "INTERNAL",
+  // V2-07 07-01 (migration 000097): the clinical commands. A second sign-off / an unsigned visit to amend / a visit that
+  // is not reopened / a visit that can no longer be queued conflict with the visit's state; a sign-off needs a diagnosis
+  // or a clinical note; the amendment reason is 10-500 characters.
+  ALREADY_SIGNED: "CONFLICT",
+  SIGN_CONTENT_REQUIRED: "PRECONDITION_FAILED",
+  VISIT_NOT_SIGNED: "CONFLICT",
+  AMENDMENT_NOT_OPEN: "CONFLICT",
+  AMENDMENT_REASON_INVALID: "VALIDATION_FAILED",
+  VISIT_NOT_CHECKABLE: "CONFLICT",
+  // V2-07 07-03 (migration 000098): the front-desk commands. The doctor's slot is taken / outside the clinic-local shifts /
+  // inside a schedule block (register_and_book; the overbook confirmation re-sends with the override); a visit this user
+  // signed that already has its invoice (complete_and_bill). PATIENT_NOT_FOUND / DOCTOR_NOT_FOUND are P0002 (→ NOT_FOUND).
+  SLOT_TAKEN: "CONFLICT",
+  SLOT_OFF_DUTY: "CONFLICT",
+  SLOT_BLOCKED: "CONFLICT",
+  ALREADY_BILLED: "CONFLICT",
+  // V2-07 07-04a (migration 000099): a visit that is not waiting or in consultation cannot be signed (F-6); one reason per
+  // invoice-item cause (F-8) instead of the generic INPUT_INVALID.
+  VISIT_NOT_SIGNABLE: "CONFLICT",
+  ITEM_COUNT_INVALID: "VALIDATION_FAILED",
+  ITEM_DESCRIPTION_INVALID: "VALIDATION_FAILED",
+  ITEM_PRICE_INVALID: "VALIDATION_FAILED",
+  ITEM_QUANTITY_INVALID: "VALIDATION_FAILED",
+  INVOICE_TOTAL_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

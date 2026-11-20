@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { getPatient } from "@/features/patients/service";
 import { ctxFor } from "../helpers/context";
-import { bookAppointment } from "@/features/visits/scheduling-service";
+import { registerAndBook } from "@/features/visits/scheduling-service";
 
 describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (Roadmap Success Criterion 3)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -78,21 +79,25 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
       // The clinic user's booking path (slot/conflict check + visit insert + outbox), on the owner's own client.
       const t0 = performance.now();
-      const res = await bookAppointment(ctxFor(tenant), {
-        patient_id: testPatientId,
-        doctor_id: doctor.userId,
-        scheduled_at: scheduledAt,
-        estimated_duration_minutes: 15,
-        reason_for_visit: "Routine annual health checkup",
-        override_off_duty: true,
-      });
+      const res = await registerAndBook(
+        ctxFor(tenant),
+        {
+          patient_id: testPatientId,
+          doctor_id: doctor.userId,
+          scheduled_at: scheduledAt,
+          estimated_duration_minutes: 15,
+          reason_for_visit: "Routine annual health checkup",
+          override_off_duty: true,
+        },
+        randomUUID()
+      );
       const elapsed = performance.now() - t0;
 
-      expect(res.success).toBe(true);
-      if (!res.success) return;
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
       const { data: appointment } = await (admin.from("visits") as any)
         .select("origin_type, status, tenant_id, created_by")
-        .eq("id", res.visitId)
+        .eq("id", res.value.visitId)
         .single();
       expect(appointment.origin_type).toBe("scheduled");
       expect(appointment.status).toBe("booked");

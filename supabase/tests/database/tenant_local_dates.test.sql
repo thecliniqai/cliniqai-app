@@ -65,6 +65,7 @@ select is(
 select set_eq(
   $$ select tgrelid::regclass::text || ':' || tgname || ':' || tgfoid::regproc::text from pg_trigger
       where tgrelid in ('public.queue_tokens'::regclass, 'public.patient_documents'::regclass) and not tgisinternal
+        and tgname <> 'a_fill_default_location' -- 000095's location filler (clinic_locations.test.sql)
         and (tgtype & 2) = 2 and (tgtype & 4) = 4 $$,
   array['queue_tokens:queue_tokens_fill_date:private.queue_tokens_fill_date',
         'patient_documents:patient_documents_fill_report_date:private.patient_documents_fill_report_date'],

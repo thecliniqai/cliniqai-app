@@ -89,7 +89,7 @@ Principals:
 | `public.prescription_items` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.prescription_items` | D | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.invoices` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.invoices` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.invoices` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoices` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoices` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoice_items` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -104,6 +104,10 @@ Principals:
 | `public.queue_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_tokens` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.queue_tokens` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | S | full | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.clinic_locations` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_locations` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -318,10 +322,11 @@ Notes:
 - `public.consultation_diagnoses`: 05-11d (N-1): keys never change; a signed-in caller records a diagnosis only for its visit's patient and writes diagnoses only while the visit is unsigned or reopened (consultation_diagnoses_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
 - `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened (05-11e, NF-2). The fixture visit is unsigned
 - `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). 05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened (prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
-- `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). 05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql)
+- `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). 05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql). V2-07 07-04a (000099): no INSERT privilege either; headers are written only by private.step_create_invoice (create_invoice, collect_payment, complete_and_bill)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op). 05-11d (N-3): line total = price x quantity (computed), price >= 0, keys never change; no write to a paid or cancelled invoice's items, and an invoice with payments is never lowered to the amount collected (invoice_items_integrity_guard; reverify_integrity.test.sql). The fixture invoice is draft with a zero item
 - `public.payments`: written only by record_payment (SECURITY DEFINER, billing:collect in the active clinic; 05-11b M-INVOICE); doctors and nurses do not collect (PO-3)
 - `public.queue_tokens`: written by issue_queue_token (SECURITY DEFINER, 05-11a M-TOKEN): no INSERT privilege; UPDATE only of priority, called_at, completed_at (column grant), so token_number/date cannot be forged
+- `public.clinic_locations`: the clinic's branches (V2-07 R-5): one default 'Main' per clinic, created by the tenants trigger; SELECT: any member of the active, full clinic; written only by the migration owner / service role (owners manage locations in v2.1)
 - `public.queue_token_counters`: written only by issue_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08 R-18, 05-11a): no member may read or rewind the counter (T-05-21)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit

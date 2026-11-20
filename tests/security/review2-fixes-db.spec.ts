@@ -497,6 +497,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
         additional_items: [],
         payment_collected: false,
         payment_method: "cash",
+        client_request_id: randomUUID(),
       });
     async function invoiceCount(visitId: string): Promise<number> {
       const { data } = await admin.from("invoices").select("id").eq("visit_id", visitId);
@@ -506,7 +507,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
     it("signed by this doctor with no invoice yet: the retry creates the invoice without re-signing", async () => {
       const visitId = await draftedVisit();
       // Step 1 committed, billing never ran (the partial failure).
-      expect((await completeAndSignConsultation(ctxFor(A.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.doctor), visitId, randomUUID())).success).toBe(true);
       const signed = await visitRow(visitId);
       expect(await invoiceCount(visitId)).toBe(0);
 
@@ -524,7 +525,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
 
     it("a visit signed by someone else is not billed through this flow", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId, randomUUID())).success).toBe(true);
       const res = await bill(A.doctor, visitId);
       expect(res.success).toBe(false);
       expect(await invoiceCount(visitId)).toBe(0);

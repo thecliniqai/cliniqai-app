@@ -58,6 +58,19 @@
  *   7892 — V2-05 05b gate close (000094 gate_close_05b): 7880 + gate_close_05b 12 = 7892 (47 files, every one required;
  *          review_fixes_05b and invitations_v2 keep their counts: two expectations follow the answer's new `role` key and
  *          the objection ruling). The floor is the measured total: one dropped test, or one dropped file, fails the gate.
+ *   8036 — V2-07 07-00 (000095 clinic_locations): 7892 + authz_matrix 96 (the clinic_locations target x 4 ops x 24
+ *          principals) + composite_fks 6 (the three location FKs, case and control) + definer_functions 4 (the claim
+ *          helpers: 3 dual-member and 1 locked leg) + clinic_locations 38 = 8036 (48 files, every one required).
+ *   8040 — V2-07 07-02 (000096 billing_commands): 8036 + definer_functions 4 (create_invoice and collect_payment: 1 acting-in-A
+ *          and 1 locked-clinic leg each) = 8040 (48 files).
+ *   8048 — V2-07 07-01 (000097 clinical_commands): 8040 + definer_functions 8 (sign_consultation, reopen_visit_for_amendment,
+ *          finalize_visit_amendment and check_in_visit: 1 acting-in-A and 1 locked-clinic leg each) = 8048 (48 files).
+ *   8054 — V2-07 07-03 (000098 front_desk_commands): 8048 + definer_functions 6 (enqueue_walk_in, register_and_book and
+ *          complete_and_bill: 1 acting-in-A and 1 locked-clinic leg each) = 8054 (48 files).
+ *   8083 — V2-07 07-04a (000099 command_review_fixes): 8054 - 4 definer_functions (the claim helpers lost their API grant, so
+ *          their 4 legs go) + 4 clinic_locations (command_hash_key and the keyed hash; the claim leg now asserts the
+ *          refusal) + 31 command_review_fixes (new file) - 2 billing_rpc_only (the three insert-guard cases and the formula case go: nobody inserts an invoice as an API role
+ *          now; the direct-insert refusal and the definer-role insert replace them) = 8083 (49 files, every one required).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -69,7 +82,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 7892;
+export const FLOOR = 8083;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -144,6 +157,10 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/review_fixes_05b.test.sql",
   // 05b gate close (000094: re-verification N-1, N-2; objection ruling)
   "supabase/tests/database/gate_close_05b.test.sql",
+  // V2-07 07-00 (000095: clinic locations, command_results)
+  "supabase/tests/database/clinic_locations.test.sql",
+  // V2-07 07-04a (000099: command review fixes)
+  "supabase/tests/database/command_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

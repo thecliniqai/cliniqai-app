@@ -11,7 +11,7 @@
 -- tenant still cascades through children that RESTRICT each other (teardown and purge depend on it).
 -- Each cell runs in a subtransaction that is always rolled back (pg_temp.try); the file rolls back. Synthetic data.
 begin;
-select plan(105);
+select plan(111);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
 insert into auth.users (id, email) values ('cf000000-0000-4000-8000-000000000101', 'cfk-doctor-a@example.test'), ('cf000000-0000-4000-8000-000000000201', 'cfk-owner-b@example.test');
@@ -96,6 +96,10 @@ insert into cfk_case values
   ('visits_tenant_patient_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('visits_tenant_doctor_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   -- 05-11a (H-VISIT, 000068): a visit's signer is a member of its clinic.
+  -- 07-00 (000095, R-5): a visit, queue token and invoice name a location of their own clinic.
+  ('visits_tenant_location_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('location_id', (select l.id from public.clinic_locations l where l.tenant_id = 'cf000000-0000-4000-8000-00000000000b' and l.is_default)), 'FOREIGN KEY (tenant_id, location_id) REFERENCES clinic_locations(tenant_id, id) ON DELETE RESTRICT', true),
+  ('queue_tokens_tenant_location_fkey', 'queue_tokens', $w$id = 'cf000000-0000-4000-8000-00000000200a'$w$, jsonb_build_object('id', gen_random_uuid(), 'visit_id', 'cf000000-0000-4000-8000-000000001010', 'token_number', 2), jsonb_build_object('location_id', (select l.id from public.clinic_locations l where l.tenant_id = 'cf000000-0000-4000-8000-00000000000b' and l.is_default)), 'FOREIGN KEY (tenant_id, location_id) REFERENCES clinic_locations(tenant_id, id) ON DELETE RESTRICT', true),
+  ('invoices_tenant_location_fkey', 'invoices', $w$id = 'cf000000-0000-4000-8000-000000001006'$w$, jsonb_build_object('id', gen_random_uuid(), 'invoice_number', 'CFK-0098', 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('location_id', (select l.id from public.clinic_locations l where l.tenant_id = 'cf000000-0000-4000-8000-00000000000b' and l.is_default)), 'FOREIGN KEY (tenant_id, location_id) REFERENCES clinic_locations(tenant_id, id) ON DELETE RESTRICT', true),
   ('visits_tenant_signed_by_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('signed_by', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (signed_by, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('invoices_tenant_patient_fkey', 'invoices', $w$id = 'cf000000-0000-4000-8000-000000001006'$w$, jsonb_build_object('id', gen_random_uuid(), 'invoice_number', 'CFK-0099', 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('invoices_tenant_visit_fkey', 'invoices', $w$id = 'cf000000-0000-4000-8000-000000001006'$w$, jsonb_build_object('id', gen_random_uuid(), 'invoice_number', 'CFK-0099', 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
@@ -141,7 +145,7 @@ select set_eq(
       from pg_constraint c
      where c.contype = 'f' and c.connamespace = 'public'::regnamespace and cardinality(c.conkey) > 1$$,
   $$select tbl || ' ' || fk || ' ' || defn from cfk_case$$,
-  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a) and the visit signer (05-11a) (columns, parent, delete action)');
+  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a), the visit signer (05-11a) and the three location FKs (07-00) (columns, parent, delete action)');
 select is((select count(*)::int from pg_constraint c join pg_namespace n on n.oid = c.connamespace
             where c.contype = 'f' and not c.convalidated and n.nspname in ('public', 'ops', 'private')), 0,
   'no foreign key in public/ops/private is left NOT VALID');

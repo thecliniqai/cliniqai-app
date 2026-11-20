@@ -1,0 +1,175 @@
+/**
+ * Shared seeds and read-backs for the V2-07 07-01 clinical command specs (sign_consultation, reopen_visit_for_amendment,
+ * finalize_visit_amendment, check_in_visit). Synthetic data only; rows are seeded and read with the service-role client,
+ * commands are called with the caller's own client.
+ */
+import { randomUUID } from "node:crypto";
+import { insertReturningId, type TestDb } from "./db";
+import { getAdminClient } from "./supabase-admin";
+import type { SeededTenant } from "./tenants";
+import { seedVisit, type SeededVisit } from "./billing-commands";
+import type { Database } from "@/types/database";
+
+type Fns = Database["public"]["Functions"];
+export type SignArgs = Fns["sign_consultation"]["Args"];
+export type ReopenArgs = Fns["reopen_visit_for_amendment"]["Args"];
+export type FinalizeArgs = Fns["finalize_visit_amendment"]["Args"];
+export type CheckInArgs = Fns["check_in_visit"]["Args"];
+
+export interface ClinicalVisitOptions {
+  /** The visit's doctor (default: the clinic owner). */
+  doctorId?: string;
+  /** The visit's status (default `waiting`: the sign-off needs `waiting` or `in_consultation`, 07-04a F-6). */
+  status?: "booked" | "confirmed" | "waiting" | "in_consultation" | "cancelled" | "no_show";
+  /** A clinical note (default "Synthetic clinical note."); null leaves the note empty. */
+  notes?: string | null;
+  /** Add one diagnosis (default false). */
+  diagnosis?: boolean;
+  /** Active prescriptions to seed (versions 1..n, unsigned; default 1). */
+  prescriptions?: number;
+  /** Marker written to `prescriptions.amendment_reason` / `visits.reason_for_visit` so a scoped fault can target the rows. */
+  marker?: string;
+}
+
+export interface ClinicalVisit extends SeededVisit {
+  prescriptionIds: string[];
+}
+
+/** A fresh synthetic visit with the clinical content a sign-off needs. */
+export async function seedClinicalVisit(t: Pick<SeededTenant, "tenantId" | "userId">, opts: ClinicalVisitOptions = {}): Promise<ClinicalVisit> {
+  const admin = getAdminClient();
+  const doctorId = opts.doctorId ?? t.userId;
+  const base = await seedVisit(t, doctorId);
+  // A sign-off needs a visit that is in the queue or in consultation (07-04a F-6); the seed default is `booked`.
+  {
+    const { error } = await admin.from("visits").update({ status: opts.status ?? "waiting" }).eq("id", base.visitId);
+    if (error) throw new Error(`seed visit status failed: ${error.message}`);
+  }
+  const notes = opts.notes === undefined ? "Synthetic clinical note." : opts.notes;
+  if (notes !== null) {
+    const { error } = await admin.from("clinical_notes").update({ clinical_notes: notes }).eq("visit_id", base.visitId);
+    if (error) throw new Error(`seed clinical note failed: ${error.message}`);
+  }
+  if (opts.diagnosis) {
+    await insertReturningId(admin, "consultation_diagnoses", {
+      tenant_id: t.tenantId,
+      visit_id: base.visitId,
+      patient_id: base.patientId,
+      diagnosis_name: "Synthetic diagnosis",
+    });
+  }
+  const prescriptionIds: string[] = [];
+  for (let version = 1; version <= (opts.prescriptions ?? 1); version++) {
+    prescriptionIds.push(
+      await insertReturningId(admin, "prescriptions", {
+        tenant_id: t.tenantId,
+        visit_id: base.visitId,
+        patient_id: base.patientId,
+        doctor_id: doctorId,
+        version,
+        status: "active",
+        ...(opts.marker ? { amendment_reason: opts.marker } : {}),
+      })
+    );
+  }
+  if (opts.marker) {
+    const { error } = await admin.from("visits").update({ reason_for_visit: opts.marker }).eq("id", base.visitId);
+    if (error) throw new Error(`seed marker failed: ${error.message}`);
+  }
+  return { ...base, prescriptionIds };
+}
+
+export function signArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, over: Partial<SignArgs> = {}): SignArgs {
+  return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_client_request_id: randomUUID(), ...over };
+}
+
+export function reopenArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, over: Partial<ReopenArgs> = {}): ReopenArgs {
+  return {
+    p_tenant_id: t.tenantId,
+    p_visit_id: visitId,
+    p_reason: "Synthetic amendment reason for the audit trail",
+    p_client_request_id: randomUUID(),
+    ...over,
+  };
+}
+
+export function finalizeArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, over: Partial<FinalizeArgs> = {}): FinalizeArgs {
+  return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_client_request_id: randomUUID(), ...over };
+}
+
+export function checkInArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, over: Partial<CheckInArgs> = {}): CheckInArgs {
+  return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_priority: "normal", p_client_request_id: randomUUID(), ...over };
+}
+
+export const callSign = (db: TestDb, args: SignArgs) => db.rpc("sign_consultation", args);
+export const callReopen = (db: TestDb, args: ReopenArgs) => db.rpc("reopen_visit_for_amendment", args);
+export const callFinalize = (db: TestDb, args: FinalizeArgs) => db.rpc("finalize_visit_amendment", args);
+export const callCheckIn = (db: TestDb, args: CheckInArgs) => db.rpc("check_in_visit", args);
+
+/** The visit as the commands change it. */
+export async function visitRow(visitId: string) {
+  const { data, error } = await getAdminClient()
+    .from("visits")
+    .select("status, signed_at, signed_by, current_revision, updated_at")
+    .eq("id", visitId)
+    .single();
+  if (error || !data) throw new Error(`visit read failed: ${error?.message}`);
+  return data;
+}
+
+export async function prescriptionsOfVisit(visitId: string) {
+  const { data, error } = await getAdminClient()
+    .from("prescriptions")
+    .select("id, version, status, signed_at, amendment_reason")
+    .eq("visit_id", visitId)
+    .order("version", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function revisionsOfVisit(visitId: string) {
+  const { data, error } = await getAdminClient()
+    .from("visit_revisions")
+    .select("revision_number, amended_by, amendment_reason, snapshot")
+    .eq("visit_id", visitId)
+    .order("revision_number", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function tokensOfVisit(visitId: string) {
+  const { data, error } = await getAdminClient()
+    .from("queue_tokens")
+    .select("id, token_number, priority, date, location_id, tenant_id")
+    .eq("visit_id", visitId);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Outbox rows of one event type in one clinic whose key names `subject` (a visit or prescription id). */
+export async function outboxRows(tenantId: string, eventType: string, subject: string) {
+  const { data, error } = await getAdminClient()
+    .from("webhook_delivery_queue")
+    .select("id, subscription_id, event_key, payload")
+    .eq("tenant_id", tenantId)
+    .eq("event_type", eventType)
+    .like("event_key", `%${subject}%`);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** An active subscription of `t`'s clinic to the sign-off events. */
+export async function subscribeSignEvents(t: Pick<SeededTenant, "tenantId" | "userId">): Promise<string> {
+  return insertReturningId(getAdminClient(), "webhook_subscriptions", {
+    tenant_id: t.tenantId,
+    endpoint_url: `https://hooks.example.test/${randomUUID()}`,
+    event_types: ["visit.completed", "prescription.issued"],
+    signing_secret: randomUUID(),
+    is_active: true,
+    created_by: t.userId,
+  });
+}
+
+export async function deactivateSubscription(id: string): Promise<void> {
+  await getAdminClient().from("webhook_subscriptions").update({ is_active: false }).eq("id", id);
+}

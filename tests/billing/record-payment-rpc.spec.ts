@@ -31,6 +31,7 @@ import { insertReturningId, type TestDb } from "../helpers/db";
 import { ctxFor } from "../helpers/context";
 import { signInActingIn } from "../helpers/active-tenant";
 import { psql, psqlAsync } from "../helpers/sql";
+import { installScopedFault, leftoverFaults } from "../helpers/fault";
 
 const RPC_SIGNATURE = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)";
 const HELPER_SIGNATURE = "private.outbox_payment_recorded(uuid)";
@@ -221,16 +222,8 @@ describe("record_payment: one transaction under the caller's RLS", () => {
   it("rollback: a fault in the outbox insert (after the payment and audit inserts) leaves 0 payments, 0 audit, 0 outbox rows and the invoice unchanged", async () => {
     const invoiceId = await seedInvoice(tenantA, 400);
     const marker = await subscribe(tenantA, ["payment.recorded"]);
-    const suffix = randomUUID().replace(/-/g, "");
-    const fn = `public.rp_spike_fault_${suffix}`;
-    const trigger = `rp_spike_fault_${suffix}`;
     // The fault is scoped to the marker endpoint, so no other row (or test) is affected while it exists.
-    psql(
-      `create function ${fn}() returns trigger language plpgsql as $$ begin ` +
-        `if new.subscription_id = '${marker}'::uuid then raise exception 'SPIKE_FAULT' using errcode = 'XX000'; end if; ` +
-        `return new; end $$; ` +
-        `create trigger ${trigger} before insert on public.webhook_delivery_queue for each row execute function ${fn}();`
-    );
+    const fault = installScopedFault({ table: "public.webhook_delivery_queue", column: "subscription_id", marker });
     const commandId = randomUUID();
     try {
       const { data, error } = await rpc(tenantA.client, { p_invoice_id: invoiceId, p_amount: 400, p_command_id: commandId });
@@ -250,7 +243,7 @@ describe("record_payment: one transaction under the caller's RLS", () => {
       expect(JSON.stringify(viaService)).not.toContain("SPIKE_FAULT");
       expect(await paymentsOf(invoiceId)).toEqual([]);
     } finally {
-      psql(`drop trigger if exists ${trigger} on public.webhook_delivery_queue; drop function if exists ${fn}();`);
+      fault.remove();
       await admin.from("webhook_subscriptions").update({ is_active: false }).eq("id", marker);
     }
 
@@ -623,5 +616,5 @@ describe("record_payment: privileges", () => {
 
 afterAll(() => {
   // Run data (tenants, users, rows) is removed by the global teardown; the fault trigger is dropped in its finally.
-  expect(psql("select count(*) from pg_trigger where tgname like 'rp_spike_fault_%'")).toEqual(["0"]);
+  expect(leftoverFaults()).toBe(0);
 });

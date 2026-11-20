@@ -3,7 +3,6 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
-import { enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { memberOfTenant, visitInTenant } from "@/lib/auth/tenant-refs";
 import {
   saveConsultationDraftSchema,
@@ -15,8 +14,12 @@ import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generato
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { unaffectedRowsError } from "@/lib/db/errors";
-import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
+import { callCommand } from "@/lib/commands/call-command";
+import { clientRequestIdSchema } from "@/lib/commands/request-id";
+import type { AppError } from "@/lib/errors/app-error";
+import { z } from "zod";
+import { clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -653,169 +656,162 @@ async function buildVisitPdfPayload(
   };
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Sign-off and amendment (V2-07 07-01). Each is one atomic command RPC (migration 000097): the visit is locked, the
+// invariants are checked, the writes, the audit row and (sign-off) the webhook outbox rows are committed together or not
+// at all, and the same `client_request_id` replays the first result. The PDF render and storage archive stay AFTER the
+// commit (R-4), best-effort as before.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** A failed command in the services' `{ success: false }` shape, carrying the `AppError` code and reason for the actions. */
+export interface CommandFailure {
+  success: false;
+  error: string;
+  code?: AppError["code"];
+  reason?: string;
+}
+
+function commandFailure(error: AppError): CommandFailure {
+  return { success: false, error: error.message, code: error.code, reason: error.reason };
+}
+
+/** Fixed, data-free texts by reason or code for the clinical commands. The driver message never reaches the caller. */
+export const CLINICAL_COMMAND_MESSAGES = {
+  NOT_FOUND: "Visit not found or access denied.",
+  FORBIDDEN: "You do not have permission to change this consultation.",
+  LOCK_TIMEOUT: "This consultation is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  ALREADY_SIGNED: "This consultation is already signed.",
+  SIGN_CONTENT_REQUIRED: "Cannot sign off consultation without recording at least one diagnosis or clinical note.",
+  VISIT_NOT_SIGNABLE: "Check the patient in before signing this consultation.",
+  VISIT_NOT_SIGNED: "Only signed, completed consultations can be reopened for amendment.",
+  AMENDMENT_NOT_OPEN: "This consultation is not open for amendment.",
+  AMENDMENT_REASON_INVALID:
+    "A valid reason for amendment of at least 10 characters is required for medical audit compliance.",
+} as const satisfies DbErrorMessages;
+
+/** The amendment reason is 10 to 500 characters (the audit row holds it, whose values are bounded at 500; V2-07 07-04a F-11). */
+export const AMENDMENT_REASON_TOO_SHORT_MESSAGE = CLINICAL_COMMAND_MESSAGES.AMENDMENT_REASON_INVALID;
+export const AMENDMENT_REASON_TOO_LONG_MESSAGE = "The reason for amendment must be 500 characters or fewer.";
+
+const signRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  signed_at: z.string(),
+  sealed_prescriptions: z.number().int(),
+  replayed: z.boolean(),
+});
+
+const reopenRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  revision_number: z.number().int(),
+  replayed: z.boolean(),
+});
+
+// No free text in a stored command result (V2-07 07-04a F-5): the amendment reason stays in `visit_revisions`.
+const finalizeRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  version: z.number().int(),
+  replayed: z.boolean(),
+});
+
 export type CompleteAndSignConsultationResult =
-  | { success: true; visitId: string }
-  | { success: false; error: string };
+  | { success: true; visitId: string; replayed: boolean }
+  | CommandFailure;
 
 /**
- * Completes the consultation and finalizes clinical documentation.
- * Enforces that at least one diagnosis or clinical note exists,
- * stamps the prescription as signed, transitions visit to 'completed',
- * generates initial archival PDF v1, and records an immutable audit log.
- * The signer is always the acting user.
+ * Completes the consultation and finalizes clinical documentation as one atomic command (`public.sign_consultation`):
+ * at least one diagnosis or clinical note must exist; the visit is signed by the acting user, the active prescriptions
+ * are sealed, the audit row and the `visit.completed` / `prescription.issued` outbox rows are written in the same
+ * transaction. The initial archival PDF (v1) is rendered after the commit.
  */
 export async function completeAndSignConsultation(
   ctx: ServiceContext,
-  visitId: string
+  visitId: string,
+  clientRequestId: string
 ): Promise<CompleteAndSignConsultationResult> {
-  const supabase = ctx.db;
-
   try {
     assertPerm(ctx.role, "consultations:edit");
-    const nowIso = new Date().toISOString();
-
-    // 1. Fetch visit and verify access
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select(`id, status, patient_id, doctor_id, signed_at, ${clinicalNotesEmbed(["clinical_notes"])}`)
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (visitErr || !visit) {
-      return { success: false, error: "Visit not found or access denied." };
-    }
-
-    // P1-23: a signed record is never re-signed here (amendments go through reopen/finalize).
-    if (visit.status === "completed" || visit.signed_at) {
-      return { success: false, error: "This consultation is already signed." };
-    }
-
-    // 2. Clinical safety check: Ensure at least one diagnosis or clinical note exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
-      .select("id")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .limit(1);
-
-    const hasDiagnosis = diagnoses && diagnoses.length > 0;
-    const notesText = clinicalContent(embeddedClinicalNotes(visit)).clinical_notes;
-    const hasNotes = Boolean(notesText && notesText.trim().length > 0);
-
-    if (!hasDiagnosis && !hasNotes) {
-      return {
-        success: false,
-        error: "Cannot sign off consultation without recording at least one diagnosis or clinical note.",
-      };
-    }
-
-    // 3. Claim the visit: transition to completed only while it is still unsigned. The lock sits in the UPDATE
-    // filter, so a concurrent second sign-off matches 0 rows instead of re-stamping the record (P1-23).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: claimedVisits, error: claimErr } = await (supabase.from("visits") as any)
-      .update({
-        status: "completed",
-        signed_at: nowIso,
-        signed_by: ctx.userId,
-        updated_at: nowIso,
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .neq("status", "completed")
-      .is("signed_at", null)
-      .select("id");
-
-    if (claimErr) {
-      log.error({ event: "consultation.sign_visit_update.failed", code: errorTag(claimErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to sign off the consultation." };
-    }
-    if (!Array.isArray(claimedVisits) || claimedVisits.length !== 1) {
-      return { success: false, error: "This consultation is already signed." };
-    }
-
-    // 4. Mark active prescription as signed/issued. Full atomicity with step 3 is P1-05 (V2-07).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: rxErr } = await (supabase.from("prescriptions") as any)
-      .update({
-        signed_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .eq("status", "active");
-
-    if (rxErr) {
-      log.error({ event: "consultation.sign_prescription_update.failed", code: errorTag(rxErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "The visit was signed, but the prescription could not be sealed." };
-    }
-
-    // 5. (Removed, P1-23) The old `queue_tokens.updated_at` write targeted a column that does not exist.
-
-    // 6. Generate initial archival PDF v1
-    try {
-      const payload = await buildVisitPdfPayload(ctx, visitId, 1);
-      if (payload) {
-        await generateAndArchivePrescriptionPdf(ctx, payload);
-      }
-    } catch (pdfErr) {
-      log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
-
-    // 7. Compliance audit log
-    await recordAudit(ctx, {
-      action: "visit.complete_and_sign",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        version: 1,
-      },
-    });
-
-    // 8. Webhook events (04-03b): queued through the RPC, data built in SQL from the visit / prescription row.
-    try {
-      await enqueueWebhookEvent(ctx, "visit.completed", visitId);
-
-      // Check if an active prescription was signed during this consultation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: signedRx } = await (supabase.from("prescriptions") as any)
-        .select("id, patient_id, visit_id")
-        .eq("visit_id", visitId)
-        .eq("tenant_id", ctx.tenantId)
-        .maybeSingle();
-
-      // 04-07a M-RXEVENT: the one `prescription.issued` of a prescription made in the app, queued now that it is signed
-      // (event key `prescription.issued:<id>:signed`; the draft raises none, and SQL refuses an unsigned one).
-      if (signedRx) {
-        await enqueueWebhookEvent(ctx, "prescription.issued", signedRx.id);
-      }
-    } catch (webhookErr) {
-      log.warn({ event: "consultation.sign_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
-
-    return { success: true, visitId };
   } catch (err: unknown) {
-    log.error({ event: "consultation.sign.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to complete and sign consultation."),
-    };
+    return { success: false, error: clientErrorMessage(err, "Failed to complete and sign consultation.", "consultation.sign.failed") };
+  }
+
+  const ids = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!ids.success) {
+    return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "sign_consultation",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    signRpcResultSchema,
+    { ...CLINICAL_COMMAND_MESSAGES, INTERNAL: "Failed to complete and sign consultation." },
+    { event: "consultation.sign.failed" }
+  );
+  if (!outcome.ok) return commandFailure(outcome.error);
+
+  // After the commit (R-4). A replay means the first call's response may have been lost after the commit, so the archive is
+  // rendered then too when it is missing (V2-07 07-04a F-7).
+  await archiveInitialPrescriptionPdf(ctx, visitId, outcome.value.replayed ? { onlyIfMissing: true } : {});
+
+  return { success: true, visitId, replayed: outcome.value.replayed };
+}
+
+/**
+ * The initial archival PDF (v1) of a just-signed consultation, rendered and stored AFTER the commit (R-4: no external
+ * call inside a transaction), best-effort: the record is already signed whatever happens here. Shared by the sign-off
+ * and by Sign & Bill (`complete_and_bill`, V2-07 07-03).
+ */
+export async function archiveInitialPrescriptionPdf(
+  ctx: ServiceContext,
+  visitId: string,
+  options: { onlyIfMissing?: boolean } = {}
+): Promise<void> {
+  try {
+    if (options.onlyIfMissing && (await prescriptionPdfArchived(ctx, visitId, 1))) return;
+    const payload = await buildVisitPdfPayload(ctx, visitId, 1);
+    if (payload) {
+      await generateAndArchivePrescriptionPdf(ctx, payload);
+    }
+  } catch (pdfErr) {
+    log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
 }
 
+/**
+ * True when the visit's latest prescription already records the archive of `version` (`pdf_storage_path` ends with
+ * `rx_v<version>.pdf`, written by `generateAndArchivePrescriptionPdf` after the upload). A visit with no prescription row
+ * has nothing to record the archive on, so it counts as not archived (the render is harmless: the upload overwrites).
+ * Also true when the latest prescription is of another version: the command this replay belongs to has been superseded.
+ */
+async function prescriptionPdfArchived(ctx: ServiceContext, visitId: string, version: number): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (ctx.db.from("prescriptions") as any)
+    .select("version, pdf_storage_path")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return false;
+  if (Number(data.version) !== version) return true;
+  return typeof data.pdf_storage_path === "string" && data.pdf_storage_path.endsWith(`/rx_v${version}.pdf`);
+}
+
 export type ReopenVisitForAmendmentResult =
-  | { success: true; visitId: string; revisionNumber: number }
-  | { success: false; error: string };
+  | { success: true; visitId: string; revisionNumber: number; replayed: boolean }
+  | CommandFailure;
 
 /**
- * Reopens a completed consultation for post-sign-off clinical amendments.
- * Writes an amendment row in `visit_revisions` (the database fills its number and its immutable JSON snapshot of the
- * signed content) before transitioning the visit status back to 'in_consultation'.
+ * Reopens a completed consultation for post-sign-off clinical amendments as one atomic command
+ * (`public.reopen_visit_for_amendment`): the amendment row in `visit_revisions` (its number and its immutable JSON
+ * snapshot of the signed content are filled by the database), the visit back to 'in_consultation' and the audit row.
  */
 export async function reopenVisitForAmendment(
   ctx: ServiceContext,
   visitId: string,
-  reason: string
+  reason: string,
+  clientRequestId: string
 ): Promise<ReopenVisitForAmendmentResult> {
   try {
     assertPerm(ctx.role, "consultations:edit");
@@ -825,207 +821,93 @@ export async function reopenVisitForAmendment(
 
   const cleanReason = (reason || "").trim();
   if (cleanReason.length < 10) {
-    return {
-      success: false,
-      error: "A valid reason for amendment of at least 10 characters is required for medical audit compliance.",
-    };
+    return { success: false, error: AMENDMENT_REASON_TOO_SHORT_MESSAGE, code: "VALIDATION_FAILED", reason: "AMENDMENT_REASON_INVALID" };
+  }
+  if (cleanReason.length > 500) {
+    return { success: false, error: AMENDMENT_REASON_TOO_LONG_MESSAGE, code: "VALIDATION_FAILED", reason: "AMENDMENT_REASON_INVALID" };
+  }
+  const ids = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!ids.success) {
+    return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
   }
 
-  const supabase = ctx.db;
+  const outcome = await callCommand(
+    ctx,
+    "reopen_visit_for_amendment",
+    { p_visit_id: visitId, p_reason: cleanReason, p_client_request_id: clientRequestId },
+    reopenRpcResultSchema,
+    { ...CLINICAL_COMMAND_MESSAGES, INTERNAL: "Failed to reopen visit for amendment." },
+    { event: "consultation.amend_reopen.failed" }
+  );
+  if (!outcome.ok) return commandFailure(outcome.error);
 
-  try {
-    // 1. Fetch visit - must be completed and signed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, signed_at")
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (visitErr || !visit) {
-      return { success: false, error: "Visit record not found or access denied." };
-    }
-
-    // An amendment records a signed version, so the database admits the row only on a signed, completed visit
-    // (V2-05 05-11e, NF-1). A visit completed at the front desk without a sign-off has nothing to amend.
-    if (visit.status !== "completed" || !visit.signed_at) {
-      return {
-        success: false,
-        error: "Only signed, completed consultations can be reopened for amendment.",
-      };
-    }
-
-    // 2. Insert the amendment row. Its revision number (previous + 1) and its snapshot of the signed content (visit,
-    // notes and vitals, diagnoses, every prescription with its items, follow-ups) are filled by the database under the
-    // visit row lock, whatever a client sends (V2-05 05-11d/05-11e, N-2/N-8/NF-2: visit_revisions_actor_guard);
-    // amended_at is the database clock (05-11a). The reopen below is admitted only with this row (NF-1).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: revision, error: revErr } = await (supabase.from("visit_revisions") as any)
-      .insert({
-        tenant_id: ctx.tenantId,
-        visit_id: visitId,
-        amended_by: ctx.userId,
-        amendment_reason: cleanReason,
-      })
-      .select("revision_number")
-      .single();
-
-    if (revErr || typeof revision?.revision_number !== "number") {
-      log.error({ event: "consultation.amend_revision_insert.failed", code: errorTag(revErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to create audit revision record." };
-    }
-    const nextRevNum: number = revision.revision_number;
-
-    // 3. Transition visit back to 'in_consultation'. The database admits this only after the caller's amendment row
-    // above (V2-05 05-11a, H-VISIT), so a refused write is reported, never a silent success.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: reopenErr } = await (supabase.from("visits") as any)
-      .update({
-        status: "in_consultation",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    if (reopenErr) {
-      log.error({ event: "consultation.amend_reopen_update.failed", code: errorTag(reopenErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to reopen visit for amendment." };
-    }
-
-    // 4. Record audit trail
-    await recordAudit(ctx, {
-      action: "visit.reopen_for_amendment",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        revision_number: nextRevNum,
-        amendment_reason: cleanReason,
-      },
-    });
-
-    return { success: true, visitId, revisionNumber: nextRevNum };
-  } catch (err: unknown) {
-    log.error({ event: "consultation.amend_reopen.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to reopen visit for amendment."),
-    };
-  }
+  return { success: true, visitId, revisionNumber: outcome.value.revision_number, replayed: outcome.value.replayed };
 }
 
 export type FinalizeVisitAmendmentResult =
-  | { success: true; visitId: string; version: number }
-  | { success: false; error: string };
+  | { success: true; visitId: string; version: number; replayed: boolean }
+  | CommandFailure;
 
 /**
- * Finalizes clinical amendments made to a reopened visit:
- * Increments the prescription version (v2, v3), stamps the amended PDF with
- * amendment watermark and doctor's rationale, and returns visit status to 'completed'.
+ * Finalizes clinical amendments made to a reopened visit as one atomic command (`public.finalize_visit_amendment`):
+ * the latest prescription gets the next version (v2, v3), the amendment reason and a new signature, the visit returns to
+ * 'completed' re-signed by the caller, and the audit row is written. The amended PDF (watermark and doctor's rationale)
+ * is rendered after the commit.
  */
 export async function finalizeVisitAmendment(
   ctx: ServiceContext,
-  visitId: string
+  visitId: string,
+  clientRequestId: string
 ): Promise<FinalizeVisitAmendmentResult> {
-  const supabase = ctx.db;
-
   try {
     assertPerm(ctx.role, "consultations:edit");
-    const nowIso = new Date().toISOString();
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to finalize amendment.", "consultation.amend_finalize.failed") };
+  }
 
-    // 1. Fetch visit
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status")
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
+  const ids = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!ids.success) {
+    return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
+  }
 
-    if (visitErr || !visit) {
-      return { success: false, error: "Visit not found or access denied." };
-    }
+  const outcome = await callCommand(
+    ctx,
+    "finalize_visit_amendment",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    finalizeRpcResultSchema,
+    { ...CLINICAL_COMMAND_MESSAGES, INTERNAL: "Failed to finalize amendment." },
+    { event: "consultation.amend_finalize.failed" }
+  );
+  if (!outcome.ok) return commandFailure(outcome.error);
 
-    // 2. Fetch latest revision reason from visit_revisions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: latestRev } = await (supabase.from("visit_revisions") as any)
-      .select("revision_number, amendment_reason, amended_at")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("revision_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const amendmentReason = latestRev?.amendment_reason || "Clinical adjustment";
-
-    // 3. Resolve active prescription and increment version counter
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: currentRx } = await (supabase.from("prescriptions") as any)
-      .select("id, version")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const newVersion = (currentRx?.version || 1) + 1;
-
-    if (currentRx?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("prescriptions") as any)
-        .update({
-          version: newVersion,
-          amendment_reason: amendmentReason,
-          signed_at: nowIso,
-          updated_at: nowIso,
-        })
-        .eq("id", currentRx.id)
-        .eq("tenant_id", ctx.tenantId);
-    }
-
-    // 4. Update visit status back to 'completed', re-signed by the caller (the database admits a new signature only
-    // here, on a reopened visit: V2-05 05-11a, H-VISIT).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: finalizeErr } = await (supabase.from("visits") as any)
-      .update({
-        status: "completed",
-        signed_at: nowIso,
-        signed_by: ctx.userId,
-        updated_at: nowIso,
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    if (finalizeErr) {
-      log.error({ event: "consultation.amend_finalize_update.failed", code: errorTag(finalizeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to finalize amendment." };
-    }
-
-    // 5. Regenerate and archive stamped amended PDF (v2, v3)
-    try {
-      const payload = await buildVisitPdfPayload(ctx, visitId, newVersion, amendmentReason);
+  const { version, replayed } = outcome.value;
+  // Regenerate and archive the stamped amended PDF (v2, v3), after the commit. A replay means the first call's response may
+  // have been lost after the commit: the PDF is rendered then too when that version is not archived yet (F-7).
+  try {
+    if (!replayed || !(await prescriptionPdfArchived(ctx, visitId, version))) {
+      // The reason is read back from the amendment row (the stored command result holds no free text, F-5).
+      const amendmentReason = await latestAmendmentReason(ctx, visitId);
+      const payload = await buildVisitPdfPayload(ctx, visitId, version, amendmentReason);
       if (payload) {
         await generateAndArchivePrescriptionPdf(ctx, payload);
       }
-    } catch (pdfErr) {
-      log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
-
-    // 6. Record audit log
-    await recordAudit(ctx, {
-      action: "visit.amend_finalized",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        version: newVersion,
-        amendment_reason: amendmentReason,
-      },
-    });
-
-    return { success: true, visitId, version: newVersion };
-  } catch (err: unknown) {
-    log.error({ event: "consultation.amend_finalize.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to finalize amendment."),
-    };
+  } catch (pdfErr) {
+    log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
+
+  return { success: true, visitId, version, replayed };
+}
+
+/** The reason of the visit's latest amendment row (the reopen wrote it; the finalize stamps it on the amended PDF). */
+async function latestAmendmentReason(ctx: ServiceContext, visitId: string): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (ctx.db.from("visit_revisions") as any)
+    .select("amendment_reason")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .order("revision_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return typeof data?.amendment_reason === "string" ? data.amendment_reason : null;
 }

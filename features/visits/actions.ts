@@ -7,8 +7,6 @@ import type { VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption 
 import type { RecordVitalsInput } from "@/features/consultation/schema";
 import * as visitsService from "./service";
 import type {
-  CreateVisitInput,
-  CreateVisitResult,
   GetVisitsResult,
   UpdateVisitStatusResult,
   ConfirmAppointmentResult,
@@ -17,8 +15,6 @@ import type {
 } from "./service";
 
 export type {
-  CreateVisitInput,
-  CreateVisitResult,
   GetVisitsResult,
   UpdateVisitStatusResult,
   ConfirmAppointmentResult,
@@ -28,6 +24,8 @@ export type {
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
+// Visits are created only by the front-desk commands (V2-07 07-03: enqueue_walk_in, register_and_book) and by the
+// waitlist promotion; there is no standalone createVisit action any more.
 
 function revalidate(...paths: string[]) {
   try {
@@ -35,14 +33,6 @@ function revalidate(...paths: string[]) {
   } catch {
     // Outside a Next.js request (tests) revalidation is a no-op
   }
-}
-
-export async function createVisit(input: CreateVisitInput): Promise<CreateVisitResult> {
-  const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await visitsService.createVisit(resolved.ctx, input);
-  if (result.success) revalidate("/calendar", "/queue");
-  return result;
 }
 
 export async function getVisitsForDate(dateStr: string, doctorId?: string): Promise<GetVisitsResult> {

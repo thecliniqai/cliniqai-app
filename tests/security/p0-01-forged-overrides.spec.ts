@@ -17,6 +17,7 @@
  * client (or an anonymous client), so the session resolves through the real `auth.getUser()` and RLS.
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -231,7 +232,7 @@ describe("P0-01 forged overrides at the action layer", () => {
       for (const actor of [receptionistA, nurseA]) {
         actAs(actor);
         const results = [
-          await call(completeAndSignConsultation, visitId, forgedClient, ownerASession),
+          await call(completeAndSignConsultation, visitId, randomUUID(), forgedClient, ownerASession),
           await call(
             addPrescriptionItem,
             visitId,
@@ -239,12 +240,14 @@ describe("P0-01 forged overrides at the action layer", () => {
             forgedClient,
             ownerASession
           ),
-          await call(reopenVisitForAmendment, visitId, "Synthetic amendment reason text", forgedClient, ownerASession),
-          await call(finalizeVisitAmendment, visitId, forgedClient, ownerASession),
+          await call(reopenVisitForAmendment, visitId, "Synthetic amendment reason text", randomUUID(), forgedClient, ownerASession),
+          await call(finalizeVisitAmendment, visitId, randomUUID(), forgedClient, ownerASession),
         ];
+        // The three clinical commands answer with a `Result` ({ ok, error: AppError }); addPrescriptionItem with the
+        // legacy shape ({ success, error: string }).
         for (const res of results) {
-          expect(res.success).toBe(false);
-          expect(res.error).toMatch(PERMISSION_DENIED);
+          expect(res.success === false || res.ok === false).toBe(true);
+          expect(typeof res.error === "string" ? res.error : res.error.message).toMatch(PERMISSION_DENIED);
         }
       }
 
@@ -332,8 +335,8 @@ describe("P0-01 forged overrides at the action layer", () => {
       );
       expect(item.success).toBe(true);
 
-      const signed = await call(completeAndSignConsultation, visitId, forgedClient, forgedActor);
-      expect(signed.success).toBe(true);
+      const signed = await call(completeAndSignConsultation, visitId, randomUUID(), forgedClient, forgedActor);
+      expect(signed.ok).toBe(true);
 
       const { data: visit } = await admin.from("visits").select("status, signed_by").eq("id", visitId).single();
       expect(visit).toEqual({ status: "completed", signed_by: doctorA.userId });

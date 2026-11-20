@@ -3,15 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { SaveConsultationDraftInput } from "./schema";
+import { contextFailureToAppError } from "@/lib/commands/context-error";
+import { toCommandResult } from "@/lib/commands/command-result";
+import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as consultationService from "./service";
 import type {
   SaveConsultationDraftResult,
   RecordFollowUpInput,
   RecordFollowUpResult,
   GetPatientConsultationHistoryResult,
-  CompleteAndSignConsultationResult,
-  ReopenVisitForAmendmentResult,
-  FinalizeVisitAmendmentResult,
 } from "./service";
 
 export type {
@@ -20,9 +20,6 @@ export type {
   RecordFollowUpResult,
   PastVisitEncounter,
   GetPatientConsultationHistoryResult,
-  CompleteAndSignConsultationResult,
-  ReopenVisitForAmendmentResult,
-  FinalizeVisitAmendmentResult,
 } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
@@ -59,26 +56,40 @@ export async function getPatientConsultationHistory(
   return consultationService.getPatientConsultationHistory(resolved.ctx, patientId, currentVisitId);
 }
 
-export async function completeAndSignConsultation(visitId: string): Promise<CompleteAndSignConsultationResult> {
+/**
+ * Sign-off as one atomic command (V2-07 07-01): `Result` with the `AppError` code `useCommand` needs; the
+ * `client_request_id` is required (the same id replays the first result and writes nothing new).
+ */
+export async function completeAndSignConsultation(
+  visitId: string,
+  clientRequestId: string
+): Promise<CommandResult<{ visitId: string; replayed: boolean }>> {
   const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await consultationService.completeAndSignConsultation(resolved.ctx, visitId);
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await consultationService.completeAndSignConsultation(resolved.ctx, visitId, clientRequestId);
   if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
-  return result;
+  return toCommandResult(result, (ok) => ({ visitId: ok.visitId, replayed: ok.replayed }));
 }
 
-export async function reopenVisitForAmendment(visitId: string, reason: string): Promise<ReopenVisitForAmendmentResult> {
+export async function reopenVisitForAmendment(
+  visitId: string,
+  reason: string,
+  clientRequestId: string
+): Promise<CommandResult<{ visitId: string; revisionNumber: number; replayed: boolean }>> {
   const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await consultationService.reopenVisitForAmendment(resolved.ctx, visitId, reason);
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await consultationService.reopenVisitForAmendment(resolved.ctx, visitId, reason, clientRequestId);
   if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
-  return result;
+  return toCommandResult(result, (ok) => ({ visitId: ok.visitId, revisionNumber: ok.revisionNumber, replayed: ok.replayed }));
 }
 
-export async function finalizeVisitAmendment(visitId: string): Promise<FinalizeVisitAmendmentResult> {
+export async function finalizeVisitAmendment(
+  visitId: string,
+  clientRequestId: string
+): Promise<CommandResult<{ visitId: string; version: number; replayed: boolean }>> {
   const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await consultationService.finalizeVisitAmendment(resolved.ctx, visitId);
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await consultationService.finalizeVisitAmendment(resolved.ctx, visitId, clientRequestId);
   if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
-  return result;
+  return toCommandResult(result, (ok) => ({ visitId: ok.visitId, version: ok.version, replayed: ok.replayed }));
 }

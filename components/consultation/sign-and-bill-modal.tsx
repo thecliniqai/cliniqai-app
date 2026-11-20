@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
+import { useCommand } from "@/lib/commands/use-command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -59,6 +60,9 @@ export function SignAndBillModal({
 }: SignAndBillModalProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // One client_request_id per logical submit (V2-07 07-03): a retry after an error re-sends it, so a committed
+  // sign-off-and-bill whose response was lost replays instead of running twice.
+  const { run: runCommand, reset: resetCommand } = useCommand();
 
   const [consultationFee, setConsultationFee] = useState<number>(defaultFee);
   const [discount, setDiscount] = useState<number>(0);
@@ -101,6 +105,11 @@ export function SignAndBillModal({
       setInvWaError(null);
     }
   }
+
+  // A changed fee or payment after an error is a new request, not a retry of the failed one.
+  useEffect(() => {
+    resetCommand();
+  }, [resetCommand, consultationFee, discount, paymentCollected, paymentMethod, referenceNumber]);
 
   const handleSendPrescriptionWhatsApp = async () => {
     if (!completedResult?.visitId || isSendingRxWa) return;
@@ -159,22 +168,26 @@ export function SignAndBillModal({
           return;
         }
 
-        // 2. Complete consultation and bill visit
-        const res = await completeAndBillConsultation({
-          visit_id: visitId,
-          patient_id: patientId,
-          consultation_fee: consultationFee,
-          additional_items: [],
-          discount: discount,
-          payment_collected: collecting,
-          payment_method: paymentMethod,
-          reference_number: referenceNumber.trim() || undefined,
-        });
+        // 2. Complete consultation and bill visit: one command, all or nothing
+        const result = await runCommand((clientRequestId) =>
+          completeAndBillConsultation({
+            visit_id: visitId,
+            patient_id: patientId,
+            consultation_fee: consultationFee,
+            additional_items: [],
+            discount: discount,
+            payment_collected: collecting,
+            payment_method: paymentMethod,
+            reference_number: referenceNumber.trim() || undefined,
+            client_request_id: clientRequestId,
+          })
+        );
 
-        if (!res.success) {
-          setError(res.error || "Failed to finalize consultation and billing.");
+        if (!result.ok) {
+          setError(result.error.message || "Failed to finalize consultation and billing.");
           return;
         }
+        const res = result.value;
 
         setCompletedResult({
           visitId: res.visitId,

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
@@ -101,6 +102,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         ],
         discount: 0,
         tax: 0,
+        client_request_id: randomUUID(),
       }
     );
     if (!inv1.success) throw new Error(`Failed to create invoice 1: ${inv1.error}`);
@@ -122,6 +124,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         ],
         discount: 0,
         tax: 0,
+        client_request_id: randomUUID(),
       }
     );
     if (!inv2.success) throw new Error(`Failed to create invoice 2: ${inv2.error}`);

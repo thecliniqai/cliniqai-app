@@ -91,7 +91,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   },
   "features/billing/actions.ts#completeAndBillConsultation": {
     args: (a) => [{
-      visit_id: a.visit,
+      // A waiting visit with a diagnosis and no invoice: the sign-off signs only waiting or in-consultation visits (07-04a F-6).
+      visit_id: a.waitingVisit,
       patient_id: a.patient,
       consultation_fee: 500,
       additional_items: [],
@@ -101,16 +102,33 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       payment_collected: false,
       payment_method: "cash",
       reference_number: null,
+      client_request_id: randomUUID(),
       ...acting(a),
     }],
   },
-  "features/billing/actions.ts#createVisitInvoice": {
+  "features/billing/actions.ts#createInvoice": {
     args: (a) => [{
       visit_id: a.visit,
       patient_id: a.patient,
       items: [{ item_type: "consultation", description: "Synthetic fee", unit_price: 100, quantity: 1 }],
       discount: 0,
       tax: 0,
+      client_request_id: randomUUID(),
+      ...acting(a),
+    }],
+  },
+  "features/billing/actions.ts#collectPayment": {
+    args: (a) => [{
+      visit_id: a.visit,
+      patient_id: a.patient,
+      items: [{ item_type: "consultation", description: "Synthetic fee", unit_price: 100, quantity: 1 }],
+      discount: 0,
+      tax: 0,
+      amount: 1,
+      payment_method: "cash",
+      reference_number: null,
+      notes: null,
+      client_request_id: randomUUID(),
       ...acting(a),
     }],
   },
@@ -123,8 +141,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/consultation/actions.ts#recordFollowUp": {
     args: (a) => [{ visitId: a.visit, patientId: a.patient, doctorId: a.ownerUser, followUpDate: dateAhead(7), notes: "Synthetic note", ...acting(a) }],
   },
+  "features/consultation/actions.ts#finalizeVisitAmendment": { args: (a) => [a.reopenedVisit, randomUUID()] },
+  "features/consultation/actions.ts#completeAndSignConsultation": { args: (a) => [a.waitingVisit, randomUUID()] },
   "features/consultation/actions.ts#reopenVisitForAmendment": {
-    args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail"],
+    args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail", randomUUID()],
   },
   "features/consultation/actions.ts#saveConsultationDraft": {
     args: (a) => [{ ...consultationDraftInput({ visit_id: a.visit }), ...acting(a) }],
@@ -157,7 +177,17 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
-  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal"] },
+  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal", randomUUID()] },
+  "features/queue/actions.ts#enqueueWalkIn": {
+    args: (a) => [{
+      patient_id: a.patient,
+      doctor_id: a.ownerUser,
+      priority: "normal",
+      reason_for_visit: "Synthetic walk-in",
+      estimated_duration_minutes: 15,
+      ...acting(a),
+    }, randomUUID()],
+  },
   // The clinic acknowledges a referral it received (05-06: from the unrelated clinic S, not a self-referral).
   "features/referrals/actions.ts#acknowledgeReferral": { args: (a) => [a.inboundReferral] },
   "features/referrals/actions.ts#closeReferralLoop": {
@@ -227,18 +257,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       ...acting(a),
     }],
   },
-  "features/visits/actions.ts#createVisit": {
-    args: (a) => [{
-      patient_id: a.patient,
-      doctor_id: a.ownerUser,
-      origin_type: "walk_in",
-      estimated_duration_minutes: 15,
-      is_overbooked: false,
-      ...acting(a),
-    }],
-  },
   "features/visits/actions.ts#updateVisitStatus": { args: (a) => [a.visit, "confirmed"] },
-  "features/visits/scheduling.ts#bookAppointment": {
+  "features/visits/scheduling.ts#registerAndBook": {
     args: (a) => [{
       patient_id: a.patient,
       doctor_id: a.ownerUser,
@@ -249,7 +269,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       override_off_duty: true,
       override_block: true,
       ...acting(a),
-    }],
+    }, randomUUID()],
   },
   "features/visits/scheduling.ts#createScheduleBlock": {
     args: (a) => {

@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { createPatient, searchPatients } from "@/features/patients/actions";
-import { bookAppointment } from "@/features/visits/scheduling";
+import { searchPatients } from "@/features/patients/actions";
+import { registerAndBook } from "@/features/visits/scheduling";
+import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
+import { OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
@@ -53,6 +55,33 @@ export function BookingDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // One client_request_id per logical submit (V2-07 07-03): registering the patient and booking the slot is one
+  // command, and a retry after an error re-sends the same id so a committed booking replays instead of running twice.
+  const { run: runCommand, reset: resetCommand, startOver: startOverCommand, unresolved } = useCommand();
+  const lastSubmit = useRef<string | null>(null);
+  /**
+   * A submit whose inputs differ from the failed one before it (e.g. the overbook confirmation) is a new request, with one
+   * exception: after a failure whose outcome is unknown (network, timeout) the booking may already exist, so the id is kept
+   * and a changed submit is refused until the user explicitly starts over (V2-07 07-04a F-13). Returns false when refused.
+   */
+  const startSubmit = (fingerprint: string): boolean => {
+    if (lastSubmit.current !== fingerprint) {
+      if (unresolved) {
+        setError(OUTCOME_UNKNOWN_MESSAGE);
+        return false;
+      }
+      resetCommand();
+    }
+    lastSubmit.current = fingerprint;
+    return true;
+  };
+  const handleStartOver = () => {
+    startOverCommand();
+    lastSubmit.current = null;
+    setError(null);
+    setOverbookOpen(false);
+  };
+
   // Form Fields
   const [doctorId, setDoctorId] = useState(defaultDoctorId || doctors[0]?.id || "");
   const clinicToday = useClinicToday();
@@ -78,6 +107,8 @@ export function BookingDrawer({
   // Overbook Dialog State
   const [overbookOpen, setOverbookOpen] = useState(false);
   const [conflictingVisit, setConflictingVisit] = useState<Visit | null>(null);
+  // Why the slot is not free (SLOT_TAKEN, SLOT_OFF_DUTY or SLOT_BLOCKED): the dialog says which (V2-07 07-04a G-4).
+  const [conflictReason, setConflictReason] = useState<string | undefined>(undefined);
 
   const resetPatientState = () => {
     setTab("search");
@@ -92,6 +123,7 @@ export function BookingDrawer({
     });
     setError(null);
     setConflictingVisit(null);
+    setConflictReason(undefined);
     setOverbookOpen(false);
   };
 
@@ -145,33 +177,21 @@ export function BookingDrawer({
     setError(null);
 
     try {
-      let patientIdToBook = chosenPatient?.id;
-
-      // 1. If new patient tab, create patient first
+      // 1. The patient: an existing one, or the new patient's fields (registered by the same command as the booking).
+      const patientFields = {
+        full_name: newPatient.full_name,
+        phone: newPatient.phone,
+        age: newPatient.age,
+        date_of_birth: newPatient.date_of_birth || null,
+        abha_id: null,
+      };
       if (tab === "new") {
         if (!newPatient.full_name || !newPatient.phone) {
           setError("Patient full name and phone number are required.");
           setLoading(false);
           return;
         }
-
-        const patientRes = await createPatient({
-          full_name: newPatient.full_name,
-          phone: newPatient.phone,
-          age: newPatient.age,
-          date_of_birth: newPatient.date_of_birth || null,
-          abha_id: null,
-        });
-
-        if (!patientRes.success) {
-          setError(patientRes.error);
-          setLoading(false);
-          return;
-        }
-        patientIdToBook = patientRes.patientId;
-      }
-
-      if (!patientIdToBook) {
+      } else if (!chosenPatient?.id) {
         setError("Please select or register a patient.");
         setLoading(false);
         return;
@@ -186,27 +206,52 @@ export function BookingDrawer({
       // 2. The instant of the picked clinic date and time in the clinic's zone (ADR-016, P1-21), as the timeline shows it
       // and the server checks it; never the browser's zone (CI 43712054628).
       const scheduledIso = zonedDateTimeToUtcIso(date, time, timeZone);
+      const overbooked = isOverbooked || isOverbookedDefault;
+      const allowed = startSubmit(
+        JSON.stringify([
+          tab === "new" ? patientFields : chosenPatient?.id,
+          doctorId,
+          scheduledIso,
+          duration,
+          reason,
+          overbooked,
+          overrideOffDuty,
+          overrideBlock,
+        ])
+      );
+      if (!allowed) {
+        setOverbookOpen(false);
+        setLoading(false);
+        return;
+      }
 
-      // 3. Book appointment
-      const result = await bookAppointment({
-        patient_id: patientIdToBook,
-        doctor_id: doctorId,
-        scheduled_at: scheduledIso,
-        estimated_duration_minutes: duration,
-        reason_for_visit: reason || null,
-        is_overbooked: isOverbooked || isOverbookedDefault,
-        override_off_duty: overrideOffDuty,
-        override_block: overrideBlock,
-      });
+      // 3. One command: [register the patient] + slot check + visit + booking message, together or not at all. A
+      // refused slot registers nobody, so the overbook confirmation below cannot register the patient a second time.
+      const result = await runCommand((clientRequestId) =>
+        registerAndBook(
+          {
+            ...(tab === "new" ? { new_patient: patientFields } : { patient_id: chosenPatient?.id }),
+            doctor_id: doctorId,
+            scheduled_at: scheduledIso,
+            estimated_duration_minutes: duration,
+            reason_for_visit: reason || null,
+            is_overbooked: overbooked,
+            override_off_duty: overrideOffDuty,
+            override_block: overrideBlock,
+          },
+          clientRequestId
+        )
+      );
 
-      if (!result.success) {
-        if (result.conflict) {
-          setConflictingVisit(result.conflictingVisit || null);
+      if (!result.ok) {
+        if (isSlotConflictReason(result.error.reason)) {
+          setConflictingVisit(null);
+          setConflictReason(result.error.reason);
           setOverbookOpen(true);
           setLoading(false);
           return;
         }
-        setError(result.error);
+        setError(result.error.message);
         setLoading(false);
         return;
       }
@@ -265,6 +310,11 @@ export function BookingDrawer({
           {error && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
               <span className="font-semibold">{error}</span>
+              {unresolved && (
+                <Button type="button" variant="secondary" size="sm" onClick={handleStartOver} className="ms-auto shrink-0">
+                  Start over
+                </Button>
+              )}
             </div>
           )}
 
@@ -505,6 +555,7 @@ export function BookingDrawer({
         onClose={() => setOverbookOpen(false)}
         onConfirm={() => handleBook(true)}
         conflictingVisit={conflictingVisit}
+        conflictReason={conflictReason}
         scheduledTimeStr={`${time} on ${date}`}
         loading={loading}
       />

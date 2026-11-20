@@ -1,6 +1,6 @@
 import "server-only";
 
-import { assertPerm } from "@/lib/permissions";
+import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
@@ -13,97 +13,216 @@ import { getTenantDoctorMap } from "@/features/staff/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { callCommand } from "@/lib/commands/call-command";
+import { clientRequestIdSchema } from "@/lib/commands/request-id";
+import { appError, type AppError, type Result } from "@/lib/errors/app-error";
+import type { DbErrorMessages } from "@/lib/db/errors";
+import { z } from "zod";
+import { patientSchema, newPatientPayload } from "@/features/patients/schema";
+import { visitDurationSchema, DEFAULT_VISIT_DURATION_MINUTES } from "@/features/visits/duration";
 
 // Queue use-cases (check-in, state transitions, day board). Tenant and actor come only from `ctx` (ADR-0005 D1);
 // each use-case checks the permission its server action checked before the move.
 
-export type CheckInResult =
-  | { success: true; tokenNumber: number; queueTokenId: string }
-  | { success: false; error: string };
+/** Fixed, data-free texts by reason or code for `check_in_visit` (V2-07 07-01). The driver message never reaches the caller. */
+export const CHECK_IN_COMMAND_MESSAGES = {
+  NOT_FOUND: "Visit record not found.",
+  FORBIDDEN: "You do not have permission to check in visits.",
+  VALIDATION_FAILED: "Invalid check-in request.",
+  VISIT_NOT_CHECKABLE: "This visit can no longer be checked in.",
+  LOCK_TIMEOUT: "The queue is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to generate queue token.",
+} as const satisfies DbErrorMessages;
 
+const checkInRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  queue_token_id: z.string().uuid(),
+  token_number: z.number().int(),
+  priority: z.string(),
+  reused: z.boolean(),
+  status_repaired: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export type CheckInResult =
+  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean }
+  | { success: false; error: string; code?: AppError["code"]; reason?: string };
+
+/**
+ * Checks a visit in as one atomic command (`public.check_in_visit`, V2-07 07-01): the visit's queue token (its existing
+ * one, or the next of the clinic-local day), the visit moved to `waiting` (a visit that already holds a token but was
+ * left without the status is repaired) and the `queue.check_in` audit row, all in one transaction. The same
+ * `client_request_id` replays the first result.
+ */
 export async function checkInVisit(
   ctx: ServiceContext,
   visitId: string,
-  priority: QueuePriority = "normal"
+  priority: QueuePriority,
+  clientRequestId: string
 ): Promise<CheckInResult> {
-  const supabase = ctx.db;
-
   try {
     assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    // 1. Verify visit belongs to tenant and get current state
-    // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
-    // one must not reach the other's visit by id (AR-M2b).
-    const { data: visit, error: visitError } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("visits") as any
-    )
-      .select("*")
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId)
-      .single()) as { data: Visit | null; error: { message: string } | null };
-
-    if (visitError || !visit) {
-      return { success: false, error: "Visit record not found." };
-    }
-
-    // 2. The visit's token (V2-05 05-11a, M-TOKEN): `issue_queue_token` takes the clinic from the visit, checks
-    // appointments:edit in the active clinic and, under a lock on the visit, either returns the token the visit already
-    // has (`reused`: a repeat check-in) or advances the per-clinic, per-day counter and writes the `queue_tokens` row
-    // itself. Members hold no INSERT privilege on `queue_tokens` and cannot write `token_number` or `date`, so a forged
-    // token can no longer stop the clinic's check-ins. The day is the clinic-local date computed in SQL
-    // (`tenant_local_date`, the same zone rules as lib/datetime).
-    const { data: tokenRows, error: rpcError } = await supabase.rpc("issue_queue_token", {
-      p_visit_id: visitId,
-      p_priority: priority,
-    });
-    const issued = Array.isArray(tokenRows) ? tokenRows[0] : undefined;
-
-    if (rpcError || !issued || issued.token_number == null || !issued.queue_token_id) {
-      log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to generate queue token." };
-    }
-    const tokenNumber = issued.token_number;
-
-    // A repeat check-in returns the visit's existing token unchanged (no status move, no second audit row).
-    if (issued.reused) {
-      return { success: true, tokenNumber, queueTokenId: issued.queue_token_id };
-    }
-    const newToken = { id: issued.queue_token_id };
-
-    // 3. Update visit status to 'waiting'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
-      .update({
-        status: "waiting",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
-
-    // 4. Record audit log
-    await recordAudit(ctx, {
-      action: "queue.check_in",
-      entityType: "queue_token",
-      entityId: newToken.id,
-      metadata: {
-        token_number: tokenNumber,
-        priority,
-      },
-    });
-
-    return {
-      success: true,
-      tokenNumber,
-      queueTokenId: newToken.id,
-    };
   } catch (err: unknown) {
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to check in visit.", "queue.check_in_visit.failed"),
     };
   }
+
+  const input = z
+    .object({ visit: z.string().uuid(), priority: z.enum(["normal", "urgent", "vip"]), request: clientRequestIdSchema })
+    .safeParse({ visit: visitId, priority, request: clientRequestId });
+  if (!input.success) {
+    return { success: false, error: CHECK_IN_COMMAND_MESSAGES.VALIDATION_FAILED, code: "VALIDATION_FAILED" };
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "check_in_visit",
+    { p_visit_id: visitId, p_priority: priority, p_client_request_id: clientRequestId },
+    checkInRpcResultSchema,
+    CHECK_IN_COMMAND_MESSAGES,
+    { event: "queue.check_in_visit.failed" }
+  );
+  if (!outcome.ok) {
+    return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
+  }
+  return {
+    success: true,
+    tokenNumber: outcome.value.token_number,
+    queueTokenId: outcome.value.queue_token_id,
+    replayed: outcome.value.replayed,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Walk-in (V2-07 07-03). One atomic command (`public.enqueue_walk_in`, migration 000098): the patient (when new), the
+// walk-in visit and its queue token commit together or not at all; the same `client_request_id` replays the first result.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** Fixed, data-free texts by reason or code for `enqueue_walk_in`. The driver message never reaches the caller. */
+export const WALK_IN_COMMAND_MESSAGES = {
+  NOT_FOUND: "Patient or doctor not found in this clinic.",
+  FORBIDDEN: "You do not have permission to register walk-ins.",
+  VALIDATION_FAILED: "Please check the patient and visit details.",
+  VISIT_NOT_CHECKABLE: "This visit can no longer be checked in.",
+  LOCK_TIMEOUT: "The queue is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to register walk-in.",
+} as const satisfies DbErrorMessages;
+
+const walkInInputSchema = z
+  .object({
+    /** An existing patient of the clinic; exactly one of this and `new_patient`. */
+    patient_id: z.string().uuid("Invalid patient ID").nullable().optional(),
+    /** A new patient (the patient form's fields); registered in the same transaction as the visit. */
+    new_patient: z.unknown().nullable().optional(),
+    doctor_id: z.string().uuid("Invalid doctor ID"),
+    priority: z.enum(["normal", "urgent", "vip"]).default("normal"),
+    reason_for_visit: z.string().trim().max(500).nullable().optional(),
+    estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
+  })
+  .refine((v) => (v.patient_id ? 1 : 0) + (v.new_patient ? 1 : 0) === 1, {
+    message: "Choose an existing patient or register a new one.",
+  });
+
+export type EnqueueWalkInInput = z.input<typeof walkInInputSchema>;
+
+const walkInRpcResultSchema = z.object({
+  patient_id: z.string().uuid(),
+  patient_created: z.boolean(),
+  visit_id: z.string().uuid(),
+  queue_token_id: z.string().uuid(),
+  token_number: z.number().int(),
+  priority: z.string(),
+  replayed: z.boolean(),
+});
+
+export interface WalkInValue {
+  patientId: string;
+  patientCreated: boolean;
+  visitId: string;
+  queueTokenId: string;
+  tokenNumber: number;
+  priority: string;
+  /** True when this client_request_id was already registered: nothing new was written. */
+  replayed: boolean;
+}
+
+/**
+ * Registers a walk-in as one atomic command (V2-07 07-03): [new patient] + walk-in visit (`waiting`) + queue token, with
+ * the `patient.create`, `visit.create` and `queue.check_in` audit rows, in one transaction. A failure in any step leaves
+ * no patient, no visit and no token behind. `appointments:edit`, plus `patients:edit` when a patient is registered.
+ */
+export async function enqueueWalkIn(
+  ctx: ServiceContext,
+  input: EnqueueWalkInInput,
+  clientRequestId: string
+): Promise<Result<WalkInValue>> {
+  const parsed = walkInInputSchema.safeParse(input);
+  const id = clientRequestIdSchema.safeParse(clientRequestId);
+  if (!parsed.success || !id.success) {
+    return {
+      ok: false,
+      error: appError("VALIDATION_FAILED", {
+        message: parsed.success ? WALK_IN_COMMAND_MESSAGES.VALIDATION_FAILED : (parsed.error.issues[0]?.message ?? WALK_IN_COMMAND_MESSAGES.VALIDATION_FAILED),
+      }),
+    };
+  }
+  const data = parsed.data;
+
+  if (!hasPerm(ctx.role, "appointments:edit") || (data.new_patient && !hasPerm(ctx.role, "patients:edit"))) {
+    return { ok: false, error: appError("FORBIDDEN", { message: WALK_IN_COMMAND_MESSAGES.FORBIDDEN }) };
+  }
+
+  let newPatient: Record<string, unknown> | null = null;
+  if (data.new_patient) {
+    const patient = patientSchema.safeParse(data.new_patient);
+    if (!patient.success) {
+      const fieldErrors: Record<string, string[]> = {};
+      for (const issue of patient.error.issues) {
+        const field = issue.path[0]?.toString() || "form";
+        (fieldErrors[field] ||= []).push(issue.message);
+      }
+      return {
+        ok: false,
+        error: appError("VALIDATION_FAILED", { message: patient.error.issues[0]?.message ?? "Please correct the highlighted errors.", fieldErrors }),
+      };
+    }
+    newPatient = newPatientPayload(patient.data);
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "enqueue_walk_in",
+    {
+      p_patient_id: data.patient_id ?? null,
+      p_new_patient: newPatient,
+      p_doctor_id: data.doctor_id,
+      p_priority: data.priority,
+      p_client_request_id: clientRequestId,
+      p_reason: data.reason_for_visit || null,
+      p_duration_minutes: data.estimated_duration_minutes,
+    },
+    walkInRpcResultSchema,
+    WALK_IN_COMMAND_MESSAGES,
+    { event: "queue.enqueue_walk_in.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return {
+    ok: true,
+    value: {
+      patientId: v.patient_id,
+      patientCreated: v.patient_created,
+      visitId: v.visit_id,
+      queueTokenId: v.queue_token_id,
+      tokenNumber: v.token_number,
+      priority: v.priority,
+      replayed: v.replayed,
+    },
+  };
 }
 
 export type TransitionStateResult =

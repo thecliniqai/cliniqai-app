@@ -163,6 +163,7 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
       items: [{ item_type: "consultation" as const, description: "Synthetic fee", unit_price: 100, quantity: 1 }],
       discount: 0,
       tax: 0,
+      client_request_id: randomUUID(),
     });
     expect((await createVisitInvoice(ctxFor(receptionistA), input(B.visit, B.patient))).success).toBe(false);
     expect((await createVisitInvoice(ctxFor(receptionistA), input(A.visit, B.patient))).success).toBe(false);
