@@ -61,6 +61,13 @@
  *          REQUIRED_FILES line, stack 000094) had 6307 tests in 307 files, 0 skipped
  *          (evidence/06-09e/vitest-full-summary.txt); 6307 × 0.95 = 5991.65 → 5992. REQUIRED_FILES +
  *          tests/design/design-review-09e.spec.ts (220 in total).
+ *   6385 — V2-08 08-01a (R-3, the V2-07 backlog item "re-measure the floor"): the full suite at the V2-07 merge tree
+ *          (9ce25d7 + the V2-08 plan docs, stack 000099) had 6721 tests in 320 files, 0 skipped, matching the V2-07
+ *          evidence run; 6721 × 0.95 = 6384.95 → 6385. (The report held 5 failed tests: 4 in tests/commands/use-command.spec.ts,
+ *          which ran against this plan's in-progress runner change, and 1 random-hex collision in tests/labs/lab-storage-key.spec.ts,
+ *          both fixed in the same plan; the count is what the floor uses.) V2-07 added no spec outside tests/e2e that
+ *          REQUIRED_FILES lacks (checked against the V2-06 head d86b332: 13 files, all present). REQUIRED_FILES + the two
+ *          08-01a specs (tests/commands/save-state.spec.ts, tests/staff/doctor-picker.spec.ts; 235 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -69,7 +76,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 5992;
+const FLOOR = 6385;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -374,6 +381,9 @@ const REQUIRED_FILES = [
   // re-measured at the V2-07 gate.
   "tests/visits/booking-template-fault.spec.ts",
   "tests/visits/slot-conflict-text.spec.ts",
+  // V2-08 08-01a (useCommand SaveStatus mapping, doctor picker R-2).
+  "tests/commands/save-state.spec.ts",
+  "tests/staff/doctor-picker.spec.ts",
 ];
 
 const file = process.argv[2];
