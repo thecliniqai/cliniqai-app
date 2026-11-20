@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(93);
+select plan(95);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -187,6 +187,7 @@ insert into c2c_definer values
   ('public.check_in_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
   ('public.start_consultation', 'bound', 'p_tenant_id = active clinic with consultations:edit and appointments:edit; the visit is looked up in that clinic only (000100, 08-01b, R-1)'),
   ('public.complete_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000100, 08-01b)'),
+  ('public.register_patient', 'bound', 'p_tenant_id = active clinic with patients:edit; the patient is inserted in that clinic only (000101, 08-02, R-12)'),
   ('public.enqueue_walk_in', 'bound', 'p_tenant_id = active clinic with appointments:edit (+ patients:edit for a new patient); patient and doctor are looked up in that clinic only (000098, 07-03, R-1)'),
   ('public.register_and_book', 'bound', 'p_tenant_id = active clinic with appointments:edit (+ patients:edit for a new patient); patient and doctor are looked up in that clinic only (000098, 07-03, R-1)'),
   ('public.complete_and_bill', 'bound', 'p_tenant_id = active clinic with consultations:edit (+ billing:collect with a payment); the visit is looked up in that clinic only (000098, 07-03, R-1, R-7)'),
@@ -335,7 +336,7 @@ select set_eq(
     'private.command_claim:', 'private.command_complete:', 'private.command_request_hash:', 'private.log_command_audit:',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',
-    'public.start_consultation:authenticated', 'public.complete_visit:authenticated', 'private.visits_status_transition_guard:',
+    'public.start_consultation:authenticated', 'public.complete_visit:authenticated', 'public.register_patient:authenticated', 'private.visits_status_transition_guard:',
     'public.sign_consultation:authenticated', 'public.reopen_visit_for_amendment:authenticated',
     'public.finalize_visit_amendment:authenticated', 'public.check_in_visit:authenticated',
     'private.step_sign_consultation:', 'private.step_check_in:',
@@ -448,6 +449,8 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000
   'error:P0002:VISIT_NOT_FOUND', 'start_consultation: acting in A, naming clinic B, is not found (000100, 08-01b)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.complete_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0029')$$),
   'error:P0002:VISIT_NOT_FOUND', 'complete_visit: acting in A, naming clinic B, is not found (000100, 08-01b)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.register_patient('c2c00000-0000-4000-8000-00000000000b', '{"full_name":"Synthetic Elsewhere","phone":"9000000707","age":30}'::jsonb, 'c2c00000-0000-4000-8000-0000000c0040')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'register_patient: acting in A, naming clinic B, is not found (000101, 08-02)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.enqueue_walk_in('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', 'normal', 'c2c00000-0000-4000-8000-0000000c0025')$$),
   'error:P0002:PATIENT_NOT_FOUND', 'enqueue_walk_in: acting in A, naming clinic B, is not found (000098, 07-03)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.register_and_book('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', now() + interval '3 days', 15, false, 'c2c00000-0000-4000-8000-0000000c0026')$$),
@@ -503,7 +506,7 @@ insert into c2c_access values
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
   ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
   ('public.finalize_visit_amendment', 'refuses'), ('public.check_in_visit', 'refuses'),
-  ('public.start_consultation', 'refuses'), ('public.complete_visit', 'refuses'),
+  ('public.start_consultation', 'refuses'), ('public.complete_visit', 'refuses'), ('public.register_patient', 'refuses'),
   ('public.enqueue_walk_in', 'refuses'), ('public.register_and_book', 'refuses'), ('public.complete_and_bill', 'refuses'),
   ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
@@ -609,6 +612,8 @@ select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-00
   'error:P0002:VISIT_NOT_FOUND', 'locked B: start_consultation is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.complete_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0039')$$),
   'error:P0002:VISIT_NOT_FOUND', 'locked B: complete_visit is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.register_patient('c2c00000-0000-4000-8000-00000000000b', '{"full_name":"Synthetic Locked","phone":"9000000707","age":30}'::jsonb, 'c2c00000-0000-4000-8000-0000000c0041')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'locked B: register_patient is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.enqueue_walk_in('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', 'normal', 'c2c00000-0000-4000-8000-0000000c0035')$$),
   'error:P0002:PATIENT_NOT_FOUND', 'locked B: enqueue_walk_in is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.register_and_book('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', now() + interval '3 days', 15, false, 'c2c00000-0000-4000-8000-0000000c0036')$$),

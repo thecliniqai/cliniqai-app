@@ -3439,6 +3439,19 @@ export type Database = {
         };
         Returns: Json;
       };
+      find_patient_duplicates: {
+        Args: { p_age: number; p_dob: string; p_name: string; p_phone: string };
+        Returns: {
+          age: number;
+          date_of_birth: string;
+          full_name: string;
+          id: string;
+          last_visit_at: string;
+          phone_last4: string;
+          reasons: string[];
+          sex: string;
+        }[];
+      };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
         Returns: string;
@@ -3606,6 +3619,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      register_patient: {
+        Args: {
+          p_client_request_id: string;
+          p_patient: Json;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       release_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
@@ -3648,6 +3669,19 @@ export type Database = {
           is_custom: boolean;
           is_favorite: boolean;
           medicine_name: string;
+        }[];
+      };
+      search_patients: {
+        Args: { p_limit?: number; p_query: string };
+        Returns: {
+          age: number;
+          date_of_birth: string;
+          full_name: string;
+          id: string;
+          last_visit_at: string;
+          phone_last4: string;
+          rank: number;
+          sex: string;
         }[];
       };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
