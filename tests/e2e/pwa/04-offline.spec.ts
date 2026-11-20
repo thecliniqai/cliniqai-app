@@ -35,8 +35,13 @@ test("offline: a navigation shows the /offline page; Today keeps its rows and sh
   await expect(banner).toContainText(/You're offline · showing data from \d{1,2}:\d{2}\s?(am|pm)\. Changes are disabled until you reconnect\./i);
   expect(await main.innerText(), "the rows already on screen stay (held in memory)").toBe(onScreen);
 
+  // Back online, Today re-fetches once (lib/pwa/resume.ts, router.refresh()). Wait for that RSC answer before going
+  // offline again: if the network drops while it is in flight, Next falls back to a full navigation of the current URL
+  // (fetch-server-response.js), which aborts the goto below (the 2026-11-20 flake, CI 44806259261).
+  const refreshed = page.waitForResponse((r) => r.request().headers()["rsc"] === "1");
   await context.setOffline(false);
   await expect(banner).toHaveCount(0);
+  await refreshed;
   expect(await main.innerText()).toBe(onScreen);
 
   await context.setOffline(true);
