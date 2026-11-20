@@ -1,0 +1,39 @@
+/* Direction B — "Calm Azure · Deep Blue". Loaded AFTER clinic-paper.css (prototypes: ?dir=b).
+   Overrides the RAW palette (same token names, so every semantic and component alias follows) plus
+   the two semantic decisions that resolve the primary-blue / info-blue collision:
+     1. "Booked" and the information tone move to a slate blue-grey (info-600 → #4C6680, info-50 → #EEF2F7)
+        so the primary blue is the only saturated blue on screen;
+     2. the focus ring stays #2879B8 but is always drawn on a white halo, so it never meets the primary fill. */
+:root {
+  --color-mineral-50: #f7f9fc;
+  --color-mineral-100: #eef2f7;
+  --color-mineral-200: #e1e7ef;
+  --color-mineral-300: #cad5e2;
+  --color-mineral-400: #98a6b6;
+  --color-mineral-450: #7a8b9c; /* AA: control border, 3.1:1 on the muted surface */
+  --color-mineral-500: #718397;
+  --color-mineral-550: #566a7e; /* AA: muted text on the muted surface */
+  --color-mineral-600: #45596d;
+  --color-mineral-900: #192b3d;
+
+  --color-primary-50: #f3f7fc;
+  --color-primary-100: #eaf2fa;
+  --color-primary-200: #cddff0;
+  --color-primary-500: #2f6ea8;
+  --color-primary-600: #245b8f;
+  --color-primary-700: #1d4c78;
+  --color-primary-800: #163b60;
+
+  --color-brass-50: #f7f3ec;
+  --color-brass-500: #b69a70;
+  --color-brass-700: #6b5739;
+
+  --color-info-50: #eef2f7;
+  --color-info-600: #4c6680;
+
+  --color-scrim: rgb(25 43 61 / 0.32);
+  --shadow-card: 0 8px 28px rgb(25 43 61 / 0.06);
+  --shadow-popover: 0 2px 6px rgb(25 43 61 / 0.06), 0 12px 32px rgb(25 43 61 / 0.1);
+  --shadow-overlay: 0 24px 56px rgb(25 43 61 / 0.16), 0 2px 8px rgb(25 43 61 / 0.06);
+  --banner-offline-bg: var(--color-mineral-900);
+}

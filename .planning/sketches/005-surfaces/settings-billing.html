@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Plan and billing · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<div id="app"></div>
+<template id="tpl">
+<div class="banner banner-info"><i data-icon="clock"></i><span>Free trial until 27 Nov. Your first debit is on 27 Nov, 10:00 am.</span></div>
+<div class="lf" style="max-width:880px">
+  <header class="lf-head"><p class="tag">DX-04 · low fidelity · /settings/billing (owner, admin)</p><h1 class="title-1">Plan and billing</h1></header>
+  <section class="card" aria-labelledby="p1">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><h2 id="p1">Standard plan</h2><span class="chip" style="background:var(--color-info-bg);color:var(--color-info-fg)">Free trial</span></div>
+    <div class="price"><b>₹1,499 + GST</b><span>per month</span></div>
+    <div>
+      <div class="kvrow"><span class="k">Next debit</span><span class="v"><b>₹1,768.82</b> on 27 Nov 2026 · ₹1,499 + ₹269.82 GST (18%)</span></div>
+      <div class="kvrow"><span class="k">Payment method</span><span class="v">UPI AutoPay · s•••••@upi · <a href="#">Change</a></span></div>
+      <div class="kvrow"><span class="k">Billing details</span><span class="v">Asha Clinic · Maharashtra · no GSTIN · <a href="#">Edit</a></span></div>
+    </div>
+  </section>
+  <section class="card" aria-labelledby="p2">
+    <h2 id="p2">Invoices</h2>
+    <p class="body-sm muted">Your first GST invoice appears here after the first debit.</p>
+  </section>
+  <section class="card" aria-labelledby="p3">
+    <h2 id="p3">Your data</h2>
+    <p class="body-sm muted">A full export (CSV, JSON and files) of everything your clinic stored. Owner only; asks for your password again.</p>
+    <button type="button" class="btn btn-secondary" style="justify-self:start"><i data-icon="download"></i>Download all clinic data</button>
+  </section>
+  <section class="card" aria-labelledby="p5">
+    <h2 id="p5">Coming later</h2>
+    <div class="soon"><span>AI features</span><span>Coming soon</span></div>
+  </section>
+  <section class="card" aria-labelledby="p4">
+    <h2 id="p4">Cancel subscription</h2>
+    <p class="body-sm muted">During the trial, cancelling stops the mandate now; you keep access until 27 Nov, 10:00 am and are not charged.</p>
+    <button type="button" class="btn btn-secondary" style="justify-self:start;color:var(--color-danger-fg)">Cancel subscription</button>
+  </section>
+</div>
+</template>
+<script src="../shared/proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+    const P = window.Proto;
+    P.shell({ active: "settings", user: { initials: "SK", name: "Dr S Kulkarni", role: "Owner" }, topbar: '<h1 class="title-3" style="flex:1">Settings</h1>' + P.topbarIcons({ initials: "SK" }), main: document.getElementById("tpl").innerHTML });
+    P.hydrate();
+  })();
+</script>
+</body>
+</html>

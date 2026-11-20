@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Install and app states · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<main class="lf" id="main">
+  <header class="lf-head"><p class="tag">DX-04 · low fidelity</p><h1 class="title-1">Install, update and offline states</h1><p class="muted">Copy and placement per PWA_STRATEGY §3.6, §3.7, §6. Shown only inside the signed-in shell; never on login, onboarding, consult or checkout.</p></header>
+  <div class="lf-grid">
+    <section class="card" aria-labelledby="a1">
+      <p class="tag">Android · one-time card on Today (2nd session onward)</p>
+      <div style="display:flex;gap:12px;align-items:flex-start"><span data-mark="44"></span><div style="display:grid;gap:4px"><h2 id="a1">Install CliniQ AI on this device</h2><p class="body-sm muted">Opens like an app, full screen, from your home screen. Patient data is not stored on the device.</p></div></div>
+      <div style="display:flex;gap:8px"><button type="button" class="btn btn-primary">Install</button><button type="button" class="btn btn-ghost">Not now</button></div>
+      <p class="caption subtle">“Not now” hides it for 30 days. “Install app” stays in More and the account menu.</p>
+    </section>
+    <section class="card" aria-labelledby="a2">
+      <p class="tag">iPhone and iPad · instruction sheet from “Install app”</p>
+      <div class="sheet-mock"><h2 id="a2">Add CliniQ AI to your Home Screen</h2>
+        <ol class="steps">
+          <li><span>Tap <b>Share</b> <i data-icon="share" class="icon-16"></i> in Safari’s toolbar.</span></li>
+          <li><span>Choose <b>Add to Home Screen</b> <i data-icon="addsquare" class="icon-16"></i>.</span></li>
+          <li><span>Keep <b>Open as Web App</b> on, then tap <b>Add</b>.</span></li>
+        </ol>
+        <p class="body-sm muted">You’ll need to sign in once inside the app.</p>
+        <button type="button" class="btn btn-secondary btn-block">Done</button>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="a3">
+      <p class="tag">Opened inside WhatsApp or Gmail (in-app browser)</p>
+      <h2 id="a3">Open in Chrome to install</h2>
+      <p class="body-sm muted">This browser inside WhatsApp can’t install apps or keep you signed in. Open the same page in Chrome.</p>
+      <button type="button" class="btn btn-primary"><i data-icon="external"></i>Open in Chrome</button>
+      <p class="caption subtle">On iPhone the same card says “Open in Safari” with the ⋯ → Open in Safari steps.</p>
+    </section>
+    <section class="card" aria-labelledby="a4">
+      <p class="tag">Update ready (toast) · applied at the next safe point</p>
+      <h2 id="a4" class="sr-only">Update toast</h2>
+      <div class="toast" style="max-width:none"><span>A new version is ready.</span><button type="button" class="btn">Reload</button></div>
+      <div class="toast" style="max-width:none"><span>This app was updated. Reload to continue. Your typing is kept until you do.</span><button type="button" class="btn">Reload</button></div>
+    </section>
+    <section class="card" aria-labelledby="a5">
+      <p class="tag">Offline banner (under the top bar)</p>
+      <h2 id="a5" class="sr-only">Offline banner</h2>
+      <div class="banner banner-offline" style="border-radius:var(--radius-md)"><i data-icon="wifioff"></i><span>You’re offline. Showing data from 10:42 am. Changes can’t be saved until you reconnect.</span></div>
+      <div class="banner banner-info" style="border-radius:var(--radius-md)"><i data-icon="refresh"></i><span>Reconnecting live updates…</span></div>
+      <p class="body-sm muted">Write buttons stay visible but disabled, with the reason in a tooltip. Consult notes: “Offline · not saved. Reconnect to save”.</p>
+    </section>
+  </div>
+</main>
+<script src="../shared/proto.js"></script>
+</body>
+</html>

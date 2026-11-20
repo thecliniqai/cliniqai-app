@@ -1,0 +1,362 @@
+/* =====================================================================================================
+   Clinic Paper, round 3 — clinicOS v2 design tokens. Direction A "Calm Confidence · Botanical Teal".
+   -----------------------------------------------------------------------------------------------------
+   White-first, light only. Values from the PO's reference (references/po-calm-palette-option-a.html);
+   the three AA-driven deviations are marked "AA:" below and listed in V2-DX-PROPOSAL.md §1.
+   Direction B ("Calm Azure") is themes/direction-b.css: it overrides ONLY the raw palette and a few
+   semantic aliases, loaded after this file (prototypes: ?dir=b).
+
+   This file is plain CSS so the throw-away prototypes can load it from file://, and so 06-01b can copy it
+   into the app UNCHANGED (app/globals.css imports it, then the generated clinic-paper.theme.css).
+
+   Layers (components must only use layers 2 to 4):
+     1. RAW        palette and families. Never referenced by components or the codemod.
+     2. SEMANTIC   what a colour MEANS (canvas, fg-muted, accent, status-waiting-bg …).
+     3. STRUCTURE  type scale, radius, elevation, motion, spacing incl. control sizes and the 44 px touch floor.
+     4. COMPONENT  per-component aliases of semantic tokens.
+   ===================================================================================================== */
+
+/* Inter (OFL, rsms/inter via @fontsource-variable/inter 5.2.5) — PO G2-D choice 2026-11-13. Vendored; no network.
+   Font is a token: change --font-sans (and these faces) to swap typefaces. */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-latin-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-latin-ext-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+
+:root {
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------- 1. RAW ---------------------- */
+  --color-white: #ffffff;
+  --color-mineral-50: #f8faf9; /* soft surface */
+  --color-mineral-100: #f1f5f3; /* muted surface */
+  --color-mineral-200: #e3eae6; /* hairline */
+  --color-mineral-300: #cdd9d2; /* strong border (decorative) */
+  --color-mineral-400: #96a39e; /* subtle ink: disabled, decorative only */
+  --color-mineral-450: #7f8e87; /* AA: control border, 3.4:1 on white and 3.1:1 on the muted surface (PO strong border is 1.45:1) */
+  --color-mineral-500: #71817b; /* PO muted ink: icons and large text only (4.09:1) */
+  --color-mineral-550: #5c6c66; /* AA: muted text, 5.0:1 on the muted surface */
+  --color-mineral-600: #425650; /* secondary ink */
+  --color-mineral-900: #182b27; /* primary ink */
+
+  --color-primary-50: #f3f8f5; /* tint */
+  --color-primary-100: #eaf4f0; /* soft / wash */
+  --color-primary-200: #cfe3db;
+  --color-primary-500: #2a8572;
+  --color-primary-600: #176b5b; /* primary */
+  --color-primary-700: #12584b; /* hover */
+  --color-primary-800: #0d493f; /* pressed */
+
+  --color-brass-50: #f7f1e8;
+  --color-brass-500: #b58a55;
+  --color-brass-700: #6d5434; /* AA: text on brass-50 (PO #80613B is 5.07:1 too; 700 keeps 6.3:1 at 12 px) */
+
+  --color-success-50: #eaf5ee;
+  --color-success-600: #26734d;
+  --color-warning-50: #fbf3e5;
+  --color-warning-600: #8f5e1b; /* AA: PO #98651E is 4.44:1 on the accent wash; this keeps ≥ 4.9:1 on every tint */
+  --color-danger-50: #fbeded;
+  --color-danger-600: #b54848;
+  --color-info-50: #eaf2f8;
+  --color-info-600: #356f9b;
+
+  --color-focus: #2879b8;
+  --color-focus-halo: #eaf3fa;
+
+  /* ---------------------------------------------------------------- 2. SEMANTIC ----------------- */
+  --color-canvas: var(--color-white);
+  --color-surface: var(--color-white);
+  --color-surface-soft: var(--color-mineral-50);
+  --color-surface-muted: var(--color-mineral-100);
+  --color-sunken: var(--color-mineral-100); /* kept name: wells, segmented tracks, table heads */
+  --color-hover: var(--color-mineral-50);
+  --color-selected: var(--color-primary-100);
+  --color-scrim: rgb(24 43 39 / 0.32);
+
+  --color-fg: var(--color-mineral-900);
+  --color-fg-body-tint: var(--color-mineral-600);
+  --color-fg-secondary: var(--color-mineral-600);
+  --color-fg-muted: var(--color-mineral-550);
+  --color-fg-subtle: var(--color-mineral-550);
+  --color-fg-icon: var(--color-mineral-500);
+  --color-fg-placeholder: var(--color-mineral-550);
+  --color-fg-disabled: var(--color-mineral-400);
+  --color-fg-on-accent: var(--color-white);
+
+  --color-border: var(--color-mineral-200);
+  --color-border-subtle: var(--color-mineral-200);
+  --color-border-strong: var(--color-mineral-300);
+  --color-border-control: var(--color-mineral-450);
+
+  --color-accent: var(--color-primary-600);
+  --color-accent-hover: var(--color-primary-700);
+  --color-accent-pressed: var(--color-primary-800);
+  --color-accent-subtle: var(--color-primary-100);
+  --color-accent-tint: var(--color-primary-50);
+  --color-accent-fg: var(--color-primary-600);
+  --color-accent-border: var(--color-primary-200);
+  --color-accent-disabled: var(--color-primary-200);
+  /* Secondary (editorial) accent: highlights and the "To bill" state. Never a second action colour. */
+  --color-accent-2: var(--color-brass-500);
+  --color-accent-2-bg: var(--color-brass-50);
+  --color-accent-2-fg: var(--color-brass-700);
+
+  --color-ring: var(--color-focus);
+  --color-ring-halo: var(--color-white);
+  --color-ring-glow: var(--color-focus-halo);
+
+  --color-success-bg: var(--color-success-50);
+  --color-success-fg: var(--color-success-600);
+  --color-success-border: var(--color-success-600);
+  --color-warning-bg: var(--color-warning-50);
+  --color-warning-fg: var(--color-warning-600);
+  --color-warning-border: var(--color-warning-600);
+  --color-danger-bg: var(--color-danger-50);
+  --color-danger-fg: var(--color-danger-600);
+  --color-danger-border: var(--color-danger-600);
+  --color-danger-solid: var(--color-danger-600);
+  --color-info-bg: var(--color-info-50);
+  --color-info-fg: var(--color-info-600);
+  --color-info-border: var(--color-info-600);
+
+  /* Visit status (one map drives every pill, token chip and lane; DESIGN_SYSTEM §7.5) */
+  --color-status-booked-bg: var(--color-info-bg);
+  --color-status-booked-fg: var(--color-info-fg);
+  --color-status-booked-border: var(--color-info-fg);
+  --color-status-waiting-bg: var(--color-warning-bg);
+  --color-status-waiting-fg: var(--color-warning-fg);
+  --color-status-waiting-border: var(--color-warning-fg);
+  --color-status-with-doctor-bg: var(--color-accent-subtle);
+  --color-status-with-doctor-fg: var(--color-accent-fg);
+  --color-status-with-doctor-border: var(--color-accent);
+  --color-status-to-bill-bg: var(--color-accent-2-bg);
+  --color-status-to-bill-fg: var(--color-accent-2-fg);
+  --color-status-to-bill-border: var(--color-accent-2-fg);
+  --color-status-done-bg: var(--color-success-bg);
+  --color-status-done-fg: var(--color-success-fg);
+  --color-status-done-border: var(--color-success-fg);
+  --color-status-no-show-bg: var(--color-danger-bg);
+  --color-status-no-show-fg: var(--color-danger-fg);
+  --color-status-no-show-border: var(--color-danger-fg);
+  --color-status-cancelled-bg: var(--color-surface-muted);
+  --color-status-cancelled-fg: var(--color-fg-muted);
+  --color-status-cancelled-border: var(--color-fg-muted);
+
+  --color-alert-allergy-bg: var(--color-danger-600);
+  --color-alert-allergy-fg: var(--color-white);
+  --color-alert-unrecorded-bg: var(--color-warning-50);
+  --color-alert-unrecorded-fg: var(--color-warning-600);
+
+  --color-finding-normal-fg: var(--color-fg-muted);
+  --color-finding-abnormal-bg: var(--color-warning-bg);
+  --color-finding-abnormal-fg: var(--color-warning-fg);
+  --color-finding-abnormal-border: var(--color-warning-fg);
+
+  --color-ai-bg: var(--color-white);
+  --color-ai-fg: var(--color-fg);
+  --color-ai-border: var(--color-border-control);
+  --color-ai-glyph: var(--color-fg);
+  --color-smart-fg: var(--color-fg-muted);
+  --color-preview-bg: var(--color-info-bg);
+  --color-preview-fg: var(--color-info-fg);
+  --color-preview-border: var(--color-info-fg);
+
+  /* ---------------------------------------------------------------- 3. STRUCTURE ---------------- */
+  --font-sans: "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif,
+    system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-features: "cv11", "ss01";
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Type scale, round 3 (smaller; hierarchy by weight, colour and spacing). Desktop body is 14 px. */
+  --text-caption: 0.6875rem; /* 11: pills, eyebrows (600 weight, never below 11) */
+  --text-caption--line-height: 0.875rem;
+  --text-label: 0.75rem; /* 12: meta, captions, table heads */
+  --text-label--line-height: 1rem;
+  --text-body-sm: 0.8125rem; /* 13: secondary rows, dense tables */
+  --text-body-sm--line-height: 1.125rem;
+  --text-body-md: 0.875rem; /* 14: tiles, list rows, desktop body */
+  --text-body-md--line-height: 1.25rem;
+  --text-body: 0.875rem; /* 14: body copy (phone raises inputs to 16 to avoid zoom) */
+  --text-body--line-height: 1.375rem;
+  --text-body-lg: 0.9375rem; /* 15: lead copy, patient-facing print */
+  --text-body-lg--line-height: 1.375rem;
+  --text-title-3: 0.875rem; /* 14 semibold: section headings inside a page */
+  --text-title-3--line-height: 1.25rem;
+  --text-title-2: 1rem; /* 16 semibold: panel titles, patient name in a header */
+  --text-title-2--line-height: 1.375rem;
+  --text-title-1: 1.25rem; /* 20 semibold: page title */
+  --text-title-1--line-height: 1.625rem;
+  --text-display: 1.625rem; /* 26: marketing and onboarding only */
+  --text-display--line-height: 2rem;
+  --text-token: 1.375rem; /* 22: token numbers in large chips */
+  --text-token--line-height: 1.5rem;
+  --text-token-sm: 1.0625rem; /* 17: token numbers in rows */
+  --text-token-sm--line-height: 1.25rem;
+  --text-input: 0.875rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --tracking-title: -0.015em;
+  --tracking-caps: 0.08em;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  --shadow-hairline: 0 0 0 1px var(--color-border);
+  --shadow-card: 0 8px 28px rgb(24 43 39 / 0.06);
+  --shadow-popover: 0 2px 6px rgb(24 43 39 / 0.06), 0 12px 32px rgb(24 43 39 / 0.1);
+  --shadow-overlay: 0 24px 56px rgb(24 43 39 / 0.16), 0 2px 8px rgb(24 43 39 / 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-sheet: 240ms;
+  --duration-flash: 600ms;
+
+  /* Sizes. Visual height can be compact; the HIT area is ≥ 44 px on touch (see sketch.css). */
+  --spacing-control: 2.75rem; /* 44: touch floor */
+  --spacing-control-dense: 2.25rem; /* 36: desktop buttons and inputs */
+  --spacing-control-compact: 2rem; /* 32: desktop tiles, row actions, segmented */
+  --spacing-pill: 1.25rem; /* 20: status pills */
+  --spacing-tile: 2rem;
+  --spacing-bar: 3.25rem; /* top bar 52 */
+  --spacing-bottom-bar: 3.75rem; /* phone bottom bar 60 + safe area */
+  --spacing-rail: 3.5rem; /* md–lg icon rail 56 */
+  --spacing-sidebar: 13.5rem; /* ≥ xl sidebar 216 */
+  --spacing-sheet: 28rem; /* side sheet 448 */
+  --spacing-sheet-lg: 38rem;
+  --spacing-context-pane: 16.5rem; /* consult patient column 264 */
+  --spacing-assist-pane: 17rem; /* consult summary pane 272 */
+  --spacing-note-max: 56rem; /* consult note column max 896 */
+  --spacing-label-col: 7.5rem; /* consult section label column 120 */
+  --spacing-gutter: 1rem;
+  --spacing-gutter-lg: 1.5rem;
+
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* ---------------------------------------------------------------- 4. COMPONENT ---------------- */
+  --button-primary-bg: var(--color-accent);
+  --button-primary-bg-hover: var(--color-accent-hover);
+  --button-primary-bg-pressed: var(--color-accent-pressed);
+  --button-primary-fg: var(--color-fg-on-accent);
+  --button-secondary-bg: var(--color-accent-subtle);
+  --button-secondary-fg: var(--color-accent-fg);
+  --button-secondary-border: transparent;
+  --button-quiet-bg: var(--color-surface);
+  --button-quiet-fg: var(--color-fg-secondary);
+  --button-quiet-border: var(--color-border-strong);
+  --button-danger-bg: var(--color-danger-solid);
+  --button-danger-fg: var(--color-fg-on-accent);
+  --button-disabled-bg: var(--color-surface-muted);
+  --button-disabled-fg: var(--color-fg-muted);
+
+  --input-bg: var(--color-surface);
+  --input-fg: var(--color-fg);
+  --input-border: var(--color-border-control);
+  --input-placeholder: var(--color-fg-placeholder);
+  --input-invalid-border: var(--color-danger-solid);
+
+  --tile-bg: var(--color-surface);
+  --tile-fg: var(--color-fg);
+  --tile-border: var(--color-border-strong);
+  --tile-hover-bg: var(--color-surface-soft);
+  --tile-selected-bg: var(--color-accent-subtle);
+  --tile-selected-fg: var(--color-accent-fg);
+  --tile-selected-border: var(--color-accent);
+
+  --token-chip-bg: var(--color-surface);
+  --token-chip-fg: var(--color-fg);
+  --token-chip-border-width: 1.5px;
+
+  --nav-active-bg: var(--color-accent-subtle);
+  --nav-active-fg: var(--color-accent-fg);
+  --nav-active-indicator: var(--color-accent);
+  --nav-fg: var(--color-fg-secondary);
+
+  --lane-header-bg: var(--color-surface);
+  --lane-header-fg: var(--color-fg);
+  --row-selected-bg: var(--color-selected);
+  --row-selected-indicator: var(--color-accent);
+  --row-next-bg: var(--color-accent-tint);
+
+  --wait-normal-fg: var(--color-fg-muted);
+  --wait-long-fg: var(--color-warning-fg);
+  --wait-critical-fg: var(--color-danger-fg);
+
+  --chip-ai-bg: var(--color-ai-bg);
+  --chip-ai-fg: var(--color-ai-fg);
+  --chip-ai-border: var(--color-ai-border);
+  --chip-preview-bg: var(--color-preview-bg);
+  --chip-preview-fg: var(--color-preview-fg);
+  --chip-smart-fg: var(--color-smart-fg);
+
+  --banner-offline-bg: var(--color-mineral-900);
+  --banner-offline-fg: var(--color-white);
+  --banner-trial-bg: var(--color-info-bg);
+  --banner-trial-fg: var(--color-info-fg);
+  --banner-past-due-bg: var(--color-warning-bg);
+  --banner-past-due-fg: var(--color-warning-fg);
+
+  --pwa-theme-color: var(--color-white);
+  --pwa-background-color: var(--color-white);
+  --pwa-icon-tile: var(--color-accent);
+}
