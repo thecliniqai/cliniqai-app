@@ -697,7 +697,7 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 
 ## V2-07 Atomic server commands
 
-- [ ] **07-P1 · Gate approval (G4)** — PR #11. Evidence: `.planning/phases/07-atomic-server-commands/07-VERIFICATION.md`
+- [x] **07-P1 · Gate approval (G4)** — decisions given 2026-11-21 (VERIFICATION_LOG); merge delegated to Claude. — PR #11. Evidence: `.planning/phases/07-atomic-server-commands/07-VERIFICATION.md`
   (CI 44760574035 at 9b79e91, 0 retried). Decide the four items under "Pending PO decisions": definer commands
   (TARGET §7.1 erratum), sign only after check-in, visit doctor = owner/doctor, invoice line cap ₹10,00,000.
 - [ ] **07-P2 · Staging migrate** — after merge, apply 000095–000099 on staging (after the 05/06 migrate runs).
