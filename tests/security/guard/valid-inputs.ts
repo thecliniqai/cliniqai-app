@@ -168,7 +168,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/observability/actions.ts#reportClientRenderError": {
     args: (a) => [{ name: "GuardSpecRenderError", route: "/queue", ...acting(a) }],
   },
-  "features/patients/actions.ts#createPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }] },
+  "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
   "features/prescriptions/actions.ts#addPrescriptionItem": {

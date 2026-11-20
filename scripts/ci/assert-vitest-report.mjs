@@ -71,6 +71,9 @@
  *   6385 — V2-08 08-01b, unchanged: REQUIRED_FILES + the three 08-01b specs (tests/queue/start-consultation-rpc.spec.ts,
  *          tests/queue/complete-visit-rpc.spec.ts, tests/visits/state-machine.spec.ts; 238 in total). The floor is re-measured at
  *          the next gate; the suite only grew.
+ *   6385 — V2-08 08-02, unchanged: REQUIRED_FILES + the four 08-02 specs (tests/patients/search-patients-db.spec.ts,
+ *          search-route.spec.ts, find-duplicates-db.spec.ts, register-patient-rpc.spec.ts; 242 in total). The patient specs
+ *          that tested the removed select-star search (10 cases) went with it; the suite grew by 45.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -391,6 +394,11 @@ const REQUIRED_FILES = [
   "tests/queue/start-consultation-rpc.spec.ts",
   "tests/queue/complete-visit-rpc.spec.ts",
   "tests/visits/state-machine.spec.ts",
+  // V2-08 08-02 (patient search, duplicate lookup and the registration command).
+  "tests/patients/search-patients-db.spec.ts",
+  "tests/patients/search-route.spec.ts",
+  "tests/patients/find-duplicates-db.spec.ts",
+  "tests/patients/register-patient-rpc.spec.ts",
 ];
 
 const file = process.argv[2];

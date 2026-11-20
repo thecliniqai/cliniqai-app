@@ -53,16 +53,27 @@ describe("React Compiler rules at error (R-30)", () => {
   });
 
   it("a waiver downgrades only its own rule in its own file to warn", async () => {
-    const waived = waivers.find((w) => w.rule === "set-state-in-effect" && w.file.startsWith("app/("));
-    expect(waived, "the register has a waiver under an app route group (glob escaping)").toBeDefined();
-    const file = waived!.file;
-    expect(severityOf(await lintFixture("set-state-in-effect.tsx", file), "react-hooks/set-state-in-effect")).toEqual([[8, 1]]);
+    // The register's last waiver under an app route group (`app/(dashboard)/patients/new/page.tsx`) went with its page in
+    // V2-08 08-02, so the glob-escaping case runs against a copy of the config with a virtual route-group entry.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rc-waivers-group-"));
+    fs.mkdirSync(path.join(dir, "scripts/ci"), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, "eslint.config.mjs"), path.join(dir, "eslint.config.mjs"));
+    const file = "app/(dashboard)/fixture/waived/page.tsx";
+    fs.writeFileSync(
+      path.join(dir, "scripts/ci/react-compiler-waivers.json"),
+      JSON.stringify({ waivers: [{ file, rule: "set-state-in-effect", sites: 1, owner: "V2-08", added: "2026-01-01", expires: "2999-12-31", reason: "fixture entry for the route-group glob test" }] }),
+    );
+    fs.symlinkSync(path.join(ROOT, "node_modules"), path.join(dir, "node_modules"), "dir");
+    const copy = new ESLint({ cwd: dir, ignore: false });
+    const lint = async (fixture: string, relPath: string) =>
+      (await copy.lintText(fs.readFileSync(path.join(FIXTURES, fixture), "utf8"), { filePath: path.join(dir, relPath) }))[0].messages;
+    expect(severityOf(await lint("set-state-in-effect.tsx", file), "react-hooks/set-state-in-effect")).toEqual([[8, 1]]);
     // The other compiler rules stay errors in the same file.
-    expect(severityOf(await lintFixture("purity.tsx", file), "react-hooks/purity")).toEqual([[4, 2]]);
-    expect(severityOf(await lintFixture("immutability.tsx", file), "react-hooks/immutability")).toEqual([[9, 2]]);
+    expect(severityOf(await lint("purity.tsx", file), "react-hooks/purity")).toEqual([[4, 2]]);
+    expect(severityOf(await lint("immutability.tsx", file), "react-hooks/immutability")).toEqual([[9, 2]]);
     // A sibling path is not covered by the waiver.
     const sibling = path.posix.join(path.posix.dirname(file), "sibling.tsx");
-    expect(severityOf(await lintFixture("set-state-in-effect.tsx", sibling), "react-hooks/set-state-in-effect")).toEqual([[8, 2]]);
+    expect(severityOf(await lint("set-state-in-effect.tsx", sibling), "react-hooks/set-state-in-effect")).toEqual([[8, 2]]);
   });
 
   it("an expired waiver is no longer applied (the file fails lint again)", async () => {

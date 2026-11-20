@@ -14,16 +14,18 @@ import type { UxCounter } from "../support/ux-counter";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 
+/** V2-08 08-02: registration is the `?new=1` sheet (R-13); the outcomes asserted below are unchanged from the v1 page. */
 async function registerPatient(page: Page, ux: UxCounter, fullName: string, phoneDigits: string): Promise<void> {
   await page.goto("/patients");
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
-  await expect(page.getByRole("heading", { name: "Register New Patient" })).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Register patient" });
+  await expect(sheet).toBeVisible();
 
-  await ux.fill(page.getByLabel(/^Patient Full Name/), fullName, "Patient Full Name");
-  await ux.fill(page.getByLabel(/^Mobile Phone Number/), phoneDigits, "Mobile Phone Number");
-  await ux.fill(page.getByLabel("Age (Years)"), "34", "Age (Years)");
-  await ux.select(page.getByLabel("Sex / Gender"), "female", "Sex / Gender");
-  await ux.click(page.getByRole("button", { name: "Save Patient Record" }), "Save Patient Record");
+  await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
+  await ux.fill(sheet.getByRole("textbox", { name: "Full name" }), fullName, "Full name");
+  await ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age");
+  await ux.click(sheet.getByRole("radio", { name: "Female" }), "Sex: Female");
+  await ux.click(sheet.getByRole("button", { name: "Register patient" }), "Register patient");
 }
 
 test.describe("M0 flow: register patient", () => {

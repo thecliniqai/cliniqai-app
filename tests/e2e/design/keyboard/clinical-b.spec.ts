@@ -397,17 +397,25 @@ test("QuickRegisterForm: errors focus the first field, duplicate hint, valid sub
   await expect(form).toContainText("Enter an age or a date of birth");
   await expect(form).toContainText("Choose the patient's sex");
   await page.keyboard.type("9000000001");
-  await expect(form.getByRole("status").filter({ hasText: "Same mobile" })).toHaveText(/Same mobile · Synthetic Patient 01 · last visit 3 Aug/);
+  // V2-08 08-02: the candidate shows age and sex, the masked mobile and the last visit, so a shared family number stays readable.
+  await expect(form.getByRole("status").filter({ hasText: "Same mobile" })).toContainText(
+    /Same mobile · Synthetic Patient 01 · 42 y · M · \+91 ••••• •0001 · last visit 3 Aug/,
+  );
   await form.getByRole("button", { name: "Use this patient" }).click();
   await expect(page.locator("[data-register-result]")).toHaveText("Using Synthetic Patient 01");
   await phone.fill("9000000999");
   await expect(form.getByRole("status").filter({ hasText: "Same mobile" })).toHaveCount(0);
+  // The AI-objection checkbox and its interim notice are part of the form (R-12).
+  const objection = form.getByRole("checkbox", { name: "Patient objects to AI-assisted features" });
+  await expect(objection).not.toBeChecked();
+  await expect(objection).toHaveAccessibleDescription(/Interim wording/);
+  await objection.check();
   await form.getByRole("textbox", { name: "Full name" }).fill("Synthetic Patient 09");
   await form.getByRole("textbox", { name: "Age" }).fill("42");
   await form.getByRole("radio", { name: "Female" }).click();
   await submit.click();
   await expect(form.getByRole("status").filter({ hasText: "Registered" })).toHaveText("Registered");
   const values = JSON.parse((await page.locator("[data-register-result]").textContent()) ?? "{}");
-  expect(values).toMatchObject({ phone: "9000000999", name: "Synthetic Patient 09", dobApproximate: true, sex: "F" });
+  expect(values).toMatchObject({ phone: "9000000999", name: "Synthetic Patient 09", dobApproximate: true, sex: "F", aiObjected: true });
   expect(values.dob).toMatch(/^\d{4}-01-01$/);
 });

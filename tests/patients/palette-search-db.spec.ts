@@ -1,15 +1,14 @@
 /**
- * The command palette's server projections (V2-06 06-04b; T-06-17) against the local stack: the patient search
- * returns exactly id, name, age/sex and the last four digits of the mobile number, only from the caller's clinic; the
- * today-queue search returns exactly visit id, token, name and status for today's visits matching a token, a name or
- * a mobile number, cancelled visits left out. Synthetic data only.
+ * The command palette's today-queue projection (V2-06 06-04b; T-06-17) against the local stack: exactly visit id, token,
+ * name and status for today's visits matching a token, a name or a mobile number, cancelled visits left out. Synthetic
+ * data only. (The palette's patient search moved to `GET /api/patients/search`, V2-08 08-02: see
+ * `tests/patients/search-patients-db.spec.ts` and `search-route.spec.ts`.)
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
-import { PALETTE_PATIENT_KEYS, searchPatientsForPalette } from "@/features/patients/service";
 import { PALETTE_QUEUE_KEYS, searchTodayQueueForPalette } from "@/features/queue/service";
 
 type Tenant = Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -59,7 +58,7 @@ async function visitWithToken(t: Tenant, patientId: string, status: string, toke
   return visitId;
 }
 
-describe("palette projections", () => {
+describe("palette today-queue projection", () => {
   let a: Tenant;
   let b: Tenant;
   let withDob: string;
@@ -76,48 +75,6 @@ describe("palette projections", () => {
     await visitWithToken(a, withAge, "cancelled", 15);
     await visitWithToken(b, await patient(b, { full_name: "Meena Other Clinic", phone: "9812340001" }), "waiting", 14);
     await patient(a, { full_name: "Meena Deleted Palette", phone: "9812340003", is_deleted: true });
-  });
-
-  it("patients: exactly four fields, the last four digits only, age from the date of birth in the clinic's zone", async () => {
-    const found = await searchPatientsForPalette(ctxFor(a), "9812340001");
-    expect(found).toHaveLength(1);
-    const [p] = found;
-    expect(Object.keys(p)).toEqual([...PALETTE_PATIENT_KEYS]);
-    expect(p).toMatchObject({ id: withDob, name: "Meena Pawar Palette", phoneLast4: "0001" });
-    expect(p.ageSex?.sex).toBe("F");
-    expect(p.ageSex?.age).toMatch(/^\d+ y$/);
-    expect(JSON.stringify(found)).not.toContain("9812340001");
-    expect(JSON.stringify(found)).not.toContain("1984");
-  });
-
-  it("patients: stored age when there is no date of birth; name search; only the caller's clinic", async () => {
-    const byName = await searchPatientsForPalette(ctxFor(a), "Palette");
-    expect(byName.map((p) => p.id).sort()).toEqual([withDob, withAge].sort());
-    expect(byName.find((p) => p.id === withAge)).toEqual({ id: withAge, name: "Ravi Palette", ageSex: { age: "7 y", sex: "M" }, phoneLast4: "0002" });
-    const fromB = await searchPatientsForPalette(ctxFor(b), "Meena");
-    expect(fromB.map((p) => p.name).sort()).toEqual(["Meena Other Clinic", "Meena Pawar Palette"]);
-    expect(fromB.map((p) => p.id)).not.toContain(withDob);
-  });
-
-  it("patients: deleted patients are left out", async () => {
-    const found = await searchPatientsForPalette(ctxFor(a), "Meena");
-    expect(found.map((p) => p.name)).toEqual(["Meena Pawar Palette"]);
-  });
-
-  it("patients: one character or an empty query returns nothing (no directory dump)", async () => {
-    expect(await searchPatientsForPalette(ctxFor(a), "P")).toEqual([]);
-    expect(await searchPatientsForPalette(ctxFor(a), "   ")).toEqual([]);
-  });
-
-  // 06-09c (IND L-4, adversarial B L-1): before, "%%", "__" and "**" passed the 2-character minimum as LIKE wildcards
-  // and listed the clinic's newest patients.
-  it("patients: wildcards are not a query: %%, __, ** and the like return nothing; a wildcard inside a name matches nothing extra", async () => {
-    for (const q of ["%%", "__", "**", "%_", "_%_", "\\%", "% %", "*_"]) {
-      expect(await searchPatientsForPalette(ctxFor(a), q), q).toEqual([]);
-    }
-    expect(await searchPatientsForPalette(ctxFor(a), "Me%na")).toEqual([]);
-    expect(await searchPatientsForPalette(ctxFor(a), "M_ena")).toEqual([]);
-    expect((await searchPatientsForPalette(ctxFor(a), "Meena")).map((p) => p.name)).toEqual(["Meena Pawar Palette"]);
   });
 
   it("queue: token, name or mobile number; exactly four fields; cancelled visits and other clinics left out", async () => {

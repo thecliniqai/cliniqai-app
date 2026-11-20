@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { buildPatientSearchFilter, searchPatients } from "@/features/patients/service";
+import { buildPatientSearchFilter } from "@/features/patients/service";
 import { mockCtx } from "../helpers/context";
 import { getClinicVisitsRegister } from "@/features/visits/service";
 
@@ -69,65 +69,6 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
       expect(filter).not.toContain("(");
       expect(filter).not.toContain(")");
       expect(filter).toContain("phone.ilike.%+9198765%");
-    });
-  });
-
-  describe("searchPatients Action (Tenant Isolation & Database Query)", () => {
-    it("enforces tenant_id isolation strictly on the query", async () => {
-      let capturedTenantId = "";
-      let capturedFilter = "";
-
-      const mockQuery: any = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn((col: string, val: string) => {
-          if (col === "tenant_id") capturedTenantId = val;
-          return mockQuery;
-        }),
-        or: vi.fn((clause: string) => {
-          capturedFilter = clause;
-          return mockQuery;
-        }),
-        order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: "patient-1",
-              tenant_id: tenantId,
-              full_name: "Amitabh Verma",
-              phone: "+919876543210",
-              abha_id: null,
-              created_at: new Date().toISOString(),
-            },
-          ],
-          error: null,
-        }),
-      };
-
-      const mockSupabase: any = {
-        from: vi.fn((table: string) => {
-          expect(table).toBe("patients");
-          return mockQuery;
-        }),
-      };
-
-      const results = await searchPatients(mockCtx(mockSupabase, mockSession), "9876543210");
-
-      expect(mockSupabase.from).toHaveBeenCalledWith("patients");
-      expect(capturedTenantId).toBe(tenantId);
-      expect(capturedFilter).toContain("phone.ilike.%+919876543210%");
-      expect(capturedFilter).toContain("phone.ilike.%9876543210%");
-      expect(results).toHaveLength(1);
-      expect(results[0].phone).toBe("+919876543210");
-    });
-
-    it("returns empty array immediately without querying if query is empty", async () => {
-      const mockSupabase: any = {
-        from: vi.fn(),
-      };
-
-      const results = await searchPatients(mockCtx(mockSupabase, mockSession), "   ");
-      expect(results).toEqual([]);
-      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
   });
 

@@ -21,7 +21,6 @@ const REFUSAL = /You do not have permission|Access Denied|not allowed to/i;
 /** Dashboard pages reached from inside other screens, not from the navigation (with where they are reached from). */
 const NOT_IN_NAV: Record<string, string> = {
   "/patients/[id]": "a patient row on Patients, the palette's Patients group",
-  "/patients/new": "Register Patient on Today and Patients, the palette's Actions",
   "/consultation/[id]": "Resume / Start consult on Today, the queue and the cabin",
   "/profile": "the account menu (My Profile)",
   "/billing/register": "a v1 redirect to /billing/reports (IA §1 row 12)",

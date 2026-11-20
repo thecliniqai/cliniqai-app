@@ -6,7 +6,7 @@
  * Before 06-05: Chrome's own offline error page, and no banner.
  *
  * Part 2, the write buttons (06-02a, R-32; spec 4 complete): v1 call sites of the Button primitive, unchanged. Offline,
- * the submit buttons of the walk-in drawer ("Register & Issue Token") and the patient form ("Save Patient Record")
+ * the submit buttons of the walk-in drawer ("Register & Issue Token") and the register sheet ("Register patient", V2-08 08-02)
  * are disabled (`aria-disabled`, still focusable), described by "You're offline. Changes are disabled until you
  * reconnect.", and a click does not submit the form; online again they are enabled and undescribed. Before 06-02a:
  * the buttons stayed enabled offline and a click submitted.
@@ -92,17 +92,31 @@ test("offline: the walk-in drawer and patient form submit buttons are disabled w
   await expect(issue).not.toHaveAttribute("aria-disabled", /.*/);
   await expect(issue).toHaveAccessibleDescription("");
 
-  // The patient form.
-  await page.goto("/patients/new");
-  const save = page.getByRole("button", { name: "Save Patient Record" });
+  // The patient form (the register sheet, V2-08 08-02).
+  await page.goto("/patients?new=1");
+  const save = page.getByRole("button", { name: "Register patient" });
   await expect(save).toBeEnabled();
+  // The sheet slides in with a transition that starts after the first paint, so "no animation is running" can be true too
+  // early: wait until the sheet is fully on screen, or the forced click below lands "outside of the viewport".
+  const sheet = page.getByRole("dialog", { name: "Register patient" });
+  await expect
+    .poll(async () => {
+      const box = await sheet.boundingBox();
+      const view = page.viewportSize();
+      return Boolean(box && view && box.x + box.width <= view.width + 1 && box.y + box.height <= view.height + 1);
+    })
+    .toBe(true);
   const formSubmits = await countSubmits(page);
   await context.setOffline(true);
   await expect(save).toBeDisabled();
   await expect(save).toHaveAccessibleDescription(OFFLINE_REASON);
-  await page.getByLabel(/^Patient Full Name/).press("Enter"); // implicit submission is cancelled too
-  await save.click({ force: true }); // Playwright waits for "enabled" otherwise; a real click still arrives
-  expect(await formSubmits(), "neither Enter nor a click submits offline").toBe(0);
+  await page.getByLabel(/^Full name/).press("Enter"); // implicit submission is cancelled too
+  // Keys on the focused button, not a forced click: on a phone the offline banner sits over the foot of the bottom sheet,
+  // and a click at the button's centre would land on the banner (outside the sheet, which dismisses it).
+  await save.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  expect(await formSubmits(), "neither Enter nor Space on the button submits offline").toBe(0);
   await context.setOffline(false);
   await expect(save).toBeEnabled();
   await expect(save).toHaveAccessibleDescription("");

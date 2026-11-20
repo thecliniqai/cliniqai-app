@@ -84,6 +84,14 @@ export type RouteGuard =
    * `no-store` on every answer; a forged `?tenant=` (tenant B's id) changes nothing and nothing of B comes back.
    */
   | { kind: "session-status"; keys: readonly string[] }
+  /**
+   * V2-08 08-02 (T-08-02): the patient typeahead `GET /api/patients/search?q=`. No session 401, a role lacking `permission`
+   * 403 and a signed-in user with no membership refused, all before any data access beyond the membership lookup; a member
+   * with the permission searching tenant B's synthetic patient by name and by mobile number gets 200 with an empty list and
+   * nothing of B; searching tenant A's own patient answers 200 with `no-store`, the patient listed with exactly `keys` and
+   * neither the full mobile number nor any field outside the projection.
+   */
+  | { kind: "session-search"; permission: Permission; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -145,13 +153,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks one of their own notifications read." },
   "features/observability/actions.ts#reportClientRenderError":
     { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
-  "features/patients/actions.ts#createPatient": "patients:edit",
+  "features/patients/actions.ts#registerPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",
   "features/patients/actions.ts#getPatientVisitHistory": "patients:view",
-  "features/patients/actions.ts#searchPatients": "patients:view",
-  // V2-06 06-04b (T-06-17): the command palette's patient search; four fields per patient, nothing stored.
-  "features/patients/actions.ts#searchPatientsForPalette": "patients:view",
   "features/patients/actions.ts#updatePatient": "patients:edit",
   "features/patients/consent.ts#getCurrentConsent": "patients:view",
   "features/patients/consent.ts#grantConsent": "patients:edit",
@@ -298,6 +303,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,
   "app/api/patients/[id]/export/route.ts#GET": { kind: "session", permission: "exports:create", resource: "patient" },
+  "app/api/patients/search/route.ts#GET": {
+    kind: "session-search",
+    permission: "patients:view",
+    keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {
     kind: "session",
     permission: "prescriptions:view",

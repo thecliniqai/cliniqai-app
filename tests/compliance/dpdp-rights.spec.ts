@@ -435,7 +435,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
       // 1. searchPatients by name: should NOT return erased Aarav Sharma
       const searchResults = await searchPatients(ctx, "Aarav");
-      expect(searchResults.some((p) => p.id === patientId)).toBe(false);
+      expect(searchResults.ok).toBe(true);
+      expect(searchResults.ok && searchResults.patients.some((p) => p.id === patientId)).toBe(false);
 
       // 2. getPatient: returns null for erased patient
       const patient = await getPatient(ctx, patientId, false);

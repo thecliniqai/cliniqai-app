@@ -44,7 +44,6 @@ import BillingSettingsPage from "@/app/(dashboard)/settings/billing/page";
 import DeveloperSettingsPage from "@/app/(dashboard)/settings/developer/page";
 import BillingReportsPage from "@/app/(dashboard)/billing/reports/page";
 import ConsultationPage from "@/app/(dashboard)/consultation/[id]/page";
-import NewPatientLayout from "@/app/(dashboard)/patients/new/layout";
 import LockedOwnerPage from "@/app/billing/locked/page";
 import LockedStaffPage from "@/app/billing/locked/staff/page";
 import OnboardingBillingPage from "@/app/(onboarding)/onboarding/billing/page";
@@ -218,7 +217,6 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
         ["/settings/developer", () => DeveloperSettingsPage(none as never)],
         ["/billing/reports", () => BillingReportsPage(none as never)],
         ["/consultation/[id]", () => ConsultationPage(idProps(lockedVisitId) as never)],
-        ["/patients/new (layout)", () => NewPatientLayout({ children: null } as never)],
       ];
     };
 

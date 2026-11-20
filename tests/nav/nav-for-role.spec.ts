@@ -87,7 +87,7 @@ describe("navForRole: the IA §3.2 table restricted to the v1 URLs", () => {
       const hrefs = new Set(flat(model).map((d) => d.href));
       for (const a of model.actions) {
         expect(hasPerm(role, a.permission), a.label).toBe(true);
-        expect(a.href === "/patients/new" ? hrefs.has("/patients") : hrefs.has(a.href), a.label).toBe(true);
+        expect((a.href === "/patients?new=1" ? hrefs.has("/patients") : hrefs.has(a.href)), a.label).toBe(true);
       }
     });
 
@@ -155,7 +155,6 @@ describe("paths: active destination, titles, root, Back parent, focus mode", () 
     expect(screenTitle("/calendar", doctor)).toBe("My Calendar");
     expect(screenTitle("/patients/6f1c0e0e-0000-4000-8000-000000000000", owner)).toBe("Patient");
     expect(screenTitle("/consultation/6f1c0e0e-0000-4000-8000-000000000000", doctor)).toBe("Consultation");
-    expect(screenTitle("/patients/new", owner)).toBe("Register patient");
     expect(screenTitle("/profile", owner)).toBe("My Profile");
   });
 
@@ -165,13 +164,11 @@ describe("paths: active destination, titles, root, Back parent, focus mode", () 
     expect(isRootPath("/patients/", owner)).toBe(true);
     expect(isRootPath("/profile", owner)).toBe(true);
     expect(isRootPath("/patients/abc", owner)).toBe(false);
-    expect(isRootPath("/patients/new", owner)).toBe(false);
     expect(isRootPath("/consultation/abc", doctor)).toBe(false);
   });
 
   it("Back without history goes to the nav parent, else the role's home", () => {
     expect(navParent("/patients/abc", owner)).toBe("/patients");
-    expect(navParent("/patients/new", owner)).toBe("/patients");
     expect(navParent("/consultation/abc", doctor)).toBe("/cabin");
     expect(navParent("/consultation/abc", owner)).toBe("/");
     expect(navParent("/billing/register", owner)).toBe("/billing/reports");
