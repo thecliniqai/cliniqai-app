@@ -97,6 +97,10 @@ Everything else is refused: nothing leaves `cancelled`; an unsigned `completed` 
   rows. Refresh only while `navigator.onLine`, and prove it with a spec that drops the network during a refresh (the
   rows stay). The test race this caused (`pwa/04-offline.spec.ts`) is already fixed.
 
+- 08-03a: on a phone the offline banner covers the foot of a bottom sheet (its submit button), found in 08-02
+  (`pwa/04-offline` now presses keys instead of clicking). Fix the layering or offset so the sheet's footer stays
+  visible and clickable while the banner shows, and make the spec click again.
+
 ## Shared rules for every plan
 
 - Command pattern: copy 07-PLAN "Command pattern" (signature with `p_tenant_id` and a required `p_client_request_id uuid`, `search_path = ''`, `lock_timeout = '2s'`, guard block, claim, lock, invariants, writes, in-transaction audit and outbox, `command_complete`, REVOKE/GRANT). Every command spec calls `expectCommandCatalog` (`tests/helpers/command-catalog.ts`) and has: happy path with audit and outbox rows, fault injection with `tests/helpers/fault.ts` (nothing persists), replay, `IDEMPOTENCY_MISMATCH` with each hashed input varied, role matrix, cross-tenant, one concurrency case. Stored results hold ids, numbers, amounts and flags only (F-5), never free text.
