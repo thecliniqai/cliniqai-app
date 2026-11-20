@@ -86,6 +86,9 @@ export const patientSchema = z
         const trimmed = val.trim();
         return trimmed === "" ? null : trimmed;
       }),
+    // The patient's objection to AI-assisted processing, captured at registration (V2-08 08-02, R-12, AI-03). Only the
+    // registration commands write it; clearing it later is an owner or doctor action (migration 000094).
+    ai_processing_objected: z.boolean().optional(),
   })
   .transform((data) => {
     let age = data.age ?? null;
@@ -126,6 +129,7 @@ export function newPatientPayload(data: PatientInput): Record<string, unknown> {
     chronic_conditions: data.chronic_conditions ?? [],
     emergency_contact: data.emergency_contact ?? null,
     abha_id: data.abha_id,
+    ai_processing_objected: data.ai_processing_objected ?? false,
   };
 }
 

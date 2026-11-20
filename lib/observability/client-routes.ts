@@ -15,7 +15,6 @@ export const CLIENT_ROUTE_PATTERNS = [
   "/diag/client-error",
   "/patients",
   "/patients/[id]",
-  "/patients/new",
   "/profile",
   "/queue",
   "/referrals",

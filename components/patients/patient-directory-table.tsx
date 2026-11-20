@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { searchPatients } from "@/features/patients/actions";
 import { formatTenDigitsDisplay } from "@/lib/utils/phone";
 import {
   Users,
@@ -24,9 +23,7 @@ import {
   ShieldCheck,
   User,
   X,
-  Loader2,
 } from "lucide-react";
-import { reportClientError } from "@/lib/log/client";
 
 export interface PatientRecord {
   id: string;
@@ -46,50 +43,14 @@ export function PatientDirectoryTable({
   initialPatients,
 }: PatientDirectoryTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [remoteResults, setRemoteResults] = useState<PatientRecord[] | null>(null);
-  const [isSearchingRemote, setIsSearchingRemote] = useState(false);
 
-  // Debounced remote search fallback for queries >= 2 characters
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (trimmed.length < 2) {
-      setRemoteResults(null);
-      setIsSearchingRemote(false);
-      return;
-    }
-
-    setIsSearchingRemote(true);
-    const timer = setTimeout(async () => {
-      try {
-        const serverMatches = await searchPatients(trimmed);
-        const mapped: PatientRecord[] = serverMatches.map((p) => ({
-          id: p.id,
-          full_name: p.full_name,
-          phone: p.phone,
-          abha_id: p.abha_id ?? null,
-          age: p.age ?? null,
-          sex: p.sex ?? null,
-          created_at: p.created_at,
-        }));
-        setRemoteResults(mapped);
-      } catch (err) {
-        reportClientError("patients.search.failed", err);
-      } finally {
-        setIsSearchingRemote(false);
-      }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Combined filtered results
+  // The directory holds the whole list (V2-11 paginates it), so the filter is local; typeahead elsewhere is the search route.
   const displayedPatients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
       return initialPatients;
     }
 
-    // Fast local filter
     const queryDigits = query.replace(/\D/g, "");
     const localFiltered = initialPatients.filter((p) => {
       const nameMatch = p.full_name.toLowerCase().includes(query);
@@ -102,21 +63,8 @@ export function PatientDirectoryTable({
       return nameMatch || phoneMatch || abhaMatch || idMatch;
     });
 
-    // Merge remote results if available to ensure any records not in initial list are included
-    if (remoteResults && remoteResults.length > 0) {
-      const seenIds = new Set(localFiltered.map((p) => p.id));
-      const combined = [...localFiltered];
-      for (const remote of remoteResults) {
-        if (!seenIds.has(remote.id)) {
-          seenIds.add(remote.id);
-          combined.push(remote);
-        }
-      }
-      return combined;
-    }
-
     return localFiltered;
-  }, [initialPatients, searchQuery, remoteResults]);
+  }, [initialPatients, searchQuery]);
 
   const hasSearch = searchQuery.trim().length > 0;
 
@@ -139,11 +87,7 @@ export function PatientDirectoryTable({
         {/* Search input field */}
         <div className="relative w-full sm:w-72 md:w-80">
           <span className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-fg-subtle">
-            {isSearchingRemote ? (
-              <Loader2 className="w-4 h-4 text-accent animate-spin" />
-            ) : (
-              <Search className="w-4 h-4" />
-            )}
+            <Search className="w-4 h-4" />
           </span>
           <input
             type="text"
@@ -173,7 +117,7 @@ export function PatientDirectoryTable({
               title="No patients registered yet"
               description="Get started by creating your clinic's first patient intake record."
               action={
-                <Link href="/patients/new">
+                <Link href="/patients?new=1">
                   <Button
                     variant="primary"
                     size="sm"
@@ -204,7 +148,7 @@ export function PatientDirectoryTable({
               >
                 Clear Search Filter
               </Button>
-              <Link href="/patients/new">
+              <Link href="/patients?new=1">
                 <Button
                   variant="primary"
                   size="sm"

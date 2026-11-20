@@ -14,7 +14,7 @@ import {
   CommandLoading,
 } from "@/components/ui/command";
 import { PatientIdentityHeader } from "@/components/clinical/patient-identity-header";
-import { searchPatientsForPalette, type PalettePatient } from "@/features/patients/actions";
+import { fetchPatientHits, isSearchableQuery, type PatientHit } from "@/features/patients/search";
 import { searchTodayQueueForPalette, type PaletteQueueMatch } from "@/features/queue/actions";
 import { reportClientError } from "@/lib/log/client";
 import { allDestinations, type NavAction, type NavModel } from "@/lib/nav/nav-for-role";
@@ -24,10 +24,6 @@ import { PALETTE_PLACEHOLDER } from "./top-bar";
 
 /** Debounce before the server searches run (06-UI-SPEC SearchField: 200 ms). */
 export const PALETTE_DEBOUNCE_MS = 200;
-/** Shortest query sent to the patient search (the server refuses shorter ones anyway). */
-const MIN_PATIENT_QUERY = 2;
-/** Letters and digits only count toward the minimum (06-09c IND L-4: "%%" is not a query); same rule as the server. */
-const searchableLength = (q: string) => q.replace(/[^\p{L}\p{N}]/gu, "").length;
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
   register: <UserPlus />,
@@ -38,7 +34,7 @@ const ACTION_ICON: Record<string, React.ReactNode> = {
 
 interface Results {
   query: string;
-  patients: PalettePatient[];
+  patients: PatientHit[];
   queue: PaletteQueueMatch[];
 }
 
@@ -51,8 +47,8 @@ const matches = (label: string, q: string) => label.toLowerCase().includes(q.toL
  * ⌘K / Ctrl+K, the top bar's palette field or the phone's Search button (the shell owns the shortcut); 06-02b's
  * `CommandDialog` skin (a centred panel, full screen below 768 px with a Close button).
  *
- * Groups, in order: **Patients** (server action `searchPatientsForPalette`: `patients:view`, the session's clinic, four
- * fields; the row is the `inline` identity with a masked phone) · **Today queue** (`searchTodayQueueForPalette`: token,
+ * Groups, in order: **Patients** (`GET /api/patients/search`: `patients:view`, the session's clinic, the minimal projection;
+ * the row is the `inline` identity with a masked phone) · **Today queue** (`searchTodayQueueForPalette`: token,
  * name, status) · **Actions** (role-filtered, v1 targets only) · **Navigate** (`navForRole`). No Assist/AI group (R-35).
  * An empty query shows Actions and Navigate only: no recent patients, and nothing is persisted (CD-19): the query and
  * the results live in this component's memory and are cleared when the palette closes.
@@ -77,6 +73,8 @@ export function CommandPalette({
   const [userPicked, setUserPicked] = useState(false);
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The patient search aborts when the query changes (a GET route, so it can; V2-08 08-02, R-11).
+  const patientRequest = useRef<AbortController | null>(null);
 
   const destinations = useMemo(() => allDestinations(model), [model]);
   const hrefs = useMemo(() => new Set(destinations.map((d) => d.href)), [destinations]);
@@ -100,6 +98,7 @@ export function CommandPalette({
 
   function reset() {
     seq.current++;
+    patientRequest.current?.abort();
     if (timer.current) clearTimeout(timer.current);
     setQuery("");
     setResults(EMPTY);
@@ -111,6 +110,7 @@ export function CommandPalette({
   function search(next: string) {
     const n = ++seq.current;
     if (timer.current) clearTimeout(timer.current);
+    patientRequest.current?.abort();
     const q = next.trim();
     if (!q) {
       setResults(EMPTY);
@@ -119,13 +119,20 @@ export function CommandPalette({
     }
     setLoading(true);
     timer.current = setTimeout(async () => {
+      const controller = new AbortController();
+      patientRequest.current = controller;
       try {
         const [p, m] = await Promise.all([
-          canSearchPatients && searchableLength(q) >= MIN_PATIENT_QUERY ? searchPatientsForPalette(q) : null,
+          canSearchPatients && isSearchableQuery(q) ? fetchPatientHits(q, controller.signal).catch((err) => {
+            if (controller.signal.aborted) throw err;
+            // A failed patient search shows no patient rows; the rest of the palette still answers.
+            reportClientError("palette.patient_search.failed", err);
+            return [] as PatientHit[];
+          }) : null,
           queueHref ? searchTodayQueueForPalette(q) : null,
         ]);
         if (n !== seq.current) return;
-        setResults({ query: q, patients: p?.ok ? p.patients : [], queue: m?.ok ? m.matches : [] });
+        setResults({ query: q, patients: p ?? [], queue: m?.ok ? m.matches : [] });
       } catch (err) {
         if (n !== seq.current) return;
         reportClientError("palette.search.failed", err);

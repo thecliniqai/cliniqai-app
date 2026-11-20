@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { searchPatients } from "@/features/patients/actions";
+import { fetchPatientHits, isSearchableQuery } from "@/features/patients/search";
+import { toLegacyPatientRow, type LegacyPatientRow } from "@/components/front-desk/legacy-patient-row";
 import { registerAndBook } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
-import { Patient, Visit } from "@/lib/db/types";
+import { Visit } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
 import { zonedDateTimeToUtcIso } from "@/lib/datetime";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
@@ -93,8 +94,8 @@ export function BookingDrawer({
 
   // Patient Search & Selection
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Patient[]>([]);
-  const [chosenPatient, setChosenPatient] = useState<Patient | null>(null);
+  const [searchResults, setSearchResults] = useState<LegacyPatientRow[]>([]);
+  const [chosenPatient, setChosenPatient] = useState<LegacyPatientRow | null>(null);
 
   // New Patient Form
   const [newPatient, setNewPatient] = useState({
@@ -158,16 +159,25 @@ export function BookingDrawer({
       return;
     }
 
+    // The search is a GET route (V2-08 08-02, R-11): a newer query aborts the older one.
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const matches = await searchPatients(searchQuery);
-        setSearchResults(matches);
+        if (!isSearchableQuery(searchQuery)) {
+          setSearchResults([]);
+          return;
+        }
+        const matches = await fetchPatientHits(searchQuery.trim(), controller.signal);
+        setSearchResults(matches.map(toLegacyPatientRow));
       } catch (err) {
-        reportClientError("patients.search.failed", err);
+        if (!controller.signal.aborted) reportClientError("patients.search.failed", err);
       }
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery, tab]);
 
   if (!isOpen) return null;

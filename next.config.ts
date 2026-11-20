@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
   // the e2e lane's stale-build guard compares (`.next/BUILD_ID` vs `e2e-build-stamp.json`, RL-16).
   generateBuildId: async () => null,
   env: { CLINICOS_BUILD_STAMP: BUILD_STAMP },
+  // V2-08 08-02 (R-13): registration is the `?new=1` sheet; the retired v1 page's address still lands on it.
+  async redirects() {
+    return [{ source: "/patients/new", destination: "/patients?new=1", permanent: true }];
+  },
   // V2-06 06-05 (PWA_STRATEGY §3.7, §5; T-06-05): the service worker script is never cached by the browser or a proxy,
   // so a fixed or kill-switch worker reaches every device on its next check, and it may only run same-origin script.
   // The app CSP's `worker-src`/`manifest-src` stay with P1-18 (V2-14).

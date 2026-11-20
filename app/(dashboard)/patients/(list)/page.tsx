@@ -55,7 +55,7 @@ async function PatientsPage() {
           </p>
         </div>
 
-        <Link href="/patients/new">
+        <Link href="/patients?new=1">
           <Button variant="primary" startIcon={<UserPlus className="w-4 h-4" />}>
             Register Patient
           </Button>

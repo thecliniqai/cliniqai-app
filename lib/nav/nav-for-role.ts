@@ -190,7 +190,7 @@ const DESTINATIONS: readonly DestinationSpec[] = [
 
 /** IA §3.7 Actions with a v1 target. Each needs its permission and its target page among the role's destinations. */
 const ACTIONS: ReadonlyArray<NavAction & { requires: string }> = [
-  { id: "register", label: "Register patient", href: "/patients/new", permission: "patients:edit", requires: "patients" },
+  { id: "register", label: "Register patient", href: "/patients?new=1", permission: "patients:edit", requires: "patients" },
   { id: "walk-in", label: "Add walk-in", href: "/queue", permission: "appointments:edit", requires: "queue" },
   { id: "book", label: "Book appointment", href: "/calendar", permission: "appointments:edit", requires: "calendar" },
   { id: "invite", label: "Invite staff", href: "/staff", permission: "staff:invite", requires: "staff" },
@@ -277,7 +277,6 @@ export function activeDestination(pathname: string, model: NavModel): NavDestina
 
 /** Static titles for the screens that are not nav destinations (never data from the page: D-7, no PHI). */
 const OTHER_TITLES: ReadonlyArray<[RegExp, string]> = [
-  [/^\/patients\/new\/?$/, "Register patient"],
   [/^\/patients\/[^/]+/, "Patient"],
   [/^\/consultation\/[^/]+/, "Consultation"],
   [/^\/profile\/?$/, "My Profile"],

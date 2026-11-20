@@ -12,6 +12,8 @@ import {
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
 import { AppShell } from "@/components/shell/app-shell";
+import { FrontDeskSheets } from "@/components/front-desk/front-desk-sheets";
+import { hasPerm } from "@/lib/permissions";
 import { MembershipEnded } from "@/components/shell/membership-ended";
 import { navForRole } from "@/lib/nav/nav-for-role";
 import { resolveTimeZone } from "@/lib/datetime";
@@ -105,6 +107,7 @@ export default async function DashboardLayout({
         shellClinic={shellClinic}
       >
         {children}
+        <FrontDeskSheets canRegister={hasPerm(membership.role, "patients:edit")} />
       </AppShell>
     </ClinicTimeZoneProvider>
   );

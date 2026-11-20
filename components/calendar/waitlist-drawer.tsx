@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { addToWaitlist } from "@/features/waitlist/actions";
-import { createPatient, searchPatients } from "@/features/patients/actions";
+import { registerPatient } from "@/features/patients/actions";
+import type { PatientHit } from "@/features/patients/search";
+import { PatientSearch } from "@/components/front-desk/patient-search";
+import { useCommand } from "@/lib/commands/use-command";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { X, Clock, Search, UserPlus, UserCheck } from "lucide-react";
-import { Patient } from "@/lib/db/types";
-import { reportClientError } from "@/lib/log/client";
+import { X, Clock, Search, UserPlus } from "lucide-react";
 
 export interface WaitlistDrawerProps {
   isOpen: boolean;
@@ -38,10 +39,11 @@ export function WaitlistDrawer({
   const [timeWindow, setTimeWindow] = useState("Morning (9 AM - 1 PM)");
   const [notes, setNotes] = useState("");
 
-  // Existing Patient Search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Patient[]>([]);
-  const [chosenPatient, setChosenPatient] = useState<Patient | null>(null);
+  // Existing patient: found with the shared patient search (V2-08 08-02)
+  const [chosenPatient, setChosenPatient] = useState<PatientHit | null>(null);
+  // Registering a new patient here is one command (the same request id on a retry); the waitlist entry that follows is the
+  // drawer's own call until 08-04a's add_to_waitlist command and 08-04b's rewrite.
+  const registerCommand = useCommand();
 
   // New Patient Form
   const [newPatient, setNewPatient] = useState({
@@ -54,26 +56,6 @@ export function WaitlistDrawer({
   useEffect(() => {
     if (defaultDate) setTargetDate(defaultDate);
   }, [defaultDate, isOpen]);
-
-  // Debounced Search
-  useEffect(() => {
-    if (tab !== "search") return;
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const matches = await searchPatients(searchQuery);
-        setSearchResults(matches);
-      } catch (err) {
-        reportClientError("patients.search.failed", err);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, tab]);
 
   if (!isOpen) return null;
 
@@ -91,20 +73,25 @@ export function WaitlistDrawer({
           return;
         }
 
-        const patientRes = await createPatient({
-          full_name: newPatient.full_name,
-          phone: newPatient.phone,
-          age: newPatient.age,
-          date_of_birth: newPatient.date_of_birth || null,
-          abha_id: null,
-        });
+        const patientRes = await registerCommand.run((requestId) =>
+          registerPatient(
+            {
+              full_name: newPatient.full_name,
+              phone: newPatient.phone,
+              age: newPatient.age,
+              date_of_birth: newPatient.date_of_birth || null,
+              abha_id: null,
+            },
+            requestId
+          )
+        );
 
-        if (!patientRes.success) {
-          setError(patientRes.error);
+        if (!patientRes.ok) {
+          setError(patientRes.error.message ?? "Failed to register patient.");
           setLoading(false);
           return;
         }
-        patientIdToWaitlist = patientRes.patientId;
+        patientIdToWaitlist = patientRes.value.patientId;
       }
 
       if (!patientIdToWaitlist) {
@@ -289,18 +276,6 @@ export function WaitlistDrawer({
 
             {tab === "search" && (
               <div className="space-y-4">
-                <Field label="Search by Name or Phone" htmlFor="wl-search">
-                  <div className="relative">
-                    <Input
-                      id="wl-search"
-                      placeholder="Type patient name or mobile number..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Search className="w-4 h-4 text-fg-subtle absolute right-3 top-3.5 pointer-events-none" />
-                  </div>
-                </Field>
-
                 {chosenPatient ? (
                   <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
                     <div>
@@ -308,10 +283,10 @@ export function WaitlistDrawer({
                         Selected Patient
                       </div>
                       <div className="text-sm font-bold text-gray-900 mt-0.5">
-                        {chosenPatient.full_name}
+                        {chosenPatient.name}
                       </div>
                       <div className="text-xs text-gray-600 mt-0.5">
-                        {chosenPatient.phone}
+                        {chosenPatient.phoneLast4 ? `+91 ••••• •${chosenPatient.phoneLast4}` : ""}
                       </div>
                     </div>
                     <Button
@@ -324,30 +299,13 @@ export function WaitlistDrawer({
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {searchResults.length > 0 && (
-                      <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-white shadow-xs">
-                        {searchResults.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => setChosenPatient(p)}
-                            className="w-full text-left p-3 hover:bg-gray-50 flex items-center justify-between transition-colors cursor-pointer"
-                          >
-                            <div>
-                              <div className="text-sm font-semibold text-gray-900">
-                                {p.full_name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {p.phone}
-                              </div>
-                            </div>
-                            <UserCheck className="w-4 h-4 text-accent shrink-0" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <PatientSearch
+                    actionLabel="Select"
+                    label="Search by Name or Phone"
+                    placeholder="Type patient name or mobile number..."
+                    onPick={setChosenPatient}
+                    onCreate={() => setTab("new")}
+                  />
                 )}
               </div>
             )}

@@ -88,7 +88,7 @@ async function DashboardPage() {
 
         {/* Quick Actions Bar */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <Link href="/patients/new">
+          <Link href="/patients?new=1">
             <Button variant="primary" startIcon={<UserPlus className="w-4 h-4" />}>
               Register Patient
             </Button>
@@ -224,7 +224,7 @@ async function DashboardPage() {
                 description="Use Register Patient or Live Queue to begin checking in patients."
                 action={
                   <div className="flex gap-2">
-                    <Link href="/patients/new">
+                    <Link href="/patients?new=1">
                       <Button variant="primary" size="sm">
                         Register Patient
                       </Button>

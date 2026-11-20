@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { searchPatients } from "@/features/patients/actions";
+import { fetchPatientHits, isSearchableQuery } from "@/features/patients/search";
+import { toLegacyPatientRow, type LegacyPatientRow } from "@/components/front-desk/legacy-patient-row";
 import { enqueueWalkIn } from "@/features/queue/actions";
 import { OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
-import { Patient } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
 
 export interface DoctorOption {
@@ -65,7 +65,7 @@ export function WalkInDrawer({
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [searchResults, setSearchResults] = useState<LegacyPatientRow[]>([]);
 
   // New patient form state
   const [newPatient, setNewPatient] = useState({
@@ -113,21 +113,30 @@ export function WalkInDrawer({
       return;
     }
 
+    // The search is a GET route (V2-08 08-02, R-11): a newer query aborts the older one.
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const patients = await searchPatients(searchQuery.trim());
-        setSearchResults(patients);
+        if (!isSearchableQuery(searchQuery)) {
+          setSearchResults([]);
+          return;
+        }
+        const patients = await fetchPatientHits(searchQuery.trim(), controller.signal);
+        setSearchResults(patients.map(toLegacyPatientRow));
       } catch (err) {
-        reportClientError("patients.search.failed", err);
+        if (!controller.signal.aborted) reportClientError("patients.search.failed", err);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery, tab]);
 
   if (!isOpen) return null;
 
-  const handleSearchCheckIn = async (patient: Patient) => {
+  const handleSearchCheckIn = async (patient: LegacyPatientRow) => {
     if (!doctorId) {
       setError("Please select a consulting doctor.");
       return;

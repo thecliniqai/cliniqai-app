@@ -11,7 +11,9 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import { unaffectedRowsError } from "@/lib/db/errors";
 import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { getTenantTimeZone } from "@/lib/datetime/server";
+import { isYmd, ymdOf } from "@/lib/datetime";
 import { formatAgeToday } from "@/lib/ui/age";
+import { DUPLICATE_REASONS, PATIENT_SEARCH_LIMIT, type DuplicateReason, type PatientHit, type PatientSex } from "./search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -234,6 +236,9 @@ export async function getPatient(
  * Normalizes numeric inputs so that searches for bare digits (e.g. "9876543210")
  * or partial numbers (>= 3 digits e.g. "98765") match both bare digits and
  * international +91 prefixed E.164 phone numbers.
+ *
+ * Only the public `/api/v1/patients` list still uses this PostgREST filter (V2-12 replaces it); the app's own search is the
+ * database function `search_patients` (V2-08 08-02).
  */
 export function buildPatientSearchFilter(query: string): string {
   const clean = query.trim();
@@ -271,91 +276,97 @@ export function buildPatientSearchFilter(query: string): string {
   return filterString;
 }
 
-export async function searchPatients(ctx: ServiceContext, query: string): Promise<Patient[]> {
-  const filterString = buildPatientSearchFilter(query);
-  if (!filterString) return [];
+const PATIENT_SEARCH_MAX_QUERY = 100;
+const SEX_LETTER: Record<string, PatientSex> = { male: "M", female: "F", other: "O" };
 
-  const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:view");
-  const session = ctx;
-
-  const { data, error } = await (supabase.from("patients") as any)
-    .select("*")
-    .eq("tenant_id", session.tenantId)
-    .eq("is_deleted", false)
-    .or(filterString)
-    .order("created_at", { ascending: false })
-    .limit(25);
-
-  if (error || !data) {
-    log.error({ event: "patients.search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return [];
-  }
-
-  return data as Patient[];
-}
-
-/**
- * The command palette's patient row (V2-06 06-04b; IA §3.7, DESIGN_SYSTEM §7.9, T-06-17): exactly four fields, so the
- * palette never holds more of a patient than its row shows. `ageSex` is the display age in the clinic's zone (`42 y`)
- * and the sex letter; `phoneLast4` is the last four digits of the mobile number only (the row masks the rest).
- */
-export interface PalettePatient {
+type HitRow = {
   id: string;
-  name: string;
-  ageSex: { age: string | null; sex: "M" | "F" | "O" | null } | null;
-  phoneLast4: string | null;
+  full_name: string;
+  sex: string | null;
+  age: number | null;
+  date_of_birth: string | null;
+  phone_last4: string | null;
+  last_visit_at: string | null;
+};
+
+/** One database row as the minimal projection every picker and the palette show (`PatientHit`); never more than this. */
+function toHit(row: HitRow, tz: string | null): PatientHit {
+  const age =
+    row.date_of_birth && tz ? formatAgeToday(row.date_of_birth, tz) : typeof row.age === "number" ? `${row.age} y` : null;
+  const sex = (row.sex && SEX_LETTER[row.sex]) || null;
+  return {
+    id: row.id,
+    name: row.full_name,
+    ageSex: age || sex ? { age, sex } : null,
+    phoneLast4: row.phone_last4 && /^\d{4}$/.test(row.phone_last4) ? row.phone_last4 : null,
+    lastVisit: row.last_visit_at && tz ? ymdOf(row.last_visit_at, tz) : null,
+  };
 }
 
-/** The keys of {@link PalettePatient}, in order (the projection spec compares against this). */
-export const PALETTE_PATIENT_KEYS = ["id", "name", "ageSex", "phoneLast4"] as const;
-/** At most this many patients per palette query. */
-export const PALETTE_PATIENT_LIMIT = 8;
-/** Shortest query the palette sends (one character matches too much of a directory). */
-export const PALETTE_MIN_QUERY = 2;
-const PALETTE_MAX_QUERY = 100;
+async function clinicZoneFor(ctx: ServiceContext, rows: HitRow[]): Promise<string | null> {
+  return rows.some((r) => r.date_of_birth || r.last_visit_at) ? await getTenantTimeZone(ctx.db, ctx.tenantId) : null;
+}
 
-const SEX_LETTER: Record<string, "M" | "F" | "O"> = { male: "M", female: "F", other: "O" };
+export type PatientSearchResult = { ok: true; patients: PatientHit[] } | { ok: false };
 
 /**
- * Patients matching `query` (name, mobile number or ABHA, the same matching as {@link searchPatients}) in the caller's
- * clinic, projected to {@link PalettePatient}. The tenant comes from the session context; nothing is stored.
+ * Typeahead over the caller's clinic (`public.search_patients`, 000101): `patients:view`, the clinic from the session, RLS on
+ * the user's own client, the minimal projection {@link PatientHit}. A query that is too short or only wildcards answers an
+ * empty list (the function decides). `{ ok: false }` when the database could not answer (logged by tag only).
  */
-export async function searchPatientsForPalette(ctx: ServiceContext, query: string): Promise<PalettePatient[]> {
+export async function searchPatients(ctx: ServiceContext, query: string): Promise<PatientSearchResult> {
   assertPerm(ctx.role, "patients:view");
-  const q = typeof query === "string" ? query.trim().slice(0, PALETTE_MAX_QUERY) : "";
-  // 06-09c (IND L-4): only letters and digits count toward the minimum ("%%", "__", "**" return nothing).
-  if (q.replace(/[^\p{L}\p{N}]/gu, "").length < PALETTE_MIN_QUERY) return [];
-  const filterString = buildPatientSearchFilter(q);
-  if (!filterString) return [];
+  const q = typeof query === "string" ? query.trim().slice(0, PATIENT_SEARCH_MAX_QUERY) : "";
+  if (!q) return { ok: true, patients: [] };
+  const { data, error } = await (ctx.db as any).rpc("search_patients", { p_query: q, p_limit: PATIENT_SEARCH_LIMIT });
+  if (error || !Array.isArray(data)) {
+    log.error({ event: "patients.search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false };
+  }
+  const rows = data as HitRow[];
+  const tz = await clinicZoneFor(ctx, rows);
+  return { ok: true, patients: rows.map((r) => toHit(r, tz)) };
+}
 
-  const { data, error } = await (ctx.db.from("patients") as any)
-    .select("id, full_name, phone, date_of_birth, age, sex")
-    .eq("tenant_id", ctx.tenantId)
-    .eq("is_deleted", false)
-    .or(filterString)
-    .order("created_at", { ascending: false })
-    .limit(PALETTE_PATIENT_LIMIT);
+export interface DuplicateCandidate extends PatientHit {
+  reasons: DuplicateReason[];
+}
 
-  if (error || !data) {
-    log.error({ event: "patients.palette_search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+export interface FindDuplicatesParams {
+  phone?: string | null;
+  fullName?: string | null;
+  age?: number | null;
+  dob?: string | null;
+}
+
+/**
+ * Advisory duplicate candidates for a patient being registered (`public.find_patient_duplicates`, 000101, R-11): same mobile
+ * (a shared family number lists everyone on it), or the same name with the same date of birth or an age within two years.
+ * Minimal projection plus the reasons; an unusable input is dropped, never an error.
+ */
+export async function findDuplicates(ctx: ServiceContext, params: FindDuplicatesParams): Promise<DuplicateCandidate[]> {
+  assertPerm(ctx.role, "patients:view");
+  const phone = typeof params.phone === "string" ? params.phone.trim().slice(0, 30) : "";
+  const name = typeof params.fullName === "string" ? params.fullName.trim().slice(0, 120) : "";
+  const dob = typeof params.dob === "string" && isYmd(params.dob) ? params.dob : null;
+  const age = typeof params.age === "number" && Number.isInteger(params.age) && params.age >= 0 && params.age <= 130 ? params.age : null;
+  if (!phone && !name) return [];
+  const { data, error } = await (ctx.db as any).rpc("find_patient_duplicates", {
+    p_phone: phone || null,
+    p_name: name || null,
+    p_dob: dob,
+    p_age: age,
+  });
+  if (error || !Array.isArray(data)) {
+    log.error({ event: "patients.find_duplicates.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
-
-  type Row = { id: string; full_name: string; phone: string | null; date_of_birth: string | null; age: number | null; sex: string | null };
-  const rows = data as Row[];
-  const tz = rows.some((r) => r.date_of_birth) ? await getTenantTimeZone(ctx.db, ctx.tenantId) : null;
-  return rows.map((r) => {
-    const age = r.date_of_birth && tz ? formatAgeToday(r.date_of_birth, tz) : typeof r.age === "number" ? `${r.age} y` : null;
-    const sex = (r.sex && SEX_LETTER[r.sex]) || null;
-    const digits = (r.phone ?? "").replace(/\D/g, "");
-    return {
-      id: r.id,
-      name: r.full_name,
-      ageSex: age || sex ? { age, sex } : null,
-      phoneLast4: digits.length >= 4 ? digits.slice(-4) : null,
-    };
-  });
+  const rows = data as Array<HitRow & { reasons: string[] | null }>;
+  const tz = await clinicZoneFor(ctx, rows);
+  return rows.map((r) => ({
+    ...toHit(r, tz),
+    reasons: (r.reasons ?? []).filter((x): x is DuplicateReason => (DUPLICATE_REASONS as readonly string[]).includes(x)),
+  }));
 }
 
 export async function getPatients(ctx: ServiceContext): Promise<Patient[]> {
