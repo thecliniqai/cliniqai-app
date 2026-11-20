@@ -535,18 +535,28 @@ export async function getActiveClinicDoctors(ctx: ServiceContext): Promise<Activ
     assertPerm(ctx.role, "appointments:view");
     const session = ctx;
 
+    // V2-08 R-2: a doctor, or the owner when the owner practises. An admin is never offered, credentials or not.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows, error } = await (supabase.from("memberships") as any)
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("owner_is_practicing_doctor")
+      .eq("id", session.tenantId)
+      .single();
+    const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allRows, error } = await (supabase.from("memberships") as any)
       .select("id, user_id, full_name, qualifications, default_specialty, role")
       .eq("tenant_id", session.tenantId)
       .eq("status", "active")
-      .in("role", ["doctor", "owner", "admin"])
+      .in("role", ["doctor", "owner"])
       .order("created_at", { ascending: true });
 
-    if (error || !rows) {
+    if (error || !allRows) {
       log.error({ event: "visits.doctors_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = allRows.filter((r: any) => r.role === "doctor" || ownerPracticing);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows.map((r: any) => ({
