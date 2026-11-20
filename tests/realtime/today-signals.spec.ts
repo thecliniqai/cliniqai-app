@@ -67,6 +67,22 @@ async function until(predicate: () => boolean, ms: number): Promise<boolean> {
   return predicate();
 }
 
+/**
+ * Waits until the channel is joined AND has delivered a signal. Realtime acknowledges the join (SUBSCRIBED) before the
+ * read authorization of a private channel has necessarily taken effect for broadcasts, so a change committed in the
+ * first few milliseconds can be missed (seen once under load; the board closes that gap by refreshing on every
+ * subscription). The probes are real visits of the clinic, so the check is of the delivery path itself, not a pause.
+ */
+async function joined(listener: Listener, tenant: SeededTenant): Promise<void> {
+  expect(await listener.status).toBe("SUBSCRIBED");
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const seen = listener.signals.length;
+    await seedVisit(tenant);
+    if (await until(() => listener.signals.length > seen, 1_500)) return;
+  }
+  throw new Error("the channel joined but never delivered a signal");
+}
+
 let tenantA: SeededTenant;
 let tenantB: SeededTenant;
 let receptionistA: SeededTenant;
@@ -92,8 +108,8 @@ describe("today signals: delivery to the clinic's own members", () => {
   it("a new visit reaches a receptionist and a nurse of the clinic within 2 s with exactly {kind, visit_id}", async () => {
     const reception = await listen(receptionistA.client, tenantA.tenantId);
     const nurse = await listen(nurseA.client, tenantA.tenantId);
-    expect(await reception.status).toBe("SUBSCRIBED");
-    expect(await nurse.status).toBe("SUBSCRIBED");
+    await joined(reception, tenantA);
+    await joined(nurse, tenantA);
 
     const started = Date.now();
     const { visitId } = await seedVisit(tenantA);
@@ -112,7 +128,7 @@ describe("today signals: delivery to the clinic's own members", () => {
     const admin = getAdminClient();
     const { visitId, patientId } = await seedVisit(tenantA);
     const listener = await listen(receptionistA.client, tenantA.tenantId);
-    expect(await listener.status).toBe("SUBSCRIBED");
+    await joined(listener, tenantA);
     const kinds = () => listener.signals.filter((s) => s.visit_id === visitId).map((s) => s.kind);
 
     const token = await insertReturningId(admin, "queue_tokens", {
@@ -156,8 +172,7 @@ describe("today signals: delivery to the clinic's own members", () => {
   it("a write that changes none of the watched columns sends nothing", async () => {
     const { visitId } = await seedVisit(tenantA);
     const listener = await listen(receptionistA.client, tenantA.tenantId);
-    expect(await listener.status).toBe("SUBSCRIBED");
-    await sleep(500);
+    await joined(listener, tenantA);
     const before = listener.signals.filter((s) => s.visit_id === visitId).length;
     await getAdminClient().from("visits").update({ reason_for_visit: "synthetic reason" }).eq("id", visitId);
     await sleep(1_000);
@@ -168,7 +183,7 @@ describe("today signals: delivery to the clinic's own members", () => {
 describe("today signals: isolation", () => {
   it("clinic A's changes never reach clinic B's own subscriber", async () => {
     const own = await listen(tenantB.client, tenantB.tenantId);
-    expect(await own.status).toBe("SUBSCRIBED");
+    await joined(own, tenantB);
     const { visitId } = await seedVisit(tenantA);
     await sleep(1_500);
     expect(own.signals.some((s) => s.visit_id === visitId)).toBe(false);
@@ -223,7 +238,7 @@ describe("today signals: isolation", () => {
   it("a removed member cannot join the channel they could join before", async () => {
     const leaver = await addMemberToTenant(tenantA.tenantId, "receptionist");
     const before = await listen(leaver.client, tenantA.tenantId);
-    expect(await before.status).toBe("SUBSCRIBED");
+    await joined(before, tenantA);
     await leaver.client.removeChannel(before.channel);
 
     const { error } = await getAdminClient()
@@ -241,7 +256,7 @@ describe("today signals: isolation", () => {
     const sender = await listen(receptionistA.client, tenantA.tenantId);
     const watcher = await listen(nurseA.client, tenantA.tenantId);
     expect(await sender.status).toBe("SUBSCRIBED");
-    expect(await watcher.status).toBe("SUBSCRIBED");
+    await joined(watcher, tenantA);
     const forged = randomUUID();
     await sender.channel.send({ type: "broadcast", event: "today", payload: { kind: "visit", visit_id: forged } });
     await sleep(1_500);
