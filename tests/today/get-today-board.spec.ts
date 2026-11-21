@@ -13,6 +13,7 @@ import { getTodayBoard } from "@/features/today/queries";
 import { TODAY_ROW_KEYS, groupIntoLanes, laneOf, type TodayRow } from "@/features/today/schema";
 import { addDaysYmd, todayInTz, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import type { UserRole } from "@/lib/db/types";
+import { hasPerm } from "@/lib/permissions";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { insertReturningId } from "../helpers/db";
@@ -278,3 +279,63 @@ describe("getTodayBoard: invoices (A-4)", () => {
     expect(byId(await boardOf("owner"), extra.visitId)).toMatchObject({ billed: false });
   });
 });
+
+describe("getTodayBoard: the recommended follow-up of a completed visit (V2-09b 09B-04b, R-15, Q-14)", () => {
+  it("a role that may book sees the follow-up date and whether it is booked; the rule is three days before the date, same doctor, booked or confirmed", async () => {
+    const admin = getAdminClient();
+    const doctorId = members.doctor.userId;
+    // The completed 'to bill' visit gets a follow-up in 5 days; nothing is booked yet.
+    const date = addDaysYmd(today, 5);
+    const added = await admin
+      .from("follow_ups")
+      .insert({ tenant_id: tenantA.tenantId, visit_id: ids.toBill, patient_id: (await patientOf(ids.toBill)), doctor_id: doctorId, follow_up_date: date });
+    expect(added.error).toBeNull();
+
+    const row = async (role: UserRole) => byId(await boardOf(role), ids.toBill)!;
+    expect((await row("receptionist")).followUp).toEqual({ date, booked: false });
+    expect((await row("owner")).followUp).toEqual({ date, booked: false });
+    // A visit that is not completed, and a completed one without a follow-up, carry none.
+    const rows = await boardOf("receptionist");
+    expect(byId(rows, ids.paid)!.followUp).toBeNull();
+    expect(byId(rows, ids.waiting)!.followUp).toBeNull();
+    // A role that may not book is not given it.
+    for (const role of ROLES) {
+      const expected = hasPerm(role, "appointments:edit") ? { date, booked: false } : null;
+      expect((await row(role)).followUp, role).toEqual(expected);
+    }
+
+    const patientId = await patientOf(ids.toBill);
+    const book = async (offset: number, doctor: string, status: "booked" | "confirmed" | "cancelled") => {
+      const inserted = await admin.from("visits").insert({
+        tenant_id: tenantA.tenantId,
+        patient_id: patientId,
+        doctor_id: doctor,
+        origin_type: "scheduled",
+        status,
+        scheduled_at: zonedDateTimeToUtcIso(addDaysYmd(today, offset), "11:00", TZ),
+        is_overbooked: true,
+        created_by: tenantA.userId,
+      }).select("id").single();
+      expect(inserted.error).toBeNull();
+      return inserted.data!.id as string;
+    };
+    // Not counted: another doctor's visit, a cancelled one, one more than three days before the date (day 1 is four days before day 5).
+    await book(6, members.owner.userId, "booked");
+    await book(5, doctorId, "cancelled");
+    await book(1, doctorId, "booked");
+    expect((await row("receptionist")).followUp).toEqual({ date, booked: false });
+    // Counted: a booked visit with the same doctor on day 2 (three days before the date) or later.
+    const counted = await book(2, doctorId, "confirmed");
+    expect((await row("receptionist")).followUp).toEqual({ date, booked: true });
+    expect((await admin.from("visits").update({ status: "cancelled" }).eq("id", counted)).error).toBeNull();
+    expect((await row("receptionist")).followUp).toEqual({ date, booked: false });
+    await book(7, doctorId, "booked");
+    expect((await row("receptionist")).followUp).toEqual({ date, booked: true });
+  });
+});
+
+async function patientOf(visitId: string): Promise<string> {
+  const { data, error } = await getAdminClient().from("visits").select("patient_id").eq("id", visitId).single();
+  if (error) throw new Error(error.message);
+  return data.patient_id as string;
+}

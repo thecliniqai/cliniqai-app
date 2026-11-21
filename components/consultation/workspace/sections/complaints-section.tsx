@@ -8,6 +8,7 @@ import { rankComplaints, type AssistContext } from "@/features/consultation/assi
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
 import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
 import { RemoveButton } from "./remove-button";
@@ -28,6 +29,8 @@ export interface ComplaintsSectionProps {
   disabled?: boolean;
   /** The calling doctor's learned order (null: the catalogue order, no label). */
   context?: AssistContext | null;
+  /** Opens the shorthand bar (09B-04b); absent when the clinic has no `assist.shorthand` or the record is read-only. */
+  onOpenShorthand?: () => void;
 }
 
 // Module level (V2-06 06-08, R-30): React Compiler's `purity` rule reports a random read inside a component, even in an event handler.
@@ -46,6 +49,7 @@ export function ComplaintsSection({
   onClinicalNotesChange,
   disabled = false,
   context = null,
+  onOpenShorthand,
 }: ComplaintsSectionProps) {
   const [customSymptom, setCustomSymptom] = useState("");
   // After a complaint is added the tile that was tapped is gone: focus moves to the new row's duration pills (the next step of the entry).
@@ -172,10 +176,18 @@ export function ComplaintsSection({
       )}
 
       <div className="border-t border-border pt-4">
-        <label htmlFor="clinical-notes" className="mb-2 flex items-center gap-1.5 text-label font-semibold text-fg-secondary">
-          <FileText aria-hidden="true" className="size-4 text-fg-icon" />
-          History of Present Illness & Clinical Notes
-        </label>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <label htmlFor="clinical-notes" className="flex items-center gap-1.5 text-label font-semibold text-fg-secondary">
+            <FileText aria-hidden="true" className="size-4 text-fg-icon" />
+            History of Present Illness & Clinical Notes
+          </label>
+          {onOpenShorthand && !disabled && (
+            <Button type="button" variant="secondary" size="sm" onClick={onOpenShorthand} data-open-shorthand="">
+              Shorthand
+              <Kbd className="ml-1">/</Kbd>
+            </Button>
+          )}
+        </div>
         <Textarea
           id="clinical-notes"
           rows={3}

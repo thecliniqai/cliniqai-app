@@ -110,6 +110,12 @@ export interface TodayRow {
   billed: boolean | null;
   /** The row actions the caller's role may use now (state machine, R-7). */
   actions: RowAction[];
+  /**
+   * The follow-up the doctor recommended on this completed visit (V2-09b 09B-04b, R-15), for a role that may book (`appointments:edit`): its date, and whether the
+   * patient already has a booked or confirmed visit with this doctor from three days before it onward (a display rule, Q-14: nothing is stored). Null for
+   * any other role, a visit that is not completed, or a visit with no follow-up.
+   */
+  followUp: { date: string; booked: boolean } | null;
 }
 
 export const TODAY_ROW_KEYS = [
@@ -120,6 +126,7 @@ export const TODAY_ROW_KEYS = [
   "billed",
   "doctorId",
   "doctorName",
+  "followUp",
   "hasAllergy",
   "name",
   "origin",

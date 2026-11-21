@@ -1,5 +1,5 @@
 import type { ChiefComplaintItem } from "@/features/consultation/schema";
-import { intervalForDays, type FollowUpInterval } from "@/features/consultation/catalogue";
+import { ADVICE, COMPLAINTS, intervalForDays, type FollowUpInterval } from "@/features/consultation/catalogue";
 import { addDaysYmd } from "@/lib/datetime";
 import type { ParsedDuration, ShorthandResult } from "@/features/consultation/shorthand";
 import { durationDays } from "@/features/consultation/shorthand";
@@ -32,6 +32,15 @@ export function followUpFromDuration(duration: ParsedDuration, today: string, no
   return { interval: intervalForDays(days) ?? "custom", date: addDaysYmd(today, days), notes };
 }
 
+/**
+ * The catalogue's own spelling of a line that equals one of its entries ignoring case ("steam inhalation twice daily" is the tile "Steam inhalation twice
+ * daily"), so the tile shows as chosen and a later tap cannot add the same words a second time. Any other line is kept as typed.
+ */
+function inCatalogueSpelling(catalogue: readonly string[], text: string): string {
+  const lower = text.toLowerCase();
+  return catalogue.find((entry) => entry.toLowerCase() === lower) ?? text;
+}
+
 export function applyShorthand(
   result: ShorthandResult,
   current: ShorthandFields & { followUpNotes: string },
@@ -41,7 +50,7 @@ export function applyShorthand(
   const complaints = [...current.complaints];
   for (const parsed of result.complaints) {
     if (complaints.some((c) => c.symptom.toLowerCase() === parsed.symptom.toLowerCase())) continue;
-    const item: ChiefComplaintItem = { id: newId(), symptom: parsed.symptom, notes: null };
+    const item: ChiefComplaintItem = { id: newId(), symptom: inCatalogueSpelling(COMPLAINTS, parsed.symptom), notes: null };
     if (parsed.duration) {
       item.duration_val = parsed.duration.value;
       item.duration_unit = parsed.duration.unit;
@@ -51,7 +60,7 @@ export function applyShorthand(
   const advice = [...current.advice];
   for (const line of result.advice) {
     if (advice.some((a) => a.toLowerCase() === line.toLowerCase())) continue;
-    advice.push(line);
+    advice.push(inCatalogueSpelling(ADVICE, line));
   }
   const added = result.notes.join("\n");
   const clinicalNotes = added ? (current.clinicalNotes.trim() ? `${current.clinicalNotes}\n${added}` : added) : current.clinicalNotes;

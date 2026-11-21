@@ -4,7 +4,7 @@ import { assertPerm, hasPerm, ROLE_PERMISSIONS } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import type { VisitStatus } from "@/lib/db/types";
 import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
-import { clockOf, dayWindowUtc, todayInTz } from "@/lib/datetime";
+import { addDaysYmd, clockOf, dayWindowUtc, todayInTz, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { formatAge } from "@/lib/ui/age";
 import type { VitalsReading } from "@/lib/clinical/vitals";
@@ -157,6 +157,8 @@ export async function getTodayBoard(
     }
   }
 
+  const followUps = hasPerm(ctx.role, "appointments:edit") ? await readFollowUps(ctx, data, startIso, timeZone) : new Map<string, { date: string; booked: boolean }>();
+
   const doctors = await getTenantDoctorMap(ctx);
   const permissions = ROLE_PERMISSIONS[ctx.role];
   const todayYmd = todayInTz(timeZone, now);
@@ -199,10 +201,54 @@ export async function getTodayBoard(
       balanceDue: sees.billing && v.status === "completed" ? (balances.get(v.id) ?? 0) : null,
       billed: sees.billing && v.status === "completed" ? invoiced.has(v.id) : null,
       actions: rowActions(permissions, { status: v.status, scheduledAt: v.scheduled_at, signed: v.signed_at != null }, now, timeZone),
+      followUp: followUps.get(v.id) ?? null,
     };
   });
 
   return { ok: true, board: { rows, generatedAt: now.toISOString(), today, timeZone } };
+}
+
+/**
+ * The follow-ups of the day's completed visits and whether each is already booked (V2-09b 09B-04b, R-15, Q-14). Two reads on the user's own client under
+ * RLS (appointments:view): the follow-up rows of the completed visits, then the future booked or confirmed visits of those patients. A follow-up counts as
+ * booked when the patient has such a visit with the same doctor on or after three days before the follow-up date. A failed read is "no follow-up".
+ */
+async function readFollowUps(
+  ctx: ServiceContext,
+  visits: VisitRowResult[],
+  windowStartIso: string,
+  timeZone: string,
+): Promise<Map<string, { date: string; booked: boolean }>> {
+  const out = new Map<string, { date: string; booked: boolean }>();
+  const completed = visits.filter((v) => v.status === "completed");
+  if (completed.length === 0) return out;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rows, error } = await (ctx.db.from("follow_ups") as any)
+    .select("visit_id, follow_up_date")
+    .eq("tenant_id", ctx.tenantId)
+    .in("visit_id", completed.map((v) => v.id));
+  if (error || !rows || rows.length === 0) return out;
+  const dates = new Map<string, string>((rows as { visit_id: string; follow_up_date: string }[]).map((r) => [r.visit_id, r.follow_up_date]));
+  const patientIds = [...new Set(completed.filter((v) => dates.has(v.id)).map((v) => v.patient_id))];
+  const since = new Date(new Date(windowStartIso).getTime() - 3 * 86_400_000).toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: future } = await (ctx.db.from("visits") as any)
+    .select("patient_id, doctor_id, scheduled_at")
+    .eq("tenant_id", ctx.tenantId)
+    .in("patient_id", patientIds)
+    .in("status", ["booked", "confirmed"])
+    .gte("scheduled_at", since);
+  const booked = (future ?? []) as { patient_id: string; doctor_id: string; scheduled_at: string | null }[];
+  for (const v of completed) {
+    const date = dates.get(v.id);
+    if (!date) continue;
+    const from = addDaysYmd(date, -3);
+    const isBooked = booked.some(
+      (b) => b.patient_id === v.patient_id && b.doctor_id === v.doctor_id && b.scheduled_at !== null && ymdOf(b.scheduled_at, timeZone) >= from,
+    );
+    out.set(v.id, { date, booked: isBooked });
+  }
+  return out;
 }
 
 /** An amendment still open on one of the doctor's own signed visits (V2-09b 09B-04a, hand-off of V2-09a): the visit, who it is, and when it was reopened. */

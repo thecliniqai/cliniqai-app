@@ -337,6 +337,12 @@ describe("applyShorthand and followUpFromDuration", () => {
     expect(followUpFromDuration({ value: 1, unit: "months" }, today, "").interval).toBe("1_month");
     expect(followUpFromDuration({ value: 4, unit: "days" }, today, "n")).toEqual({ interval: "custom", date: "2026-11-25", notes: "n" });
   });
+  it("writes a line that equals a catalogue entry ignoring case in the catalogue's spelling, so the tile shows as chosen", () => {
+    const parsed = parseShorthand("c/o body ache 2d, cold & congestion; adv steam inhalation twice daily, rest");
+    const next = applyShorthand(parsed, current, today, newId);
+    expect(next.complaints.map((x) => x.symptom)).toEqual(["Body ache", "Cold & Congestion"]);
+    expect(next.advice).toEqual(["Steam inhalation twice daily", "rest"]);
+  });
   it("keeps the existing follow-up note when the shorthand has none", () => {
     const next = applyShorthand(parseShorthand("f/u 5d"), { ...current, followUpNotes: "keep" }, today, newId);
     expect(next.followUp?.notes).toBe("keep");

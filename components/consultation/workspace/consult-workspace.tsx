@@ -35,7 +35,7 @@ import { StatusChip } from "@/components/clinical/status-chip";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { formatAge } from "@/lib/ui/age";
 import { reportClientError } from "@/lib/log/client";
-import { addDaysYmd, daysBetweenYmd, todayInTz } from "@/lib/datetime";
+import { addDaysYmd, daysBetweenYmd, todayInTz, ymdOf } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Check, CheckCircle2, FilePenLine, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
 import { ConsultTopBar } from "./consult-top-bar";
@@ -56,6 +56,12 @@ import { ComplaintsSection } from "./sections/complaints-section";
 import { ExaminationSection } from "./sections/examination-section";
 import { DiagnosisSection } from "./sections/diagnosis-section";
 import { daysForInterval } from "@/features/consultation/catalogue";
+import { CommandBar } from "./command-bar";
+import { MacroList } from "./macro-list";
+import { BookFollowUp, FollowUpSuggestion } from "./follow-up-suggestion";
+import type { DoctorMacro } from "@/features/consultation/macros";
+import { findFollowUpPhrase, type FollowUpPhrase, type ShorthandResult } from "@/features/consultation/shorthand";
+import { applyShorthand, followUpFromDuration } from "@/features/consultation/shorthand-apply";
 import type { AssistContext } from "@/features/consultation/assist-ranking";
 import type { PatientSnapshot } from "@/features/consultation/snapshot";
 
@@ -126,6 +132,15 @@ export interface ConsultWorkspaceProps {
   assistContext?: AssistContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
   snapshot?: PatientSnapshot | null;
+  /** The signed-in doctor's own text macros (V2-09b 09B-04b, R-14), read on the server only with `assist.shorthand` and an editable record. */
+  macros?: DoctorMacro[];
+  /**
+   * The instants of this patient's booked or confirmed visits with this doctor from three days ago onward (09B-04b, R-15, Q-14), read on the server. A display
+   * rule only: the "Book follow-up" action gives way to a note when one falls on or after three days before the follow-up date.
+   */
+  upcomingVisits?: string[];
+  /** The role may book an appointment (`appointments:edit`): "Book follow-up" opens the V2-08 booking sheet. */
+  canBook?: boolean;
 }
 
 const SECTION_IDS = ["complaints", "examination", "diagnosis", "prescription", "plan"] as const;
@@ -135,10 +150,16 @@ const CONSULT_SHORTCUTS = [
   { key: "Alt 1–5", label: "Jump to a section" },
   { key: "M", label: "Search medicines" },
   { key: "F", label: "Finish visit" },
+  { key: "/", label: "Shorthand" },
   { key: "?", label: "Show these shortcuts" },
 ] as const;
 
 const SEX_CODE = { male: "M", female: "F", other: "O" } as const;
+
+// Module level (V2-06 06-08, R-30): React Compiler's `purity` rule reports a random read inside a component, even in an event handler.
+function newShorthandId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
 
 /**
  * Follows the scroll (phones, where the page scrolls): the current section is the last one whose top has passed the bottom of the sticky header (about
@@ -179,6 +200,9 @@ export function ConsultWorkspace({
   assist,
   assistContext = null,
   snapshot = null,
+  macros = [],
+  upcomingVisits = [],
+  canBook = false,
 }: ConsultWorkspaceProps) {
   const router = useRouter();
   const timeZone = useClinicTimeZone();
@@ -230,6 +254,10 @@ export function ConsultWorkspace({
   const wide1440 = useMinWidth(1440);
   const summaryPaneOpen = summaryChoice ?? wide1440;
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  // The shorthand bar and the doctor's macros (09B-04b). The macro list is the doctor's own and lives here so the bar sees an edit at once.
+  const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
+  const [isMacroListOpen, setIsMacroListOpen] = useState(false);
+  const [macroList, setMacroList] = useState<DoctorMacro[]>(macros);
   const [shortcutsOn, setShortcutsOn] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
@@ -289,6 +317,8 @@ export function ConsultWorkspace({
     goToSection("prescription");
     document.getElementById("medicine-search-input")?.focus();
   };
+  const shorthandOn = assist?.["assist.shorthand"] === true && !readOnly;
+  const followUpOn = assist?.["assist.followup"] === true && !readOnly;
   const finishAvailable = state !== "sealed" && state !== "amending" && !readOnly && visit.status !== "cancelled";
   useConsultShortcuts({
     onSection: (n) => goToSection(SECTION_IDS[n - 1]),
@@ -300,8 +330,9 @@ export function ConsultWorkspace({
         focusMedicineSearch();
       } else if (action === "finish" && finishAvailable) {
         handleFinish();
+      } else if (action === "command" && shorthandOn) {
+        setIsCommandBarOpen(true);
       }
-      // "command" (/) is reserved for the consult command bar of 09B-04b.
     },
   });
 
@@ -443,6 +474,43 @@ export function ConsultWorkspace({
     setIsPatientOpen(false);
     goToSection("complaints");
   };
+
+  /** Shorthand bar, Insert (R-14): the parsed parts land in Complaints, the notes, Advice and the follow-up in one change, so the draft saver makes one save. */
+  const handleInsertShorthand = (result: ShorthandResult) => {
+    const next = applyShorthand(
+      result,
+      { complaints: chiefComplaints, clinicalNotes, advice: adviceList, followUpNotes },
+      clinicToday,
+      newShorthandId,
+    );
+    setChiefComplaints(next.complaints);
+    setClinicalNotes(next.clinicalNotes);
+    setAdviceList(next.advice);
+    if (next.followUp) {
+      setFollowUpInterval(next.followUp.interval);
+      setFollowUpDate(next.followUp.date);
+      setFollowUpNotes(next.followUp.notes);
+    }
+  };
+
+  // The follow-up proposal (R-15): a follow-up the advice or the notes already say, offered as a chip until the doctor taps it or the follow-up already is it.
+  const suggestedPhrase = followUpOn ? findFollowUpPhrase([...adviceList, clinicalNotes]) : null;
+  const suggestion =
+    suggestedPhrase && !(followUpInterval !== "none" && followUpDate === addDaysYmd(clinicToday, suggestedPhrase.days)) ? suggestedPhrase : null;
+  const acceptSuggestion = (phrase: FollowUpPhrase) => {
+    const f = followUpFromDuration(phrase, clinicToday, phrase.phrase);
+    setFollowUpInterval(f.interval);
+    setFollowUpDate(f.date);
+    setFollowUpNotes(f.notes);
+  };
+  // "Book follow-up" (R-15, Q-14): the V2-08 booking sheet over the consult, with the date filled in; no booked or confirmed visit of this patient with
+  // this doctor from three days before the date onward. A display rule: nothing about the booking is stored on the follow-up.
+  const followUpBooked =
+    followUpDate !== "" && upcomingVisits.some((iso) => ymdOf(iso, timeZone) >= addDaysYmd(followUpDate, -3));
+  const bookHref =
+    canBook && followUpInterval !== "none" && followUpDate
+      ? `?${new URLSearchParams({ book: "1", patient: patient.id, doctor: visit.doctor_id, date: followUpDate }).toString()}`
+      : null;
 
   const identity = {
     name: patient.full_name,
@@ -683,6 +751,7 @@ export function ConsultWorkspace({
                 context={assistContext}
                 onComplaintsChange={setChiefComplaints}
                 onClinicalNotesChange={setClinicalNotes}
+                onOpenShorthand={shorthandOn ? () => setIsCommandBarOpen(true) : undefined}
               />
             </ConsultSection>
 
@@ -809,6 +878,8 @@ export function ConsultWorkspace({
                 onOpenReferralPdf={(id) => void handleOpenReferralPdf(id)}
                 context={assistContext}
                 diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
+                followUpSuggestion={suggestion ? <FollowUpSuggestion phrase={suggestion} today={clinicToday} onAccept={acceptSuggestion} /> : null}
+                bookFollowUp={followUpOn ? <BookFollowUp href={bookHref} booked={followUpBooked} date={followUpDate} /> : null}
               />
             </ConsultSection>
           </div>
@@ -832,6 +903,24 @@ export function ConsultWorkspace({
         shortcuts={CONSULT_SHORTCUTS}
         note="Alt+1 to Alt+5 always work. M and F work when no field is focused and this switch is on. The ? key always opens this list."
       />
+
+      {/* The shorthand bar and the doctor's macros (09B-04b): gated by assist.shorthand and hidden when the record is read-only. */}
+      {shorthandOn && (
+        <>
+          <CommandBar
+            open={isCommandBarOpen}
+            onOpenChange={setIsCommandBarOpen}
+            macros={macroList}
+            today={clinicToday}
+            onInsert={handleInsertShorthand}
+            onManageMacros={() => {
+              setIsCommandBarOpen(false);
+              setIsMacroListOpen(true);
+            }}
+          />
+          <MacroList open={isMacroListOpen} onOpenChange={setIsMacroListOpen} macros={macroList} onChange={setMacroList} />
+        </>
+      )}
 
       {/* R-5: the same field was changed here and in another tab or device; nothing is overwritten silently. */}
       <DraftConflictDialog

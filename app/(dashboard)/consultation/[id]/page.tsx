@@ -24,6 +24,9 @@ import { recordState } from "@/features/consultation/record-state";
 import { getConsultAssistContext, getPatientSnapshot } from "@/features/consultation/service";
 import type { PatientSnapshot } from "@/features/consultation/snapshot";
 import type { AssistContext } from "@/features/consultation/assist-ranking";
+import { listDoctorMacros } from "@/features/consultation/macros-service";
+import { getUpcomingVisitInstants } from "@/features/consultation/upcoming-visits";
+import type { DoctorMacro } from "@/features/consultation/macros";
 import { resolveServiceContext } from "@/lib/auth/context";
 
 interface ConsultationPageProps {
@@ -163,6 +166,23 @@ async function ConsultationPage(props: ConsultationPageProps) {
     }
   }
 
+  // 10. The write side of Smart Assist (V2-09b 09B-04b). The signed-in doctor's own macros (RLS limits the read to them) only with `assist.shorthand` and
+  // an editable record; the instants of this patient's booked or confirmed visits with this doctor from three days ago onward only with `assist.followup`
+  // (the display rule of "Book follow-up", Q-14: nothing is stored). A failed read is "none".
+  let macros: DoctorMacro[] = [];
+  let upcomingVisits: string[] = [];
+  if (editable && assist["assist.shorthand"] === true && hasPerm(membership.role, "consultations:edit")) {
+    const resolved = await resolveServiceContext("consultations:edit");
+    if (resolved.ok) {
+      const listed = await listDoctorMacros(resolved.ctx);
+      if (listed.success) macros = listed.value;
+    }
+  }
+  if (editable && assist["assist.followup"] === true) {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) upcomingVisits = await getUpcomingVisitInstants(resolved.ctx, patientId, visitRow.doctor_id);
+  }
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -226,6 +246,9 @@ async function ConsultationPage(props: ConsultationPageProps) {
       assist={assist}
       assistContext={assistContext}
       snapshot={snapshot}
+      macros={macros}
+      upcomingVisits={upcomingVisits}
+      canBook={hasPerm(membership.role, "appointments:edit")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

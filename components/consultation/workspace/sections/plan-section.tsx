@@ -66,6 +66,10 @@ export interface PlanSectionProps {
   context?: AssistContext | null;
   /** The diagnoses added so far, primary first: the usual plan is looked up for the first this doctor has signed before. */
   diagnosisNames?: readonly string[];
+  /** The follow-up proposal chip (09B-04b, R-15), drawn above the interval tiles; the workspace decides whether there is one. */
+  followUpSuggestion?: React.ReactNode;
+  /** "Book follow-up" or its "booked" note (09B-04b, R-15), drawn under the date hint. */
+  bookFollowUp?: React.ReactNode;
 }
 
 export function PlanSection(props: PlanSectionProps) {
@@ -197,6 +201,7 @@ export function PlanSection(props: PlanSectionProps) {
       <div className="border-t border-border pt-4">
         <SubHeading icon={<Calendar aria-hidden="true" className="size-4 text-accent-fg" />}>Follow-up recommendation</SubHeading>
         {usualInterval && <UsualNote shown diagnosis={usual?.diagnosis} what="Follow-up" />}
+        {props.followUpSuggestion}
         <ChipGroup
           type="single"
           variant="tile"
@@ -212,6 +217,7 @@ export function PlanSection(props: PlanSectionProps) {
             {formatClinicDateWithWeekday(props.followUpDate)} · the front desk books it when you finish
           </p>
         )}
+        {followUpInterval !== "none" && props.followUpDate && props.bookFollowUp}
         {followUpInterval === "none" ? (
           <p className="flex items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-soft p-3 text-body-sm text-fg-secondary">
             <Check aria-hidden="true" className="size-4 shrink-0 text-success-fg" />

@@ -30,6 +30,7 @@ function row(over: Partial<TodayRow>): TodayRow {
     vitalsPending: false,
     balanceDue: null,
     billed: null,
+    followUp: null,
     actions: [],
     ...over,
   };
