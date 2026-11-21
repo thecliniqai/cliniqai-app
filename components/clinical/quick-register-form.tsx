@@ -87,6 +87,8 @@ export interface QuickRegisterFormProps {
   saveStatus?: SaveStatusProps;
   /** Typed ahead of the form (the picker's "Register as new patient"): ten digits and/or a name. */
   defaultValues?: { phone?: string; name?: string };
+  /** The submit button's text ("Register patient"; the walk-in sheet says "Register and add to queue"). */
+  submitLabel?: string;
   className?: string;
 }
 
@@ -121,6 +123,7 @@ export function QuickRegisterForm({
   onEdit,
   saveStatus,
   defaultValues,
+  submitLabel = "Register patient",
   className,
 }: QuickRegisterFormProps) {
   const id = useId();
@@ -318,7 +321,7 @@ export function QuickRegisterForm({
           </p>
         )}
         <Button type="submit" loading={submitting}>
-          Register patient
+          {submitLabel}
         </Button>
       </div>
     </form>

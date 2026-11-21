@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { QueueItem } from "./queue-card";
 import {
   createInvoice,
   collectPayment,
@@ -37,11 +36,22 @@ import { reportClientError } from "@/lib/log/client";
 import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
 
+/**
+ * What the drawer needs of a visit (V2-08 08-03b: the v1 queue card's `QueueItem` left with that screen). Today's To-bill row
+ * builds it with `toCheckoutTarget` (`components/today/checkout-target.ts`).
+ */
+export interface CheckoutTarget {
+  visit: { id: string; status: string };
+  patient: { id: string; full_name: string; sex?: string | null; age?: number | null; phone?: string | null };
+  queueToken?: { token_number: number } | null;
+  doctorName?: string | null;
+}
+
 interface CheckoutDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  queueItem: QueueItem | null;
+  queueItem: CheckoutTarget | null;
   defaultFee?: number;
 }
 

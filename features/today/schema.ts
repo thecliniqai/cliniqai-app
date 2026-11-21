@@ -5,7 +5,7 @@
  */
 import type { RowAction } from "@/features/visits/state-machine";
 import type { VitalsReading } from "@/lib/clinical/vitals";
-import type { VisitStatus } from "@/lib/db/types";
+import type { UserRole, VisitStatus } from "@/lib/db/types";
 
 export const TODAY_LANE_IDS = ["booked", "waiting", "with_doctor", "to_bill", "done"] as const;
 export type TodayLaneId = (typeof TODAY_LANE_IDS)[number];
@@ -29,6 +29,43 @@ export const TODAY_LANES: readonly TodayLane[] = [
   { id: "to_bill", label: "To bill", short: "Bill", empty: "Nothing to collect" },
   { id: "done", label: "Done", short: "Done", empty: "No finished visits yet" },
 ];
+
+/**
+ * The three Today modes (R-14): the front desk's day, the nurse's triage view (Waiting with vitals pending first, Record
+ * vitals as the action) and the doctor's own queue. A role may use only some of them; an owner toggles front and doctor.
+ */
+export const TODAY_MODES = ["front", "triage", "doctor"] as const;
+export type TodayMode = (typeof TODAY_MODES)[number];
+
+const MODES_OF_ROLE: Record<UserRole, readonly TodayMode[]> = {
+  owner: ["front", "doctor"],
+  admin: ["front"],
+  receptionist: ["front"],
+  nurse: ["triage"],
+  doctor: ["doctor"],
+};
+
+/** The modes a role may open; the first is its default. */
+export function modesOf(role: UserRole): readonly TodayMode[] {
+  return MODES_OF_ROLE[role] ?? ["front"];
+}
+
+/** `?mode=` resolved for a role: the requested mode when the role may use it, else the role's default. */
+export function resolveMode(role: UserRole, requested: string | null | undefined): TodayMode {
+  const modes = modesOf(role);
+  return modes.find((m) => m === requested) ?? modes[0]!;
+}
+
+/** The lanes a mode shows. The doctor's board folds To bill into "Seen today" (a doctor does not collect) and says "mine". */
+export function lanesOf(mode: TodayMode): readonly TodayLane[] {
+  if (mode !== "doctor") return TODAY_LANES;
+  return [
+    TODAY_LANES[0]!,
+    { ...TODAY_LANES[1]!, label: "Waiting (mine)", short: "Waiting" },
+    { ...TODAY_LANES[2]!, label: "With me", short: "With me", empty: "No one with you" },
+    { ...TODAY_LANES[4]!, label: "Seen today", short: "Seen", empty: "No one seen yet" },
+  ];
+}
 
 export type TodayPriority = "normal" | "urgent" | "vip";
 
@@ -104,7 +141,7 @@ export interface TodayBoard {
 }
 
 /** The lane of a visit. No-show and cancelled sit in Done with their own chip (as in the prototype). */
-export function laneOf(row: Pick<TodayRow, "status" | "balanceDue">): TodayLaneId {
+export function laneOf(row: Pick<TodayRow, "status" | "balanceDue">, mode: TodayMode = "front"): TodayLaneId {
   switch (row.status) {
     case "booked":
     case "confirmed":
@@ -114,7 +151,7 @@ export function laneOf(row: Pick<TodayRow, "status" | "balanceDue">): TodayLaneI
     case "in_consultation":
       return "with_doctor";
     case "completed":
-      return row.balanceDue != null && row.balanceDue > 0 ? "to_bill" : "done";
+      return mode !== "doctor" && row.balanceDue != null && row.balanceDue > 0 ? "to_bill" : "done";
     default:
       return "done";
   }
@@ -123,24 +160,72 @@ export function laneOf(row: Pick<TodayRow, "status" | "balanceDue">): TodayLaneI
 const PRIORITY_RANK: Record<TodayPriority, number> = { urgent: 0, vip: 1, normal: 2 };
 
 /** Lane order: booked by appointment time; waiting urgent first, then by token; the rest by token. */
-function compareInLane(lane: TodayLaneId): (a: TodayRow, b: TodayRow) => number {
+function compareInLane(lane: TodayLaneId, mode: TodayMode): (a: TodayRow, b: TodayRow) => number {
   const byToken = (a: TodayRow, b: TodayRow) => (a.token ?? 1e9) - (b.token ?? 1e9);
   const byName = (a: TodayRow, b: TodayRow) => a.name.localeCompare(b.name);
   if (lane === "booked") return (a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || byName(a, b);
-  if (lane === "waiting")
-    return (a, b) => PRIORITY_RANK[a.priority ?? "normal"] - PRIORITY_RANK[b.priority ?? "normal"] || byToken(a, b) || byName(a, b);
+  if (lane === "waiting") {
+    // Triage: the people whose vitals are still to be taken come first (a nurse's work list).
+    const pending = (r: TodayRow) => (mode === "triage" && r.vitalsPending ? 0 : 1);
+    return (a, b) =>
+      pending(a) - pending(b) ||
+      PRIORITY_RANK[a.priority ?? "normal"] - PRIORITY_RANK[b.priority ?? "normal"] ||
+      byToken(a, b) ||
+      byName(a, b);
+  }
   if (lane === "done") return (a, b) => byToken(b, a) || byName(a, b);
   return (a, b) => byToken(a, b) || byName(a, b);
 }
 
 export type TodayLanes = Record<TodayLaneId, TodayRow[]>;
 
-/** Rows grouped into the five lanes, each in its own order. */
-export function groupIntoLanes(rows: readonly TodayRow[]): TodayLanes {
+/** Rows grouped into the five lanes, each in its own order (the doctor's mode has no To bill lane). */
+export function groupIntoLanes(rows: readonly TodayRow[], mode: TodayMode = "front"): TodayLanes {
   const lanes: TodayLanes = { booked: [], waiting: [], with_doctor: [], to_bill: [], done: [] };
-  for (const row of rows) lanes[laneOf(row)].push(row);
-  for (const id of TODAY_LANE_IDS) lanes[id].sort(compareInLane(id));
+  for (const row of rows) lanes[laneOf(row, mode)].push(row);
+  for (const id of TODAY_LANE_IDS) lanes[id].sort(compareInLane(id, mode));
   return lanes;
+}
+
+/** A button on a Today row: what it does and whether it is the row's primary action. */
+export interface RowButton {
+  kind: "check_in" | "start" | "open_consult" | "record_vitals" | "collect";
+  primary: boolean;
+}
+
+/**
+ * The buttons a row shows in a mode, from the state machine's `actions` for the caller's role (R-7, `rowActions`) and
+ * `canConsult` (the role holds `consultations:edit`). Front: Check in and Collect. Triage: Record vitals first, then
+ * Check in. Doctor: Start consultation / Call in (a booked, confirmed or no-show visit is checked in first, R-1), Open
+ * consult for a visit already with the doctor, and Record vitals. Reschedule, No-show and Cancel arrive with the Schedule
+ * (08-04b). Nobody is offered an action the state machine did not list.
+ */
+export function rowButtons(
+  mode: TodayMode,
+  row: Pick<TodayRow, "status" | "actions">,
+  canConsult: boolean,
+): RowButton[] {
+  const has = (a: RowAction) => row.actions.includes(a);
+  const out: RowButton[] = [];
+  if (mode === "doctor") {
+    if (has("start")) out.push({ kind: "start", primary: true });
+    else if (canConsult && row.status === "in_consultation") out.push({ kind: "open_consult", primary: true });
+    if (has("record_vitals")) out.push({ kind: "record_vitals", primary: false });
+    return out;
+  }
+  if (mode === "triage") {
+    if (has("record_vitals")) out.push({ kind: "record_vitals", primary: true });
+    if (has("check_in")) out.push({ kind: "check_in", primary: !has("record_vitals") });
+    return out;
+  }
+  if (has("check_in")) out.push({ kind: "check_in", primary: true });
+  if (has("collect")) out.push({ kind: "collect", primary: !has("check_in") });
+  return out;
+}
+
+/** The doctor's next patient: the first of the Waiting (mine) lane. */
+export function nextUp(lanes: TodayLanes): TodayRow | null {
+  return lanes.waiting[0] ?? null;
 }
 
 const digitsOf = (text: string) => text.replace(/\D/g, "");

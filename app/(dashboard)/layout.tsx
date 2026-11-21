@@ -107,7 +107,7 @@ export default async function DashboardLayout({
         shellClinic={shellClinic}
       >
         {children}
-        <FrontDeskSheets canRegister={hasPerm(membership.role, "patients:edit")} />
+        <FrontDeskSheets canRegister={hasPerm(membership.role, "patients:edit")} canWalkIn={hasPerm(membership.role, "appointments:edit")} />
       </AppShell>
     </ClinicTimeZoneProvider>
   );

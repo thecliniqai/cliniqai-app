@@ -1,27 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { OctagonAlert, UserCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { notify } from "@/components/ui/toast";
+import Link from "next/link";
+import { Activity, HandCoins, OctagonAlert, Stethoscope, UserCheck } from "lucide-react";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { QueueRow } from "@/components/clinical/queue-row";
 import { StatusChip } from "@/components/clinical/status-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
-import { useCommand } from "@/lib/commands/use-command";
-import { checkInVisit } from "@/features/queue/actions";
-import { formatRupees, waitNow, type TodayRow } from "@/features/today/schema";
+import { formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
+import { startLabel, useCheckIn, useStart } from "./use-row-commands";
 
 /**
- * One Today row (V2-08 08-03a; 06-UI-SPEC §7): the V2-06 `QueueRow` fed from a {@link TodayRow}. The row's own action in this
- * plan is Check in (booked, confirmed or no-show visit of today): one tap, one `check_in_visit` command through
- * `useCommand` (one `client_request_id`, 15 s timeout, one retry). The board moves the row to Waiting at once (`onOptimistic`)
- * and takes it back (`onRollback`) when the command is refused, with a toast that offers Retry. Opening the row selects it
- * (`?visit=`); the name is the row's link.
+ * One Today row (V2-08 08-03a, 08-03b; 06-UI-SPEC §7): the V2-06 `QueueRow` fed from a {@link TodayRow}. The buttons come
+ * only from the state machine's `actions` for the caller's role (`rowButtons`, R-7), arranged by the mode: Check in and
+ * Collect at the desk, Record vitals first in triage, Call in / Start consultation / Open consult for the doctor.
+ * Check in and Start are single commands through `useCommand` (`use-row-commands.ts`); Check in moves the row to Waiting
+ * at once (`onOptimistic`) and takes it back (`onRollback`) when refused. Opening the row selects it (`?visit=`).
  */
 export interface TodayRowViewProps {
   row: TodayRow;
+  mode: TodayMode;
+  /** The role holds `consultations:edit`. */
+  canConsult: boolean;
   selected: boolean;
+  /** The doctor's Next card carries this row's Call in; the row shows the "Next" caption instead. */
+  next?: boolean;
   /** Changes when the row's status changed in a refresh: the row flashes once. */
   flashKey?: number | null;
   /** The wait ticks from these two clocks (`waitNow`). */
@@ -29,7 +32,9 @@ export interface TodayRowViewProps {
   onOpen: (visitId: string) => void;
   onOptimistic: (row: TodayRow) => void;
   onRollback: (visitId: string) => void;
-  onCheckedIn: () => void;
+  onChanged: () => void;
+  onRecordVitals: (row: TodayRow) => void;
+  onCollect: (row: TodayRow) => void;
 }
 
 export function originText(row: Pick<TodayRow, "origin" | "time" | "status">): string | null {
@@ -52,24 +57,127 @@ export function AllergyFlag() {
   );
 }
 
-export function TodayRowView({ row, selected, flashKey, clock, onOpen, onOptimistic, onRollback, onCheckedIn }: TodayRowViewProps) {
-  const command = useCommand();
-  const [busy, setBusy] = useState(false);
+export function PriorityFlag({ priority }: { priority: TodayRow["priority"] }) {
+  if (priority !== "urgent" && priority !== "vip") return null;
+  return (
+    <span
+      data-priority-flag={priority}
+      className={
+        "inline-flex h-pill shrink-0 items-center rounded-pill px-1.75 text-caption font-semibold whitespace-nowrap " +
+        (priority === "urgent" ? "bg-danger-bg text-danger-fg" : "bg-info-bg text-info-fg")
+      }
+    >
+      {priority === "urgent" ? "Urgent" : "VIP"}
+    </span>
+  );
+}
 
-  const checkIn = async () => {
-    setBusy(true);
-    onOptimistic(row);
-    // A failed attempt keeps its id, so running this again (the toast's Retry) is a retry of the same command.
-    const result = await command.run((clientRequestId) => checkInVisit(row.visitId, "normal", clientRequestId));
-    setBusy(false);
-    if (result.ok) {
-      onCheckedIn();
-      return;
-    }
-    onRollback(row.visitId);
-    notify.error(`Couldn't check in ${row.name}. ${result.error.message}`, { retry: () => void checkIn() });
-  };
+/** The buttons of a row (or of the Next card), wired to their commands. */
+export function RowButtons({
+  row,
+  buttons,
+  onOptimistic,
+  onRollback,
+  onChanged,
+  onRecordVitals,
+  onCollect,
+}: Pick<TodayRowViewProps, "row" | "onOptimistic" | "onRollback" | "onChanged" | "onRecordVitals" | "onCollect"> & {
+  buttons: readonly RowButton[];
+}) {
+  const checkIn = useCheckIn(row, { onOptimistic, onRollback, onDone: onChanged });
+  const start = useStart(row, onChanged);
+  const variant = (b: RowButton) => (b.primary ? "primary" : "secondary");
+  return (
+    <>
+      {buttons.map((b) => {
+        switch (b.kind) {
+          case "check_in":
+            return (
+              <Button
+                key={b.kind}
+                type="button"
+                size="sm"
+                variant={variant(b)}
+                requiresNetwork
+                loading={checkIn.busy}
+                startIcon={<UserCheck aria-hidden="true" />}
+                onClick={() => void checkIn.run()}
+                aria-label={`Check in ${row.name}`}
+                data-row-action="check-in"
+              >
+                Check in
+              </Button>
+            );
+          case "start":
+            return (
+              <Button
+                key={b.kind}
+                type="button"
+                size="sm"
+                variant={variant(b)}
+                requiresNetwork
+                loading={start.busy}
+                startIcon={<Stethoscope aria-hidden="true" />}
+                onClick={() => void start.run()}
+                aria-label={`${startLabel(row)} ${row.name}`}
+                data-row-action="start"
+              >
+                {startLabel(row)}
+              </Button>
+            );
+          case "open_consult":
+            return (
+              <Link
+                key={b.kind}
+                href={`/consultation/${row.visitId}`}
+                className={buttonClassName({ size: "sm", variant: variant(b) })}
+                aria-label={`Open consult for ${row.name}`}
+                data-row-action="open-consult"
+              >
+                <Stethoscope aria-hidden="true" className="size-4" />
+                Open consult
+              </Link>
+            );
+          case "record_vitals":
+            return (
+              <Button
+                key={b.kind}
+                type="button"
+                size="sm"
+                variant={variant(b)}
+                startIcon={<Activity aria-hidden="true" />}
+                onClick={() => onRecordVitals(row)}
+                aria-label={`Record vitals for ${row.name}`}
+                data-row-action="record-vitals"
+              >
+                Record vitals
+              </Button>
+            );
+          case "collect": {
+            const due = row.balanceDue != null && row.balanceDue > 0;
+            return (
+              <Button
+                key={b.kind}
+                type="button"
+                size="sm"
+                variant={due ? "primary" : "secondary"}
+                startIcon={<HandCoins aria-hidden="true" />}
+                onClick={() => onCollect(row)}
+                aria-label={due ? `Collect ${formatRupees(row.balanceDue!)} from ${row.name}` : `Open bill of ${row.name}`}
+                data-row-action="collect"
+              >
+                {due ? `Collect ${formatRupees(row.balanceDue!)}` : "Bill"}
+              </Button>
+            );
+          }
+        }
+      })}
+    </>
+  );
+}
 
+export function TodayRowView(props: TodayRowViewProps) {
+  const { row, mode, canConsult, selected, next, flashKey, clock, onOpen } = props;
   const wait = clock && row.waitMinutes != null ? waitNow(row, clock.received, clock.now) : row.waitMinutes;
   const origin = originText(row);
   const sexAge = [row.age, row.sex].filter(Boolean).join(" · ");
@@ -78,6 +186,7 @@ export function TodayRowView({ row, selected, flashKey, clock, onOpen, onOptimis
   const flags = (
     <>
       {(row.status === "no_show" || row.status === "cancelled") && <StatusChip status={row.status} />}
+      <PriorityFlag priority={row.priority} />
       {inQueue && (row.vitals || row.vitalsPending) && <VitalsSummary vitals={row.vitals} />}
       {row.hasAllergy && <AllergyFlag />}
       {row.balanceDue != null && row.balanceDue > 0 && (
@@ -85,6 +194,7 @@ export function TodayRowView({ row, selected, flashKey, clock, onOpen, onOptimis
       )}
     </>
   );
+  const buttons = rowButtons(mode, row, canConsult).filter((b) => !(next && b.kind === "start"));
 
   return (
     <QueueRow
@@ -98,24 +208,9 @@ export function TodayRowView({ row, selected, flashKey, clock, onOpen, onOptimis
       meta={meta}
       flags={flags}
       selected={selected}
+      next={next}
       flashKey={flashKey}
-      actions={
-        row.actions.includes("check_in") ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="primary"
-            requiresNetwork
-            loading={busy}
-            startIcon={<UserCheck aria-hidden="true" />}
-            onClick={() => void checkIn()}
-            aria-label={`Check in ${row.name}`}
-            data-row-action="check-in"
-          >
-            Check in
-          </Button>
-        ) : undefined
-      }
+      actions={buttons.length > 0 ? <RowButtons {...props} buttons={buttons} /> : undefined}
     />
   );
 }

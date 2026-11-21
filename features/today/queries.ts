@@ -82,11 +82,11 @@ export function toVitalsReading(raw: unknown): VitalsReading | null {
     pulse: num(v.pulse),
     temperatureF: num(v.temperatureF) ?? num(v.temperature),
     spo2: num(v.spo2),
-    respRate: num(v.respRate),
+    respRate: num(v.respRate) ?? num(v.respiratory_rate),
     weight: num(v.weight),
     height: num(v.height),
     sugar: num(v.sugar),
-    sugarType: v.sugarType === "random" || v.sugarType === "fasting" || v.sugarType === "pp" ? v.sugarType : null,
+    sugarType: [v.sugarType, v.sugar_type].find((t) => t === "random" || t === "fasting" || t === "pp") as VitalsReading["sugarType"] ?? null,
   };
   return Object.values(reading).some((x) => x !== null) ? reading : null;
 }

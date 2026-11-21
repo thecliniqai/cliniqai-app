@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -9,16 +10,20 @@ import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, Responsiv
 import { registerHref } from "@/components/front-desk/patient-search";
 import {
   groupIntoLanes,
+  lanesOf,
   matchesQuery,
-  TODAY_LANES,
+  nextUp,
   withPendingCheckIns,
   type PendingCheckIn,
   type TodayBoard,
   type TodayLaneId,
+  type TodayMode,
   type TodayRow,
 } from "@/features/today/schema";
 import { createAnnouncer, announcementsFor, type Announcer } from "./announcer";
+import { toCheckoutTarget } from "./checkout-target";
 import { Lane } from "./lane";
+import { NextPatientCard } from "./next-patient-card";
 import { TodayHead } from "./today-head";
 import { TodayRowView } from "./today-row";
 import { useTodayLive } from "./use-today-live";
@@ -32,11 +37,26 @@ import { VisitDetail } from "./visit-detail";
  *   right), each scrolling on its own inside `100dvh` minus the bar;
  * - 1280 px and up: Booked, Waiting, With doctor and To bill side by side and Done as a column that expands; a row tap opens
  *   the visit in the side sheet.
+ * Modes (V2-08 08-03b, R-14): the front desk's day, the nurse's triage view (Waiting with vitals pending first, Record
+ * vitals as the action) and the doctor's own queue (the pinned "Next" card, lanes Waiting (mine), With me and Seen today). Row
+ * actions come from the state machine (`rowButtons`); Record vitals opens the vitals sheet and Collect the checkout drawer.
  * The filter box matches token, name or mobile over the loaded rows; while it is in use every lane with a match stacks. The
  * selection lives in `?visit=`. Live updates (`useTodayLive`) refresh the server rows; the check-in the user sends moves a
  * row to Waiting at once (`withPendingCheckIns`) and the server's rows replace it when they arrive. Changes are announced
  * to screen readers from the refreshed rows, at most one polite message per 5 s.
  */
+// The checkout drawer (a large v1 component) and the vitals sheet are needed only once a row asks for them: their code loads
+// then, not with the board (the route's first-load JS, `npm run ci:route-js`).
+const CheckoutDrawer = dynamic(() => import("@/components/queue/checkout-drawer").then((m) => m.CheckoutDrawer), { ssr: false });
+const VitalsSheet = dynamic(() => import("./vitals-sheet").then((m) => m.VitalsSheet), { ssr: false });
+
+/** The current address with one sheet parameter added (R-13). */
+function sheetHref(pathname: string, params: { toString(): string }, key: "walkin" | "new"): string {
+  const next = new URLSearchParams(params.toString());
+  next.set(key, "1");
+  return `${pathname}?${next.toString()}`;
+}
+
 const TWO_PANE = "(min-width: 768px) and (max-width: 1279.98px)";
 
 function useTwoPane(): boolean {
@@ -55,11 +75,17 @@ export interface TodayBoardViewProps {
   board: TodayBoard;
   tenantId: string;
   canRegister: boolean;
+  canWalkIn: boolean;
+  /** The role holds `consultations:edit` (Call in, Start consultation, Open consult). */
+  canConsult: boolean;
+  mode: TodayMode;
+  /** The modes the role may open (an owner has two). */
+  modes: readonly TodayMode[];
   /** "Fri, 13 Nov 2026 · clinic time (IST)". */
   dateLine: string;
 }
 
-export function TodayBoardView({ board, tenantId, canRegister, dateLine }: TodayBoardViewProps) {
+export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, dateLine }: TodayBoardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -72,6 +98,8 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
   const [doneOpen, setDoneOpen] = useState(false);
   const [pending, setPending] = useState<PendingCheckIn[]>([]);
   const [message, setMessage] = useState("");
+  const [vitalsRow, setVitalsRow] = useState<TodayRow | null>(null);
+  const [collectRow, setCollectRow] = useState<TodayRow | null>(null);
 
   const rows = useMemo(() => withPendingCheckIns(board.rows, pending), [board.rows, pending]);
 
@@ -122,10 +150,11 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
   }, [board.rows]);
 
   const forDoctor = useMemo(() => (doctorId === "all" ? rows : rows.filter((r) => r.doctorId === doctorId)), [rows, doctorId]);
-  const counts = useMemo(() => groupIntoLanes(forDoctor), [forDoctor]);
+  const laneDefs = useMemo(() => lanesOf(mode), [mode]);
+  const counts = useMemo(() => groupIntoLanes(forDoctor, mode), [forDoctor, mode]);
   const filtering = query.trim().length > 0;
-  const lanes = useMemo(() => groupIntoLanes(filtering ? forDoctor.filter((r) => matchesQuery(r, query)) : forDoctor), [forDoctor, filtering, query]);
-  const matchCount = TODAY_LANES.reduce((n, l) => n + lanes[l.id].length, 0);
+  const lanes = useMemo(() => groupIntoLanes(filtering ? forDoctor.filter((r) => matchesQuery(r, query)) : forDoctor, mode), [forDoctor, filtering, query, mode]);
+  const matchCount = laneDefs.reduce((n, l) => n + lanes[l.id].length, 0);
 
   const selectedId = params.get("visit");
   const selectedRow = rows.find((r) => r.visitId === selectedId) ?? null;
@@ -141,19 +170,30 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
   };
 
   const empty = board.rows.length === 0;
-  const laneOptions = TODAY_LANES.map((l) => ({ value: l.id, label: l.short, count: counts[l.id].length }));
+  const laneOptions = laneDefs.map((l) => ({ value: l.id, label: l.short, count: counts[l.id].length }));
+
+  const handlers = {
+    onOptimistic: (r: TodayRow) => setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status }]),
+    onRollback: (id: string) => setPending((p) => p.filter((x) => x.visitId !== id)),
+    onChanged: live.refreshNow,
+    onRecordVitals: setVitalsRow,
+    onCollect: setCollectRow,
+  };
+  // The doctor's Next card carries the first waiting patient's Call in (not while a filter narrows the list).
+  const next = mode === "doctor" && !filtering ? nextUp(lanes) : null;
 
   const rowView = (row: TodayRow) => (
     <TodayRowView
       key={row.visitId}
       row={row}
+      mode={mode}
+      canConsult={canConsult}
+      next={next?.visitId === row.visitId}
       selected={(twoPane ? paneRow?.visitId : selectedId) === row.visitId}
       flashKey={seen.flash[row.visitId]}
       clock={clock}
       onOpen={select}
-      onOptimistic={(r) => setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status }])}
-      onRollback={(id) => setPending((p) => p.filter((x) => x.visitId !== id))}
-      onCheckedIn={live.refreshNow}
+      {...handlers}
     />
   );
 
@@ -168,6 +208,9 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
         doctorId={doctorId}
         onDoctorChange={setDoctorId}
         canRegister={canRegister}
+        canWalkIn={canWalkIn}
+        mode={mode}
+        modes={modes}
       />
       <div role="status" aria-live="polite" data-today-announcer="" className="sr-only">
         {message}
@@ -190,6 +233,8 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
         </p>
       )}
 
+      {next && <NextPatientCard row={next} {...handlers} />}
+
       {!filtering && !empty && (
         <div className="xl:hidden" data-lane-switch="">
           <SegmentedControl
@@ -206,25 +251,36 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
         <div data-today-empty="" className="rounded-lg border border-border bg-surface px-4 py-8 text-center">
           <p className="text-body-md font-semibold text-fg">No patients yet today</p>
           <p className="mt-1 text-body-sm text-fg-muted">Walk-ins and check-ins appear here.</p>
-          {canRegister && (
-            <Link href="/patients?new=1" className={buttonClassName({ variant: "primary", className: "mt-3" })}>
-              Register patient
-            </Link>
-          )}
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {canWalkIn && (
+              <Link href={sheetHref(pathname, params, "walkin")} className={buttonClassName({ variant: "primary" })}>
+                Add walk-in
+              </Link>
+            )}
+            {canRegister && (
+              <Link href={sheetHref(pathname, params, "new")} className={buttonClassName({ variant: "secondary" })}>
+                Register patient
+              </Link>
+            )}
+          </div>
         </div>
       ) : (
         <div
           data-board=""
           className={
             "flex flex-col gap-3 md:grid md:h-[calc(100dvh-var(--spacing-bar)-13rem)] md:min-h-96 md:grid-cols-[minmax(320px,44%)_minmax(0,1fr)] md:gap-4 " +
-            (doneOpen
-              ? "xl:grid-cols-[repeat(5,minmax(0,1fr))] "
-              : "xl:grid-cols-[repeat(4,minmax(0,1fr))_2.75rem] ") +
+            (laneDefs.length === 5
+              ? doneOpen
+                ? "xl:grid-cols-[repeat(5,minmax(0,1fr))] "
+                : "xl:grid-cols-[repeat(4,minmax(0,1fr))_2.75rem] "
+              : doneOpen
+                ? "xl:grid-cols-[repeat(4,minmax(0,1fr))] "
+                : "xl:grid-cols-[repeat(3,minmax(0,1fr))_2.75rem] ") +
             "xl:gap-3"
           }
         >
           <div className="flex flex-col gap-3 md:flex md:min-h-0 md:flex-col xl:contents">
-            {TODAY_LANES.map((lane) => (
+            {laneDefs.map((lane) => (
               <Lane
                 key={lane.id}
                 lane={lane}
@@ -249,6 +305,11 @@ export function TodayBoardView({ board, tenantId, canRegister, dateLine }: Today
             )}
           </aside>
         </div>
+      )}
+
+      {vitalsRow && <VitalsSheet row={vitalsRow} onOpenChange={(open) => !open && setVitalsRow(null)} onSaved={live.refreshNow} />}
+      {collectRow && (
+        <CheckoutDrawer isOpen onClose={() => setCollectRow(null)} onSuccess={live.refreshNow} queueItem={toCheckoutTarget(collectRow)} />
       )}
 
       <ResponsiveSheet open={!twoPane && selectedRow !== null} onOpenChange={(open) => !open && select(null)}>

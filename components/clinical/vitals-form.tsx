@@ -38,7 +38,8 @@ import {
 export interface VitalsFormProps {
   /** "Last recorded 12 Oct: BP 142/90 · Wt 79 kg" — formatted by the caller from the last visit. */
   lastRecorded?: string;
-  onSave: (reading: VitalsReading) => Promise<void> | void;
+  /** Resolve `false` when the save failed (the caller says why): the form then does not show "Saved". */
+  onSave: (reading: VitalsReading) => Promise<void | boolean> | void | boolean;
   className?: string;
 }
 
@@ -179,8 +180,8 @@ export function VitalsForm({ lastRecorded, onSave, className }: VitalsFormProps)
     };
     setSaving(true);
     try {
-      await onSave(reading);
-      setSaved(true);
+      const outcome = await onSave(reading);
+      setSaved(outcome !== false);
     } finally {
       setSaving(false);
     }

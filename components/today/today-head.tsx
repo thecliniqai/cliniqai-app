@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { UserPlus, Users } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SearchField } from "@/components/ui/search-field";
+import { ModeSwitch } from "./doctor-mode";
 import { LiveStatus } from "./live-status";
+import type { TodayMode } from "@/features/today/schema";
 import type { LiveState } from "./use-today-live";
 
 /**
  * The head of Today (V2-08 08-03a; 06-UI-SPEC §7): the date line ("Fri, 13 Nov 2026 · clinic time (IST)") with the live
  * status, the filter box "Token, name or mobile" (client-side, over the rows already loaded), the doctor filter (only when
- * the day has more than one doctor) and the primary action to register a patient (a link: `?new=1`, R-13). At 360 px the
- * search takes the full width and the doctor filter sits under it; from 768 px they share one row.
+ * the day has more than one doctor), the mode switch (an owner: front desk or "My queue") and the actions "Add walk-in"
+ * (`?walkin=1`) and "Register patient" (`?new=1`): links, R-13, so the sheet survives a refresh. At 360 px the search takes
+ * the full width and the doctor filter sits under it; from 768 px they share one row.
  */
 export interface TodayHeadProps {
   dateLine: string;
@@ -23,9 +27,31 @@ export interface TodayHeadProps {
   doctorId: string;
   onDoctorChange: (id: string) => void;
   canRegister: boolean;
+  canWalkIn: boolean;
+  mode: TodayMode;
+  modes: readonly TodayMode[];
 }
 
-export function TodayHead({ dateLine, live, query, onQueryChange, doctors, doctorId, onDoctorChange, canRegister }: TodayHeadProps) {
+export function TodayHead({
+  dateLine,
+  live,
+  query,
+  onQueryChange,
+  doctors,
+  doctorId,
+  onDoctorChange,
+  canRegister,
+  canWalkIn,
+  mode,
+  modes,
+}: TodayHeadProps) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const sheetHref = (key: "walkin" | "new") => {
+    const next = new URLSearchParams(params.toString());
+    next.set(key, "1");
+    return `${pathname}?${next.toString()}`;
+  };
   return (
     <header className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -55,12 +81,21 @@ export function TodayHead({ dateLine, live, query, onQueryChange, doctors, docto
             </NativeSelect>
           </div>
         )}
-        {canRegister && (
-          <Link href="/patients?new=1" className={buttonClassName({ variant: "secondary", size: "md", className: "md:ml-auto" })}>
-            <UserPlus aria-hidden="true" className="size-4" />
-            Register patient
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2 max-md:w-full md:ml-auto">
+          <ModeSwitch mode={mode} modes={modes} />
+          {canWalkIn && (
+            <Link href={sheetHref("walkin")} className={buttonClassName({ variant: "primary", size: "md" })} data-today-action="walk-in">
+              <Users aria-hidden="true" className="size-4" />
+              Add walk-in
+            </Link>
+          )}
+          {canRegister && (
+            <Link href={sheetHref("new")} className={buttonClassName({ variant: "secondary", size: "md" })} data-today-action="register">
+              <UserPlus aria-hidden="true" className="size-4" />
+              Register patient
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );

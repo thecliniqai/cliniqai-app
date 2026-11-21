@@ -14,6 +14,8 @@ export const DEVICE_PREF_KEYS = [
   "clinicos.pref.density",
   /** Last selected Today lane (a lane id such as "waiting"; never a patient or visit id). */
   "clinicos.pref.lastLane",
+  /** Single-key shortcuts of the front desk (W walk-in, N new patient, ?): "on" or "off"; absent means the default (V2-08 R-13). */
+  "clinicos.pref.shortcuts",
 ] as const;
 
 export type DevicePrefKey = (typeof DEVICE_PREF_KEYS)[number];

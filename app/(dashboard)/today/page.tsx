@@ -4,16 +4,20 @@ import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 import { hasPerm } from "@/lib/permissions";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
 import { getTodayBoard } from "@/features/today/queries";
+import { modesOf, resolveMode } from "@/features/today/schema";
 import { TodayBoardView } from "@/components/today/today-board";
 import { InstallCard } from "@/components/shell/install-card";
 
 /**
  * Today (V2-08 08-03a, P1-29; R-10, R-14): the front desk's day in one live screen. The board is read on the server through
  * the user's own session (`getTodayBoard`: explicit columns, RLS decides what a role sees); the client keeps it live
- * (Realtime signals with a polling fallback) by asking for a fresh render. A doctor sees their own queue. The v1 `/`, `/queue`
- * and `/cabin` stay until 08-03b moves everything here and deletes them.
+ * (Realtime signals with a polling fallback) by asking for a fresh render. `?mode=front|triage|doctor` (R-14): the default is
+ * the role's own (doctor: their queue; nurse: triage; others: the front desk's day); an owner toggles front and doctor. The
+ * doctor's mode, for a doctor or a practising owner, reads only that doctor's visits. 08-03b: this screen replaced the v1
+ * dashboard (`/`), queue (`/queue`) and cabin (`/cabin`), which now redirect here.
  */
-async function TodayPage() {
+async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
+  const { mode: requested } = await props.searchParams;
   let ctx;
   try {
     ctx = await requireServiceContext("appointments:view");
@@ -23,10 +27,8 @@ async function TodayPage() {
     redirect("/login");
   }
 
-  const result = await getTodayBoard(ctx, {
-    mode: ctx.role === "doctor" ? "doctor" : "front",
-    doctorId: ctx.role === "doctor" ? ctx.userId : undefined,
-  });
+  const mode = resolveMode(ctx.role, requested);
+  const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined });
   if (!result.ok) throw new Error("Today could not be loaded.");
   const { board } = result;
 
@@ -35,9 +37,14 @@ async function TodayPage() {
     <div className="flex flex-col gap-3">
       <InstallCard />
       <TodayBoardView
+        key={mode}
         board={board}
         tenantId={ctx.tenantId}
+        mode={mode}
+        modes={modesOf(ctx.role)}
         canRegister={hasPerm(ctx.role, "patients:edit")}
+        canWalkIn={hasPerm(ctx.role, "appointments:edit")}
+        canConsult={hasPerm(ctx.role, "consultations:edit")}
         dateLine={`${formatClinicDateWithWeekday(board.today)} · clinic time (${zone})`}
       />
     </div>

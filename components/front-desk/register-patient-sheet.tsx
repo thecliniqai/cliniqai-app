@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { QuickRegisterForm, type DuplicateMatch, type QuickRegisterValues } from "@/components/clinical/quick-register-form";
 import {
@@ -34,7 +35,11 @@ export function RegisterPatientSheet({ open, onOpenChange, defaultValues, onRegi
   const command = useCommand();
   const findDuplicates = useDuplicateLookup();
 
+  // "Retry" on the SaveStatus submits the same values again (same request id), so a retry that succeeds also continues
+  // (opens the profile or calls `onRegistered`); `command.retry()` alone would re-run the call and leave the sheet open.
+  const lastValues = useRef<QuickRegisterValues | null>(null);
   const submit = async (values: QuickRegisterValues) => {
+    lastValues.current = values;
     const result = await command.run((requestId) => registerPatient(quickRegisterToPatientInput(values), requestId));
     if (result.ok) {
       if (onRegistered) onRegistered(result.value.patientId);
@@ -61,7 +66,10 @@ export function RegisterPatientSheet({ open, onOpenChange, defaultValues, onRegi
             findDuplicates={findDuplicates}
             onUseExisting={useExisting}
             onEdit={command.reset}
-            saveStatus={saveStatusProps(command)}
+            saveStatus={{
+              ...saveStatusProps(command),
+              onRetry: command.saveState === "error" ? () => void (lastValues.current && submit(lastValues.current)) : undefined,
+            }}
             defaultValues={defaultValues}
           />
         </ResponsiveSheetBody>

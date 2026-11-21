@@ -35,16 +35,23 @@ export function toPickerPatient(hit: PatientHit): PickerPatient {
   };
 }
 
-/**
- * The register sheet's URL with what was typed (R-13): digits become the mobile number, anything else the name. Nothing
- * secret is in it beyond what the user typed into a search box on the same device.
- */
-export function registerHref(query: string, base = "/patients"): string {
+/** What a search box held, as register-form fields (R-13): digits are the mobile number, anything else the name. */
+export function splitTypedQuery(query: string): { phone?: string; name?: string } {
   const typed = query.trim();
   const digits = typed.replace(/\D/g, "");
+  if (/^[+\d][\d\s-]*$/.test(typed) && digits.length >= 3) return { phone: digits.slice(-10) };
+  return typed ? { name: typed.slice(0, 120) } : {};
+}
+
+/**
+ * The register sheet's URL with what was typed (R-13). Nothing secret is in it beyond what the user typed into a search box
+ * on the same device.
+ */
+export function registerHref(query: string, base = "/patients"): string {
   const params = new URLSearchParams({ new: "1" });
-  if (/^[+\d][\d\s-]*$/.test(typed) && digits.length >= 3) params.set("phone", digits.slice(-10));
-  else if (typed) params.set("name", typed.slice(0, 120));
+  const { phone, name } = splitTypedQuery(query);
+  if (phone) params.set("phone", phone);
+  else if (name) params.set("name", name);
   return `${base}?${params.toString()}`;
 }
 
