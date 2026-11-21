@@ -704,7 +704,7 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 
 ## V2-08 Front desk
 
-- [ ] **08-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation; PO reviews. — PR #14.
+- [ ] **08-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation (merge `082d40e`, CI 44877351718, 0 retried); PO reviews. — PR #14.
   Evidence: `.planning/phases/08-front-desk/08-VERIFICATION.md`. Confirm the A-10 reading (late no-show in Booked, then
   Waiting after check-in) and the Q-1…Q-10 defaults in `08-PLAN.md`.
 - [ ] **08-P2 · Device run** — `.planning/phases/08-front-desk/08-DEVICE-CHECKLIST.md` on a real phone and tablet (PWA-10 early run).

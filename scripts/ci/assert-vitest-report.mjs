@@ -94,6 +94,20 @@
  *          tests/security/front-desk-direct-writes.spec.ts (10), minus tests/visits/create-visit-slot-race.spec.ts (8, the retired
  *          `createVisit` service; its replacements are cases in the booking and walk-in command specs). A full run at the close of the
  *          round had 7180 tests in 352 files, 0 skipped (265 required files); the floor is re-measured at the next gate.
+ *   6455 — V2-09a 09A-01, unchanged: REQUIRED_FILES + tests/clinical/seal-system-path.spec.ts (3) and
+ *          tests/consultation/record-state-parity.spec.ts (3). The suite only grew (two cases in tests/api/v1-doctor-guard.spec.ts); the
+ *          floor is re-measured once at the phase close (09A plan, R-18).
+ *   6455 — V2-09a 09A-02, unchanged: REQUIRED_FILES + tests/consultation/rx-seal.spec.ts (10) and
+ *          tests/security/ac6-rewrite-signed-rx.spec.ts (9). The floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-03, unchanged: REQUIRED_FILES + tests/prescriptions/rx-pdf-archive.spec.ts (15). The suite only grew (ac6-rewrite-signed-rx.spec.ts
+ *          +7 storage cases, storage-provider.spec.ts +1, rx-seal.spec.ts +1); the floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-04, unchanged: REQUIRED_FILES + tests/labs/lab-documents-append-only.spec.ts (11). The suite lost the two deleteLabDocument cases of
+ *          review2-fixes-db.spec.ts (rewritten as one) and the delete case of no-raw-error-logging.spec.ts (replaced) and no-raw-error-responses.spec.ts (-1);
+ *          the floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-05, unchanged: REQUIRED_FILES + tests/consultation/workspace-sealed.spec.ts (9) and
+ *          tests/consultation/sealed-refusal-messages.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-06a (review fix round), unchanged: REQUIRED_FILES + tests/prescriptions/rx-archive-signer.spec.ts (9) and
+ *          tests/consultation/workspace-review-fixes.spec.ts (6). The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -447,6 +461,19 @@ const REQUIRED_FILES = [
   // V2-08 08-06a (the review fix round).
   "tests/visits/record-vitals-merge.spec.ts",
   "tests/security/front-desk-direct-writes.spec.ts",
+  // V2-09a 09A-01 (the clinical seal).
+  "tests/clinical/seal-system-path.spec.ts",
+  "tests/consultation/record-state-parity.spec.ts",
+  // V2-09a 09A-02 (the prescription seal and the AC-6 abuse spec).
+  "tests/consultation/rx-seal.spec.ts",
+  "tests/security/ac6-rewrite-signed-rx.spec.ts",
+  "tests/prescriptions/rx-pdf-archive.spec.ts",
+  "tests/labs/lab-documents-append-only.spec.ts",
+  "tests/consultation/workspace-sealed.spec.ts",
+  "tests/consultation/sealed-refusal-messages.spec.ts",
+  // V2-09a 09A-06a (the review fix round: ruling R-A, the share-link hash, the 09A-05 UI rows).
+  "tests/prescriptions/rx-archive-signer.spec.ts",
+  "tests/consultation/workspace-review-fixes.spec.ts",
 ];
 
 const file = process.argv[2];

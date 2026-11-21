@@ -20,7 +20,7 @@ import {
   addInvoiceItemSchema,
   AddInvoiceItemInput,
 } from "./schema";
-import { archiveInitialPrescriptionPdf } from "@/features/consultation/service";
+import { archiveSealedPrescriptionPdf } from "@/features/consultation/service";
 import { createShareToken } from "@/features/sharing/tokens";
 import { enqueueMessage } from "@/lib/jobs/enqueue";
 import type { InteractiveButton } from "@/lib/messaging/types";
@@ -904,12 +904,8 @@ export async function completeAndBillConsultation(
     // response may have been lost after the commit, so the steps that follow the commit must still happen once. The
     // prescription PDF is rendered when it is not archived yet, the receipt when it is not in storage, and the one
     // consolidated WhatsApp message carries a per-visit dedupe key, so a repeat queues nothing new.
-    if (!done.replayed && !done.resumed) {
-      // The sign-off happened in this command: the initial archival prescription PDF (v1).
-      await archiveInitialPrescriptionPdf(ctx, data.visit_id);
-    } else {
-      await archiveInitialPrescriptionPdf(ctx, data.visit_id, { onlyIfMissing: true });
-    }
+    // The archive is idempotent (V2-09a R-12: a header with its hash is left alone), so a first call and a replay take the same step.
+    await archiveSealedPrescriptionPdf(ctx, data.visit_id);
 
     // AR3-N2: the visit already had its invoice (made at the desk before the sign-off): return it and stop (no payment,
     // receipt or WhatsApp message followed in this command, so none is made up now either).

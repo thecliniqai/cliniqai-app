@@ -120,7 +120,8 @@ select set_eq(
     'consultation_diagnoses.consultation_diagnoses_select', 'consultation_diagnoses.consultation_diagnoses_insert',
     'consultation_diagnoses.consultation_diagnoses_update',
     'consultations.consultations_select', 'consultations.consultations_insert', 'consultations.consultations_update',
-    'visit_revisions.visit_revisions_select', 'visit_revisions.visit_revisions_insert',
+    -- 000111 (09A-06a, S-7): visit_revisions_insert dropped (the commands write amendment rows).
+    'visit_revisions.visit_revisions_select',
     'prescriptions.prescriptions_select', 'prescriptions.prescriptions_insert', 'prescriptions.prescriptions_update',
     'prescription_items.prescription_items_select', 'prescription_items.prescription_items_insert',
     'prescription_items.prescription_items_update',

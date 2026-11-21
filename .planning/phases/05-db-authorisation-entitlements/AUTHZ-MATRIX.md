@@ -69,7 +69,7 @@ Principals:
 | `public.clinical_notes` | U | (perm(consultations:edit) OR perm(vitals:edit)) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.clinical_notes` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.visit_revisions` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.visit_revisions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.consultations` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -130,8 +130,8 @@ Principals:
 | `public.consent_records` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patient_documents` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.patient_documents` | I | perm(labs:edit) | Y | X | Y | Y | Y | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.patient_documents` | U | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.patient_documents` | D | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.patient_documents` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.patient_documents` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.document_share_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -281,8 +281,8 @@ Principals:
 | `ops.error_events` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.error_events` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `storage:prescriptions/rx` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `storage:prescriptions/rx` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `storage:prescriptions/rx` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:prescriptions/rx` | I | none | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `storage:prescriptions/rx` | U | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/rx` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/receipt` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/receipt` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -294,8 +294,8 @@ Principals:
 | `storage:prescriptions/malformed` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/lab` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/lab` | I | perm(labs:edit) | Y | X | Y | Y | Y | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `storage:clinic-records/lab` | U | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `storage:clinic-records/lab` | D | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:clinic-records/lab` | U | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:clinic-records/lab` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/referral_letter` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/referral_letter` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `storage:clinic-records/referral_letter` | U | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -317,10 +317,10 @@ Notes:
 - `public.patients`: 05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql). 05-11d (N-5): created_by = caller on INSERT and never changed (patients_actor_guard, 42501 ACTOR_INVALID)
 - `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). 05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a signed visit's status/doctor change only through the amendment path; a doctor does not reassign doctor_id
 - `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)
-- `public.visit_revisions`: append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)
+- `public.visit_revisions`: append-only amendment history, written by the reopen command only (INSERT revoked since V2-09a 000111); the author is the caller (05-11a guard); the snapshot and the number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
 - `public.consultation_diagnoses`: 05-11d (N-1): keys never change; a signed-in caller records a diagnosis only for its visit's patient and writes diagnoses only while the visit is unsigned or reopened (consultation_diagnoses_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
-- `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened (05-11e, NF-2). The fixture visit is unsigned
+- `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the PDF columns only (000108 R-8). The fixture visit is unsigned
 - `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). 05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened (prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
 - `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). 05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql). V2-07 07-04a (000099): no INSERT privilege either; headers are written only by private.step_create_invoice (create_invoice, collect_payment, complete_and_bill)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op). 05-11d (N-3): line total = price x quantity (computed), price >= 0, keys never change; no write to a paid or cancelled invoice's items, and an invoice with payments is never lowered to the amount collected (invoice_items_integrity_guard; reverify_integrity.test.sql). The fixture invoice is draft with a zero item
@@ -331,7 +331,7 @@ Notes:
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit
 - `public.consent_records`: recorded_by is the caller (05-11b M-ACTOR, consent_records_actor_guard)
-- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class
+- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
@@ -363,10 +363,10 @@ Notes:
 - `public.opd_diagnoses`: global reference data: SELECT for every signed-in user
 - `ops.jobs`: no API role holds USAGE on schema ops
 - `ops.error_events`: no API role holds USAGE on schema ops
-- `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); UPDATE kept: the archive upserts (R-23)
+- `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE
 - `storage:prescriptions/receipt`: `<tenant>/receipts/inv_<invoice>.pdf` (features/billing/pdf/generator.ts); a doctor archives the receipt of their own visit's invoice (Sign & Bill, R-7); the INSERT cell names an invoice that does not exist
 - `storage:prescriptions/malformed`: no class matches: denied without an error (before 05-02c: 22P02 from the key cast, BACKEND C9)
-- `storage:clinic-records/lab`: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture is a legacy synthetic name, the INSERT cell the id-only shape)
+- `storage:clinic-records/lab`: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture is a legacy synthetic name, the INSERT cell the id-only shape); append-only since V2-09a 000110: no UPDATE, no DELETE
 - `storage:clinic-records/referral_letter`: lib/storage/tenant-path.ts referralLetterPath; UPDATE kept: the archive upserts (R-23)
 - `storage:clinic-records/legacy_root`: `<tenant>/...` keys: no builder writes them, no class matches, denied (05-02c)
 - `storage:clinic-records/malformed`: a non-UUID tenant segment: denied without an error (before 05-02c: 22P02 for a non-member, BACKEND C9)

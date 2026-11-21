@@ -25,6 +25,11 @@ export function publicRpc(name: string, args: Record<string, unknown>): Promise<
 export const DOCUMENT_LINK_KINDS: DocumentShareResourceType[] = ["patient_document", "prescription", "invoice", "referral"];
 export const REPORT_LINK_KINDS: DocumentShareResourceType[] = ["patient_document"];
 
+/** V2-09a 09A-06a (review S-5): a shared prescription whose signed version is not archived yet. Fixed text. */
+export const SHARED_RX_PENDING_MESSAGE = "This prescription is being prepared. Please try again shortly.";
+/** A shared prescription whose stored copy failed its integrity check (or could not be read). Fixed text. */
+export const SHARED_RX_UNVERIFIED_MESSAGE = "This prescription could not be verified. Please contact your clinic for a new link.";
+
 export interface PublicClinic {
   name: string | null;
   phone: string | null;

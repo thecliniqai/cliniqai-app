@@ -112,10 +112,14 @@ describe("sign_consultation: one transaction", () => {
     const completed = await outboxRows(tenantA.tenantId, "visit.completed", v.visitId);
     expect(completed).toEqual([expect.objectContaining({ subscription_id: subscriptionA, event_key: `visit.completed:${v.visitId}` })]);
     expect(JSON.parse(completed[0].payload).data).toMatchObject({ visit_id: v.visitId, doctor_id: members.doctor.userId });
-    for (const id of v.prescriptionIds) {
+    // V2-09a 000108 (R-10): the event data carries the header's version, and the key of version n > 1 ends :v<n> (the seed makes versions 1..n).
+    for (const [index, id] of v.prescriptionIds.entries()) {
+      const version = index + 1;
       const issued = await outboxRows(tenantA.tenantId, "prescription.issued", id);
-      expect(issued).toEqual([expect.objectContaining({ subscription_id: subscriptionA, event_key: `prescription.issued:${id}:signed` })]);
-      expect(JSON.parse(issued[0].payload).data).toEqual({ prescription_id: id, patient_id: v.patientId, visit_id: v.visitId });
+      expect(issued).toEqual([
+        expect.objectContaining({ subscription_id: subscriptionA, event_key: `prescription.issued:${id}:signed${version > 1 ? `:v${version}` : ""}` }),
+      ]);
+      expect(JSON.parse(issued[0].payload).data).toEqual({ prescription_id: id, patient_id: v.patientId, visit_id: v.visitId, version });
     }
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.sign_consultation|true"]);
     // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.
@@ -385,26 +389,42 @@ describe("completeAndSignConsultation (service)", () => {
   });
 
   // F-7 (07-04a): a replay means the first call's response may have been lost after the commit, so the archive that follows
-  // the commit is rendered then too, when it is missing; an archive that is already there is left alone.
-  it("a replay renders the prescription PDF when the first call's post-commit step never archived it, and does nothing when it did", async () => {
+  // the commit is made then too, when it is missing; an archive that is already there is left alone (write-once since V2-09a 000109:
+  // a recorded path and hash can no longer be cleared to fake a lost archive, so the loss is simulated honestly: the command runs
+  // alone, as when the process died between the commit and the archive).
+  it("a replay archives the prescription PDF when the first call's post-commit step never ran, and does nothing when it did", async () => {
     const admin = getAdminClient();
     const v = await seedClinicalVisit(tenantA, { doctorId: members.doctor.userId, diagnosis: true, prescriptions: 1 });
     const id = randomUUID();
     const pdfPath = async () => (await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", v.visitId).single()).data?.pdf_storage_path ?? null;
     const archives = async () => (await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length;
 
-    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: false });
+    // The first call died right after the commit: the command ran, the archive never did.
+    const first = await callSign(members.doctor.client, signArgs(tenantA, v.visitId, { p_client_request_id: id }));
+    expect(first.error).toBeNull();
+    expect(await pdfPath()).toBeNull();
+    expect(await archives()).toBe(0);
+    // The replay finds the archive missing and makes it, once.
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
     expect(await pdfPath()).toMatch(/rx_v1\.pdf$/);
     expect(await archives()).toBe(1);
     // Untouched replay: the archive is there, nothing is rendered again.
     expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
     expect(await archives()).toBe(1);
-    // The first call died right after the commit: no archive recorded.
-    await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
-    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
-    expect(await pdfPath()).toMatch(/rx_v1\.pdf$/);
-    expect(await archives()).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.complete_and_sign", v.visitId)).toHaveLength(1);
+  });
+
+  it("a first call signs and archives in one step: the archive is recorded once and the replay does not repeat it", async () => {
+    const admin = getAdminClient();
+    const v = await seedClinicalVisit(tenantA, { doctorId: members.doctor.userId, diagnosis: true, prescriptions: 1 });
+    const id = randomUUID();
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: false });
+    const { data } = await admin.from("prescriptions").select("pdf_storage_path, pdf_sha256").eq("visit_id", v.visitId).single();
+    expect(data?.pdf_storage_path).toMatch(/rx_v1\.pdf$/);
+    expect(data?.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect((await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length).toBe(1);
+    expect(await completeAndSignConsultation(ctxFor(members.doctor), v.visitId, id)).toMatchObject({ success: true, replayed: true });
+    expect((await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length).toBe(1);
   });
 
   it("a fault is a fixed message, never the driver's text", async () => {

@@ -532,6 +532,7 @@ column public.prescriptions.doctor_id uuid not_null=t default=- identity=- gener
 column public.prescriptions.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column public.prescriptions.letterhead_mode text not_null=t default='blank_paper'::text identity=- generated=-
 column public.prescriptions.patient_id uuid not_null=t default=- identity=- generated=-
+column public.prescriptions.pdf_sha256 text not_null=f default=- identity=- generated=-
 column public.prescriptions.pdf_storage_path text not_null=f default=- identity=- generated=-
 column public.prescriptions.signed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.prescriptions.status text not_null=t default='active'::text identity=- generated=-
@@ -1089,6 +1090,8 @@ constraint public.prescription_items.prescription_items_tenant_id_fkey FOREIGN K
 constraint public.prescription_items.prescription_items_tenant_prescription_fkey FOREIGN KEY (tenant_id, prescription_id) REFERENCES prescriptions(tenant_id, id) ON DELETE CASCADE
 constraint public.prescriptions.prescriptions_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.prescriptions.prescriptions_letterhead_mode_check CHECK ((letterhead_mode = ANY (ARRAY['blank_paper'::text, 'preprinted_letterhead'::text])))
+constraint public.prescriptions.prescriptions_pdf_hash_needs_path CHECK (((pdf_sha256 IS NULL) OR (pdf_storage_path IS NOT NULL)))
+constraint public.prescriptions.prescriptions_pdf_sha256_shape CHECK (((pdf_sha256 IS NULL) OR (pdf_sha256 ~ '^[0-9a-f]{64}$'::text)))
 constraint public.prescriptions.prescriptions_pdf_storage_path_shape CHECK (((pdf_storage_path IS NULL) OR (share_object_path('prescription'::text, tenant_id, visit_id, pdf_storage_path) IS NOT NULL)))
 constraint public.prescriptions.prescriptions_pkey PRIMARY KEY (id)
 constraint public.prescriptions.prescriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'amended'::text, 'cancelled'::text])))
@@ -1173,6 +1176,7 @@ constraint public.tenants.tenants_pkey PRIMARY KEY (id)
 constraint public.tenants.tenants_timezone_iana CHECK (private.is_iana_timezone(timezone))
 constraint public.visit_revisions.uq_visit_revisions_number UNIQUE (visit_id, revision_number)
 constraint public.visit_revisions.visit_revisions_amended_by_fkey FOREIGN KEY (amended_by) REFERENCES auth.users(id)
+constraint public.visit_revisions.visit_revisions_amendment_reason_length CHECK (((char_length(btrim(amendment_reason)) >= 10) AND (char_length(btrim(amendment_reason)) <= 500)))
 constraint public.visit_revisions.visit_revisions_pkey PRIMARY KEY (id)
 constraint public.visit_revisions.visit_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
@@ -1323,22 +1327,22 @@ function private.ai_period(p_tenant uuid, p_at timestamp with time zone) returns
 function private.ai_reservation_tenant() returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=effc06c6cd28ba36c16b89336fcdc518
 function private.ai_system_caller() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=b33a53bc52b6bb3f80f5beee8890ad3c
 function private.api_keys_scope_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=634bd80665ad8b47dbb4e2fa0a1aa78c
-function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=42de17476f9f2b6951541a5669963cde
+function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=cfc09a7937e66be1d56254dc9dbdcbb0
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
-function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=cd35f0db0233651329ee083418fb71bf
+function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=2acb98b3f1eee223b562c9d9d50438c0
 function private.available_slots_core(p_tenant_id uuid, p_doctor_id uuid, p_date date, p_exclude_visit_id uuid) returns TABLE(slot_start timestamp with time zone, slot_end timestamp with time zone) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fc001d98757af3ce8f34857804fff6f5
 function private.command_claim(p_tenant_id uuid, p_client_request_id uuid, p_command text, p_request_hash text, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=0878fa043910b81ac20b7e2993173f12
 function private.command_complete(p_tenant_id uuid, p_client_request_id uuid, p_result jsonb) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=707e89686aebb7b944cbd5a1ab9be4d1
 function private.command_request_hash(p_payload jsonb) returns text lang=sql security_definer=t volatility=s config=search_path="" body_md5=93e7e89121f5ba6123d566e487f56b2a
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
-function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=c353346d6ed1c9ef1952dc689e48e1c8
+function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=83a1f436a12194681628f55d54c5ddcf
 function private.default_weekly_schedule() returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=1e1240645f56cb3091aeafdd680c52c3
 function private.doctor_display_name(p_tenant_id uuid, p_doctor_id uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cb933c897f6a7f3a6e6258f40392cf04
 function private.effective_schedule(p_schedule jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=b61b2a8b9d004b729c25fe86ee05c197
 function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text, p_created_by uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f13ae355890d673b3b7a7fa235e0a32d
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.fill_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=89bcaefee5c73b6c7b8abec9b6d7f6a3
-function private.follow_ups_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=bbd6fb5274caaa67b058c73a883d2a0d
+function private.follow_ups_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=06f69fc72b682a4c65d0eb87e3d15f48
 function private.indian_mobile_national(p_phone text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=2a5aa7a4e8b1d1466066904166db237e
 function private.invitation_audit(p_tenant uuid, p_actor uuid, p_actor_role text, p_action text, p_invitation_id uuid, p_metadata jsonb) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=cade1974fa3b2ae4eb08a5b93ec219b1
 function private.invitation_consume(p_user uuid, p_token_hash text, p_require_confirmed boolean, p_idempotent boolean) returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=94f85a8c1adb0a794c95aa212538b852
@@ -1358,6 +1362,7 @@ function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_t
 function private.name_normalize(p_name text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=de785a8b62ae4a72dcdc064d4fd01614
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=29638eca9aa442b931281faa2bc30a63
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
+function private.patient_documents_no_delete() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e7659226b86a62edfd37d67161086001
 function private.patient_input_normalize(p_patient jsonb) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9f974942a4d22f065d001ad5b45827fa
 function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
 function private.patients_ai_objection_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4ed3a98541304fda8a6ce40d6e165a79
@@ -1366,8 +1371,9 @@ function private.payments_actor_guard() returns trigger lang=plpgsql security_de
 function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=23d311260ffb7245c79afa6d04631443
 function private.platform_admins_audit() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f98d06dcb2289673d69b37c8d69732b3
 function private.platform_reason(p_reason text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=189c8b86c8a70940e97fad38ee2c02a6
-function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e794336ea9b12c5dea79c77db4782de8
-function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f35d1f0a0a736bfac4750cf4b40ed6f5
+function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f4aaf5549452df4e7fc2b979ce12d2b7
+function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5de3efbd0ebc582e2bbddc558aa2eb52
+function private.prescriptions_seal_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5a8ffa66359066ee1e0070433b5af5db
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3647a19f356dc8d41fdd2ea236d17cfe
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
@@ -1384,19 +1390,21 @@ function private.step_enqueue_booking_message(p_tenant_id uuid, p_visit_id uuid,
 function private.step_enqueue_visit_message(p_tenant_id uuid, p_visit_id uuid, p_patient_id uuid, p_template_id text, p_params jsonb, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a146c78c40d7279b81e30ff7de970691
 function private.step_promote_waitlist(p_tenant_id uuid, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_timezone text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f5d798829680de0461e39f388319654b
 function private.step_record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_notes text, p_command_id uuid, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6017701be758fe938bf6d5f0a466a9d7
-function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f2c69d82f2ac5da77dd4e5614bf6fd43
+function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=253fee604f47dc339007cbc1a5cc3096
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
 function private.today_signal() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b973db9c775436906b509d1c4634c5e
 function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=0411ba64557b426e48555d5d84e2f82e
-function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0f99f95ea14e2873713e5c943fb21baf
+function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=59886ffedbe12a913fe998ba72dccd85
+function private.visit_revisions_append_only() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=de6120b9c9f1c1e567d9405a15026da2
 function private.visit_transition_allowed(p_from text, p_to text, p_signed boolean) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=d2449a1356e9fe1add6a813ad21c580a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
-function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5f412f3f98bad97d593ada1d990f1fc4
+function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=ea512e23dec4fd73c9c139bee847a01f
 function private.visits_metadata_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=11d84ccf7ee3b5c34d054d2018c6e865
+function private.visits_sealed_delete_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=d6e2f4a2ac7b40e2404639907fae8c78
 function private.visits_status_transition_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a92dd0b6e1cd57eddbdba30793fb59eb
-function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
+function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=7a9fbd0acfab047a0ab458184c4b00d9
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
 function public.add_to_waitlist(p_tenant_id uuid, p_patient_id uuid, p_target_date date, p_client_request_id uuid, p_doctor_id uuid, p_time_window text, p_priority integer, p_notes text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9745d44e4c5ff10ccfcc9d0a734b1d26
 function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=85196dc29136273b2163ed253f8a8ea4
@@ -1408,7 +1416,7 @@ function public.cancel_visit(p_tenant_id uuid, p_visit_id uuid, p_reason_code te
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=56513894c378b055578a75ff0c5cf811
 function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4cf513f36a0468ab94b9b39c898789e0
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a989ea795a0a4f28ec1b54a5850537b9
-function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e1b92d76263ceb26ffd585604fb44bbb
+function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=489d6b77ee5caeba3a0315e87f2f5707
 function public.collect_payment(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_amount numeric, p_method text, p_reference text, p_notes text, p_client_request_id uuid, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a2a6d6cd9e20e0d4fb3e34183e3edf49
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
@@ -1437,7 +1445,7 @@ function public.enqueue_walk_in(p_tenant_id uuid, p_patient_id uuid, p_new_patie
 function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e2e07e8a190c641bad7ff81ee18db4fd
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
-function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3606d51c52a6472315884fc3a4019880
+function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=790c33d3c622e3f51cecbda70280c0c9
 function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[], strength text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=baf9b6d697032e8e360c4ad6d780f075
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ea535332cb3bf025dba7d6d92c04eebb
@@ -1478,7 +1486,7 @@ function public.register_and_book(p_tenant_id uuid, p_patient_id uuid, p_new_pat
 function public.register_patient(p_tenant_id uuid, p_patient jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d1e89c32d47e2c66e4903102e640625e
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=a433c27c9b1bd65985e013540a174237
-function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1c127c087b65bd1013c53d9516bfadc8
+function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3c9d1ef558c363c0142424ebd3280931
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.reschedule_visit(p_tenant_id uuid, p_visit_id uuid, p_new_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean, p_override_off_duty boolean, p_override_block boolean, p_notify boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a4c6a72452ed994c42bd62f1ea3a1f01
 function public.resend_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7a640654f8320e8d78f49d73d52cd671
@@ -1492,7 +1500,7 @@ function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version 
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
 function public.share_resource_tenant(p_type text, p_id uuid) returns uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=f202d708281179487dd5ca6d6cf9edb4
 function public.share_token_hash(p_token text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=46b48a816bdde078e25dc7a687214bc5
-function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=cc84a93d00d4693405f611c8d810b0ef
+function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=68f72ec2192951050739baf2afd79933
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
 function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=36dd0dd595ba73ddddeb5a78b1e1c06f
@@ -1544,6 +1552,9 @@ grant column public.memberships.full_name UPDATE to authenticated
 grant column public.memberships.medical_council_reg_no UPDATE to authenticated
 grant column public.memberships.phone UPDATE to authenticated
 grant column public.memberships.qualifications UPDATE to authenticated
+grant column public.prescriptions.pdf_sha256 UPDATE to authenticated
+grant column public.prescriptions.pdf_storage_path UPDATE to authenticated
+grant column public.prescriptions.updated_at UPDATE to authenticated
 grant column public.queue_tokens.called_at UPDATE to authenticated
 grant column public.queue_tokens.completed_at UPDATE to authenticated
 grant column public.queue_tokens.priority UPDATE to authenticated
@@ -1868,8 +1879,6 @@ grant table public.clinical_notes MAINTAIN to service_role
 grant table public.clinical_notes REFERENCES to service_role
 grant table public.clinical_notes SELECT to authenticated
 grant table public.clinical_notes SELECT to service_role
-grant table public.clinical_notes TRIGGER to service_role
-grant table public.clinical_notes TRUNCATE to service_role
 grant table public.clinical_notes UPDATE to authenticated
 grant table public.clinical_notes UPDATE to service_role
 grant table public.communication_queue DELETE to service_role
@@ -1898,8 +1907,6 @@ grant table public.consultation_diagnoses MAINTAIN to service_role
 grant table public.consultation_diagnoses REFERENCES to service_role
 grant table public.consultation_diagnoses SELECT to authenticated
 grant table public.consultation_diagnoses SELECT to service_role
-grant table public.consultation_diagnoses TRIGGER to service_role
-grant table public.consultation_diagnoses TRUNCATE to service_role
 grant table public.consultation_diagnoses UPDATE to authenticated
 grant table public.consultation_diagnoses UPDATE to service_role
 grant table public.consultations DELETE to service_role
@@ -1975,8 +1982,6 @@ grant table public.follow_ups MAINTAIN to service_role
 grant table public.follow_ups REFERENCES to service_role
 grant table public.follow_ups SELECT to authenticated
 grant table public.follow_ups SELECT to service_role
-grant table public.follow_ups TRIGGER to service_role
-grant table public.follow_ups TRUNCATE to service_role
 grant table public.follow_ups UPDATE to authenticated
 grant table public.follow_ups UPDATE to service_role
 grant table public.in_app_notifications DELETE to authenticated
@@ -2036,7 +2041,6 @@ grant table public.opd_diagnoses SELECT to service_role
 grant table public.opd_diagnoses TRIGGER to service_role
 grant table public.opd_diagnoses TRUNCATE to service_role
 grant table public.opd_diagnoses UPDATE to service_role
-grant table public.patient_documents DELETE to authenticated
 grant table public.patient_documents DELETE to service_role
 grant table public.patient_documents INSERT to authenticated
 grant table public.patient_documents INSERT to service_role
@@ -2044,9 +2048,6 @@ grant table public.patient_documents MAINTAIN to service_role
 grant table public.patient_documents REFERENCES to service_role
 grant table public.patient_documents SELECT to authenticated
 grant table public.patient_documents SELECT to service_role
-grant table public.patient_documents TRIGGER to service_role
-grant table public.patient_documents TRUNCATE to service_role
-grant table public.patient_documents UPDATE to authenticated
 grant table public.patient_documents UPDATE to service_role
 grant table public.patients DELETE to service_role
 grant table public.patients INSERT to service_role
@@ -2112,8 +2113,6 @@ grant table public.prescription_items MAINTAIN to service_role
 grant table public.prescription_items REFERENCES to service_role
 grant table public.prescription_items SELECT to authenticated
 grant table public.prescription_items SELECT to service_role
-grant table public.prescription_items TRIGGER to service_role
-grant table public.prescription_items TRUNCATE to service_role
 grant table public.prescription_items UPDATE to authenticated
 grant table public.prescription_items UPDATE to service_role
 grant table public.prescriptions DELETE to service_role
@@ -2123,9 +2122,6 @@ grant table public.prescriptions MAINTAIN to service_role
 grant table public.prescriptions REFERENCES to service_role
 grant table public.prescriptions SELECT to authenticated
 grant table public.prescriptions SELECT to service_role
-grant table public.prescriptions TRIGGER to service_role
-grant table public.prescriptions TRUNCATE to service_role
-grant table public.prescriptions UPDATE to authenticated
 grant table public.prescriptions UPDATE to service_role
 grant table public.queue_token_counters DELETE to service_role
 grant table public.queue_token_counters INSERT to service_role
@@ -2221,14 +2217,11 @@ grant table public.tenants TRUNCATE to service_role
 grant table public.tenants UPDATE to authenticated
 grant table public.tenants UPDATE to service_role
 grant table public.visit_revisions DELETE to service_role
-grant table public.visit_revisions INSERT to authenticated
 grant table public.visit_revisions INSERT to service_role
 grant table public.visit_revisions MAINTAIN to service_role
 grant table public.visit_revisions REFERENCES to service_role
 grant table public.visit_revisions SELECT to authenticated
 grant table public.visit_revisions SELECT to service_role
-grant table public.visit_revisions TRIGGER to service_role
-grant table public.visit_revisions TRUNCATE to service_role
 grant table public.visit_revisions UPDATE to service_role
 grant table public.visits DELETE to service_role
 grant table public.visits INSERT to service_role
@@ -2236,8 +2229,6 @@ grant table public.visits MAINTAIN to service_role
 grant table public.visits REFERENCES to service_role
 grant table public.visits SELECT to authenticated
 grant table public.visits SELECT to service_role
-grant table public.visits TRIGGER to service_role
-grant table public.visits TRUNCATE to service_role
 grant table public.visits UPDATE to service_role
 grant table public.waitlist_entries DELETE to service_role
 grant table public.waitlist_entries INSERT to service_role
@@ -2606,10 +2597,8 @@ policy public.invoices.invoices_select cmd=r permissive=t roles=authenticated us
 policy public.memberships.memberships_select cmd=r permissive=t roles=authenticated using=(((user_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('staff:view'::text) AS tenant_ids_with))) check=-
 policy public.memberships.memberships_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((user_id = ( SELECT auth.uid() AS uid)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))) check=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((user_id = ( SELECT auth.uid() AS uid)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))))
 policy public.opd_diagnoses.opd_diagnoses_select cmd=r permissive=t roles=authenticated using=true check=-
-policy public.patient_documents.patient_documents_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with)) check=-
 policy public.patient_documents.patient_documents_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
 policy public.patient_documents.patient_documents_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:view'::text) AS tenant_ids_with)) check=-
-policy public.patient_documents.patient_documents_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:view'::text) AS tenant_ids_with)) check=-
 policy public.patients.patients_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
@@ -2643,7 +2632,6 @@ policy public.tenant_messaging_config.tenant_messaging_config_update cmd=w permi
 policy public.tenant_subscriptions.tenant_subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.billing_tenant_ids() AS billing_tenant_ids)) check=-
 policy public.tenants.tenants_select cmd=r permissive=t roles=authenticated using=(id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids)) check=-
 policy public.tenants.tenants_update cmd=w permissive=t roles=authenticated using=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
-policy public.visit_revisions.visit_revisions_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))
 policy public.visit_revisions.visit_revisions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.visits.visits_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
 policy public.visits.visits_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
@@ -2656,19 +2644,16 @@ policy public.webhook_subscriptions.webhook_subscriptions_delete cmd=d permissiv
 policy public.webhook_subscriptions.webhook_subscriptions_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
 policy public.webhook_subscriptions.webhook_subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.webhook_subscriptions.webhook_subscriptions_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
-policy storage.objects.clinic_records_lab_delete cmd=d permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t)))) check=-
 policy storage.objects.clinic_records_lab_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t))))
 policy storage.objects.clinic_records_lab_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:view'::text) t(t)))) check=-
-policy storage.objects.clinic_records_lab_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t)))) check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t))))
 policy storage.objects.clinic_records_referral_letter_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t))))
 policy storage.objects.clinic_records_referral_letter_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:view'::text) t(t)))) check=-
 policy storage.objects.clinic_records_referral_letter_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t)))) check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t))))
 policy storage.objects.prescriptions_receipt_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
 policy storage.objects.prescriptions_receipt_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:view'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
 policy storage.objects.prescriptions_receipt_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
-policy storage.objects.prescriptions_rx_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))))
+policy storage.objects.prescriptions_rx_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))) AND (EXISTS ( SELECT 1    FROM (prescriptions p      JOIN visits v ON (((v.tenant_id = p.tenant_id) AND (v.id = p.visit_id))))   WHERE (((p.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((p.visit_id)::text = split_part(objects.name, '/'::text, 2)) AND ((('rx_v'::text || (p.version)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (p.signed_at IS NOT NULL) AND (p.pdf_sha256 IS NULL) AND (v.signed_at IS NOT NULL) AND (v.status <> 'in_consultation'::text) AND (v.signed_by = ( SELECT auth.uid() AS uid))))))
 policy storage.objects.prescriptions_rx_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:view'::text) t(t)))) check=-
-policy storage.objects.prescriptions_rx_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t)))) check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))))
 relation ops.alert_rules kind=r rls=t force_rls=f
 relation ops.alerts kind=r rls=t force_rls=f
 relation ops.backup_runs kind=r rls=t force_rls=f
@@ -2755,6 +2740,7 @@ trigger ops.jobs.jobs_reply_unmatched_redact CREATE TRIGGER jobs_reply_unmatched
 trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'webhook.deliver'::text))) EXECUTE FUNCTION ops.webhook_job_dead()
 trigger public.api_keys.api_keys_scope_guard CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
+trigger public.clinical_notes.clinical_notes_delete_guard CREATE TRIGGER clinical_notes_delete_guard BEFORE DELETE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
 trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
 trigger public.clinical_notes.clinical_notes_today_signal CREATE TRIGGER clinical_notes_today_signal AFTER UPDATE OF vitals ON public.clinical_notes FOR EACH ROW WHEN ((old.vitals IS DISTINCT FROM new.vitals)) EXECUTE FUNCTION private.today_signal()
 trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TRIGGER communication_queue_apply_early_dlr AFTER UPDATE OF external_message_id ON public.communication_queue FOR EACH ROW WHEN (((new.external_message_id IS NOT NULL) AND (old.external_message_id IS DISTINCT FROM new.external_message_id))) EXECUTE FUNCTION ops.communication_queue_apply_early_dlr()
@@ -2771,6 +2757,7 @@ trigger public.invoices.invoices_today_signal_insert CREATE TRIGGER invoices_tod
 trigger public.invoices.invoices_today_signal_update CREATE TRIGGER invoices_today_signal_update AFTER UPDATE OF total_amount, status ON public.invoices FOR EACH ROW WHEN (((old.total_amount IS DISTINCT FROM new.total_amount) OR (old.status IS DISTINCT FROM new.status))) EXECUTE FUNCTION private.today_signal()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
+trigger public.patient_documents.patient_documents_no_delete CREATE TRIGGER patient_documents_no_delete BEFORE DELETE ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_no_delete()
 trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_actor_guard()
 trigger public.patients.patients_ai_objection_audit CREATE TRIGGER patients_ai_objection_audit AFTER INSERT OR UPDATE OF ai_processing_objected ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_audit()
 trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_objection_stamp BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_stamp()
@@ -2781,6 +2768,7 @@ trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_adm
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
+trigger public.prescriptions.prescriptions_seal_guard CREATE TRIGGER prescriptions_seal_guard BEFORE DELETE OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_seal_guard()
 trigger public.queue_tokens.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
 trigger public.queue_tokens.queue_tokens_today_signal CREATE TRIGGER queue_tokens_today_signal AFTER INSERT OR UPDATE ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.today_signal()
@@ -2790,10 +2778,12 @@ trigger public.tenants.tenants_create_default_location CREATE TRIGGER tenants_cr
 trigger public.tenants.tenants_create_subscription CREATE TRIGGER tenants_create_subscription AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.tenants_create_subscription()
 trigger public.tenants.tenants_timezone_audit CREATE TRIGGER tenants_timezone_audit AFTER UPDATE OF timezone ON public.tenants FOR EACH ROW WHEN ((new.timezone IS DISTINCT FROM old.timezone)) EXECUTE FUNCTION private.tenants_timezone_audit()
 trigger public.visit_revisions.visit_revisions_actor_guard CREATE TRIGGER visit_revisions_actor_guard BEFORE INSERT ON public.visit_revisions FOR EACH ROW EXECUTE FUNCTION private.visit_revisions_actor_guard()
+trigger public.visit_revisions.visit_revisions_append_only CREATE TRIGGER visit_revisions_append_only BEFORE DELETE OR UPDATE ON public.visit_revisions FOR EACH ROW EXECUTE FUNCTION private.visit_revisions_append_only()
 trigger public.visits.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.visits.visits_integrity_guard CREATE TRIGGER visits_integrity_guard BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_integrity_guard()
 trigger public.visits.visits_metadata_guard CREATE TRIGGER visits_metadata_guard BEFORE UPDATE OF metadata ON public.visits FOR EACH ROW WHEN ((old.metadata IS DISTINCT FROM new.metadata)) EXECUTE FUNCTION private.visits_metadata_guard()
+trigger public.visits.visits_sealed_delete_guard CREATE TRIGGER visits_sealed_delete_guard BEFORE DELETE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_sealed_delete_guard()
 trigger public.visits.visits_status_transition_guard CREATE TRIGGER visits_status_transition_guard BEFORE UPDATE OF status ON public.visits FOR EACH ROW WHEN ((old.status IS DISTINCT FROM new.status)) EXECUTE FUNCTION private.visits_status_transition_guard()
 trigger public.visits.visits_today_signal_insert CREATE TRIGGER visits_today_signal_insert AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.visits.visits_today_signal_update CREATE TRIGGER visits_today_signal_update AFTER UPDATE OF status, scheduled_at, doctor_id ON public.visits FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) OR (old.scheduled_at IS DISTINCT FROM new.scheduled_at) OR (old.doctor_id IS DISTINCT FROM new.doctor_id))) EXECUTE FUNCTION private.today_signal()

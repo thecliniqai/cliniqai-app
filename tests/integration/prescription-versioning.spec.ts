@@ -15,7 +15,7 @@ import {
   removePrescriptionItem,
   getPrescriptionPdfSignedUrl,
 } from "@/features/prescriptions/service";
-import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
+import { renderPrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
 import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
@@ -222,19 +222,25 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
       advice: ["Strict bed rest"],
     };
 
-    const genRes = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
+    const buffer = await renderPrescriptionPdf(payload);
 
-    expect(genRes.buffer).toBeDefined();
-    expect(genRes.buffer.length).toBeGreaterThan(1000);
+    expect(buffer.length).toBeGreaterThan(1000);
     // Verifies PDF magic bytes %PDF-
-    expect(genRes.buffer.subarray(0, 5).toString()).toBe("%PDF-");
-    expect(genRes.storagePath).toBe(`${tenantA.tenantId}/${visitAId}/rx_v1.pdf`);
-    // 06-09b (N-1): a 5-minute view link (was one hour).
-    expect(signedUrlLifetimeSeconds(genRes.signedUrl)).toBe(300);
+    expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
+
+    // The sign-off in test 2 archived version 1 once, at its canonical key, with the SHA-256 of the stored bytes (V2-09a R-12; the archive's own
+    // behaviour is tested in tests/prescriptions/rx-pdf-archive.spec.ts).
+    const { data: rxRow } = await tenantA.client
+      .from("prescriptions")
+      .select("pdf_storage_path, pdf_sha256")
+      .eq("id", prescriptionAId)
+      .single();
+    expect(rxRow?.pdf_storage_path).toBe(`${tenantA.tenantId}/${visitAId}/rx_v1.pdf`);
+    expect(rxRow?.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("4. getPrescriptionPdfSignedUrl generates 5-minute signed URLs for both Blank Paper and Pre-Printed modes (06-09b N-1)", async () => {
-    // 1. Blank paper mode
+  it("4. getPrescriptionPdfSignedUrl: the archived Rx at its own letterhead is a 5-minute signed URL of the archive; a print variant is the route's on-demand render (06-09b N-1, V2-09a R-12)", async () => {
+    // 1. Blank paper mode: the signed version's archived object
     const blankRes = await getPrescriptionPdfSignedUrl(
       ctxFor(tenantA),
       prescriptionAId,
@@ -244,10 +250,11 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(blankRes.success).toBe(true);
     if (blankRes.success) {
       expect(signedUrlLifetimeSeconds(blankRes.signedUrl)).toBe(300);
+      expect(blankRes.signedUrl).toContain(`/rx_v1.pdf`);
       expect(blankRes.version).toBe(1);
     }
 
-    // 2. Pre-printed letterhead mode
+    // 2. Pre-printed letterhead mode: a variant, never stored; the link is the PDF route, which renders it with no-store
     const preprintedRes = await getPrescriptionPdfSignedUrl(
       ctxFor(tenantA),
       prescriptionAId,
@@ -256,9 +263,11 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     expect(preprintedRes.success).toBe(true);
     if (preprintedRes.success) {
-      expect(signedUrlLifetimeSeconds(preprintedRes.signedUrl)).toBe(300);
+      expect(preprintedRes.signedUrl).toBe(`/api/visits/${visitAId}/prescription-pdf?letterhead=preprinted_letterhead`);
       expect(preprintedRes.version).toBe(1);
     }
+    const { data: rxRow } = await tenantA.client.from("prescriptions").select("letterhead_mode").eq("id", prescriptionAId).single();
+    expect(rxRow?.letterhead_mode).toBe("blank_paper");
   });
 
   it("5. Post-sign-off amendment lifecycle: enforces justification, creates immutable revision snapshot, and increments version to v2", async () => {

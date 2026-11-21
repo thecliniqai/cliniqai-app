@@ -90,6 +90,32 @@
  *          authz matrix keeps its cell count (the revoked operations become rpc_only cells), the visit, patient, signal and
  *          scheduling files keep theirs (they widen the INSERT grant inside their own transaction or change an assertion) = 8321
  *          (55 files).
+ *   8356 — V2-09a 09A-01 (000107 clinical_seal): 8321 + clinical_seal 31 (new file, every one required) + signed_visit_fields 2 (the N-9
+ *          "system path unchanged" case flips to a refusal and two controls follow) + visit_integrity 1 (the signer-FK case is split in
+ *          two: the system-path UPDATE is refused, the system-path INSERT of a signed visit still meets the FK) + migration_edge_cases_visit_integrity
+ *          1 (same split) = 8356 (56 files). The other changed legacy files (amendment_snapshot, reverify_integrity, command_review_fixes,
+ *          visit_state_machine) keep their counts: they only seed signed rows the way production does (R-15).
+ *   8391 — V2-09a 09A-02 (000108 prescription_seal): 8356 + prescription_seal 33 (new file, every one required) + grants 1 (the
+ *          prescriptions column grant) + amendment_snapshot 1 (the header version rule: a request path writes version 1 only, and
+ *          the first header of an open visit is admitted) = 8391 (57 files). authz_matrix keeps its cell count (the prescriptions INSERT
+ *          cell frees the fixture header and writes version 1; the UPDATE cell sets letterhead_mode); visit_integrity and
+ *          amendment_snapshot widen the prescriptions UPDATE grant inside their own transaction, like they do for visits.
+ *   8430 — V2-09a 09A-03 (000109 rx_pdf_write_once): 8391 + rx_pdf_write_once 28 (new file, every one required) + storage_policies 11 (46 -> 57) (the Rx INSERT cases
+ *          of section 2b: draft, amending, sealed unarchived as doctor and as owner, a future version, an archived header, a nurse, another clinic, a key with
+ *          no visit, no DELETE; the two old Rx cases change their expectation and the catalogue loses the Rx UPDATE policy) = 8430 (58 files). prescription_seal
+ *          and grants keep their counts (the column list and two expectations change); authz_matrix keeps its cell count (the rx INSERT and UPDATE cells become
+ *          `none`).
+ *   8454 — V2-09a 09A-04 (000110 lab_documents_append_only): 8430 + lab_documents_append_only 24 (new file, every one required); delete_rules and
+ *          storage_policies keep their counts (the DELETE catalogue loses patient_documents_delete, the lab storage catalogue loses its UPDATE and DELETE
+ *          policies, and the doctor's lab delete now affects 0 rows); authz_matrix keeps its cell count (patient_documents DELETE becomes `rpc_only`, the lab
+ *          UPDATE and DELETE storage cells become `none`) = 8454 (59 files).
+ *   8494 — V2-09a 09A-06a (000111 clinical_review_fixes, the review fix round): 8454 + clinical_review_fixes 40 (new file, every one required) = 8494
+ *          (60 files). The changed files keep their counts: rx_pdf_write_once (the matrix gains state X and the owner/doctor split, same 28 assertions),
+ *          storage_policies (the owner's Rx upload flips to refused), lab_documents_append_only (the UPDATE controls flip to refused), prescription_seal
+ *          (the signer archives before the reopen), admin_policies / domain_policies / authz_completeness (two policies and two grants fewer in their
+ *          catalogues); amendment_snapshot, reverify_integrity, signed_visit_fields and visit_integrity restore the member INSERT on visit_revisions inside
+ *          their own transaction (they prove the guards); authz_matrix keeps its cell count (visit_revisions INSERT and patient_documents UPDATE
+ *          become `rpc_only`).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -101,7 +127,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8321;
+export const FLOOR = 8494;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -191,6 +217,16 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/smart_assist.test.sql",
   // V2-08 08-06a
   "supabase/tests/database/front_desk_review_fixes.test.sql",
+  // V2-09a 09A-01
+  "supabase/tests/database/clinical_seal.test.sql",
+  // V2-09a 09A-02
+  "supabase/tests/database/prescription_seal.test.sql",
+  // V2-09a 09A-03
+  "supabase/tests/database/rx_pdf_write_once.test.sql",
+  // V2-09a 09A-04
+  "supabase/tests/database/lab_documents_append_only.test.sql",
+  // V2-09a 09A-06a
+  "supabase/tests/database/clinical_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

@@ -11,8 +11,8 @@ import {
   Vitals,
   ChiefComplaintItem,
 } from "./schema";
-import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generator";
-import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
+import { archivePrescriptionPdf, isArchivable, isVisitSigner } from "../prescriptions/pdf/generator";
+import { loadPrescriptionPdfSource } from "../prescriptions/pdf/payload";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
@@ -21,23 +21,25 @@ import { clientRequestIdSchema } from "@/lib/commands/request-id";
 import type { AppError } from "@/lib/errors/app-error";
 import { z } from "zod";
 import { clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
-import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { isSealedRefusal, recordState, SIGNED_CONSULTATION_MESSAGE } from "./record-state";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
 // pass the same context so the callee's own check applies.
 
-const SIGNED_CONSULTATION_MESSAGE =
-  "This consultation is already signed. Reopen it for amendment to make changes.";
-
 /** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
 const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
+/** V2-09a 09A-06a (review B-5): the follow-up write failed, so the save is not complete (Finalize amendment stops on it). */
+export const FOLLOW_UP_SAVE_FAILED_MESSAGE = "Draft saved, but the follow-up could not be saved. Please try again.";
 
-/** Completed, cancelled, or signed and not reopened for amendment (reopened = signed_at set, status in_consultation). */
+/**
+ * Completed or cancelled (unsigned: terminal in the app, V2-09a R-11), or sealed: signed and not reopened for amendment
+ * (`recordState`, V2-09a R-2). The database refuses the sealed case for every writer; the unsigned terminal states stay an app rule.
+ */
 function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
   if (visit.status === "completed" || visit.status === "cancelled") return true;
-  return Boolean(visit.signed_at) && visit.status !== "in_consultation";
+  return recordState(visit) === "sealed";
 }
 
 // The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
@@ -235,12 +237,17 @@ export async function saveConsultationDraft(
 
     // 4. Handle follow-up record if provided
     if (data.follow_up?.follow_up_date) {
-      await recordFollowUp(ctx, {
+      // 09A-06a (review B-5): the result is checked. A failed follow-up write fails the save, so the amendment's Finalize (which saves first and stops
+      // on a failed save) never seals a version whose follow-up is not the one on screen.
+      const followUp = await recordFollowUp(ctx, {
         visitId: data.visit_id,
         patientId: visit.patient_id,
         followUpDate: data.follow_up.follow_up_date,
         notes: data.follow_up.notes ?? undefined,
       });
+      if (!followUp.success) {
+        return { success: false, error: followUp.error === SIGNED_CONSULTATION_MESSAGE ? SIGNED_CONSULTATION_MESSAGE : FOLLOW_UP_SAVE_FAILED_MESSAGE };
+      }
     } else {
       // If doctor selected None / N/A, delete any existing follow_up for this visit. RLS may filter the delete
       // (V2-05 05-04): compare the deleted rows with the visible ones, so a follow-up that is still there is reported.
@@ -377,6 +384,8 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
 
     return { success: true, followUpId };
   } catch (err: unknown) {
+    // A signed consultation's follow-up is sealed with it (000107): a fixed text, never the driver's (V2-09a R-17).
+    if (isSealedRefusal(err)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to record follow-up.", "consultation.record_follow_up.failed"),
@@ -549,145 +558,6 @@ export async function getPatientConsultationHistory(
   }
 }
 
-/**
- * Builds a complete PrescriptionPdfPayload for a visit of the acting tenant.
- */
-async function buildVisitPdfPayload(
-  ctx: ServiceContext,
-  visitId: string,
-  overrideVersion?: number,
-  overrideReason?: string | null
-): Promise<PrescriptionPdfPayload | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = ctx.db as any;
-  const tenantId = ctx.tenantId;
-
-  const { data: visitRow } = await supabase
-    .from("visits")
-    .select(`*, ${clinicalNotesEmbed()}`)
-    .eq("id", visitId)
-    .eq("tenant_id", tenantId)
-    .single();
-
-  if (!visitRow) return null;
-  // The clinical content comes from clinical_notes (V2-05 05-02a).
-  const visit = withClinicalNotes(visitRow);
-
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("name, address, phone, registration_number, logo_url, timezone")
-    .eq("id", tenantId)
-    .single();
-
-  const { data: patient } = await supabase
-    .from("patients")
-    .select("full_name, age, sex, phone, address, abha_id")
-    .eq("id", visit.patient_id)
-    .eq("tenant_id", tenantId)
-    .single();
-
-  const { data: doctorMember } = await supabase
-    .from("memberships")
-    .select("qualifications, medical_council_reg_no")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", visit.doctor_id)
-    .maybeSingle();
-
-  const { data: diagnoses } = await supabase
-    .from("consultation_diagnoses")
-    .select("diagnosis_name, icd11_code, snomed_concept_id")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: true });
-
-  const { data: rx } = await supabase
-    .from("prescriptions")
-    .select("id, version, letterhead_mode, amendment_reason, signed_at")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", tenantId)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let items: any[] = [];
-  if (rx?.id) {
-    const { data: rxItems } = await supabase
-      .from("prescription_items")
-      .select("medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order")
-      .eq("prescription_id", rx.id)
-      .order("sort_order", { ascending: true });
-    items = rxItems || [];
-  }
-
-  const { data: followUp } = await supabase
-    .from("follow_ups")
-    .select("follow_up_date")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", tenantId)
-    .maybeSingle();
-
-  const version = overrideVersion ?? (rx?.version || 1);
-  const amendmentReason = overrideReason !== undefined ? overrideReason : (rx?.amendment_reason || null);
-
-  return {
-    tenant_id: tenantId,
-    visit_id: visit.id,
-    prescription_id: rx?.id || "",
-    version,
-    letterhead_mode: rx?.letterhead_mode || "blank_paper",
-    amendment_reason: amendmentReason,
-    signed_at: visit.signed_at || new Date().toISOString(),
-    clinic: {
-      name: tenant?.name || "Clinic",
-      address: tenant?.address || null,
-      phone: tenant?.phone || null,
-      registration_number: tenant?.registration_number || null,
-      logo_url: tenant?.logo_url || null,
-    },
-    doctor: {
-      name: "Doctor",
-      qualifications: doctorMember?.qualifications || null,
-      medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
-    },
-    patient: {
-      full_name: patient?.full_name || "Patient",
-      age: patient?.age || null,
-      sex: patient?.sex || null,
-      phone: patient?.phone || null,
-      address: typeof patient?.address === "string" ? patient.address : null,
-      abha_id: patient?.abha_id || null,
-      uhid: visit.patient_id.slice(0, 8).toUpperCase(),
-    },
-    visit: {
-      visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
-      vitals: visit.vitals || null,
-      chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
-      clinical_notes: visit.clinical_notes || null,
-      specialty: visit.specialty || "general_physician",
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    diagnoses: (diagnoses || []).map((d: any) => ({
-      diagnosis_name: d.diagnosis_name,
-      icd11_code: d.icd11_code || null,
-      snomed_concept_id: d.snomed_concept_id || null,
-    })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    medications: items.map((item: any) => ({
-      medicine_name: item.medicine_name,
-      generic_name: item.generic_name,
-      dose_form: item.dose_form,
-      dosage: item.dosage,
-      timing: item.timing,
-      duration: item.duration,
-      special_instructions: item.special_instructions,
-    })),
-    investigations_advised: visit.investigations_advised || [],
-    advice: visit.advice || [],
-    follow_up_date: followUp?.follow_up_date || null,
-  };
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
 // Sign-off and amendment (V2-07 07-01). Each is one atomic command RPC (migration 000097): the visit is locked, the
 // invariants are checked, the writes, the audit row and (sign-off) the webhook outbox rows are committed together or not
@@ -720,6 +590,8 @@ export const CLINICAL_COMMAND_MESSAGES = {
   AMENDMENT_NOT_OPEN: "This consultation is not open for amendment.",
   AMENDMENT_REASON_INVALID:
     "A valid reason for amendment of at least 10 characters is required for medical audit compliance.",
+  RX_ARCHIVE_PENDING:
+    "The signed prescription PDF has not been archived yet. The doctor who signed it must open the prescription first; then try again.",
 } as const satisfies DbErrorMessages;
 
 /** The amendment reason is 10 to 500 characters (the audit row holds it, whose values are bounded at 500; V2-07 07-04a F-11). */
@@ -782,52 +654,32 @@ export async function completeAndSignConsultation(
   );
   if (!outcome.ok) return commandFailure(outcome.error);
 
-  // After the commit (R-4). A replay means the first call's response may have been lost after the commit, so the archive is
-  // rendered then too when it is missing (V2-07 07-04a F-7).
-  await archiveInitialPrescriptionPdf(ctx, visitId, outcome.value.replayed ? { onlyIfMissing: true } : {});
+  // After the commit (R-4). A replay means the first call's response may have been lost after the commit, so the archive is made then too when it is
+  // missing (V2-07 07-04a F-7); the archive is idempotent (V2-09a R-12), so a first call and a replay take the same step.
+  await archiveSealedPrescriptionPdf(ctx, visitId);
 
   return { success: true, visitId, replayed: outcome.value.replayed };
 }
 
 /**
- * The initial archival PDF (v1) of a just-signed consultation, rendered and stored AFTER the commit (R-4: no external
- * call inside a transaction), best-effort: the record is already signed whatever happens here. Shared by the sign-off
- * and by Sign & Bill (`complete_and_bill`, V2-07 07-03).
+ * Archives the signed version of the visit's prescription (V2-09a R-12), rendered and stored AFTER the commit (R-4: no external call inside a
+ * transaction), best-effort: the record is already signed whatever happens here, and the signer's next open of the PDF archives it if it is missing.
+ * Used by the sign-off, by Sign & Bill (`complete_and_bill`, V2-07 07-03), by the amendment's finalize (with the new `version`) and before a reopen.
+ * It does nothing for a visit that is not sealed, for a header with no signature, for a header whose PDF is already archived (the pair is write-once),
+ * and (09A-06a ruling R-A) for a caller who is not the visit's signer: only the signer archives, the database refuses anyone else.
  */
-export async function archiveInitialPrescriptionPdf(
+export async function archiveSealedPrescriptionPdf(
   ctx: ServiceContext,
   visitId: string,
-  options: { onlyIfMissing?: boolean } = {}
+  options: { version?: number } = {}
 ): Promise<void> {
   try {
-    if (options.onlyIfMissing && (await prescriptionPdfArchived(ctx, visitId, 1))) return;
-    const payload = await buildVisitPdfPayload(ctx, visitId, 1);
-    if (payload) {
-      await generateAndArchivePrescriptionPdf(ctx, payload);
-    }
+    const source = await loadPrescriptionPdfSource(ctx, visitId, { version: options.version });
+    if (!source?.header || source.header.pdf_sha256 || !isArchivable(ctx, source) || !isVisitSigner(ctx, source)) return;
+    await archivePrescriptionPdf(ctx, source.payload);
   } catch (pdfErr) {
-    log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    log.warn({ event: "consultation.rx_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
-}
-
-/**
- * True when the visit's latest prescription already records the archive of `version` (`pdf_storage_path` ends with
- * `rx_v<version>.pdf`, written by `generateAndArchivePrescriptionPdf` after the upload). A visit with no prescription row
- * has nothing to record the archive on, so it counts as not archived (the render is harmless: the upload overwrites).
- * Also true when the latest prescription is of another version: the command this replay belongs to has been superseded.
- */
-async function prescriptionPdfArchived(ctx: ServiceContext, visitId: string, version: number): Promise<boolean> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (ctx.db.from("prescriptions") as any)
-    .select("version, pdf_storage_path")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", ctx.tenantId)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data) return false;
-  if (Number(data.version) !== version) return true;
-  return typeof data.pdf_storage_path === "string" && data.pdf_storage_path.endsWith(`/rx_v${version}.pdf`);
 }
 
 export type ReopenVisitForAmendmentResult =
@@ -862,6 +714,11 @@ export async function reopenVisitForAmendment(
   if (!ids.success) {
     return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
   }
+
+  // The signed version is archived first: once the visit is reopened it is no longer sealed, and the database refuses an archive of an open amendment.
+  // The snapshot the reopen takes then holds the signed version's path and hash. Only the signer can archive it (R-A); if it is still missing the
+  // command refuses with RX_ARCHIVE_PENDING (09A-06a, review A-3) and the caller gets the fixed retry text.
+  await archiveSealedPrescriptionPdf(ctx, visitId);
 
   const outcome = await callCommand(
     ctx,
@@ -913,33 +770,9 @@ export async function finalizeVisitAmendment(
   if (!outcome.ok) return commandFailure(outcome.error);
 
   const { version, replayed } = outcome.value;
-  // Regenerate and archive the stamped amended PDF (v2, v3), after the commit. A replay means the first call's response may
-  // have been lost after the commit: the PDF is rendered then too when that version is not archived yet (F-7).
-  try {
-    if (!replayed || !(await prescriptionPdfArchived(ctx, visitId, version))) {
-      // The reason is read back from the amendment row (the stored command result holds no free text, F-5).
-      const amendmentReason = await latestAmendmentReason(ctx, visitId);
-      const payload = await buildVisitPdfPayload(ctx, visitId, version, amendmentReason);
-      if (payload) {
-        await generateAndArchivePrescriptionPdf(ctx, payload);
-      }
-    }
-  } catch (pdfErr) {
-    log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-  }
+  // Archive the amended version (v2, v3), after the commit; the header holds no PDF pair until then (finalize cleared it). A replay may mean the first call's
+  // response was lost after the commit: the archive is idempotent, so the same step covers it (F-7). The reason printed on the PDF is the header's own.
+  await archiveSealedPrescriptionPdf(ctx, visitId, { version });
 
   return { success: true, visitId, version, replayed };
-}
-
-/** The reason of the visit's latest amendment row (the reopen wrote it; the finalize stamps it on the amended PDF). */
-async function latestAmendmentReason(ctx: ServiceContext, visitId: string): Promise<string | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (ctx.db.from("visit_revisions") as any)
-    .select("amendment_reason")
-    .eq("visit_id", visitId)
-    .eq("tenant_id", ctx.tenantId)
-    .order("revision_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return typeof data?.amendment_reason === "string" ? data.amendment_reason : null;
 }

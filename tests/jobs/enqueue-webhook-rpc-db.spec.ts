@@ -150,7 +150,7 @@ describe("public.enqueue_webhook_event: every role's events are queued (R-19)", 
     expect(Object.keys(envelope).sort()).toEqual(["created_at", "data", "event", "id"]);
     expect(envelope.event).toBe("prescription.issued");
     const subject = rxSubjects.get(rx)!;
-    expect(envelope.data).toEqual({ prescription_id: rx, patient_id: subject.patientId, visit_id: subject.visitId });
+    expect(envelope.data).toEqual({ prescription_id: rx, patient_id: subject.patientId, visit_id: subject.visitId, version: 1 });
   });
 
   it("lib/jobs/enqueue: enqueueWebhookEvent(ctx, …) queues for ctx.tenantId and returns the delivery ids", async () => {
@@ -227,12 +227,17 @@ describe("closed event set, subject state and idempotency", () => {
       message: "EVENT_NOT_ALLOWED",
     });
 
-    psql(`update public.visits set status = 'completed', signed_at = '2026-11-13T05:06:07.089Z' where id = '${p.visitId}'`);
-    const done = await enqueue(doctorA.client, doctorA.tenantId, "visit.completed", p.visitId);
+    // A completed, signed visit with a known signature time. A system path can no longer sign an existing visit (V2-09a 000107, R-5), so the
+    // fixture inserts the visit already signed (R-4c): the one write that carries a signature.
+    const [doneVisit] = psql(
+      `insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by) ` +
+        `values ('${ownerA.tenantId}', '${p.patientId}', '${doctorA.userId}', 'walk_in', 'completed', '2026-11-13T05:06:07.089Z', '${doctorA.userId}', '${ownerA.userId}') returning id`
+    );
+    const done = await enqueue(doctorA.client, doctorA.tenantId, "visit.completed", doneVisit);
     expect(done.error).toBeNull();
-    const [row] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `visit.completed:${p.visitId}`);
+    const [row] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `visit.completed:${doneVisit}`);
     expect(JSON.parse(deliveryPayload(row.id)).data).toEqual({
-      visit_id: p.visitId,
+      visit_id: doneVisit,
       patient_id: p.patientId,
       doctor_id: doctorA.userId,
       completed_at: "2026-11-13T05:06:07.089Z",
@@ -459,7 +464,7 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
     expect((await completeAndSignConsultation(doctorCtx, p.visitId, randomUUID())).success).toBe(true);
     const rows = rxRows(rx);
     expect(rows.map((r) => r.eventKey)).toEqual([`prescription.issued:${rx}:signed`]);
-    expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId });
+    expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId, version: 1 });
   });
 
   it("from a request an unsigned prescription is refused (empty draft or with items); the API path queues one with items", async () => {

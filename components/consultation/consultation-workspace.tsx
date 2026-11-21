@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Vitals,
   ChiefComplaintItem,
@@ -28,6 +29,10 @@ import { GPSystemicReview } from "./specialty/gp-systemic-review";
 import { DentalOdontogram } from "./specialty/dental-odontogram";
 import { PediatricsTools } from "./specialty/pediatrics-tools";
 import { SignAndBillModal } from "./sign-and-bill-modal";
+import { AmendmentModal } from "./amendment-modal";
+import { FinalizeAmendmentDialog } from "./finalize-amendment-dialog";
+import { recordState, signedVersionOf } from "@/features/consultation/record-state";
+import { Banner } from "@/components/ui/banner";
 import {
   Clock,
   CheckCircle2,
@@ -47,6 +52,8 @@ import {
   Share2,
   MessageSquare,
   Loader2,
+  FilePenLine,
+  Lock,
 } from "lucide-react";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
@@ -75,6 +82,17 @@ export interface ConsultationWorkspaceProps {
     diagnoses?: ConsultationDiagnosisItem[];
     prescription_items?: PrescriptionItem[];
     metadata?: Record<string, unknown> | null;
+    /** Sign-off time; with `status` it decides the record state (`recordState`, V2-09a R-2). */
+    signed_at?: string | null;
+    /**
+     * `visits.current_revision`: 1 for a visit never amended (the database default); each reopen sets it to the new revision number + 1, so it counts
+     * the signatures of a sealed visit and is one ahead of the signed version while amending.
+     */
+    current_revision?: number | null;
+    /** Version of the visit's latest prescription header, null when there is none. */
+    prescription_version?: number | null;
+    /** The reason given when the open amendment was started (the latest `visit_revisions` row); only read while amending. */
+    amendment_reason?: string | null;
   };
   patient: {
     id: string;
@@ -90,6 +108,20 @@ export interface ConsultationWorkspaceProps {
   pastEncounters?: PastVisitEncounter[];
   /** The signed-in user holds `billing:collect` (PO-3, V2-05 05-02b): Sign & Bill may collect at the desk. */
   canCollectPayment?: boolean;
+  /**
+   * The signed-in user may reopen and finalize an amendment: consultations:edit, prescriptions:edit and appointments:edit
+   * (the two commands check all three, so owner and doctor). The database refuses anyone else; this only shapes the screen.
+   */
+  canAmend?: boolean;
+}
+
+/** "21 Nov 2026, 3:42 pm" in the clinic's zone (never the browser's); en-IN keeps server and client markup identical. */
+function signedAtLabel(iso: string, timeZone: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  const date = new Intl.DateTimeFormat("en-IN", { timeZone, day: "numeric", month: "short", year: "numeric" }).format(at);
+  const time = new Intl.DateTimeFormat("en-IN", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(at);
+  return `${date}, ${time}`;
 }
 
 const COMMON_INVESTIGATIONS = [
@@ -127,9 +159,34 @@ export function ConsultationWorkspace({
   patient,
   pastEncounters = [],
   canCollectPayment = false,
+  canAmend = false,
 }: ConsultationWorkspaceProps) {
+  const router = useRouter();
   const timeZone = useClinicTimeZone();
   const clinicToday = todayInTz(timeZone);
+
+  // The record state is one predicate in SQL and here (V2-09a R-2). A sealed consultation is read-only; so is a visit the front desk
+  // completed unsigned or a cancelled one (terminal in the app, R-11). An amending visit is editable again until it is finalized.
+  const state = recordState(visit);
+  const readOnly = state === "sealed" || visit.status === "completed" || visit.status === "cancelled";
+  const [isAmendOpen, setIsAmendOpen] = useState(false);
+  const [isFinalizeOpen, setIsFinalizeOpen] = useState(false);
+  // The signed version: the prescription header's, else (a consultation with no prescription) the number of signatures (09A-06a, review B-2):
+  // current_revision while sealed, current_revision - 1 while amending (the reopen has already counted the amendment).
+  const signedVersion = signedVersionOf(visit, state);
+  // 09A-06a (review B-3): after a successful Amend or Finalize the refresh replaces the button that opened the dialog, so focus is moved to a
+  // stable element of the new state (the amendment banner, or the signed chip) instead of falling to <body>.
+  const focusAfterRefreshRef = useRef<"amending" | "sealed" | null>(null);
+  const amendingBannerRef = useRef<HTMLDivElement>(null);
+  const signedChipRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (focusAfterRefreshRef.current !== state) return;
+    focusAfterRefreshRef.current = null;
+    (state === "amending" ? amendingBannerRef.current : signedChipRef.current)?.focus();
+  }, [state]);
+  // Local editing state of the vitals editor and the Rx builder (an open editor, a staged drug, an open overlay) never survives a change of the record
+  // state (review B-1): they are remounted with this key.
+  const editorKey = `${state}:${readOnly ? "ro" : "rw"}`;
 
   // Core Form State
   const [specialty, setSpecialty] = useState<ClinicalSpecialty>(
@@ -503,8 +560,28 @@ export function ConsultationWorkspace({
                 {/* Status Badge */}
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-status-with-doctor-bg text-status-with-doctor-fg border border-status-with-doctor-border whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-status-with-doctor-border mr-1.5 animate-pulse" />
-                  {visit.status === "in_consultation" ? "In Consultation" : visit.status}
+                  {state === "amending"
+                    ? "Amending"
+                    : state === "sealed"
+                      ? "Signed"
+                      : visit.status === "in_consultation"
+                        ? "In Consultation"
+                        : visit.status}
                 </span>
+
+                {/* Signed chip (R-16): when it was signed, in the clinic's zone, and the prescription version. */}
+                {state === "sealed" && visit.signed_at && (
+                  <span
+                    ref={signedChipRef}
+                    tabIndex={-1}
+                    data-testid="signed-chip"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-800 border border-gray-300 whitespace-nowrap"
+                  >
+                    <Lock className="h-3 w-3" aria-hidden="true" />
+                    Signed {signedAtLabel(visit.signed_at, timeZone)}
+                    {visit.prescription_version ? ` · Rx v${visit.prescription_version}` : ""}
+                  </span>
+                )}
 
                 {/* Patient Allergy Alert Chip */}
                 {patient.allergies && patient.allergies.length > 0 && (
@@ -537,11 +614,12 @@ export function ConsultationWorkspace({
               <select
                 id="workspace-specialty"
                 value={specialty}
+                disabled={readOnly}
                 onChange={(e) => {
                   markDirty();
                   setSpecialty(e.target.value as ClinicalSpecialty);
                 }}
-                className="h-8 px-2.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring cursor-pointer"
+                className="h-11 px-2.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="general_physician">General Physician</option>
                 <option value="dental">Dental</option>
@@ -576,12 +654,14 @@ export function ConsultationWorkspace({
             {/* Mobile / Tablet specialty switcher */}
             <div className="flex xl:hidden items-center">
               <select
+                aria-label="Specialty"
                 value={specialty}
+                disabled={readOnly}
                 onChange={(e) => {
                   markDirty();
                   setSpecialty(e.target.value as ClinicalSpecialty);
                 }}
-                className="h-8 px-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white cursor-pointer"
+                className="h-11 px-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="general_physician">GP</option>
                 <option value="dental">Dental</option>
@@ -594,7 +674,7 @@ export function ConsultationWorkspace({
               type="button"
               onClick={() => setIsHistoryOpen(true)}
               aria-label="Open patient history drawer"
-              className="min-h-[38px] px-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <History className="h-4 w-4 text-gray-500" />
               <span className="hidden md:inline">History</span>
@@ -605,17 +685,42 @@ export function ConsultationWorkspace({
               )}
             </button>
 
-            {visit.status === "completed" ? (
+            {state === "amending" ? (
+              <>
+                {/* Manual Save Draft */}
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  aria-label="Save draft"
+                  onClick={() => handleSaveDraft(false)}
+                  className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Save className="h-4 w-4 text-gray-500" />
+                  <span className="hidden sm:inline">Save Draft</span>
+                </button>
+
+                {canAmend && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFinalizeOpen(true)}
+                    className="min-h-[44px] px-4 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <Check className="h-4 w-4" />
+                    <span>Finalize amendment</span>
+                  </button>
+                )}
+              </>
+            ) : visit.status === "completed" ? (
               <>
                 <button
                   type="button"
                   disabled={isSendingWa || isWaSent}
                   onClick={handleShareConsolidatedWhatsApp}
                   className={cn(
-                    "min-h-[38px] px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs border cursor-pointer whitespace-nowrap shrink-0",
+                    "min-h-[44px] px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs border cursor-pointer whitespace-nowrap shrink-0",
                     isWaSent
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent disabled:opacity-50"
+                      : "bg-emerald-700 hover:bg-emerald-800 text-white border-transparent disabled:opacity-50"
                   )}
                   title="Send Prescription & Bill via WhatsApp (1 message)"
                 >
@@ -635,7 +740,7 @@ export function ConsultationWorkspace({
                   href={`/api/visits/${visit.id}/prescription-pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  className="min-h-[38px] px-3 rounded-lg bg-accent-subtle hover:bg-selected text-accent text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
+                  className="min-h-[44px] px-3 rounded-lg bg-accent-subtle hover:bg-selected text-accent text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
                   title="Print / View PDF Prescription"
                 >
                   <Printer className="h-4 w-4" />
@@ -646,30 +751,34 @@ export function ConsultationWorkspace({
                   href={`/api/invoices/${visit.id}/receipt-pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  className="min-h-[38px] px-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
+                  className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
                   title="Print / View Payment Receipt"
                 >
                   <Receipt className="h-4 w-4 text-emerald-600" />
                   <span>Receipt</span>
                 </a>
 
-                <button
-                  type="button"
-                  onClick={() => setIsSignModalOpen(true)}
-                  className="min-h-[38px] px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                  title="Update consultation details or billing"
-                >
-                  <span>Re-sign / Bill</span>
-                </button>
+                {state === "sealed" && canAmend && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAmendOpen(true)}
+                    className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    title="Reopen this signed consultation to correct it; the signed version is kept"
+                  >
+                    <FilePenLine className="h-4 w-4 text-gray-600" />
+                    <span>Amend</span>
+                  </button>
+                )}
               </>
-            ) : (
+            ) : visit.status === "cancelled" ? null : (
               <>
                 {/* Manual Save Draft */}
                 <button
                   type="button"
                   disabled={isSaving}
+                  aria-label="Save draft"
                   onClick={() => handleSaveDraft(false)}
-                  className="min-h-[38px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                  className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Save className="h-4 w-4 text-gray-500" />
                   <span className="hidden sm:inline">Save Draft</span>
@@ -679,7 +788,7 @@ export function ConsultationWorkspace({
                 <button
                   type="button"
                   onClick={() => setIsSignModalOpen(true)}
-                  className="min-h-[38px] px-4 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="min-h-[44px] px-4 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Check className="h-4 w-4" />
                   <span>Complete & Sign ℞</span>
@@ -689,6 +798,16 @@ export function ConsultationWorkspace({
           </div>
         </div>
       </header>
+
+      {/* Amending (R-16): the signed version is kept; the edits become the next version when the amendment is finalized. */}
+      {state === "amending" && (
+        <div ref={amendingBannerRef} tabIndex={-1} data-testid="amending-banner">
+          <Banner tone="past-due" role="status" icon={<FilePenLine />}>
+            Amending a signed consultation (v{signedVersion} to v{signedVersion + 1})
+            {visit.amendment_reason ? `: ${visit.amendment_reason}` : ""}
+          </Banner>
+        </div>
+      )}
 
       {/* 2. STICKY SECTION JUMP BAR (z-20) */}
       <nav
@@ -734,6 +853,7 @@ export function ConsultationWorkspace({
             className="space-y-6 w-full transition-all duration-200"
           >
             {/* Returning Patient Catch-Up Summary */}
+            {!readOnly && (
             <ReturningPatientCatchup
           patientId={patient.id}
           pastEncounters={pastEncounters}
@@ -742,6 +862,7 @@ export function ConsultationWorkspace({
             setClinicalNotes((prev) => (prev ? `${prev}\n\n${notes}` : notes));
           }}
         />
+            )}
 
         {/* Error notification if save failed */}
         {saveError && (
@@ -785,7 +906,9 @@ export function ConsultationWorkspace({
         {/* SECTION 1: VITALS */}
         <section id="vitals" className="scroll-mt-32">
           <VitalsBlock
+            key={editorKey}
             vitals={vitals ?? {}}
+            disabled={readOnly}
             onChange={(newVitals) => {
               markDirty();
               setVitals(newVitals);
@@ -798,6 +921,7 @@ export function ConsultationWorkspace({
           <ChiefComplaintsSection
             complaints={chiefComplaints}
             clinicalNotes={clinicalNotes}
+            disabled={readOnly}
             onComplaintsChange={(newComplaints) => {
               markDirty();
               setChiefComplaints(newComplaints);
@@ -827,6 +951,7 @@ export function ConsultationWorkspace({
             {/* Conditional Specialty Renderer */}
             {specialty === "general_physician" && (
               <GPSystemicReview
+                disabled={readOnly}
                 data={specialtyData?.specialty === "general_physician" ? specialtyData : undefined}
                 onChange={(data: GPSpecialty) => {
                   markDirty();
@@ -837,6 +962,7 @@ export function ConsultationWorkspace({
 
             {specialty === "dental" && (
               <DentalOdontogram
+                disabled={readOnly}
                 data={specialtyData?.specialty === "dental" ? specialtyData : undefined}
                 onChange={(data: DentalSpecialty) => {
                   markDirty();
@@ -847,6 +973,7 @@ export function ConsultationWorkspace({
 
             {specialty === "pediatrics" && (
               <PediatricsTools
+                disabled={readOnly}
                 data={specialtyData?.specialty === "pediatrics" ? specialtyData : undefined}
                 onChange={(data: PediatricsSpecialty) => {
                   markDirty();
@@ -868,6 +995,7 @@ export function ConsultationWorkspace({
             patientId={patient.id}
             specialty={specialty}
             initialDiagnoses={diagnoses}
+            disabled={readOnly}
             onDiagnosesChange={setDiagnoses}
           />
         </section>
@@ -875,10 +1003,12 @@ export function ConsultationWorkspace({
         {/* SECTION 5: ELECTRONIC PRESCRIPTION */}
         <section id="prescription" className="scroll-mt-32">
           <PrescriptionBuilder
+            key={editorKey}
             visitId={visit.id}
             patientAllergies={patient.allergies ?? []}
             initialItems={visit.prescription_items ?? []}
-            hasPastRx={pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
+            disabled={readOnly}
+            hasPastRx={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
             activeDiagnosis={diagnoses[0]?.diagnosis_name || null}
             doctorId={visit.doctor_id}
             onRepeatLastRx={() => {
@@ -912,6 +1042,7 @@ export function ConsultationWorkspace({
                     <button
                       key={testName}
                       type="button"
+                      disabled={readOnly}
                       onClick={() =>
                         isSelected
                           ? removeInvestigation(investigations.indexOf(testName))
@@ -941,6 +1072,7 @@ export function ConsultationWorkspace({
                       <span>{item}</span>
                       <button
                         type="button"
+                        disabled={readOnly}
                         onClick={() => removeInvestigation(index)}
                         aria-label={`Remove investigation ${item}`}
                         className="text-fg-subtle hover:text-rose-600 p-0.5 rounded"
@@ -957,6 +1089,7 @@ export function ConsultationWorkspace({
                 <input
                   type="text"
                   value={customInvestigation}
+                  disabled={readOnly}
                   onChange={(e) => setCustomInvestigation(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -969,6 +1102,7 @@ export function ConsultationWorkspace({
                 />
                 <button
                   type="button"
+                  disabled={readOnly}
                   onClick={() => addInvestigation(customInvestigation)}
                   className="min-h-[44px] px-4 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors"
                 >
@@ -991,6 +1125,7 @@ export function ConsultationWorkspace({
                     <button
                       key={adviceText}
                       type="button"
+                      disabled={readOnly}
                       onClick={() =>
                         isSelected
                           ? removeAdviceItem(adviceList.indexOf(adviceText))
@@ -1020,6 +1155,7 @@ export function ConsultationWorkspace({
                       <span>• {item}</span>
                       <button
                         type="button"
+                        disabled={readOnly}
                         onClick={() => removeAdviceItem(index)}
                         aria-label={`Remove advice item ${item}`}
                         className="text-fg-subtle hover:text-rose-600 p-1 rounded"
@@ -1036,6 +1172,7 @@ export function ConsultationWorkspace({
                 <input
                   type="text"
                   value={customAdvice}
+                  disabled={readOnly}
                   onChange={(e) => setCustomAdvice(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -1048,6 +1185,7 @@ export function ConsultationWorkspace({
                 />
                 <button
                   type="button"
+                  disabled={readOnly}
                   onClick={() => addAdviceItem(customAdvice)}
                   className="min-h-[44px] px-4 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 transition-colors"
                 >
@@ -1084,6 +1222,7 @@ export function ConsultationWorkspace({
                     <button
                       key={id}
                       type="button"
+                      disabled={readOnly}
                       onClick={() => handleIntervalChange(id as typeof followUpInterval)}
                       className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
@@ -1115,6 +1254,7 @@ export function ConsultationWorkspace({
                     <input
                       id="follow-up-date-input"
                       type="date"
+                      disabled={readOnly}
                       value={followUpDate}
                       onChange={(e) => {
                         markDirty();
@@ -1135,6 +1275,7 @@ export function ConsultationWorkspace({
                     <input
                       id="follow-up-notes-input"
                       type="text"
+                      disabled={readOnly}
                       value={followUpNotes}
                       onChange={(e) => {
                         markDirty();
@@ -1247,6 +1388,7 @@ export function ConsultationWorkspace({
                       id="clinical-file-upload"
                       type="file"
                       multiple
+                      disabled={readOnly}
                       accept="image/png,image/jpeg,application/pdf"
                       className="sr-only"
                       onChange={(e) => {
@@ -1275,8 +1417,8 @@ export function ConsultationWorkspace({
         onClose={() => setIsHistoryOpen(false)}
         patientName={patient.full_name}
         encounters={pastEncounters ?? []}
-        onRepeatRx={handleRepeatRx}
-        onCopyNotes={handleCopyNotes}
+        onRepeatRx={readOnly ? undefined : handleRepeatRx}
+        onCopyNotes={readOnly ? undefined : handleCopyNotes}
       />
 
       {/* Solo Doctor Complete & Sign + Billing Modal */}
@@ -1291,6 +1433,30 @@ export function ConsultationWorkspace({
         followUpDate={followUpInterval === "none" ? null : (followUpDate || null)}
         canCollect={canCollectPayment}
         onSaveDraftBeforeSign={() => handleSaveDraft(false)}
+      />
+
+      {/* Amendment: reopen a signed consultation with a reason (the database snapshots the signed version), then finalize it. */}
+      <AmendmentModal
+        isOpen={isAmendOpen}
+        onClose={() => setIsAmendOpen(false)}
+        visitId={visit.id}
+        completedDate={visit.signed_at ? signedAtLabel(visit.signed_at, timeZone) : undefined}
+        currentVersion={signedVersion}
+        onSuccess={() => {
+          focusAfterRefreshRef.current = "amending";
+          router.refresh();
+        }}
+      />
+      <FinalizeAmendmentDialog
+        open={isFinalizeOpen}
+        onOpenChange={setIsFinalizeOpen}
+        visitId={visit.id}
+        fromVersion={signedVersion}
+        onBeforeFinalize={() => handleSaveDraft(false)}
+        onSuccess={() => {
+          focusAfterRefreshRef.current = "sealed";
+          router.refresh();
+        }}
       />
 
       {/* Create Referral Modal */}

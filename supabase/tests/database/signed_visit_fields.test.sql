@@ -4,14 +4,20 @@
 --         specialty with no amendment row; the amendment snapshot did not record the visit date;
 --   NF-5: the signer chooses the signature time (back- or forward-dated) at sign-off and at the finalize re-sign.
 -- The legitimate paths stay open in the same file: unsigned visits are rescheduled and relabelled; a reopened visit's
--- specialty and date are amended and re-signed; the system path is unchanged; a same-value write is not a change.
+-- specialty and date are amended and re-signed; the system path still writes unsigned visits (and, since 000107, never a signed one); a same-value write is not a change.
 -- Synthetic data only; the file rolls back.
 begin;
 -- 000103 (08-04a): UPDATE on public.visits is narrowed for authenticated to specialty, metadata and updated_at. This file proves the
 -- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
 -- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
 grant update on table public.visits to authenticated;
-select plan(26);
+-- 000111 (09A-06a, review S-7): INSERT on public.visit_revisions is revoked from authenticated and the member INSERT policy (000054) is dropped; the two
+-- definer commands are the writers. This file proves the amendment-row guards themselves (defence in depth, independent of the grant), so the grant and
+-- the 000054 policy are restored for this transaction only; the revocation is proven in clinical_review_fixes.test.sql.
+grant insert on table public.visit_revisions to authenticated;
+create policy visit_revisions_insert on public.visit_revisions for insert to authenticated
+  with check (tenant_id in (select authz.tenant_ids_with('consultations:edit')));
+select plan(28);
 
 insert into auth.users (id, email) values
   ('c0780000-0000-4000-8000-000000000101', 'c078-owner-a@example.test'),
@@ -153,9 +159,14 @@ select is(pg_temp.rc($$update public.visits set scheduled_at = '2030-02-03 12:00
 select is(pg_temp.dr($$update public.visits set specialty = 'dental'
     where id = 'c0780000-0000-4000-8000-000000002004' returning specialty$$),
   'dental', 'NF-4 control: the doctor sets the specialty of an open consultation');
-update public.visits set scheduled_at = '2030-02-01 10:15+05:30' where id = 'c0780000-0000-4000-8000-000000002001';
-select is((pg_temp.visit_of('c0780000-0000-4000-8000-000000002001')).scheduled_at, '2030-02-01 10:15+05:30'::timestamptz,
-  'the system path (no caller) is unchanged by 000078 (N-9, V2-09a)');
+-- V2-09a 000107 (R-5, R-6): the system path (no caller) no longer rewrites a signed visit's date; it did until 000106 (N-9).
+select throws_ok($$update public.visits set scheduled_at = '2030-02-01 10:15+05:30' where id = 'c0780000-0000-4000-8000-000000002001'$$,
+  '42501', 'VISIT_SIGNED_FIELD_IMMUTABLE', 'N-9 closed: the system path (no caller) cannot move a signed visit''s date');
+select is((pg_temp.visit_of('c0780000-0000-4000-8000-000000002001')).scheduled_at, '2030-02-01 10:00+05:30'::timestamptz,
+  'the signed visit keeps its date after the refused system-path write');
+update public.visits set scheduled_at = '2030-02-03 11:15+05:30' where id = 'c0780000-0000-4000-8000-000000002003';
+select is((pg_temp.visit_of('c0780000-0000-4000-8000-000000002003')).scheduled_at, '2030-02-03 11:15+05:30'::timestamptz,
+  'the system path still reschedules an unsigned visit');
 
 -- NF-5: the signature time is the database clock -------------------------------------------------------------------------
 select is(pg_temp.dr($$update public.visits set status = 'completed', signed_at = '1999-01-01 00:00+00',

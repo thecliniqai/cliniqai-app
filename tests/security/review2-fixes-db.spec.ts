@@ -13,13 +13,13 @@ import * as enqueueModule from "@/lib/jobs/enqueue";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { completeVisit, startConsultation } from "@/features/queue/service";
-import { deleteLabDocument } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, SIGN_AND_BILL_ALREADY_DONE_MESSAGE } from "@/features/billing/service";
 import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features/settings/service";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -148,7 +148,8 @@ describe("01-09 review round 2 fixes (000022)", () => {
       return `tenants/${A.owner.tenantId}/patients/${A.patientId}/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/prescriptions/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
     }
 
-    it("attack step 1 is refused: a member cannot store the payload on their own lab document (CHECK 23514)", async () => {
+    // V2-09a 09A-06a (review S-1): no member updates a lab document at all now (UPDATE revoked, 42501); the CHECK (23514) stays behind it for the system path.
+    it("attack step 1 is refused: a member cannot store the payload on their own lab document (no UPDATE privilege since 000111; CHECK 23514 behind it)", async () => {
       const victimRx = `${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
       await upload("prescriptions", victimRx);
 
@@ -166,7 +167,11 @@ describe("01-09 review round 2 fixes (000022)", () => {
         const { error } = await (A.doctor.client.from("patient_documents") as any)
           .update({ storage_path })
           .eq("id", A.documentId);
-        expect(error?.code, storage_path).toBe("23514");
+        expect(error?.code, storage_path).toBe("42501");
+        expect(error?.message, storage_path).toBe("permission denied for table patient_documents");
+        // The system path (which keeps UPDATE) still meets the 000022 CHECK.
+        const sys = await admin.from("patient_documents").update({ storage_path }).eq("id", A.documentId);
+        expect(sys.error?.code, storage_path).toBe("23514");
       }
       const { data } = await admin.from("patient_documents").select("storage_path").eq("id", A.documentId).single();
       expect((data as { storage_path: string }).storage_path).toBe(A.documentPath);
@@ -178,19 +183,30 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
 
     it("the prescription and referral path columns refuse encoded or foreign paths; derived paths are accepted", async () => {
-      const rxPayload = `${A.owner.tenantId}/${A.visitId}/%2e%2e/%2e%2e/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
-      for (const pdf_storage_path of [rxPayload, `${A.owner.tenantId}/${A.visitId}/other.pdf`, `${A.owner.tenantId}/${B.visitId}/rx_v1.pdf`]) {
+      // V2-09a (000109): the Rx path is written only for a signed header of a sealed visit and only at its own key, so the seal guard answers before the
+      // 000022 CHECK does (RX_PDF_PATH_INVALID, 42501); the signed visit is seeded the way production does (R-15).
+      const sealed = await seedClinicalVisit(A.owner, { doctorId: A.doctor.userId, prescriptions: 1 });
+      await signVisitAs(A.doctor, sealed.visitId);
+      const sealedRxId = sealed.prescriptionIds[0];
+      const rxPayload = `${A.owner.tenantId}/${sealed.visitId}/%2e%2e/%2e%2e/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
+      for (const pdf_storage_path of [rxPayload, `${A.owner.tenantId}/${sealed.visitId}/other.pdf`, `${A.owner.tenantId}/${B.visitId}/rx_v1.pdf`]) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (A.doctor.client.from("prescriptions") as any)
           .update({ pdf_storage_path })
-          .eq("id", A.prescriptionId);
-        expect(error?.code, pdf_storage_path).toBe("23514");
+          .eq("id", sealedRxId);
+        expect(error?.code, pdf_storage_path).toBe("42501");
+        expect(error?.message, pdf_storage_path).toBe("RX_PDF_PATH_INVALID");
       }
+      // V2-09a 09A-06a (R-A, review A-1): the derived path alone is refused too (the path and its hash are set together, by the signer, for the object
+      // the signer stored); the signer's archive of that object at the derived key is accepted.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const okRx = await (A.doctor.client.from("prescriptions") as any)
-        .update({ pdf_storage_path: `${A.owner.tenantId}/${A.visitId}/rx_v2.pdf` })
-        .eq("id", A.prescriptionId);
-      expect(okRx.error).toBeNull();
+      const pathOnly = await (A.doctor.client.from("prescriptions") as any)
+        .update({ pdf_storage_path: `${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf` })
+        .eq("id", sealedRxId);
+      expect(pathOnly.error?.message).toBe("RX_PDF_PATH_INVALID");
+      expect(await archiveRxAs(A.doctor, sealed.visitId)).toMatch(/^[0-9a-f]{64}$/);
+      const { data: okRx } = await admin.from("prescriptions").select("pdf_storage_path").eq("id", sealedRxId).single();
+      expect((okRx as { pdf_storage_path: string }).pdf_storage_path).toBe(`${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf`);
 
       for (const pdf_storage_path of [
         `tenants/${A.owner.tenantId}/referrals/%2e%2e/%2e%2e/${B.owner.tenantId}/x.pdf`,
@@ -417,8 +433,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
   });
 
-  describe("AR2-L5: deleteLabDocument", () => {
-    it("deletes this patient's object and does not put the storage path in the audit row", async () => {
+  // V2-09a 000110 (R-14): lab documents are append-only, `deleteLabDocument` and its storage step are gone. The AR2-L5 concerns (a delete never names a storage
+  // key outside the patient's prefix, the audit row carries no storage path) are moot: nothing deletes a row or an object, so the rule is asserted directly.
+  describe("AR2-L5: lab documents are append-only (the delete action is gone)", () => {
+    it("the owner's and the doctor's DELETE of a document is refused; the row and its object remain, and no delete audit row is written", async () => {
       const path = `tenants/${A.owner.tenantId}/patients/${A.patientId}/labs/Synthetic_Name_del_${randomUUID().slice(0, 8)}.pdf`;
       await upload("clinic-records", path);
       const docId = await insertRow("patient_documents", {
@@ -432,57 +450,27 @@ describe("01-09 review round 2 fixes (000022)", () => {
         uploaded_by: A.owner.userId,
       });
 
-      const res = await deleteLabDocument(ctxFor(A.owner), docId);
-      expect(res.success).toBe(true);
+      for (const actor of [A.owner, A.doctor]) {
+        const res = await actor.client.from("patient_documents").delete().eq("id", docId).select("id");
+        expect(res.error?.code).toBe("42501");
+      }
+      // The service role is refused by the trigger itself (LAB_DOCUMENT_DELETE_FORBIDDEN).
+      const system = await admin.from("patient_documents").delete().eq("id", docId);
+      expect(system.error?.code).toBe("42501");
+      expect(system.error?.message).toBe("LAB_DOCUMENT_DELETE_FORBIDDEN");
 
+      const { data: rows } = await admin.from("patient_documents").select("id").eq("id", docId);
+      expect(rows).toHaveLength(1);
       const folder = path.slice(0, path.lastIndexOf("/"));
       const { data: listed } = await admin.storage.from("clinic-records").list(folder);
-      expect((listed ?? []).map((o) => o.name)).not.toContain(path.slice(path.lastIndexOf("/") + 1));
-
+      expect((listed ?? []).map((o) => o.name)).toContain(path.slice(path.lastIndexOf("/") + 1));
       const { data: audits } = await admin
         .from("audit_logs")
-        .select("metadata")
+        .select("id")
         .eq("tenant_id", A.owner.tenantId)
         .eq("action", "patient_document.delete")
         .eq("entity_id", docId);
-      expect(audits).toHaveLength(1);
-      const meta = JSON.stringify(audits?.[0]);
-      expect(meta).not.toContain("storage_path");
-      expect(meta).not.toContain(path);
-      expect(meta).not.toContain("Synthetic_Name");
-    });
-
-    it("a stored key outside the patient's prefix is never passed to storage", async () => {
-      const storage = await import("@/lib/storage");
-      const deleteSpy = vi.spyOn(storage, "deleteFile");
-      const docId = randomUUID();
-      // Since 000022 the CHECK keeps such a row out of the database (a row predating it could still hold one), so the
-      // app-side guard is exercised with a fake client returning a foreign key for the document.
-      const fakeDb = {
-        from: (table: string) => {
-          const chain: Record<string, unknown> = {};
-          for (const m of ["select", "eq", "delete"]) chain[m] = () => chain;
-          chain.single = async () => ({
-            data: {
-              id: docId,
-              patient_id: A.patientId,
-              title: "Synthetic Legacy",
-              storage_path: `tenants/${B.owner.tenantId}/patients/${B.patientId}/labs/victim.pdf`,
-            },
-            error: null,
-          });
-          // The row delete asks for the deleted rows (V2-05 05-04: 0 rows is a refusal): report the one row deleted.
-          chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [{ id: docId }], error: null });
-          chain.insert = async () => ({ error: null });
-          void table;
-          return chain;
-        },
-        rpc: async () => ({ data: null, error: null }),
-        auth: { getUser: async () => ({ data: { user: { id: A.doctor.userId } }, error: null }) },
-      };
-      const res = await deleteLabDocument({ ...ctxFor(A.doctor), db: fakeDb as never }, docId);
-      expect(res.success).toBe(true);
-      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(audits).toHaveLength(0);
     });
   });
 

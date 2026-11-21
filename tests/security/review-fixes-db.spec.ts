@@ -24,6 +24,7 @@ import { jsonObject } from "../helpers/db";
 import { listInReferralDirectory } from "../helpers/referral-directory";
 import { hasPerm } from "@/lib/permissions";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -398,22 +399,31 @@ describe("01-08 review fixes (000021)", () => {
     });
 
     it("prescription and lab document links refuse a stored path outside the resource's own prefix", async () => {
-      // Rx: <tenant>/<visit>/rx_v<n>.pdf; another visit's file can no longer be stored (CHECK, 000022) and the link
-      // does not sign it.
+      // Rx: <tenant>/<visit>/rx_v<n>.pdf; another visit's file can no longer be stored (since 000109 by the seal guard, RX_PDF_PATH_INVALID or
+      // RX_PDF_NOT_SEALED: the path is written only for a signed header of a sealed visit, at its own key; the CHECK of 000022 stays behind it) and
+      // the link does not sign it. The signed visit is seeded the way production does (R-15).
+      const sealed = await seedClinicalVisit(A.owner, { doctorId: A.owner.userId, prescriptions: 1 });
+      await signVisitAs(A.owner, sealed.visitId);
+      const sealedRxId = sealed.prescriptionIds[0];
       const otherVisitPath = `${A.owner.tenantId}/${randomUUID()}/rx_v1.pdf`;
       await upload("prescriptions", otherVisitPath);
       const rxWrite = await admin
         .from("prescriptions")
         .update({ pdf_storage_path: otherVisitPath })
-        .eq("id", A.prescriptionId);
-      expect(rxWrite.error?.code).toBe("23514");
-      const rxToken = await mint(A.owner.client as SupabaseClient, "prescription", A.prescriptionId);
-      expect((await docGet(rxToken, "?download=true")).status).toBe(404);
+        .eq("id", sealedRxId);
+      expect(rxWrite.error?.code).toBe("42501");
+      expect(rxWrite.error?.message).toBe("RX_PDF_PATH_INVALID");
+      const rxToken = await mint(A.owner.client as SupabaseClient, "prescription", sealedRxId);
+      // V2-09a 09A-06a (S-5): a prescription with no archived PDF answers the fixed "being prepared" 503 (was a 404), never another object.
+      const pending = await docGet(rxToken, "?download=true");
+      expect(pending.status).toBe(503);
+      expect(pending.headers.get("location")).toBeNull();
 
-      const ownRxPath = `${A.owner.tenantId}/${A.visitId}/rx_v1.pdf`;
-      await upload("prescriptions", ownRxPath);
-      await admin.from("prescriptions").update({ pdf_storage_path: ownRxPath }).eq("id", A.prescriptionId);
-      expect((await docGet(rxToken, "?download=true")).status).toBe(302);
+      // Archived by its signer (R-A: upload and pair with the signer's own client), the link signs the object at the visit's own key.
+      expect(await archiveRxAs(A.owner, sealed.visitId)).toMatch(/^[0-9a-f]{64}$/);
+      const archived = await docGet(rxToken, "?download=true");
+      expect(archived.status).toBe(302);
+      expect(decodeURIComponent(archived.headers.get("location") ?? "")).toContain(`${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf`);
 
       // Lab document: tenants/<tenant>/patients/<patient>/...; another patient's file cannot be stored either.
       const otherPatientPath = `tenants/${A.owner.tenantId}/patients/${A.patient2Id}/labs/other.pdf`;

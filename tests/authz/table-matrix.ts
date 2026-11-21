@@ -530,9 +530,11 @@ export const TARGETS: readonly Target[] = [
       snapshot: "'{}'::jsonb",
     },
     update: "amendment_reason",
-    rules: { select: perm("consultations:view"), insert: perm("consultations:edit"), update: rpcOnly, delete: rpcOnly },
+    // V2-09a 000111 (09A-06a, review S-7): INSERT is revoked from authenticated and the member policy dropped: the two definer commands
+    // (reopen_visit_for_amendment, finalize_visit_amendment) are the only writers (clinical_review_fixes.test.sql).
+    rules: { select: perm("consultations:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
-      "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the " +
+      "append-only amendment history, written by the reopen command only (INSERT revoked since V2-09a 000111); the author is the caller (05-11a guard); the snapshot and the " +
       "number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed " +
       "visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)",
   },
@@ -567,12 +569,18 @@ export const TARGETS: readonly Target[] = [
     table: "prescriptions",
     key: ["id"],
     fixture: { id: q(FX.prescription), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA },
-    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "2" },
-    update: "status",
+    // V2-09a 000108 (I-1): a request path writes version 1 only, and one header per visit (uq_prescriptions_visit_version), so the INSERT cell
+    // first frees the fixture header's slot (as postgres, inside the cell's rolled-back subtransaction).
+    insertSetup: `delete from public.prescriptions where id = ${q(FX.prescription)}`,
+    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "1" },
+    // V2-09a 000108/000109 (R-8, R-12): UPDATE is column-granted to (pdf_storage_path, pdf_sha256, updated_at); status, version, signed_at,
+    // amendment_reason and letterhead_mode change only inside the commands or at INSERT (prescription_seal.test.sql, rx-seal.spec.ts).
+    update: "pdf_storage_path",
     rules: permSiu("prescriptions:view", "prescriptions:edit", rpcOnly),
     note:
       "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a " +
-      "header is added only while the visit is unsigned or reopened (05-11e, NF-2). The fixture visit is unsigned",
+      "header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the " +
+      "PDF columns only (000108 R-8). The fixture visit is unsigned",
   },
   {
     kind: "table",
@@ -792,8 +800,14 @@ export const TARGETS: readonly Target[] = [
       uploaded_by: U.ownerA,
     },
     update: "title",
-    rules: permSiu("labs:view", "labs:edit", perm("labs:edit")),
-    note: "05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class",
+    // V2-09a 000110 (R-14): lab documents are append-only: no DELETE policy, DELETE revoked from authenticated, and a BEFORE DELETE trigger refuses the
+    // service role and postgres too (lab_documents_append_only.test.sql, tests/labs/lab-documents-append-only.spec.ts).
+    // V2-09a 000111 (09A-06a, review S-1): UPDATE is revoked as well (no request path updates a lab document; the row's storage path, patient and
+    // visit cannot be rewritten by a member).
+    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: rpcOnly, delete: rpcOnly },
+    note:
+      "05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 " +
+      "(append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)",
   },
   {
     kind: "table",
@@ -1246,8 +1260,13 @@ export const TARGETS: readonly Target[] = [
     pathClass: "rx",
     object: `${FX.tenantA}/${FX.visit}/rx_v1.pdf`,
     insertObject: `${FX.tenantA}/${FX.visit}/rx_v2.pdf`,
-    rules: { select: perm("prescriptions:view"), insert: perm("prescriptions:edit"), update: perm("prescriptions:edit"), delete: none },
-    note: "`<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); UPDATE kept: the archive upserts (R-23)",
+    // V2-09a 000109 (R-13): no UPDATE for anyone (the archive uploads once, `upsert: false`), and INSERT only for the signed, unarchived header of a sealed visit
+    // at exactly its version. The fixture visit is an unsigned draft, so every principal is refused; the admitted cases are in rx_pdf_write_once.test.sql,
+    // storage_policies.test.sql and tests/prescriptions/rx-pdf-archive.spec.ts.
+    rules: { select: perm("prescriptions:view"), insert: none, update: none, delete: none },
+    note:
+      "`<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed " +
+      "header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE",
   },
   {
     kind: "storage",
@@ -1282,10 +1301,11 @@ export const TARGETS: readonly Target[] = [
     pathClass: "lab",
     object: `tenants/${FX.tenantA}/patients/${FX.patient}/labs/report.pdf`,
     insertObject: `tenants/${FX.tenantA}/patients/${FX.patient}/labs/${FX.row(62)}.pdf`,
-    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: perm("labs:edit"), delete: perm("labs:edit") },
+    // V2-09a 000110 (R-13): append-only objects: uploads use `upsert: false` and a document-id key, so no UPDATE and no DELETE policy exists.
+    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: none, delete: none },
     note:
       "`tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture " +
-      "is a legacy synthetic name, the INSERT cell the id-only shape)",
+      "is a legacy synthetic name, the INSERT cell the id-only shape); append-only since V2-09a 000110: no UPDATE, no DELETE",
   },
   {
     kind: "storage",

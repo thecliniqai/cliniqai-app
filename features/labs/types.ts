@@ -25,8 +25,3 @@ export interface ShareTokenResult {
   expiresAt?: string;
   error?: string;
 }
-
-export interface DeleteLabDocumentResult {
-  success: boolean;
-  error?: string;
-}

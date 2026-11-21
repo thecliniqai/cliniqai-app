@@ -1,8 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { AlertTriangle, X, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import { reopenVisitForAmendment } from "@/features/consultation/actions";
 import { useCommand } from "@/lib/commands/use-command";
 
@@ -10,19 +21,34 @@ export interface AmendmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   visitId: string;
+  /** When the signed version was signed, in the clinic's zone; shown in the explanation. */
   completedDate?: string;
+  /** The signed version being amended; the amendment becomes `currentVersion + 1`. */
   currentVersion?: number;
   onSuccess?: () => void;
 }
 
+/** The amendment reason is 10 to 500 characters (the audit row holds it, whose values are bounded at 500; V2-07 07-04a F-11). */
+export const AMENDMENT_REASON_MIN = 10;
+export const AMENDMENT_REASON_MAX = 500;
+
 /**
- * The dialog's form exists only while it is open: closing unmounts it, so opening it again starts with an empty reason,
- * no error and a fresh command runner (a new `client_request_id`). That replaces the old reset during render, which ran a
- * side effect (`reopen.reset()`, a state update in the hook) while rendering (V2-07 07-04a F-12).
+ * Reopen a signed consultation for amendment (V2-09a R-16; moved onto the V2-06 `Dialog`, closing the 06-08 backlog row). The reason
+ * is mandatory (10 to 500 characters) and is stamped on the amended prescription; the database snapshots the signed version when the
+ * command runs. The form exists only while the dialog is open: closing unmounts it, so opening it again starts with an empty
+ * reason, no error and a fresh command runner (a new `client_request_id`). Focus is trapped, Escape and the Close button close it,
+ * and focus returns to the Amend button (Radix, `Dialog`).
  */
-export function AmendmentModal(props: AmendmentModalProps) {
-  if (!props.isOpen) return null;
-  return <AmendmentForm {...props} />;
+export function AmendmentModal({
+  isOpen,
+  onClose,
+  ...rest
+}: AmendmentModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {isOpen && <AmendmentForm onClose={onClose} {...rest} />}
+    </Dialog>
+  );
 }
 
 function AmendmentForm({
@@ -31,174 +57,109 @@ function AmendmentForm({
   completedDate = "recently",
   currentVersion = 1,
   onSuccess,
-}: AmendmentModalProps) {
+}: Omit<AmendmentModalProps, "isOpen">) {
   const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // One client_request_id per amendment submit: a retry after an error re-sends it (the server replays or runs fresh).
   const reopen = useCommand();
 
-  // Keyboard navigation: Escape key closes modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !submitting) {
-        onClose();
-      }
-    };
+  // 09A-06a (review B-4): while the reopen is in flight the dialog cannot be dismissed (Escape, an outside click and the Close button are held).
+  const holdWhilePending = (event: Event) => {
+    if (reopen.pending) event.preventDefault();
+  };
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
+  const trimmed = reason.trim();
+  const isReasonValid =
+    trimmed.length >= AMENDMENT_REASON_MIN &&
+    trimmed.length <= AMENDMENT_REASON_MAX;
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [onClose, submitting]);
-
-  const isReasonValid = reason.trim().length >= 10;
-  const nextVersion = currentVersion + 1;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isReasonValid || submitting) return;
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const res = await reopen.run((clientRequestId) => reopenVisitForAmendment(visitId, reason, clientRequestId));
-      if (res.ok) {
-        onSuccess?.();
-        onClose();
-      } else {
-        setError(res.error.message || "Failed to reopen consultation for amendment.");
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
-    } finally {
-      setSubmitting(false);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!isReasonValid || reopen.pending) return;
+    const res = await reopen.run((clientRequestId) =>
+      reopenVisitForAmendment(visitId, trimmed, clientRequestId)
+    );
+    if (res.ok) {
+      onSuccess?.();
+      onClose();
     }
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="amendment-dialog-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+    // `dirty`: a typed reason is not thrown away by a stray outside click or Escape without asking first.
+    <DialogContent
+      size="lg"
+      dirty={reason.length > 0}
+      closeLabel="Close amendment dialog"
+      showClose={!reopen.pending}
+      onEscapeKeyDown={holdWhilePending}
+      onInteractOutside={holdWhilePending}
+      data-amendment-dialog=""
     >
-      {/* Accessible Backdrop */}
-      <div
-        className="fixed inset-0 bg-gray-900/60 backdrop-blur-xs transition-opacity"
-        onClick={() => !submitting && onClose()}
-        aria-hidden="true"
-      />
-
-      {/* Dialog Card */}
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-gray-200 z-10 overflow-hidden transform transition-all">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-start gap-3 bg-amber-50/50">
-          <div className="p-2 rounded-xl bg-amber-100 text-amber-600 shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-
-          <div className="flex-1">
-            <h2 id="amendment-dialog-title" className="text-base font-semibold text-gray-900">
-              Reopen Visit for Clinical Amendment
-            </h2>
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-              This visit was completed and signed on {completedDate}. Editing will create an audited
-              revision snapshot (v{nextVersion}) and stamp the revised prescription as amended.
-            </p>
-          </div>
-
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
-            aria-label="Close amendment dialog"
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <DialogHeader>
+          <DialogTitle>Reopen Visit for Clinical Amendment</DialogTitle>
+          <DialogDescription>
+            This visit was completed and signed on {completedDate}. Editing
+            keeps the signed version (v{currentVersion}) as an audited revision
+            and stamps the amended prescription as v{currentVersion + 1}.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          <Field
+            label="Reason for Amendment (Required for Medical Records Audit)"
+            required
+            hint={`Minimum ${AMENDMENT_REASON_MIN} characters required (${trimmed.length}/${AMENDMENT_REASON_MIN}). Permanently stamped on the ℞ PDF.`}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label
-              htmlFor="amendment-reason"
-              className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5"
-            >
-              Reason for Amendment (Required for Medical Records Audit)
-            </label>
-            <textarea
-              id="amendment-reason"
-              rows={4}
-              maxLength={500}
+            <Textarea
               value={reason}
-              onChange={(e) => {
-                setReason(e.target.value);
+              maxLength={AMENDMENT_REASON_MAX}
+              rows={4}
+              placeholder="e.g. Added antibiotic following patient's callback regarding persistent high fever"
+              onChange={(event) => {
+                setReason(event.target.value);
                 // Edited after a failed attempt: the next submit is a new request.
                 if (reopen.error) reopen.reset();
               }}
-              placeholder="e.g. Added antibiotic following patient's callback regarding persistent high fever"
-              disabled={submitting}
-              className={`w-full p-3 text-sm rounded-xl border transition-colors outline-none resize-none focus:ring-2 focus:ring-ring/20 ${
-                reason.length > 0 && !isReasonValid
-                  ? "border-amber-400 focus:border-amber-500"
-                  : "border-gray-300 focus:border-accent"
-              }`}
             />
-            <div className="flex items-center justify-between mt-1.5 text-xs">
-              <span
-                className={
-                  reason.length > 0 && !isReasonValid
-                    ? "text-amber-600 font-medium"
-                    : "text-gray-500"
-                }
-              >
-                Minimum 10 characters required ({reason.trim().length}/10)
-              </span>
-              <span className="text-fg-subtle">Permanently stamped on ℞ PDF</span>
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
-              {error}
-            </div>
+          </Field>
+          {reopen.error && (
+            <Alert tone="danger">
+              {reopen.error.message ||
+                "Failed to reopen consultation for amendment."}
+              {reopen.unresolved && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="ml-2"
+                  onClick={() => reopen.startOver()}
+                >
+                  Start over
+                </Button>
+              )}
+            </Alert>
           )}
-
-          {/* Action Footer adhering strictly to UI-SPEC Copywriting Contract */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={submitting}
-              className="min-h-[44px]"
-            >
-              Cancel Amendment
-            </Button>
-
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!isReasonValid || submitting}
-              startIcon={
-                submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4" />
-                )
-              }
-              className="min-h-[44px] bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500"
-            >
-              {submitting ? "Reopening..." : "Confirm & Reopen for Amendment"}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </DialogBody>
+        {/* Footer adhering to the UI-SPEC copywriting contract. */}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={reopen.pending}
+          >
+            Cancel Amendment
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={!isReasonValid}
+            loading={reopen.pending}
+          >
+            Confirm &amp; Reopen for Amendment
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 }

@@ -163,8 +163,25 @@ describe("S-3: visits.metadata is the AI provenance of an open draft, nothing el
     const padded = await setMetadata(receptionist, open, { pad: "x".repeat(200_000) });
     expect(padded.error?.message).toContain("VISIT_METADATA_FORBIDDEN");
 
-    const signed = await openVisit("completed");
-    await admin.from("visits").update({ signed_at: new Date().toISOString(), signed_by: doctor.userId, metadata: { ai_assisted: true, ai_sections_used: ["advice"] } }).eq("id", signed);
+    // A signed, completed visit that carries provenance. The system path can no longer sign an existing visit (V2-09a 000107, R-5), so it is
+    // inserted already signed (R-4c), with its metadata.
+    const { data: signedRow, error: signedErr } = await admin
+      .from("visits")
+      .insert({
+        tenant_id: owner.tenantId,
+        patient_id: patientId,
+        doctor_id: doctor.userId,
+        origin_type: "walk_in",
+        status: "completed",
+        signed_at: new Date().toISOString(),
+        signed_by: doctor.userId,
+        created_by: owner.userId,
+        metadata: { ai_assisted: true, ai_sections_used: ["advice"] },
+      })
+      .select("id")
+      .single();
+    if (signedErr || !signedRow) throw new Error(`seed of the signed visit failed: ${signedErr?.message}`);
+    const signed = signedRow.id as string;
     const forged = await setMetadata(receptionist, signed, { ai_assisted: false });
     expect(forged.error?.message).toContain("VISIT_METADATA_FORBIDDEN");
     const byDoctor = await setMetadata(doctor, signed, { ai_assisted: false });

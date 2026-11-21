@@ -12,7 +12,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ServiceContext } from "@/lib/auth/context";
 import { getPatientConsultationHistory } from "@/features/consultation/service";
-import { deleteLabDocument, generateDocumentShareToken, getDocumentSignedUrl, getPatientDocuments } from "@/features/labs/service";
+import { generateDocumentShareToken, getDocumentSignedUrl, getPatientDocuments } from "@/features/labs/service";
 import { getVisitPrescription, searchMedicines } from "@/features/prescriptions/service";
 import { deleteScheduleBlock } from "@/features/visits/scheduling-service";
 import { getVisitDiagnoses, searchDiagnoses } from "@/features/terminology/service";
@@ -112,7 +112,6 @@ describe("raw error text never reaches a response (03-13d M-ERRMSG)", () => {
     ["labs.getPatientDocuments", (ctx) => getPatientDocuments(ctx, ID)],
     ["labs.getDocumentSignedUrl", (ctx) => getDocumentSignedUrl(ctx, ID)],
     ["labs.generateDocumentShareToken", (ctx) => generateDocumentShareToken(ctx, ID)],
-    ["labs.deleteLabDocument", (ctx) => deleteLabDocument(ctx, ID)],
     ["prescriptions.getVisitPrescription", (ctx) => getVisitPrescription(ctx, ID)],
     ["prescriptions.searchMedicines", (ctx) => searchMedicines(ctx, "paracetamol")],
     ["visits.deleteScheduleBlock", (ctx) => deleteScheduleBlock(ctx, ID)],

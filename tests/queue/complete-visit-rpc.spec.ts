@@ -21,7 +21,7 @@ import { ctxFor } from "../helpers/context";
 import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult, seedVisit } from "../helpers/billing-commands";
-import { callCheckIn, callCompleteVisit, checkInArgs, completeVisitArgs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
+import { callCheckIn, callCompleteVisit, checkInArgs, completeVisitArgs, reopenVisitAs, seedClinicalVisit, signVisitAs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 
@@ -81,9 +81,10 @@ describe("complete_visit: one transaction", () => {
     expect((await visitRow(visitId)).status).toBe("completed");
 
     // With a token that has no completion time: the checkout after a sign-off stamps it.
-    const { visitId: withToken } = await seedVisit(tenantA, undefined, { status: "waiting" });
+    // The sign-off is the command (V2-09a R-15: a system-path UPDATE can no longer sign a visit).
+    const { visitId: withToken } = await seedClinicalVisit(tenantA, { status: "waiting" });
     await callCheckIn(tenantA.client, checkInArgs(tenantA, withToken));
-    await getAdminClient().from("visits").update({ status: "completed", signed_at: new Date().toISOString(), signed_by: tenantA.userId }).eq("id", withToken);
+    await signVisitAs(tenantA, withToken);
     expect((await tokensOfVisit(withToken))[0].completed_at).toBeNull();
     const stamped = await callCompleteVisit(tenantA.client, completeVisitArgs(tenantA, withToken));
     expect(stamped.data).toMatchObject({ already_completed: true });
@@ -119,8 +120,10 @@ describe("complete_visit: one transaction", () => {
   });
 
   it("a signed visit reopened for amendment (in_consultation) is VISIT_NOT_COMPLETABLE: only finalize_visit_amendment ends it", async () => {
-    const { visitId } = await seedVisit(tenantA, undefined, { status: "in_consultation" });
-    await getAdminClient().from("visits").update({ signed_at: new Date().toISOString(), signed_by: tenantA.userId }).eq("id", visitId);
+    // Signed and reopened the way production does it (V2-09a R-15; a system-path UPDATE can no longer sign, and failed silently here).
+    const { visitId } = await seedClinicalVisit(tenantA, { status: "waiting" });
+    await signVisitAs(tenantA, visitId);
+    await reopenVisitAs(tenantA, visitId);
     const res = await callCompleteVisit(tenantA.client, completeVisitArgs(tenantA, visitId));
     expect(res.error).toMatchObject({ code: "P0001", message: "VISIT_NOT_COMPLETABLE" });
     expect((await visitRow(visitId)).status).toBe("in_consultation");

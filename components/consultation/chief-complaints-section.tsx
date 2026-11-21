@@ -241,8 +241,13 @@ export function ChiefComplaintsSection({
           id="clinical-notes"
           rows={3}
           value={clinicalNotes}
-          disabled={disabled}
-          onChange={(e) => onClinicalNotesChange(e.target.value)}
+          // V2-09a review B-6: a read-only record keeps its notes focusable and scrollable (readOnly, not disabled), so a keyboard user can reach,
+          // read and copy long signed notes; typing is still blocked.
+          readOnly={disabled}
+          aria-readonly={disabled || undefined}
+          onChange={(e) => {
+            if (!disabled) onClinicalNotesChange(e.target.value);
+          }}
           placeholder="Detailed notes on symptom onset, progression, aggravating/relieving factors, prior medications taken..."
           className="w-full text-sm p-3 rounded-lg border border-gray-200 bg-white placeholder-fg-placeholder focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-ring min-h-[96px] resize-y"
         />

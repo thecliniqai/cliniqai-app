@@ -29,6 +29,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { psql } from "../helpers/sql";
 import { addMemberToTenant, seedTenantSubscription, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { enableApiV1ForFile } from "../helpers/api-v1";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 import { deleteRunnerRuns, deleteTenants, insertTenant, letters } from "../jobs/helpers";
 // vi.mock below is hoisted above these imports: the actions resolve the session through the mocked user client.
 import { inviteStaff } from "@/features/staff/actions";
@@ -244,28 +245,24 @@ describe("public links of a clinic that is not full (SUB-D6)", () => {
 
   beforeAll(async () => {
     shareClinic = await seedTenantWithOwner(`Lock Share Clinic ${letters(5)}`);
-    const { patientId, visitId } = await seedVisit(shareClinic);
+    // V2-09a (000109): the Rx PDF path is written only for a signed header of a sealed visit, so the visit is signed the way production does (R-15).
+    const seeded = await seedClinicalVisit(shareClinic, { prescriptions: 1 });
+    await signVisitAs(shareClinic, seeded.visitId);
+    const { patientId, visitId } = seeded;
     rxPatientName = psql(`select full_name from public.patients where id = '${uuid(patientId)}'`)[0];
     expect(
       (await admin.from("memberships").update({ full_name: rxDoctor.name, medical_council_reg_no: rxDoctor.reg })
         .eq("tenant_id", shareClinic.tenantId).eq("user_id", shareClinic.userId)).error,
     ).toBeNull();
-    const { data: rx, error: rxErr } = await admin
-      .from("prescriptions")
-      .insert({ tenant_id: shareClinic.tenantId, visit_id: visitId, patient_id: patientId, doctor_id: shareClinic.userId })
-      .select("id")
-      .single();
-    if (rxErr || !rx) throw new Error(`prescription seed failed: ${rxErr?.code}`);
+    const rx = { id: seeded.prescriptionIds[0] };
     const { data: inv, error: invErr } = await admin
       .from("invoices")
       .insert({ tenant_id: shareClinic.tenantId, visit_id: visitId, patient_id: patientId, invoice_number: `LCK-${letters(4)}`, total_amount: 100, status: "issued" })
       .select("id")
       .single();
     if (invErr || !inv) throw new Error(`invoice seed failed: ${invErr?.code}`);
-    // The Rx PDF object exists, so a full clinic's link signs it.
-    const path = `${shareClinic.tenantId}/${visitId}/rx_v1.pdf`;
-    expect((await admin.storage.from("prescriptions").upload(path, Buffer.from("%PDF-1.4 synthetic"), { contentType: "application/pdf" })).error).toBeNull();
-    expect((await admin.from("prescriptions").update({ pdf_storage_path: path }).eq("id", rx.id)).error).toBeNull();
+    // The Rx PDF object exists, so a full clinic's link signs it. V2-09a 09A-06a (R-A): archived by its signer (upload and pair with the signer's client).
+    expect(await archiveRxAs(shareClinic, visitId)).toMatch(/^[0-9a-f]{64}$/);
 
     const rxShare = await shareClinic.client.rpc("create_share_token", { p_resource_type: "prescription", p_resource_id: rx.id });
     if (rxShare.error) throw new Error(`share token failed: ${rxShare.error.code}`);

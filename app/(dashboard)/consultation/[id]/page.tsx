@@ -19,6 +19,7 @@ import {
   FollowUpInput,
 } from "@/features/consultation/schema";
 import { withPageAuth } from "@/lib/auth/page";
+import { recordState } from "@/features/consultation/record-state";
 
 interface ConsultationPageProps {
   params: Promise<{
@@ -51,6 +52,8 @@ async function ConsultationPage(props: ConsultationPageProps) {
       status,
       scheduled_at,
       specialty,
+      signed_at,
+      current_revision,
       ${clinicalNotesEmbed()},
       patient:patients (
         id,
@@ -104,6 +107,29 @@ async function ConsultationPage(props: ConsultationPageProps) {
   const initialPrescriptionItems =
     rxResult.success && rxResult.prescription ? rxResult.prescription.items : [];
 
+  // 7. The signed version's number and, while an amendment is open, the reason it was started with (V2-09a R-16). The latest header is the
+  // visit's prescription whatever its status; the reason is the latest `visit_revisions` row (the database numbers them).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: latestHeader } = await (supabase.from("prescriptions") as any)
+    .select("version")
+    .eq("visit_id", id)
+    .eq("tenant_id", membership.tenantId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let amendmentReason: string | null = null;
+  if (recordState(visitRow) === "amending") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: latestRevision } = await (supabase.from("visit_revisions") as any)
+      .select("amendment_reason")
+      .eq("visit_id", id)
+      .eq("tenant_id", membership.tenantId)
+      .order("revision_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    amendmentReason = latestRevision?.amendment_reason ?? null;
+  }
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -150,6 +176,10 @@ async function ConsultationPage(props: ConsultationPageProps) {
       : null,
     diagnoses: initialDiagnoses,
     prescription_items: initialPrescriptionItems,
+    signed_at: (visitRow.signed_at as string | null) ?? null,
+    current_revision: (visitRow.current_revision as number | null) ?? 1, // the database default (09A-06a, review B-2)
+    prescription_version: (latestHeader?.version as number | undefined) ?? null,
+    amendment_reason: amendmentReason,
   };
 
   return (
@@ -158,6 +188,12 @@ async function ConsultationPage(props: ConsultationPageProps) {
       patient={patient}
       pastEncounters={pastEncounters}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
+      // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
+      canAmend={
+        hasPerm(membership.role, "consultations:edit") &&
+        hasPerm(membership.role, "prescriptions:edit") &&
+        hasPerm(membership.role, "appointments:edit")
+      }
     />
   );
 }

@@ -139,7 +139,6 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/consultation/actions.ts#recordFollowUp": "consultations:edit",
   "features/consultation/actions.ts#reopenVisitForAmendment": "consultations:edit",
   "features/consultation/actions.ts#saveConsultationDraft": "consultations:edit",
-  "features/labs/actions.ts#deleteLabDocument": "labs:edit",
   "features/labs/actions.ts#generateDocumentShareToken": "labs:view",
   "features/labs/actions.ts#getDocumentSignedUrl": "labs:view",
   "features/labs/actions.ts#getPatientDocuments": "labs:view",

@@ -7,6 +7,8 @@
  * (tests/labs/lab-storage-key.spec.ts, the generated matrix). This spec checks the tab at 360, 820 and 1280 px:
  *   - receptionist: the notice, no "Upload Lab Report" button;
  *   - doctor: the upload button, no notice;
+ *   - doctor, with an uploaded document (V2-09a 000110, lab documents are append-only): the document is listed with View and Share, a note says it cannot
+ *     be removed, and no Delete control or "Delete Lab Document?" dialog exists;
  *   - no serious/critical axe rule that the M0 baseline (02-03b) did not already have on /patients/[id]: BLOCKING on new
  *     rule ids; counts and a screenshot go to test-results/lab-reports/ for the 05-02c evidence.
  * Runs on desktop-chrome only (a11y specs own their viewport). Synthetic data only.
@@ -19,6 +21,7 @@ import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { run, seedPatient, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { getAdminClient } from "../../helpers/supabase-admin";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
@@ -97,6 +100,36 @@ for (const size of WIDTHS) {
         await expect(page.getByText(NOTICE)).toHaveCount(0);
         await page.getByRole("button", { name: "Upload Lab Report" }).scrollIntoViewIfNeeded();
         await check(page, testInfo, `doctor-${size.width}`);
+      });
+
+      test(`lists an uploaded document with no way to delete it (${size.width}px)`, async ({ page }, testInfo) => {
+        await page.setViewportSize(size);
+        const { tenantA } = run();
+        const tag = testTag();
+        const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Labs Append ${tag}`);
+        const title = `E2E Synthetic Report ${tag}`;
+        const { error } = await getAdminClient().from("patient_documents").insert({
+          tenant_id: tenantA.id,
+          patient_id: patient.id,
+          title,
+          original_filename: "synthetic.pdf",
+          storage_path: `tenants/${tenantA.id}/patients/${patient.id}/labs/${crypto.randomUUID()}.pdf`,
+          file_size_bytes: 12,
+          mime_type: "application/pdf",
+          report_date: new Date().toISOString().slice(0, 10),
+          uploaded_by: tenantA.users.doctor.id,
+        });
+        expect(error).toBeNull();
+        await page.goto(`/patients/${patient.id}`);
+        await page.getByRole("navigation", { name: "Patient Tabs" }).getByRole("button", { name: /Lab Reports/ }).click();
+        await expect(page.getByText(title)).toBeVisible();
+        await expect(page.getByRole("button", { name: "View" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Share" })).toBeVisible();
+        await expect(page.getByTestId("lab-documents-record-note")).toContainText("cannot be removed");
+        await expect(page.getByRole("button", { name: /Delete/i })).toHaveCount(0);
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await page.getByTestId("lab-documents-record-note").scrollIntoViewIfNeeded();
+        await check(page, testInfo, `doctor-with-document-${size.width}`);
       });
     });
   });

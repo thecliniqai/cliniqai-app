@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { uploadLabDocument, getPatientDocuments, deleteLabDocument, getDocumentSignedUrl } from "@/features/labs/service";
+import { uploadLabDocument, getPatientDocuments, getDocumentSignedUrl } from "@/features/labs/service";
 import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
@@ -167,10 +167,9 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       expect(data).toHaveLength(0);
     });
 
-    it("proves Tenant B cannot delete Tenant A patient documents", async () => {
-      const delRes = await deleteLabDocument(ctxFor(tenantB), documentAId);
-      expect(delRes.success).toBe(false);
-      expect(delRes.error).toContain("not found or access denied");
+    it("proves Tenant B cannot delete Tenant A patient documents (and, since V2-09a 000110, nobody can: see lab-documents-append-only.spec.ts)", async () => {
+      const del = await (tenantB.client.from("patient_documents") as any).delete().eq("id", documentAId).select("id");
+      expect(del.error?.code).toBe("42501");
 
       // Verify document still exists in Tenant A
       const { data: doc } = await (tenantA.client.from("patient_documents") as any)
@@ -230,7 +229,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
     });
 
     it("renders advised investigations in prescription requisition PDF", async () => {
-      const { generateAndArchivePrescriptionPdf } = await import("@/features/prescriptions/pdf/generator");
+      const { renderPrescriptionPdf } = await import("@/features/prescriptions/pdf/generator");
 
       const payload = {
         tenant_id: tenantA.tenantId,
@@ -276,10 +275,11 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
         advice: ["30 minutes brisk walking daily", "Reduce refined sugars"],
       };
 
-      const result = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
-      expect(result.buffer).toBeInstanceOf(Buffer);
-      expect(result.buffer.length).toBeGreaterThan(1000);
-      expect(result.storagePath).toBe(`${tenantA.tenantId}/${visitId}/rx_v1.pdf`);
+      // Pure render (V2-09a R-12): nothing is stored; the archive of a signed version is tested in tests/prescriptions/rx-pdf-archive.spec.ts.
+      const buffer = await renderPrescriptionPdf(payload);
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(1000);
+      expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
     });
   });
 });

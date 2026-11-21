@@ -4,8 +4,9 @@
  *
  * Reopen: the amendment row (number and snapshot filled by the database), the visit back to `in_consultation` and the
  * audit row commit together. Finalize: the latest prescription's next version and new signature, the visit re-signed as
- * `completed` and the audit row commit together. Amendments raise no webhook (R-9). SECURITY DEFINER; consultations:edit
- * only (owner, doctor). Synthetic data only.
+ * `completed` and the audit row commit together. Finalize re-issues `prescription.issued` for the amended header, once per version
+ * (event key `...:signed:v<n>` from version 2; V2-09a 000108, R-10); `visit.completed` is not re-emitted and reopen raises no webhook.
+ * SECURITY DEFINER; consultations:edit only (owner, doctor). Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -30,6 +31,7 @@ import { createBarrier, gateClient } from "../helpers/write-barrier";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import {
+  archiveRxAs,
   callFinalize,
   callReopen,
   callSign,
@@ -66,12 +68,16 @@ afterAll(async () => {
   expect(leftoverFaults()).toBe(0);
 });
 
-/** A visit signed through the sign command (so the visit, its prescription and the outbox are as production leaves them). */
+/**
+ * A visit signed through the sign command and archived by its signer, as production's sign-off leaves it (so the visit, its prescription and the
+ * outbox are as production leaves them). V2-09a 09A-06a (review A-3): the reopen refuses RX_ARCHIVE_PENDING until the signed Rx is archived.
+ */
 async function signedVisit(t: SeededTenant, opts: { doctor?: SeededTenant; marker?: string } = {}): Promise<ClinicalVisit> {
   const doctor = opts.doctor ?? members.doctor;
   const v = await seedClinicalVisit(t, { doctorId: doctor.userId, diagnosis: true, prescriptions: 1, marker: opts.marker });
   const { error } = await callSign(doctor.client, signArgs(t, v.visitId));
   if (error) throw new Error(`seed sign failed: ${error.code} ${error.message}`);
+  await archiveRxAs(doctor, v.visitId);
   return v;
 }
 
@@ -173,7 +179,7 @@ describe("reopen_visit_for_amendment: one transaction", () => {
 });
 
 describe("finalize_visit_amendment: one transaction", () => {
-  it("happy path: version 2 with the reason and a new signature, the visit completed again, the audit row; no webhook", async () => {
+  it("happy path: version 2 with the reason and a new signature, the visit completed again, the audit row, one prescription.issued ...:signed:v2", async () => {
     const v = await reopenedVisit(tenantA, { reason: "Corrected the dosage after the review" });
     const rxBefore = (await prescriptionsOfVisit(v.visitId))[0];
     const outboxBefore = await amendmentOutbox(tenantA.tenantId, v);
@@ -194,17 +200,36 @@ describe("finalize_visit_amendment: one transaction", () => {
         metadata: { version: 2, amendment_reason: "Corrected the dosage after the review" },
       }),
     ]);
-    expect(await amendmentOutbox(tenantA.tenantId, v)).toEqual(outboxBefore);
+    // R-10: the amended prescription is issued again, once for version 2; visit.completed is not re-emitted.
+    expect(await amendmentOutbox(tenantA.tenantId, v)).toEqual({ completed: outboxBefore.completed, issued: outboxBefore.issued + 1 });
+    const issued = await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0]);
+    expect(issued.map((r) => r.event_key).sort()).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v2`,
+    ]);
+    const reissued = issued.find((r) => r.event_key?.endsWith(":v2"))!;
+    expect(JSON.parse(reissued.payload).data).toEqual({ prescription_id: v.prescriptionIds[0], patient_id: v.patientId, visit_id: v.visitId, version: 2 });
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.finalize_visit_amendment|true"]);
   });
 
   it("a second amendment cycle makes version 3", async () => {
     const v = await reopenedVisit(tenantA);
     expect((await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId))).data).toMatchObject({ version: 2 });
+    // V2-09a 09A-06a (review A-3): version 2 must be archived (by its signer, the finalizer) before it can be reopened.
+    const early = await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }));
+    expect(early.error?.message).toBe("RX_ARCHIVE_PENDING");
+    await archiveRxAs(members.doctor, v.visitId);
     expect((await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }))).data).toMatchObject({ revision_number: 2 });
     const third = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId));
     expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 3, amendment_reason: "Second correction for the audit" });
+    // One prescription.issued per version: the keys of version 1, 2 and 3 differ.
+    const keys = (await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).map((r) => r.event_key).sort();
+    expect(keys).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v2`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v3`,
+    ]);
   });
 
   it("rollback: a fault on the prescription update leaves the visit reopened at version 1, no audit row, no claim; the same id then succeeds", async () => {
@@ -221,6 +246,10 @@ describe("finalize_visit_amendment: one transaction", () => {
 
     expect(await visitRow(v.visitId)).toMatchObject({ status: "in_consultation" });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 1, amendment_reason: null });
+    // R-10: nothing is queued for a finalize that faulted after the prescription update (the outbox row shares the transaction).
+    expect((await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).map((r) => r.event_key)).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+    ]);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toEqual([]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
 
@@ -274,6 +303,8 @@ describe("amendment commands: idempotency and races", () => {
     expect(second.data).toEqual({ ...(first.data as object), replayed: true });
     expect((await prescriptionsOfVisit(v.visitId))[0].version).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toHaveLength(1);
+    // The replay queues no second prescription.issued.
+    expect(await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).toHaveLength(2);
   });
 
   it("two concurrent reopens of one visit (different ids): one revision; the other is VISIT_NOT_SIGNED", async () => {
@@ -302,6 +333,8 @@ describe("amendment commands: idempotency and races", () => {
     expect(mapDbError(failed[0].error)).toMatchObject({ code: "CONFLICT", reason: "AMENDMENT_NOT_OPEN" });
     expect((await prescriptionsOfVisit(v.visitId))[0].version).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toHaveLength(1);
+    // The replay queues no second prescription.issued.
+    expect(await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).toHaveLength(2);
   });
 });
 
@@ -415,9 +448,10 @@ describe("amendment (service)", () => {
     expect((await reopenVisitForAmendment(doctorCtx, v.visitId, "r".repeat(500), randomUUID())).success).toBe(true);
   });
 
-  // F-7 (07-04a): the amended PDF is rendered after a replay when its version is not archived (the first call may have died
-  // right after the commit); it reads the reason from the amendment row now that the stored result holds none (F-5).
-  it("a replayed finalize renders the missing amended PDF, stamped with the reason from the revision, and renders nothing when it is archived", async () => {
+  // F-7 (07-04a): the amended PDF is archived after a replay when its version is not archived (the first call may have died
+  // right after the commit). Write-once since V2-09a (000109): a recorded path and hash cannot be cleared to fake that loss, so
+  // the loss is simulated honestly (the command runs alone, the archive never does); the header holds no PDF pair then.
+  it("a replayed finalize archives the missing amended PDF, and archives nothing when it is already archived", async () => {
     const admin = getAdminClient();
     const v = await signedVisit(tenantA);
     const doctorCtx = ctxFor(members.doctor);
@@ -425,18 +459,25 @@ describe("amendment (service)", () => {
     const finalizeId = randomUUID();
     const pdfPath = async () => (await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", v.visitId).single()).data?.pdf_storage_path ?? null;
     const archives = async () => (await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length;
+    const before = await archives();
 
-    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: false });
-    expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
-    const archived = await archives();
+    // The first call died right after the commit: version 2 is signed, its PDF was never archived (finalize cleared the pair).
+    const first = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId, { p_client_request_id: finalizeId }));
+    expect(first.data).toMatchObject({ version: 2, replayed: false });
+    expect(await pdfPath()).toBeNull();
+    expect(await archives()).toBe(before);
 
+    // The replay archives version 2, once; the archived amended PDF carries the reason (the header's own amendment_reason).
     expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
-    expect(await archives()).toBe(archived);
-
-    await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
-    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
     expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
-    expect(await archives()).toBe(archived + 1);
+    expect(await archives()).toBe(before + 1);
+    const { data: rx } = await admin.from("prescriptions").select("amendment_reason, pdf_sha256").eq("visit_id", v.visitId).single();
+    expect(rx?.amendment_reason).toBe("Synthetic amendment reason text");
+    expect(rx?.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    // Untouched replay: archived, left alone.
+    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
+    expect(await archives()).toBe(before + 1);
   });
 
   it("a receptionist is refused with the permission text before any command runs", async () => {

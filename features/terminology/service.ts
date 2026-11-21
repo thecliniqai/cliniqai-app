@@ -16,6 +16,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 
 export type SearchDiagnosesResult =
   { success: true; results: DiagnosisSearchResult[] } | { success: false; error: string };
@@ -184,6 +185,8 @@ export async function addConsultationDiagnosis(
       .select("id")
       .single();
 
+    // A signed consultation's diagnoses are sealed with it (000107): a fixed text, never the driver's (V2-09a R-17).
+    if (isSealedRefusal(insertErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (insertErr || !inserted) {
       log.error({ event: "terminology.diagnosis_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consultation diagnosis." };
@@ -283,6 +286,7 @@ export async function removeConsultationDiagnosis(
       .eq("tenant_id", session.tenantId)
       .select("id");
 
+    if (isSealedRefusal(deleteErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (deleteErr) {
       return { success: false, error: "Failed to delete diagnosis." };
     }
@@ -360,6 +364,7 @@ export async function updateDiagnosisNote(
       .eq("tenant_id", session.tenantId)
       .eq("visit_id", visitId);
 
+    if (isSealedRefusal(updateErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (updateErr) {
       return { success: false, error: "Failed to update diagnosis note." };
     }

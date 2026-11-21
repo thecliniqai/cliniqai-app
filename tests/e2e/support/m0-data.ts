@@ -11,8 +11,10 @@
  * The flows assert OUTCOMES here (rows, statuses, numbers), not v1 selectors, so they survive the v2 redesign.
  */
 import { randomInt, randomUUID } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
+import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { readRunData, type RunData } from "./run-data";
+import { readRunData, runPassword, type RunData } from "./run-data";
 
 export const IST = "Asia/Kolkata";
 
@@ -105,13 +107,16 @@ export async function seedVisit(input: SeedVisitInput): Promise<string> {
   return row.id;
 }
 
-/** A signed (sealed) version-1 prescription with one item for a completed visit. */
-export async function seedSignedPrescription(input: {
+/**
+ * An unsigned version-1 prescription (active) with one item for a visit that is still open. A signed record is made the way production
+ * makes one (V2-09a R-15): seed the visit unsigned with this, then {@link signSeededVisit} signs it as the run's doctor. Since migration 000107
+ * a system-path write can no longer add rows to a signed visit.
+ */
+export async function seedPrescription(input: {
   tenantId: string;
   visitId: string;
   patientId: string;
   doctorId: string;
-  signedAt: string;
   medicineName: string;
 }): Promise<string> {
   const admin = getAdminClient();
@@ -125,7 +130,6 @@ export async function seedSignedPrescription(input: {
         doctor_id: input.doctorId,
         version: 1,
         status: "active",
-        signed_at: input.signedAt,
       })
       .select("id")
       .single(),
@@ -140,6 +144,51 @@ export async function seedSignedPrescription(input: {
     "prescription item insert",
   );
   return rx.id;
+}
+
+/**
+ * Signs a seeded visit the way the app does: `sign_consultation` called with the run's doctor session and the per-run password (the
+ * visit must be `waiting` or `in_consultation` and carry a note; the command also seals its prescription and completes it). Replaces
+ * a service-role INSERT of a signed visit followed by a signed prescription, which the database refuses since 000107 (R-15).
+ */
+export async function signSeededVisit(tenantId: string, visitId: string, doctorEmail: string): Promise<void> {
+  const doctor = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const signIn = await doctor.auth.signInWithPassword({ email: doctorEmail, password: runPassword() });
+  if (signIn.error) throw new Error(`m0 seed: doctor sign-in failed: ${signIn.error.message}`);
+  try {
+    const { error } = await doctor.rpc("sign_consultation", { p_tenant_id: tenantId, p_visit_id: visitId, p_client_request_id: randomUUID() });
+    if (error) throw new Error(`m0 seed: sign_consultation failed: ${error.message}`);
+  } finally {
+    await doctor.auth.signOut({ scope: "local" });
+  }
+}
+
+/**
+ * A signed consultation the way production makes one (V2-09a R-15), for the amendment specs: a waiting visit of the run's doctor with a
+ * note and one unsigned prescription item, then the doctor's own `sign_consultation`. Every service-role write is error-checked (an
+ * unread error there would seed nothing and let a spec pass for the wrong reason).
+ */
+export async function seedSignedConsultation(label: string): Promise<{ visitId: string; patientId: string; patientName: string; medicine: string }> {
+  const { tenantA } = run();
+  const doctor = tenantA.users.doctor;
+  const tag = testTag();
+  const patientName = `E2E Synthetic ${label} ${tag}`;
+  const medicine = `E2E Synthetic Sealed Med ${tag}`;
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
+  const visitId = await seedVisit({
+    tenantId: tenantA.id,
+    patientId: patient.id,
+    doctorId: doctor.id,
+    createdBy: tenantA.users.receptionist.id,
+    status: "waiting",
+  });
+  const notes = await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", visitId).select("visit_id");
+  if (notes.error || notes.data?.length !== 1) throw new Error(`m0 seed: clinical note failed: ${notes.error?.message ?? "no row"}`);
+  await seedPrescription({ tenantId: tenantA.id, visitId, patientId: patient.id, doctorId: doctor.id, medicineName: medicine });
+  await signSeededVisit(tenantA.id, visitId, doctor.email);
+  return { visitId, patientId: patient.id, patientName, medicine };
 }
 
 /** Highest token number issued today (app date) in the tenant, 0 if none. */

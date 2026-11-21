@@ -133,7 +133,9 @@ describe("the expected outcomes", () => {
     // The same principals with an active membership are admitted widely (the status is what denies them).
     const live = (id: string) =>
       TARGETS.flatMap((t) => OPS.map((op) => expectedOutcome(t, op, { ...principal(id), statuses: {} }))).filter(admitted).length;
-    expect(live("removed_a")).toBeGreaterThan(100);
+    // V2-09a (000109, 000110): the Rx and lab storage classes and the lab documents lost their UPDATE / DELETE / conditional INSERT cells, so the live count fell
+    // below 100; the bound is only there so that the denial above is not vacuous.
+    expect(live("removed_a")).toBeGreaterThan(90);
     expect(live("suspended_a")).toBeGreaterThan(50);
   });
 
@@ -171,7 +173,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
   "public.follow_ups": "perm(consultations:edit)",
   "public.consent_records": "rpc_only",
-  "public.patient_documents": "perm(labs:edit)",
+  "public.patient_documents": "rpc_only", // V2-09a 000110: append-only
   "public.document_share_tokens": "rpc_only",
   "public.referrals": "rpc_only",
   "public.doctor_custom_diagnoses": "perm(consultations:edit) AND self(doctor_id)",
@@ -272,7 +274,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.communication_queue": ["perm(appointments:view)", "rpc_only", "rpc_only"],
   "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
-  "public.visit_revisions": ["perm(consultations:view)", "perm(consultations:edit)", "rpc_only"],
+  "public.visit_revisions": ["perm(consultations:view)", "rpc_only", "rpc_only"], // V2-09a 000111 (S-7): the commands write amendment rows
   "public.prescriptions": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.prescription_items": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.doctor_custom_diagnoses": [
@@ -371,7 +373,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   ],
   // 05-07a (000088): invitations are created only by invite_staff.
   "public.invitations": ["perm(staff:invite)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
+  "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "rpc_only", "rpc_only"], // V2-09a 000111 (S-1): no UPDATE either
   "public.document_share_tokens": ["perm(labs:view)", "rpc_only", "rpc_only", "rpc_only"],
   "public.in_app_notifications": [
     "self(recipient_user_id) AND full",
@@ -385,7 +387,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "storage:prescriptions/rx": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)", "none"],
+  "storage:prescriptions/rx": ["perm(prescriptions:view)", "none", "none", "none"],
   "storage:prescriptions/receipt": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
@@ -393,7 +395,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
     "none",
   ],
   "storage:prescriptions/malformed": ["none", "none", "none", "none"],
-  "storage:clinic-records/lab": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
+  "storage:clinic-records/lab": ["perm(labs:view)", "perm(labs:edit)", "none", "none"],
   "storage:clinic-records/referral_letter": [
     "perm(consultations:view)",
     "perm(consultations:edit)",

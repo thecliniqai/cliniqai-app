@@ -251,7 +251,9 @@ server action / system module / v1 route
          P0002 SUBJECT_MISMATCH (R-6); the event data is built in SQL from the subject row (R-26, no caller payload)
          └─► private.enqueue_webhook_internal: the clinic's active subscriptions for the event, read as definer (every
              role's events are queued, R-19) → one webhook_delivery_queue row per subscription, event_key
-             <event>:<subject>[:<scheduled_at>] / ping:<uuid> / payment.recorded:<payment_id> (the same event queues once)
+             <event>:<subject>[:<scheduled_at>] / ping:<uuid> / payment.recorded:<payment_id> (the same event queues once);
+             prescription.issued:<id>:created|signed, plus :v<n> from version 2 (V2-09a 000108: an amended prescription is
+             issued again by finalize_visit_amendment, once per version; its data is prescription_id, patient_id, visit_id, version)
                └─► AFTER INSERT trigger → ops.enqueue_job('webhook.deliver', tenant, {delivery_id}, 'wh:<id>',
                    next_retry_at, least(max_retries, 5) + 2)
 record_payment → private.outbox_payment_recorded → the same table and trigger

@@ -10,6 +10,11 @@ export interface PrescriptionPdfPayload {
   amended_at?: string | null;
   amendment_reason?: string | null;
   signed_at?: string | null;
+  /**
+   * V2-09a 09A-06a (review S-8): set only on an on-demand render served in place of a missing or failed archive; printed as a visible line so the copy
+   * is never mistaken for the archived signed original. Never set on an archived rendering.
+   */
+  regenerated_notice?: string | null;
 
   clinic: {
     name: string;
@@ -338,6 +343,17 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     paddingTop: 4,
   },
+  regeneratedBanner: {
+    borderWidth: 1,
+    borderColor: "#B45309",
+    padding: 6,
+    marginBottom: 8,
+  },
+  regeneratedText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#92400E",
+  },
   footerText: {
     fontSize: 7,
     color: "#94A3B8",
@@ -378,6 +394,13 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
             }
           />
         </View>
+
+        {/* 0. Regenerated copy (V2-09a review S-8): this is not the archived signed original */}
+        {payload.regenerated_notice ? (
+          <View style={styles.regeneratedBanner}>
+            <Text style={styles.regeneratedText}>{payload.regenerated_notice}</Text>
+          </View>
+        ) : null}
 
         {/* 1. Version / Amendment Banner */}
         {isAmended && (

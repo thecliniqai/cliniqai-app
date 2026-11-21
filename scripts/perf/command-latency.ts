@@ -194,8 +194,9 @@ async function main(): Promise<void> {
       const args = clinical.startConsultationArgs(t, visitId);
       return () => owner.client.rpc("start_consultation", args);
     });
+    // 08-06a S-4: the desk completes a waiting visit only (an in_consultation one is VISIT_NOT_COMPLETABLE), so the timed call needs a waiting one.
     await measure("complete_visit", "command", async () => {
-      const { visitId } = await seedVisit(t, undefined, { status: "in_consultation" });
+      const { visitId } = await seedVisit(t, undefined, { status: "waiting" });
       const args = clinical.completeVisitArgs(t, visitId);
       return () => receptionist.client.rpc("complete_visit", args);
     });

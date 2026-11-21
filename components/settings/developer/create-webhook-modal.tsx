@@ -20,7 +20,7 @@ const EVENT_DESCRIPTIONS: Record<string, string> = {
   "appointment.rescheduled": "Fired when appointment date or time is modified.",
   "visit.completed": "Fired when a doctor completes and signs off a consultation encounter.",
   "lab_result.ready": "Fired when a diagnostic lab result or document is uploaded.",
-  "prescription.issued": "Fired when an official e-prescription is finalized.",
+  "prescription.issued": "Fired when an official e-prescription is finalized, and again for each amended version.",
 };
 
 export function CreateWebhookModal({
