@@ -22,3 +22,30 @@ export function recordState(visit: RecordStateInput): RecordState {
   if (!visit.signed_at) return "draft";
   return visit.status === "in_consultation" ? "amending" : "sealed";
 }
+
+/** The one text a sealed refusal shows the caller (V2-09a R-17): fixed, data-free, never the driver's message. */
+export const SIGNED_CONSULTATION_MESSAGE =
+  "This consultation is already signed. Reopen it for amendment to make changes.";
+
+/** The fixed names the sealing guards raise (SQLSTATE 42501, no row data): migrations 000068 to 000108. */
+const SEALED_REFUSAL_NAMES = [
+  "CLINICAL_NOTES_VISIT_SIGNED",
+  "PRESCRIPTION_ITEM_VISIT_SIGNED",
+  "DIAGNOSIS_VISIT_SIGNED",
+  "FOLLOW_UP_VISIT_SIGNED",
+  "PRESCRIPTION_VISIT_SIGNED",
+  "RX_SEALED",
+  "VISIT_SIGNED_FIELD_IMMUTABLE",
+  "VISIT_SIGNED_STATUS_FORBIDDEN",
+  "VISIT_SIGNED_DELETE_FORBIDDEN",
+] as const;
+
+/**
+ * True when `err` is a refusal by one of the sealing guards: a Postgres or PostgREST error with SQLSTATE 42501 and one of the
+ * fixed names. A plain privilege error (also 42501) is not one. Services map it to {@link SIGNED_CONSULTATION_MESSAGE} and never echo the driver text.
+ */
+export function isSealedRefusal(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return code === "42501" && typeof message === "string" && SEALED_REFUSAL_NAMES.some((name) => message.includes(name));
+}

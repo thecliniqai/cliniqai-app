@@ -21,6 +21,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
@@ -136,6 +137,8 @@ export async function getOrCreateDraftPrescription(
       .select("id")
       .single();
 
+    // A signed consultation's prescription is sealed with it (000107, 000108): a fixed text, never the driver's (V2-09a R-17).
+    if (isSealedRefusal(createErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (createErr || !created) {
       return { success: false, error: "Failed to create prescription draft." };
     }
@@ -228,6 +231,7 @@ export async function addPrescriptionItem(
       .select("id")
       .single();
 
+    if (isSealedRefusal(insertErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (insertErr || !inserted) {
       log.error({ event: "prescriptions.item_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add prescription item." };
@@ -308,6 +312,7 @@ export async function removePrescriptionItem(
       .eq("tenant_id", ctx.tenantId)
       .select("id");
 
+    if (isSealedRefusal(deleteErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     if (deleteErr) {
       return { success: false, error: "Failed to delete prescription item." };
     }

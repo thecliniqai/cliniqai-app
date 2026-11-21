@@ -22,14 +22,11 @@ import type { AppError } from "@/lib/errors/app-error";
 import { z } from "zod";
 import { clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { recordState } from "./record-state";
+import { isSealedRefusal, recordState, SIGNED_CONSULTATION_MESSAGE } from "./record-state";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
 // pass the same context so the callee's own check applies.
-
-const SIGNED_CONSULTATION_MESSAGE =
-  "This consultation is already signed. Reopen it for amendment to make changes.";
 
 /** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
 const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
@@ -380,6 +377,8 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
 
     return { success: true, followUpId };
   } catch (err: unknown) {
+    // A signed consultation's follow-up is sealed with it (000107): a fixed text, never the driver's (V2-09a R-17).
+    if (isSealedRefusal(err)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to record follow-up.", "consultation.record_follow_up.failed"),
