@@ -121,7 +121,92 @@ test.describe("browse as owner", () => {
     expect(state.sessionKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
     expect(await authCookies(context), "still signed in (browsing only)").not.toEqual([]);
   });
+
+  // V2-09b 09B-01 (R-4, T-09B-04, PWA §4 D-3): the unsent draft lives in memory only. A note typed in the consult and saved leaves no part of its
+  // text in any storage API: not in localStorage, sessionStorage, IndexedDB (every database, every store) or Cache Storage (URLs and response bodies).
+  test("a consult note typed and saved is held in memory only: no storage API holds any part of it", async ({ page }) => {
+    const data = run();
+    const patient = await seedPatient(data.tenantA.id, data.tenantA.users.owner.id, `E2E Synthetic Draft Storage ${testTag()}`);
+    const visitId = await seedVisit({
+      tenantId: data.tenantA.id,
+      patientId: patient.id,
+      doctorId: data.tenantA.users.doctor.id,
+      createdBy: data.tenantA.users.owner.id,
+      status: "in_consultation",
+    });
+    const marker = `ZQXDRAFTMARKER${testTag().replace(/\W/g, "")}`;
+    await page.goto("/today");
+    await waitForServiceWorker(page);
+    await page.goto(`/consultation/${visitId}`);
+    const notes = page.getByLabel("History of Present Illness & Clinical Notes");
+    await notes.fill(marker);
+    // Unsent (typed, inside the 5 s wait) and then sent: the text must be on no storage at either moment.
+    const unsent = await storageDump(page);
+    await expect(page.locator("[data-save-status='saved']")).toBeVisible({ timeout: 12_000 });
+    const sent = await storageDump(page);
+    for (const dump of [unsent, sent]) {
+      expect(dump.local).not.toContain(marker);
+      expect(dump.session).not.toContain(marker);
+      expect(dump.indexedDb).not.toContain(marker);
+      expect(dump.caches).not.toContain(marker);
+    }
+    // The audit is not vacuous: the dump does read what these APIs hold (the preference keys and the shell caches).
+    expect(sent.caches.length).toBeGreaterThan(0);
+  });
 });
+
+/** Every value held by localStorage, sessionStorage, IndexedDB (all stores of all databases) and Cache Storage (URLs and bodies), as strings. */
+async function storageDump(page: Page): Promise<{ local: string; session: string; indexedDb: string; caches: string }> {
+  return page.evaluate(async () => {
+    const values = (s: Storage) => Array.from({ length: s.length }, (_, i) => `${s.key(i)}=${s.getItem(s.key(i) ?? "")}`).join("\n");
+    const cacheParts: string[] = [];
+    for (const name of await caches.keys()) {
+      const cache = await caches.open(name);
+      for (const request of await cache.keys()) {
+        cacheParts.push(request.url);
+        const response = await cache.match(request);
+        if (response) cacheParts.push(await response.clone().text().catch(() => ""));
+      }
+    }
+    const idbParts: string[] = [];
+    const dbs = typeof indexedDB.databases === "function" ? await indexedDB.databases() : [];
+    for (const info of dbs) {
+      if (!info.name) continue;
+      await new Promise<void>((resolve) => {
+        const open = indexedDB.open(info.name as string);
+        open.onerror = () => resolve();
+        open.onsuccess = () => {
+          const db = open.result;
+          const stores = Array.from(db.objectStoreNames);
+          if (stores.length === 0) {
+            db.close();
+            resolve();
+            return;
+          }
+          const tx = db.transaction(stores, "readonly");
+          let pending = stores.length;
+          for (const store of stores) {
+            const all = tx.objectStore(store).getAll();
+            all.onsuccess = () => {
+              idbParts.push(JSON.stringify(all.result));
+              if (--pending === 0) {
+                db.close();
+                resolve();
+              }
+            };
+            all.onerror = () => {
+              if (--pending === 0) {
+                db.close();
+                resolve();
+              }
+            };
+          }
+        };
+      });
+    }
+    return { local: values(localStorage), session: values(sessionStorage), indexedDb: idbParts.join("\n"), caches: cacheParts.join("\n") };
+  });
+}
 
 /** Puts on the device what a careless page or library could leave behind, plus one preference that must survive. */
 async function dirtyDevice(page: Page) {
