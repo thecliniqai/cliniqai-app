@@ -413,3 +413,114 @@ Written from `app/(dashboard)/(today)/page.tsx`, `queue/page.tsx`, `cabin/page.t
 - E2E helpers: `tests/e2e/support/today-data.ts` (`seedBookedToday`, `seedWaitingToday`, `seedFullDay`), `today-page.ts` (`openToday` waits for hydration, `showLane`, `rowOf`, `rowInLane`). Wait for hydration before a click on server-rendered controls on a phone.
 - Any new `?x=` sheet is hosted by `FrontDeskSheets`; the Today board uses `?visit=` for its own selection.
 - pgTAP floor is 8174 (52 files); Vitest REQUIRED_FILES 249; `EXPECTED_MIGRATION` is 000102 (000103 next, bump it in the same commit).
+
+## 08-03b Walk-in, vitals, nurse and doctor modes, cut-over
+
+Commits (branch `v2/phase-08-front-desk`, base 429a20b): listed by the orchestrator report; the notes commit follows them.
+
+### What changed
+
+1. Walk-in sheet (`?walkin=1`, shortcut W): `components/front-desk/walk-in-sheet.tsx`, hosted by `FrontDeskSheets` (now also `canWalkIn`). Find stage:
+   `PatientSearch`; Enter picks the patient and moves focus to "Add to queue" (W, Enter, Enter besides the typing); confirm stage: doctor
+   select (only when the clinic has more than one doctor; the last one used in this browser session is preselected), priority
+   (Normal, Urgent, VIP); "Register as new patient" opens `QuickRegisterForm` inline (submit label "Register and add to queue",
+   `onUseExisting` goes to the confirm stage). Submit is `enqueueWalkIn` through `useCommand` with `SaveStatus` and "Start over" after
+   an unknown outcome. Doctors come from the existing `getActiveClinicDoctors` action (no new action).
+2. Shortcuts: `components/front-desk/shortcuts.ts` (pure: `shortcutsEnabled`, `shortcutFor`), `components/today/shortcut-sheet.tsx` (list and the
+   per-device switch, key `clinicos.pref.shortcuts` added to `DEVICE_PREF_KEYS`). W and N follow the switch (default on for a fine pointer at
+   1024 px and up); `?` always opens the list.
+3. Vitals: `components/today/vitals-sheet.tsx` (`VitalsForm` in a `ResponsiveSheet`, `recordVisitVitals`, not a command). `features/visits/vitals-input.ts`
+   maps the form's reading to the stored v1 shape (`temperature` in F, `respiratory_rate`); `sugar` and `sugar_type` were added to the vitals
+   schema (the form collects them; they were silently dropped before). `VitalsForm.onSave` may resolve `false` (then it does not say "Saved").
+4. Modes (R-14): `features/today/schema.ts` gained `TODAY_MODES`, `modesOf(role)`, `resolveMode`, `lanesOf(mode)`, `rowButtons(mode, row, canConsult)`,
+   `nextUp`; `laneOf` and `groupIntoLanes` take the mode (doctor: To bill folds into "Seen today"; triage: waiting rows with vitals pending first).
+   `/today?mode=front|triage|doctor`: default by role (doctor: doctor, nurse: triage, others: front); owner toggles front and "My queue"
+   (`components/today/doctor-mode.tsx`); doctor mode (doctor and owner) reads only that doctor's visits. `components/today/next-patient-card.tsx` is the
+   pinned "Next" card with Call in; row buttons are `use-row-commands.ts` (`useCheckIn`, `useStart`: `start_consultation`, then the consult opens).
+   Collect opens the existing `CheckoutDrawer` (lazy chunk with the vitals sheet), built from the row by `components/today/checkout-target.ts`
+   (the drawer's `QueueItem` type left with the v1 queue card; it now has its own `CheckoutTarget`). Row flags show Urgent / VIP.
+5. Cut-over (R-14): `navForRole` has one primary destination Today (`/today`) for every operational role, `newActions` = Add walk-in and Register patient,
+   `LIVE_VIEWS` = `/today`, `/calendar`; `/` is a page that redirects (307) to `/today` (the dashboard layout above it still signs the visitor in);
+   `/queue` and `/cabin` redirect (308) from `next.config.ts` (`/cabin` to `/today?mode=doctor`); manifest `start_url` `/today?source=pwa`; login, join, clinic/new,
+   access and not-found/error/offline links go to `/today`; `revalidatePath` strings, notification links, `sign-and-bill-modal`, patient and visits links moved.
+   `getQueueForDate` (service and action, `select *` with `patients(*)`) is gone: the palette's `searchTodayQueueForPalette` selects three columns itself;
+   `tests/integration/{queue-flow,ist-boundaries}` and `tests/security/role-rls` read `getTodayBoard` instead.
+6. Deleted: `app/(dashboard)/{(today),queue,cabin}/**`, `components/queue/{walk-in-drawer,queue-view,queue-card,status-actions,triage-vitals-modal}.tsx`,
+   `components/cabin/**`, `components/dashboard/nav.tsx`, the walk-in drawer's waiver entry (waivers 9 -> 8). `components/queue/checkout-drawer.tsx` stays.
+7. `tests/ci/no-client-command-chains.spec.ts` (M4 criterion 7): `components/today`, `components/front-desk` (and `components/schedule` from 08-04b) import none of the
+   legacy multi-step writers.
+
+### Deviations
+
+- **No `B` shortcut.** The plan lists W, B, N and `?`; the booking sheet (`?book=1`) does not exist until 08-04b, so a B key would do nothing. 08-04b adds it to `SHORTCUTS`
+  and `FrontDeskSheets` (one line each).
+- **Last doctor used is kept in memory, not in `localStorage`.** `DEVICE_PREF_KEYS` says a preference may never be an identifier (a doctor's user id is one), so the
+  preselection lasts for the browser session only.
+- **Walk-in visit duration** is the command's default (15 minutes): `getActiveClinicDoctors` does not return the doctor's default slot length, which the v1 drawer
+  passed. A walk-in has no slot, so nothing else reads it.
+- **Walk-in reason** is the fixed text "Walk-in consultation" (the v1 drawer had a free "Reason / Symptoms" box; the plan's sheet has none, to keep W, Enter, Enter).
+- **Collect is on every completed visit** (`rowActions`' `collect`): "Collect ₹X" when money is due (To bill lane), "Bill" otherwise (Done lane). A visit
+  with no invoice yet is Done with balance 0, and the v1 checkout was how that invoice was created, so hiding the button would have removed the only path.
+- **Vitals blood sugar** is stored (schema extended, see 3). The Today vitals summary reads it back.
+- **`Billing & Reports` caption in the phone bar** is "Reports": Today replaced three destinations, so the owner and the admin now have four primaries and Reports
+  reached the BottomBar, where its name was clipped (found by `design-review-09e`).
+- **Sheet "Retry" fix (found by the spec 7 walk-in leg).** The `SaveStatus` Retry of a `useCommand` form re-ran the call but not what follows a success (close the
+  sheet, open the profile): after a lost response the sheet showed "Saved" and stayed open. The walk-in sheet and the 08-02 register sheet now retry through their own
+  submit (same request id). Not covered by a spec for the register sheet.
+- **Specs changed with the cut-over** (all outcome assertions kept): `m0/{walk-in-token,checkout-collect,consult-rx-finish}`, `pwa/{04-offline,13-idempotent-retry,01-manifest,06-update,
+  02..10, ui-checks*}`, `shell/*`, `journeys/{journey-08,journey-09}`, `a11y/clinical-split-screens` (Today rows, zero tolerated axe baseline), `design/screens/*` (the queue
+  and cabin captures are Today captures; `g3-screens.json` ids `owner-queue`, `receptionist-queue` removed, `doctor-cabin` -> `doctor-today`), `m0/baseline/baseline-routes`
+  (the checkout flow seeds its own completed visit: the run's visit is in consultation), `LANDING` in `support/run-data.ts` (every role lands on `/today`), unit specs for nav,
+  live views, bottom-bar captions, notification fixtures and the `/queue` route fixtures of the proxy, public paths, SW and client-error specs.
+
+### v1 behaviour inventory: where the rows of 08-03a's table ended up
+
+Every row of the 08-03a table is either in `/today` (counters as lane counts, doctor filter, sorting, tokens with the Urgent / VIP flag, vitals summary, Check in, Start / Call in,
+Collect, walk-in sheet, doctor mode with Next and Seen today, the owner's doctor switch as the mode toggle) or an approved removal (day switcher, registered-patients counter).
+Not in the 08-03a table, found while deleting the cabin: its WhatsApp prescription and receipt buttons (`sharePrescriptionViaWhatsApp`, `shareReceiptViaWhatsApp`) and its
+printer link. Both shares remain on the patient's visit history and the Visits register (the receipt share also in the checkout drawer); no action lost its other callers.
+Recorded as an approved removal of a duplicate entry point.
+
+### Tests
+
+- Vitest (unit, no stack needed): `tests/today/modes.spec.ts` (13: modes by role, `?mode=` resolution, row buttons per mode from the real permission matrix for every role x status,
+  no consult action for a role without `consultations:edit`, no button the state machine did not list, the doctor's lanes, triage order, the stored vitals shape, the checkout
+  target, the typed query to register fields), `tests/today/shortcuts.spec.ts` (4), `tests/ci/no-client-command-chains.spec.ts` (3, M4 criterion 7). Updated: `tests/nav/nav-for-role`
+  (Today for every role, `newActions`), `tests/pwa/{shell-runtime,device-prefs}`, `tests/design/design-review-09e`, the guard manifest (`getQueueForDate` removed), `tests/auth/*` and
+  `tests/subscriptions/locked-redirects` (the Today page replaces the dashboard, cabin and queue pages), `tests/integration/{queue-flow,ist-boundaries}`,
+  `tests/security/role-rls`, `tests/visits/visit-service-guards`, notification and route fixtures. Affected set (`tests/security auth subscriptions observability notifications
+  integration api visits queue ci patients commands pwa today nav design staff appointments consultation`): 218 files, 4902 tests; 9 failed on the first run (a blanket `/queue`
+  replace had renamed `features/queue/actions.ts` keys in `guard/valid-inputs.ts`: 6; the locked-page redirect now goes to `/today`: 3), both fixed, the two files re-run green (706).
+- E2E: new `today/front-desk.spec.ts` (19 per device: nurse vitals and no consult action; doctor start from a booking = one token and `in_consultation`, the Next card, own queue only,
+  Call in; owner toggle; receptionist has no consult action and registers a new patient inside the walk-in sheet; keyboard W, Enter, Enter = exactly 3 key presses; the `?` list and the
+  switch; axe at 360, 820, 1280 on the walk-in sheet (find and confirm), the vitals sheet and each mode), `journeys/journey-05-walk-in.spec.ts` (@golden, the receptionist adds a walk-in,
+  the doctor's browser shows it under Waiting (mine), Call in opens the consult, axe on the sheet), `pwa/13-idempotent-retry.spec.ts` walk-in leg (a NEW patient: response lost once, and
+  lost on every attempt: still one patient, one visit, one token, no orphan; "Retry" then closes the sheet). `m0/{walk-in-token,checkout-collect,consult-rx-finish}` keep their outcome
+  assertions on the new selectors and record `ux` counts (walk-in-token now counts the sheet's keyboard path).
+- Final `npm run e2e:build` then `npm run e2e:pr`: 685 passed, 240 skipped, 2 failed, 0 retried. The two failures were `pwa/04-offline` first test on desktop-chrome and pixel-7: (1) a `Check in`
+  button on Today offline carries its screen-reader reason, which the "rows unchanged" text comparison counted (only visible once earlier specs left a booked row), (2) the first
+  "E2E Synthetic" in the DOM sat in a hidden lane on a phone. Both are assertion brittleness, not UI defects (the offline reason is Button's rule; lanes are one at a time below 1280): the spec now
+  seeds its own waiting patient and ignores the reason text; re-run green on desktop-chrome, pixel-7 and iphone-15. The expected failures (known P1-03, network-block self-test) are unchanged.
+  Earlier full runs found and fixed: every `"/"` landing assertion (turnstile, sign-in helpers, 06-update, 09e Back, journey 09), the manifest start URL, `Go to Today` hrefs, `Male`
+  matching `Female`, the bottom-bar caption for Reports, and the Retry defect above. `npm run e2e:nightly -- tests/e2e/today` (ipad-mini-744, ipad-gen7, galaxy-tab-s4 landscape and the
+  other nightly devices): 22 passed.
+- `npm run ci:route-js`: `/today` 298.0 kB gz (08-03a: 290.3; the checkout drawer and the vitals sheet are lazy chunks: without them it was 318.7). Report-only (budget enforced in V2-15).
+
+### Commands run (counts)
+
+- No migration, no SQL touched: no `db reset`, no pgTAP, no schema snapshot step (`EXPECTED_MIGRATION` stays 000102).
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (418 warnings, 12 fewer than 08-03a). `npm run inventory`: exit 0, 0 flagged. `npm run ci:ui-policy`: PASS (deltas non-positive). `npm run ci:ai-l1`: PASS.
+  `node scripts/observability/client-routes.mjs --write` (`/queue` and `/cabin` left the list), `tests/ci/react-compiler-waivers.spec.ts` green (no new waiver, one fewer).
+- `npm run e2e:build` (several times), the lanes above.
+
+### What 08-04a and 08-04b must know
+
+- `/today`, `?walkin=1`, `?new=1` exist; `FrontDeskSheets` takes `canRegister` and `canWalkIn`; add `?book=1` and `?reschedule=` there and a `B` entry to `SHORTCUTS` (`components/front-desk/shortcuts.ts`)
+  and the key map in `front-desk-sheets.tsx`. `rowActions` already lists `reschedule`, `no_show` and `cancel`; `rowButtons` (`features/today/schema.ts`) does not render them yet: add their kinds there
+  when the commands of 000103 exist. `components/schedule` is already covered by `no-client-command-chains.spec.ts`.
+- `/calendar` still exists (redirect in `next.config.ts` and the Schedule nav label are 08-04b's); `LIVE_VIEWS` is `/today`, `/calendar` (rename with the route). The palette's "Book appointment" still links `/calendar`.
+- `updateVisitStatus` still has only test callers (08-01b note); `getQueueForDate` is gone.
+- A booked visit's `Start consultation` in the calendar's `doctor-timeline.tsx` is still a plain link to `/consultation/<id>` (08-01b note): replace it with `startConsultation` or remove it with that screen.
+- `SaveStatus` Retry of a `useCommand` form must go through the form's own submit (see the Retry fix); `command.retry()` alone does not run what follows a success.
+- Tests that need a visible row below 1280 px must use the Waiting lane (the default) or `showLane`; Done is a collapsed column at 1280 and up (`showLane(page, "Done")` expands it); `openBill(page, name, ux?)` opens the checkout from Today.
+- `tests/e2e/support/run-data.ts` `LANDING` is `/today` for every role; `/` redirects there.
