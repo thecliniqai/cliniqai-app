@@ -177,7 +177,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
     diagnoses: initialDiagnoses,
     prescription_items: initialPrescriptionItems,
     signed_at: (visitRow.signed_at as string | null) ?? null,
-    current_revision: (visitRow.current_revision as number | null) ?? 0,
+    current_revision: (visitRow.current_revision as number | null) ?? 1, // the database default (09A-06a, review B-2)
     prescription_version: (latestHeader?.version as number | undefined) ?? null,
     amendment_reason: amendmentReason,
   };

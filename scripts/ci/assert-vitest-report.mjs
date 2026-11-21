@@ -106,6 +106,8 @@
  *          the floor is re-measured once at the phase close.
  *   6455 — V2-09a 09A-05, unchanged: REQUIRED_FILES + tests/consultation/workspace-sealed.spec.ts (9) and
  *          tests/consultation/sealed-refusal-messages.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-06a (review fix round), unchanged: REQUIRED_FILES + tests/prescriptions/rx-archive-signer.spec.ts (9) and
+ *          tests/consultation/workspace-review-fixes.spec.ts (6). The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -469,6 +471,9 @@ const REQUIRED_FILES = [
   "tests/labs/lab-documents-append-only.spec.ts",
   "tests/consultation/workspace-sealed.spec.ts",
   "tests/consultation/sealed-refusal-messages.spec.ts",
+  // V2-09a 09A-06a (the review fix round: ruling R-A, the share-link hash, the 09A-05 UI rows).
+  "tests/prescriptions/rx-archive-signer.spec.ts",
+  "tests/consultation/workspace-review-fixes.spec.ts",
 ];
 
 const file = process.argv[2];

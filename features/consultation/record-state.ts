@@ -23,6 +23,19 @@ export function recordState(visit: RecordStateInput): RecordState {
   return visit.status === "in_consultation" ? "amending" : "sealed";
 }
 
+/**
+ * The signed version a record shows (V2-09a 09A-06a, review B-2): the latest prescription header's version, else (a consultation with no
+ * prescription) the number of signatures. `visits.current_revision` is 1 for a visit never amended (the database default) and each reopen sets it to the
+ * new revision number + 1, so it equals the signatures while sealed and is one ahead of the signed version while amending.
+ */
+export function signedVersionOf(
+  visit: { prescription_version?: number | null; current_revision?: number | null },
+  state: RecordState
+): number {
+  if (visit.prescription_version) return visit.prescription_version;
+  return Math.max(1, (visit.current_revision ?? 1) - (state === "amending" ? 1 : 0));
+}
+
 /** The one text a sealed refusal shows the caller (V2-09a R-17): fixed, data-free, never the driver's message. */
 export const SIGNED_CONSULTATION_MESSAGE =
   "This consultation is already signed. Reopen it for amendment to make changes.";

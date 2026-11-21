@@ -62,6 +62,11 @@ function AmendmentForm({
   // One client_request_id per amendment submit: a retry after an error re-sends it (the server replays or runs fresh).
   const reopen = useCommand();
 
+  // 09A-06a (review B-4): while the reopen is in flight the dialog cannot be dismissed (Escape, an outside click and the Close button are held).
+  const holdWhilePending = (event: Event) => {
+    if (reopen.pending) event.preventDefault();
+  };
+
   const trimmed = reason.trim();
   const isReasonValid =
     trimmed.length >= AMENDMENT_REASON_MIN &&
@@ -85,6 +90,9 @@ function AmendmentForm({
       size="lg"
       dirty={reason.length > 0}
       closeLabel="Close amendment dialog"
+      showClose={!reopen.pending}
+      onEscapeKeyDown={holdWhilePending}
+      onInteractOutside={holdWhilePending}
       data-amendment-dialog=""
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

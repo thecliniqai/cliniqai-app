@@ -20,7 +20,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
-import { seedSignedConsultation } from "../support/m0-data";
+import { run, seedPatient, seedPrescription, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
@@ -99,7 +99,8 @@ for (const size of WIDTHS) {
       await page.setViewportSize(size);
       await page.goto(`/consultation/${visitId}`);
       await expect(page.getByTestId("signed-chip")).toContainText("Rx v1");
-      await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toBeDisabled();
+      // 09A-06a (review B-6): read-only, not disabled, so a keyboard user can reach and scroll the signed notes.
+      await expect(page.getByLabel("History of Present Illness & Clinical Notes")).not.toBeEditable();
       const amend = page.getByRole("button", { name: "Amend", exact: true });
       await expect(amend).toBeVisible();
       expect(await heightOf(amend)).toBeGreaterThanOrEqual(44);
@@ -174,3 +175,78 @@ for (const size of WIDTHS) {
     });
   });
 }
+
+/**
+ * V2-09a 09A-06a (review B-1, B-3, B-4): the in-session transitions, through real interaction (desktop width; the a11y specs own their viewport).
+ *  - B-1: an editor left open while the record becomes sealed (the vitals editor, a drug staged in the builder) does not survive the refresh;
+ *  - B-3: after a successful Amend focus lands on the amendment banner, after a successful Finalize on the signed chip (never on <body>);
+ *  - B-4: while the Finalize dialog saves and finalizes it cannot be dismissed (Escape, outside click; the Close button is gone).
+ */
+test.describe("amendment: in-session transitions", () => {
+  test.use({ storageState: storageStatePath("doctor") });
+
+  test("B-1: the vitals editor and a staged drug do not survive the sign-off refresh; nothing in #vitals is editable", async ({ page }) => {
+    const { tenantA } = run();
+    const doctor = tenantA.users.doctor;
+    const tag = testTag();
+    const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Session Sign ${tag}`);
+    const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
+    await seedPrescription({ tenantId: tenantA.id, visitId, patientId: patient.id, doctorId: doctor.id, medicineName: `E2E Synthetic Session Med ${tag}` });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`/consultation/${visitId}`);
+    await page.getByLabel("History of Present Illness & Clinical Notes").fill("E2E synthetic note for the in-session sign-off");
+    // Open the vitals editor and leave it open.
+    await page.locator("#vitals").getByRole("button", { name: "Edit vitals" }).click();
+    await expect(page.locator("#vitals input:not([disabled])").first()).toBeVisible();
+    await page.locator("#vitals").getByPlaceholder("Sys").fill("120");
+    // Stage a drug in the builder and leave it staged.
+    const staged = `E2E Synthetic Staged ${tag}`;
+    await page.locator("#prescription").getByLabel("Search CDCI Medicine or Brand Name:").fill(staged);
+    await page.locator("#prescription").getByRole("button", { name: /Add as custom medicine/ }).click();
+    await expect(page.getByText("Configure Dosage & Instructions:")).toBeVisible();
+
+    await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
+    await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
+    await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Review Encounter" }).click();
+
+    await expect(page.getByTestId("signed-chip")).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("#vitals input")).toHaveCount(0);
+    await expect(page.locator("#vitals").getByRole("button", { name: "Edit vitals" })).toHaveCount(0);
+    await expect(page.getByText("Configure Dosage & Instructions:")).toHaveCount(0);
+    await expect(page.locator("#prescription input:not([disabled]), #prescription textarea:not([disabled]):not([readonly])")).toHaveCount(0);
+  });
+
+  test("B-3 and B-4: focus lands on the banner after Amend and on the signed chip after Finalize; the Finalize dialog holds while it works", async ({ page }) => {
+    const { visitId } = await seedSignedConsultation("Session Focus");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`/consultation/${visitId}`);
+    const amend = page.getByRole("button", { name: "Amend", exact: true });
+    await amend.click();
+    const amendDialog = page.getByRole("dialog", { name: "Reopen Visit for Clinical Amendment" });
+    await amendDialog.getByLabel(/Reason for Amendment/).fill(REASON);
+    await amendDialog.getByRole("button", { name: /Confirm & Reopen for Amendment/ }).click();
+    await expect(page.getByTestId("amending-banner")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("amending-banner")).toBeFocused();
+
+    // Slow every server action down, so the dialog's save and finalize phases are long enough to try to dismiss it.
+    await page.route(`**/consultation/${visitId}`, async (route) => {
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await new Promise((r) => setTimeout(r, 1_500));
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Finalize amendment" }).click();
+    const confirm = page.getByRole("dialog", { name: "Finalize amendment" });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Finalize amendment" }).click();
+    // Busy: Escape and an outside click do not dismiss it, and its Close button is gone.
+    await expect(confirm.getByRole("button", { name: "Close" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.mouse.click(5, 5);
+    await expect(confirm).toBeVisible();
+    // It completes: the consultation is sealed again at v2 and focus is on the signed chip.
+    await expect(page.getByTestId("signed-chip")).toContainText("Rx v2", { timeout: 30_000 });
+    await expect(confirm).toBeHidden();
+    await expect(page.getByTestId("signed-chip")).toBeFocused();
+  });
+});

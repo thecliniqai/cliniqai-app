@@ -449,7 +449,8 @@ export function DiagnosisSection({
         ) : (
           <div className="space-y-2">
             {diagnoses.map((item) => {
-              const isEditingNote = activeEditingNoteId === item.id;
+              // V2-09a 09A-06a (review B-7): a read-only record never shows the note editor, even one opened before the record was sealed.
+              const isEditingNote = activeEditingNoteId === item.id && !disabled;
               return (
                 <div
                   key={item.id}
@@ -481,6 +482,7 @@ export function DiagnosisSection({
                       {!isEditingNote && (
                         <button
                           type="button"
+                          disabled={disabled}
                           onClick={() => {
                             setActiveEditingNoteId(item.id);
                             setEditingNoteValue(item.notes || "");

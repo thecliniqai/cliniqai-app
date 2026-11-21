@@ -147,7 +147,14 @@ test("a signed consultation is read-only in the workspace; Amend is offered (P1-
   // Nothing on the signed consultation can be changed from the workspace.
   await expect(page.getByLabel(MEDICINE_SEARCH_LABEL)).toBeDisabled();
   await expect(page.getByRole("button", { name: "Remove medication" })).toBeDisabled();
-  await expect(page.getByLabel(NOTES_LABEL)).toBeDisabled();
+  // V2-09a 09A-06a (review B-6): the signed notes are read-only, not disabled: focusable and scrollable by keyboard, typing changes nothing.
+  const notesField = page.getByLabel(NOTES_LABEL);
+  await expect(notesField).not.toBeEditable();
+  await expect(notesField).toHaveAttribute("aria-readonly", "true");
+  await notesField.focus();
+  await expect(notesField).toBeFocused();
+  await page.keyboard.type("typed into a signed record");
+  await expect(notesField).toHaveValue("E2E synthetic note");
   await expect(page.getByPlaceholder(/Search diagnosis name/)).toBeDisabled();
   await expect(page.getByRole("button", { name: /Record Vitals|Edit Vitals/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Complete & Sign/ })).toHaveCount(0);

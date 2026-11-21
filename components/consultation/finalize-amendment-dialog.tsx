@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,19 @@ function FinalizeBody({
   const finalize = useCommand();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 09A-06a (review B-4): once the save phase starts the dialog cannot be dismissed (Escape, an outside click and the Close button are held), and if it
+  // is unmounted anyway nothing is sent after the save.
+  const busy = saving || finalize.pending;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const holdWhileBusy = (event: Event) => {
+    if (busy) event.preventDefault();
+  };
 
   const submit = async () => {
     if (saving || finalize.pending) return;
@@ -65,28 +78,31 @@ function FinalizeBody({
     setSaving(true);
     try {
       const saved = await onBeforeFinalize?.();
+      // Dismissed while saving (not reachable while held, but never send the command for a dialog that is gone).
+      if (!mounted.current) return;
       if (saved && !saved.success) {
         setSaveError(
           saved.error || "The changes could not be saved. Try again."
         );
         return;
       }
+      // `saving` stays true until the command has answered, so the dialog is held from the save through the finalize.
+      const res = await finalize.run((clientRequestId) =>
+        finalizeVisitAmendment(visitId, clientRequestId)
+      );
+      if (res.ok) {
+        onSuccess?.();
+        onClose();
+      }
     } finally {
-      setSaving(false);
-    }
-    const res = await finalize.run((clientRequestId) =>
-      finalizeVisitAmendment(visitId, clientRequestId)
-    );
-    if (res.ok) {
-      onSuccess?.();
-      onClose();
+      if (mounted.current) setSaving(false);
     }
   };
 
   const error = saveError ?? finalize.error?.message ?? null;
 
   return (
-    <DialogContent size="md" closeLabel="Close">
+    <DialogContent size="md" closeLabel="Close" showClose={!busy} onEscapeKeyDown={holdWhileBusy} onInteractOutside={holdWhileBusy}>
       <DialogHeader>
         <DialogTitle>Finalize amendment</DialogTitle>
         <DialogDescription>

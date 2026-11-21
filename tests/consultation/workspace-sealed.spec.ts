@@ -59,9 +59,10 @@ const render = (visit: Props["visit"], extra: Partial<Props> = {}) =>
 const draft = () => render(visitProps({}));
 const SIGNED = "2031-01-15T10:12:00Z"; // 15:42 in Asia/Kolkata
 const sealed = (extra: Partial<Props> = {}) =>
-  render(visitProps({ status: "completed", signed_at: SIGNED, current_revision: 0, prescription_version: 1 }), extra);
+  render(visitProps({ status: "completed", signed_at: SIGNED, current_revision: 1, prescription_version: 1 }), extra);
+// 09A-06a (review B-2): current_revision as the database stores it (1 by default; the first reopen sets 2).
 const amending = () =>
-  render(visitProps({ status: "in_consultation", signed_at: SIGNED, current_revision: 1, prescription_version: 1, amendment_reason: "Added the missing antibiotic" }));
+  render(visitProps({ status: "in_consultation", signed_at: SIGNED, current_revision: 2, prescription_version: 1, amendment_reason: "Added the missing antibiotic" }));
 
 /** The opening tag of the first element of `tag` whose markup contains `needle`. */
 function openTag(html: string, tag: string, needle: string): string {
@@ -90,8 +91,11 @@ describe("sealed: a signed consultation is read-only", () => {
   const html = sealed();
 
   it("every input, the builder and every remove control are disabled", () => {
+    // 09A-06a (review B-6): the notes are read-only, not disabled (focusable and scrollable by keyboard).
+    const notes = openTag(html, "textarea", 'id="clinical-notes"');
+    expect(isDisabled(notes)).toBe(false);
+    expect(notes).toMatch(/\sreadOnly(=""|\s|>)/i);
     for (const [tag, needle] of [
-      ["textarea", 'id="clinical-notes"'],
       ["input", 'id="medicine-search-input"'],
       ["input", 'placeholder="Search diagnosis name'],
       ["button", 'aria-label="Remove medication"'],
@@ -158,15 +162,18 @@ describe("amending: signed and reopened, editable until finalized", () => {
   });
 
   it("a second amendment counts from the header's version", () => {
-    const second = render(visitProps({ status: "in_consultation", signed_at: SIGNED, current_revision: 2, prescription_version: 2, amendment_reason: "Second correction here" }));
+    const second = render(visitProps({ status: "in_consultation", signed_at: SIGNED, current_revision: 3, prescription_version: 2, amendment_reason: "Second correction here" }));
     expect(text(second)).toContain("Amending a signed consultation (v2 to v3): Second correction here");
   });
 });
 
 describe("completed by the front desk and never signed: read-only, no Amend (R-11)", () => {
   const html = render(visitProps({ status: "completed", signed_at: null, prescription_items: [] }));
-  it("the notes are disabled and Amend is not offered", () => {
-    expect(isDisabled(openTag(html, "textarea", 'id="clinical-notes"'))).toBe(true);
+  // 09A-06a (review B-6): read-only, not disabled, like a sealed record's notes.
+  it("the notes are read-only and Amend is not offered", () => {
+    const notes = openTag(html, "textarea", 'id="clinical-notes"');
+    expect(notes).toMatch(/\sreadOnly(=""|\s|>)/i);
+    expect(isDisabled(notes)).toBe(false);
     expect(hasButton(html, /^Amend$/)).toBe(false);
     expect(hasButton(html, /Complete & Sign/)).toBe(false);
   });

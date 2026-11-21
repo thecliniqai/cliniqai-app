@@ -588,8 +588,9 @@ export function PrescriptionBuilder({
         )}
       </div>
 
-      {/* 4. 1-TAP FAST DOSAGE CHIP STAGING PANEL */}
-      {stagedDrug && (
+      {/* 4. 1-TAP FAST DOSAGE CHIP STAGING PANEL. Never on a read-only record (V2-09a review B-1): a drug staged before the record was sealed is
+          not offered for editing; the workspace also remounts the builder when the record state changes, which clears it. */}
+      {stagedDrug && !disabled && (
         <div className="rounded-xl border-2 border-accent bg-accent-subtle/20 p-4 space-y-4 animate-in fade-in duration-150">
           <div className="flex items-center justify-between pb-2 border-b border-accent-border">
             <div>
@@ -831,7 +832,7 @@ export function PrescriptionBuilder({
       )}
 
       {/* Confirmation Modal for Remove Medication */}
-      {itemToDelete && (
+      {itemToDelete && !disabled && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
           <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl space-y-4">
             <h4 className="text-sm font-bold text-gray-900">Remove Prescribed Medication?</h4>
@@ -859,7 +860,7 @@ export function PrescriptionBuilder({
       )}
 
       {/* Protocol Templates Drawer Modal */}
-      {isTemplateModalOpen && (
+      {isTemplateModalOpen && !disabled && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 shrink-0">

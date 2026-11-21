@@ -13,7 +13,7 @@ import { insertReturningId } from "../helpers/db";
 import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 import { recordFollowUp } from "@/features/consultation/service";
 import { addConsultationDiagnosis, removeConsultationDiagnosis, updateDiagnosisNote } from "@/features/terminology/service";
-import { addPrescriptionItem, removePrescriptionItem } from "@/features/prescriptions/service";
+import { addPrescriptionItem, getOrCreateDraftPrescription, removePrescriptionItem } from "@/features/prescriptions/service";
 
 const admin = getAdminClient();
 let owner: SeededTenant;
@@ -125,6 +125,16 @@ describe("a signed consultation answers every refused write with the fixed text 
     const res = await recordFollowUp(ctxFor(doctor), { visitId: sealed.visit.visitId, patientId: sealed.visit.patientId, followUpDate: "2031-04-01" });
     expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
     expect((await counts(sealed.visit.visitId)).followUps).toEqual(["2031-03-01"]);
+  });
+
+  // 09A-06a (review B-7): the header insert of getOrCreateDraftPrescription on a signed consultation with no prescription.
+  it("creating the draft prescription of a signed consultation that has none", async () => {
+    const bare = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 0 });
+    await signVisitAs(doctor, bare.visitId);
+    const res = await getOrCreateDraftPrescription(ctxFor(doctor), bare.visitId);
+    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
+    const { data } = await admin.from("prescriptions").select("id").eq("visit_id", bare.visitId);
+    expect(data).toEqual([]);
   });
 
   it("a plain privilege error is not a sealed refusal", () => {

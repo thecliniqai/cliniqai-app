@@ -30,6 +30,8 @@ import { isSealedRefusal, recordState, SIGNED_CONSULTATION_MESSAGE } from "./rec
 
 /** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
 const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
+/** V2-09a 09A-06a (review B-5): the follow-up write failed, so the save is not complete (Finalize amendment stops on it). */
+export const FOLLOW_UP_SAVE_FAILED_MESSAGE = "Draft saved, but the follow-up could not be saved. Please try again.";
 
 /**
  * Completed or cancelled (unsigned: terminal in the app, V2-09a R-11), or sealed: signed and not reopened for amendment
@@ -235,12 +237,17 @@ export async function saveConsultationDraft(
 
     // 4. Handle follow-up record if provided
     if (data.follow_up?.follow_up_date) {
-      await recordFollowUp(ctx, {
+      // 09A-06a (review B-5): the result is checked. A failed follow-up write fails the save, so the amendment's Finalize (which saves first and stops
+      // on a failed save) never seals a version whose follow-up is not the one on screen.
+      const followUp = await recordFollowUp(ctx, {
         visitId: data.visit_id,
         patientId: visit.patient_id,
         followUpDate: data.follow_up.follow_up_date,
         notes: data.follow_up.notes ?? undefined,
       });
+      if (!followUp.success) {
+        return { success: false, error: followUp.error === SIGNED_CONSULTATION_MESSAGE ? SIGNED_CONSULTATION_MESSAGE : FOLLOW_UP_SAVE_FAILED_MESSAGE };
+      }
     } else {
       // If doctor selected None / N/A, delete any existing follow_up for this visit. RLS may filter the delete
       // (V2-05 05-04): compare the deleted rows with the visible ones, so a follow-up that is still there is reported.

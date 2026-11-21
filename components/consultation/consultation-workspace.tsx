@@ -31,7 +31,7 @@ import { PediatricsTools } from "./specialty/pediatrics-tools";
 import { SignAndBillModal } from "./sign-and-bill-modal";
 import { AmendmentModal } from "./amendment-modal";
 import { FinalizeAmendmentDialog } from "./finalize-amendment-dialog";
-import { recordState } from "@/features/consultation/record-state";
+import { recordState, signedVersionOf } from "@/features/consultation/record-state";
 import { Banner } from "@/components/ui/banner";
 import {
   Clock,
@@ -84,7 +84,10 @@ export interface ConsultationWorkspaceProps {
     metadata?: Record<string, unknown> | null;
     /** Sign-off time; with `status` it decides the record state (`recordState`, V2-09a R-2). */
     signed_at?: string | null;
-    /** The amendment number of the latest reopen (0 or absent: never amended). */
+    /**
+     * `visits.current_revision`: 1 for a visit never amended (the database default); each reopen sets it to the new revision number + 1, so it counts
+     * the signatures of a sealed visit and is one ahead of the signed version while amending.
+     */
     current_revision?: number | null;
     /** Version of the visit's latest prescription header, null when there is none. */
     prescription_version?: number | null;
@@ -168,7 +171,22 @@ export function ConsultationWorkspace({
   const readOnly = state === "sealed" || visit.status === "completed" || visit.status === "cancelled";
   const [isAmendOpen, setIsAmendOpen] = useState(false);
   const [isFinalizeOpen, setIsFinalizeOpen] = useState(false);
-  const signedVersion = visit.prescription_version ?? Math.max(1, (visit.current_revision ?? 0) + (state === "sealed" ? 1 : 0));
+  // The signed version: the prescription header's, else (a consultation with no prescription) the number of signatures (09A-06a, review B-2):
+  // current_revision while sealed, current_revision - 1 while amending (the reopen has already counted the amendment).
+  const signedVersion = signedVersionOf(visit, state);
+  // 09A-06a (review B-3): after a successful Amend or Finalize the refresh replaces the button that opened the dialog, so focus is moved to a
+  // stable element of the new state (the amendment banner, or the signed chip) instead of falling to <body>.
+  const focusAfterRefreshRef = useRef<"amending" | "sealed" | null>(null);
+  const amendingBannerRef = useRef<HTMLDivElement>(null);
+  const signedChipRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (focusAfterRefreshRef.current !== state) return;
+    focusAfterRefreshRef.current = null;
+    (state === "amending" ? amendingBannerRef.current : signedChipRef.current)?.focus();
+  }, [state]);
+  // Local editing state of the vitals editor and the Rx builder (an open editor, a staged drug, an open overlay) never survives a change of the record
+  // state (review B-1): they are remounted with this key.
+  const editorKey = `${state}:${readOnly ? "ro" : "rw"}`;
 
   // Core Form State
   const [specialty, setSpecialty] = useState<ClinicalSpecialty>(
@@ -554,6 +572,8 @@ export function ConsultationWorkspace({
                 {/* Signed chip (R-16): when it was signed, in the clinic's zone, and the prescription version. */}
                 {state === "sealed" && visit.signed_at && (
                   <span
+                    ref={signedChipRef}
+                    tabIndex={-1}
                     data-testid="signed-chip"
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-800 border border-gray-300 whitespace-nowrap"
                   >
@@ -781,10 +801,12 @@ export function ConsultationWorkspace({
 
       {/* Amending (R-16): the signed version is kept; the edits become the next version when the amendment is finalized. */}
       {state === "amending" && (
-        <Banner tone="past-due" role="status" icon={<FilePenLine />}>
-          Amending a signed consultation (v{signedVersion} to v{signedVersion + 1})
-          {visit.amendment_reason ? `: ${visit.amendment_reason}` : ""}
-        </Banner>
+        <div ref={amendingBannerRef} tabIndex={-1} data-testid="amending-banner">
+          <Banner tone="past-due" role="status" icon={<FilePenLine />}>
+            Amending a signed consultation (v{signedVersion} to v{signedVersion + 1})
+            {visit.amendment_reason ? `: ${visit.amendment_reason}` : ""}
+          </Banner>
+        </div>
       )}
 
       {/* 2. STICKY SECTION JUMP BAR (z-20) */}
@@ -884,6 +906,7 @@ export function ConsultationWorkspace({
         {/* SECTION 1: VITALS */}
         <section id="vitals" className="scroll-mt-32">
           <VitalsBlock
+            key={editorKey}
             vitals={vitals ?? {}}
             disabled={readOnly}
             onChange={(newVitals) => {
@@ -980,6 +1003,7 @@ export function ConsultationWorkspace({
         {/* SECTION 5: ELECTRONIC PRESCRIPTION */}
         <section id="prescription" className="scroll-mt-32">
           <PrescriptionBuilder
+            key={editorKey}
             visitId={visit.id}
             patientAllergies={patient.allergies ?? []}
             initialItems={visit.prescription_items ?? []}
@@ -1418,7 +1442,10 @@ export function ConsultationWorkspace({
         visitId={visit.id}
         completedDate={visit.signed_at ? signedAtLabel(visit.signed_at, timeZone) : undefined}
         currentVersion={signedVersion}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => {
+          focusAfterRefreshRef.current = "amending";
+          router.refresh();
+        }}
       />
       <FinalizeAmendmentDialog
         open={isFinalizeOpen}
@@ -1426,7 +1453,10 @@ export function ConsultationWorkspace({
         visitId={visit.id}
         fromVersion={signedVersion}
         onBeforeFinalize={() => handleSaveDraft(false)}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => {
+          focusAfterRefreshRef.current = "sealed";
+          router.refresh();
+        }}
       />
 
       {/* Create Referral Modal */}

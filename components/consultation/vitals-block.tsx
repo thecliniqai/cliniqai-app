@@ -23,6 +23,9 @@ export function VitalsBlock({
   disabled = false,
 }: VitalsBlockProps) {
   const [isEditing, setIsEditing] = useState(false);
+  // V2-09a review B-1: a read-only record never shows the editor, even when it was open before the record was sealed (the workspace also remounts
+  // this block when the record state changes, which resets the editing state).
+  const editing = isEditing && !disabled;
 
   // Auto-calculated BMI: Weight (kg) / [Height (m)]^2
   const bmiInfo = useMemo(() => {
@@ -117,11 +120,11 @@ export function VitalsBlock({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setIsEditing(!isEditing)}
+            onClick={() => setIsEditing(!editing)}
             aria-label="Edit vitals"
             className="text-xs text-accent hover:text-accent-hover gap-1.5"
           >
-            {isEditing ? (
+            {editing ? (
               <>
                 <Check className="w-4 h-4" /> Done
               </>
@@ -134,7 +137,7 @@ export function VitalsBlock({
         )}
       </div>
 
-      {isEditing ? (
+      {editing ? (
         /* Edit Mode: Clean Form Inputs */
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
           {/* BP */}
