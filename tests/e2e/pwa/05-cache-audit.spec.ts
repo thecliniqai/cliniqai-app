@@ -24,7 +24,18 @@
  * on the patient screen showing "Signing out…" and nothing was purged (adversarial review A, H-1).
  */
 import type { Page } from "@playwright/test";
-import { allowlisted, authCookies, deviceState, expect, PREF_KEYS, SHELL_CACHE, SHELL_URLS, test, waitForServiceWorker } from "./fixtures";
+import {
+  allowlisted,
+  authCookies,
+  deviceState,
+  expect,
+  PREF_KEYS,
+  purgeProgress,
+  SHELL_CACHE,
+  SHELL_URLS,
+  test,
+  waitForServiceWorker,
+} from "./fixtures";
 import { readRunData, runPassword, storageStatePath } from "../support/run-data";
 import { freshMember, otherDevice, uiSignIn, expectSignedOut } from "../support/password-journeys";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
@@ -301,7 +312,10 @@ test.describe("exit paths (fresh nurse each)", () => {
       // still show: the sign-out finished on the device and the patient screen is hidden even though the page stayed.
       await expect(page.locator("html")).toHaveCSS("visibility", "hidden");
       await expect(page.getByText(readRunData().tenantA.patientName).first()).toBeHidden();
-      await expect.poll(async () => (await deviceState(page)).sessionKeys).toEqual([]);
+      // The page stays, so no navigation marks the end of the purge: wait for its last steps (planted session key and
+      // database gone) WITHOUT touching Cache Storage. CI run 44851237140: this poll read deviceState, whose
+      // caches.open re-created, empty, the rogue-cache the purge deleted mid-read; expectPurged then found it.
+      await expect.poll(() => purgeProgress(page)).toEqual({ sessionKeys: [], indexedDbNames: [] });
     } else {
       await page.waitForURL((url) => url.pathname === "/login");
       await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();

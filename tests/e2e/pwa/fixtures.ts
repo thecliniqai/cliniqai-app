@@ -110,6 +110,24 @@ export async function storageKeys(page: Page): Promise<{ localKeys: string[]; se
   });
 }
 
+/**
+ * The purge's LAST steps, read without touching Cache Storage: `sessionStorage` keys and IndexedDB database names. The
+ * purge runs Cache Storage, then sessionStorage, then localStorage, then IndexedDB, one after the other, so once the
+ * keys and databases a spec planted are gone every step has run and {@link deviceState} may read the settled device.
+ * For a page the purge does not navigate away from (WebKit offline sign-out), where no URL change marks the end.
+ * Flake pwa05-offline-signout-webkit: polling deviceState instead re-created, empty, the `rogue-cache` the purge deleted
+ * while that poll was reading.
+ */
+export async function purgeProgress(page: Page): Promise<{ sessionKeys: string[]; indexedDbNames: string[] }> {
+  return page.evaluate(async () => {
+    const dbs = typeof indexedDB.databases === "function" ? await indexedDB.databases() : [];
+    return {
+      sessionKeys: Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i) ?? ""),
+      indexedDbNames: dbs.map((d) => d.name ?? ""),
+    };
+  });
+}
+
 /** The D-2 allowlist as the specs state it (independent of lib/pwa/purge.ts, so a wrong allowlist there is caught). */
 export const SHELL_URLS = ["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"];
 /** 06-09a (M-OFFLINE): one shell cache per build, `shell-<stamp>`. */
