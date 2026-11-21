@@ -46,7 +46,6 @@ const D1_NON_ACTION_MODULES = [
   "features/dpdp/erasure.ts",
   "features/dpdp/export.ts",
   "features/notifications/triggers.ts",
-  "lib/ai/catch-up-summary.ts",
   "lib/ai/prescription-suggestions.ts",
   "lib/ai/soap-generator.ts",
   "lib/ai/tools/clinical-tools.ts",

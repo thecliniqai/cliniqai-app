@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { getDoctorFrequentPrescriptions } from "@/lib/ai/prescription-suggestions";
-import { generatePatientCatchUpSummary } from "@/lib/ai/catch-up-summary";
 import type { AiChatClient } from "@/lib/ai/client";
 import { mockCtx } from "../helpers/context";
 
@@ -10,7 +9,7 @@ function fakeAiClient(output: string) {
   return { client: { chatCompletion } satisfies AiChatClient, chatCompletion };
 }
 
-describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up Summary (REQ-ai-features, T-05-11, T-05-10)", () => {
+describe("Wave 3: Deterministic Historical Prescription Suggestions (REQ-ai-features, T-05-11, T-05-10)", () => {
   describe("Zero-Hallucination SQL Suggestions (T-05-11)", () => {
     it("returns empty array immediately when diagnosis string is too short or empty", async () => {
       const results1 = await getDoctorFrequentPrescriptions(mockCtx({}, { tenantId: "tenant-123" }), {
@@ -140,108 +139,6 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
       });
 
       expect(suggestions).toEqual([]);
-    });
-  });
-
-  describe("Returning Patient Catch-Up Summary (REQ-ai-features)", () => {
-    it("returns first visit message when patient has no prior visits", async () => {
-      const mockSupabase = {
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          order: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-        })),
-      };
-
-      const fake = fakeAiClient("{}");
-      const summary = await generatePatientCatchUpSummary(
-        mockCtx(mockSupabase, { tenantId: "tenant-123" }),
-        { patientId: "patient-new" },
-        { aiClient: fake.client }
-      );
-
-      expect(fake.chatCompletion).not.toHaveBeenCalled();
-
-      expect(summary.last_visit_date).toBeNull();
-      expect(summary.last_diagnosis).toBeNull();
-      expect(summary.active_medications).toEqual([]);
-      expect(summary.bullets).toContain("First recorded encounter for this patient in ClinicOS.");
-    });
-
-    it("synthesizes prior visits into a 3-bullet clinical brief using AI gateway", async () => {
-      const mockVisits = [
-        { id: "visit-1", scheduled_at: "2026-10-15T10:00:00Z", created_at: "2026-10-15T10:00:00Z" },
-        { id: "visit-2", scheduled_at: "2026-09-01T10:00:00Z", created_at: "2026-09-01T10:00:00Z" },
-      ];
-      const mockDiagnoses = [
-        { visit_id: "visit-1", diagnosis_name: "Essential Hypertension" },
-        { visit_id: "visit-2", diagnosis_name: "Type 2 Diabetes" },
-      ];
-      const mockRxList = [{ id: "rx-1", visit_id: "visit-1" }];
-      const mockItems = [
-        { prescription_id: "rx-1", medicine_name: "Telmisartan 40mg", dosage: "1 tab" },
-        { prescription_id: "rx-1", medicine_name: "Metformin 500mg", dosage: "1 tab" },
-      ];
-
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === "visits") {
-            return {
-              select: vi.fn().mockReturnThis(),
-              eq: vi.fn().mockReturnThis(),
-              in: vi.fn().mockReturnThis(),
-              order: vi.fn().mockReturnThis(),
-              limit: vi.fn().mockResolvedValue({ data: mockVisits, error: null }),
-            };
-          }
-          if (table === "consultation_diagnoses") {
-            return {
-              select: vi.fn().mockReturnThis(),
-              eq: vi.fn().mockReturnThis(),
-              in: vi.fn().mockResolvedValue({ data: mockDiagnoses, error: null }),
-            };
-          }
-          if (table === "prescriptions") {
-            return {
-              select: vi.fn().mockReturnThis(),
-              eq: vi.fn().mockReturnThis(),
-              in: vi.fn().mockResolvedValue({ data: mockRxList, error: null }),
-            };
-          }
-          if (table === "prescription_items") {
-            return {
-              select: vi.fn().mockReturnThis(),
-              in: vi.fn().mockResolvedValue({ data: mockItems, error: null }),
-            };
-          }
-          return {};
-        }),
-      };
-
-      const { client: mockAiClient, chatCompletion: mockChatCompletion } = fakeAiClient(
-        JSON.stringify({
-          bullets: [
-            "Last seen 12 days ago for Essential Hypertension.",
-            "Active medications: Telmisartan 40mg, Metformin 500mg.",
-            "Check BP control and compliance with anti-hypertensive regimen.",
-          ],
-        })
-      );
-
-      const summary = await generatePatientCatchUpSummary(
-        mockCtx(mockSupabase, { tenantId: "tenant-123" }),
-        { patientId: "patient-regular" },
-        { aiClient: mockAiClient }
-      );
-
-      expect(mockChatCompletion).toHaveBeenCalled();
-      expect(summary.last_visit_date).toBe("2026-10-15T10:00:00Z");
-      expect(summary.last_diagnosis).toBe("Essential Hypertension");
-      expect(summary.active_medications).toEqual(["Telmisartan 40mg", "Metformin 500mg"]);
-      expect(summary.bullets).toHaveLength(3);
-      expect(summary.bullets[0]).toContain("Essential Hypertension");
     });
   });
 });
