@@ -3,6 +3,7 @@ import "server-only";
 import { createClient, ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/db/types";
 import { isClinicId } from "@/lib/auth/tenant";
+import { serverEnv } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -27,7 +28,7 @@ export const CLINIC_SWITCH_MESSAGES = {
   ALREADY_MEMBER: "Your account already belongs to a clinic. Use the clinic switcher to change clinics.",
 } as const;
 
-/** Cookie attributes of the active-clinic pin: HttpOnly, SameSite=Lax, Path=/, 400 days; Secure on https. */
+/** Cookie attributes of the active-clinic pin: HttpOnly, SameSite=Lax, Path=/, 400 days; Secure on https and in production. */
 export function activeClinicCookieOptions(secure: boolean) {
   return { httpOnly: true, sameSite: "lax" as const, path: "/", secure, maxAge: ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS };
 }
@@ -37,6 +38,26 @@ export function isHttpsRequest(headers: { get(name: string): string | null }): b
   const forwarded = headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
   if (forwarded) return forwarded === "https";
   return (headers.get("origin") ?? "").toLowerCase().startsWith("https:");
+}
+
+function isLoopbackHost(host: string | null): boolean {
+  if (!host) return false;
+  const name = host.trim().toLowerCase().replace(/:\d+$/, "");
+  return name === "localhost" || name === "127.0.0.1" || name === "[::1]";
+}
+
+/**
+ * Whether the active-clinic cookie carries `Secure` (V2-08 08-06a, S-9): on an https request, and in production on any host
+ * but loopback, so a proxy that forgets `x-forwarded-proto` cannot drop the flag. A production build served on loopback over
+ * http (the e2e server) stays without it: a browser would not store the cookie there.
+ */
+export function activeClinicCookieSecure(
+  headers: { get(name: string): string | null },
+  nodeEnv: string = serverEnv().NODE_ENV,
+): boolean {
+  if (isHttpsRequest(headers)) return true;
+  if (nodeEnv !== "production") return false;
+  return !isLoopbackHost(headers.get("x-forwarded-host") ?? headers.get("host"));
 }
 
 type MembershipRow = { tenant_id: string; role: UserRole; tenants: { name: string | null } | { name: string | null }[] | null };

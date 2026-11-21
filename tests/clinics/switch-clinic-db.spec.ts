@@ -45,7 +45,7 @@ vi.mock("next/headers", async (importOriginal) => {
 
 import DashboardLayout from "@/app/(dashboard)/layout";
 import { createClinic, switchClinic } from "@/features/clinics/actions";
-import { CLINIC_SWITCH_MESSAGES, listUserClinics, resolveClinicSwitch } from "@/features/clinics/switch";
+import { activeClinicCookieSecure, CLINIC_SWITCH_MESSAGES, listUserClinics, resolveClinicSwitch } from "@/features/clinics/switch";
 import { ActiveClinicMembershipEndedError, getActiveMembership } from "@/lib/auth/tenant";
 import { ACTIVE_TENANT_COOKIE, ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS } from "@/lib/supabase/server";
 import { ClinicPicker } from "@/components/shell/clinic-picker";
@@ -107,6 +107,33 @@ describe("the clinic switcher (local stack)", () => {
     expect(state.set[0]?.options.secure).toBe(true);
     state.set = [];
     state.headers = new Map([["x-forwarded-proto", "http"], ["origin", "https://app.example.test"]]);
+    await switchClinic(a.tenantId);
+    expect(state.set[0]?.options.secure).toBe(false);
+  });
+
+  // V2-08 08-06a (S-9): behind a proxy that does not set x-forwarded-proto the flag used to be dropped. In production the cookie is
+  // Secure on any host but loopback (a production build on http://127.0.0.1, the e2e server, would not get the cookie stored).
+  it("S-9: in production the cookie is Secure whatever the proxy said, except on loopback", () => {
+    const secureFor = (headers: Record<string, string>, nodeEnv: string) => activeClinicCookieSecure({ get: (name) => headers[name.toLowerCase()] ?? null }, nodeEnv);
+    for (const [headers, secure] of [
+      [{ host: "app.example.test" }, true],
+      [{ host: "app.example.test", "x-forwarded-proto": "http" }, true],
+      [{ "x-forwarded-host": "app.example.test", host: "127.0.0.1:3000" }, true],
+      [{}, true],
+      [{ host: "127.0.0.1:3100" }, false],
+      [{ host: "localhost:3100" }, false],
+      [{ host: "[::1]:3100" }, false],
+      [{ host: "127.0.0.1:3100", "x-forwarded-proto": "https" }, true],
+    ] as const) {
+      expect(secureFor(headers, "production"), JSON.stringify(headers)).toBe(secure);
+    }
+    // Outside production only https makes it Secure (unchanged).
+    expect(secureFor({ host: "app.example.test" }, "development")).toBe(false);
+    expect(secureFor({ "x-forwarded-proto": "https" }, "development")).toBe(true);
+  });
+
+  it("S-9: outside production only https makes it Secure (unchanged)", async () => {
+    state.headers = new Map([["host", "app.example.test"]]);
     await switchClinic(a.tenantId);
     expect(state.set[0]?.options.secure).toBe(false);
   });

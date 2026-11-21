@@ -7,7 +7,7 @@ import {
   activeClinicCookieOptions,
   CLINIC_SWITCH_MESSAGES,
   hasActiveMembership,
-  isHttpsRequest,
+  activeClinicCookieSecure,
   resolveClinicSwitch,
 } from "./switch";
 
@@ -102,6 +102,6 @@ export async function switchClinic(clinicId: string): Promise<SwitchClinicResult
           : CLINIC_SWITCH_MESSAGES.REFUSED;
     return { success: false, error };
   }
-  (await cookies()).set(ACTIVE_TENANT_COOKIE, target.tenantId, activeClinicCookieOptions(isHttpsRequest(await headers())));
+  (await cookies()).set(ACTIVE_TENANT_COOKIE, target.tenantId, activeClinicCookieOptions(activeClinicCookieSecure(await headers())));
   return { success: true };
 }
