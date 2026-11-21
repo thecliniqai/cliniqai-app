@@ -30,6 +30,8 @@ function recordingClient(notesRows: Array<Record<string, unknown>> = [{ visit_id
       inserts.push({ table, row });
       return Promise.resolve({ error: null });
     };
+    // The vitals write first reads the stored vitals (V2-08 08-06a, A-1: the new reading is merged into them).
+    chain.maybeSingle = () => Promise.resolve({ data: table === "clinical_notes" ? { vitals: {} } : null, error: null });
     chain.then = (resolve: (v: unknown) => unknown) => resolve(result);
     return chain;
   });

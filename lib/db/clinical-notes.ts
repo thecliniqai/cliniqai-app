@@ -115,3 +115,24 @@ export async function updateClinicalNotes(
   const row = (Array.isArray(data) ? data[0] : null) as Partial<ClinicalNotes> | null;
   return { error: null, content: clinicalContent(row) };
 }
+
+/**
+ * The vitals stored on the visit's clinical_notes row (V2-08 08-06a, A-1: a vitals write merges into them). An absent row
+ * (another clinic, a role that may not read it) reads as `{}`; the write that follows is the one RLS refuses. A read
+ * error is returned, never swallowed: merging into a guess would drop readings.
+ */
+export async function readStoredVitals(
+  db: AnyClient,
+  tenantId: string,
+  visitId: string,
+): Promise<{ error: AppError | null; raw?: DbErrorLike; vitals: Record<string, unknown> }> {
+  const { data, error } = await db
+    .from("clinical_notes")
+    .select("vitals")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (error) return { error: mapDbError(error), raw: error, vitals: {} };
+  const vitals = (data as { vitals?: unknown } | null)?.vitals;
+  return { error: null, vitals: vitals && typeof vitals === "object" && !Array.isArray(vitals) ? (vitals as Record<string, unknown>) : {} };
+}

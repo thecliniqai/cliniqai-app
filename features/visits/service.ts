@@ -10,7 +10,7 @@ import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit } from "@/lib/db/types";
-import { clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { clinicalNotesEmbed, readStoredVitals, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   visitsFilterSchema,
   VisitsFilterInput,
@@ -571,9 +571,17 @@ export async function recordVisitVitals(
       };
     }
 
-    const validated = { ...parseResult.data };
+    // V2-08 08-06a (A-1): what the caller sent is merged into the record already stored, so recording one more reading
+    // (pulse after the BP) never drops the earlier ones. A field the caller left empty keeps its stored value.
+    const sent = Object.fromEntries(Object.entries(parseResult.data).filter(([, value]) => value !== null && value !== undefined));
+    const stored = await readStoredVitals(supabase, session.tenantId, visitId);
+    if (stored.error) {
+      log.error({ event: "visits.vitals_read.failed", code: errorTag(stored.raw), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to record patient vitals." };
+    }
+    const validated = { ...stored.vitals, ...sent } as Vitals;
 
-    // Auto-calculate BMI if height and weight are provided
+    // Auto-calculate BMI if height and weight are provided (from the merged record: a new weight re-computes it)
     if (validated.weight && validated.height && validated.height > 0) {
       const hm = validated.height / 100;
       validated.bmi = Number((validated.weight / (hm * hm)).toFixed(1));
@@ -582,7 +590,7 @@ export async function recordVisitVitals(
     const nowIso = new Date().toISOString();
     const vitalsToSave: Vitals = {
       ...validated,
-      recorded_at: validated.recorded_at || nowIso,
+      recorded_at: (sent.recorded_at as string | undefined) || nowIso,
       recorded_by: session.userId,
     };
 

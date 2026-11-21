@@ -17,8 +17,9 @@ import type { TodayRow } from "@/features/today/schema";
 
 /**
  * The vitals sheet of a Today row (V2-08 08-03b; replaces the v1 triage modal): `VitalsForm` in a `ResponsiveSheet`. The save
- * is `recordVisitVitals`, an upsert of the visit's single vitals record (a repeat only overwrites the same values, so it is
- * not a command with a request id). A refusal keeps the sheet open with the server's fixed message and nothing lost.
+ * is `recordVisitVitals`: the form opens with the readings already on record (A-1) and the server merges what was sent into
+ * the stored record, so recording one more reading never drops an earlier one (a repeat only overwrites the same values, so
+ * it is not a command with a request id). A refusal keeps the sheet open with the server's fixed message and nothing lost.
  */
 export interface VitalsSheetProps {
   row: TodayRow | null;
@@ -47,7 +48,7 @@ function Body({ row, onOpenChange, onSaved }: VitalsSheetProps & { row: TodayRow
         {[row.token != null ? `Token ${row.token}` : null, row.name, row.age, row.sex].filter(Boolean).join(" · ")}
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
-      <VitalsForm onSave={save} />
+      <VitalsForm onSave={save} initial={row.vitals} />
     </div>
   );
 }
