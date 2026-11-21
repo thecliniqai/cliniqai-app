@@ -12,6 +12,10 @@
 -- during an amendment; a front-desk follow-up with no visit; the latest-version read of the app.
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000103 (08-04a): UPDATE on public.visits is narrowed for authenticated to specialty, metadata and updated_at. This file proves the
+-- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
+-- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
+grant update on table public.visits to authenticated;
 select plan(60);
 
 insert into auth.users (id, email) values

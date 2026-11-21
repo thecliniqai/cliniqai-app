@@ -79,6 +79,10 @@
  *   8174 — V2-08 08-03a (000102 today_realtime): 8143 + today_signals 31 (new file, every one required); the two private
  *          functions and the authz helper add rows to existing exact sets (definer_functions, authz_helpers), no test
  *          = 8174 (52 files).
+ *   8237 — V2-08 08-04a (000103 staff_scheduling_commands): 8174 + definer_functions 14 (the six commands: 1 acting-in-A and 1
+ *          locked-clinic leg each; get_reschedule_slots: 1 locked and 1 full leg) + staff_scheduling 49 (new file, every one
+ *          required; the authz and integrity files keep their counts, they widen the visits UPDATE grant inside their own
+ *          transaction) = 8237 (53 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -90,7 +94,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8174;
+export const FLOOR = 8237;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -174,6 +178,8 @@ export const REQUIRED_FILES = [
   // V2-08 08-02
   "supabase/tests/database/patient_search.test.sql",
   "supabase/tests/database/today_signals.test.sql",
+  // V2-08 08-04a
+  "supabase/tests/database/staff_scheduling.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

@@ -460,7 +460,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.visit), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
     // 05-11a (M-ACTOR): a signed-in caller inserts a visit only as its creator.
     insert: { id: q(FX.row(3)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: "auth.uid()" },
-    update: "status",
+    // V2-08 08-04a: `authenticated` may update only specialty, metadata and updated_at (status, time and doctor are command-only).
+    update: "updated_at",
     extraRows: [
       { id: q(FX.visit2), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
       {

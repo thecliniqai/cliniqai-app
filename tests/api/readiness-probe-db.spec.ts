@@ -29,6 +29,7 @@ const ROOT = path.resolve(__dirname, "../..");
 const ANON_DEFINER_ALLOWLIST = [
   "consume_reschedule_token", // V2-01 (000020/000023): token-scoped reschedule
   "get_reschedule_context", // V2-01: token-scoped reschedule
+  "get_reschedule_slots", // V2-08 08-04a (000103): token-scoped slot list of the patient's reschedule link
   "ops_ingest_error", // V2-03 03-09b: error sink ingest, refused without the ingest key (vault hash)
   "peek_invitation", // V2-05 05-07a: /join preview by token hash (status, clinic, role, masked address only)
   "readiness_probe", // V2-03 03-01, 03-13c: booleans only
