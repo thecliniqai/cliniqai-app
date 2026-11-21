@@ -36,9 +36,9 @@ describe("06-05 proxy: signed-in pages and RSC are private/no-store (D-4)", () =
     ["a page GET", "/patients", {}],
     ["a dynamic page GET", "/patients/0b9f1c1e-2a5d-4c1b-9d7e-1f2a3b4c5d6e", {}],
     ["the root page", "/", {}],
-    ["a page HEAD", "/queue", { method: "HEAD" }],
+    ["a page HEAD", "/today", { method: "HEAD" }],
     ["an RSC fetch", "/patients?_rsc=abc12", { headers: { RSC: "1", "Next-Router-State-Tree": "%5B%5D" } }],
-    ["an RSC prefetch", "/queue?_rsc=x", { headers: { RSC: "1", "Next-Router-Prefetch": "1" } }],
+    ["an RSC prefetch", "/today?_rsc=x", { headers: { RSC: "1", "Next-Router-Prefetch": "1" } }],
   ])("%s carries the no-store headers", async (_name, path, init) => {
     const res = await proxy(signedIn(path, init));
     expect(res.status).toBe(200);

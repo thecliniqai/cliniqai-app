@@ -106,9 +106,9 @@ describe("03-06 proxy session refresh (@supabase/ssr 0.12, getClaims)", () => {
   it("03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted", async () => {
     const nowSec = Math.floor(Date.now() / 1000);
     const revoked: Session = { ...session, expires_at: nowSec - 60, expires_in: -60, refresh_token: "notarealrefreshtoken" };
-    const res = await proxy(requestWith(revoked, "/queue"));
+    const res = await proxy(requestWith(revoked, "/today"));
     expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location") ?? "").searchParams.get("next")).toBe("/queue");
+    expect(new URL(res.headers.get("location") ?? "").searchParams.get("next")).toBe("/today");
     const deletions = res.headers.getSetCookie().filter((h) => h.startsWith(`${COOKIE}=`) || h.startsWith(`${COOKIE}.`));
     expect(deletions.length, "the redirect deletes the stale auth cookie").toBeGreaterThan(0);
     for (const h of deletions) expect(h.split(";")[0].split("=")[1]).toBe("");

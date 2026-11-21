@@ -242,8 +242,8 @@ describe("03-12b public paths (enumerated from app/)", () => {
     const at = (u: string) => loginNextValue(new URL(`http://localhost:3100${u}`));
     expect(at("/patients")).toBe("/patients");
     expect(at("/patients/abc?tab=visits&x=1")).toBe("/patients/abc?tab=visits&x=1");
-    expect(at("/queue?_rsc=abc123")).toBe("/queue");
-    expect(at("/queue?date=2026-01-01&_rsc=abc")).toBe("/queue?date=2026-01-01");
+    expect(at("/today?_rsc=abc123")).toBe("/today");
+    expect(at("/today?date=2026-01-01&_rsc=abc")).toBe("/today?date=2026-01-01");
     expect(at("/")).toBe("/");
     expect(loginNextValue(new URL("http://localhost:3100//evil.example/x"))).toBeNull();
     const backslash = new URL("http://localhost:3100/x");

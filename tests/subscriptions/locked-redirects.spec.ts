@@ -29,15 +29,13 @@ vi.mock("@/lib/supabase/server", async (importOriginal) => {
 });
 
 import DashboardLayout from "@/app/(dashboard)/layout";
-import DashboardPage from "@/app/(dashboard)/(today)/page";
+import TodayPage from "@/app/(dashboard)/today/page";
 import PatientsPage from "@/app/(dashboard)/patients/(list)/page";
 import PatientDetailPage from "@/app/(dashboard)/patients/[id]/page";
 import CalendarPage from "@/app/(dashboard)/calendar/page";
 import VisitsPage from "@/app/(dashboard)/visits/page";
 import ReferralsPage from "@/app/(dashboard)/referrals/page";
-import CabinPage from "@/app/(dashboard)/cabin/page";
 import ProfilePage from "@/app/(dashboard)/profile/page";
-import QueuePage from "@/app/(dashboard)/queue/page";
 import StaffPage from "@/app/(dashboard)/staff/page";
 import ClinicSettingsPage from "@/app/(dashboard)/settings/clinic/page";
 import BillingSettingsPage from "@/app/(dashboard)/settings/billing/page";
@@ -202,15 +200,13 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
       const idProps = (id: string) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) });
       const none = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
       return [
-        ["/", () => DashboardPage(none as never)],
+        ["/today", () => TodayPage(none as never)],
         ["/patients", () => PatientsPage(none as never)],
         ["/patients/[id]", () => PatientDetailPage(idProps(lockedPatientId) as never)],
         ["/calendar", () => CalendarPage(none as never)],
         ["/visits", () => VisitsPage(none as never)],
         ["/referrals", () => ReferralsPage(none as never)],
-        ["/cabin", () => CabinPage(none as never)],
         ["/profile", () => ProfilePage(none as never)],
-        ["/queue", () => QueuePage(none as never)],
         ["/staff", () => StaffPage(none as never)],
         ["/settings/clinic", () => ClinicSettingsPage(none as never)],
         ["/settings/billing", () => BillingSettingsPage(none as never)],
@@ -249,9 +245,9 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
       ["onboardingReceptionist", "onboarding", { kind: "rendered" }],
       ["onboardingOwner", "locked", { kind: "redirect", to: ONBOARDING_BILLING_PATH }],
       ["onboardingReceptionist", "staff", { kind: "redirect", to: ONBOARDING_BILLING_PATH }],
-      ["fullOwner", "locked", { kind: "redirect", to: "/" }],
-      ["fullOwner", "staff", { kind: "redirect", to: "/" }],
-      ["fullOwner", "onboarding", { kind: "redirect", to: "/" }],
+      ["fullOwner", "locked", { kind: "redirect", to: "/today" }],
+      ["fullOwner", "staff", { kind: "redirect", to: "/today" }],
+      ["fullOwner", "onboarding", { kind: "redirect", to: "/today" }],
     ] as const)("%s on the %s page → %o", async (who, pageName, expected) => {
       as(who);
       const page = { locked: LockedOwnerPage, staff: LockedStaffPage, onboarding: OnboardingBillingPage }[pageName];

@@ -77,6 +77,9 @@
  *   6385 — V2-08 08-03a, unchanged: REQUIRED_FILES + the seven 08-03a specs (tests/realtime/today-signals.spec.ts,
  *          tests/today/{get-today-board,live,announcer,schema}.spec.ts, tests/pwa/safe-refresh.spec.ts,
  *          tests/supabase/realtime-token.spec.ts; 249 in total). The floor is re-measured at the next gate; the suite only grew.
+ *   6385 — V2-08 08-03b, unchanged: REQUIRED_FILES + the three 08-03b specs (tests/today/{modes,shortcuts}.spec.ts,
+ *          tests/ci/no-client-command-chains.spec.ts; 252 in total). The floor is re-measured at the next gate; the suite only
+ *          grew (one `getQueueForDate` guard case went with that function).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -408,6 +411,9 @@ const REQUIRED_FILES = [
   "tests/today/live.spec.ts",
   "tests/today/announcer.spec.ts",
   "tests/today/schema.spec.ts",
+  "tests/today/modes.spec.ts",
+  "tests/today/shortcuts.spec.ts",
+  "tests/ci/no-client-command-chains.spec.ts",
   "tests/pwa/safe-refresh.spec.ts",
   "tests/supabase/realtime-token.spec.ts",
 ];

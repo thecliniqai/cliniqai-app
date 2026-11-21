@@ -174,7 +174,6 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#enqueueWalkIn": "appointments:edit",
-  "features/queue/actions.ts#getQueueForDate": "appointments:view",
   // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
   "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
   // V2-08 08-01b: the visit state machine's two desk commands replace the open status setter.

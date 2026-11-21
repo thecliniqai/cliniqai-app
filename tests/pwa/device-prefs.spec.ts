@@ -20,11 +20,12 @@ function memory(): Storage {
 }
 
 describe("device preferences (D-3)", () => {
-  it("are exactly the four clinicos.pref.* keys", () => {
+  it("are exactly the five clinicos.pref.* keys", () => {
     expect([...DEVICE_PREF_KEYS].sort()).toEqual([
       "clinicos.pref.density",
       "clinicos.pref.installDismissedUntil",
       "clinicos.pref.lastLane",
+      "clinicos.pref.shortcuts",
       "clinicos.pref.signedInSessions",
     ]);
   });

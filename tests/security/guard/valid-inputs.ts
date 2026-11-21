@@ -166,7 +166,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/notifications/actions.ts#markAllNotificationsRead": { args: () => ["system"] },
   // 06-04a: membership-only; the acting fields are forged one at a time and must be ignored (the schema strips them).
   "features/observability/actions.ts#reportClientRenderError": {
-    args: (a) => [{ name: "GuardSpecRenderError", route: "/queue", ...acting(a) }],
+    args: (a) => [{ name: "GuardSpecRenderError", route: "/today", ...acting(a) }],
   },
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },

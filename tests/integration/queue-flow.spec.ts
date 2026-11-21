@@ -4,7 +4,8 @@ import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { ctxFor } from "../helpers/context";
-import { checkInVisit, startConsultation, completeVisit, getQueueForDate } from "@/features/queue/service";
+import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
+import { getTodayBoard } from "@/features/today/queries";
 
 describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -197,18 +198,19 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     // Verify live queue query has 1 waiting patient (patient B), 0 with doctor, 1 completed
     // The clinic date in the tenant zone (default Asia/Kolkata), as the service computes it (V2-03 03-05).
     const today = todayInTz(DEFAULT_CLINIC_TZ);
-    const queueRes = await getQueueForDate(ctxFor(tenant), today);
-    expect(queueRes.success).toBe(true);
+    const queueRes = await getTodayBoard(ctxFor(tenant), { date: today });
+    expect(queueRes.ok).toBe(true);
 
-    if (queueRes.success) {
-      const waiting = queueRes.items.filter((i) => i.visit.status === "waiting");
-      const inConsult = queueRes.items.filter((i) => i.visit.status === "in_consultation");
-      const completed = queueRes.items.filter((i) => i.visit.status === "completed");
+    if (queueRes.ok) {
+      const rows = queueRes.board.rows;
+      const waiting = rows.filter((r) => r.status === "waiting");
+      const inConsult = rows.filter((r) => r.status === "in_consultation");
+      const completed = rows.filter((r) => r.status === "completed");
 
       expect(waiting.length).toBe(1);
-      expect(waiting[0].visit.id).toBe(scheduledVisitId);
+      expect(waiting[0].visitId).toBe(scheduledVisitId);
       expect(inConsult.length).toBe(0);
-      expect(completed.some((i) => i.visit.id === walkInVisitId)).toBe(true);
+      expect(completed.some((r) => r.visitId === walkInVisitId)).toBe(true);
     }
   });
 });

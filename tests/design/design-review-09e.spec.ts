@@ -19,10 +19,9 @@ const ROLES: UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
 
 describe("BottomBar captions (M3)", () => {
   it("shortens exactly the long v1 names and keeps every other name", () => {
-    expect(bottomBarCaption("Doctor's Cabin")).toBe("Cabin");
-    expect(bottomBarCaption("Live Queue")).toBe("Queue");
     expect(bottomBarCaption("My Calendar")).toBe("Calendar");
-    for (const name of ["Dashboard", "Calendar", "Patients", "Billing & Reports"]) expect(bottomBarCaption(name)).toBe(name);
+    expect(bottomBarCaption("Billing & Reports")).toBe("Reports");
+    for (const name of ["Today", "Calendar", "Patients"]) expect(bottomBarCaption(name)).toBe(name);
   });
 
   it("every caption is a whole word of its v1 name (label in name, WCAG 2.5.3)", () => {

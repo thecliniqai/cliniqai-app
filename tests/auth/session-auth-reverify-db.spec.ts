@@ -60,7 +60,7 @@ import { GET } from "@/app/api/session-status/route";
 import { POST as signOutRoute } from "@/app/auth/signout/route";
 import { proxy } from "@/proxy";
 import DashboardLayout from "@/app/(dashboard)/layout";
-import TodayPage from "@/app/(dashboard)/(today)/page";
+import TodayPage from "@/app/(dashboard)/today/page";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { AuthUnavailableError } from "@/lib/auth/tenant";
 import { MembershipEnded } from "@/components/shell/membership-ended";
@@ -335,7 +335,7 @@ describe("H-AUTHOUT-R1: expired access token, the refresh fails without a defini
     const refreshes = fault.refreshCalls;
     const r = await poll();
     const layout = await settle(() => DashboardLayout({ children: null }));
-    const today = await settle(() => (TodayPage as () => Promise<unknown>)());
+    const today = await settle(() => (TodayPage as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) }));
     const sent = fault.refreshCalls - refreshes;
     rv(`marked request -> route ${r.status}; layout ${layout.ok ? "rendered" : (layout.err as Error).name} ${digestOf(layout.ok ? null : layout.err)}; today ${today.ok ? "rendered" : (today.err as Error).name} ${digestOf(today.ok ? null : today.err)}; refreshes sent=${sent}`);
     expect(r.status).toBe(503);

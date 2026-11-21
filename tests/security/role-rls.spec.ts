@@ -14,7 +14,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { getPatientVisitHistory } from "@/features/patients/service";
-import { getQueueForDate } from "@/features/queue/service";
+import { getTodayBoard } from "@/features/today/queries";
 import { recordVisitVitals } from "@/features/visits/service";
 import { resolveTimeZone, todayInTz } from "@/lib/datetime";
 import { ctxFor } from "../helpers/context";
@@ -231,14 +231,14 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
       // The clinic day in the clinic's zone (the queue's window), not the UTC date.
       const { data: tenant } = await admin.from("tenants").select("timezone").eq("id", owner.tenantId).single();
       const today = todayInTz(resolveTimeZone((tenant as { timezone?: string | null } | null)?.timezone));
-      const asReceptionist = await getQueueForDate(ctxFor(receptionist), today);
-      const asNurse = await getQueueForDate(ctxFor(nurse), today);
-      if (!asReceptionist.success || !asNurse.success) throw new Error("queue load failed");
-      const r = asReceptionist.items.find((i) => i.visit.id === visitId);
-      const n = asNurse.items.find((i) => i.visit.id === visitId);
+      const asReceptionist = await getTodayBoard(ctxFor(receptionist), { date: today });
+      const asNurse = await getTodayBoard(ctxFor(nurse), { date: today });
+      if (!asReceptionist.ok || !asNurse.ok) throw new Error("queue load failed");
+      const r = asReceptionist.board.rows.find((row) => row.visitId === visitId);
+      const n = asNurse.board.rows.find((row) => row.visitId === visitId);
       expect(r).toBeDefined();
-      expect(r!.visit.vitals ?? null).toBeNull();
-      expect(n?.visit.vitals).toEqual(VITALS);
+      expect(r!.vitals).toBeNull();
+      expect(n?.vitals).toMatchObject(VITALS);
     });
 
     it("recordVisitVitals by the nurse lands in clinical_notes; a receptionist is refused before any write", async () => {
