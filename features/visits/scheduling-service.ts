@@ -20,6 +20,7 @@ import {
   type CancelVisitInput,
 } from "./schema";
 import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
+import type { TimeBand } from "./suggest-slots";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
@@ -582,6 +583,51 @@ export async function getAvailableSlots(
     ok: true,
     value: rows.data.map((r) => ({ start: new Date(r.slot_start).toISOString(), end: new Date(r.slot_end).toISOString() })),
   };
+}
+
+/**
+ * What the booking sheet's Smart Assist needs to rank free slots (V2-08 08-05, AI-13): `entitled` is the clinic's
+ * `assist.slots` entitlement (decided by the caller; false means the basic earliest-slot rule). Counts and a band only.
+ */
+export interface SlotAssist {
+  entitled: boolean;
+  avgConsultMinutes: number | null;
+  preferredBand: TimeBand | null;
+}
+
+const slotContextRowsSchema = z.array(
+  z.object({
+    avg_consult_minutes: z.number().nullable(),
+    consult_samples: z.number(),
+    preferred_band: z.enum(["morning", "afternoon", "evening"]).nullable(),
+  })
+);
+
+/**
+ * The inputs of the slot suggestions (`public.slot_suggestion_context`, 000105): the doctor's average consult minutes (null under
+ * five samples) and the patient's preferred band (null without history, or for a patient being registered). `appointments:view`.
+ * A failed read answers the plain "no assist" value, never an error: the booking sheet then keeps the earliest free slot.
+ */
+export async function getSlotSuggestionContext(
+  ctx: ServiceContext,
+  doctorId: string,
+  patientId: string | null
+): Promise<Result<SlotAssist>> {
+  if (!hasPerm(ctx.role, "appointments:view")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: AVAILABLE_SLOTS_MESSAGES.FORBIDDEN }) };
+  }
+  if (!isUuid(doctorId) || (patientId !== null && !isUuid(patientId))) {
+    return { ok: false, error: appError("VALIDATION_FAILED", { message: AVAILABLE_SLOTS_MESSAGES.VALIDATION_FAILED }) };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db as any).rpc("slot_suggestion_context", { p_doctor_id: doctorId, p_patient_id: patientId });
+  const rows = error ? null : slotContextRowsSchema.safeParse(data ?? []);
+  if (error || !rows?.success) {
+    log.error({ event: "visits.slot_context.failed", code: error ? errorTag(error) : "result_shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: true, value: { entitled: true, avgConsultMinutes: null, preferredBand: null } };
+  }
+  const row = rows.data[0];
+  return { ok: true, value: { entitled: true, avgConsultMinutes: row?.avg_consult_minutes ?? null, preferredBand: row?.preferred_band ?? null } };
 }
 
 /** What the reschedule sheet shows of the visit it moves (V2-08 08-04b): the patient's name, the doctor and the current slot. */

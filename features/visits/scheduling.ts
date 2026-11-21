@@ -5,9 +5,11 @@ import { resolveServiceContext } from "@/lib/auth/context";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { ScheduleBlock } from "@/lib/db/types";
+import { requireEntitlement } from "@/lib/entitlements/require-entitlement";
 import * as schedulingService from "./scheduling-service";
 import type {
   AvailableSlot,
+  SlotAssist,
   RescheduleTarget,
   RegisterAndBookInput,
   RegisterAndBookValue,
@@ -24,6 +26,7 @@ import type {
 
 export type {
   AvailableSlot,
+  SlotAssist,
   RescheduleTarget,
   RegisterAndBookInput,
   RegisterAndBookValue,
@@ -93,6 +96,20 @@ export async function getAvailableSlots(
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   return schedulingService.getAvailableSlots(resolved.ctx, doctorId, date, excludeVisitId);
+}
+
+/**
+ * Smart Assist slot suggestions' inputs (V2-08 08-05, AI-13, R-18): the doctor's average consult minutes and the patient's preferred
+ * time band, only when the clinic holds the `assist.slots` entitlement; otherwise `{ entitled: false }` and the booking sheet keeps
+ * the earliest free slot. Deterministic; no model, no outbound call. The clinic comes from the session.
+ */
+export async function getSlotAssist(doctorId: string, patientId?: string | null): Promise<CommandResult<SlotAssist>> {
+  const resolved = await resolveServiceContext("appointments:view");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  // Fail closed: a lookup failure or a locked clinic reads as "not entitled".
+  const entitled = await requireEntitlement("assist.slots").catch(() => false);
+  if (!entitled) return { ok: true, value: { entitled: false, avgConsultMinutes: null, preferredBand: null } };
+  return schedulingService.getSlotSuggestionContext(resolved.ctx, doctorId, patientId ?? null);
 }
 
 /** The appointment the reschedule sheet moves (`?reschedule=<visitId>`, V2-08 08-04b): patient name, doctor and the current slot. */

@@ -13,7 +13,7 @@ import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { isYmd, ymdOf } from "@/lib/datetime";
 import { formatAgeToday } from "@/lib/ui/age";
-import { DUPLICATE_REASONS, PATIENT_SEARCH_LIMIT, type DuplicateReason, type PatientHit, type PatientSex } from "./search";
+import { DUPLICATE_REASONS, DUPLICATE_STRENGTHS, PATIENT_SEARCH_LIMIT, type DuplicateReason, type DuplicateStrength, type PatientHit, type PatientSex } from "./search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -330,6 +330,8 @@ export async function searchPatients(ctx: ServiceContext, query: string): Promis
 
 export interface DuplicateCandidate extends PatientHit {
   reasons: DuplicateReason[];
+  /** `strong` when the evidence is the same mobile with a similar name or a similar name with the same date of birth. */
+  strength: DuplicateStrength;
 }
 
 export interface FindDuplicatesParams {
@@ -340,9 +342,10 @@ export interface FindDuplicatesParams {
 }
 
 /**
- * Advisory duplicate candidates for a patient being registered (`public.find_patient_duplicates`, 000101, R-11): same mobile
- * (a shared family number lists everyone on it), or the same name with the same date of birth or an age within two years.
- * Minimal projection plus the reasons; an unusable input is dropped, never an error.
+ * Advisory duplicate candidates for a patient being registered (`public.find_patient_duplicates`, 000101, 000105, R-11, AI-14): same
+ * mobile (a shared family number lists everyone on it), or a similar name with the same date of birth or an age within two years;
+ * the `strength` says which are probably the same person. Without the clinic's `assist.duplicates` entitlement the database
+ * applies the 08-02 rules and every row is `possible`. Minimal projection plus the reasons; an unusable input is dropped, never an error.
  */
 export async function findDuplicates(ctx: ServiceContext, params: FindDuplicatesParams): Promise<DuplicateCandidate[]> {
   assertPerm(ctx.role, "patients:view");
@@ -361,11 +364,12 @@ export async function findDuplicates(ctx: ServiceContext, params: FindDuplicates
     log.error({ event: "patients.find_duplicates.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
-  const rows = data as Array<HitRow & { reasons: string[] | null }>;
+  const rows = data as Array<HitRow & { reasons: string[] | null; strength?: string | null }>;
   const tz = await clinicZoneFor(ctx, rows);
   return rows.map((r) => ({
     ...toHit(r, tz),
     reasons: (r.reasons ?? []).filter((x): x is DuplicateReason => (DUPLICATE_REASONS as readonly string[]).includes(x)),
+    strength: (DUPLICATE_STRENGTHS as readonly string[]).includes(r.strength ?? "") ? (r.strength as DuplicateStrength) : "possible",
   }));
 }
 

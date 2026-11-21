@@ -33,7 +33,7 @@ describe("find_patient_duplicates (service)", () => {
       expect(matches, phone).toHaveLength(1);
       expect(matches[0]).toMatchObject({ id: ids.sunil, name: "Sunil Narine", phoneLast4: "2233", reasons: ["same_mobile"], lastVisit: null });
       expect(matches[0].ageSex?.sex).toBe("M");
-      expect(Object.keys(matches[0]).sort()).toEqual(["ageSex", "id", "lastVisit", "name", "phoneLast4", "reasons"]);
+      expect(Object.keys(matches[0]).sort()).toEqual(["ageSex", "id", "lastVisit", "name", "phoneLast4", "reasons", "strength"]);
       expect(JSON.stringify(matches)).not.toContain("9811122233");
       expect(JSON.stringify(matches)).not.toContain("1985");
     }

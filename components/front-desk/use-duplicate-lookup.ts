@@ -34,6 +34,7 @@ export function useDuplicateLookup(): (query: DuplicateQuery) => Promise<Duplica
         phoneLast4: m.phoneLast4,
         lastVisit: m.lastVisit ? `last visit ${formatClinicDate(m.lastVisit)}` : undefined,
         reasons: m.reasons,
+        strength: m.strength,
       }));
     },
     [today],

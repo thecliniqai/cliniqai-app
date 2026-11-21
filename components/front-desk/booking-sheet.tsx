@@ -18,7 +18,8 @@ import { SaveStatus } from "@/components/clinical/save-status";
 import { getPatient } from "@/features/patients/actions";
 import type { PatientHit } from "@/features/patients/search";
 import { quickRegisterToPatientInput } from "@/features/patients/register-input";
-import { registerAndBook } from "@/features/visits/scheduling";
+import { getSlotAssist, registerAndBook } from "@/features/visits/scheduling";
+import type { SlotAssist } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { saveStatusProps } from "@/lib/commands/save-state";
 import { appError } from "@/lib/errors/app-error";
@@ -72,6 +73,7 @@ function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: 
     minutes: null,
   });
   const [reason, setReason] = useState("");
+  const [assistRead, setAssistRead] = useState<{ key: string; value: SlotAssist | null } | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
   const lastWho = useRef<{ who: Who; name: string } | null>(null);
 
@@ -110,6 +112,24 @@ function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: 
   const doctorList = useMemo(() => doctors ?? [], [doctors]);
   const doctorId = plan.doctorId || doctorList[0]?.id || "";
   const effectivePlan = { ...plan, doctorId };
+
+  // Smart Assist (AI-13): the doctor's average consult and the patient's usual time of day, read once per doctor and patient. When the
+  // clinic is not entitled (or the read fails) the value is null and the earliest free slot is preselected, as before.
+  const assistPatientId = stage.kind === "plan" ? stage.patient.id : null;
+  const assistKey = `${doctorId}|${assistPatientId ?? ""}`;
+  const choosingPatient = stage.kind === "find";
+  useEffect(() => {
+    if (!doctorId || choosingPatient) return;
+    let live = true;
+    getSlotAssist(doctorId, assistPatientId)
+      .then((result) => live && setAssistRead({ key: assistKey, value: result.ok && result.value.entitled ? result.value : null }))
+      .catch(() => live && setAssistRead({ key: assistKey, value: null }));
+    return () => {
+      live = false;
+    };
+  }, [doctorId, assistPatientId, assistKey, choosingPatient]);
+  const assistPending = doctorId !== "" && assistRead?.key !== assistKey;
+  const assist = assistRead?.key === assistKey ? assistRead.value : null;
 
   const edited = () => command.reset();
   const changePlan = (next: SlotPlan) => {
@@ -187,7 +207,14 @@ function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: 
   const noDoctor = doctors !== null && doctors.length === 0;
 
   const slots = doctors !== null && doctorId !== "" && (
-    <SlotSection doctors={doctorList} plan={effectivePlan} onPlanChange={changePlan} preselect={!defaults.time} />
+    <SlotSection
+      doctors={doctorList}
+      plan={effectivePlan}
+      onPlanChange={changePlan}
+      preselect={!defaults.time}
+      assist={assist ? { avgConsultMinutes: assist.avgConsultMinutes, preferredBand: assist.preferredBand } : null}
+      assistPending={assistPending}
+    />
   );
   const reasonField = (
     <Field label="Reason for visit" optional>

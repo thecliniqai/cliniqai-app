@@ -10,8 +10,9 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/lib/utils";
 import type { Result } from "@/lib/errors/app-error";
-import type { DuplicateReason } from "@/features/patients/search";
+import type { DuplicateReason, DuplicateStrength } from "@/features/patients/search";
 import { AiObjectionField } from "./ai-objection-field";
+import { SmartAssistLabel } from "./smart-assist-label";
 import { maskPhone, type PatientSex } from "./patient-identity-header";
 import { SaveStatus, type SaveStatusProps } from "./save-status";
 
@@ -65,6 +66,8 @@ export interface DuplicateMatch {
   /** "last visit 3 Aug" */
   lastVisit?: string;
   reasons?: readonly DuplicateReason[];
+  /** `strong` (probably the same person; Smart Assist, AI-14) is a warning; `possible` (or absent) an information list. */
+  strength?: DuplicateStrength;
 }
 
 /** What the lookup is asked: what has been typed so far (a ten-digit mobile or an empty string, a name, the date). */
@@ -162,6 +165,10 @@ export function QuickRegisterForm({
   const askable = fullPhone !== "" || (trimmedName.length >= 3 && Boolean(dob));
   const question = askable ? [fullPhone, trimmedName, dob ?? "", approximate].join("|") : "";
   const duplicates = question !== "" && answer.key === question ? answer.matches : [];
+  const strongMatches = duplicates.filter((m) => m.strength === "strong");
+  const possibleMatches = duplicates.filter((m) => m.strength !== "strong");
+  const strongKey = strongMatches.map((m) => m.id).join(",");
+  const strongButton = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     const n = ++lookup.current;
     if (!findDuplicates || question === "") return;
@@ -176,6 +183,15 @@ export function QuickRegisterForm({
     }, DUPLICATE_LOOKUP_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [findDuplicates, question, fullPhone, trimmedName, dob, approximate]);
+
+  // A strong candidate puts "Use this patient" under the keyboard, unless the user is still typing in a field (a space typed
+  // there must never press it); the warning follows the name field, so Tab reaches the button next either way.
+  useEffect(() => {
+    if (strongKey === "" || !strongButton.current) return;
+    const active = document.activeElement;
+    const typing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+    if (!typing) strongButton.current.focus();
+  }, [strongKey]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -245,10 +261,39 @@ export function QuickRegisterForm({
           />
         </Field>
       </div>
-      {duplicates.length > 0 && (
-        <Alert tone="info" title={duplicates.length === 1 ? "This patient may already be registered" : "These patients may already be registered"}>
+      {strongMatches.length > 0 && (
+        <Alert
+          tone="warning"
+          title={strongMatches.length === 1 ? "This patient is probably already registered" : "These patients are probably already registered"}
+        >
+          <p className="mt-0.5">
+            <SmartAssistLabel />
+          </p>
+          <ul className="mt-1 flex flex-col gap-2" data-duplicate-matches="strong">
+            {strongMatches.map((match, index) => (
+              <li key={match.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{duplicateLine(match)}</span>
+                {onUseExisting && (
+                  <Button
+                    ref={index === 0 ? strongButton : undefined}
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    aria-label={`Use this patient: ${match.name}`}
+                    onClick={() => onUseExisting(match)}
+                  >
+                    Use this patient
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+      {possibleMatches.length > 0 && (
+        <Alert tone="info" title={possibleMatches.length === 1 ? "This patient may already be registered" : "These patients may already be registered"}>
           <ul className="mt-1 flex flex-col gap-2" data-duplicate-matches="">
-            {duplicates.map((match) => (
+            {possibleMatches.map((match) => (
               <li key={match.id} className="flex flex-wrap items-center justify-between gap-2">
                 <span>{duplicateLine(match)}</span>
                 {onUseExisting && (

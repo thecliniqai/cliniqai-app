@@ -33,6 +33,14 @@ export const PATIENT_HIT_KEYS = ["id", "name", "ageSex", "phoneLast4", "lastVisi
 export const DUPLICATE_REASONS = ["same_mobile", "same_name_dob", "same_name_age"] as const;
 export type DuplicateReason = (typeof DUPLICATE_REASONS)[number];
 
+/**
+ * How likely a candidate is the same person (AI-14, `find_patient_duplicates`, 000105): `strong` = the same mobile with a similar
+ * name, or a similar name with the same date of birth; `possible` = the rest (a shared family mobile, a similar name and an age
+ * within two years). A clinic without Smart Assist (`assist.duplicates`) gets every row `possible`.
+ */
+export const DUPLICATE_STRENGTHS = ["strong", "possible"] as const;
+export type DuplicateStrength = (typeof DUPLICATE_STRENGTHS)[number];
+
 /** True when the database would answer this query (two letters or three digits; wildcards and punctuation do not count). */
 export function isSearchableQuery(query: string): boolean {
   const q = query.replace(/[,()%_*\\]/g, " ").trim();
