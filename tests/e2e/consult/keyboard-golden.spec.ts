@@ -11,11 +11,23 @@ import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { storageStatePath } from "../support/run-data";
+import { storageStatePath, type RunUser } from "../support/run-data";
+import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
 
 test.use({ storageState: storageStatePath("doctor") });
 
 const admin = getAdminClient();
+
+/**
+ * The test's own doctor (CI 44924479177, found by the repeat run): the diagnosis search lists the doctor's own custom diagnoses first, matched by name
+ * similarity. With the run's doctor, another spec's "Zzz e2e own diagnosis …" (or this test's own earlier attempt) was the highlighted first row, and Enter
+ * added it instead of the typed name.
+ */
+let doctor: RunUser | null = null;
+test.afterEach(async () => {
+  if (doctor) await retireOwnDoctor(doctor);
+  doctor = null;
+});
 
 /** Presses Tab until the focused element matches `selector` (at most `max` presses); the keyboard-only way to reach a control. */
 async function tabTo(page: Page, selector: string, max = 80): Promise<void> {
@@ -29,14 +41,17 @@ async function tabTo(page: Page, selector: string, max = 80): Promise<void> {
 test("@golden the consult with the keyboard only: sections, the shorthand bar, a template, a diagnosis, Ctrl+S", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome", "a hardware keyboard on a fine pointer: the desktop project");
   const { tenantA } = run();
+  const own = await seedOwnDoctor("Keyboard");
+  doctor = own;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Keyboard ${testTag()}`);
   const visitId = await seedVisit({
     tenantId: tenantA.id,
     patientId: patient.id,
-    doctorId: tenantA.users.doctor.id,
+    doctorId: own.id,
     createdBy: tenantA.users.receptionist.id,
     status: "in_consultation",
   });
+  await signInAsOwnDoctor(page, own);
   await page.addInitScript(() => localStorage.setItem("clinicos.pref.shortcuts", "on"));
   await page.goto(`/consultation/${visitId}`);
   await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toBeVisible();
