@@ -1,7 +1,8 @@
 /**
  * The consult workspace's accessibility, the whole page (V2-09b 09B-02a, R-6, R-7; CLAUDE.md DoD 3; the V2-06 and V2-09a "consult axe debt"):
  * ZERO serious or critical axe violations on /consultation/[id], with NO allowance for the M0 baseline's v1 rules, at 360, 820, 1180 and 1280 px,
- * for the draft, the sealed record, the amending record and the Sign & Bill sheet open. Moderate and minor findings are attached for the evidence.
+ * for the draft, the sealed record, the amending record and the Sign & Bill sheet open; 09B-04b and 09B-05 add the shorthand bar with its preview, the macro
+ * list, the upload states (a refused file and a stored one) and a sealed record with a document. Moderate and minor findings are attached for the evidence.
  * Screenshots and the axe JSON go to test-results/consult-screens/. Runs on desktop-chrome only (a11y specs own their viewport). Synthetic data only.
  */
 import fs from "node:fs";
@@ -11,6 +12,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
+import { randomUUID } from "node:crypto";
 import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
 import { awaitHydrated } from "../support/hydrated";
 import { storageStatePath } from "../support/run-data";
@@ -25,6 +27,7 @@ const WIDTHS = [
   { width: 1280, height: 800 },
 ];
 const REASON = "Added the missing antibiotic after the patient called back";
+const PDF = Buffer.from("%PDF-1.4\n% synthetic axe report\n%%EOF\n");
 
 /** Axe over the whole page; the serious and critical findings must be empty (no baseline rule is tolerated). */
 async function checkWholePage(page: Page, testInfo: TestInfo, name: string): Promise<void> {
@@ -101,6 +104,78 @@ for (const size of WIDTHS) {
       await page.getByRole("button", { name: "Finish visit" }).click();
       await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
       await checkWholePage(page, testInfo, `sign-and-bill-${size.width}`);
+    });
+
+    test(`the shorthand bar open with its preview: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.getByRole("button", { name: "Shorthand" }).click();
+      const bar = page.getByRole("dialog", { name: "Shorthand" });
+      await bar.getByRole("textbox", { name: "Shorthand" }).fill("c/o fever 3d, cough 2d; o/e chest clear; adv steam inhalation BD; f/u 5d");
+      await expect(bar.locator("[data-shorthand-group='follow-up']")).toBeVisible();
+      await checkWholePage(page, testInfo, `shorthand-${size.width}`);
+    });
+
+    test(`the macro list open: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.getByRole("button", { name: "Shorthand" }).click();
+      await page.getByRole("dialog", { name: "Shorthand" }).getByRole("button", { name: "Macros" }).click();
+      const list = page.getByRole("dialog", { name: "Macros" });
+      await list.locator("[data-macro-shortcut]").fill(".axe");
+      await list.locator("[data-macro-expansion]").fill("adv rest");
+      await list.locator("[data-macro-save]").click();
+      await expect(list.locator("[data-macro-row='.axe']")).toBeVisible();
+      await checkWholePage(page, testInfo, `macros-${size.width}`);
+      await list.getByRole("button", { name: "Delete .axe" }).click();
+      await expect(list.locator("[data-macro-row='.axe']")).toHaveCount(0);
+    });
+
+    test(`the upload states, a refused file and a stored one: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.locator("[data-file-drop] input[type=file]").setInputFiles([
+        { name: "run-me.exe", mimeType: "application/x-msdownload", buffer: Buffer.from("MZ synthetic") },
+        { name: "axe-report.pdf", mimeType: "application/pdf", buffer: PDF },
+      ]);
+      const rows = page.locator("[data-file-drop] [data-file-row]");
+      await expect(rows).toHaveCount(2);
+      await expect(rows.nth(0)).toHaveAttribute("data-status", "failed");
+      await expect(rows.nth(1)).toHaveAttribute("data-status", "stored", { timeout: 20_000 });
+      await page.locator("[data-attachments]").scrollIntoViewIfNeeded();
+      await checkWholePage(page, testInfo, `upload-${size.width}`);
+    });
+
+    test(`a sealed record with a document, no drop zone: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const { tenantA } = run();
+      const sealed = await seedSignedConsultation("Axe Sealed Docs");
+      const id = randomUUID();
+      const inserted = await getAdminClient().from("patient_documents").insert({
+        id,
+        tenant_id: tenantA.id,
+        patient_id: sealed.patientId,
+        visit_id: sealed.visitId,
+        title: "E2E Synthetic sealed report",
+        document_type: "lab_report",
+        original_filename: "sealed.pdf",
+        storage_path: `tenants/${tenantA.id}/patients/${sealed.patientId}/labs/${id}.pdf`,
+        file_size_bytes: 1234,
+        mime_type: "application/pdf",
+        report_date: new Date().toISOString().slice(0, 10),
+        uploaded_by: tenantA.users.doctor.id,
+      });
+      expect(inserted.error).toBeNull();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${sealed.visitId}`);
+      await awaitHydrated(page);
+      await expect(page.locator("[data-attachments-readonly]")).toBeVisible();
+      await checkWholePage(page, testInfo, `sealed-documents-${size.width}`);
     });
   });
 }
