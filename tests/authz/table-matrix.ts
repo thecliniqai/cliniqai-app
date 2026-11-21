@@ -446,7 +446,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.patient), tenant_id: A, full_name: "'Synthetic Patient'", phone: "'+919000000001'", created_by: U.ownerA },
     insert: { id: q(FX.row(2)), tenant_id: A, full_name: "'Synthetic Insert'", phone: "'+919000000002'", created_by: "auth.uid()" },
     update: "full_name",
-    rules: permSiu("patients:view", "patients:edit", rpcOnly),
+    // V2-08 08-06a (S-8): a patient is created only by register_patient / the walk-in and booking commands (definer) and the service role.
+    rules: { select: perm("patients:view"), insert: rpcOnly, update: perm("patients:edit"), delete: rpcOnly },
     note:
       "05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs " +
       "consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql). 05-11d (N-5): " +
@@ -476,7 +477,9 @@ export const TARGETS: readonly Target[] = [
         signed_by: U.doctorA,
       },
     ],
-    rules: permSiu("appointments:view", "appointments:edit", rpcOnly),
+    // V2-08 08-06a (S-1): INSERT is revoked from `authenticated`; visits are created by the definer commands (enqueue_walk_in,
+    // register_and_book, the waitlist promotion) and the service role (/api/v1).
+    rules: { select: perm("appointments:view"), insert: rpcOnly, update: perm("appointments:edit"), delete: rpcOnly },
     note:
       "no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). " +
       "05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a " +
@@ -690,7 +693,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(20)), tenant_id: A, patient_id: q(FX.patient), target_date: "'2030-01-01'", created_by: U.ownerA },
     insert: { id: q(FX.row(21)), tenant_id: A, patient_id: q(FX.patient), target_date: "'2030-01-02'", created_by: U.ownerA },
     update: "status",
-    rules: permSiu("appointments:view", "appointments:edit", rpcOnly),
+    // V2-08 08-06a (S-2): add_to_waitlist / promote_waitlist_entry / cancel_visit (definer) are the writers.
+    rules: { select: perm("appointments:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
   },
   {
     kind: "table",

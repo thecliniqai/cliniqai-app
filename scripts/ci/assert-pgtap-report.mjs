@@ -86,6 +86,10 @@
  *   8267 — V2-08 08-05 (000105 smart_assist): 8237 + smart_assist 30 (new file, every one required); patient_search keeps its 40
  *          (two assertions changed: the definer read and the strength column) and definer_functions its 109 (find_patient_duplicates
  *          is a row in three exact sets, no test) = 8267 (54 files).
+ *   8321 — V2-08 08-06a (000106 front_desk_review_fixes): 8267 + front_desk_review_fixes 54 (new file, every one required); the
+ *          authz matrix keeps its cell count (the revoked operations become rpc_only cells), the visit, patient, signal and
+ *          scheduling files keep theirs (they widen the INSERT grant inside their own transaction or change an assertion) = 8321
+ *          (55 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -97,7 +101,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8267;
+export const FLOOR = 8321;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -185,6 +189,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/staff_scheduling.test.sql",
   // V2-08 08-05
   "supabase/tests/database/smart_assist.test.sql",
+  // V2-08 08-06a
+  "supabase/tests/database/front_desk_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

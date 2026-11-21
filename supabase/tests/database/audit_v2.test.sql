@@ -159,9 +159,9 @@ select set_eq(
 
 -- 2. log_audit ------------------------------------------------------------------------------------------------------
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null,
-  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'visit.status_update', 'visit', 'c2c00000-0000-4000-8000-000000001002', '{"reason": "probe", "system_actor": "system:forged"}'::jsonb)$$,
+  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'vitals.record', 'visit', 'c2c00000-0000-4000-8000-000000001002', '{"reason": "probe", "system_actor": "system:forged"}'::jsonb)$$,
   $$select actor_id::text || '|' || actor_role || '|' || actor_type || '|' || coalesce(api_key_id::text, '-') || '|' || (metadata ? 'system_actor')::text
-      from public.audit_logs where action = 'visit.status_update' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
+      from public.audit_logs where action = 'vitals.record' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
   'c2c00000-0000-4000-8000-000000000103|doctor|user|-|false', 'log_audit by a clinic-A doctor records the doctor (id, role, user) and drops system_actor');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000106', null,
   $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'patient.view', 'patient', null, null)$$,

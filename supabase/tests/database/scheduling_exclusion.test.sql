@@ -12,6 +12,10 @@
 --      books a free slot (the EXECUTE grant the index expression needs).
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.visits is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the slot constraint through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.visits to authenticated;
 select plan(26);
 
 insert into auth.users (id, email) values

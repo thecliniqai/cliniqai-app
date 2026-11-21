@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
  * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
  *
  * V2-07 07-04a (migration 000099, F-1): the actions only an atomic command writes are NOT in this list: `visit.complete_and_sign`,
- * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}).
+ * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote`, and (V2-08 08-06a, migration 000106) `visit.create` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}). The API-key path's own actions are in {@link API_KEY_ONLY_AUDIT_ACTIONS}.
  * The commands write them through `private.log_command_audit`; `log_audit` refuses them, so no member can forge them.
  */
 export const AUDIT_ACTIONS = [
@@ -20,9 +20,6 @@ export const AUDIT_ACTIONS = [
   "patient.consent.granted",
   "patient.consent.withdrawn",
   "clinic.profile.update",
-  "visit.create",
-  "visit.status_update",
-  "queue.transition",
   "consultation.draft_save",
   "consultation.complete_sign",
   "consultation.amend",
@@ -62,8 +59,6 @@ export const AUDIT_ACTIONS = [
   "webhook.create",
   "webhook.delete",
   "appointment.create",
-  "appointment.reschedule",
-  "appointment.cancel",
   "lab_order.create",
   "prescription.create",
 ] as const;
@@ -84,9 +79,22 @@ export const COMMAND_ONLY_AUDIT_ACTIONS = [
   "visit.auto_promoted_from_waitlist",
   "waitlist.add",
   "waitlist.promote",
+  "visit.create",
 ] as const;
 
-export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+/**
+ * Written by the API-key path only (V2-08 08-06a, S-5): the service client inserts `audit_logs` directly and does not consult
+ * the user allow-list, and no member may forge these through `log_audit`. They are valid {@link AuditAction}s for `recordAudit`
+ * with an API-key context; `visit.create` is also written by the commands (it is in {@link COMMAND_ONLY_AUDIT_ACTIONS}).
+ */
+export const API_KEY_ONLY_AUDIT_ACTIONS = [
+  "visit.create",
+  "visit.status_update",
+  "appointment.reschedule",
+  "appointment.cancel",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number] | (typeof API_KEY_ONLY_AUDIT_ACTIONS)[number];
 
 export interface RecordAuditParams {
   action: AuditAction;

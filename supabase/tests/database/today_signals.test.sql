@@ -1,6 +1,6 @@
 -- today_signals.test.sql — V2-08 08-03a (R-10, T-08-01; migration 000102).
 -- The Today signals: PHI-free private broadcasts on today:<tenant_id>, written by triggers on visits, queue_tokens,
--- payments and the vitals of clinical_notes, read through one SELECT policy on realtime.messages.
+-- invoices, payments and the vitals of clinical_notes, read through one SELECT policy on realtime.messages.
 --   1. objects: the helper, the sender, the trigger function, the five triggers (shapes), the policy, no INSERT policy;
 --   2. the policy's test (authz.today_topic_allowed): member of the topic's clinic, active, appointments:view, clinic
 --      access level full; every other topic shape refused; no active-clinic header needed;
@@ -80,8 +80,8 @@ select is(
 select is(
   (select string_agg(t.tgname || '@' || t.tgrelid::regclass::text, ',' order by t.tgname) from pg_trigger t
     where not t.tgisinternal and t.tgfoid = 'private.today_signal()'::regprocedure),
-  'clinical_notes_today_signal@clinical_notes,payments_today_signal@payments,queue_tokens_today_signal@queue_tokens,visits_today_signal_insert@visits,visits_today_signal_update@visits',
-  'five triggers call the signal function, on the four tables');
+  'clinical_notes_today_signal@clinical_notes,invoices_today_signal_insert@invoices,invoices_today_signal_update@invoices,payments_today_signal@payments,queue_tokens_today_signal@queue_tokens,visits_today_signal_insert@visits,visits_today_signal_update@visits',
+  'seven triggers call the signal function, on the five tables (000106, A-5: invoices)');
 select matches(
   (select pg_get_triggerdef(t.oid) from pg_trigger t where t.tgrelid = 'public.visits'::regclass and t.tgname = 'visits_today_signal_update'),
   'AFTER UPDATE OF status, scheduled_at, doctor_id ON public\.visits FOR EACH ROW WHEN \(\(\(old\.status IS DISTINCT FROM new\.status\) OR \(old\.scheduled_at IS DISTINCT FROM new\.scheduled_at\) OR \(old\.doctor_id IS DISTINCT FROM new\.doctor_id\)\)\)',
@@ -97,8 +97,8 @@ select is(
   'r:authenticated', 'realtime.messages has exactly one policy: SELECT for authenticated (no INSERT or ALL policy)');
 select matches(
   (select pg_get_expr(p.polqual, p.polrelid) from pg_policy p where p.polrelid = 'realtime.messages'::regclass and p.polname = 'today_signals_select'),
-  'extension = ''broadcast''::text\) AND authz\.today_topic_allowed\(realtime\.topic\(\)\)',
-  'the policy admits only broadcast messages whose topic passes the helper');
+  'extension = ''broadcast''::text\) AND \(topic = realtime\.topic\(\)\) AND authz\.today_topic_allowed\(topic\)',
+  'the policy admits only broadcast messages whose own topic is the session topic and passes the helper (000106, S-7)');
 
 -- 2. The helper ---------------------------------------------------------------------------------------------------------
 select is(pg_temp.allowed('c1020000-0000-4000-8000-000000000104', 'today:c1020000-0000-4000-8000-00000000000a'), 'true', 'a receptionist of A may read today:<A>');
@@ -151,16 +151,17 @@ insert into public.payments (tenant_id, invoice_id, amount, payment_method, reco
 select set_eq(
   $$ select payload->>'kind' as kind, payload->>'visit_id' as visit_id from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a' $$,
   $$ values ('visit', 'c1020000-0000-4000-8000-000000002001'), ('queue', 'c1020000-0000-4000-8000-000000002001'),
-            ('vitals', 'c1020000-0000-4000-8000-000000002001'), ('payment', 'c1020000-0000-4000-8000-000000002001') $$,
-  'insert, status change, token, vitals and payment each signal the visit (the invoice insert signals nothing)');
+            ('vitals', 'c1020000-0000-4000-8000-000000002001'), ('invoice', 'c1020000-0000-4000-8000-000000002001'),
+            ('payment', 'c1020000-0000-4000-8000-000000002001') $$,
+  'insert, status change, token, vitals, invoice (000106, A-5) and payment each signal the visit');
 select is(
-  (select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a'), 5,
-  'five messages: visit insert, visit status change, queue token, vitals, payment');
+  (select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a'), 6,
+  'six messages: visit insert, visit status change, queue token, vitals, invoice, payment');
 select is(
   (select count(*)::int from realtime.messages m where m.topic = 'today:c1020000-0000-4000-8000-00000000000a'
       and (select array_agg(k order by k) from jsonb_object_keys(m.payload) as t(k)) = array['id', 'kind', 'visit_id']
       and m.payload->>'id' = m.id::text),
-  5, 'every payload has exactly the keys kind and visit_id, plus the message''s own random id that realtime.send adds');
+  6, 'every payload has exactly the keys kind and visit_id, plus the message''s own random id that realtime.send adds');
 select is(
   (select string_agg(distinct m.extension || ':' || m.private::text || ':' || m.event, ',') from realtime.messages m where m.topic = 'today:c1020000-0000-4000-8000-00000000000a'),
   'broadcast:true:today', 'every message is a private broadcast with the event name today');

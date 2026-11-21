@@ -188,8 +188,8 @@ select set_eq(
         and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE') $$,
   array['specialty', 'metadata', 'updated_at'],
   'the columns authenticated may update are exactly specialty, metadata and updated_at');
-select ok(not has_table_privilege('authenticated', 'public.visits', 'UPDATE') and has_table_privilege('authenticated', 'public.visits', 'INSERT'),
-  'no table-level UPDATE for authenticated; INSERT is unchanged');
+select ok(not has_table_privilege('authenticated', 'public.visits', 'UPDATE') and not has_table_privilege('authenticated', 'public.visits', 'INSERT'),
+  'no table-level UPDATE and (000106, S-1) no INSERT for authenticated');
 select ok(has_table_privilege('service_role', 'public.visits', 'UPDATE') and not has_table_privilege('anon', 'public.visits', 'UPDATE'),
   'service_role keeps UPDATE (system paths); anon has none');
 select is(pg_temp.val_as('c1030000-0000-4000-8000-000000000106', 'c1030000-0000-4000-8000-00000000000a',
@@ -215,9 +215,9 @@ select is(pg_temp.val_as('c1030000-0000-4000-8000-000000000103', 'c1030000-0000-
   $$select specialty from public.visits where id = 'c1030000-0000-4000-8000-000000002001'$$),
   'dental', 'the consultation draft still writes specialty and updated_at');
 select is(pg_temp.val_as('c1030000-0000-4000-8000-000000000103', 'c1030000-0000-4000-8000-00000000000a',
-  $$update public.visits set metadata = '{"draft": true}'::jsonb where id = 'c1030000-0000-4000-8000-000000002001'$$,
-  $$select metadata ->> 'draft' from public.visits where id = 'c1030000-0000-4000-8000-000000002001'$$),
-  'true', 'and metadata');
+  $$update public.visits set metadata = '{"ai_assisted": true}'::jsonb where id = 'c1030000-0000-4000-8000-000000002001'$$,
+  $$select metadata ->> 'ai_assisted' from public.visits where id = 'c1030000-0000-4000-8000-000000002001'$$),
+  'true', 'and the AI provenance in metadata (000106, S-3: any other metadata key is refused, see front_desk_review_fixes.test.sql)');
 select is(pg_temp.val_as('c1030000-0000-4000-8000-000000000106', 'c1030000-0000-4000-8000-00000000000a',
   $$select public.confirm_appointment('c1030000-0000-4000-8000-00000000000a', 'c1030000-0000-4000-8000-000000002001', 'c1030000-0000-4000-8000-0000000c0001') ->> 'already_confirmed'$$,
   null),
