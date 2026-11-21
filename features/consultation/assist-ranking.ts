@@ -197,3 +197,42 @@ export function orderPlanTiles(catalogue: readonly string[], usual: readonly str
 export function usualFollowUp(plan: UsualPlan | null): FollowUpInterval | null {
   return plan ? intervalForDays(plan.followUpDays) : null;
 }
+
+export type AssistDiagnosis = AssistContext["diagnoses"][number];
+
+export interface RankedDiagnoses {
+  /** "Likely from the complaints": diagnoses this doctor recorded with the complaints already added, most co-occurrences first. */
+  likely: AssistDiagnosis[];
+  /** "Your recent": the doctor's other recently used diagnoses, most recent first. */
+  recent: AssistDiagnosis[];
+}
+
+export const LIKELY_DIAGNOSIS_LIMIT = 4;
+export const RECENT_DIAGNOSIS_LIMIT = 5;
+
+/**
+ * The diagnosis tiles of the consult (V2-09b 09B-04a, R-12, Q-8): from this doctor's own signed history only, never from an authored table. "Likely" is
+ * the doctor's diagnoses that co-occurred with the complaints added so far (the sum of the counts of the matching complaint pairs; a complaint with no
+ * history adds nothing); "recent" is the rest of their recent diagnoses in the order the function returned them (most recently used first). Diagnoses
+ * already added are not offered. Without the context both are empty (the fixed specialty chips apply).
+ */
+export function rankDiagnoses(args: { context: AssistContext | null; complaints: readonly string[]; added: readonly string[] }): RankedDiagnoses {
+  const { context } = args;
+  if (!context) return { likely: [], recent: [] };
+  const addedKeys = new Set(args.added.map(norm));
+  const complaintKeys = new Set(args.complaints.map(norm));
+  const score = new Map<string, number>();
+  for (const pair of context.pairs) {
+    if (complaintKeys.has(norm(pair.complaint))) score.set(norm(pair.diagnosis), (score.get(norm(pair.diagnosis)) ?? 0) + pair.n);
+  }
+  const open = context.diagnoses.filter((d) => !addedKeys.has(norm(d.name)));
+  const likely = open
+    .map((d, index) => ({ d, index, s: score.get(norm(d.name)) ?? 0 }))
+    .filter((x) => x.s > 0)
+    .sort((x, y) => y.s - x.s || x.index - y.index)
+    .slice(0, LIKELY_DIAGNOSIS_LIMIT)
+    .map((x) => x.d);
+  const likelyKeys = new Set(likely.map((d) => norm(d.name)));
+  const recent = open.filter((d) => !likelyKeys.has(norm(d.name))).slice(0, RECENT_DIAGNOSIS_LIMIT);
+  return { likely, recent };
+}

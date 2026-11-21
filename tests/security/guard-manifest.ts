@@ -92,6 +92,12 @@ export type RouteGuard =
    * neither the full mobile number nor any field outside the projection.
    */
   | { kind: "session-search"; permission: Permission; keys: readonly string[] }
+  /**
+   * V2-09b 09B-04a (T-09B-06): the diagnosis typeahead `GET /api/terminology/diagnoses?q=`. The denial legs of session(P) (no session 401, a role
+   * lacking `permission` 403, no membership refused); a member with the permission searching a catalogue row answers 200 with `no-store` and rows with
+   * exactly `keys`, nothing of tenant B in the response, and a hostile query (SQL text, array syntax, a NUL, wildcards) is data (200, never a 500).
+   */
+  | { kind: "session-diagnosis-search"; permission: Permission; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -104,7 +110,6 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "app/(dashboard)/settings/clinic/actions.ts#updateClinicProfileAction": "clinic:manage",
   "features/ai/actions.ts#generateSoapAction": "consultations:edit",
   "features/ai/actions.ts#getFrequentPrescriptionsAction": "consultations:view",
-  "features/ai/actions.ts#getPatientCatchUpSummaryAction": "consultations:view",
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
@@ -221,7 +226,6 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/terminology/actions.ts#addConsultationDiagnosis": "consultations:edit",
   "features/terminology/actions.ts#getVisitDiagnoses": "consultations:view",
   "features/terminology/actions.ts#removeConsultationDiagnosis": "consultations:edit",
-  "features/terminology/actions.ts#searchDiagnoses": "consultations:view",
   "features/terminology/actions.ts#updateDiagnosisNote": "consultations:edit",
   "features/visits/actions.ts#getActiveClinicDoctors": "appointments:view",
   "features/visits/actions.ts#getClinicVisitsRegister": "appointments:view",
@@ -262,8 +266,6 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "V2-05 05-07b: the guard world holds no invitation, and a resend would enqueue an email.invite job in the shared world; the success path (new version, old link dead, exactly one more email) is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
   "features/staff/actions.ts#revokeInvite":
     "V2-05 05-07b: the guard world holds no invitation; the success path is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
-  "features/ai/actions.ts#getPatientCatchUpSummaryAction":
-    "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
   "features/clinics/actions.ts#switchClinic":
@@ -312,6 +314,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-search",
     permission: "patients:view",
     keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
+  "app/api/terminology/diagnoses/route.ts#GET": {
+    kind: "session-diagnosis-search",
+    permission: "consultations:view",
+    keys: ["id", "name", "icd11", "snomed", "chronic", "custom"],
   },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {
     kind: "session",
