@@ -173,6 +173,7 @@ evidence. Counts are from the runs named beside them.
 - pgTAP full run: 8391 tests, 57 files, all pass (FLOOR 8356 -> 8391: prescription_seal 33 + grants 1 + amendment_snapshot 1).
 - Vitest affected folders at the 000108 tree (`tests/consultation billing api security jobs prescriptions audit ci integration authz clinical queue visits compliance patients`): 3871 tests in 192
   files, 4 failed (all exact-payload assertions that lacked `version`, fixed); re-runs of the six touched files, `tests/ci authz audit`: pass (127 + 555 tests).
+- Final affected-folder Vitest run at the committed tree (`tests/clinical consultation visits queue security api integration billing jobs compliance patients authz ci prescriptions audit dpdp labs storage`): 3972 tests in 203 files, all pass, none retried.
 - e2e lane (same command as 09A-01, after `npm run e2e:build`): 33 passed, 0 retries, the known-bug case still the expected failure.
 - Latency (`evidence/command-latency.json`, 100 calls, local stack, node v24.13.0, 10 CPUs, `passed: true`): sign_consultation p50 2.7 / p95 3.6 / p99 5.4 ms; reopen_visit_for_amendment
   2.5 / 2.8 / 3.0; finalize_visit_amendment 2.7 / 3.3 / 5.5; complete_and_bill 4.0 / 4.4 / 4.5; complete_visit 1.9 / 2.4 / 4.1; baseline visits select 1.4 / 1.7 / 1.7. The 08-05 table had
