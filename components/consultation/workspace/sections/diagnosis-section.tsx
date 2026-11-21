@@ -8,7 +8,7 @@ import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import { fetchDiagnosisHits, DIAGNOSIS_SEARCH_MIN_CHARS, type DiagnosisHit } from "@/features/terminology/search";
 import { SPECIALTY_QUICK_DIAGNOSES } from "@/features/terminology/quick-diagnoses";
 import type { ClinicalSpecialty } from "@/features/consultation/schema";
-import { rankDiagnoses, type AssistContext } from "@/features/consultation/assist-ranking";
+import { quickChipsBesideLearned, rankDiagnoses, type AssistContext } from "@/features/consultation/assist-ranking";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Command, CommandGroup, CommandItem, CommandList, CommandLoading } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import { reportClientError } from "@/lib/log/client";
  *
  * - "Likely from the complaints" and "Your recent" tiles (Smart Assist label): this doctor's own signed history only, when the clinic has
  *   `assist.terminology` (`context`). The fixed chips of the specialty (the v1 list) are always there under them: the only group for a doctor with no
- *   history or no entitlement, and a way to a diagnosis the history does not hold.
+ *   history or no entitlement, and a way to a diagnosis the history does not hold. A chip whose diagnosis a learned tile already offers is left out
+ *   (one diagnosis, one button; CI 44924479177).
  * - A combobox over `GET /api/terminology/diagnoses` (a route handler, never a server action: it aborts with each keystroke and runs beside a draft
  *   save), debounced 200 ms: the doctor's own custom diagnoses first, then the catalogue ranked by name, synonym and abbreviation expansion. Codes are
  *   labelled ICD-11. Enter or a tap adds the highlighted row; the last row adds what was typed as the doctor's own diagnosis.
@@ -205,7 +206,8 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
     const entry = entries.find((e) => e.name === name);
     if (entry) void handleAdd(fromEntry(entry));
   };
-  const quick = SPECIALTY_QUICK_DIAGNOSES[specialty] ?? SPECIALTY_QUICK_DIAGNOSES.general_physician;
+  // A diagnosis the learned tiles offer is not offered a second time by the fixed chips (CI 44924479177: "Viral Fever" was two buttons).
+  const quick = quickChipsBesideLearned(SPECIALTY_QUICK_DIAGNOSES[specialty] ?? SPECIALTY_QUICK_DIAGNOSES.general_physician, ranked);
 
   return (
     <div className="flex flex-col gap-4">

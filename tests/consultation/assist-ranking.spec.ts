@@ -6,9 +6,11 @@
 import { describe, expect, it } from "vitest";
 import { COMPLAINTS, ADVICE, INVESTIGATIONS, intervalForDays, daysForInterval, FOLLOW_UP_INTERVALS } from "@/features/consultation/catalogue";
 import { EXAM_TEMPLATES } from "@/features/consultation/exam-templates";
+import { SPECIALTY_QUICK_DIAGNOSES } from "@/features/terminology/quick-diagnoses";
 import {
   orderPlanTiles,
   parseAssistContext,
+  quickChipsBesideLearned,
   rankComplaints,
   rankDiagnoses,
   rankTemplates,
@@ -254,5 +256,36 @@ describe("rankDiagnoses (09B-04a)", () => {
   it("a pair whose diagnosis is not among the doctor's recent ones is not offered (no name without its code)", () => {
     const c = ctx({ pairs: [{ complaint: "Fever", diagnosis: "Unknown dx", n: 9 }], diagnoses: [dx("Viral fever")] });
     expect(rankDiagnoses({ context: c, complaints: ["Fever"], added: [] }).likely).toEqual([]);
+  });
+});
+
+describe("quickChipsBesideLearned (CI 44924479177)", () => {
+  const dx = (name: string) => ({ name, icd11: null, snomed: null, chronic: null, custom: null, n: 1, investigations: [], advice: [], follow_up_days: null });
+  const chips = SPECIALTY_QUICK_DIAGNOSES.general_physician;
+  const chipNames = (list: { name: string }[]) => list.map((c) => c.name);
+
+  it("no learned tiles (no history, not entitled): every chip, in order", () => {
+    expect(quickChipsBesideLearned(chips, { likely: [], recent: [] })).toEqual(chips);
+  });
+  it("a diagnosis offered under Your recent is not a chip too: one diagnosis, one button", () => {
+    const shown = chipNames(quickChipsBesideLearned(chips, { likely: [], recent: [dx("Viral Fever"), dx("Gout")] }));
+    expect(shown).not.toContain("Viral Fever");
+    expect(shown).toEqual(chipNames(chips).filter((n) => n !== "Viral Fever"));
+  });
+  it("a diagnosis offered as likely is not a chip either; names compare without case or outer spaces", () => {
+    const shown = chipNames(quickChipsBesideLearned(chips, { likely: [dx(" migraine ")], recent: [dx("ESSENTIAL HYPERTENSION")] }));
+    expect(shown).not.toContain("Migraine");
+    expect(shown).not.toContain("Essential Hypertension");
+    expect(shown).toHaveLength(chips.length - 2);
+  });
+  it("a learned name that only resembles a chip leaves the chip in place", () => {
+    expect(chipNames(quickChipsBesideLearned(chips, { likely: [], recent: [dx("Viral fever E2E")] }))).toContain("Viral Fever");
+  });
+  it("once added, the diagnosis leaves the learned tiles (rankDiagnoses) and its chip is back", () => {
+    const history = ctx({ diagnoses: [{ ...dx("Viral Fever"), icd11: "MG26" }] });
+    const before = rankDiagnoses({ context: history, complaints: [], added: [] });
+    expect(chipNames(quickChipsBesideLearned(chips, before))).not.toContain("Viral Fever");
+    const after = rankDiagnoses({ context: history, complaints: [], added: ["Viral Fever"] });
+    expect(chipNames(quickChipsBesideLearned(chips, after))).toContain("Viral Fever");
   });
 });

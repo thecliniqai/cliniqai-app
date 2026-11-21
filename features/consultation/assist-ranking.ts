@@ -236,3 +236,13 @@ export function rankDiagnoses(args: { context: AssistContext | null; complaints:
   const recent = open.filter((d) => !likelyKeys.has(norm(d.name))).slice(0, RECENT_DIAGNOSIS_LIMIT);
   return { likely, recent };
 }
+
+/**
+ * The fixed specialty chips that the learned tiles do not already offer (CI 44924479177). A diagnosis shown under "Likely from the complaints" or "Your
+ * recent" is not shown again among the chips below them, so one diagnosis is one button on the screen (as {@link rankDiagnoses} keeps a likely one out
+ * of "recent"). Names compare without case. Once the doctor adds it, its tile leaves the learned groups and the chip is back, shown as chosen.
+ */
+export function quickChipsBesideLearned<T extends { name: string }>(chips: readonly T[], ranked: RankedDiagnoses): T[] {
+  const offered = new Set([...ranked.likely, ...ranked.recent].map((d) => norm(d.name)));
+  return chips.filter((chip) => !offered.has(norm(chip.name)));
+}
