@@ -13,19 +13,20 @@ import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
 import { istDate, run, seedPatient, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { storageStatePath } from "../support/run-data";
+import { storageStatePath, type RunUser } from "../support/run-data";
+import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
 
 test.use({ storageState: storageStatePath("doctor") });
 
 const saved = (page: Page) => page.locator("[data-save-status='saved']");
 
-async function seedOpenConsult(label: string, opts: { diagnosis?: string } = {}) {
+async function seedOpenConsult(label: string, opts: { diagnosis?: string; doctorId?: string } = {}) {
   const { tenantA } = run();
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Tap ${label} ${testTag()}`);
   const visitId = await seedVisit({
     tenantId: tenantA.id,
     patientId: patient.id,
-    doctorId: tenantA.users.doctor.id,
+    doctorId: opts.doctorId ?? tenantA.users.doctor.id,
     createdBy: tenantA.users.receptionist.id,
     status: "in_consultation",
   });
@@ -196,17 +197,21 @@ test.describe.serial("learned order from the doctor's own signed visits (R-12)",
   const KNEE = "Knee pain";
   const DIAGNOSIS = "Knee strain E2E";
   const TEST_ADVISED = "X-ray knee E2E";
+  // The group's own doctor (CI 44924479177). The learned order reads the doctor's last 300 signed visits, and the run's doctor is shared by every spec and
+  // by every device project of the PR lane: on pixel-7 the Fever visits signed by other specs on both projects outnumbered this group's Knee pain seeds.
+  let doctor: RunUser | null = null;
 
   test.beforeAll(async () => {
     test.setTimeout(120_000);
     const { tenantA } = run();
     const admin = getAdminClient();
-    const doctor = tenantA.users.doctor;
-    // Six signed visits of the doctor: the same complaint (more often than any other spec's history gives Fever) and diagnosis, one usual test and a
+    const own = await seedOwnDoctor("Learned order");
+    doctor = own;
+    // Three signed visits of the doctor (a complaint of their own is a tile once recorded twice): the same complaint and diagnosis, one usual test and a
     // follow-up a week out (each signed today).
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic History ${i} ${testTag()}`);
-      const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
+      const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
       const notes = await admin
         .from("clinical_notes")
         .update({
@@ -220,14 +225,20 @@ test.describe.serial("learned order from the doctor's own signed visits (R-12)",
       if (dx.error) throw new Error(dx.error.message);
       const fu = await admin
         .from("follow_ups")
-        .insert({ tenant_id: tenantA.id, visit_id: visitId, patient_id: patient.id, doctor_id: doctor.id, follow_up_date: istDate(7) });
+        .insert({ tenant_id: tenantA.id, visit_id: visitId, patient_id: patient.id, doctor_id: own.id, follow_up_date: istDate(7) });
       if (fu.error) throw new Error(fu.error.message);
-      await signSeededVisit(tenantA.id, visitId, doctor.email);
+      await signSeededVisit(tenantA.id, visitId, own.email);
     }
   });
 
+  test.afterAll(async () => {
+    if (doctor) await retireOwnDoctor(doctor);
+  });
+
   test("the doctor's own complaint leads the tiles with the Smart Assist label; the usual test and follow-up for the diagnosis come first", async ({ page }) => {
-    const { visitId } = await seedOpenConsult("learned", { diagnosis: DIAGNOSIS });
+    if (!doctor) throw new Error("the group's doctor was not seeded");
+    await signInAsOwnDoctor(page, doctor);
+    const { visitId } = await seedOpenConsult("learned", { diagnosis: DIAGNOSIS, doctorId: doctor.id });
     await openConsult(page, visitId);
 
     const complaintTiles = page.locator("[data-complaint-tiles]");

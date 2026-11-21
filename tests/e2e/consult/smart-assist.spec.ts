@@ -20,7 +20,8 @@ import { freeBookingDate, istDate, run, seedPatient, seedPrescription, seedSigne
 import { filterToday, openToday, rowOf } from "../support/today-page";
 import { bookingSheet, slotsLoaded } from "../support/schedule-page";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { storageStatePath } from "../support/run-data";
+import { storageStatePath, type RunUser } from "../support/run-data";
+import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
 
 test.use({ storageState: storageStatePath("doctor") });
 test.describe.configure({ mode: "serial" });
@@ -31,9 +32,12 @@ const HTN = "Hypertension E2E";
 const CATALOGUE_IDS: string[] = [];
 let originalAiFeatures: unknown = null;
 
-async function seedSignedFor(patientId: string, opts: { complaint: string; diagnosis: string; icd11: string; medicine?: string; followUpDate?: string; followUpWrittenDaysAgo?: number }) {
+async function seedSignedFor(
+  patientId: string,
+  opts: { complaint: string; diagnosis: string; icd11: string; medicine?: string; followUpDate?: string; followUpWrittenDaysAgo?: number; doctor?: RunUser },
+) {
   const { tenantA } = run();
-  const doctor = tenantA.users.doctor;
+  const doctor = opts.doctor ?? tenantA.users.doctor;
   const visitId = await seedVisit({ tenantId: tenantA.id, patientId, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
   const notes = await admin
     .from("clinical_notes")
@@ -86,13 +90,23 @@ test.beforeAll(async () => {
   }
 });
 
+/** A test's own doctor (see own-doctor.ts), retired after the test. */
+let ownDoctor: RunUser | null = null;
+test.afterEach(async () => {
+  if (ownDoctor) await retireOwnDoctor(ownDoctor);
+  ownDoctor = null;
+});
+
 test.afterAll(async () => {
   if (originalAiFeatures !== null) await admin.from("platform_settings").update({ ai_features: originalAiFeatures as never }).eq("id", true);
   if (CATALOGUE_IDS.length > 0) await admin.from("opd_diagnoses").delete().in("id", CATALOGUE_IDS);
 });
 
-/** A patient with a history worth a snapshot: a signed visit with a medicine, and a follow-up written 10 days ago that came due 2 days ago. One per test: a visit opened for them counts as "a visit since". */
-async function seedHistoryPatient(label: string): Promise<{ id: string; name: string }> {
+/**
+ * A patient with a history worth a snapshot: a signed visit with a medicine, and a follow-up written 10 days ago that came due 2 days ago. One per test: a
+ * visit opened for them counts as "a visit since". `doctor` signs it (default: the run's doctor).
+ */
+async function seedHistoryPatient(label: string, doctor?: RunUser): Promise<{ id: string; name: string }> {
   const { tenantA } = run();
   const name = `E2E Synthetic Snapshot ${label} ${testTag()}`;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, name);
@@ -103,6 +117,7 @@ async function seedHistoryPatient(label: string): Promise<{ id: string; name: st
     medicine: "E2E Synthetic Telmisartan 40 mg",
     followUpDate: istDate(-2),
     followUpWrittenDaysAgo: 10,
+    doctor,
   });
   return { id: patient.id, name };
 }
@@ -197,16 +212,21 @@ test("the snapshot shows on the consult: the patient column at 1280 and the Pati
 });
 
 test("Today doctor mode shows the Next patient's snapshot beside the Next card at 820", async ({ page }) => {
-  const historyPatient = await seedHistoryPatient("Today");
+  // The Next card is the first urgent token of the doctor's day. CI 44924479177: with the run's doctor, an earlier device project's urgent token (this
+  // same test on desktop-chrome) was still waiting, so it stayed Next. The test's own doctor has only the queue it seeds.
+  const doctor = await seedOwnDoctor("Today snapshot");
+  ownDoctor = doctor;
+  const historyPatient = await seedHistoryPatient("Today", doctor);
   await page.setViewportSize({ width: 820, height: 1000 });
   // The history patient arrives again: a waiting visit with an urgent token, so they are the doctor's Next.
   const { tenantA } = run();
-  const waitingVisit = await seedVisit({ tenantId: tenantA.id, patientId: historyPatient.id, doctorId: tenantA.users.doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
+  const waitingVisit = await seedVisit({ tenantId: tenantA.id, patientId: historyPatient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
   const top = await admin.from("queue_tokens").select("token_number").eq("tenant_id", tenantA.id).eq("date", istDate()).order("token_number", { ascending: false }).limit(1).maybeSingle();
   const token = await admin
     .from("queue_tokens")
     .insert({ tenant_id: tenantA.id, visit_id: waitingVisit, token_number: (top.data?.token_number ?? 0) + 1, date: istDate(), priority: "urgent" });
   if (token.error) throw new Error(token.error.message);
+  await signInAsOwnDoctor(page, doctor);
   await openToday(page, "/today?mode=doctor");
   const next = page.locator("[data-next-patient]");
   await expect(next).toContainText(historyPatient.name);
