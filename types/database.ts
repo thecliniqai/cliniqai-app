@@ -918,6 +918,52 @@ export type Database = {
           },
         ];
       };
+      doctor_text_macros: {
+        Row: {
+          created_at: string;
+          doctor_id: string;
+          expansion: string;
+          id: string;
+          shortcut: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          doctor_id: string;
+          expansion: string;
+          id?: string;
+          shortcut: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          doctor_id?: string;
+          expansion?: string;
+          id?: string;
+          shortcut?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "doctor_text_macros_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "doctor_text_macros_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       document_share_tokens: {
         Row: {
           access_count: number;

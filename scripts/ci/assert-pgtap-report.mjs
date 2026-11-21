@@ -125,6 +125,9 @@
  *          its count (a new INVOKER read function: no table, policy or grant change).
  *   8632 — V2-09b 09B-04a (000114 diagnosis_search_snapshot): 8583 + diagnosis_search_snapshot 49 (new file, every one required) = 8632 (63 files). No other
  *          file changes its count (two new INVOKER read functions: no table, policy or grant change).
+ *   8776 — V2-09b 09B-04b (000115 doctor_text_macros): 8632 + doctor_text_macros 46 (new file, every one required) + authz_matrix 96 (the new tenant table: 4 operations x 24
+ *          principals, generated) + composite_fks 2 (the doctor_text_macros FK: the refusal and the control) = 8776 (64 files). authz_completeness, access_lock_rls and
+ *          delete_rules keep their counts (set comparisons and a sweep over the catalogue).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -136,7 +139,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8632;
+export const FLOOR = 8776;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -242,6 +245,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/consult_assist_context.test.sql",
   // V2-09b 09B-04a
   "supabase/tests/database/diagnosis_search_snapshot.test.sql",
+  // V2-09b 09B-04b
+  "supabase/tests/database/doctor_text_macros.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

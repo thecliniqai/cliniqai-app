@@ -192,6 +192,7 @@ select set_eq(
            ('doctor_custom_diagnoses', 'doctor_custom_diagnoses_delete'),
            ('doctor_custom_medicines', 'doctor_custom_medicines_delete'),
            ('doctor_prescription_templates', 'doctor_prescription_templates_delete'),
+           ('doctor_text_macros', 'doctor_text_macros_delete'),
            ('follow_ups', 'follow_ups_delete'), ('in_app_notifications', 'in_app_notifications_delete'),
            ('invoice_items', 'invoice_items_delete'),
            ('prescription_items', 'prescription_items_delete'), ('schedule_blocks', 'schedule_blocks_delete'),

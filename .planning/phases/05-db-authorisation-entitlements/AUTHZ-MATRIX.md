@@ -148,6 +148,10 @@ Principals:
 | `public.doctor_custom_medicines` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_medicines` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_medicines` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | S | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.doctor_text_macros` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_prescription_templates` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_prescription_templates` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_prescription_templates` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -334,6 +338,7 @@ Notes:
 - `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
+- `public.doctor_text_macros`: the BEFORE INSERT trigger sets doctor_id to the caller (a forged doctor_id is replaced), so an insert by any holder of consultations:edit stores the caller's own row; the select, update and delete rules keep the owner-only filter
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
 - `public.in_app_notifications`: 05-02c (T-05-11): a notice addressed to a user is theirs alone (the fixture); unaddressed notices go to their role or everyone in the active clinic (admin_policies.test.sql); no user-client writer; UPDATE only of is_read/read_at (05-11b M-NOTICE, api_keys_notices_columns.test.sql)
 - `public.audit_logs`: INSERT revoked: users write through log_audit (actor forced, active clinic, 05-02c T-05-12; audit_v2.test.sql)

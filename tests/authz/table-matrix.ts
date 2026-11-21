@@ -878,6 +878,20 @@ export const TARGETS: readonly Target[] = [
   {
     kind: "table",
     schema: "public",
+    table: "doctor_text_macros",
+    key: ["id"],
+    // V2-09b 000115: a doctor's own text macros; the owning doctor only, for every operation (the BEFORE INSERT trigger sets doctor_id to the caller).
+    fixture: { id: q(FX.row(75)), tenant_id: A, doctor_id: U.doctorA, shortcut: "'.syn1'", expansion: "'Synthetic macro text'" },
+    insert: { id: q(FX.row(76)), tenant_id: A, doctor_id: U.doctorA, shortcut: "'.syn2'", expansion: "'Synthetic macro text 2'" },
+    update: "expansion",
+    rules: { select: ownConsultationRow, insert: perm("consultations:edit"), update: ownConsultationRow, delete: ownConsultationRow },
+    note:
+      "the BEFORE INSERT trigger sets doctor_id to the caller (a forged doctor_id is replaced), so an insert by any holder of consultations:edit stores " +
+      "the caller's own row; the select, update and delete rules keep the owner-only filter",
+  },
+  {
+    kind: "table",
+    schema: "public",
     table: "doctor_prescription_templates",
     key: ["id"],
     fixture: { id: q(FX.row(37)), tenant_id: A, doctor_id: U.doctorA, template_name: "'Synthetic template'" },

@@ -179,6 +179,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.doctor_custom_diagnoses": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_custom_medicines": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_prescription_templates": "perm(consultations:edit) AND self(doctor_id)",
+  "public.doctor_text_macros": "perm(consultations:edit) AND self(doctor_id)", // V2-09b 000115: the owning doctor only, every operation
   "public.communication_queue": "rpc_only",
   "public.in_app_notifications": "self(recipient_user_id) AND full",
   "public.tenant_messaging_config": "rpc_only",
@@ -281,6 +282,12 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.doctor_custom_medicines": [
     "perm(consultations:view)",
     "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit) AND self(doctor_id)",
+  ],
+  // V2-09b 000115: a doctor's own macros. The BEFORE INSERT trigger sets doctor_id to the caller, so INSERT needs only the permission.
+  "public.doctor_text_macros": [
+    "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit)",
     "perm(consultations:edit) AND self(doctor_id)",
   ],
   "public.doctor_prescription_templates": [
