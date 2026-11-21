@@ -40,21 +40,21 @@ insert into public.memberships (user_id, tenant_id, role) values
 insert into public.patients (id, tenant_id, full_name, phone, created_by) values
   ('c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-00000000000a', 'Synthetic Patient One', '+919000001301', 'c11e0000-0000-4000-8000-000000000101'),
   ('c11e0000-0000-4000-8000-000000001002', 'c11e0000-0000-4000-8000-00000000000a', 'Synthetic Patient Two', '+919000001302', 'c11e0000-0000-4000-8000-000000000101');
--- Doctor A's visits. Signed and completed: V1 2001 (legitimate amendments), V2 2002 (route B), V6 2006 (route C).
+-- Doctor A's visits. Signed and completed (seeded unsigned, then signed as the doctor, R-15 / 000107): V1 2001 (legitimate amendments), V2 2002 (route B), V6 2006 (route C).
 -- Open: V3 2003 (patient Two), V4 2004 (patient One, unsigned: route A).
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by) values
   ('c11e0000-0000-4000-8000-000000002001', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
-   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'completed', '2030-01-01 10:00+05:30', 'c11e0000-0000-4000-8000-000000000102',
+   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11e0000-0000-4000-8000-000000000101'),
   ('c11e0000-0000-4000-8000-000000002002', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
-   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'completed', '2030-01-02 10:00+05:30', 'c11e0000-0000-4000-8000-000000000102',
+   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11e0000-0000-4000-8000-000000000101'),
   ('c11e0000-0000-4000-8000-000000002003', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001002',
    'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null, 'c11e0000-0000-4000-8000-000000000101'),
   ('c11e0000-0000-4000-8000-000000002004', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
    'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null, 'c11e0000-0000-4000-8000-000000000101'),
   ('c11e0000-0000-4000-8000-000000002006', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
-   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'completed', '2030-01-06 10:00+05:30', 'c11e0000-0000-4000-8000-000000000102',
+   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11e0000-0000-4000-8000-000000000101');
 update public.clinical_notes set clinical_notes = 'Synthetic signed note V1' where visit_id = 'c11e0000-0000-4000-8000-000000002001';
 update public.clinical_notes set clinical_notes = 'Synthetic signed note V2' where visit_id = 'c11e0000-0000-4000-8000-000000002002';
@@ -82,6 +82,23 @@ insert into public.consultation_diagnoses (id, tenant_id, visit_id, patient_id, 
 insert into public.follow_ups (id, tenant_id, patient_id, visit_id, doctor_id, follow_up_date) values
   ('c11e0000-0000-4000-8000-000000003301', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
    'c11e0000-0000-4000-8000-000000002001', 'c11e0000-0000-4000-8000-000000000102', '2030-01-10');
+
+-- V2-09a 000107 (R-15): a signed record is seeded the way production makes one. The visit and every child row are written while it is a
+-- draft; the signer's own session then signs it (a system-path sign-off is refused since 000107, R-5).
+create function pg_temp.sign_visit(p_visit uuid, p_signer uuid) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_signer, 'role', 'authenticated')::text, true);
+  perform set_config('request.headers', json_build_object('x-clinicos-tenant', 'c11e0000-0000-4000-8000-00000000000a')::text, true);
+  update public.visits set status = 'completed', signed_at = now(), signed_by = p_signer where id = p_visit;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', '', true);
+end
+$f$;
+do $do$ begin
+  perform pg_temp.sign_visit('c11e0000-0000-4000-8000-000000002001', 'c11e0000-0000-4000-8000-000000000102');
+  perform pg_temp.sign_visit('c11e0000-0000-4000-8000-000000002002', 'c11e0000-0000-4000-8000-000000000102');
+  perform pg_temp.sign_visit('c11e0000-0000-4000-8000-000000002006', 'c11e0000-0000-4000-8000-000000000102');
+end $do$;
 
 -- The single value p_sql returns as the user (acting in clinic A; 'none' for no row); a 42501 is 'denied:<message>',
 -- any other error 'error:<sqlstate>'. Claims are cleared afterwards (next statement = system path). Not rolled back:

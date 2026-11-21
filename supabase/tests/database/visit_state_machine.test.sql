@@ -107,11 +107,16 @@ select set_eq(
       where private.visit_transition_allowed(f.s, t.s, sg) $$,
   $$ select from_s, to_s, signed from sm_allowed $$,
   'visit_transition_allowed lists exactly the R-7 pairs (7 x 7 x signed)');
+-- V2-09a 000107 (R-5): visits_integrity_guard now refuses EVERY status change of a signed visit on the system path (VISIT_SIGNED_STATUS_FORBIDDEN,
+-- 42501), which fires before this guard. To keep proving the transition table for the signed rows on its own, the integrity guard is switched
+-- off for this one statement (owner DDL in the test transaction, enabled again right after; R-3 keeps this out of reach of every request path).
+alter table public.visits disable trigger visits_integrity_guard;
 select set_eq(
   $$ select f.s as from_s, t.s as to_s, sg as signed from sm_statuses f cross join sm_statuses t cross join (values (false), (true)) b(sg)
       where f.s <> t.s and pg_temp.try_move(f.s, t.s, sg) = 'ok' $$,
   $$ select from_s, to_s, signed from sm_allowed where from_s <> to_s $$,
   'the trigger lets exactly the listed status changes through, and refuses every other one (7 x 7 x signed)');
+alter table public.visits enable trigger visits_integrity_guard;
 select is(
   (select string_agg(s.s, ',' order by s.s) from sm_statuses s where pg_temp.try_move(s.s, s.s, false) = 'ok'),
   'booked,cancelled,completed,confirmed,in_consultation,no_show,waiting',

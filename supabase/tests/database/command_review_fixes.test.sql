@@ -69,11 +69,21 @@ insert into public.prescriptions (tenant_id, visit_id, patient_id, doctor_id, ve
   select 'c9900000-0000-4000-8000-00000000000a', v.id, 'c9900000-0000-4000-8000-000000001001', 'c9900000-0000-4000-8000-000000000103', 1, 'active'
     from public.visits v where v.id::text like 'c9900000-0000-4000-8000-00000000200%';
 -- Visits 2006 and 2007 are signed as the doctor; 2006 is then reopened (a database snapshot revision, status in_consultation).
-update public.visits set status = 'completed', signed_at = now(), signed_by = 'c9900000-0000-4000-8000-000000000103'
- where id in ('c9900000-0000-4000-8000-000000002006', 'c9900000-0000-4000-8000-000000002007');
-insert into public.visit_revisions (tenant_id, visit_id, amended_by, amendment_reason) values
-  ('c9900000-0000-4000-8000-00000000000a', 'c9900000-0000-4000-8000-000000002006', 'c9900000-0000-4000-8000-000000000103', 'Synthetic amendment reason');
-update public.visits set status = 'in_consultation' where id = 'c9900000-0000-4000-8000-000000002006';
+-- V2-09a 000107 (R-5, R-15): a signature and a reopen are written under the doctor's own session (the system path may do neither any more).
+create function pg_temp.as_actor(p_user uuid, p_sql text) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+  perform set_config('request.headers', json_build_object('x-clinicos-tenant', 'c9900000-0000-4000-8000-00000000000a')::text, true);
+  execute p_sql;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', '', true);
+end
+$f$;
+do $do$ begin perform pg_temp.as_actor('c9900000-0000-4000-8000-000000000103', $q$update public.visits set status = 'completed', signed_at = now(), signed_by = 'c9900000-0000-4000-8000-000000000103'
+ where id in ('c9900000-0000-4000-8000-000000002006', 'c9900000-0000-4000-8000-000000002007')$q$); end $do$;
+do $do$ begin perform pg_temp.as_actor('c9900000-0000-4000-8000-000000000103', $q$insert into public.visit_revisions (tenant_id, visit_id, amended_by, amendment_reason) values
+  ('c9900000-0000-4000-8000-00000000000a', 'c9900000-0000-4000-8000-000000002006', 'c9900000-0000-4000-8000-000000000103', 'Synthetic amendment reason')$q$); end $do$;
+do $do$ begin perform pg_temp.as_actor('c9900000-0000-4000-8000-000000000103', $q$update public.visits set status = 'in_consultation' where id = 'c9900000-0000-4000-8000-000000002006'$q$); end $do$;
 -- A second (non-default) location for the F-3 location change.
 insert into public.clinic_locations (id, tenant_id, name) values
   ('c9900000-0000-4000-8000-0000000000f1', 'c9900000-0000-4000-8000-00000000000a', 'Synthetic Annex');

@@ -10,7 +10,7 @@
 -- non-member signer has no automatic remedy, so VALIDATE of the FK fails with 23503 (the migration stops) until the
 -- row is corrected. Everything is rolled back; synthetic data only.
 begin;
-select plan(17);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('c11b0000-0000-4000-8000-000000000101', 'c11b-owner@example.test'),
@@ -166,7 +166,11 @@ select is(
 select throws_ok($$alter table public.visits validate constraint visits_tenant_signed_by_fkey$$, '23503', null,
   'the non-member signer has no automatic remedy: VALIDATE fails with 23503 and the migration stops (D5s must be 0)');
 -- Remedy decided with the clinic for this synthetic row: the record names its real signer (a member).
+-- V2-09a 000107 (R-3, R-5): this remedy rewrites a SIGNED row's signer, which no writer may do any more. A real migration that must do it has to say
+-- so in its header and in review (Q-12) and switch the guard off with owner DDL for the statement, as this test does (rolled back with the file).
+alter table public.visits disable trigger visits_integrity_guard;
 update public.visits set signed_by = 'c11b0000-0000-4000-8000-000000000102' where id = 'c11b0000-0000-4000-8000-000000003008';
+alter table public.visits enable trigger visits_integrity_guard;
 select is(pg_temp.d5s(), 0, 'D5s is 0 after the row is corrected');
 ALTER TABLE public.visits VALIDATE CONSTRAINT visits_tenant_signed_by_fkey;
 select is((select convalidated from pg_constraint where conname = 'visits_tenant_signed_by_fkey'), true,
@@ -177,8 +181,14 @@ select throws_ok($$update public.visits set estimated_duration_minutes = 0 where
   '23514', null, 'visits_duration_range refuses a new zero-length slot');
 select throws_ok($$update public.queue_tokens set token_number = 10000 where id = 'c11b0000-0000-4000-8000-000000004001'$$,
   '23514', null, 'queue_tokens_token_range refuses a new out-of-range token');
+-- V2-09a 000107 (R-5): a system-path UPDATE can no longer carry a signature at all (VISIT_SIGNOFF_FORBIDDEN); the FK still refuses a non-member
+-- signer on the system-path INSERT of an already-signed visit (R-4c).
 select throws_ok($$update public.visits set signed_by = 'c11b0000-0000-4000-8000-000000000201'
-  where id = 'c11b0000-0000-4000-8000-000000003001'$$, '23503', null, 'visits_tenant_signed_by_fkey refuses a new non-member signer');
+  where id = 'c11b0000-0000-4000-8000-000000003001'$$, '42501', 'VISIT_SIGNOFF_FORBIDDEN', 'a system-path UPDATE cannot name a signer (R-5)');
+select throws_ok($$insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by)
+  values ('c11b0000-0000-4000-8000-00000000000a', 'c11b0000-0000-4000-8000-000000001001', 'c11b0000-0000-4000-8000-000000000102',
+          'walk_in', 'completed', now(), 'c11b0000-0000-4000-8000-000000000201', 'c11b0000-0000-4000-8000-000000000101')$$, '23503', null,
+  'visits_tenant_signed_by_fkey refuses a new non-member signer');
 select is((select count(*)::int from public.visits a join public.visits b
             on a.tenant_id = b.tenant_id and a.doctor_id = b.doctor_id and a.id < b.id
            and public.visit_slot(a.scheduled_at, a.estimated_duration_minutes) && public.visit_slot(b.scheduled_at, b.estimated_duration_minutes)

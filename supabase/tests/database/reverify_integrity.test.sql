@@ -47,10 +47,10 @@ insert into public.memberships (user_id, tenant_id, role) values
 insert into public.patients (id, tenant_id, full_name, phone, created_by) values
   ('c11d0000-0000-4000-8000-000000001001', 'c11d0000-0000-4000-8000-00000000000a', 'Synthetic Patient One', '+919000001201', 'c11d0000-0000-4000-8000-000000000101'),
   ('c11d0000-0000-4000-8000-000000001002', 'c11d0000-0000-4000-8000-00000000000a', 'Synthetic Patient Two', '+919000001202', 'c11d0000-0000-4000-8000-000000000101');
--- V1 2001: patient One, doctor A, completed and signed. V3 2003: patient Two, open. V4 2004: patient One, open.
+-- V1 2001: patient One, doctor A, completed and signed (signed as the doctor after its children are seeded, R-15). V3 2003: patient Two, open. V4 2004: patient One, open.
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by) values
   ('c11d0000-0000-4000-8000-000000002001', 'c11d0000-0000-4000-8000-00000000000a', 'c11d0000-0000-4000-8000-000000001001',
-   'c11d0000-0000-4000-8000-000000000102', 'walk_in', 'completed', '2030-01-01 10:00+05:30', 'c11d0000-0000-4000-8000-000000000102',
+   'c11d0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11d0000-0000-4000-8000-000000000101'),
   ('c11d0000-0000-4000-8000-000000002003', 'c11d0000-0000-4000-8000-00000000000a', 'c11d0000-0000-4000-8000-000000001002',
    'c11d0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null, 'c11d0000-0000-4000-8000-000000000101'),
@@ -71,6 +71,20 @@ insert into public.consultation_diagnoses (id, tenant_id, visit_id, patient_id, 
    'c11d0000-0000-4000-8000-000000001001', 'Synthetic signed diagnosis'),
   ('c11d0000-0000-4000-8000-000000003203', 'c11d0000-0000-4000-8000-00000000000a', 'c11d0000-0000-4000-8000-000000002003',
    'c11d0000-0000-4000-8000-000000001002', 'Synthetic open diagnosis');
+-- V2-09a 000107 (R-15): a signed record is seeded the way production makes one. The visit and every child row are written while it is a
+-- draft; the signer's own session then signs it (a system-path sign-off is refused since 000107, R-5).
+create function pg_temp.sign_visit(p_visit uuid, p_signer uuid) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_signer, 'role', 'authenticated')::text, true);
+  perform set_config('request.headers', json_build_object('x-clinicos-tenant', 'c11d0000-0000-4000-8000-00000000000a')::text, true);
+  update public.visits set status = 'completed', signed_at = now(), signed_by = p_signer where id = p_visit;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', '', true);
+end
+$f$;
+do $do$ begin
+  perform pg_temp.sign_visit('c11d0000-0000-4000-8000-000000002001', 'c11d0000-0000-4000-8000-000000000102');
+end $do$;
 -- I1 4001 (V1): one ₹500 charge. I4 4004 (V4): one ₹300 charge.
 insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, status) values
   ('c11d0000-0000-4000-8000-000000004001', 'c11d0000-0000-4000-8000-00000000000a', 'c11d0000-0000-4000-8000-000000002001',
@@ -201,7 +215,7 @@ select is(pg_temp.dr($$update public.prescription_items set dosage = '1-1-1'
 select is(pg_temp.dr($$update public.consultation_diagnoses set notes = 'Synthetic amended note'
     where id = 'c11d0000-0000-4000-8000-000000003201' returning 'ok'$$),
   'ok', 'and its diagnoses');
-select is(pg_temp.dr($$update public.visits set status = 'completed', signed_at = now(),
+select is(pg_temp.dr($$update public.visits set status = 'completed', signed_at = clock_timestamp(),
     signed_by = 'c11d0000-0000-4000-8000-000000000102' where id = 'c11d0000-0000-4000-8000-000000002001' returning 'ok'$$),
   'ok', 'the doctor finalizes the amendment');
 select is(pg_temp.dr($$update public.prescription_items set dosage = '0-0-1'

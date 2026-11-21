@@ -20,7 +20,7 @@ grant insert on table public.visits to authenticated;
 -- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
 -- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
 grant update on table public.visits to authenticated;
-select plan(45);
+select plan(46);
 
 insert into auth.users (id, email) values
   ('c11a0000-0000-4000-8000-000000000101', 'c11a-owner-a@example.test'),
@@ -53,7 +53,7 @@ insert into public.patients (id, tenant_id, full_name, phone, created_by) values
 -- 2001: completed and signed by doctor A, with notes. 2002: in consultation, unsigned. 2003: booked, unsigned.
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by) values
   ('c11a0000-0000-4000-8000-000000002001', 'c11a0000-0000-4000-8000-00000000000a', 'c11a0000-0000-4000-8000-000000001001',
-   'c11a0000-0000-4000-8000-000000000102', 'walk_in', 'completed', '2030-01-01 10:00+05:30', 'c11a0000-0000-4000-8000-000000000102',
+   'c11a0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11a0000-0000-4000-8000-000000000101'),
   ('c11a0000-0000-4000-8000-000000002002', 'c11a0000-0000-4000-8000-00000000000a', 'c11a0000-0000-4000-8000-000000001001',
    'c11a0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null, 'c11a0000-0000-4000-8000-000000000101'),
@@ -61,6 +61,21 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, st
    'c11a0000-0000-4000-8000-000000000102', 'walk_in', 'booked', null, null, 'c11a0000-0000-4000-8000-000000000101');
 update public.clinical_notes set clinical_notes = 'Synthetic note for patient one'
  where visit_id = 'c11a0000-0000-4000-8000-000000002001';
+
+-- V2-09a 000107 (R-15): a signed record is seeded the way production makes one. The visit and every child row are written while it is a
+-- draft; the signer's own session then signs it (a system-path sign-off is refused since 000107, R-5).
+create function pg_temp.sign_visit(p_visit uuid, p_signer uuid) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_signer, 'role', 'authenticated')::text, true);
+  perform set_config('request.headers', json_build_object('x-clinicos-tenant', 'c11a0000-0000-4000-8000-00000000000a')::text, true);
+  update public.visits set status = 'completed', signed_at = now(), signed_by = p_signer where id = p_visit;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', '', true);
+end
+$f$;
+do $do$ begin
+  perform pg_temp.sign_visit('c11a0000-0000-4000-8000-000000002001', 'c11a0000-0000-4000-8000-000000000102');
+end $do$;
 
 -- The single value p_sql returns as the user acting in p_header ('none' for no row); a 42501 is 'denied:<message>',
 -- any other error 'error:<sqlstate>'. The JWT claims are cleared afterwards, so the next statement of this file runs
@@ -152,7 +167,7 @@ select is(pg_temp.as_user('c11a0000-0000-4000-8000-000000000102', 'c11a0000-0000
   $$update public.visits set status = 'completed' where id = 'c11a0000-0000-4000-8000-000000002001' returning 'updated'$$),
   'denied:VISIT_SIGNED_STATUS_FORBIDDEN', 'finalizing an amendment without re-signing is refused');
 select is(pg_temp.as_user('c11a0000-0000-4000-8000-000000000102', 'c11a0000-0000-4000-8000-00000000000a',
-  $$update public.visits set status = 'completed', signed_at = now(), signed_by = 'c11a0000-0000-4000-8000-000000000102'
+  $$update public.visits set status = 'completed', signed_at = clock_timestamp(), signed_by = 'c11a0000-0000-4000-8000-000000000102'
      where id = 'c11a0000-0000-4000-8000-000000002001' returning signed_by::text$$),
   'c11a0000-0000-4000-8000-000000000102', 'finalizing re-signs as the caller (finalizeVisitAmendment step 4)');
 select is(pg_temp.as_user('c11a0000-0000-4000-8000-000000000102', 'c11a0000-0000-4000-8000-00000000000a',
@@ -165,9 +180,16 @@ select is(pg_temp.as_user('c11a0000-0000-4000-8000-000000000104', 'c11a0000-0000
 select throws_ok($$update public.visits set doctor_id = 'c11a0000-0000-4000-8000-000000000103'
   where id = 'c11a0000-0000-4000-8000-000000002001'$$, '42501', 'VISIT_SIGNED_DOCTOR_IMMUTABLE',
   'a signed visit keeps its doctor on a system path too');
+-- V2-09a 000107 (R-5): a system-path write can no longer sign a visit at all (VISIT_SIGNOFF_FORBIDDEN, so the signer FK is reached by an
+-- UPDATE of no writer); the FK still refuses a non-member signer on the one system-path write that may carry a signature, the INSERT of an
+-- already-signed visit (R-4c).
 select throws_ok($$update public.visits set status = 'completed', signed_at = now(), signed_by = 'c11a0000-0000-4000-8000-000000000201'
-  where id = 'c11a0000-0000-4000-8000-000000002002'$$, '23503', null,
-  'IND M1: a signer who is not a member of the clinic is refused (visits_tenant_signed_by_fkey), even on a system path');
+  where id = 'c11a0000-0000-4000-8000-000000002002'$$, '42501', 'VISIT_SIGNOFF_FORBIDDEN',
+  'IND M1 / N-9: a system path cannot sign a visit, in anyone''s name');
+select throws_ok($$insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, created_by, status, signed_at, signed_by)
+  values ('c11a0000-0000-4000-8000-00000000000a', 'c11a0000-0000-4000-8000-000000001002', 'c11a0000-0000-4000-8000-000000000102',
+          'walk_in', 'c11a0000-0000-4000-8000-000000000101', 'completed', now(), 'c11a0000-0000-4000-8000-000000000201')$$, '23503', null,
+  'IND M1: a signer who is not a member of the clinic is refused (visits_tenant_signed_by_fkey) on the system-path INSERT of a signed visit');
 select is(pg_temp.as_user('c11a0000-0000-4000-8000-000000000102', 'c11a0000-0000-4000-8000-00000000000a',
   $$update public.visits set status = 'completed', signed_at = now(), signed_by = 'c11a0000-0000-4000-8000-000000000102'
      where id = 'c11a0000-0000-4000-8000-000000002002' returning 'signed'$$),
