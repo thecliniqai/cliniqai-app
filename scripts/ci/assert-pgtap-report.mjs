@@ -121,6 +121,8 @@
  *          (generated: the follow_ups INSERT, UPDATE and DELETE cells become `rpc_only`; the cell count is unchanged), composite_fks (the three follow_ups
  *          clones go to a free visit), clinical_seal (the follow-up insert probe is the upsert), and amendment_snapshot, clinical_notes, delete_rules,
  *          visit_integrity, clinical_seal and composite_fks widen the clinical_notes UPDATE and follow_ups write grants inside their own transaction.
+ *   8583 — V2-09b 09B-03 (000113 consult_assist_context): 8554 + consult_assist_context 29 (new file, every one required) = 8583 (62 files). No other file changes
+ *          its count (a new INVOKER read function: no table, policy or grant change).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -132,7 +134,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8554;
+export const FLOOR = 8583;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -234,6 +236,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/clinical_review_fixes.test.sql",
   // V2-09b 09B-01
   "supabase/tests/database/consult_draft_save.test.sql",
+  // V2-09b 09B-03
+  "supabase/tests/database/consult_assist_context.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

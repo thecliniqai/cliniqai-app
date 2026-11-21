@@ -3346,6 +3346,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      consult_assist_context: { Args: { p_tenant_id: string }; Returns: Json };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_invitation_for: {
         Args: { p_token_hash: string; p_user_id: string };
