@@ -282,7 +282,9 @@ test.describe("the patient's own reschedule page, in the clinic's zone", () => {
     expect(error).toBeNull();
     await page.goto(`/reschedule/${token}`);
     await expect(page.getByText(/10:00 am/i).first()).toBeVisible();
-    await expect(page.getByText(/12:30 am|11:30 pm|1:30 am/i)).toHaveCount(0);
+    // Whole times only: the page opens on tomorrow's slots, and "1:30 am" without a boundary matched the 11:30 am slot whenever tomorrow is a working day
+    // (CI 44924479177 follow-up: the spec had only run on a Saturday, when tomorrow is the clinic's closed Sunday).
+    await expect(page.getByText(/\b(?:12:30 am|11:30 pm|1:30 am)\b/i)).toHaveCount(0);
   });
 });
 
