@@ -73,6 +73,19 @@ describe("search_patients (service)", () => {
     expect(prefix).toEqual(["Zorya Quill Exact", "Zorya Quill Partial"]);
   });
 
+  it("digits inside a name query are not a mobile fragment: the exact name is the only answer, and a number-only query still finds the mobile (000104)", async () => {
+    // The synthetic names of the e2e lane end in a hex tag ("... dcc7a1" holds the digits 7 and 1; "q5a7c1" holds 5, 7, 1). Before
+    // 000104 those digits were also searched as the mobile fragment "571": a patient whose number contains it matched with rank 2 and
+    // outranked the exact name, and "Register as new patient" (offered only when nothing matches) never appeared.
+    const tagged = await seedPatient(a, { full_name: "Zeno Quill q5a7c1", phone: "+919000000001" });
+    await seedPatient(a, { full_name: "Plain Bystander", phone: "+919871234571" });
+    const r = await searchPatients(ctxFor(receptionist), "Zeno Quill q5a7c1");
+    expect(r.ok && r.patients.map((p) => p.id)).toEqual([tagged]);
+    expect(await names(receptionist, "A Zeno Quill q5a7c1 new")).toEqual([]);
+    // A query of digits and separators is still a mobile fragment.
+    expect(await names(receptionist, "98712 3457")).toEqual(["Plain Bystander"]);
+  });
+
   it("the last visit is the clinic-local date of a waiting, in-consultation or completed visit, and orders equal ranks", async () => {
     const { visitId, patientId } = await visitFor(a, ids.partial);
     expect(visitId).toBeTruthy();
