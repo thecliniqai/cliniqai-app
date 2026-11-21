@@ -9,7 +9,8 @@ import {
 } from "@/features/consultation/actions";
 import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { getVisitPrescription } from "@/features/prescriptions/actions";
-import { ConsultationWorkspace } from "@/components/consultation/consultation-workspace";
+import { ConsultWorkspace } from "@/components/consultation/workspace/consult-workspace";
+import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   Vitals,
@@ -118,16 +119,27 @@ async function ConsultationPage(props: ConsultationPageProps) {
     .limit(1)
     .maybeSingle();
   let amendmentReason: string | null = null;
+  let amendmentOpenedAt: string | null = null;
   if (recordState(visitRow) === "amending") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: latestRevision } = await (supabase.from("visit_revisions") as any)
-      .select("amendment_reason")
+      .select("amendment_reason, amended_at")
       .eq("visit_id", id)
       .eq("tenant_id", membership.tenantId)
       .order("revision_number", { ascending: false })
       .limit(1)
       .maybeSingle();
     amendmentReason = latestRevision?.amendment_reason ?? null;
+    amendmentOpenedAt = latestRevision?.amended_at ?? null;
+  }
+
+  // 8. The Smart Assist entitlements of the active clinic, resolved here from the session (V2-09b R-10); the features of 09B-03 to 09B-04b read this map.
+  // A clinic that is not `full` (read-only, locked) has none: the consult itself is served by the layout's own checks, so a refusal here is "no assist".
+  const assist: Record<string, boolean> = {};
+  try {
+    for (const [key, value] of await activeEntitlements()) if (key.startsWith("assist.")) assist[key] = value.enabled;
+  } catch {
+    // no Smart Assist for this clinic
   }
 
   // Safely cast joined patient object
@@ -145,7 +157,8 @@ async function ConsultationPage(props: ConsultationPageProps) {
       : null) as "male" | "female" | "other" | null,
     date_of_birth: patientRaw.date_of_birth,
     age: patientRaw.age,
-    allergies: patientRaw.allergies ?? [],
+    // `null` is "not recorded" and `[]` "recorded none": the allergy strip draws the two differently.
+    allergies: (patientRaw.allergies as string[] | null) ?? null,
     chronic_conditions: patientRaw.chronic_conditions ?? [],
     uhid: patientRaw.national_health_id || (patientRaw.id ? patientRaw.id.slice(0, 8).toUpperCase() : null),
   };
@@ -181,13 +194,15 @@ async function ConsultationPage(props: ConsultationPageProps) {
     draft_version: (embeddedClinicalNotes(visitRow)?.draft_version as number | undefined) ?? 0,
     prescription_version: (latestHeader?.version as number | undefined) ?? null,
     amendment_reason: amendmentReason,
+    amendment_opened_at: amendmentOpenedAt,
   };
 
   return (
-    <ConsultationWorkspace
+    <ConsultWorkspace
       visit={visit}
       patient={patient}
       pastEncounters={pastEncounters}
+      assist={assist}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={
