@@ -2,8 +2,8 @@
  * V2-09b 09B-01: the consult's save model (R-2 to R-5, PWA §3.8 D3).
  *
  * The tracer (the first two tests) is the narrowest slice: the free-text note travels through the versioned save command. A draft is
- * held in memory and reaches the server at most 5 s after the first unsaved change, and typing does not push that wait back. The page
- * is closed without unload handlers ("the tab was killed"), and the note read after reopening is what the server had.
+ * held in memory and reaches the server at most 5 s after the first unsaved change, and typing does not push that wait back. The tab's
+ * renderer is killed (no unload handler runs: "the tab was killed"), and the note read after reopening is what the server had.
  *
  * Real time is used, not `page.clock`: the consult formats clinic dates with `TZDate`, which Playwright's fake `Date` breaks
  * (tests/e2e/support/clock.ts).
@@ -43,7 +43,8 @@ async function draftSaves(tenantId: string, visitId: string): Promise<number> {
   return (await auditRows(tenantId, "consultation.draft_save", visitId)).length;
 }
 
-test("a killed tab keeps everything saved up to 5 s before", async ({ page, context }) => {
+test("a killed tab keeps everything saved up to 5 s before", async ({ page, context, browserName }) => {
+  test.skip(browserName !== "chromium", "the kill is a renderer crash, a Chromium DevTools command (the PR lane runs this on desktop-chrome and pixel-7)");
   const { tenantId, visitId } = await seedOpenConsult("kill");
   await page.goto(`/consultation/${visitId}`);
   const notes = page.getByLabel(NOTES_LABEL);
@@ -57,8 +58,14 @@ test("a killed tab keeps everything saved up to 5 s before", async ({ page, cont
   expect((await visitById(visitId))?.clinical_notes).toBe("first line");
   await page.keyboard.type(" second");
 
-  // The tab dies: no beforeunload, no pagehide flush we could rely on, nothing from the second typing reached the server.
-  await page.close({ runBeforeUnload: false });
+  // The tab dies: its renderer is killed, so no beforeunload, pagehide or visibilitychange handler runs and nothing from the second typing reaches the
+  // server. (CI 44924479177: `page.close()` is a close, not a kill. Chromium still runs pagehide and visibilitychange, where the consult saves on
+  // purpose (use-consult-draft.ts), and on a slow runner that save arrived.)
+  const cdp = await context.newCDPSession(page);
+  const crashed = page.waitForEvent("crash");
+  void cdp.send("Page.crash").catch(() => undefined);
+  await crashed;
+  await page.close();
 
   const reopened = await context.newPage();
   await reopened.goto(`/consultation/${visitId}`);
