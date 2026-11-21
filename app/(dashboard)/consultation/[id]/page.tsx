@@ -21,7 +21,8 @@ import {
 } from "@/features/consultation/schema";
 import { withPageAuth } from "@/lib/auth/page";
 import { recordState } from "@/features/consultation/record-state";
-import { getConsultAssistContext } from "@/features/consultation/service";
+import { getConsultAssistContext, getPatientSnapshot } from "@/features/consultation/service";
+import type { PatientSnapshot } from "@/features/consultation/snapshot";
 import type { AssistContext } from "@/features/consultation/assist-ranking";
 import { resolveServiceContext } from "@/lib/auth/context";
 
@@ -145,13 +146,21 @@ async function ConsultationPage(props: ConsultationPageProps) {
     // no Smart Assist for this clinic
   }
 
-  // 9. The doctor's own learned order for the tiles (`consult_assist_context`, V2-09b R-12, Q-9): read only for an editable record and only when the clinic
-  // is entitled to `assist.terminology`. The tenant and the doctor are the session's; a failed or refused read is "no assist" and the catalogue order applies.
+  // 9. The Smart Assist reads of the consult, from the session's own context (V2-09b R-12, R-13, Q-9). The doctor's learned order
+  // (`consult_assist_context`) only for an editable record and only with `assist.terminology`; the patient snapshot (`patient_snapshot`: signed visits
+  // only, the visit on screen excluded) only with `assist.snapshot`. A failed or refused read is "no assist": the catalogue order and the plain last-visit
+  // block apply.
   let assistContext: AssistContext | null = null;
+  let snapshot: PatientSnapshot | null = null;
   const editable = recordState(visitRow) === "amending" || (recordState(visitRow) !== "sealed" && visitRow.status !== "completed" && visitRow.status !== "cancelled");
-  if (editable && assist["assist.terminology"] === true && hasPerm(membership.role, "consultations:edit")) {
-    const resolved = await resolveServiceContext("consultations:edit");
-    if (resolved.ok) assistContext = await getConsultAssistContext(resolved.ctx);
+  const wantsContext = editable && assist["assist.terminology"] === true && hasPerm(membership.role, "consultations:edit");
+  const wantsSnapshot = assist["assist.snapshot"] === true;
+  if (wantsContext || wantsSnapshot) {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) {
+      if (wantsContext) assistContext = await getConsultAssistContext(resolved.ctx);
+      if (wantsSnapshot) snapshot = await getPatientSnapshot(resolved.ctx, patientId, id);
+    }
   }
 
   // Safely cast joined patient object
@@ -216,6 +225,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
       pastEncounters={pastEncounters}
       assist={assist}
       assistContext={assistContext}
+      snapshot={snapshot}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

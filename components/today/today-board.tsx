@@ -24,6 +24,9 @@ import { createAnnouncer, announcementsFor, type Announcer } from "./announcer";
 import { toCheckoutTarget } from "./checkout-target";
 import { Lane } from "./lane";
 import { NextPatientCard } from "./next-patient-card";
+import { PatientSnapshotPanel, type SnapshotPanelData } from "./patient-snapshot-panel";
+import { OpenAmendments } from "./open-amendments";
+import type { OpenAmendment } from "@/features/today/queries";
 import { TodayHead } from "./today-head";
 import { TodayRowView } from "./today-row";
 import { useTodayLive } from "./use-today-live";
@@ -83,9 +86,13 @@ export interface TodayBoardViewProps {
   modes: readonly TodayMode[];
   /** "Fri, 13 Nov 2026 · clinic time (IST)". */
   dateLine: string;
+  /** Doctor mode (V2-09b 09B-04a): the snapshot of the patient the server saw as Next (`assist.snapshot`), shown beside the Next card at 768 px and up. */
+  snapshotPanel?: SnapshotPanelData | null;
+  /** Doctor mode: the doctor's own signed visits that are reopened and not finalized. */
+  openAmendments?: readonly OpenAmendment[];
 }
 
-export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, dateLine }: TodayBoardViewProps) {
+export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, dateLine, snapshotPanel = null, openAmendments = [] }: TodayBoardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -233,7 +240,17 @@ export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canCon
         </p>
       )}
 
-      {next && <NextPatientCard row={next} {...handlers} />}
+      {mode === "doctor" && <OpenAmendments items={openAmendments} timeZone={board.timeZone} />}
+
+      {next &&
+        (snapshotPanel && snapshotPanel.patientId === next.patientId ? (
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+            <NextPatientCard row={next} {...handlers} />
+            <PatientSnapshotPanel name={next.name} data={snapshotPanel} />
+          </div>
+        ) : (
+          <NextPatientCard row={next} {...handlers} />
+        ))}
 
       {!filtering && !empty && (
         <div className="xl:hidden" data-lane-switch="">

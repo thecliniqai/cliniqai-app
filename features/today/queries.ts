@@ -204,3 +204,44 @@ export async function getTodayBoard(
 
   return { ok: true, board: { rows, generatedAt: now.toISOString(), today, timeZone } };
 }
+
+/** An amendment still open on one of the doctor's own signed visits (V2-09b 09B-04a, hand-off of V2-09a): the visit, who it is, and when it was reopened. */
+export interface OpenAmendment {
+  visitId: string;
+  patientName: string;
+  /** The reopen time (the latest `visit_revisions.amended_at`); null when it could not be read. */
+  openedAt: string | null;
+}
+
+/**
+ * The calling doctor's open amendments: their own signed visits that are in consultation again (`signed_at IS NOT NULL AND status = 'in_consultation'`),
+ * on any day, newest first, at most 20. Read on the user's own client under RLS (consultations:view); a role without it, or a failed read, has none.
+ * T-09A-07 (an abandoned amendment) is accepted with a safe exit (Finalize with no change); this is what makes one findable.
+ */
+export async function getOpenAmendments(ctx: ServiceContext): Promise<OpenAmendment[]> {
+  if (!hasPerm(ctx.role, "consultations:view")) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("visits") as any)
+    .select("id, updated_at, patients(full_name)")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("doctor_id", ctx.userId)
+    .eq("status", "in_consultation")
+    .not("signed_at", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  if (error || !data) {
+    log.error({ event: "today.open_amendments.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return [];
+  }
+  const rows = data as { id: string; patients: { full_name: string } | { full_name: string }[] | null }[];
+  if (rows.length === 0) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: revisions } = await (ctx.db.from("visit_revisions") as any)
+    .select("visit_id, amended_at")
+    .eq("tenant_id", ctx.tenantId)
+    .in("visit_id", rows.map((r) => r.id))
+    .order("amended_at", { ascending: false });
+  const opened = new Map<string, string>();
+  for (const r of (revisions ?? []) as { visit_id: string; amended_at: string }[]) if (!opened.has(r.visit_id)) opened.set(r.visit_id, r.amended_at);
+  return rows.map((r) => ({ visitId: r.id, patientName: one(r.patients)?.full_name ?? "Patient", openedAt: opened.get(r.id) ?? null }));
+}

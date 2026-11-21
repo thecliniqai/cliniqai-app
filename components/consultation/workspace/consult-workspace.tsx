@@ -21,7 +21,6 @@ import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/fea
 import { changedDraftKeys, type DraftFields } from "@/features/consultation/draft";
 import type { FlushResult } from "@/features/consultation/draft-saver";
 import { VitalsBlock } from "../vitals-block";
-import { DiagnosisSection } from "../diagnosis-section";
 import { PrescriptionBuilder } from "../prescription-builder";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
@@ -55,8 +54,10 @@ import { ShortcutSheet, readShortcutsEnabled } from "@/components/today/shortcut
 import { PlanSection, type FollowUpIntervalChoice } from "./sections/plan-section";
 import { ComplaintsSection } from "./sections/complaints-section";
 import { ExaminationSection } from "./sections/examination-section";
+import { DiagnosisSection } from "./sections/diagnosis-section";
 import { daysForInterval } from "@/features/consultation/catalogue";
 import type { AssistContext } from "@/features/consultation/assist-ranking";
+import type { PatientSnapshot } from "@/features/consultation/snapshot";
 
 export interface ConsultWorkspaceProps {
   visit: {
@@ -123,6 +124,8 @@ export interface ConsultWorkspaceProps {
    * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
    */
   assistContext?: AssistContext | null;
+  /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
+  snapshot?: PatientSnapshot | null;
 }
 
 const SECTION_IDS = ["complaints", "examination", "diagnosis", "prescription", "plan"] as const;
@@ -175,6 +178,7 @@ export function ConsultWorkspace({
   canAmend = false,
   assist,
   assistContext = null,
+  snapshot = null,
 }: ConsultWorkspaceProps) {
   const router = useRouter();
   const timeZone = useClinicTimeZone();
@@ -461,6 +465,7 @@ export function ConsultWorkspace({
     vitals,
     // AI-16 (vitals flags) is entitled by `assist.vitals`; the page resolves the key on the server.
     flags: assist?.["assist.vitals"] === true,
+    snapshot,
     encounters: pastEncounters,
     timeZone,
     onRepeatRx: readOnly ? undefined : handleRepeatRx,
@@ -736,9 +741,11 @@ export function ConsultWorkspace({
                 visitId={visit.id}
                 patientId={patient.id}
                 specialty={specialty}
-                initialDiagnoses={diagnoses}
-                disabled={readOnly}
+                diagnoses={diagnoses}
                 onDiagnosesChange={setDiagnoses}
+                complaints={chiefComplaints.map((c) => c.symptom)}
+                context={assistContext}
+                disabled={readOnly}
               />
             </ConsultSection>
 

@@ -22,6 +22,7 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import { SIGNED_CONSULTATION_MESSAGE } from "./record-state";
 import type { DraftFields, ServerDraft } from "./draft";
 import { parseAssistContext, type AssistContext } from "./assist-ranking";
+import { parsePatientSnapshot, type PatientSnapshot } from "./snapshot";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move.
@@ -194,6 +195,29 @@ export async function getConsultAssistContext(ctx: ServiceContext): Promise<Assi
   }
   const parsed = parseAssistContext(data);
   if (!parsed) log.error({ event: "consultation.assist_context.failed", code: "result_shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
+  return parsed;
+}
+
+/**
+ * A patient's snapshot (`public.patient_snapshot`, 000114; V2-09b R-13, AI-10): the last five signed visits other than the current one, allergies and
+ * chronic conditions, follow-ups due with no visit since, the latest measured vitals. `consultations:view`; the tenant is the session's and the function
+ * filters on it again under RLS. Smart Assist only, so a refused, missing or failed read answers `null` (the plain last-visit block stays).
+ */
+export async function getPatientSnapshot(ctx: ServiceContext, patientId: string, excludeVisitId: string | null): Promise<PatientSnapshot | null> {
+  try {
+    assertPerm(ctx.role, "consultations:view");
+  } catch {
+    return null;
+  }
+  if (!z.string().uuid().safeParse(patientId).success || (excludeVisitId !== null && !z.string().uuid().safeParse(excludeVisitId).success)) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db as any).rpc("patient_snapshot", { p_tenant_id: ctx.tenantId, p_patient_id: patientId, p_exclude_visit_id: excludeVisitId });
+  if (error) {
+    log.error({ event: "consultation.patient_snapshot.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return null;
+  }
+  const parsed = parsePatientSnapshot(data);
+  if (!parsed && data !== null) log.error({ event: "consultation.patient_snapshot.failed", code: "result_shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
   return parsed;
 }
 
