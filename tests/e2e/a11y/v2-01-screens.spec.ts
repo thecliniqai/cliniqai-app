@@ -204,8 +204,8 @@ test.describe("R8 report-only: V2-01-touched v1 components (doctor)", () => {
 
   test("Sign & Bill modal", async ({ page }, testInfo) => {
     await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
-    await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
-    await expect(page.locator("#sign-bill-title").first()).toBeVisible();
-    await reportOnly(page, testInfo, "sign-and-bill-modal", "FMP M4.4 (consultation finish)", '[aria-labelledby="sign-bill-title"]');
+    await page.getByRole("button", { name: /Finish visit/ }).first().click();
+    await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
+    await reportOnly(page, testInfo, "sign-and-bill-modal", "FMP M4.4 (consultation finish)", '[role="dialog"][data-overlay="sheet"]');
   });
 });

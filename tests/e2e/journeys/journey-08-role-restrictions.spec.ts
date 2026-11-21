@@ -83,8 +83,8 @@ test.describe("nurse", () => {
     const visitId = await inConsultationVisit(testTag());
 
     await page.goto(`/consultation/${visitId}`);
-    const sign = page.getByRole("button", { name: /Complete & Sign/ }).first();
-    await characteriseVisibility(page, testInfo, "Complete & Sign for a nurse", /Complete & Sign/);
+    const sign = page.getByRole("button", { name: /Finish visit/ }).first();
+    await characteriseVisibility(page, testInfo, "Finish visit for a nurse", /Finish visit/);
     await sign.click();
     const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
     await dialog.getByRole("button", { name: /Sign & (Collect|Route)/ }).click();

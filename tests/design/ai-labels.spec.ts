@@ -6,15 +6,13 @@
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-vi.mock("@/features/ai/actions", () => ({ generateSoapAction: vi.fn() }));
 
 const { AiAssistChip } = await import("@/components/clinical/ai-assist-chip");
 const { AI_PREVIEW_NOTE, AiPreviewChip, AiPreviewNote } = await import("@/components/clinical/ai-preview-chip");
 const { AiComingSoonRow } = await import("@/components/clinical/ai-coming-soon-row");
 const { SmartAssistLabel } = await import("@/components/clinical/smart-assist-label");
-const { AiScribeModal } = await import("@/components/consultation/ai-scribe-modal");
 
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, " ").trim();
 const PRICE = /₹|\bRs\b|\bINR\b|\/\s?month|per month|buy|upgrade|subscribe|add to plan/i;
@@ -52,14 +50,5 @@ describe("AI-02 labels", () => {
     expect(html).not.toContain("lucide-sparkles");
     expect(text(html)).not.toMatch(/\bAI\b/);
     expect(html).toContain("text-smart-fg");
-  });
-
-  it("the scribe modal's header shows AI Assist, Preview and the note (no hand-made sparkle tile)", () => {
-    const html = renderToStaticMarkup(createElement(AiScribeModal, { isOpen: true, onClose: () => {}, onAccept: () => {} }));
-    const header = html.slice(0, html.indexOf("scribe-shorthand"));
-    expect(text(header)).toContain("Clinical Scribe — Shorthand AI Assist Preview");
-    expect(text(header)).toContain(AI_PREVIEW_NOTE);
-    expect(header).not.toContain("bg-indigo-50");
-    expect(text(html)).not.toMatch(/₹|\/\s?month|per month|upgrade|subscribe/i);
   });
 });

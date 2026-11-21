@@ -4,7 +4,7 @@
  *   - B-7 / B-1 / B-6: a sealed consultation with vitals, a complaint, an investigation, an advice item, a follow-up and specialty data (one visit per
  *     specialty): every input and select is disabled, the notes are read-only (not disabled), no vitals editor, and every button left enabled is one
  *     that changes nothing on the record;
- *   - B-7: a cancelled visit is read-only with no Save Draft and no Complete & Sign;
+ *   - B-7: a cancelled visit is read-only with no Save Draft and no Finish visit;
  *   - B-2: a consultation with no prescription shows the signed version from `current_revision` (1 by default; one ahead while amending);
  *   - B-5: a failed follow-up write fails the draft save, which is one transaction since V2-09b (so Finalize amendment, which saves first, stops).
  * The in-session transitions (B-1 after a refresh, B-3 focus, B-4 the held dialog) are tests/e2e/a11y/amendment-screens.spec.ts. Synthetic data only.
@@ -24,8 +24,8 @@ import { saveDraftAs } from "../helpers/consult-draft";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined, replace: () => undefined }) }));
 
-const { ConsultationWorkspace } = await import("@/components/consultation/consultation-workspace");
-type Props = import("@/components/consultation/consultation-workspace").ConsultationWorkspaceProps;
+const { ConsultWorkspace } = await import("@/components/consultation/workspace/consult-workspace");
+type Props = import("@/components/consultation/workspace/consult-workspace").ConsultWorkspaceProps;
 
 const admin = getAdminClient();
 let owner: SeededTenant;
@@ -148,7 +148,7 @@ async function workspaceVisit(visitId: string): Promise<Props["visit"]> {
 
 const patient: Props["patient"] = { id: "00000000-0000-4000-8000-0000000000c1", full_name: "Synthetic Patient", phone: "+919000000000", gender: "female", date_of_birth: null, age: 6 };
 const render = (visit: Props["visit"]) =>
-  renderToStaticMarkup(createElement(ConsultationWorkspace, { visit, patient, pastEncounters: [], canAmend: true }));
+  renderToStaticMarkup(createElement(ConsultWorkspace, { visit, patient, pastEncounters: [], canAmend: true }));
 
 const tags = (html: string, tag: string) => [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>`, "g"))].map((m) => m[0]);
 const isDisabled = (tag: string) => /\sdisabled(=""|\s|>)/.test(tag);
@@ -161,11 +161,11 @@ function enabledButtons(html: string): string[] {
     .map((m) => /aria-label="([^"]*)"/.exec(m[1])?.[1] ?? text(m[2]));
 }
 /**
- * Buttons that change nothing on the record: the section jump bar, the history drawer, the share of the signed Rx, opening the amendment, the referral
+ * Buttons that change nothing on the record: the section strip, the Patient sheet and the Summary toggle, the share of the signed Rx, opening the amendment, the referral
  * (its own record), the dentition view toggle, the growth calculator's sex toggle and the immunization milestones' expand/collapse headers.
  */
 const NON_MUTATING =
-  /^(Open patient history drawer|Amend|WhatsApp Rx & Bill|Rx & Bill Sent ✓|Vitals|Complaints & Notes|Specialty Exam|Diagnosis|Prescription \(℞\)|Investigations & Advice|Follow-Up|Refer Patient|\+ Refer to Specialist|Adult \(32 Teeth\)|Deciduous \(20 Teeth\)|Male|Female|Boy|Girl|.+ \d+ \/ \d+ given)$/;
+  /^(Patient|Summary|Amend|WhatsApp Rx & Bill|Rx & Bill Sent ✓|(?:Complaints|Exam|Diagnosis|Rx|Plan)(?: \d+)?|Refer Patient|\+ Refer to Specialist|Adult \(32 Teeth\)|Deciduous \(20 Teeth\)|Male|Female|Boy|Girl|.+ \d+ \/ \d+ given)$/;
 /**
  * The pediatric growth calculator's own inputs (age in months, a weight and a height to look up a WHO percentile): local state of the calculator,
  * never saved to the record (components/consultation/specialty/pediatrics-tools.tsx). Every other input must be disabled.
@@ -201,7 +201,7 @@ describe("B-7 / B-1 / B-6: a populated sealed consultation is read-only in every
     expect(enabledButtons(html).filter((name) => !NON_MUTATING.test(name))).toEqual([]);
   }, 90_000);
 
-  it("a cancelled visit is read-only too, with no Save Draft and no Complete & Sign (R-11)", async () => {
+  it("a cancelled visit is read-only too, with no Save Draft and no Finish visit (R-11)", async () => {
     const seeded = await seedClinicalVisit(owner, { doctorId: doctor.userId, status: "cancelled", prescriptions: 1 });
     const visit = await workspaceVisit(seeded.visitId);
     expect(visit.status).toBe("cancelled");
@@ -211,7 +211,7 @@ describe("B-7 / B-1 / B-6: a populated sealed consultation is read-only in every
     expect(tags(html, "textarea").filter((t) => !isDisabled(t) && !isReadOnly(t))).toEqual([]);
     const buttons = enabledButtons(html);
     expect(buttons).not.toContain("Save draft");
-    expect(buttons.some((b) => /Complete & Sign/.test(b))).toBe(false);
+    expect(buttons.some((b) => /Finish visit/.test(b))).toBe(false);
     expect(buttons).not.toContain("Amend");
     expect(buttons.filter((name) => !NON_MUTATING.test(name))).toEqual([]);
   }, 60_000);

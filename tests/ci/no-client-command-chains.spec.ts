@@ -46,7 +46,7 @@ const CONSULT_LEGACY = ["recordFollowUp", "updateClinicalNotes", "saveConsultati
  */
 const CONSULT_EXCEPTIONS: Record<string, { allowed: string[]; owner: string; why: string }> = {
   "components/consultation/use-consult-draft.ts": { allowed: ["saveConsultationDraft"], owner: "V2-09b", why: "the draft hook sends the one command per save" },
-  "components/consultation/consultation-workspace.tsx": { allowed: ["addPrescriptionItem"], owner: "V2-09c", why: "v1 Repeat Rx loop: one addPrescriptionItem per past medicine" },
+  "components/consultation/workspace/consult-workspace.tsx": { allowed: ["addPrescriptionItem"], owner: "V2-09c", why: "v1 Repeat Rx loop: one addPrescriptionItem per past medicine" },
   "components/consultation/prescription-builder.tsx": { allowed: ["addPrescriptionItem"], owner: "V2-09c", why: "the builder adds one item per tap (the keyboard builder replaces it)" },
 };
 
@@ -83,7 +83,7 @@ describe("no client command chains (M4 criterion 7)", () => {
     // The named exceptions are all still real (an entry that no longer matches is removed, not left to hide the next importer).
     const stale = Object.entries(CONSULT_EXCEPTIONS).flatMap(([rel, e]) => e.allowed.filter((n) => !seen.has(`${rel}#${n}`)).map((n) => `${rel}#${n}`));
     expect(stale).toEqual([]);
-    expect(CONSULT_EXCEPTIONS["components/consultation/consultation-workspace.tsx"]).toMatchObject({ owner: "V2-09c" });
+    expect(CONSULT_EXCEPTIONS["components/consultation/workspace/consult-workspace.tsx"]).toMatchObject({ owner: "V2-09c" });
   });
 
   it("the scan itself recognises an import of a legacy writer", () => {

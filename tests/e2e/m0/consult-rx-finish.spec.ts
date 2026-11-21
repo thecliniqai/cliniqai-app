@@ -5,7 +5,7 @@
  * The doctor opens a waiting patient from the cabin, records notes and a diagnosis, adds two medicines and signs
  * (routing the fee to reception). Outcomes asserted: the visit is `completed` and signed with the notes saved; one
  * prescription, version 1, sealed (`signed_at`), with the two items; the diagnosis row; the prescription PDF route
- * returns a PDF (`%PDF-`); after signing the workspace no longer offers "Complete & Sign".
+ * returns a PDF (`%PDF-`); after signing the workspace no longer offers "Finish visit".
  *
  * A signed consultation is read-only in the workspace (P1-03, closed in V2-09a): the medicine search, "Remove medication", the notes, the
  * diagnosis search and the vitals editor are disabled or gone, and Amend is offered. The journey-6 tail amends it: a reason of 10 characters
@@ -87,7 +87,7 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   }
 
   // Sign, routing the fee to reception (billing is flow 6).
-  await ux.click(page.getByRole("button", { name: /Complete & Sign/ }).first(), "Complete & Sign");
+  await ux.click(page.getByRole("button", { name: /Finish visit/ }).first(), "Complete & Sign");
   const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
   await expect(dialog).toBeVisible();
   // PO-3 (V2-05 05-02b): a doctor does not collect. The "collect at desk" toggle is not offered; the bill goes to
@@ -132,10 +132,10 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   const { data: stored } = await admin.storage.from("prescriptions").download(archived!.pdf_storage_path!);
   expect(createHash("sha256").update(Buffer.from(await stored!.arrayBuffer())).digest("hex")).toBe(archived?.pdf_sha256);
 
-  // After sign-off the workspace offers Print Rx (and Amend), not "Complete & Sign".
+  // After sign-off the workspace offers Print Rx (and Amend), not "Finish visit".
   await page.goto(`/consultation/${visitId}`);
   await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Complete & Sign/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Finish visit/ })).toHaveCount(0);
 });
 
 test("a signed consultation is read-only in the workspace; Amend is offered (P1-03)", async ({ page }) => {
@@ -157,7 +157,7 @@ test("a signed consultation is read-only in the workspace; Amend is offered (P1-
   await expect(notesField).toHaveValue("E2E synthetic note");
   await expect(page.getByPlaceholder(/Search diagnosis name/)).toBeDisabled();
   await expect(page.getByRole("button", { name: /Record Vitals|Edit Vitals/i })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Complete & Sign/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Finish visit/ })).toHaveCount(0);
   await expect(page.getByTestId("signed-chip")).toContainText("Rx v1");
   await expect(page.getByRole("button", { name: "Amend", exact: true })).toBeVisible();
 });
@@ -188,9 +188,9 @@ test("journey 6 tail: the doctor amends a signed consultation with a reason and 
     await confirm.click();
     await expect(reopen).toBeHidden();
 
-    // The amendment is open: the banner names the versions and the reason, the form is editable, Complete & Sign is not offered.
+    // The amendment is open: the banner names the versions and the reason, the form is editable, Finish visit is not offered.
     await expect(page.getByRole("status").filter({ hasText: `Amending a signed consultation (v1 to v2): ${reason}` })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("button", { name: /Complete & Sign/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Finish visit/ })).toHaveCount(0);
     const rx = page.locator("#prescription");
     await expect(rx.getByLabel(MEDICINE_SEARCH_LABEL)).toBeEnabled();
     await rx.getByLabel(MEDICINE_SEARCH_LABEL).fill(added);

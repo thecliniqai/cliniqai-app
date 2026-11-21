@@ -57,7 +57,7 @@ async function openModal(page: Page, doctorId: string, tag: string): Promise<Loc
     scheduledAt: new Date().toISOString(),
   });
   await page.goto(`/consultation/${visitId}`);
-  await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
+  await page.getByRole("button", { name: /Finish visit/ }).first().click();
   const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
   await expect(dialog).toBeVisible();
   return dialog;
@@ -67,7 +67,7 @@ async function check(page: Page, testInfo: TestInfo, name: string): Promise<void
   fs.mkdirSync(OUT_DIR, { recursive: true });
   await page.screenshot({ path: path.join(OUT_DIR, `${name}.png`), fullPage: false, animations: "disabled", caret: "hide" });
   const page_ = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-  const dialog = await new AxeBuilder({ page }).withTags(TAGS).include('[aria-labelledby="sign-bill-title"]').analyze();
+  const dialog = await new AxeBuilder({ page }).withTags(TAGS).include('[role="dialog"][data-overlay="sheet"]').analyze();
   const blocking = page_.violations.filter((v) => BLOCKING_IMPACTS.has(v.impact ?? ""));
   const inDialog = dialog.violations.filter((v) => BLOCKING_IMPACTS.has(v.impact ?? ""));
   const baseline = baselineRules();
