@@ -115,6 +115,8 @@
  *   6455 — V2-09b 09B-04a (Smart Assist read side), unchanged: REQUIRED_FILES + tests/terminology/diagnosis-search.spec.ts (36), diagnosis-search-route.spec.ts (12)
  *          and tests/consultation/snapshot.spec.ts (14); assist-ranking.spec.ts gains 9 cases. Two cases of the deleted catch-up summary left
  *          tests/ai/prescription-suggestions.spec.ts and three cases (one per unconfigured provider) tests/security/ai-containment.spec.ts. The floor is re-measured once at the phase close.
+ *   6455 — V2-09b 09B-04b (Smart Assist write side), unchanged: REQUIRED_FILES + tests/consultation/shorthand.spec.ts (80) and macros.spec.ts (14). The suite only grew;
+ *          the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -494,6 +496,9 @@ const REQUIRED_FILES = [
   "tests/terminology/diagnosis-search.spec.ts",
   "tests/terminology/diagnosis-search-route.spec.ts",
   "tests/consultation/snapshot.spec.ts",
+  // V2-09b 09B-04b
+  "tests/consultation/shorthand.spec.ts",
+  "tests/consultation/macros.spec.ts",
 ];
 
 const file = process.argv[2];

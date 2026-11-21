@@ -242,6 +242,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/staff/actions.ts#removeStaff": {
     args: (a) => [{ membershipId: a.membership, reason: "Synthetic guard removal" }],
   },
+  // V2-09b 09B-04b: the doctor's own macros. A shortcut per call (it is unique per doctor and clinic); the text is synthetic.
+  "features/consultation/macros-actions.ts#createDoctorMacro": {
+    args: () => [{ shortcut: `.g${randomUUID().slice(0, 8)}`, expansion: "Synthetic guard macro" }],
+  },
   "features/terminology/actions.ts#addConsultationDiagnosis": {
     args: (a) => [{
       visit_id: a.visit,

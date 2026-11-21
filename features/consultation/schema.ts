@@ -55,8 +55,9 @@ export type RecordVitalsInput = z.infer<typeof recordVitalsInputSchema>;
 export const chiefComplaintItemSchema = z.object({
   id: z.string().optional(),
   symptom: z.string().min(1, "Symptom is required").max(200),
-  duration_val: z.number().int().positive("Duration must be a positive number"),
-  duration_unit: z.enum(["days", "weeks", "months", "years"]),
+  // V2-09b 09B-04b (Q-16): a complaint typed in shorthand without a duration has none; no default is invented, and every reader prints a duration only when present.
+  duration_val: z.number().int().positive("Duration must be a positive number").optional(),
+  duration_unit: z.enum(["days", "weeks", "months", "years"]).optional(),
   notes: z.string().max(500).nullable().optional(),
 });
 

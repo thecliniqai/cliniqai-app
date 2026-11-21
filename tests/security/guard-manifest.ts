@@ -143,6 +143,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/consultation/actions.ts#getConsultationDraft": "consultations:view",
   "features/consultation/actions.ts#getPatientConsultationHistory": "consultations:view",
   "features/consultation/actions.ts#reopenVisitForAmendment": "consultations:edit",
+  "features/consultation/macros-actions.ts#createDoctorMacro": "consultations:edit",
+  "features/consultation/macros-actions.ts#deleteDoctorMacro": "consultations:edit",
+  "features/consultation/macros-actions.ts#listDoctorMacros": "consultations:edit",
+  "features/consultation/macros-actions.ts#updateDoctorMacro": "consultations:edit",
   "features/consultation/actions.ts#saveConsultationDraft": "consultations:edit",
   "features/labs/actions.ts#generateDocumentShareToken": "labs:view",
   "features/labs/actions.ts#getDocumentSignedUrl": "labs:view",
@@ -270,6 +274,10 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
   "features/clinics/actions.ts#switchClinic":
     "V2-08 08-05 ({ authenticated }): the leg's caller is the shared outsider, who has no membership of tenant A and so correctly cannot switch to it; the success path, the cookie attributes and the refusals (forged, foreign, removed) are covered by tests/clinics/switch-clinic-db.spec.ts. The forged-id variants still run (B's id: refused, nothing written).",
+  "features/consultation/macros-actions.ts#updateDoctorMacro":
+    "V2-09b 09B-04b: a macro belongs to its doctor (RLS: doctor_id = auth.uid()) and the world holds none for the leg's caller, who differs per leg; a success needs the caller's own macro. The success path, the refusal of another doctor's macro and of another clinic's, and the shape rules are covered by tests/consultation/macros.spec.ts and supabase/tests/database/doctor_text_macros.test.sql. The forged-id variants still run (B's id: not found).",
+  "features/consultation/macros-actions.ts#deleteDoctorMacro":
+    "V2-09b 09B-04b: as updateDoctorMacro: the world holds no macro of the leg's caller; the success path and the refusals are covered by tests/consultation/macros.spec.ts and supabase/tests/database/doctor_text_macros.test.sql. The forged-id variants still run (B's id: not found).",
   "features/staff/actions.ts#removeStaff":
     "V2-05 05-05: the world's tenant-A membership is the caller's own, which remove_member refuses (SELF_REMOVAL), and removing any other member of the shared world would change the later legs; the successful path is covered by supabase/tests/database/remove_member.test.sql and tests/integration/auth/remove-member.spec.ts. The forged-id variants still run (B's membership: not found).",
 };
