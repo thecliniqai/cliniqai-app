@@ -4,11 +4,11 @@ import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "../helpers/seed-visit";
 import { startConsultation } from "@/features/queue/service";
 import {
-  saveConsultationDraft,
   completeAndSignConsultation,
   reopenVisitForAmendment,
   finalizeVisitAmendment,
 } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
 import {
   addPrescriptionItem,

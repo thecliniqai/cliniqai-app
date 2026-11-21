@@ -14,6 +14,8 @@ export const uploadLabDocumentSchema = z.object({
     .transform((val) => val === true || val === "true")
     .optional()
     .default(false),
+  // V2-09b 09B-06a (A-4): one id per file, made by the upload control and re-sent on Retry; a repeat of the same upload returns the stored row.
+  client_request_id: z.string().uuid("Invalid request ID").optional(),
 });
 
 export const generateShareTokenSchema = z.object({

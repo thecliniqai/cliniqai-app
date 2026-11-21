@@ -7,24 +7,11 @@ export const searchDiagnosesSchema = z.object({
   query: z.string().min(1, "Search query is required").max(100),
   specialty: z.string().optional(),
   limit: z.number().int().min(1).max(50).default(20),
+  /** Also search the query's abbreviation expansions (the clinic is entitled to `assist.terminology`; the caller resolves it from the session). */
+  expand: z.boolean().default(false),
 });
 
-export type SearchDiagnosesInput = z.infer<typeof searchDiagnosesSchema>;
-
-/**
- * Diagnosis search result item structure.
- */
-export interface DiagnosisSearchResult {
-  id: string;
-  name: string;
-  icd11_code: string | null;
-  snomed_concept_id: string | null;
-  category: string | null;
-  specialties: string[];
-  is_chronic: boolean;
-  is_custom: boolean;
-  use_count?: number;
-}
+export type SearchDiagnosesInput = z.input<typeof searchDiagnosesSchema>;
 
 /**
  * Schema for adding a diagnosis to a consultation visit.

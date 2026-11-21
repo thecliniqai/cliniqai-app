@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, HandCoins, OctagonAlert, Stethoscope, UserCheck } from "lucide-react";
+import { Activity, CalendarPlus, HandCoins, OctagonAlert, Stethoscope, UserCheck } from "lucide-react";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { QueueRow } from "@/components/clinical/queue-row";
 import { StatusChip } from "@/components/clinical/status-chip";
@@ -199,6 +199,13 @@ export function TodayRowView(props: TodayRowViewProps) {
   const buttons = rowButtons(mode, row, canConsult).filter((b) => !(next && b.kind === "start"));
   // Move, Mark as no-show and Cancel live in the row's ⋯ menu (V2-08 08-04b); the doctor's own queue has none.
   const menu = mode !== "doctor" && rowMenuItems(row.actions).length > 0;
+  // V2-09b 09B-04b (R-15): a completed visit whose recommended follow-up has no booked or confirmed visit yet offers "Book follow-up" to the front desk;
+  // the V2-08 booking sheet opens over Today with the patient, the doctor and the date filled in, and the receptionist confirms the slot. `row.followUp` is
+  // set only for a role that may book.
+  const bookFollowUp = mode === "front" && row.status === "completed" && row.followUp !== null && !row.followUp.booked;
+  const bookHref = row.followUp
+    ? `?${new URLSearchParams({ book: "1", patient: row.patientId, doctor: row.doctorId, date: row.followUp.date }).toString()}`
+    : "";
 
   return (
     <QueueRow
@@ -215,9 +222,21 @@ export function TodayRowView(props: TodayRowViewProps) {
       next={next}
       flashKey={flashKey}
       actions={
-        buttons.length > 0 || menu ? (
+        buttons.length > 0 || menu || bookFollowUp ? (
           <>
             <RowButtons {...props} buttons={buttons} />
+            {bookFollowUp && (
+              <Link
+                href={bookHref}
+                scroll={false}
+                className={buttonClassName({ size: "sm", variant: "secondary" })}
+                aria-label={`Book follow-up for ${row.name}`}
+                data-row-action="book-follow-up"
+              >
+                <CalendarPlus aria-hidden="true" className="size-4" />
+                Book follow-up
+              </Link>
+            )}
             {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} />}
           </>
         ) : undefined

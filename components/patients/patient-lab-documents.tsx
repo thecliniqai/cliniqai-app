@@ -26,6 +26,8 @@ import { todayInTz } from "@/lib/datetime";
 import { hasPerm } from "@/lib/permissions";
 import type { UserRole } from "@/lib/db/types";
 import { useClinicTimeZone } from "@/lib/datetime/client";
+import { newClientRequestId } from "@/lib/commands/use-command";
+import { LAB_MAX_FILE_LABEL } from "@/features/labs/utils";
 
 interface PatientLabDocumentsProps {
   patientId: string;
@@ -70,6 +72,8 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // V2-09b 09B-06a (A-4): one upload request id per chosen file, re-sent when the doctor submits the same file again after a failure.
+  const requestIds = useRef(new WeakMap<File, string>());
 
   // Share modal state
   const [shareDoc, setShareDoc] = useState<LabDocumentItem | null>(null);
@@ -148,6 +152,12 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
 
     try {
       const formData = new FormData();
+      let requestId = requestIds.current.get(selectedFile);
+      if (!requestId) {
+        requestId = newClientRequestId();
+        requestIds.current.set(selectedFile, requestId);
+      }
+      formData.set("client_request_id", requestId);
       formData.set("file", selectedFile);
       formData.set("patient_id", patientId);
       formData.set("title", title.trim());
@@ -440,7 +450,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
                       Drag & drop document or <span className="text-accent">browse</span>
                     </p>
                     <p className="text-xs text-fg-subtle mt-1">
-                      Supports PDF, JPEG, PNG, WEBP (Max 25MB)
+                      Supports PDF, JPEG, PNG, WEBP (Max {LAB_MAX_FILE_LABEL})
                     </p>
                   </div>
                 )}

@@ -101,7 +101,7 @@ export function FrequentRxChips({
                 <Plus className="h-3.5 w-3.5 text-fg-subtle group-hover:text-accent-hover" />
               )}
               <span className="font-semibold">{sug.drug_name}</span>
-              <span className="text-gray-500 text-[11px]">
+              <span className="text-gray-600 text-[11px]">
                 ({sug.frequency}, {sug.duration})
               </span>
             </button>

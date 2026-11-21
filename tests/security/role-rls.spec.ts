@@ -164,15 +164,17 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
       await seedClinicalNotes(visitId, { vitals: VITALS });
     });
 
-    it("a receptionist's or an admin's update matches 0 rows and changes nothing", async () => {
+    it("a receptionist's or an admin's update changes nothing: the content columns carry no UPDATE privilege for a member since 000112 (42501), and the vitals column matches 0 rows", async () => {
       for (const member of [receptionist, admin_]) {
-        const { data, error } = await member.client
+        const content = await member.client
           .from("clinical_notes")
           .update({ clinical_notes: "Front-desk text" })
           .eq("visit_id", visitId)
           .select("visit_id");
-        expect(error, member.role).toBeNull();
-        expect(data, member.role).toEqual([]);
+        expect(content.error?.code, member.role).toBe("42501");
+        const vitals = await member.client.from("clinical_notes").update({ vitals: { pulse: 1 } }).eq("visit_id", visitId).select("visit_id");
+        expect(vitals.error, member.role).toBeNull();
+        expect(vitals.data, member.role).toEqual([]);
       }
       expect((await clinicalNotesOf(visitId)).clinical_notes).toBe(NOTE);
     });

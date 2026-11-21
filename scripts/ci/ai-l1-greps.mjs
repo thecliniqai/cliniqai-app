@@ -36,7 +36,6 @@ import ts from "typescript";
 /** LLM features: the only places the AI label and the sparkle glyph may appear (AI_STRATEGY §5.3). */
 const LLM_FEATURE_FILES = new Set([
   "components/consultation/ai-scribe-modal.tsx",
-  "components/consultation/returning-patient-catchup.tsx",
   // AI-02 labels (V2-06 06-01b): each in its own file with no price copy, so L1-R6 still fails any file that puts
   // them next to a price.
   "components/clinical/ai-assist-chip.tsx",

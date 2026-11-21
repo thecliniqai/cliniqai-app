@@ -3,8 +3,11 @@ import { requireServiceContext } from "@/lib/auth/context";
 import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 import { hasPerm } from "@/lib/permissions";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
-import { getTodayBoard } from "@/features/today/queries";
-import { modesOf, resolveMode } from "@/features/today/schema";
+import { getOpenAmendments, getTodayBoard } from "@/features/today/queries";
+import { groupIntoLanes, modesOf, nextUp, resolveMode } from "@/features/today/schema";
+import { getPatientSnapshot } from "@/features/consultation/service";
+import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
+import type { SnapshotPanelData } from "@/components/today/patient-snapshot-panel";
 import { TodayBoardView } from "@/components/today/today-board";
 import { InstallCard } from "@/components/shell/install-card";
 
@@ -32,6 +35,25 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
   if (!result.ok) throw new Error("Today could not be loaded.");
   const { board } = result;
 
+  // Doctor mode (V2-09b 09B-04a): the Next patient's snapshot when the clinic has `assist.snapshot`, and the doctor's open amendments. Both are read on the
+  // session's own context under RLS; a failed or refused read leaves the panel out.
+  let snapshotPanel: SnapshotPanelData | null = null;
+  let openAmendments: Awaited<ReturnType<typeof getOpenAmendments>> = [];
+  if (mode === "doctor") {
+    openAmendments = await getOpenAmendments(ctx);
+    let entitled = new Map<string, { enabled: boolean }>();
+    try {
+      entitled = await activeEntitlements();
+    } catch {
+      // no Smart Assist for this clinic
+    }
+    const next = nextUp(groupIntoLanes(board.rows, "doctor"));
+    if (next && entitled.get("assist.snapshot")?.enabled === true) {
+      const snapshot = await getPatientSnapshot(ctx, next.patientId, next.visitId);
+      if (snapshot) snapshotPanel = { patientId: next.patientId, snapshot, flags: entitled.get("assist.vitals")?.enabled === true };
+    }
+  }
+
   const zone = board.timeZone === "Asia/Kolkata" ? "IST" : board.timeZone;
   return (
     <div className="flex flex-col gap-3">
@@ -46,6 +68,8 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
         canWalkIn={hasPerm(ctx.role, "appointments:edit")}
         canConsult={hasPerm(ctx.role, "consultations:edit")}
         dateLine={`${formatClinicDateWithWeekday(board.today)} · clinic time (${zone})`}
+        snapshotPanel={snapshotPanel}
+        openAmendments={openAmendments}
       />
     </div>
   );

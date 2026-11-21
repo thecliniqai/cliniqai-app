@@ -20,17 +20,28 @@ export interface ShortcutSheetProps {
   /** Whether the shortcuts are on now (the host's reading of the stored choice and the device). */
   enabled: boolean;
   onChange: (enabled: boolean) => void;
+  /** The list to show (default: the front desk's). The consult passes its own (V2-09b 09B-02b). */
+  shortcuts?: readonly { key: string; label: string }[];
+  /** The line under the switch (default: the front desk's). */
+  note?: string;
 }
 
-export function ShortcutSheet({ open, onOpenChange, enabled, onChange }: ShortcutSheetProps) {
+export function ShortcutSheet({
+  open,
+  onOpenChange,
+  enabled,
+  onChange,
+  shortcuts = SHORTCUTS,
+  note = "W and N work when no field is focused. The ? key always opens this list.",
+}: ShortcutSheetProps) {
   return (
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <ResponsiveSheetContent data-shortcut-sheet="" aria-describedby={undefined}>
         <ResponsiveSheetHeader title="Keyboard shortcuts" />
         <ResponsiveSheetBody>
           <ul className="flex flex-col divide-y divide-border">
-            {SHORTCUTS.map((s) => (
-              <li key={s.action} className="flex items-center justify-between gap-3 py-2.5 text-body-md text-fg">
+            {shortcuts.map((s) => (
+              <li key={s.key} className="flex items-center justify-between gap-3 py-2.5 text-body-md text-fg">
                 <span>{s.label}</span>
                 <kbd className="rounded-sm border border-border bg-surface-soft px-1.5 py-0.5 text-label font-medium text-fg">{s.key}</kbd>
               </li>
@@ -45,7 +56,7 @@ export function ShortcutSheet({ open, onOpenChange, enabled, onChange }: Shortcu
                 onChange(next);
               }}
             />
-            <p className="mt-1 text-label text-fg-muted">W and N work when no field is focused. The ? key always opens this list.</p>
+            <p className="mt-1 text-label text-fg-muted">{note}</p>
           </div>
         </ResponsiveSheetBody>
       </ResponsiveSheetContent>

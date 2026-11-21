@@ -31,7 +31,8 @@ import {
 import { plantLegacyRow, psql } from "../helpers/sql";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { getOrCreateDraftPrescription } from "@/features/prescriptions/service";
-import { completeAndSignConsultation, saveConsultationDraft } from "@/features/consultation/service";
+import { completeAndSignConsultation } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { anonClient, letters } from "./helpers";
 import { seedPatient, type SeededPatient } from "./message-helpers";
 import { deliveriesFor, deliveryPayload, subscribe, webhookJobsFor, type Subscription } from "./webhook-helpers";

@@ -5,7 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Activity, Heart, Thermometer, Wind, Weight, Ruler, Edit2, Check } from "lucide-react";
-import { Vitals } from "@/features/consultation/schema";
+import { Vitals, vitalsSchema } from "@/features/consultation/schema";
+
+/**
+ * The fields `vitalsSchema` refuses, with its message (09B-06a, review A-7). The draft saver holds such vitals back (they are not sent, the other fields
+ * still save), so the block marks them in place instead of the save failing.
+ */
+export function vitalsErrors(vitals: Vitals): Partial<Record<keyof Vitals, string>> {
+  const parsed = vitalsSchema.safeParse(vitals);
+  if (parsed.success) return {};
+  const out: Partial<Record<keyof Vitals, string>> = {};
+  for (const issue of parsed.error.issues) {
+    const key = issue.path[0];
+    if (typeof key === "string" && !(key in out)) out[key as keyof Vitals] = issue.message;
+  }
+  return out;
+}
 
 export interface VitalsBlockProps {
   vitals: Vitals;
@@ -26,6 +41,7 @@ export function VitalsBlock({
   // V2-09a review B-1: a read-only record never shows the editor, even when it was open before the record was sealed (the workspace also remounts
   // this block when the record state changes, which resets the editing state).
   const editing = isEditing && !disabled;
+  const invalid = useMemo(() => vitalsErrors(vitals), [vitals]);
 
   // Auto-calculated BMI: Weight (kg) / [Height (m)]^2
   const bmiInfo = useMemo(() => {
@@ -149,6 +165,7 @@ export function VitalsBlock({
                 placeholder="Sys"
                 value={vitals.systolic ?? ""}
                 onChange={(e) => handleFieldChange("systolic", e.target.value)}
+                aria-invalid={invalid.systolic ? true : undefined}
                 className="h-10 text-sm"
                 min={50}
                 max={250}
@@ -159,6 +176,7 @@ export function VitalsBlock({
                 placeholder="Dia"
                 value={vitals.diastolic ?? ""}
                 onChange={(e) => handleFieldChange("diastolic", e.target.value)}
+                aria-invalid={invalid.diastolic ? true : undefined}
                 className="h-10 text-sm"
                 min={30}
                 max={150}
@@ -177,6 +195,7 @@ export function VitalsBlock({
               placeholder="72"
               value={vitals.pulse ?? ""}
               onChange={(e) => handleFieldChange("pulse", e.target.value)}
+                aria-invalid={invalid.pulse ? true : undefined}
               className="h-10 text-sm"
               min={30}
               max={220}
@@ -191,6 +210,7 @@ export function VitalsBlock({
               placeholder="98"
               value={vitals.spo2 ?? ""}
               onChange={(e) => handleFieldChange("spo2", e.target.value)}
+                aria-invalid={invalid.spo2 ? true : undefined}
               className="h-10 text-sm"
               min={50}
               max={100}
@@ -206,6 +226,7 @@ export function VitalsBlock({
               placeholder="98.6"
               value={vitals.temperature ?? ""}
               onChange={(e) => handleFieldChange("temperature", e.target.value)}
+                aria-invalid={invalid.temperature ? true : undefined}
               className="h-10 text-sm"
               min={90}
               max={110}
@@ -221,6 +242,7 @@ export function VitalsBlock({
               placeholder="70"
               value={vitals.weight ?? ""}
               onChange={(e) => handleFieldChange("weight", e.target.value)}
+                aria-invalid={invalid.weight ? true : undefined}
               className="h-10 text-sm"
               min={0.5}
               max={300}
@@ -235,6 +257,7 @@ export function VitalsBlock({
               placeholder="170"
               value={vitals.height ?? ""}
               onChange={(e) => handleFieldChange("height", e.target.value)}
+                aria-invalid={invalid.height ? true : undefined}
               className="h-10 text-sm"
               min={20}
               max={250}
@@ -359,6 +382,11 @@ export function VitalsBlock({
             </div>
           </div>
         </div>
+      )}
+      {!disabled && Object.keys(invalid).length > 0 && (
+        <p data-vitals-invalid="" className="mt-3 text-body-sm font-medium text-danger-fg">
+          Not saved until corrected: {Object.values(invalid).join("; ")}.
+        </p>
       )}
     </div>
   );

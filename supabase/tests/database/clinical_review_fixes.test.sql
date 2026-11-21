@@ -256,8 +256,9 @@ select is(array[pg_temp.attempt('service_role', null,
 select is((select convalidated from pg_constraint where conname = 'visit_revisions_amendment_reason_length'), true, 'and the CHECK is validated');
 
 -- S-1 / A-4: lab documents --------------------------------------------------------------------------------------------------
+-- The fixture document is linked to the draft visit 2005: since 000116 (09B-06a, S-2) no document is linked to a signed one.
 insert into public.patient_documents (id, tenant_id, patient_id, visit_id, title, original_filename, storage_path, file_size_bytes, mime_type, uploaded_by, is_abnormal) values
-  ('c1110000-0000-4000-8000-00000000d001', 'c1110000-0000-4000-8000-00000000000a', 'c1110000-0000-4000-8000-000000001001', 'c1110000-0000-4000-8000-000000002001',
+  ('c1110000-0000-4000-8000-00000000d001', 'c1110000-0000-4000-8000-00000000000a', 'c1110000-0000-4000-8000-000000001001', 'c1110000-0000-4000-8000-000000002005',
    'Synthetic CBC', 'cbc.pdf', 'tenants/c1110000-0000-4000-8000-00000000000a/patients/c1110000-0000-4000-8000-000000001001/labs/cbc.pdf', 10, 'application/pdf',
    'c1110000-0000-4000-8000-000000000104', false);
 create temp table doc_res as

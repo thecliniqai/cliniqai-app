@@ -44,6 +44,8 @@ export interface PatientIdentityHeaderProps {
   trailing?: ReactNode;
   /** `full`: the heading level of the name (1 on a profile page). */
   headingLevel?: 1 | 2 | 3 | 4;
+  /** `compact`: draw the name as a heading of this level (the consult's top bar is the page's `h1`); by default it is a paragraph. */
+  nameHeading?: 1 | 2 | 3 | 4;
   className?: string;
 }
 
@@ -168,6 +170,7 @@ export function PatientIdentityHeader({
   actions,
   trailing,
   headingLevel = 1,
+  nameHeading,
   className,
 }: PatientIdentityHeaderProps) {
   if (variant === "inline") {
@@ -188,12 +191,13 @@ export function PatientIdentityHeader({
   }
 
   if (variant === "compact") {
+    const Name = nameHeading ? (`h${nameHeading}` as "h1" | "h2" | "h3" | "h4") : "p";
     return (
       <div data-identity="compact" className={cn("flex min-w-0 items-center gap-2.5", className)}>
         <div className="flex min-w-0 flex-1 flex-col">
-          <p className={cn("text-body-md font-semibold tracking-title text-fg", NAME_WRAP)} data-patient-name="">
+          <Name className={cn("text-body-md font-semibold tracking-title text-fg", NAME_WRAP)} data-patient-name="">
             {patient.name}
-          </p>
+          </Name>
           <p className="truncate text-label text-fg-muted">{joinParts(metaParts(patient, false))}</p>
         </div>
         {context && <div className="flex shrink-0 items-center gap-2">{context}</div>}

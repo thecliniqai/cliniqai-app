@@ -75,7 +75,7 @@ const AUTH_FAILURE = /unauthenticated|signed in|sign in/i;
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /** AI-01: AI actions answer every failure with one generic message; they are held to every other assertion. */
-const GENERIC_FAILURE_MESSAGE = new Set(["generateSoapAction", "getPatientCatchUpSummaryAction"]);
+const GENERIC_FAILURE_MESSAGE = new Set(["generateSoapAction"]);
 
 /** Every tenant-scoped table (all public tables with a `tenant_id`, supabase/migrations). */
 export const TENANT_TABLES = [
@@ -691,7 +691,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" | "session-search" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1144,6 +1144,56 @@ export async function sessionSearchRouteLegs(
   }
   const digits = a.phone.replace(/\D/g, "").slice(-10);
   if (r.body.includes(digits)) out.push(routeV(c, "projection", "the full mobile number is in the response"));
+  return out;
+}
+
+/**
+ * `session-diagnosis-search` route (09B-04a, T-09B-06): the least-privileged holder of the permission searches a synthetic catalogue row and gets 200 with
+ * `no-store` and rows with exactly the projection keys; nothing of tenant B is in the response; a hostile query is data (200, never a 500). The denial legs
+ * (401, 403, no membership) are `sessionRouteDenialLegs`. The catalogue is global, so the row inserted for the control touches no tenant's rows.
+ */
+export async function sessionDiagnosisSearchRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-diagnosis-search" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  const admin = getAdminClient();
+  const name = `Guardcanary diagnosis ${randomBytes(4).toString("hex")}`;
+  const inserted = await admin.from("opd_diagnoses").insert({ name, icd11_code: "ZZ99", specialties: ["general_physician"], synonyms: [] }).select("id").single();
+  if (inserted.error || !inserted.data) return [routeV(c, "control", `could not seed the catalogue row: ${inserted.error?.message}`)];
+  try {
+    const r = await callRoute(slot, client, c, { query: { q: name } });
+    out.push(...expectStatus(c, "a catalogue row", r, [200]), ...expectNoB(c, "a catalogue row", r, world));
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, "a catalogue row", "no Cache-Control: no-store"));
+    let rows: Array<Record<string, unknown>> = [];
+    try {
+      rows = (JSON.parse(r.body) as { results?: Array<Record<string, unknown>> }).results ?? [];
+    } catch {
+      out.push(routeV(c, "a catalogue row", `body is not { results: [...] }: ${brief(r.body)}`));
+    }
+    if (!rows.some((row) => row.name === name)) out.push(routeV(c, "a catalogue row", "the control row was not listed"));
+    for (const row of rows) {
+      const keys = Object.keys(row);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+    }
+    for (const [leg, q] of [
+      ["SQL text", "'; drop table opd_diagnoses; --"],
+      ["array syntax", '"},{"x":"y"}'],
+      ["a NUL character", "\u0000ab"],
+      ["wildcards", "%%"],
+    ] as const) {
+      const hostile = await callRoute(slot, client, c, { query: { q } });
+      out.push(...expectStatus(c, `hostile query: ${leg}`, hostile, [200]), ...expectNoB(c, `hostile query: ${leg}`, hostile, world));
+    }
+  } finally {
+    await admin.from("opd_diagnoses").delete().eq("id", inserted.data.id);
+  }
   return out;
 }
 

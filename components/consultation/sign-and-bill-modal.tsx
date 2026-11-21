@@ -9,14 +9,14 @@ import { useCommand } from "@/lib/commands/use-command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { ResponsiveSheet, ResponsiveSheetContent } from "@/components/ui/responsive-sheet";
+import { SheetBody, SheetFooter, SheetHeader } from "@/components/ui/sheet";
 import {
-  Stethoscope,
   CheckCircle2,
   AlertCircle,
   Banknote,
   QrCode,
   CreditCard,
-  X,
   ArrowRight,
   ShieldCheck,
   Printer,
@@ -151,8 +151,6 @@ export function SignAndBillModal({
     }
   };
 
-  if (!isOpen) return null;
-
   const totalPayable = Math.max(0, consultationFee - discount);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,51 +210,32 @@ export function SignAndBillModal({
     });
   };
 
+  // Closing the sheet: the success screen returns to the doctor's queue as its old Close button did; the form closes unless the sign-off is running.
+  const handleOpenChange = (open: boolean) => {
+    if (open) return;
+    if (completedResult) {
+      onClose();
+      router.push("/today?mode=doctor");
+      router.refresh();
+    } else if (!isPending) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div
-        className="bg-white w-full max-w-2xl rounded-2xl border border-gray-200 shadow-theme-lg overflow-hidden flex flex-col max-h-[92vh]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sign-bill-title"
-      >
+    // V2-09b R-8: a ResponsiveSheet (bottom drawer below 768 px, right sheet above): focus trap, Escape, scrim, focus return and the scroll lock come from
+    // the overlay layer; the commands, the props and the copy are the v1 flow's.
+    <ResponsiveSheet open={isOpen} onOpenChange={handleOpenChange}>
+      <ResponsiveSheetContent size="lg" onEscapeKeyDown={(e) => isPending && e.preventDefault()} onInteractOutside={(e) => isPending && e.preventDefault()}>
         {completedResult ? (
           /* ============================================================ */
           /* SUCCESS & PRINT SCREEN                                       */
           /* ============================================================ */
           <>
-            {/* Success Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 id="sign-bill-title" className="text-base font-bold text-gray-900">
-                    Consultation Finalized &amp; Signed
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Prescription issued and visit records updated
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  router.push("/today?mode=doctor");
-                  router.refresh();
-                }}
-                className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                aria-label="Close dialog"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <SheetHeader title="Consultation Finalized & Signed" description="Prescription issued and visit records updated" />
 
             {/* Success Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <SheetBody>
               <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
@@ -424,18 +403,17 @@ export function SignAndBillModal({
                   </div>
                 </div>
               </div>
-            </div>
+            </SheetBody>
 
             {/* Success Footer */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50/70 flex items-center justify-end gap-3">
+            <SheetFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => {
                   onClose();
                   router.refresh();
                 }}
-                className="h-11 px-4 text-xs font-semibold rounded-xl border-gray-200 cursor-pointer"
               >
                 Review Encounter
               </Button>
@@ -447,47 +425,22 @@ export function SignAndBillModal({
                   router.push("/today?mode=doctor");
                   router.refresh();
                 }}
-                className="h-11 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
               >
                 <span>Return to Doctor&apos;s Cabin</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
-            </div>
+            </SheetFooter>
           </>
         ) : (
           /* ============================================================ */
           /* SIGN & BILLING FORM                                          */
           /* ============================================================ */
           <>
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/70">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-accent-subtle text-accent flex items-center justify-center border border-accent-border">
-                  <Stethoscope className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 id="sign-bill-title" className="text-base font-bold text-gray-900">
-                    Complete &amp; Sign Consultation
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Finalize clinical prescription and record visit checkout
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isPending}
-                className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                aria-label="Close dialog"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <SheetHeader title="Complete & Sign Consultation" description="Finalize clinical prescription and record visit checkout" />
 
             {/* Form Body */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+              <SheetBody>
               {error && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -676,38 +629,22 @@ export function SignAndBillModal({
                 )}
               </div>
 
+              </SheetBody>
+
               {/* Action Footer */}
-              <div className="pt-2 flex items-center justify-end gap-3 border-t border-gray-100">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={isPending}
-                  className="h-11 px-4 text-xs font-semibold rounded-xl border-gray-200 cursor-pointer"
-                >
+              <SheetFooter>
+                <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>
                   Back to Editing
                 </Button>
 
-                <Button
-                  type="submit"
-                  disabled={isPending}
-                  className="h-11 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>
-                    {isPending
-                      ? "Finalizing..."
-                      : collecting
-                      ? `Sign & Collect ₹${totalPayable}`
-                      : "Sign & Route to Reception"}
-                  </span>
-                  <ArrowRight className="w-4 h-4 opacity-80" />
+                <Button type="submit" disabled={isPending} startIcon={<ShieldCheck />} endIcon={<ArrowRight />}>
+                  {isPending ? "Finalizing..." : collecting ? `Sign & Collect ₹${totalPayable}` : "Sign & Route to Reception"}
                 </Button>
-              </div>
+              </SheetFooter>
             </form>
           </>
         )}
-      </div>
-    </div>
+      </ResponsiveSheetContent>
+    </ResponsiveSheet>
   );
 }

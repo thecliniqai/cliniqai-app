@@ -103,6 +103,33 @@ function continueSignedOut(request: NextRequest, requestId: string, previous: Ne
   return response;
 }
 
+/**
+ * V2-09b 09B-06a (ruling R-U; review S-1 / A-5): the request-body gate. The server-action body limit is 4 MB for every action (next.config.ts) and Next
+ * reads the body before any action authenticates, so a request that may carry more than 1 MB is answered 413 here, before anything reads it, unless the
+ * caller is signed in and posts to a page that hosts the report upload (`/consultation/…`, `/patients/…`). "May carry": a `content-length` over 1 MB or
+ * not a plain number, or a body with no `content-length` (a `transfer-encoding`, or a body stream), since its size is then unknown. A request with
+ * neither a length nor a body (a bodiless POST or DELETE) carries nothing and passes.
+ */
+export const PROXY_MAX_BODY_BYTES = 1024 * 1024;
+
+export function bodyMayExceedProxyLimit(request: NextRequest): boolean {
+  const method = request.method.toUpperCase();
+  if (method === "GET" || method === "HEAD") return false;
+  const length = request.headers.get("content-length");
+  if (length === null) return request.headers.has("transfer-encoding") || request.body !== null;
+  const trimmed = length.trim();
+  return !/^\d+$/.test(trimmed) || Number(trimmed) > PROXY_MAX_BODY_BYTES;
+}
+
+/** The pages whose server action takes a report upload (09B-06a, R-U): the consult and the patient record. */
+export function isUploadPagePath(pathname: string): boolean {
+  return pathname.startsWith("/consultation/") || pathname.startsWith("/patients/");
+}
+
+function payloadTooLarge(requestId: string): NextResponse {
+  return new NextResponse(null, { status: 413, headers: { [REQUEST_ID_HEADER]: requestId } });
+}
+
 /** Exact paths that never carry a user session: no cookie refresh, no default-deny redirect (they are `/api`). */
 const SESSIONLESS_PATHS: ReadonlySet<string> = new Set(["/api/health", "/api/ready", "/api/jobs/run"]);
 
@@ -110,6 +137,10 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   // Every path gets an id, the early returns included.
   const requestId = newRequestId();
+
+  // R-U: a large or unsized body is refused before any session work unless it is bound for an upload page (decided below, once the session is known).
+  const largeBody = bodyMayExceedProxyLimit(request);
+  if (largeBody && !isUploadPagePath(pathname)) return payloadTooLarge(requestId);
 
   // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on. AR2-H2: the check
   // runs on the decoded, normalised path (Next decodes `/api/v%31/...` before matching the route), and any `/api` path
@@ -208,6 +239,8 @@ export async function proxy(request: NextRequest) {
     // unavailable state, `/api/session-status` answers 503, actions their generic failure.
     pending = [];
     log.warn({ event: "auth.proxy.unavailable", code: failure, requestId });
+    // R-U: whether the caller has a session is unknown, so a large upload body is not let through.
+    if (largeBody) return payloadTooLarge(requestId);
     response = continueWithRequestId(request, requestId, true);
     if (request.method === "GET" || request.method === "HEAD") {
       for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
@@ -234,6 +267,9 @@ export async function proxy(request: NextRequest) {
     response = continueSignedOut(request, requestId, response);
     signedIn = false;
   }
+
+  // R-U: a large body reaches an upload page only with a session.
+  if (largeBody && !signedIn) return forgetActiveClinic(request, payloadTooLarge(requestId));
 
   // OA-5 default deny (R-28): a signed-out request for any page outside the public prefixes is sent to the login page
   // here, before any layout or page loader runs (they would only throw "Unauthenticated"). GET/HEAD only: other

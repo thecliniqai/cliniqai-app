@@ -26,6 +26,12 @@ const nextConfig: NextConfig = {
   // the e2e lane's stale-build guard compares (`.next/BUILD_ID` vs `e2e-build-stamp.json`, RL-16).
   generateBuildId: async () => null,
   env: { CLINICOS_BUILD_STAMP: BUILD_STAMP },
+  // V2-09b 09B-05 (P1-24, R-16) and 09B-06a (ruling R-U): a report is uploaded through the `uploadLabDocument` server action. Next's default body limit
+  // for server actions is 1 MB, so a phone photo of a report failed before the action ran. Production runs on Vercel, which refuses bodies over 4.5 MB,
+  // so the limit is 4 MB and so is the file limit (features/labs/utils.ts). The limit applies to every action (Next has no per-action setting) and the
+  // body is read before an action authenticates, so `proxy.ts` refuses (413) any non-GET body over 1 MB, or of unknown length, unless the caller is
+  // signed in and posts to a page that hosts the upload (`/consultation/`, `/patients/`). Larger uploads need a direct-to-Storage upload (PO decision).
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   // V2-08 08-02 (R-13): registration is the `?new=1` sheet; the retired v1 page's address still lands on it. 08-03b (R-14):
   // the queue and the cabin are modes of Today (`/` redirects from its page, so the dashboard layout still signs a visitor in
   // first); 08-04b: `/calendar` is the Schedule (`?date` carries over; the v1 booking drawers are gone).

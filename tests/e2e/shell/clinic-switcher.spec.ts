@@ -130,7 +130,11 @@ test("a removed membership of the chosen clinic signs the device out, whatever c
     .eq("user_id", dual.userId);
   expect(error).toBeNull();
 
-  await page.goto("/today");
+  // The shell's session-status watch may notice the removal first and navigate to /login itself, which aborts this
+  // navigation (CI 44890747932: net::ERR_ABORTED). Either way the device must end signed out on /login.
+  await page.goto("/today").catch((err: unknown) => {
+    if (!/ERR_ABORTED|frame was detached|interrupted by another navigation/i.test(String(err))) throw err;
+  });
   await page.waitForURL((url) => url.pathname === "/login", { timeout: 30_000 });
   void a;
 });

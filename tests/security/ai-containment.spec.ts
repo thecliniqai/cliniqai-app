@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 vi.mock("@/lib/supabase/system", () => ({ getSystemDb: getSystemDbMock }));
 
 import * as aiLib from "@/lib/ai";
-import { generateSoapAction, getPatientCatchUpSummaryAction } from "@/features/ai/actions";
+import { generateSoapAction } from "@/features/ai/actions";
 
 /**
  * The App Router's route and page modules, as the bundler resolves them (lazy: nothing is imported). A request
@@ -132,26 +132,6 @@ describe("AI-01 containment", () => {
       expect(requirePermissionMock).toHaveBeenCalledWith("consultations:edit");
       for (const s of RETIRED_MOCK_STRINGS) expect(JSON.stringify(result)).not.toContain(s);
     });
-
-    it.each(unconfigured)(
-      "getPatientCatchUpSummaryAction returns AI unavailable, reads no data and calls nothing: %s",
-      async (_label, env) => {
-        for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
-
-        const result = await getPatientCatchUpSummaryAction({ patientId: "00000000-0000-0000-0000-000000000003" });
-
-        expect(result).toEqual({
-          success: false,
-          code: "AI_UNAVAILABLE",
-          reason: "not_configured",
-          error: "AI unavailable",
-        });
-        expect(result).not.toHaveProperty("summary");
-        expect(fetchSpy).not.toHaveBeenCalled();
-        expect(createClientMock).not.toHaveBeenCalled();
-        expect(getSystemDbMock).not.toHaveBeenCalled();
-      }
-    );
 
     it("control: with a complete config the scribe does reach the provider (so the no-call assertions are live)", async () => {
       vi.stubEnv("AI_ENABLED", "true");

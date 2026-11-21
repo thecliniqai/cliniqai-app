@@ -17,6 +17,12 @@ begin;
 -- 000103 (08-04a): UPDATE on public.visits is narrowed for authenticated to specialty, metadata and updated_at. This file proves the guards
 -- (defence in depth, independent of the column grant), so the grant is widened for this transaction only.
 grant update on table public.visits to authenticated;
+-- 000112 (09B-01): follow_ups_one_per_visit, so the follow-up insert probe is the upsert the draft command makes (the BEFORE INSERT seal guard still fires first).
+-- 000112 (09B-01, R-3): UPDATE on public.clinical_notes is narrowed for authenticated to (vitals) and INSERT, UPDATE and DELETE on public.follow_ups are revoked
+-- (save_consultation_draft is the writer). This file proves the guards, triggers and policies themselves (defence in depth, independent of the grants), so the
+-- grants are widened for this transaction only; the narrowing is proven in consult_draft_save.test.sql.
+grant update on table public.clinical_notes to authenticated;
+grant insert, update, delete on table public.follow_ups to authenticated;
 select plan(31);
 
 -- Fixtures ----------------------------------------------------------------------------------------------------------------
@@ -171,7 +177,7 @@ insert into ops values
   ('rx item: insert',             $$insert into public.prescription_items (prescription_id, medicine_name, dosage, duration) values ('{rx}', 'Added medicine', '1-0-1', '3 days')$$, 'ok', 'PRESCRIPTION_ITEM_VISIT_SIGNED', 'ok'),
   ('rx item: update',             $$update public.prescription_items set dosage = '9-9-9' where prescription_id = '{rx}'$$, 'ok', 'PRESCRIPTION_ITEM_VISIT_SIGNED', 'ok'),
   ('rx item: delete',             $$delete from public.prescription_items where prescription_id = '{rx}'$$, 'ok', 'PRESCRIPTION_ITEM_VISIT_SIGNED', 'ok'),
-  ('follow-up: insert',           $$insert into public.follow_ups (tenant_id, patient_id, visit_id, doctor_id, follow_up_date) select tenant_id, patient_id, id, doctor_id, '2030-04-01' from public.visits where id = '{v}'$$, 'ok', 'FOLLOW_UP_VISIT_SIGNED', 'ok'),
+  ('follow-up: insert',           $$insert into public.follow_ups (tenant_id, patient_id, visit_id, doctor_id, follow_up_date) select tenant_id, patient_id, id, doctor_id, '2030-04-01' from public.visits where id = '{v}' on conflict (tenant_id, visit_id) where visit_id is not null do update set follow_up_date = excluded.follow_up_date$$, 'ok', 'FOLLOW_UP_VISIT_SIGNED', 'ok'),
   ('follow-up: update',           $$update public.follow_ups set follow_up_date = '2031-01-01' where visit_id = '{v}'$$, 'ok', 'FOLLOW_UP_VISIT_SIGNED', 'ok'),
   ('follow-up: delete',           $$delete from public.follow_ups where visit_id = '{v}'$$, 'ok', 'FOLLOW_UP_VISIT_SIGNED', 'ok'),
   ('revision: update',            $$update public.visit_revisions set amendment_reason = 'edited reason' where visit_id = '{v}'$$, null, 'REVISION_IMMUTABLE|permission denied', 'REVISION_IMMUTABLE|permission denied'),

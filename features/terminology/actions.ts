@@ -4,16 +4,14 @@ import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import * as terminologyService from "./service";
 import type {
-  SearchDiagnosesResult,
   AddConsultationDiagnosisResult,
   RemoveConsultationDiagnosisResult,
   UpdateDiagnosisNoteResult,
   GetVisitDiagnosesResult,
 } from "./service";
-import type { SearchDiagnosesInput, AddConsultationDiagnosisInput } from "./schema";
+import type { AddConsultationDiagnosisInput } from "./schema";
 
 export type {
-  SearchDiagnosesResult,
   AddConsultationDiagnosisResult,
   RemoveConsultationDiagnosisResult,
   UpdateDiagnosisNoteResult,
@@ -29,15 +27,6 @@ function revalidate(path: string) {
   } catch {
     // Outside a Next.js request (tests) revalidation is a no-op
   }
-}
-
-/**
- * Searches the curated Indian OPD terminology catalog merged with the active doctor's custom diagnoses.
- */
-export async function searchDiagnoses(input: SearchDiagnosesInput): Promise<SearchDiagnosesResult> {
-  const resolved = await resolveServiceContext("consultations:view");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return terminologyService.searchDiagnoses(resolved.ctx, input);
 }
 
 /**

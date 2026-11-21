@@ -28,6 +28,11 @@ grant update on table public.prescriptions to authenticated;
 grant insert on table public.visit_revisions to authenticated;
 create policy visit_revisions_insert on public.visit_revisions for insert to authenticated
   with check (tenant_id in (select authz.tenant_ids_with('consultations:edit')));
+-- 000112 (09B-01, R-3): UPDATE on public.clinical_notes is narrowed for authenticated to (vitals) and INSERT, UPDATE and DELETE on public.follow_ups are revoked
+-- (save_consultation_draft is the writer). This file proves the guards, triggers and policies themselves (defence in depth, independent of the grants), so the
+-- grants are widened for this transaction only; the narrowing is proven in consult_draft_save.test.sql.
+grant update on table public.clinical_notes to authenticated;
+grant insert, update, delete on table public.follow_ups to authenticated;
 select plan(46);
 
 insert into auth.users (id, email) values

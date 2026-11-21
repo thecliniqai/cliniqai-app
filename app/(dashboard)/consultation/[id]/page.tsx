@@ -9,7 +9,8 @@ import {
 } from "@/features/consultation/actions";
 import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { getVisitPrescription } from "@/features/prescriptions/actions";
-import { ConsultationWorkspace } from "@/components/consultation/consultation-workspace";
+import { ConsultWorkspace } from "@/components/consultation/workspace/consult-workspace";
+import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   Vitals,
@@ -20,6 +21,15 @@ import {
 } from "@/features/consultation/schema";
 import { withPageAuth } from "@/lib/auth/page";
 import { recordState } from "@/features/consultation/record-state";
+import { getConsultAssistContext, getPatientSnapshot } from "@/features/consultation/service";
+import type { PatientSnapshot } from "@/features/consultation/snapshot";
+import type { AssistContext } from "@/features/consultation/assist-ranking";
+import { listDoctorMacros } from "@/features/consultation/macros-service";
+import { getUpcomingVisitInstants } from "@/features/consultation/upcoming-visits";
+import { getPatientDocuments } from "@/features/labs/service";
+import { toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
+import type { DoctorMacro } from "@/features/consultation/macros";
+import { resolveServiceContext } from "@/lib/auth/context";
 
 interface ConsultationPageProps {
   params: Promise<{
@@ -54,7 +64,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
       specialty,
       signed_at,
       current_revision,
-      ${clinicalNotesEmbed()},
+      ${clinicalNotesEmbed(undefined, true)},
       patient:patients (
         id,
         full_name,
@@ -118,16 +128,72 @@ async function ConsultationPage(props: ConsultationPageProps) {
     .limit(1)
     .maybeSingle();
   let amendmentReason: string | null = null;
+  let amendmentOpenedAt: string | null = null;
   if (recordState(visitRow) === "amending") {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: latestRevision } = await (supabase.from("visit_revisions") as any)
-      .select("amendment_reason")
+      .select("amendment_reason, amended_at")
       .eq("visit_id", id)
       .eq("tenant_id", membership.tenantId)
       .order("revision_number", { ascending: false })
       .limit(1)
       .maybeSingle();
     amendmentReason = latestRevision?.amendment_reason ?? null;
+    amendmentOpenedAt = latestRevision?.amended_at ?? null;
+  }
+
+  // 8. The Smart Assist entitlements of the active clinic, resolved here from the session (V2-09b R-10); the features of 09B-03 to 09B-04b read this map.
+  // A clinic that is not `full` (read-only, locked) has none: the consult itself is served by the layout's own checks, so a refusal here is "no assist".
+  const assist: Record<string, boolean> = {};
+  try {
+    for (const [key, value] of await activeEntitlements()) if (key.startsWith("assist.")) assist[key] = value.enabled;
+  } catch {
+    // no Smart Assist for this clinic
+  }
+
+  // 9. The Smart Assist reads of the consult, from the session's own context (V2-09b R-12, R-13, Q-9). The doctor's learned order
+  // (`consult_assist_context`) only for an editable record and only with `assist.terminology`; the patient snapshot (`patient_snapshot`: signed visits
+  // only, the visit on screen excluded) only with `assist.snapshot`. A failed or refused read is "no assist": the catalogue order and the plain last-visit
+  // block apply.
+  let assistContext: AssistContext | null = null;
+  let snapshot: PatientSnapshot | null = null;
+  const editable = recordState(visitRow) === "amending" || (recordState(visitRow) !== "sealed" && visitRow.status !== "completed" && visitRow.status !== "cancelled");
+  const wantsContext = editable && assist["assist.terminology"] === true && hasPerm(membership.role, "consultations:edit");
+  const wantsSnapshot = assist["assist.snapshot"] === true;
+  if (wantsContext || wantsSnapshot) {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) {
+      if (wantsContext) assistContext = await getConsultAssistContext(resolved.ctx);
+      if (wantsSnapshot) snapshot = await getPatientSnapshot(resolved.ctx, patientId, id);
+    }
+  }
+
+  // 10. The write side of Smart Assist (V2-09b 09B-04b). The signed-in doctor's own macros (RLS limits the read to them) only with `assist.shorthand` and
+  // an editable record; the instants of this patient's booked or confirmed visits with this doctor from three days ago onward only with `assist.followup`
+  // (the display rule of "Book follow-up", Q-14: nothing is stored). A failed read is "none".
+  let macros: DoctorMacro[] = [];
+  let upcomingVisits: string[] = [];
+  if (editable && assist["assist.shorthand"] === true && hasPerm(membership.role, "consultations:edit")) {
+    const resolved = await resolveServiceContext("consultations:edit");
+    if (resolved.ok) {
+      const listed = await listDoctorMacros(resolved.ctx);
+      if (listed.success) macros = listed.value;
+    }
+  }
+  if (editable && assist["assist.followup"] === true) {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) upcomingVisits = await getUpcomingVisitInstants(resolved.ctx, patientId, visitRow.doctor_id);
+  }
+
+  // 11. The patient's documents (V2-09b 09B-05, P1-24), newest first, for a role that may read them (labs:view); the consult lists this visit's and the
+  // patient column the five newest. A failed or refused read is "no list" (null): no Attachments block is drawn.
+  let documents: ConsultDocument[] | null = null;
+  if (hasPerm(membership.role, "labs:view")) {
+    const resolved = await resolveServiceContext("labs:view");
+    if (resolved.ok) {
+      const listed = await getPatientDocuments(resolved.ctx, patientId);
+      if (listed.success) documents = listed.documents.map(toConsultDocument);
+    }
   }
 
   // Safely cast joined patient object
@@ -145,7 +211,8 @@ async function ConsultationPage(props: ConsultationPageProps) {
       : null) as "male" | "female" | "other" | null,
     date_of_birth: patientRaw.date_of_birth,
     age: patientRaw.age,
-    allergies: patientRaw.allergies ?? [],
+    // `null` is "not recorded" and `[]` "recorded none": the allergy strip draws the two differently.
+    allergies: (patientRaw.allergies as string[] | null) ?? null,
     chronic_conditions: patientRaw.chronic_conditions ?? [],
     uhid: patientRaw.national_health_id || (patientRaw.id ? patientRaw.id.slice(0, 8).toUpperCase() : null),
   };
@@ -178,15 +245,25 @@ async function ConsultationPage(props: ConsultationPageProps) {
     prescription_items: initialPrescriptionItems,
     signed_at: (visitRow.signed_at as string | null) ?? null,
     current_revision: (visitRow.current_revision as number | null) ?? 1, // the database default (09A-06a, review B-2)
+    draft_version: (embeddedClinicalNotes(visitRow)?.draft_version as number | undefined) ?? 0,
     prescription_version: (latestHeader?.version as number | undefined) ?? null,
     amendment_reason: amendmentReason,
+    amendment_opened_at: amendmentOpenedAt,
   };
 
   return (
-    <ConsultationWorkspace
+    <ConsultWorkspace
       visit={visit}
       patient={patient}
       pastEncounters={pastEncounters}
+      assist={assist}
+      assistContext={assistContext}
+      snapshot={snapshot}
+      macros={macros}
+      upcomingVisits={upcomingVisits}
+      canBook={hasPerm(membership.role, "appointments:edit")}
+      documents={documents}
+      canUpload={hasPerm(membership.role, "labs:edit")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

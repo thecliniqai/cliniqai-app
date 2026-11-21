@@ -60,9 +60,10 @@ describe("recordState agrees with the database guards on real rows (R-2)", () =>
     for (const v of visits) {
       const state = recordState({ status: v.status, signed_at: v.signed ? "2030-01-01T00:00:00Z" : null });
       for (const [who, db] of [["service_role", admin], ["owner", owner.client]] as const) {
+        // The owner's JWT may write only the vitals column since 000112 (the draft command writes the rest), and the seal guard reads the same state for it.
         const { data, error } = await db
           .from("clinical_notes")
-          .update({ clinical_notes: `Probe by ${who}` })
+          .update(who === "owner" ? { vitals: { pulse: 77 } } : { clinical_notes: `Probe by ${who}` })
           .eq("visit_id", v.id)
           .select("visit_id");
         const refused = error?.code === "42501" && (error.message ?? "").includes("CLINICAL_NOTES_VISIT_SIGNED");

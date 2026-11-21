@@ -117,6 +117,10 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   AMENDMENT_REASON_INVALID: "VALIDATION_FAILED",
   // V2-09a 09A-06a (migration 000111, review A-3): the reopen waits until the signed version's Rx PDF is archived (by its signer); retryable.
   RX_ARCHIVE_PENDING: "CONFLICT",
+  // V2-09b 09B-01 (migration 000112): the consult draft save. The draft was read at an older version (another tab, device or the nurse's
+  // vitals wrote since): the client rebases and asks (R-5). A sealed, completed or cancelled visit takes no draft.
+  DRAFT_CONFLICT: "CONFLICT",
+  DRAFT_LOCKED: "CONFLICT",
   VISIT_NOT_CHECKABLE: "CONFLICT",
   // V2-07 07-03 (migration 000098): the front-desk commands. The doctor's slot is taken / outside the clinic-local shifts /
   // inside a schedule block (register_and_book; the overbook confirmation re-sends with the override); a visit this user

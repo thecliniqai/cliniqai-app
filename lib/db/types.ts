@@ -165,6 +165,8 @@ export interface ClinicalNotes {
   specialty_data: Record<string, unknown>;
   investigations_advised: string[];
   advice: string[];
+  /** V2-09b (R-2): raised by exactly 1 on every committed update; the draft save compares it (`save_consultation_draft`). */
+  draft_version: number;
   created_at: string;
   updated_at: string;
 }
@@ -413,6 +415,8 @@ export interface PatientDocument {
   notes: string | null;
   is_abnormal: boolean;
   uploaded_by: string;
+  /** The upload's request id (V2-09b 09B-06a, A-4); null for rows before 000116 or callers that sent none. */
+  client_request_id?: string | null;
   created_at: string;
   updated_at: string;
 }

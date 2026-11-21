@@ -433,6 +433,7 @@ export type Database = {
           chief_complaints: NonNullable<Json>;
           clinical_notes: string | null;
           created_at: string;
+          draft_version: number;
           investigations_advised: string[];
           specialty_data: NonNullable<Json>;
           tenant_id: string;
@@ -446,6 +447,7 @@ export type Database = {
           chief_complaints?: NonNullable<Json>;
           clinical_notes?: string | null;
           created_at?: string;
+          draft_version?: number;
           investigations_advised?: string[];
           specialty_data?: NonNullable<Json>;
           tenant_id: string;
@@ -458,6 +460,7 @@ export type Database = {
           chief_complaints?: NonNullable<Json>;
           clinical_notes?: string | null;
           created_at?: string;
+          draft_version?: number;
           investigations_advised?: string[];
           specialty_data?: NonNullable<Json>;
           tenant_id?: string;
@@ -908,6 +911,52 @@ export type Database = {
           },
           {
             foreignKeyName: "doctor_prescription_templates_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      doctor_text_macros: {
+        Row: {
+          created_at: string;
+          doctor_id: string;
+          expansion: string;
+          id: string;
+          shortcut: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          doctor_id: string;
+          expansion: string;
+          id?: string;
+          shortcut: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          doctor_id?: string;
+          expansion?: string;
+          id?: string;
+          shortcut?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "doctor_text_macros_tenant_doctor_fkey";
+            columns: ["doctor_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "doctor_text_macros_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -1430,6 +1479,7 @@ export type Database = {
       };
       patient_documents: {
         Row: {
+          client_request_id: string | null;
           created_at: string;
           document_type: string;
           file_size_bytes: number;
@@ -1449,6 +1499,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          client_request_id?: string | null;
           created_at?: string;
           document_type?: string;
           file_size_bytes: number;
@@ -1467,6 +1518,7 @@ export type Database = {
           visit_id?: string | null;
         };
         Update: {
+          client_request_id?: string | null;
           created_at?: string;
           document_type?: string;
           file_size_bytes?: number;
@@ -3343,6 +3395,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      consult_assist_context: { Args: { p_tenant_id: string }; Returns: Json };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_invitation_for: {
         Args: { p_token_hash: string; p_user_id: string };
@@ -3616,6 +3669,14 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      patient_snapshot: {
+        Args: {
+          p_exclude_visit_id?: string;
+          p_patient_id: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
       permission_matrix: {
         Args: Record<PropertyKey, never>;
@@ -3732,6 +3793,32 @@ export type Database = {
       };
       revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
+      save_consultation_draft: {
+        Args: {
+          p_client_request_id: string;
+          p_expected_version: number;
+          p_patch: Json;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      search_diagnoses: {
+        Args: {
+          p_limit?: number;
+          p_specialty?: string;
+          p_tenant_id: string;
+          p_terms: string[];
+        };
+        Returns: {
+          icd11_code: string;
+          id: string;
+          is_chronic: boolean;
+          is_custom: boolean;
+          name: string;
+          snomed_concept_id: string;
+        }[];
+      };
       search_medicines: {
         Args: {
           p_doctor_id: string;
