@@ -233,7 +233,7 @@ is unchanged.
 ### Known stubs
 
 - The Plan section's attachment dropzone is the v1 no-op placeholder (`components/consultation/workspace/sections/plan-section.tsx`, "Upload lab report or
-  radiograph"); 09B-05 builds `FileDrop` and the upload. Recorded in `.planning/WINDOWS.md` (below).
+  radiograph"); 09B-05 builds `FileDrop` and the upload. (`.planning/WINDOWS.md` does not exist in this repo, so the broken-windows ledger entry was not written.)
 
 ### Tests added or changed (file: what)
 
