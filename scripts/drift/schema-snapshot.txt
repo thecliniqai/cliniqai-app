@@ -1367,7 +1367,8 @@ function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) 
 function private.platform_admins_audit() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f98d06dcb2289673d69b37c8d69732b3
 function private.platform_reason(p_reason text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=189c8b86c8a70940e97fad38ee2c02a6
 function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f4aaf5549452df4e7fc2b979ce12d2b7
-function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f35d1f0a0a736bfac4750cf4b40ed6f5
+function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8bfe05bf65121117b1e339c8cddde61e
+function private.prescriptions_seal_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=a6019b9469ef5dc166f78b775ab4eb61
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3647a19f356dc8d41fdd2ea236d17cfe
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
@@ -1384,7 +1385,7 @@ function private.step_enqueue_booking_message(p_tenant_id uuid, p_visit_id uuid,
 function private.step_enqueue_visit_message(p_tenant_id uuid, p_visit_id uuid, p_patient_id uuid, p_template_id text, p_params jsonb, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a146c78c40d7279b81e30ff7de970691
 function private.step_promote_waitlist(p_tenant_id uuid, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_timezone text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f5d798829680de0461e39f388319654b
 function private.step_record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_notes text, p_command_id uuid, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6017701be758fe938bf6d5f0a466a9d7
-function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f2c69d82f2ac5da77dd4e5614bf6fd43
+function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=253fee604f47dc339007cbc1a5cc3096
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
@@ -1398,7 +1399,7 @@ function private.visits_integrity_guard() returns trigger lang=plpgsql security_
 function private.visits_metadata_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=11d84ccf7ee3b5c34d054d2018c6e865
 function private.visits_sealed_delete_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=d6e2f4a2ac7b40e2404639907fae8c78
 function private.visits_status_transition_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a92dd0b6e1cd57eddbdba30793fb59eb
-function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
+function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=7a9fbd0acfab047a0ab458184c4b00d9
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
 function public.add_to_waitlist(p_tenant_id uuid, p_patient_id uuid, p_target_date date, p_client_request_id uuid, p_doctor_id uuid, p_time_window text, p_priority integer, p_notes text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9745d44e4c5ff10ccfcc9d0a734b1d26
 function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=85196dc29136273b2163ed253f8a8ea4
@@ -1439,7 +1440,7 @@ function public.enqueue_walk_in(p_tenant_id uuid, p_patient_id uuid, p_new_patie
 function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e2e07e8a190c641bad7ff81ee18db4fd
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
-function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3606d51c52a6472315884fc3a4019880
+function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=81bcca697ecbd2d52c6e781f81f9baf7
 function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[], strength text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=baf9b6d697032e8e360c4ad6d780f075
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ea535332cb3bf025dba7d6d92c04eebb
@@ -1546,6 +1547,9 @@ grant column public.memberships.full_name UPDATE to authenticated
 grant column public.memberships.medical_council_reg_no UPDATE to authenticated
 grant column public.memberships.phone UPDATE to authenticated
 grant column public.memberships.qualifications UPDATE to authenticated
+grant column public.prescriptions.letterhead_mode UPDATE to authenticated
+grant column public.prescriptions.pdf_storage_path UPDATE to authenticated
+grant column public.prescriptions.updated_at UPDATE to authenticated
 grant column public.queue_tokens.called_at UPDATE to authenticated
 grant column public.queue_tokens.completed_at UPDATE to authenticated
 grant column public.queue_tokens.priority UPDATE to authenticated
@@ -2127,7 +2131,6 @@ grant table public.prescriptions SELECT to authenticated
 grant table public.prescriptions SELECT to service_role
 grant table public.prescriptions TRIGGER to service_role
 grant table public.prescriptions TRUNCATE to service_role
-grant table public.prescriptions UPDATE to authenticated
 grant table public.prescriptions UPDATE to service_role
 grant table public.queue_token_counters DELETE to service_role
 grant table public.queue_token_counters INSERT to service_role
@@ -2784,6 +2787,7 @@ trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_adm
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
+trigger public.prescriptions.prescriptions_seal_guard CREATE TRIGGER prescriptions_seal_guard BEFORE DELETE OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_seal_guard()
 trigger public.queue_tokens.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
 trigger public.queue_tokens.queue_tokens_today_signal CREATE TRIGGER queue_tokens_today_signal AFTER INSERT OR UPDATE ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.today_signal()
