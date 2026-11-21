@@ -29,6 +29,8 @@ export interface ClinicalVisitOptions {
   diagnosis?: boolean;
   /** Active prescriptions to seed (versions 1..n, unsigned; default 1). */
   prescriptions?: number;
+  /** Seed a scheduled visit at this time instead of a walk-in (an appointment, as the /api/v1/appointments routes see it). */
+  scheduledAt?: string;
   /** Marker written to `prescriptions.amendment_reason` / `visits.reason_for_visit` so a scoped fault can target the rows. */
   marker?: string;
 }
@@ -43,7 +45,7 @@ export async function seedClinicalVisit(t: Pick<SeededTenant, "tenantId" | "user
   const doctorId = opts.doctorId ?? t.userId;
   // A sign-off needs a visit that is in the queue or in consultation (07-04a F-6); the seed default is `waiting`. The status is
   // inserted, not updated: the visit state machine (000100) refuses booked -> in_consultation.
-  const base = await seedVisit(t, doctorId, { status: opts.status ?? "waiting" });
+  const base = await seedVisit(t, doctorId, { status: opts.status ?? "waiting", ...(opts.scheduledAt ? { scheduledAt: opts.scheduledAt } : {}) });
   const notes = opts.notes === undefined ? "Synthetic clinical note." : opts.notes;
   if (notes !== null) {
     const { error } = await admin.from("clinical_notes").update({ clinical_notes: notes }).eq("visit_id", base.visitId);
@@ -118,6 +120,22 @@ export const callFinalize = (db: TestDb, args: FinalizeArgs) => db.rpc("finalize
 export const callCheckIn = (db: TestDb, args: CheckInArgs) => db.rpc("check_in_visit", args);
 export const callStartConsultation = (db: TestDb, args: StartConsultationArgs) => db.rpc("start_consultation", args);
 export const callCompleteVisit = (db: TestDb, args: CompleteVisitArgs) => db.rpc("complete_visit", args);
+
+/**
+ * R-15 (V2-09a): a signed record is seeded the way production makes one. The visit, its notes, diagnoses, header and items are
+ * seeded unsigned with the service role (`seedClinicalVisit`), then the actor's own client calls `sign_consultation`. Since 000107
+ * a service-role writer can no longer sign, un-sign or add child rows to a signed visit, so a fixture never does it by UPDATE.
+ */
+export async function signVisitAs(actor: Pick<SeededTenant, "tenantId" | "client">, visitId: string): Promise<void> {
+  const { error } = await callSign(actor.client, signArgs(actor, visitId));
+  if (error) throw new Error(`sign_consultation failed: ${error.message}`);
+}
+
+/** Reopens a signed visit for amendment as `actor` (the visit goes back to `in_consultation`, still signed). */
+export async function reopenVisitAs(actor: Pick<SeededTenant, "tenantId" | "client">, visitId: string): Promise<void> {
+  const { error } = await callReopen(actor.client, reopenArgs(actor, visitId));
+  if (error) throw new Error(`reopen_visit_for_amendment failed: ${error.message}`);
+}
 
 /** The visit as the commands change it. */
 export async function visitRow(visitId: string) {
