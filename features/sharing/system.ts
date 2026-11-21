@@ -1,7 +1,8 @@
 import "server-only";
 
 import { getSystemDb, type SystemDb } from "@/lib/supabase/system";
-import { getSignedUrl, SupabaseStorageProvider, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
+import { createHash } from "node:crypto";
+import { downloadFile, getSignedUrl, SupabaseStorageProvider, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
@@ -15,8 +16,10 @@ import { getRequestId } from "@/lib/log/request-id";
  * id: every step starts from the token and a token-scoped RPC (000020) that binds the resource to the token's
  * tenant and `resource_type`.
  *
- * - `signSharedObject`: a short-lived signed URL for the object behind a valid token. The storage path must sit under
- *   the token's tenant prefix (`tenants/<tenantId>/` or `<tenantId>/`) and be a well-formed key (`isTenantStoragePath`).
+ * - `signSharedObject` / `resolveSharedObject`: a short-lived signed URL for the object behind a valid token. The storage path must sit under
+ *   the token's tenant prefix (`tenants/<tenantId>/` or `<tenantId>/`) and be a well-formed key (`isTenantStoragePath`). A prescription is signed only
+ *   after its bytes match the recorded SHA-256 (V2-09a 09A-06a, review S-5): a mismatch is refused and audited, and a prescription whose signed version
+ *   is not archived yet answers "being prepared" (never a stale or unverified object).
  * - `renderSharedReceiptPdf`: on-demand receipt PDF for an invoice token, compiled for the token's tenant.
  * - `notifySelfServiceReschedule`: patient confirmation + webhook after `consume_reschedule_token` succeeded.
  *
@@ -28,8 +31,11 @@ interface ShareObjectTarget {
   resource_type: DocumentShareResourceType;
   resource_id: string;
   bucket: string;
-  storage_path: string;
+  /** Null only for a prescription whose signed version is not archived yet (000111). */
+  storage_path: string | null;
   original_filename: string | null;
+  /** The prescription's recorded SHA-256 (000111, review S-5); null for other kinds or a prescription not archived yet. */
+  sha256: string | null;
 }
 
 type RpcResult = { data: unknown; error: { code?: string } | null };
@@ -53,7 +59,8 @@ async function shareTokenObject(
   const { data, error } = await systemRpc(db, "share_token_object", { p_token: token, p_kinds: kinds });
   if (error || !data || typeof data !== "object" || Array.isArray(data)) return null;
   const t = data as unknown as ShareObjectTarget;
-  if (!t.tenant_id || !t.resource_id || !t.bucket || !t.storage_path) return null;
+  // A prescription token resolves with no path while its signed version is not archived yet (resolveSharedObject answers "pending").
+  if (!t.tenant_id || !t.resource_id || !t.bucket || (!t.storage_path && t.resource_type !== "prescription")) return null;
   // V2-05 05-10a (SUB-02, R-28): nothing of a clinic whose access level is not `full` is signed or rendered. The RPC
   // refuses such a token too (000090); this second check uses the service-role access function, never billing_internal.
   if (!(await clinicIsFull(db, t.tenant_id))) return null;
@@ -79,20 +86,65 @@ export function isTenantStoragePath(tenantId: string, path: string): boolean {
 }
 
 /**
- * Signs the object behind a valid token of one of `kinds`. Returns null when the token does not resolve, the path is
- * outside the token's tenant, or storage cannot sign it (e.g. the object was never uploaded).
+ * What a share link can serve (09A-06a, review S-5):
+ *  - `ok`: a signed URL of the object (a prescription only after its bytes matched the recorded SHA-256);
+ *  - `pending`: a prescription whose signed version is not archived yet (for example right after an amendment's finalize): a fixed "being prepared"
+ *    answer, never the previous version's object;
+ *  - `unverified`: a prescription whose stored bytes do not match the recorded hash (refused and audited as an integrity failure), or whose archive
+ *    cannot be read (refused, not audited as tampering);
+ *  - null: the token does not resolve, the path is outside the token's tenant, or storage cannot sign it.
  */
-export async function signSharedObject(
-  token: string,
-  kinds: DocumentShareResourceType[]
-): Promise<{ signedUrl: string; resourceType: DocumentShareResourceType } | null> {
+export type SharedObjectResult =
+  | { status: "ok"; signedUrl: string; resourceType: DocumentShareResourceType }
+  | { status: "pending" | "unverified"; resourceType: DocumentShareResourceType };
+
+function sha256Hex(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+/** The integrity incident of a shared prescription, written by the system (no member acted; no PHI: ids, the recorded hash and the key). */
+async function auditSharedIntegrityFailure(db: SystemDb, target: ShareObjectTarget): Promise<void> {
+  const { error } = await (
+    db.from("audit_logs") as unknown as { insert: (row: Record<string, unknown>) => Promise<{ error: { code?: string } | null }> }
+  ).insert({
+    tenant_id: target.tenant_id,
+    actor_id: null,
+    actor_role: "system",
+    action: "prescription.pdf_integrity_failed",
+    entity_type: "prescription",
+    entity_id: target.resource_id,
+    metadata: { sha256: target.sha256, storage_path: target.storage_path, reason: "SHARE_LINK_HASH_MISMATCH" },
+  });
+  if (error) log.warn({ event: "sharing.integrity_audit.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: target.tenant_id });
+}
+
+export async function resolveSharedObject(token: string, kinds: DocumentShareResourceType[]): Promise<SharedObjectResult | null> {
   const db = getSystemDb("share.sign");
   const target = await shareTokenObject(db, token, kinds);
-  if (!target || !BUCKETS.has(target.bucket) || !isTenantStoragePath(target.tenant_id, target.storage_path)) {
-    return null;
+  if (!target || !BUCKETS.has(target.bucket)) return null;
+
+  if (target.resource_type === "prescription" && (!target.storage_path || !target.sha256)) {
+    // Not archived yet (or a legacy path with no recorded hash, which is never trusted).
+    return { status: "pending", resourceType: target.resource_type };
   }
+  if (!target.storage_path || !isTenantStoragePath(target.tenant_id, target.storage_path)) return null;
 
   const provider = new SupabaseStorageProvider({ defaultBucket: target.bucket, client: db });
+
+  if (target.resource_type === "prescription") {
+    let bytes: Buffer;
+    try {
+      bytes = await downloadFile({ path: target.storage_path, bucket: target.bucket }, provider);
+    } catch (readErr) {
+      log.warn({ event: "sharing.rx_archive_read.failed", code: errorTag(readErr), requestId: await getRequestId(), tenantId: target.tenant_id });
+      return { status: "unverified", resourceType: target.resource_type };
+    }
+    if (sha256Hex(bytes) !== target.sha256) {
+      log.error({ event: "sharing.rx_integrity_failed", code: "HASH_MISMATCH", requestId: await getRequestId(), tenantId: target.tenant_id });
+      await auditSharedIntegrityFailure(db, target);
+      return { status: "unverified", resourceType: target.resource_type };
+    }
+  }
 
   try {
     const { signedUrl } = await getSignedUrl(
@@ -105,10 +157,22 @@ export async function signSharedObject(
       },
       provider
     );
-    return signedUrl ? { signedUrl, resourceType: target.resource_type } : null;
+    return signedUrl ? { status: "ok", signedUrl, resourceType: target.resource_type } : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Signs the object behind a valid token of one of `kinds` (see {@link resolveSharedObject}). Returns null when the token does not resolve, the path is
+ * outside the token's tenant, storage cannot sign it (e.g. the object was never uploaded), or a prescription is pending or failed its hash check.
+ */
+export async function signSharedObject(
+  token: string,
+  kinds: DocumentShareResourceType[]
+): Promise<{ signedUrl: string; resourceType: DocumentShareResourceType } | null> {
+  const res = await resolveSharedObject(token, kinds);
+  return res?.status === "ok" ? { signedUrl: res.signedUrl, resourceType: res.resourceType } : null;
 }
 
 /** Receipt PDF for a valid invoice token, compiled for the token's tenant and invoice only. */

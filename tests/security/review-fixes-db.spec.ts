@@ -24,7 +24,7 @@ import { jsonObject } from "../helpers/db";
 import { listInReferralDirectory } from "../helpers/referral-directory";
 import { hasPerm } from "@/lib/permissions";
 import { seedSlotIso } from "../helpers/seed-slots";
-import { seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -414,12 +414,16 @@ describe("01-08 review fixes (000021)", () => {
       expect(rxWrite.error?.code).toBe("42501");
       expect(rxWrite.error?.message).toBe("RX_PDF_PATH_INVALID");
       const rxToken = await mint(A.owner.client as SupabaseClient, "prescription", sealedRxId);
-      expect((await docGet(rxToken, "?download=true")).status).toBe(404);
+      // V2-09a 09A-06a (S-5): a prescription with no archived PDF answers the fixed "being prepared" 503 (was a 404), never another object.
+      const pending = await docGet(rxToken, "?download=true");
+      expect(pending.status).toBe(503);
+      expect(pending.headers.get("location")).toBeNull();
 
-      const ownRxPath = `${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf`;
-      await upload("prescriptions", ownRxPath);
-      expect((await admin.from("prescriptions").update({ pdf_storage_path: ownRxPath }).eq("id", sealedRxId)).error).toBeNull();
-      expect((await docGet(rxToken, "?download=true")).status).toBe(302);
+      // Archived by its signer (R-A: upload and pair with the signer's own client), the link signs the object at the visit's own key.
+      expect(await archiveRxAs(A.owner, sealed.visitId)).toMatch(/^[0-9a-f]{64}$/);
+      const archived = await docGet(rxToken, "?download=true");
+      expect(archived.status).toBe(302);
+      expect(decodeURIComponent(archived.headers.get("location") ?? "")).toContain(`${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf`);
 
       // Lab document: tenants/<tenant>/patients/<patient>/...; another patient's file cannot be stored either.
       const otherPatientPath = `tenants/${A.owner.tenantId}/patients/${A.patient2Id}/labs/other.pdf`;

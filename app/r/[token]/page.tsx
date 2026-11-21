@@ -4,9 +4,11 @@ import {
   DOCUMENT_LINK_KINDS,
   isPlausibleToken,
   resolveShareToken,
+  SHARED_RX_PENDING_MESSAGE,
+  SHARED_RX_UNVERIFIED_MESSAGE,
   type PrescriptionVerification,
 } from "@/features/sharing/public-links";
-import { signSharedObject } from "@/features/sharing/system";
+import { resolveSharedObject } from "@/features/sharing/system";
 import { isYmd, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import {
   FileText,
@@ -154,9 +156,12 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
     ? new Date(doc.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
     : "";
 
-  // Short-lived signed URL for the object behind this token (tenant-prefix checked); else the download route.
-  const signed = await signSharedObject(token, DOCUMENT_LINK_KINDS);
-  const signedUrl = signed?.signedUrl ?? `/api/r/${token}?download=true`;
+  // Short-lived signed URL for the object behind this token (tenant-prefix checked); else the download route. A prescription is signed only after its
+  // bytes match the recorded SHA-256 (V2-09a 09A-06a, review S-5); while it is not archived, or when it fails the check, a fixed notice replaces it.
+  const shared = await resolveSharedObject(token, DOCUMENT_LINK_KINDS);
+  const signedUrl = shared?.status === "ok" ? shared.signedUrl : `/api/r/${token}?download=true`;
+  const unavailableNotice =
+    shared?.status === "pending" ? SHARED_RX_PENDING_MESSAGE : shared?.status === "unverified" ? SHARED_RX_UNVERIFIED_MESSAGE : null;
 
   const clinic = {
     name: doc.clinic?.name || "Clinic",
@@ -217,7 +222,11 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
 
           {/* Embedded Viewer Preview */}
           <div className="rounded-lg border border-border bg-gray-50 overflow-hidden min-h-[220px] flex items-center justify-center">
-            {isImage ? (
+            {unavailableNotice ? (
+              <p role="status" data-testid="share-document-unavailable" className="p-6 text-center text-sm text-fg-secondary">
+                {unavailableNotice}
+              </p>
+            ) : isImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={signedUrl}
@@ -238,16 +247,18 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
             )}
           </div>
 
-          {/* Primary CTA: Download PDF */}
-          <a
-            href={`/api/r/${token}?download=true`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent-hover transition-colors shadow-xs"
-          >
-            <Download className="w-4 h-4" />
-            Download Official PDF
-          </a>
+          {/* Primary CTA: Download PDF (not offered while the prescription is unavailable) */}
+          {!unavailableNotice && (
+            <a
+              href={`/api/r/${token}?download=true`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent-hover transition-colors shadow-xs"
+            >
+              <Download className="w-4 h-4" />
+              Download Official PDF
+            </a>
+          )}
         </div>
       </main>
 

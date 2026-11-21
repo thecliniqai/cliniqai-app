@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DOCUMENT_LINK_KINDS, isPlausibleToken, resolveShareToken } from "@/features/sharing/public-links";
-import { renderSharedReceiptPdf, signSharedObject } from "@/features/sharing/system";
+import { renderSharedReceiptPdf, resolveSharedObject } from "@/features/sharing/system";
+import { SHARED_RX_PENDING_MESSAGE, SHARED_RX_UNVERIFIED_MESSAGE } from "@/features/sharing/public-links";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -44,9 +45,19 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     }
 
     const doc = resolved.document;
-    const signed = await signSharedObject(token, DOCUMENT_LINK_KINDS);
+    const shared = await resolveSharedObject(token, DOCUMENT_LINK_KINDS);
+    const signed = shared?.status === "ok" ? shared : null;
 
     if (download) {
+      // V2-09a 09A-06a (review S-5): a prescription is served only after its bytes match the recorded SHA-256. Not archived yet: a fixed "being
+      // prepared" answer (never the previous version's object); a mismatch or an unreadable archive: refused (the mismatch is audited). The page view
+      // below gets no signed URL in either case (its link is this route).
+      if (shared?.status === "pending") {
+        return NextResponse.json({ error: SHARED_RX_PENDING_MESSAGE }, { status: 503, headers: { "Retry-After": "30", "Cache-Control": "private, no-store" } });
+      }
+      if (shared?.status === "unverified") {
+        return NextResponse.json({ error: SHARED_RX_UNVERIFIED_MESSAGE }, { status: 409, headers: { "Cache-Control": "private, no-store" } });
+      }
       if (signed) {
         return NextResponse.redirect(signed.signedUrl, { status: 302 });
       }
