@@ -195,9 +195,9 @@ export function VisitsRegisterView({
               Calendar View
             </Button>
           </Link>
-          <Link href="/queue">
+          <Link href="/today">
             <Button variant="primary" size="sm" startIcon={<Clock className="w-3.5 h-3.5" />}>
-              Live Queue
+              Today
             </Button>
           </Link>
         </div>

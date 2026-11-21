@@ -245,7 +245,7 @@ export function SignAndBillModal({
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push("/cabin");
+                  router.push("/today?mode=doctor");
                   router.refresh();
                 }}
                 className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -444,7 +444,7 @@ export function SignAndBillModal({
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push("/cabin");
+                  router.push("/today?mode=doctor");
                   router.refresh();
                 }}
                 className="h-11 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"

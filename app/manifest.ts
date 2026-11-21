@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: PRODUCT_NAME,
     short_name: PRODUCT_NAME,
-    start_url: "/?source=pwa",
+    start_url: "/today?source=pwa",
     scope: "/",
     display: "standalone",
     background_color: backgroundColor,

@@ -79,7 +79,7 @@ export function CommandPalette({
   const destinations = useMemo(() => allDestinations(model), [model]);
   const hrefs = useMemo(() => new Set(destinations.map((d) => d.href)), [destinations]);
   const canSearchPatients = hrefs.has("/patients");
-  const queueHref = ["/queue", "/cabin", "/"].find((h) => hrefs.has(h)) ?? null;
+  const queueHref = hrefs.has("/today") ? "/today" : null;
 
   const trimmed = query.trim();
   const settled = !loading && results.query === trimmed;

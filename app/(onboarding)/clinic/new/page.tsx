@@ -30,7 +30,7 @@ export default function NewClinicPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/today");
   };
 
   return (

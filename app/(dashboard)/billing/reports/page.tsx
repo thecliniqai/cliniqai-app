@@ -20,7 +20,7 @@ async function BillingReportsPage() {
   } catch (err) {
     // 05-10b: a clinic that is not `full` goes to its locked/onboarding page.
     await redirectIfTenantLocked(err);
-    redirect("/");
+    redirect("/today");
   }
 
   // The clinic's day in its own zone (V2-03 03-05); the view reads the same zone from the layout.

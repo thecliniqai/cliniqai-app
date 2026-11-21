@@ -10,7 +10,7 @@ import { withPageAuth } from "@/lib/auth/page";
  */
 async function BillingReportsLayout({ children }: { children: ReactNode }) {
   const { role } = await getActiveMembership();
-  if (!hasPerm(role, "billing:view")) redirect("/");
+  if (!hasPerm(role, "billing:view")) redirect("/today");
   return <>{children}</>;
 }
 

@@ -33,7 +33,7 @@ export function JoinAcceptButton({ token, email }: { token: string; email: strin
       setLoading(false);
       return;
     }
-    router.replace("/");
+    router.replace("/today");
     router.refresh();
   };
 

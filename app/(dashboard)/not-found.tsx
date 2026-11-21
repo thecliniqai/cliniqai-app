@@ -2,5 +2,5 @@
 import { RouteNotFound } from "@/components/shell/route-not-found";
 
 export default function DashboardNotFound() {
-  return <RouteNotFound home={{ href: "/", label: "Go to Today" }} />;
+  return <RouteNotFound home={{ href: "/today", label: "Go to Today" }} />;
 }

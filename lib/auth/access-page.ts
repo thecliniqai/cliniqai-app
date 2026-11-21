@@ -38,6 +38,6 @@ export async function requireAccessDestination(path: AccessDestination): Promise
   }
   const level = await getTenantAccessLevel(membership.tenantId);
   const destination = accessRedirect(membership.role, level);
-  if (destination !== path) redirect(destination ?? "/");
+  if (destination !== path) redirect(destination ?? "/today");
   return { membership, level };
 }

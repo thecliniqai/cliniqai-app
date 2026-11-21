@@ -56,6 +56,6 @@ export async function promoteWaitlistEntry(entryId: string, scheduledAt: string)
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await waitlistService.promoteWaitlistEntry(resolved.ctx, entryId, scheduledAt);
-  if (result.success) revalidate("/calendar", "/queue");
+  if (result.success) revalidate("/calendar", "/today");
   return result;
 }

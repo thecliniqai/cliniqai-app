@@ -8,7 +8,6 @@ import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { QueuePriority } from "@/lib/db/types";
 import * as queueService from "./service";
 import type {
-  GetQueueResult,
   PaletteQueueMatch,
   EnqueueWalkInInput,
   WalkInValue,
@@ -16,7 +15,7 @@ import type {
   CompleteVisitValue,
 } from "./service";
 
-export type { CheckInResult, GetQueueResult, PaletteQueueMatch } from "./service";
+export type { CheckInResult, PaletteQueueMatch } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
@@ -41,7 +40,7 @@ export async function checkInVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId);
-  if (result.success) revalidate("/queue", "/calendar", "/today");
+  if (result.success) revalidate("/today", "/calendar");
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
     queueTokenId: ok.queueTokenId,
@@ -61,7 +60,7 @@ export async function enqueueWalkIn(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.enqueueWalkIn(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/queue", "/calendar", "/patients");
+  if (result.ok) revalidate("/today", "/calendar", "/patients");
   return result;
 }
 
@@ -77,7 +76,7 @@ export async function startConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/queue", "/calendar", "/cabin", "/");
+  if (result.ok) revalidate("/today", "/calendar");
   return result;
 }
 
@@ -92,14 +91,8 @@ export async function completeVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/queue", "/calendar", "/cabin", "/");
+  if (result.ok) revalidate("/today", "/calendar");
   return result;
-}
-
-export async function getQueueForDate(dateStr: string, doctorId?: string): Promise<GetQueueResult> {
-  const resolved = await resolveServiceContext("appointments:view");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return queueService.getQueueForDate(resolved.ctx, dateStr, doctorId);
 }
 
 /**

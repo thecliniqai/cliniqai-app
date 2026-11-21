@@ -37,7 +37,7 @@ export async function saveConsultationDraft(input: SaveConsultationDraftInput): 
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await consultationService.saveConsultationDraft(resolved.ctx, input);
-  if (result.success) revalidate(`/consultation/${result.visitId}`, "/queue");
+  if (result.success) revalidate(`/consultation/${result.visitId}`, "/today");
   return result;
 }
 
@@ -67,7 +67,7 @@ export async function completeAndSignConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.completeAndSignConsultation(resolved.ctx, visitId, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
+  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, replayed: ok.replayed }));
 }
 
@@ -79,7 +79,7 @@ export async function reopenVisitForAmendment(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.reopenVisitForAmendment(resolved.ctx, visitId, reason, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
+  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, revisionNumber: ok.revisionNumber, replayed: ok.replayed }));
 }
 
@@ -90,6 +90,6 @@ export async function finalizeVisitAmendment(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.finalizeVisitAmendment(resolved.ctx, visitId, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/queue");
+  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, version: ok.version, replayed: ok.replayed }));
 }

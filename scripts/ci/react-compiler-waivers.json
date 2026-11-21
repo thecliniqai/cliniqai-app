@@ -20,15 +20,6 @@
       "reason": "Prop-to-state default date in the v1 waitlist drawer (its patient search is the shared PatientSearch since 08-02), rebuilt with booking in V2-08."
     },
     {
-      "file": "components/queue/walk-in-drawer.tsx",
-      "rule": "set-state-in-effect",
-      "sites": 3,
-      "owner": "V2-08",
-      "added": "2026-11-15",
-      "expires": "2027-02-13",
-      "reason": "Reset-on-open, default doctor and debounced search in the v1 walk-in drawer (no dialog role, no focus trap: 06-02b open item); V2-08 replaces it with the walk-in sheet on Today."
-    },
-    {
       "file": "components/consultation/diagnosis-section.tsx",
       "rule": "set-state-in-effect",
       "sites": 2,

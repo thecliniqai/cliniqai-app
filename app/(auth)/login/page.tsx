@@ -24,9 +24,9 @@ const noSubscription = () => () => undefined;
 const partialSignOut = () => new URLSearchParams(window.location.search).get("signout") === "partial";
 const notOnServer = () => false;
 
-/** Where to go after sign-in: the `next` the proxy set if it is a same-origin path (03-12c, T-03-04), else `/`. */
+/** Where to go after sign-in: the `next` the proxy set if it is a same-origin path (03-12c, T-03-04), else `/today` (R-14). */
 function afterSignInPath(): string {
-  return safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/";
+  return safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/today";
 }
 
 export default function LoginPage() {

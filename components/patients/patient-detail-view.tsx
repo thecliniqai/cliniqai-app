@@ -167,7 +167,7 @@ export function PatientDetailView({
               Refer Patient
             </Button>
 
-            <Link href="/queue">
+            <Link href="/today?walkin=1">
               <Button
                 variant="primary"
                 size="sm"

@@ -45,7 +45,7 @@ export async function updateVisitStatus(visitId: string, newStatus: VisitStatus)
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.updateVisitStatus(resolved.ctx, visitId, newStatus);
-  if (result.success) revalidate("/calendar", "/queue");
+  if (result.success) revalidate("/calendar", "/today");
   return result;
 }
 
@@ -53,7 +53,7 @@ export async function confirmAppointment(visitId: string): Promise<ConfirmAppoin
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.confirmAppointment(resolved.ctx, visitId);
-  if (result.success) revalidate("/calendar", "/queue");
+  if (result.success) revalidate("/calendar", "/today");
   return result;
 }
 
@@ -61,7 +61,7 @@ export async function cancelVisit(visitId: string): Promise<CancelVisitResult> {
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.cancelVisit(resolved.ctx, visitId);
-  if (result.success) revalidate("/calendar", "/queue");
+  if (result.success) revalidate("/calendar", "/today");
   return result;
 }
 
@@ -104,6 +104,6 @@ export async function recordVisitVitals(
   const resolved = await resolveServiceContext("vitals:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.recordVisitVitals(resolved.ctx, visitId, vitalsInput);
-  if (result.success) revalidate("/queue", "/visits", "/cabin", `/consultation/${visitId}`);
+  if (result.success) revalidate("/today", "/visits", `/consultation/${visitId}`);
   return result;
 }

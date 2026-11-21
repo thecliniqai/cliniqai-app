@@ -93,6 +93,6 @@ export async function registerAndBook(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/queue", "/patients");
+  if (result.ok) revalidate("/calendar", "/today", "/patients");
   return result;
 }

@@ -45,7 +45,7 @@ export async function updateClinicSettings(input: ClinicSettingsInput): Promise<
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateClinicSettings(resolved.ctx, input);
-  if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/cabin", "/");
+  if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/today");
   return result;
 }
 
@@ -65,7 +65,7 @@ export async function updateUserProfile(input: UserProfileInput): Promise<Update
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateUserProfile(resolved.ctx, input);
-  if (result.success) revalidate("/profile", "/settings/clinic", "/staff", "/cabin");
+  if (result.success) revalidate("/profile", "/settings/clinic", "/staff", "/today");
   return result;
 }
 
@@ -73,7 +73,7 @@ export async function updateStaffMember(input: StaffEditInput): Promise<UpdateSt
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStaffMember(resolved.ctx, input);
-  if (result.success) revalidate("/staff", "/settings/clinic", "/cabin");
+  if (result.success) revalidate("/staff", "/settings/clinic", "/today");
   return result;
 }
 

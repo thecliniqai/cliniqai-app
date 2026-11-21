@@ -14,9 +14,9 @@ import { NavIcon } from "./nav-icon";
  * Every other destination shows its v1 name.
  */
 export const BOTTOM_BAR_CAPTION: Readonly<Record<string, string>> = {
-  "Doctor's Cabin": "Cabin",
-  "Live Queue": "Queue",
   "My Calendar": "Calendar",
+  // V2-08 08-03b: Today replaced three destinations, so the owner and the admin now have four and Reports reaches the bar.
+  "Billing & Reports": "Reports",
 };
 
 export function bottomBarCaption(label: string): string {

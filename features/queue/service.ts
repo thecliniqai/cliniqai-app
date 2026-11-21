@@ -2,13 +2,9 @@ import "server-only";
 
 import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
-import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
-import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
-import type { QueueItem } from "@/components/queue/queue-card";
-import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
-import { getTenantDoctorMap } from "@/features/staff/service";
+import type { QueuePriority } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
@@ -345,133 +341,22 @@ export async function completeVisit(
   return { ok: true, value: { visitId: v.visit_id, alreadyCompleted: v.already_completed, replayed: v.replayed } };
 }
 
-interface QueueRow extends Visit {
-  patients?: Patient | null;
-  queue_tokens?: QueueToken | QueueToken[] | null;
-  /** The visit's clinical_notes row (vitals only); null when RLS hides it (receptionist, admin; V2-05 05-02a). */
-  [CLINICAL_NOTES_EMBED_KEY]?: unknown;
-}
-
-export type GetQueueResult = { success: true; items: QueueItem[] } | { success: false; error: string };
-
-export async function getQueueForDate(
-  ctx: ServiceContext,
-  dateStr: string,
-  doctorId?: string
-): Promise<GetQueueResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:view");
-    const session = ctx;
-
-    // The date is interpolated into PostgREST filter strings below, so only YYYY-MM-DD is accepted.
-    if (!isDateOnly(dateStr)) {
-      return { success: false, error: "Failed to load queue for date." };
-    }
-
-    // The clinic day in the tenant's zone, half-open (V2-03 03-05).
-    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
-      dateStr,
-      await getTenantTimeZone(supabase, session.tenantId)
-    );
-
-    const query = (supabase.from("visits") as unknown as {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          or: (f1: string) => {
-            or: (f2: string) => Promise<{ data: QueueRow[] | null; error: { message: string } | null }> & {
-              eq: (col: string, val: string) => Promise<{ data: QueueRow[] | null; error: { message: string } | null }>;
-            };
-          };
-        };
-      };
-    })
-      .select(`*, patients(*), queue_tokens(*), ${clinicalNotesEmbed(["vitals"])}`)
-      .eq("tenant_id", session.tenantId)
-      .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-      .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
-
-    let data: QueueRow[] | null = null;
-    let error: { message: string } | null = null;
-
-    if (doctorId && doctorId !== "all") {
-      const res = await query.eq("doctor_id", doctorId);
-      data = res.data;
-      error = res.error;
-    } else {
-      const res = await query;
-      data = res.data;
-      error = res.error;
-    }
-
-    if (error) {
-      log.error({ event: "queue.list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to load queue for date." };
-    }
-
-    const doctorMap = await getTenantDoctorMap(ctx);
-
-    const items: QueueItem[] = (data || []).map((row) => {
-      const queueToken = Array.isArray(row.queue_tokens)
-        ? row.queue_tokens[0] || null
-        : row.queue_tokens || null;
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { patients, queue_tokens: _qt, [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visitData } = row;
-      const resolvedDocName = row.doctor_id ? doctorMap[row.doctor_id] : null;
-
-      return {
-        // Triage vitals come from clinical_notes (05-02a): null for a role that may not read them.
-        visit: { ...(visitData as Visit), vitals: embeddedClinicalNotes(row)?.vitals ?? null },
-        patient: patients || null,
-        queueToken: queueToken || null,
-        doctorName: resolvedDocName || (row.doctor_id ? "Doctor" : "Clinic"),
-      };
-    });
-
-    const statusOrder: Record<string, number> = {
-      in_consultation: 1,
-      waiting: 2,
-      booked: 3,
-      confirmed: 3,
-      completed: 4,
-      cancelled: 5,
-      no_show: 6,
-    };
-
-    items.sort((a, b) => {
-      const orderA = statusOrder[a.visit.status] ?? 99;
-      const orderB = statusOrder[b.visit.status] ?? 99;
-      if (orderA !== orderB) return orderA - orderB;
-
-      if (a.visit.status === "waiting" && b.visit.status === "waiting") {
-        const tokenA = a.queueToken?.token_number ?? 999999;
-        const tokenB = b.queueToken?.token_number ?? 999999;
-        return tokenA - tokenB;
-      }
-
-      if (a.visit.scheduled_at && b.visit.scheduled_at) {
-        return new Date(a.visit.scheduled_at).getTime() - new Date(b.visit.scheduled_at).getTime();
-      }
-
-      return new Date(a.visit.created_at).getTime() - new Date(b.visit.created_at).getTime();
-    });
-
-    return { success: true, items };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to fetch queue.", "queue.get_queue_for_date.failed"),
-    };
-  }
-}
-
 /**
  * The command palette's "Today queue" group (V2-06 06-04b; IA §3.7 "Today: queue matches by token, name or phone"):
  * today's visits in the caller's clinic (clinic date in its zone) whose token number, patient name or mobile number
  * matches `query`, projected to four fields. Cancelled visits are left out. The tenant comes from the session context.
  */
+interface PaletteVisitRow {
+  id: string;
+  status: string;
+  patients: { full_name: string; phone: string | null } | { full_name: string; phone: string | null }[] | null;
+  queue_tokens: { token_number: number } | { token_number: number }[] | null;
+}
+
+interface PaletteVisitsQuery {
+  select: (columns: string) => { eq: (column: string, value: string) => { or: (filter: string) => PromiseLike<unknown> } };
+}
+
 export interface PaletteQueueMatch {
   visitId: string;
   token: number | null;
@@ -486,26 +371,42 @@ export async function searchTodayQueueForPalette(ctx: ServiceContext, query: str
   assertPerm(ctx.role, "appointments:view");
   const q = typeof query === "string" ? query.trim().slice(0, 100) : "";
   if (!q) return [];
+  // Today's visits, three columns of the patient and the token only (V2-08 08-03b: the v1 `select *` day list is gone). The
+  // window is the board's: a booking belongs to the day of its appointment time, a walk-in to the day it was created.
   const { today } = await getTenantToday(ctx.db, ctx.tenantId);
-  const result = await getQueueForDate(ctx, today);
-  if (!result.success) return [];
+  const { startIso, endIsoExclusive } = dayWindowUtc(today, await getTenantTimeZone(ctx.db, ctx.tenantId));
+  const { data, error } = (await (ctx.db.from("visits") as unknown as PaletteVisitsQuery)
+    .select("id, status, patients(full_name, phone), queue_tokens(token_number)")
+    .eq("tenant_id", ctx.tenantId)
+    .or(
+      `and(scheduled_at.gte.${startIso},scheduled_at.lt.${endIsoExclusive}),` +
+        `and(scheduled_at.is.null,created_at.gte.${startIso},created_at.lt.${endIsoExclusive})`
+    )) as { data: PaletteVisitRow[] | null; error: { message: string } | null };
+  if (error || !data) {
+    log.error({ event: "queue.palette_list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return [];
+  }
+  const items = data.map((row) => {
+    const patient = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+    const token = Array.isArray(row.queue_tokens) ? row.queue_tokens[0] : row.queue_tokens;
+    return { visitId: row.id, status: row.status, name: patient?.full_name ?? "", phone: patient?.phone ?? "", token: token?.token_number ?? null };
+  });
 
   const lower = q.toLowerCase();
   // "14", "#14", "T14", "token 14" → token 14; a longer digit run is a mobile number fragment.
   const tokenQuery = /^(?:#|t|token\s*)?(\d{1,4})$/i.exec(q)?.[1];
   const digits = q.replace(/\D/g, "");
   const matches: PaletteQueueMatch[] = [];
-  for (const item of result.items) {
-    if (item.visit.status === "cancelled") continue;
-    const name = item.patient?.full_name ?? "";
-    const token = item.queueToken?.token_number ?? null;
-    const phone = (item.patient?.phone ?? "").replace(/\D/g, "");
+  for (const item of items) {
+    if (item.status === "cancelled") continue;
+    const { name, token } = item;
+    const phone = item.phone.replace(/\D/g, "");
     const hit =
       (tokenQuery !== undefined && token !== null && token === Number(tokenQuery)) ||
       (name !== "" && name.toLowerCase().includes(lower)) ||
       (digits.length >= 4 && digits.length === q.replace(/[\s+()-]/g, "").length && phone.includes(digits.slice(-10)));
     if (!hit) continue;
-    matches.push({ visitId: item.visit.id, token, name, status: item.visit.status });
+    matches.push({ visitId: item.visitId, token, name, status: item.status });
     if (matches.length >= PALETTE_QUEUE_LIMIT) break;
   }
   return matches;

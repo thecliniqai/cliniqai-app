@@ -115,7 +115,7 @@ export function PatientVisitHistory({
               Schedule Appointment
             </Button>
           </Link>
-          <Link href="/queue">
+          <Link href="/today?walkin=1">
             <Button variant="primary" size="sm" startIcon={<PlusCircle className="w-3.5 h-3.5" />}>
               Add to Queue
             </Button>

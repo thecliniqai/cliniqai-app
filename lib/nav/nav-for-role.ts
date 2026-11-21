@@ -11,17 +11,16 @@ import { ROLE_PERMISSIONS, type Permission } from "@/lib/permissions/matrix";
  * only decides what is offered.
  *
  * Destinations are the v1 URLs with their v1 accessible names, verbatim (R-8, CD-30: IA URLs and names arrive with each
- * workflow phase); the subscription page is `/settings/billing` (R-34). Which role sees which destination, and in which
- * group, is IA §3.2 restricted to the v1 URLs: Today = Dashboard, Live Queue and Doctor's Cabin; Schedule = Calendar;
+ * workflow phase), except Today (`/today`, V2-08 08-03b: it replaced the dashboard, the Live Queue and the Doctor's Cabin;
+ * R-14); the subscription page is `/settings/billing` (R-34). Which role sees which destination, and in which
+ * group, is IA §3.2 restricted to the v1 URLs: Today; Schedule = Calendar (renamed in 08-04b);
  * Reports = Billing & Reports; Records (visits, referrals) and Settings are the secondary group (IA §3.3). A destination
  * is offered only when the role also holds its permission, so a narrower permission set can only remove items.
  *
  * Data only (icons are keys), so the model crosses the server/client boundary as plain JSON.
  */
 export type NavIconKey =
-  | "dashboard"
-  | "queue"
-  | "cabin"
+  | "today"
   | "calendar"
   | "patients"
   | "billing"
@@ -58,7 +57,7 @@ export interface NavModel {
   secondary: NavDestination[];
   /** The phone BottomBar's destinations (at most four primary ones); the rest of the primary group goes to More. */
   bottom: string[];
-  /** "+ New" actions (CD-21). None in V2-06: the walk-in, book, register and collect commands arrive with V2-08. */
+  /** "+ New" actions (CD-21): Add walk-in and Register patient (V2-08 08-03b); Book appointment joins in 08-04b. */
   newActions: NavAction[];
   /** The palette's Actions group. */
   actions: NavAction[];
@@ -80,34 +79,15 @@ const SETTINGS = { owner: "secondary", admin: "secondary" } as const;
 
 /** In display order (primary first, then secondary). */
 const DESTINATIONS: readonly DestinationSpec[] = [
-  // Today (IA §3.2): the front-desk board for every role but the doctor, whose Today is the cabin.
+  // Today (IA §3.2, V2-08 R-14): one live screen for every operational role (modes by role: front desk, triage, my queue).
   {
-    id: "dashboard",
-    href: "/",
-    label: "Dashboard",
-    icon: "dashboard",
+    id: "today",
+    href: "/today",
+    label: "Today",
+    icon: "today",
     permission: "appointments:view",
-    audience: { owner: "primary", admin: "primary", receptionist: "primary", nurse: "primary" },
+    audience: ALL_PRIMARY,
     bottomRank: 1,
-  },
-  {
-    id: "queue",
-    href: "/queue",
-    label: "Live Queue",
-    icon: "queue",
-    permission: "appointments:view",
-    audience: { owner: "primary", admin: "primary", receptionist: "primary", nurse: "primary" },
-    bottomRank: 4,
-  },
-  // Today, "My queue" mode: the doctor; the practising owner toggles between the two (IA §3.2, §3.6).
-  {
-    id: "cabin",
-    href: "/cabin",
-    label: "Doctor's Cabin",
-    icon: "cabin",
-    permission: "consultations:view",
-    audience: { owner: "primary", doctor: "primary" },
-    bottomRank: 2,
   },
   // Schedule: a nurse only views it (○).
   {
@@ -191,7 +171,7 @@ const DESTINATIONS: readonly DestinationSpec[] = [
 /** IA §3.7 Actions with a v1 target. Each needs its permission and its target page among the role's destinations. */
 const ACTIONS: ReadonlyArray<NavAction & { requires: string }> = [
   { id: "register", label: "Register patient", href: "/patients?new=1", permission: "patients:edit", requires: "patients" },
-  { id: "walk-in", label: "Add walk-in", href: "/queue", permission: "appointments:edit", requires: "queue" },
+  { id: "walk-in", label: "Add walk-in", href: "/today?walkin=1", permission: "appointments:edit", requires: "today" },
   { id: "book", label: "Book appointment", href: "/calendar", permission: "appointments:edit", requires: "calendar" },
   { id: "invite", label: "Invite staff", href: "/staff", permission: "staff:invite", requires: "staff" },
 ];
@@ -246,7 +226,7 @@ export function navForRole(role: UserRole, permissions: readonly Permission[] = 
     primary,
     secondary,
     bottom: primary.filter((d) => bottomIds.has(d.id)).map((d) => d.id),
-    newActions: [],
+    newActions: actions.filter((a) => a.id === "walk-in" || a.id === "register"),
     actions,
     home: primary[0]?.href ?? "/profile",
   };
@@ -288,10 +268,7 @@ const OTHER_TITLES: ReadonlyArray<[RegExp, string]> = [
   [/^\/visits(\/|$)/, "Visits"],
   [/^\/referrals(\/|$)/, "Referrals"],
   [/^\/calendar(\/|$)/, "Calendar"],
-  [/^\/queue(\/|$)/, "Live Queue"],
   [/^\/today(\/|$)/, "Today"],
-  [/^\/cabin(\/|$)/, "Doctor's Cabin"],
-  [/^\/$/, "Dashboard"],
 ];
 
 /** The top bar's screen title. */
@@ -324,4 +301,4 @@ export function isFocusMode(pathname: string): boolean {
 }
 
 /** Live views refetched on resume and on `online` (06-UI-SPEC §6 "Resume and refresh"). */
-export const LIVE_VIEWS: readonly string[] = ["/", "/queue", "/calendar", "/cabin", "/today"];
+export const LIVE_VIEWS: readonly string[] = ["/today", "/calendar"];
