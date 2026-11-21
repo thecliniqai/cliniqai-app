@@ -10,6 +10,7 @@
  */
 import type { Page } from "@playwright/test";
 import { E2E_BASE_URL } from "../support/app-env";
+import { awaitHydrated } from "../support/hydrated";
 import { expect, routeLoopbackOnly, test } from "../fixtures";
 import { seedPatient, seedVisit, testTag, run, visitById } from "../support/m0-data";
 import { auditRows } from "../../helpers/billing-commands";
@@ -47,6 +48,7 @@ test("a killed tab keeps everything saved up to 5 s before", async ({ page, cont
   await page.goto(`/consultation/${visitId}`);
   const notes = page.getByLabel(NOTES_LABEL);
   await expect(notes).toBeVisible();
+  await awaitHydrated(page);
 
   await notes.click();
   await page.keyboard.type("first line");
@@ -70,6 +72,7 @@ test("typing continuously does not push the save back: a key every 500 ms for 12
   await page.goto(`/consultation/${visitId}`);
   const notes = page.getByLabel(NOTES_LABEL);
   await expect(notes).toBeVisible();
+  await awaitHydrated(page);
 
   await notes.click();
   const text = "abcdefghijklmnopqrstuvwx"; // 24 keys, 500 ms apart
@@ -98,6 +101,7 @@ async function twoTabs(context: import("@playwright/test").BrowserContext, visit
   for (const page of [a, b]) {
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
   }
   return { a, b };
 }
@@ -157,6 +161,7 @@ test.describe("two tabs of one doctor on one consult (R-5)", () => {
     const { visitId, name } = await seedWaitingToday(todayName("DraftVitals"));
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
 
     const blocked: string[] = [];
     const nurseContext = await browser.newContext({ baseURL: E2E_BASE_URL, serviceWorkers: "block", storageState: storageStatePath("nurse") });
@@ -193,6 +198,7 @@ test.describe("offline, lost responses and leaving", () => {
     const { tenantId, visitId } = await seedOpenConsult("offline");
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
 
     await context.setOffline(true);
     await page.getByLabel(NOTES_LABEL).fill("Typed with no network");
@@ -212,6 +218,7 @@ test.describe("offline, lost responses and leaving", () => {
     const marker = `lost-once-${testTag()}`;
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
     const cut = await commitThenAbort(page, { first: 1, matches: (r) => (r.postData() ?? "").includes(marker) });
 
     await page.getByLabel(NOTES_LABEL).fill(marker);
@@ -227,6 +234,7 @@ test.describe("offline, lost responses and leaving", () => {
     const marker = `lost-all-${testTag()}`;
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
     const cut = await commitThenAbort(page, { first: "all", matches: (r) => (r.postData() ?? "").includes(marker) });
 
     await page.getByLabel(NOTES_LABEL).fill(marker);
@@ -248,6 +256,7 @@ test.describe("offline, lost responses and leaving", () => {
     const { visitId } = await seedOpenConsult("unload");
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
+    await awaitHydrated(page);
 
     const dialogs: string[] = [];
     page.on("dialog", (dialog) => {

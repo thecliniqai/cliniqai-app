@@ -332,3 +332,209 @@ None: no test passed only on retry (retries 0 throughout). The iphone-15 failure
 - `LLM_FEATURE_FILES` in `scripts/ci/ai-l1-greps.mjs` still names the deleted `ai-scribe-modal.tsx` (its fixtures use the path); `returning-patient-catchup.tsx`
   and its action are unreferenced by the workspace and go in 09B-04a.
 
+
+## 09B-03 Tap-first entry: complaints, exam templates, plan tiles, learned order (migration 000113_consult_assist_context)
+
+`ls supabase/migrations | tail -3` showed 000112 as the newest, so 000113 was free; `EXPECTED_MIGRATION` is bumped in the migration's commit.
+
+### What changed
+
+- `supabase/migrations/000113_consult_assist_context.sql`: `public.consult_assist_context(p_tenant_id)` (INVOKER, STABLE, `search_path = ''`, EXECUTE for authenticated
+  only). The calling doctor's own last 300 signed visits in the active full clinic (`doctor_id = auth.uid()`, `signed_at IS NOT NULL`, newest first), as one jsonb of
+  names and counts: `visits`, `complaints` (frequency, case-insensitive), `complaint_pairs`, `pairs` (complaint to diagnosis), `diagnoses` (30 most recent, each with
+  ICD-11, SNOMED, chronic and custom flags, the usual tests and advice, top 8 each, and the usual follow-up gap in days), `last_exam_template` (a validated id).
+  No patient id, no visit id, no note text. A caller without `consultations:edit` in `p_tenant_id` (a forged tenant, a nurse, a receptionist, an admin) gets the empty
+  result (the keys with zero and empty lists). No index: the plan is an index scan on `visits` by doctor; the measurement is below.
+- `features/consultation/{catalogue,exam-templates,exam-text,assist-ranking}.ts`: the static lists with their sources in the header (v1 strings verbatim plus the
+  approved V2-DX ones that have no v1 equivalent), the six prototype templates verbatim (`for`, systems, normal texts, finding lists), the pure edit and mirror
+  functions of `specialty_data.exam`, and the pure ranking (complaints, templates, plan tiles, the usual follow-up). `schema.ts` gains `exam` on the GP schema,
+  `gen` and `ent` in `systemic`, and the `1_month` interval; `service.ts` gains `getConsultAssistContext`; the consult page reads it only for an editable record and
+  only when `assist.terminology` is entitled (`activeEntitlements()` from the session).
+- Sections: `workspace/sections/{complaints-section,examination-section,remove-button}.tsx` (new), `plan-section.tsx` (rewritten around `ChipGroup`). Complaints: tiles
+  that leave the group when tapped, the v1 default duration (3 days) with option pills, the v1 note, free entry and the HPI note; focus moves to the new row's
+  duration pills. Examination: template tiles (single choice), Normal/Abnormal per system, finding tiles, a side where it matters, a note, the general signs as tiles;
+  Dental and Child switch the specialty to the existing odontogram and paediatrics tools; switching with data entered asks first (AlertDialog "Keep what I entered" /
+  "Switch"). Plan: investigation, advice and follow-up tiles, "usual for {diagnosis} first" and "your usual" on the matching interval, the date hint with the weekday.
+- Removed: the header specialty `NativeSelect`, `chief-complaints-section.tsx`, `specialty/gp-systemic-review.tsx`.
+
+### Affected-test grep and fixes
+
+`grep -rln "chief-complaints-section\|gp-systemic-review\|ChiefComplaintsSection\|GPSystemicReview\|workspace-specialty\|COMMON_INVESTIGATIONS\|COMMON_ADVICE_CHIPS\|FollowUpIntervalChoice" app features lib components tests`
+(narrowed to code; `.planning` evidence JSON names the deleted files and is not touched). Hits: `workspace-sealed.spec.ts` (the select assertion; the new one asserts the six
+template tiles are disabled on a sealed record, the "every input and chip is disabled" assertions are unchanged), `workspace-layout.spec.ts` (the advice tile is now named by
+its text without the "+ " prefix; the 1180 px column test names "Snapshot", see 09B-04a). `draft-persistence.spec.ts` needed nothing (its regex still matches the tile).
+`workspace-review-fixes.spec.ts` (all three specialties sealed) passes unchanged: a GP record with free `systemic` text and no exam shows those texts, disabled.
+
+### Deviations from the plan, with reasons
+
+1. **`complaint_pairs` is a sixth key of the context.** R-12 lists complaint frequencies and complaint-to-diagnosis pairs, and step 4 asks for "co-occurrence with those
+   already added", which needs complaint-to-complaint pairs; the alternative is the Claude-authored association lists of the prototype, which Q-8 and PO-22 rule out. The
+   key is the doctor's own data, counted per visit (top 200).
+2. **Ranking reading.** "Frequency, then co-occurrence, then catalogue order" is applied as: nothing added yet, frequency then catalogue order; once something is added,
+   co-occurrence with what is added first, then frequency, then catalogue order (otherwise co-occurrence would only break ties between equal frequencies and the chain of the
+   prototype would not work). Pinned by `assist-ranking.spec.ts`.
+3. **The `has_permission` guard is defence in depth.** Removing it does not fail any test: `doctor_id = auth.uid()` and RLS already return nothing to a role that has no signed
+   visits. The doctor-scope mutant fails 13 assertions (below).
+4. **`gen` and `ent` in `systemic`.** The Fever, Abdomen and Respiratory templates have systems with no key in the old `systemic` object; without them zod would strip the
+   mirrored text. Optional strings, no migration. The Dental template's `oral` system and the Child template's systems are kept verbatim in the file but not rendered:
+   those two templates hand over to the existing tools (R-9).
+5. **Legacy free text stays visible.** A record with `systemic` text and no `exam` shows those texts (disabled when sealed, editable on a draft) until a template is chosen;
+   choosing one mirrors over the keys it covers and keeps the others. The general signs moved to tiles over the same `general_exam` booleans; "Lymphadenopathy" reads "Lymph
+   nodes" as in the prototype.
+6. **One month is 30 days** (the prototype's own count). The interval word is not stored (09B-01), so a follow-up read back after a refresh shows "Custom date" with the date, as
+   before for every interval.
+7. **Tile text lost its "+ " and "✓ " prefixes.** The tile look and `aria-pressed` carry the state now (the ChipGroup tile).
+8. **Fails-without for the entitlement gate** is an e2e mutation, not a unit: see the proofs.
+
+### Tests added or changed (file: what)
+
+- pgTAP `consult_assist_context.test.sql` (29): catalog and grants (anon refused), own aggregates (case-insensitive complaints, complaints recorded together, pairs, recent
+  diagnoses, the usual tests, advice and follow-up gap, the last valid template id), unsigned and cancelled not counted, another doctor of the clinic, the owner with no signed
+  visits, nurse, receptionist, admin, a forged and a null tenant, the other clinic's owner, exact keys and no uuid anywhere, the 300 window (the five oldest of 305 fall out).
+- `tests/consultation/{exam-text (50),assist-ranking (25 at this plan),catalogue (12),assist-context-service (7, database: own aggregates, another doctor, owner, nurse and
+  receptionist, another clinic, a forged tenant through the RPC, no identifier)}.spec.ts`.
+- `tests/e2e/consult/tap-entry.spec.ts` (7, with the `ux` counter): three complaints with durations in 3 actions and 0 keystrokes; a respiratory template with crepts on the right
+  in 3 actions and 0 keystrokes; one follow-up tap; the exam, its `systemic` mirror and the follow-up date after a refresh; the switch confirmations (keep, and Dental); the learned
+  order with the Smart Assist label, the usual test and the "your usual" interval; and the same tiles in catalogue order with no label under an `assist.terminology` override off.
+
+### Fails-without proofs
+
+- **Doctor scope** (`AND v.doctor_id = v_uid` removed, function re-created on the stack, files re-run, then restored byte for byte): pgTAP `consult_assist_context` fails 13
+  assertions (the aggregates, the other doctor, the owner).
+- **Entitlement gate on the page** (`assist["assist.terminology"] === true` removed, rebuild, `tap-entry` "switched off" case): fails (`data-smart-assist` "on", expected "off"); restored and rebuilt.
+- The tap-count and exam cases have nothing to fail against on the previous build (the tiles, radios and groups they address did not exist).
+
+### Counts and checks
+
+See the end of the 09B-04a section (one set of runs covers both plans).
+
+## 09B-04a Smart Assist read side: diagnosis search, likely diagnoses, patient snapshot, open amendments (migration 000114_diagnosis_search_snapshot)
+
+`ls supabase/migrations | tail -3` showed 000113 as the newest; 000114 was free.
+
+### What changed
+
+- `supabase/migrations/000114_diagnosis_search_snapshot.sql`:
+  - `public.search_diagnoses(p_tenant_id, p_terms text[], p_specialty, p_limit)` (INVOKER, STABLE): the calling doctor's own custom diagnoses first (`doctor_id = auth.uid()`:
+    the table's SELECT policy would show every doctor's), then the catalogue by rank 1 exact, 2 prefix, 3 synonym, 4 word prefix, 5 inside, 6 trigram 0.3 on the name or a
+    synonym; `%`, `_` and `\` in a term are escaped; at most 8 terms of 2 to 100 characters; a custom row repeating a catalogue name is listed once; no permission or a forged
+    tenant returns nothing. The pg_trgm schema is resolved at creation, as 000104 does.
+  - `public.patient_snapshot(p_tenant_id, p_patient_id, p_exclude_visit_id)` (INVOKER, STABLE, jsonb): signed visits only, the last 5 other than the current one, with the
+    clinic-zone date, the doctor's display name, diagnoses and the SIGNED Rx version's lines; allergies and chronic conditions; follow-ups due before the clinic's today with no attended visit since (waiting, in consultation or completed; the visit on screen is excluded;
+    the follow-up's own visit is not "since"); the latest measured vitals among those visits, measurements only (no recorder id). NULL for a role without consultations:view,
+    another clinic or an unknown patient.
+  - No index and no table or policy change.
+- `GET /api/terminology/diagnoses` (`app/api/terminology/diagnoses/route.ts`): session context with `consultations:view`, the read on the caller's own client, 401/403/403
+  `SUBSCRIPTION_LOCKED`/503/500 with fixed bodies, `private, no-store`, keys `id, name, icd11, snomed, chronic, custom`, at most 12 rows; the abbreviation expansion only with
+  `assist.terminology` (resolved from the session in the route); control characters in `q` become spaces (a NUL was a 500 in my first spec run: the fix is `cleanQuery`, used by the
+  route, the service and `expandQuery`). The `searchDiagnoses` server action and its guard-manifest row are deleted; the service function stays (`expand` input).
+- `features/terminology/{abbreviations,search,quick-diagnoses}.ts`: 48 abbreviations (42 diagnosis, 6 history markers for 09B-04b) mapped to expansion text, `expandQuery`; the
+  browser fetch and the shared shapes; the v1 specialty chips moved out of the component unchanged.
+- `workspace/sections/diagnosis-section.tsx` replaces the v1 section and its React Compiler waiver (removed from `scripts/ci/react-compiler-waivers.json`; the file only
+  shrank). The list is the workspace's own state (no prop-to-state copy) and the search runs from the input's change handler (timer and abort in refs), so no effect sets state.
+  "Likely from the complaints" and "Your recent" tiles from `rankDiagnoses` (the doctor's own history only, Smart Assist label); the specialty chips are always below them; a cmdk
+  combobox over the route (aborts per keystroke, 200 ms debounce, "ICD-11" labels, the doctor's own diagnosis as the last row); add, remove and note keep their actions and texts.
+- `features/consultation/snapshot.ts` (zod shape, `snapshotText`), `getPatientSnapshot` in the consultation service, `components/clinical/{patient-snapshot.tsx,vital-cells.ts}`
+  (the vitals cells moved out of `patient-context.tsx`). The consult's patient column and sheet show "Snapshot" in place of "Last visit" when `assist.snapshot` is on.
+- Today doctor mode: `components/today/{patient-snapshot-panel,open-amendments}.tsx`, `getOpenAmendments` in `features/today/queries.ts`, the page loader reads the Next
+  patient's snapshot (the server's `nextUp`; the panel is drawn only when the client's Next is the same patient) and the open amendments. 768 px and up; "Open amendments (n)"
+  lists the doctor's own signed visits that are in consultation again, each a link with "opened {date}".
+- Deleted: `components/consultation/returning-patient-catchup.tsx`, `getPatientCatchUpSummaryAction`, `lib/ai/catch-up-summary.ts` and its export, their specs and manifest rows, the L1
+  entry and the non-action-module entry. `generateSoapAction` and `soap-generator.ts` stay for V2-12.
+
+### Affected-test grep and fixes
+
+`grep -rln "searchDiagnoses\|getPatientCatchUpSummary\|catch-up-summary\|returning-patient-catchup\|ReturningPatientCatchup\|diagnosis-section" app features lib components tests scripts supabase/tests`:
+`tests/security/{guard-manifest.ts,guard/engine.ts,p0-01-action-sweep.spec.ts,ai-containment.spec.ts}` (the catch-up and `searchDiagnoses` rows and cases go; the diagnosis
+route gets a new guard kind `session-diagnosis-search` with its legs), `tests/ai/prescription-suggestions.spec.ts` (the two catch-up cases go), `scripts/{inventory-server-actions.ts,
+ci/ai-l1-greps.mjs}`. `tests/integration/consultation-flow.spec.ts` and `tests/security/no-raw-error-responses.spec.ts` call the service `searchDiagnoses` with `{query, limit}`
+and pass unchanged (the input type is `z.input`). `workspace-sealed` and `workspace-review-fixes` (the diagnosis input is still disabled by its placeholder) pass unchanged.
+`m0/consult-rx-finish` clicks the "Viral Fever" quick chip: it failed once in the first run with a learned history present (the chips were hidden behind the learned groups),
+which is why the chips are always shown now (see deviation 2).
+
+### Deviations from the plan, with reasons
+
+1. **Snapshot and the Next card.** The panel is computed on the server from the same `nextUp(groupIntoLanes(rows, "doctor"))`; while a filter is active or an optimistic check-in
+   changes the client's Next, the panel is not drawn (it carries only the patient the server saw as Next).
+2. **The specialty chips are not only a fallback.** The plan says "the specialty's fixed chips as the fallback"; they are shown always, under the learned groups. A doctor with
+   history may still want a diagnosis the history does not hold, and the M0 consult flow (an approved baseline) clicks one.
+3. **`patient_snapshot` takes the doctor's display name from `memberships.full_name`** (a name of staff, not of a patient); there is no other source of it.
+4. **"Open amendments" reads the visit's `updated_at` for order** and the latest `visit_revisions.amended_at` for the date; both under RLS in the Today loader, 20 at most. Discard
+   stays out (Q-5).
+5. **The abbreviation table has 48 entries**, six of them history markers (c/o, k/c/o, o/e, h/o, f/u, adv) that the diagnosis search never expands; 09B-04b's parser reads them.
+6. **`command-latency.ts` waits 75 s before timing the reads.** A freshly seeded table has no planner statistics: the first measurement of `consult_assist_context` was 98 ms
+   (a degenerate nested loop on `consultation_diagnoses`), and 9 ms once autovacuum had analyzed the tables (and with `ANALYZE` in psql: 5 to 9 ms). The reads are measured as a
+   clinic's tables are. Two infra notes: back-to-back runs of the script fail with `fetch failed` at their first call (the local API gateway drops connections for a while after a
+   long run); a pause fixes it. A failed run leaves a "Synthetic Latency Clinic" and catalogue rows: remove them with SQL.
+7. **`search_diagnoses` is the slowest read** (p95 39 ms against the 50 ms target on 2,000 catalogue rows: the trigram similarity is computed per row for the name and each synonym,
+   which no index serves inside a CASE). Within the target; a `WHERE`-level prefilter on the existing trigram index is the first thing to do if the real catalogue (about 1,550
+   rows) or a slower host pushes it over.
+
+### Tests added or changed (file: what)
+
+- pgTAP `diagnosis_search_snapshot.test.sql` (49): catalog and grants, no session; the ranking (custom first by use_count, exact, prefix, synonym, word prefix, inside, a one-letter
+  typo, expansions, case, the limit, the dedupe of a custom row and a catalogue name, the specialty filter), wildcards and escapes (`x_y`, `100%`, `%%`), clamping, nurse, receptionist,
+  admin, forged tenant, another clinic; the snapshot (five newest signed visits, newest first, the oldest of six out, a booked, waiting, cancelled or unsigned completed visit is not
+  history, the visit on screen excluded, doctor, diagnoses and codes, the signed Rx version only, allergies and conditions, the due follow-up and its three exclusions, the latest
+  measured vitals without the recorder, exact keys, no uuid, NULL for receptionist, admin, another clinic, an unknown patient).
+- `tests/terminology/diagnosis-search.spec.ts` (37: `expandQuery` and the table, then the ranking table over `searchDiagnoses` with synthetic catalogue rows), `diagnosis-search-route.spec.ts`
+  (12: 401, 403 no clinic, locked, receptionist, the exact keys and `no-store`, the session's clinic whatever the query string says, another clinic's owner, the expansion with and
+  without the entitlement, the specialty parameter, hostile input as data, empty input, the limit of 12), `tests/consultation/snapshot.spec.ts` (14: database and template),
+  `assist-ranking.spec.ts` (+9: `rankDiagnoses`); the guard legs for the route (`session-diagnosis-search`: denial legs, a synthetic catalogue row with exact keys, four hostile queries).
+- `tests/e2e/consult/smart-assist.spec.ts` (7, serial, `platform_settings.ai_features` all off for the file and restored, catalogue rows seeded and removed): AI is off and no AI control
+  is on the consult; the likely tile adds the diagnosis in 1 action and 0 keystrokes (the row has its ICD-11 code); "htn" finds the hypertension entry and Enter adds it with BA00; a
+  diagnosis not in the catalogue is added as the doctor's own from the last row; the snapshot on the consult (the column at 1280, the Patient sheet at 820: last seen, the Rx line, the
+  due follow-up); Today doctor mode at 820 (the panel beside the Next card, hidden at 600); an amended visit under Open amendments with "opened" and a working link.
+
+### Fails-without proofs
+
+- **Custom scope** (`AND c.doctor_id = v_uid` removed): pgTAP fails 7 (own custom first, never another doctor's or clinic's, another doctor, expansions, the limit, a limit of 0, the nurse).
+- **Wildcard escaping** (the three `replace`s removed): fails 2 (`x_y`, `%%`).
+- **Signed-only history** (`signed_at IS NOT NULL` replaced by `status <> 'cancelled'`): fails 5 (the last five, the excluded visit, the first diagnosis, the doctor, the signed Rx).
+- **The NUL fix** (`cleanQuery`): the route spec returned 500 for `"\u0000ab"` before it, 200 after.
+- Each function was re-created from the migration file after each mutant and the file re-run green; `git status` clean on the migration.
+
+### Counts and checks (09B-03 and 09B-04a together)
+
+- pgTAP, full (`npm run test:pgtap`): **8632 tests, 63 files, all pass**; `assert-pgtap-report.mjs` PASS at FLOOR 8632 (8554 + 29 + 49; the arithmetic is in the gate header;
+  REQUIRED_FILES gains the two files). No other pgTAP file changed its count.
+- Vitest, affected (`tests/terminology tests/consultation tests/today tests/ai tests/security tests/ci tests/design tests/components tests/authz`, the two integration files from the
+  grep and `tests/api/readiness-probe-db`): 115 files, 3020 tests, all pass. Vitest REQUIRED_FILES gains the seven new files; FLOOR stays 6455 (re-measured at the close).
+- e2e after `npm run e2e:build`, desktop-chrome, `--retries=0`: `npx playwright test tests/e2e/consult tests/e2e/m0 tests/e2e/journeys tests/e2e/today tests/e2e/a11y/{consult-screens,amendment-screens,sign-and-bill-screens,clinical-split-screens}.spec.ts
+  tests/e2e/pwa/05-cache-audit.spec.ts --project=desktop-chrome --retries=0`: **182 passed, 1 failed** (5.8 min): `draft-persistence` "the unload guard exists only while the draft is dirty" (a 09B-01 spec). Root cause,
+  not a retry: the spec typed the note before React had hydrated (the guard is registered by the hook once it runs, so no `beforeunload` fired when the page closed); it is the race 09B-02b found on
+  iphone-15, here under the load of a long lane. All nine `goto`-then-type sites of that file now call `awaitHydrated`; the file passes 3 of 3 runs (18 passed each, setup included). The
+  lane was not re-run whole after that fix. Earlier runs of subsets in this plan: `tap-entry` (7) and `smart-assist` (7) green; `consult` + `today` + `consult-screens` 116 passed with the two
+  failures named under Flakes (fixed); `m0` + `journeys` + the a11y files + `pwa/05` 105 passed with the one `consult-rx-finish` failure named under Flakes (fixed). The whole-page axe
+  specs (draft, sealed, amending, Sign & Bill sheet at 360, 820, 1180, 1280) are green with the new tiles, the combobox and the snapshot, no baseline allowance.
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (406 before: the removed files); `npm run inventory` exit 0 (0 flagged: `searchDiagnoses` and
+  `getPatientCatchUpSummaryAction` left, the diagnosis route is a new route with its manifest row); `ci:ui-policy` and `ci:ai-l1` PASS; schema snapshot `--check` and `npm run
+  db:drift:local` PASS (the snapshot written once per migration).
+- Latency (`npx tsx scripts/perf/command-latency.ts --calls 100`, local stack, tables analyzed): `save_consultation_draft` p95 3.1 ms; reads on the R-18 seed (2,000 catalogue rows, 300
+  signed visits of one doctor, 50 for one patient): `consult_assist_context` p50 6.6 / p95 9.2 ms, `search_diagnoses` p50 37.6 / p95 39.3 ms, `patient_snapshot` p50 2.5 / p95 3.6 ms
+  (targets: 150 ms for a command, 50 ms for a read). The JSON is not committed (evidence is produced at the close).
+- Route weight (`npm run ci:route-js`, report-only): not re-measured here (the 09B-02b figure of 353.7 kB gz stands; the v1 diagnosis and complaint bodies are gone and new
+  tiles and a combobox arrived, so the number moves little; the close re-measures).
+
+### Flakes and infra
+
+- No test passed only on retry (retries 0). Failures during the plan, each root-caused (the last one is the unload-guard hydration race in the counts above): the `ai_features` kill-switch spec's Today case failed because a second visit opened for the same
+  patient counts as "a visit since" (the snapshot rule, correct): one history patient per test now; `tap-entry`'s learned-order case failed in a combined run because another spec's
+  history (three Fever visits) tied with its three Knee pain visits and the catalogue order won: it seeds six now; `workspace-layout` 1180 px asserted the "Last visit" heading
+  which the snapshot replaces; `m0/consult-rx-finish` needed the specialty chips always shown (see 09B-04a deviation 2).
+- `fetch failed` from the local API gateway between back-to-back runs of `command-latency.ts` (infra, see deviation 6); not a test.
+
+### Hand-offs for 09B-04b (and later)
+
+- `abbreviations.ts` has the history markers (`kind: "history"`) and `lookupAbbreviation`; the shorthand parser reads them. Frequency words (OD, BD, TDS, ...) go next to the parser.
+- `ComplaintsSection` adds a complaint with the v1 default duration (3 days); 04b makes `duration_val` optional (schema, the PDF, `history-list.tsx`, `summary-pane.tsx`, `durationIdOf`
+  here: a complaint with no duration selects no pill). The tiles and the command bar both go through `onComplaintsChange`.
+- `PlanSection` takes `context` and `diagnosisNames`; the follow-up suggestion chip of 04b sits next to the interval tiles and sets the interval through `onFollowUpInterval`
+  (`1_month` exists) or the date through `onFollowUpDate`. The hint line (`[data-follow-up-hint]`) already names the weekday and "the front desk books it when you finish".
+- `use-consult-shortcuts.ts` still ignores `/`; the command bar registers it in `onAction`. The Examination, Complaints and Diagnosis sections each take the doctor's own learned
+  context (`assistContext`); 04b needs only `assist.shorthand` and `assist.followup` from `ConsultWorkspaceProps.assist`.
+- Today rows: `TodayRowView` has no "Book follow-up" action yet; `OpenAmendments` and `PatientSnapshotPanel` show where doctor-mode additions go (`today-board.tsx`).
+- The M0 consult flow and every consult e2e that adds a diagnosis by a quick chip rely on the specialty chips staying; keep them.
+- Registries touched and current: `expected-migration.ts` 000114, schema snapshot, `types/database.ts`, pgTAP FLOOR 8632 and REQUIRED_FILES, Vitest REQUIRED_FILES, guard manifest and
+  engine (new kind `session-diagnosis-search`), `react-compiler-waivers.json` (the diagnosis entry gone), `ai-l1-greps.mjs`, `inventory-server-actions.ts`. No audit action, reason code or
+  `authz:gen` output changed (no table, policy or grant).
