@@ -46,3 +46,47 @@ is the PO's call. Within the current architecture:
 1. **R-A residual:** accept signer-only archiving for v2.0, or schedule the trusted `rx.archive` job (V2-14).
 2. **Q-5:** lab documents cannot be deleted until V2-11's void, which applies to wrong-patient uploads too.
 3. **ADR-015 erratum (Q-1 in `09A-PLAN.md`).**
+
+## 09A-06a outcome (executor, 2026-11-21)
+
+"Failed without" was measured, not assumed. Database rows: `supabase/migrations/000111_clinical_review_fixes.sql` moved out, `db reset` to 000110,
+the new pgTAP file and the DB-dependent Vitest specs run with the app fixes in place (28 of 40 pgTAP assertions failed; the 12 that passed are
+fixtures and controls). App rows: database at 000111, each app fix reverted in the working tree by a scripted edit (then `git checkout` of those
+files), the specs run, and for B-1, B-3, B-4 and B-6 the app rebuilt (`npm run e2e:build`) and the e2e run on desktop-chrome. B-4 was measured with
+B-3 restored, so its test reached the dialog. pgTAP numbers below are the assertions of `supabase/tests/database/clinical_review_fixes.test.sql`.
+
+| Row | Commit(s) | Test(s) | Failed without the fix |
+|---|---|---|---|
+| S-1 / A-4 | 62d3752 | pgTAP #35, #37; `lab_documents_append_only` #1, #2, #11, #12 (rewritten); Vitest `review2-fixes-db` "attack step 1 is refused ..." | yes (pgTAP #35, #37; the Vitest case) |
+| S-2 / A-1 | 62d3752, f3b19cb | pgTAP #2-#5, #7, #10; `storage_policies` (owner upload refused); Vitest `rx-archive-signer` "the owner and a colleague doctor cannot store ...", "an object at the key that the signer did not store ... is never adopted", "the owner opening a sealed Rx with no archive gets a regenerated copy ..." | yes (DB run: all; app run: "the owner opening ..." and "never adopted") |
+| S-3 | 62d3752, f3b19cb | pgTAP #6, #15; Vitest `rx-archive-signer` "S-3 / A-6: ... the signer's open clears the pair and archives again" | yes (both runs) |
+| S-4 | 62d3752 | pgTAP #18, #19 | yes |
+| S-5 / A-2 | 62d3752, e557ae9 | pgTAP #22; Vitest `rx-archive-signer` "an archived Rx is signed; a tampered one is refused ...", "after a finalize ... 'being prepared'"; `review-fixes-db` AR-M1 (pending link is 503, then the signer's archive is signed) | yes (DB run: the tampered case; app run: both S-5 cases and AR-M1) |
+| A-3 | 62d3752, f3b19cb | pgTAP #24, #25; Vitest `rx-archive-signer` "the owner cannot reopen a colleague's signed visit whose Rx is not archived ..."; `amendment-rpc` "a second amendment cycle makes version 3" (now asserts RX_ARCHIVE_PENDING before the v2 archive) | yes |
+| A-5 | 62d3752 | pgTAP #29 | yes |
+| A-6 | f3b19cb | Vitest `rx-archive-signer` "S-3 / A-6: a missing archive is not audited as tampering ..." | yes (app run: an integrity row was written) |
+| A-7 | c22b764 | Vitest `v1-doctor-guard` "PATCH /api/v1/appointments/[id] (reschedule) of a signed appointment is 409 VISIT_LOCKED ..." | yes |
+| S-6 | not fixed (deferred to V2-12) | backlog line in 09A-NOTES 09A-06a | n/a |
+| S-7 | 62d3752 | pgTAP #31-#34 | yes |
+| S-8 | f3b19cb | Vitest `rx-archive-signer` "S-8: renderPrescriptionPdf prints the notice ...", and the notice assertions of the R-A, S-3 and tamper cases (`tests/helpers/pdf-text.ts` reads the page text) | yes |
+| S-9 | 62d3752 | pgTAP #38-#40 | yes |
+| S-10 | 62d3752 | pgTAP #16 (the visits SELECT policy hidden in-transaction) | yes |
+
+Existing specs that asserted behaviour R-A removes were rewritten, not deleted: the "adopted" case of `rx-pdf-archive.spec.ts` now adopts only the
+signer's own upload (the planted case is in `rx-archive-signer.spec.ts`); "legacy hash recorded on first read" became "a legacy header is never
+trusted"; owner and colleague archive writes became refusals (`storage_policies.test.sql`, `rx_pdf_write_once.test.sql` matrix with an owner/doctor
+split, `review2-fixes-db.spec.ts` okRx).
+
+### 09A-05 review (B rows)
+
+| Row | Commit(s) | Test(s) | Failed without the fix |
+|---|---|---|---|
+| B-1 | 92b01a8 | e2e `amendment-screens` "B-1: the vitals editor and a staged drug do not survive the sign-off refresh ..."; Vitest `workspace-review-fixes` (no vitals editor on a populated sealed record) | yes (e2e on the reverted build) |
+| B-2 | 92b01a8 | Vitest `workspace-review-fixes` "B-2: ... v1 when sealed, 'v1 to v2' while first amended, v2 when finalized, 'v2 to v3' ..." (real rows); `workspace-sealed` fixtures use the stored `current_revision` | yes |
+| B-3 | 92b01a8 | e2e `amendment-screens` "B-3 and B-4: focus lands on the banner after Amend and on the signed chip after Finalize ..." | yes (the banner was not focused) |
+| B-4 | 92b01a8, d0602e8 | the same e2e: the Close button is gone within 1 s of Finalize, Escape and an outside click leave the dialog open | yes (with B-3 restored: the Close check failed; before d0602e8 that check was vacuous and Escape failed instead) |
+| B-5 | 92b01a8 | Vitest `workspace-review-fixes` "B-5: ... a follow-up the database refuses makes saveConsultationDraft fail ..." (scoped fault trigger) | yes |
+| B-6 | 92b01a8 | Vitest `workspace-sealed` (sealed and unsigned completed notes readOnly, not disabled), `workspace-review-fixes`; e2e `consult-rx-finish` "a signed consultation is read-only ..." (focusable, typing changes nothing), `amendment-screens` sealed screens | yes (Vitest and e2e) |
+| B-7 | 92b01a8 | Vitest `workspace-review-fixes`: three populated sealed visits (one per specialty: vitals, complaint, investigation, advice, follow-up, specialty data; every input and select disabled, only non-mutating buttons enabled), the cancelled visit, the B-2 version fallback; `sealed-refusal-messages` "creating the draft prescription of a signed consultation that has none" | yes: the populated cases (they found the diagnosis "+ Note" control live on a sealed record, fixed in 92b01a8); the cancelled case and the draft-prescription case fail when their 09A-05 code is reverted |
+
+The page-level axe check in `amendment-screens.spec.ts` is unchanged.

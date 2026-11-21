@@ -448,3 +448,112 @@ evidence. Counts are from the runs named beside them.
 - 09A-06a (R-A, S-5): the workspace's Print Rx link and the finalize hand-off assume the route serves the archive after finalize; keep `rx_v2.pdf` archived before `finalizeVisitAmendment` returns (the journey reads it from the database right after).
 - V2-09b must keep `recordState`, the sealed read-only contract (every input disabled, Amend for owner and doctor) and the two flows (reopen with a 10 to 500 character reason, finalize with the form saved first) as its contract; the specs above are the check.
 - The page now makes two extra reads (latest header version; the latest revision reason only while amending).
+
+## 09A-06a Review fix round (migration 000111_clinical_review_fixes; 09A-REVIEW-TRIAGE.md, ruling R-A; 09A-REVIEW-B.md rows B-1 to B-7)
+
+### What changed
+
+- `supabase/migrations/000111_clinical_review_fixes.sql` (`ls supabase/migrations | tail -3` showed 000110 as the newest). Replaced bodies start from their latest
+  definitions: `prescriptions_seal_guard` and `prescriptions_actor_guard` (000109), `reopen_visit_for_amendment` (000099), `visit_revisions_actor_guard` (000078),
+  `share_token_object` (000090); each changes only what the header names.
+  - R-A / S-2 / S-3 / S-10, in the one SQL source `prescriptions_seal_guard` (a trigger, not a definer command; no new definer): the pair goes NULL to a value
+    once, both columns in one statement, for a signed header of a visit proven sealed and visible (`RX_PDF_NOT_SEALED`), at the canonical key
+    (`RX_PDF_PATH_INVALID`), by the visit's signer (`RX_PDF_SIGNER_ONLY`; the service role and postgres too), for an object at that key whose storage owner
+    (`owner_id`, set by the Storage API from the JWT) is the signer (`RX_PDF_OBJECT_INVALID`; read under the caller's RLS, `prescriptions_rx_select`). An existing
+    pair changes only by being cleared: by the statement that raises `version` (finalize), or by the signer at the same version when the object is gone.
+    `prescriptions_rx_insert` additionally requires `visits.signed_by = auth.uid()`.
+  - S-4: the header key check runs before the system-path return. A-3: the reopen raises `RX_ARCHIVE_PENDING` (P0001) after the claim and the lock when the
+    latest header has a signature and no hash. A-5: the snapshot's `visit` gains `reason_for_visit`, `location_id`. S-5: `share_token_object` returns `sha256`.
+  - S-1: `patient_documents_update` dropped, UPDATE revoked from `authenticated`. S-7: `visit_revisions_insert` dropped, INSERT revoked from `authenticated`,
+    CHECK `visit_revisions_amendment_reason_length` (btrim, 10 to 500; NOT VALID then VALIDATE). S-9: TRUNCATE and TRIGGER revoked on the eight sealed tables
+    from service_role, authenticated, anon.
+- App: `features/prescriptions/pdf/generator.ts` (`isVisitSigner`, `REGENERATED_COPY_NOTICE`, `isMissingObjectError`; `resolvePrescriptionPdf` archives only for
+  the signer, never trusts a legacy path, clears a broken pair for the signer and re-archives, serves a labelled regenerated copy otherwise; `readArchivedPrescriptionPdf`
+  audits only a hash mismatch; an adoption the database refuses is audited `prescription.pdf_integrity_failed` with `reason: FOREIGN_OBJECT`), `payload.ts`
+  (`visit.signed_by`), `prescription-document.tsx` (the S-8 line), `features/consultation/service.ts` (archive only as the signer; `RX_ARCHIVE_PENDING` text; B-5),
+  `lib/db/errors.ts` (`RX_ARCHIVE_PENDING: CONFLICT`), `features/sharing/system.ts` (`resolveSharedObject`: a prescription is downloaded with the module's existing
+  system client, hashed, and only then signed; `signSharedObject` is a wrapper), `features/sharing/public-links.ts` (two fixed texts), `app/api/r/[token]/route.ts`
+  (download: 503 pending, 409 unverified), `app/r/[token]/page.tsx` (a notice replaces the viewer and the download), `app/api/v1/appointments/[id]/route.ts` (A-7).
+- UI (B rows): `vitals-block.tsx`, `prescription-builder.tsx` (editor, staged drug and overlays never on a read-only record), `consultation-workspace.tsx` (editors keyed
+  on the record state; `signedVersionOf`; focus after Amend/Finalize), `amendment-modal.tsx` and `finalize-amendment-dialog.tsx` (held while busy),
+  `chief-complaints-section.tsx` (readOnly notes), `diagnosis-section.tsx` ("+ Note" disabled, editor closed when read-only), `features/consultation/record-state.ts`
+  (`signedVersionOf`), the consultation page (`current_revision ?? 1`).
+- Registries: `expected-migration.ts` 000111, schema snapshot, `authz:gen` (visit_revisions INSERT and patient_documents UPDATE `rpc_only`), pgTAP FLOOR 8494 and
+  REQUIRED_FILES (+ `clinical_review_fixes.test.sql`), Vitest REQUIRED_FILES (+ `rx-archive-signer.spec.ts`, `workspace-review-fixes.spec.ts`; FLOOR unchanged until
+  the close). `db:types`: no diff (no column or signature change).
+
+### S-1 inventory: request-path writers of `patient_documents` (done before the migration)
+
+`grep -rn "patient_documents" app features lib components scripts` plus the migrations: `features/labs/service.ts` INSERTs (upload) and SELECTs (list, view, share);
+`app/api/v1/lab-orders/route.ts` INSERTs and SELECTs on the API-key path (service role, ADR-0005); `app/api/v1/lab-orders/[id]/route.ts` SELECT; `features/dpdp/export.ts`
+SELECT. No SQL function UPDATEs the table. **No request-path UPDATE writer**, so per the triage UPDATE is revoked and no freezing trigger is added (the service role
+keeps its grant; it has no request path).
+
+### Deviations, decisions and why
+
+1. **The pair rule lives in the trigger, and the system path is refused too.** R-A says only the signer; a writer with no session has no signer identity, so the
+   service role and postgres get `RX_PDF_SIGNER_ONLY`. A future trusted archiver (V2-14) needs its own reviewed exception.
+2. **Check order** (sealed, then path, then signer, then object) keeps the existing `RX_PDF_PATH_INVALID` assertions for foreign paths meaningful.
+3. **S-5: verify, then sign** (the triage's wording). The page data (`/api/r/<token>` without `download`) keeps answering 200 with metadata and, for a pending or
+   unverified prescription, no object URL (its link is the download route, which answers 503 or 409). Residual: an overwrite between the check and the fetch needs
+   the service role or storage admin (no member UPDATE on the Rx class). The in-app preview keeps its 5-minute archive URL after its own check (same residual).
+4. **No new audit action**: the refused adoption and the share-link mismatch reuse `prescription.pdf_integrity_failed` with `metadata.reason`
+   (`FOREIGN_OBJECT`, `HASH_MISMATCH`, `SHARE_LINK_HASH_MISMATCH`); the share-link row is a system row (`actor_id` null, `actor_role` system), inserted by the
+   existing share module's system client.
+5. **A-3 checks the latest header only** (the one finalize re-signs and the archive writes); several active headers are S-6 (deferred).
+6. **Legacy pgTAP files** (`amendment_snapshot`, `reverify_integrity`, `signed_visit_fields`, `visit_integrity`) restore the member INSERT on `visit_revisions` inside
+   their own transaction, the way they already widen the visits and prescriptions UPDATE grants: they prove the guards; the revocation is proven in the new file.
+7. **B-7 found a live control**: the diagnosis "+ Note" button was enabled on a sealed record (the save was refused by the database). Disabled, and the note
+   editor closes on a read-only record.
+8. **B-1**: besides honouring `disabled`, the vitals block and the builder are keyed on the record state, so any local editing state resets after a refresh.
+9. **Growth calculator**: the pediatric WHO calculator's age, weight and height inputs stay enabled on a sealed record; they are local calculator state, never
+   saved (the spec names them explicitly).
+10. **Hand-offs from 09A-05 held**: the e2e fixtures' signer is the amender, so the first Amend archives `rx_v1.pdf` as the signer before the reopen; `rx_v2.pdf` is
+    archived before `finalizeVisitAmendment` returns (journey 6 tail passes).
+
+### Tests added or changed
+
+- New: `supabase/tests/database/clinical_review_fixes.test.sql` (40), `tests/prescriptions/rx-archive-signer.spec.ts` (9), `tests/consultation/workspace-review-fixes.spec.ts`
+  (6), `tests/helpers/pdf-text.ts` (page text of a PDF via node:zlib), `archiveRxAs` in `tests/helpers/clinical-commands.ts` (`reopenVisitAs` archives first, as the app does).
+- Changed: pgTAP `rx_pdf_write_once` (matrix: owner/doctor split, state X, CHECK cases as the signer, objects as the signer's uploads), `storage_policies`, `prescription_seal`,
+  `lab_documents_append_only`, `admin_policies`, `domain_policies`, `authz_completeness`, `authz_matrix` (generated), the four legacy files; Vitest `rx-pdf-archive`,
+  `amendment-rpc`, `review-fixes-db`, `review2-fixes-db`, `export-dto`, `lock-enforcement`, `table-matrix`, `v1-doctor-guard`, `sealed-refusal-messages`, `workspace-sealed`;
+  e2e `amendment-screens` (in-session B-1/B-3/B-4, readOnly notes, animation-settled measurement), `consult-rx-finish` (readOnly notes).
+- Row-to-test mapping and the failed-without evidence: 09A-REVIEW-TRIAGE.md, "09A-06a outcome".
+
+### Counts (tool output of this round)
+
+- pgTAP full run (`npm run test:pgtap`): 8494 tests, 60 files, all pass; `assert-pgtap-report.mjs` PASS at FLOOR 8494.
+- Vitest, affected folders (`tests/prescriptions consultation security api integration labs dpdp subscriptions clinical billing queue authz db audit storage compliance
+  observability ci sharing jobs visits`): first run 4416 tests in 213 files, 25 failed (the expected behaviour changes listed above), all fixed; re-runs at the final tree:
+  3763 tests in 174 files (`tests/consultation components ci clinical integration queue billing visits api security labs observability`; 1 failure, the workspace-sealed
+  unsigned-completed notes assertion, rewritten and re-run: 9 of 9) and 702 tests in 44 files (`tests/prescriptions dpdp subscriptions authz db audit storage compliance jobs`
+  plus the new UI spec), all pass, none retried.
+- e2e after `npm run e2e:build`: `npx playwright test tests/e2e/m0 tests/e2e/a11y/amendment-screens.spec.ts tests/e2e/a11y/sign-and-bill-screens.spec.ts
+  tests/e2e/a11y/lab-reports-screens.spec.ts tests/e2e/subscriptions/share-verification.spec.ts --project=desktop-chrome --project=pixel-7 --project=iphone-15 --retries=0`:
+  60 passed (8 setup, desktop-chrome 38, pixel-7 12, iphone-15 2), 0 retries, at the final tree.
+- `npm run typecheck` clean; `npx eslint .` 0 errors (413 warnings, unchanged); `npm run inventory` exit 0 (0 flagged, 121 exports); schema snapshot `--check` PASS;
+  `npm run db:drift:local` PASS.
+
+### Flakes and infra
+
+- `amendment-screens.spec.ts` "amend dialog ... (1280px)" failed once in a lane run: the confirm button measured 35.99997 px against a 36 px floor. Root cause, confirmed
+  with a debug print: four animations were still running (the dialog's open translate transition) when the box was read. `heightOf` now waits for every finite
+  animation; three consecutive runs of the file and the final lane passed (d0602e8).
+- `npm run db:drift:local` failed twice right after the pgTAP run with `supabase db diff --local` exit 1 and no message (shadow database); the same command run
+  directly reported no changes and the script passed on the next run. Not a test; recorded as unexplained CLI behaviour.
+
+### Backlog (deferred)
+
+- **S-6 (V2-12):** a visit can hold several active prescription headers only through the v1 API (`POST /api/v1/prescriptions` on a draft or amending visit). V2-12
+  enforces one active header per visit (or finalize re-signs, re-versions and clears the pair of every active header), and the v1 API refuses POST on an amending visit.
+  Until then an amendment of such a visit re-signs only the highest version and RX_ARCHIVE_PENDING looks at that header only.
+
+### Remaining risks (for the PO at the gate)
+
+- **R-A residual:** the signer can archive bytes that differ from the sealed record (self-forgery); the sealed rows stay the source of truth. Closing it is the
+  trusted `rx.archive` job (V2-14).
+- **A signer who is gone:** only the signer archives, and the reopen refuses until the signed version is archived. If a doctor signs (command only, or the
+  post-commit archive failed) and then leaves the clinic, that Rx is served only as a labelled regenerated copy and the visit cannot be amended by anyone. The
+  same V2-14 archiver closes it; until then it needs a reviewed migration or support action.
+- Verify-then-sign TOCTOU on the share link and the preview (service role or storage admin only). The service role keeps UPDATE on `patient_documents` (no request path).
