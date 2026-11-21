@@ -6,6 +6,7 @@ import { createVisit } from "../helpers/seed-visit";
 import { ctxFor } from "../helpers/context";
 import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
 import { getTodayBoard } from "@/features/today/queries";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -18,7 +19,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     tenant = await seedTenantWithOwner("Metro Health Clinic");
 
     // Create 2 test patients for Metro Health Clinic
-    const { data: p1, error: p1Err } = await tenant.client
+    const { data: p1, error: p1Err } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenant.tenantId,
@@ -33,7 +34,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     if (p1Err || !p1) throw new Error(`Failed to create test patient A: ${p1Err?.message}`);
     patientAId = p1.id;
 
-    const { data: p2, error: p2Err } = await tenant.client
+    const { data: p2, error: p2Err } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenant.tenantId,
@@ -172,7 +173,15 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
   it("4. Completing visit sets completed_at and removes patient from active waiting count", async () => {
 
-    const transitionRes = await completeVisit(ctxFor(tenant), walkInVisitId, randomUUID());
+    // V2-08 08-06a (S-4): the desk does not complete an open consultation (it would stay unsigned for good); the doctor's sign-off
+    // does. The sign-off's effect (status and the token's completed_at) is applied with the service role here: the sign-off command
+    // has its own specs (tests/clinical, tests/queue/complete-visit-rpc.spec.ts).
+    const refused = await completeVisit(ctxFor(tenant), walkInVisitId, randomUUID());
+    expect(refused).toMatchObject({ ok: false, error: { reason: "VISIT_NOT_COMPLETABLE" } });
+    const admin = getAdminClient();
+    expect((await admin.from("visits").update({ status: "completed" }).eq("id", walkInVisitId)).error).toBeNull();
+    expect((await admin.from("queue_tokens").update({ completed_at: new Date().toISOString() }).eq("visit_id", walkInVisitId)).error).toBeNull();
+    const transitionRes = { ok: true };
 
     expect(transitionRes.ok).toBe(true);
 

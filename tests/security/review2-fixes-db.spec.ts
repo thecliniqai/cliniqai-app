@@ -406,7 +406,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
       const open = await freshVisit(A, "waiting");
       expect((await startConsultation(ctxFor(A.doctor), open, randomUUID())).ok).toBe(true);
       expect((await visitRow(open)).status).toBe("in_consultation");
-      expect((await completeVisit(ctxFor(A.receptionist), open, randomUUID())).ok).toBe(true);
+      // V2-08 08-06a (S-4): the desk does not complete an open consultation (it would stay unsigned for good); a waiting visit it does.
+      expect(await completeVisit(ctxFor(A.receptionist), open, randomUUID())).toMatchObject({ ok: false, error: { reason: "VISIT_NOT_COMPLETABLE" } });
+      expect((await visitRow(open)).status).toBe("in_consultation");
+      await admin.from("visits").update({ status: "completed" }).eq("id", open);
       expect((await visitRow(open)).status).toBe("completed");
       expect(await completeVisit(ctxFor(A.receptionist), open, randomUUID())).toMatchObject({ ok: true, value: { alreadyCompleted: true } });
       expect((await startConsultation(ctxFor(A.doctor), open, randomUUID())).ok).toBe(false);

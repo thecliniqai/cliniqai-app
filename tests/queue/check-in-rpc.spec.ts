@@ -22,7 +22,7 @@ import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { psql } from "../helpers/sql";
 import { auditRows, commandResultRows, seedVisit, expectDataOnlyStoredResult } from "../helpers/billing-commands";
-import { callCheckIn, checkInArgs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
+import { callCheckIn, checkInArgs, tokensOfVisit, visitFlags, visitRow } from "../helpers/clinical-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 
@@ -195,6 +195,34 @@ describe("check_in_visit: the booking's own day (R-8) and the late arrival", () 
     expect(await auditRows(tenantA.tenantId, "queue.check_in", result.queue_token_id)).toEqual([
       expect.objectContaining({ metadata: { token_number: result.token_number, priority: "normal", late_arrival: true } }),
     ]);
+  });
+
+  // V2-08 08-06a (A-3): a no-show frees its slot (visits_no_double_booking skips no_show rows), the desk rebooks it, and the patient
+  // then arrives. Before, the move back to waiting re-entered the constraint and the check-in failed with a generic CONFLICT (23P01).
+  it("A-3: a late no-show whose slot was rebooked is checked in as an overbooked visit; the audit row says so; the slot's holder is untouched", async () => {
+    const slot = at(-HOUR / 4);
+    const late = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: slot });
+    const holder = await seedVisit(tenantA, undefined, { status: "booked", scheduledAt: slot });
+    const { data, error } = await callCheckIn(members.receptionist.client, checkInArgs(tenantA, late.visitId));
+    expect(error).toBeNull();
+    const result = data as { queue_token_id: string; token_number: number };
+    expect(await visitFlags(late.visitId)).toEqual({ status: "waiting", is_overbooked: true });
+    expect(await visitFlags(holder.visitId)).toEqual({ status: "booked", is_overbooked: false });
+    expect(await tokensOfVisit(late.visitId)).toHaveLength(1);
+    expect(await auditRows(tenantA.tenantId, "queue.check_in", result.queue_token_id)).toEqual([
+      expect.objectContaining({ metadata: { token_number: result.token_number, priority: "normal", late_arrival: true, is_overbooked: true } }),
+    ]);
+  });
+
+  it("A-3 control: a late no-show whose slot is still free is not marked overbooked (and says nothing about it)", async () => {
+    // Another doctor than the A-3 case above, so that case's holder (the same moment, a few milliseconds apart) is not this slot's.
+    const late = await seedVisit(tenantA, members.doctor.userId, { status: "no_show", scheduledAt: at(-HOUR / 2) });
+    const { data, error } = await callCheckIn(tenantA.client, checkInArgs(tenantA, late.visitId));
+    expect(error).toBeNull();
+    expect(await visitFlags(late.visitId)).toEqual({ status: "waiting", is_overbooked: false });
+    const [row] = await auditRows(tenantA.tenantId, "queue.check_in", (data as { queue_token_id: string }).queue_token_id);
+    expect(row.metadata).toHaveProperty("late_arrival", true);
+    expect(row.metadata).not.toHaveProperty("is_overbooked");
   });
 
   it("an ordinary check-in carries no late_arrival, and a walk-in (no appointment time) is never refused for its day", async () => {

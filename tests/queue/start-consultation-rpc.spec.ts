@@ -22,7 +22,7 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult, seedVisit } from "../helpers/billing-commands";
-import { callCheckIn, callStartConsultation, checkInArgs, startConsultationArgs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
+import { callCheckIn, callStartConsultation, checkInArgs, startConsultationArgs, tokensOfVisit, visitFlags, visitRow } from "../helpers/clinical-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 const HOUR = 3_600_000;
@@ -98,6 +98,17 @@ describe("start_consultation: one transaction", () => {
     expect(await auditRows(tenantA.tenantId, "queue.check_in", token.id)).toEqual([
       expect.objectContaining({ metadata: { token_number: token.token_number, priority: "normal", late_arrival: true } }),
     ]);
+  });
+
+  it("A-3: a late no-show whose slot was rebooked is started as an overbooked visit (before: CONFLICT 23P01 on the slot rule)", async () => {
+    const slot = at(-HOUR / 4);
+    const late = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: slot });
+    const holder = await seedVisit(tenantA, undefined, { status: "booked", scheduledAt: slot });
+    const { data, error } = await callStartConsultation(tenantA.client, startConsultationArgs(tenantA, late.visitId));
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ already_started: false });
+    expect(await visitFlags(late.visitId)).toEqual({ status: "in_consultation", is_overbooked: true });
+    expect(await visitFlags(holder.visitId)).toEqual({ status: "booked", is_overbooked: false });
   });
 
   it("rollback: a fault on the move to in_consultation takes the token, the waiting status and both audit rows with it; the same id then succeeds", async () => {

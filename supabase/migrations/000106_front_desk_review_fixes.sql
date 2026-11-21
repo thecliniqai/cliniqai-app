@@ -5,7 +5,8 @@
 --      shift the doctor works: private.slot_conflicts, the booking's rule); public.cancel_visit never promotes for the reasons
 --      doctor_unavailable and clinic_closed.
 -- A-3  private.step_check_in: a late no-show whose slot was rebooked is checked in as an overbooked visit (a patient who is
---      present is not refused by the slot rule); the audit row carries is_overbooked. start_consultation inherits it.
+--      present is not refused by the slot rule); the audit row carries is_overbooked when the check-in set it. start_consultation
+--      inherits it.
 -- A-5  private.today_signal gains the invoices branch; triggers AFTER INSERT and AFTER UPDATE OF total_amount, status on
 --      public.invoices send {kind:'invoice', visit_id} (no PHI).
 -- S-1  REVOKE INSERT ON public.visits FROM authenticated (no request path inserts a visit; the definer commands and the service
@@ -391,7 +392,7 @@ DECLARE
     v_late boolean;
     v_over boolean := false;
 BEGIN
-    SELECT v.status, v.scheduled_at INTO v_visit
+    SELECT v.status, v.scheduled_at, v.is_overbooked INTO v_visit
       FROM public.visits v
      WHERE v.id = p_visit_id AND v.tenant_id = p_tenant_id
        FOR NO KEY UPDATE;
@@ -440,7 +441,7 @@ BEGIN
         PERFORM private.log_command_audit(p_tenant_id, 'queue.check_in', 'queue_token', v_tok.queue_token_id,
                                  jsonb_build_object('token_number', v_tok.token_number, 'priority', v_token_priority)
                                  || CASE WHEN v_late THEN jsonb_build_object('late_arrival', true) ELSE '{}'::jsonb END
-                                 || CASE WHEN v_late AND v_over THEN jsonb_build_object('is_overbooked', true) ELSE '{}'::jsonb END);
+                                 || CASE WHEN v_late AND v_over AND NOT v_visit.is_overbooked THEN jsonb_build_object('is_overbooked', true) ELSE '{}'::jsonb END);
     END IF;
 
     RETURN jsonb_build_object(

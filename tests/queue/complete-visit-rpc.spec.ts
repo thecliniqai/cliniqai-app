@@ -49,14 +49,11 @@ describe("complete_visit: catalog", () => {
 });
 
 describe("complete_visit: one transaction", () => {
-  it.each(["waiting", "in_consultation"] as const)("a %s visit completes: status, token completed_at, audit row and claim together", async (status) => {
+  it("a waiting visit completes: status, token completed_at, audit row and claim together", async () => {
+    const status = "waiting";
     const { visitId } = await seedVisit(tenantA);
     const checkedIn = await callCheckIn(tenantA.client, checkInArgs(tenantA, visitId));
     expect(checkedIn.error).toBeNull();
-    if (status === "in_consultation") {
-      const { error } = await getAdminClient().from("visits").update({ status }).eq("id", visitId);
-      expect(error).toBeNull();
-    }
     const args = completeVisitArgs(tenantA, visitId);
     const { data, error } = await callCompleteVisit(members.receptionist.client, args);
     expect(error).toBeNull();
@@ -102,6 +99,22 @@ describe("complete_visit: one transaction", () => {
     expect(mapDbError(res.error)).toMatchObject({ code: "CONFLICT", reason: "VISIT_NOT_COMPLETABLE" });
     expect((await visitRow(visitId)).status).toBe(status);
     expect(await completeAudit(visitId)).toEqual([]);
+    expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+  });
+
+  // V2-08 08-06a (S-4): a desk completion of an open consultation left it unsigned for good (ALREADY_SIGNED for the doctor's sign-off,
+  // no notes, no sealed prescriptions). It is completed only by the sign-off commands.
+  it.each(["receptionist", "nurse", "admin", "owner", "doctor"] as const)("S-4: %s cannot complete an in_consultation visit at the desk (it stays open for the sign-off)", async (role) => {
+    const { visitId } = await seedVisit(tenantA, members.doctor.userId);
+    const checkedIn = await callCheckIn(tenantA.client, checkInArgs(tenantA, visitId));
+    expect(checkedIn.error).toBeNull();
+    await getAdminClient().from("visits").update({ status: "in_consultation" }).eq("id", visitId);
+    const args = completeVisitArgs(tenantA, visitId);
+    const res = await callCompleteVisit(members[role].client, args);
+    expect(res.error).toMatchObject({ code: "P0001", message: "VISIT_NOT_COMPLETABLE" });
+    expect((await visitRow(visitId)).status).toBe("in_consultation");
+    expect(await completeAudit(visitId)).toEqual([]);
+    expect((await tokensOfVisit(visitId))[0].completed_at).toBeNull();
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
   });
 

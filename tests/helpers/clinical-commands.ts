@@ -130,6 +130,13 @@ export async function visitRow(visitId: string) {
   return data;
 }
 
+/** The status and the overbooked flag of a visit (V2-08 08-06a, A-3), read with the service-role client. */
+export async function visitFlags(visitId: string) {
+  const { data, error } = await getAdminClient().from("visits").select("status, is_overbooked").eq("id", visitId).single();
+  if (error || !data) throw new Error(`visit read failed: ${error?.message}`);
+  return data;
+}
+
 export async function prescriptionsOfVisit(visitId: string) {
   const { data, error } = await getAdminClient()
     .from("prescriptions")
