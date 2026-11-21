@@ -90,6 +90,10 @@
  *          slot-assist-entitlement-db 4}.spec.ts, tests/patients/duplicate-rules-db.spec.ts 28, tests/clinics/switch-clinic-db.spec.ts 11,
  *          and the guard suite's legs for the two new actions switchClinic and getSlotAssist: 6); REQUIRED_FILES + the five new specs
  *          (264 in total). The floor is re-measured at the next gate; the suite grew.
+ *   6455 — V2-08 08-06a, unchanged: REQUIRED_FILES + tests/visits/record-vitals-merge.spec.ts (6) and
+ *          tests/security/front-desk-direct-writes.spec.ts (10), minus tests/visits/create-visit-slot-race.spec.ts (8, the retired
+ *          `createVisit` service; its replacements are cases in the booking and walk-in command specs). A full run at the close of the
+ *          round had 7180 tests in 352 files, 0 skipped (265 required files); the floor is re-measured at the next gate.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -279,7 +283,6 @@ const REQUIRED_FILES = [
   "tests/scheduling/no-double-booking.spec.ts",
   "tests/integration/queue-token-concurrency.spec.ts",
   "tests/api/v1-slot-conflict.spec.ts",
-  "tests/visits/create-visit-slot-race.spec.ts",
   // 05-11a…e review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-*).
   "tests/visits/signed-visit-integrity.spec.ts",
   "tests/ci/visit-integrity-inline.spec.ts",
@@ -441,6 +444,9 @@ const REQUIRED_FILES = [
   "tests/visits/slot-assist-entitlement-db.spec.ts",
   "tests/patients/duplicate-rules-db.spec.ts",
   "tests/clinics/switch-clinic-db.spec.ts",
+  // V2-08 08-06a (the review fix round).
+  "tests/visits/record-vitals-merge.spec.ts",
+  "tests/security/front-desk-direct-writes.spec.ts",
 ];
 
 const file = process.argv[2];

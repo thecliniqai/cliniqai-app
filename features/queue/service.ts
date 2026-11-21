@@ -292,7 +292,7 @@ export const COMPLETE_VISIT_MESSAGES = {
   FORBIDDEN: "You do not have permission to complete visits.",
   VALIDATION_FAILED: "Invalid request.",
   VISIT_NOT_COMPLETABLE:
-    "This visit can no longer be completed here. Signed or closed consultations change only through an amendment.",
+    "This visit can't be completed here. An open consultation is finished by the doctor's sign-off; a signed or closed one changes only through an amendment.",
   VISIT_TRANSITION_INVALID: "This visit can no longer be moved in the queue.",
   LOCK_TIMEOUT: "The queue is busy. Try again.",
   IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
