@@ -425,8 +425,9 @@ export function PrescriptionBuilder({
 
           <button
             type="button"
+            disabled={disabled}
             onClick={openTemplateDrawer}
-            className="min-h-[36px] px-3 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center gap-1.5 shadow-2xs"
+            className="min-h-[36px] px-3 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <BookOpen className="h-3.5 w-3.5 text-accent-fg" />
             <span>Protocol Templates</span>
@@ -807,7 +808,7 @@ export function PrescriptionBuilder({
       </div>
 
       {/* Save current Rx as Template trigger */}
-      {items.length > 0 && (
+      {items.length > 0 && !disabled && (
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
             <input
