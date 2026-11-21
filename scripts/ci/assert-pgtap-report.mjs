@@ -109,6 +109,13 @@
  *          storage_policies keep their counts (the DELETE catalogue loses patient_documents_delete, the lab storage catalogue loses its UPDATE and DELETE
  *          policies, and the doctor's lab delete now affects 0 rows); authz_matrix keeps its cell count (patient_documents DELETE becomes `rpc_only`, the lab
  *          UPDATE and DELETE storage cells become `none`) = 8454 (59 files).
+ *   8494 — V2-09a 09A-06a (000111 clinical_review_fixes, the review fix round): 8454 + clinical_review_fixes 40 (new file, every one required) = 8494
+ *          (60 files). The changed files keep their counts: rx_pdf_write_once (the matrix gains state X and the owner/doctor split, same 28 assertions),
+ *          storage_policies (the owner's Rx upload flips to refused), lab_documents_append_only (the UPDATE controls flip to refused), prescription_seal
+ *          (the signer archives before the reopen), admin_policies / domain_policies / authz_completeness (two policies and two grants fewer in their
+ *          catalogues); amendment_snapshot, reverify_integrity, signed_visit_fields and visit_integrity restore the member INSERT on visit_revisions inside
+ *          their own transaction (they prove the guards); authz_matrix keeps its cell count (visit_revisions INSERT and patient_documents UPDATE
+ *          become `rpc_only`).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -120,7 +127,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8454;
+export const FLOOR = 8494;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -218,6 +225,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/rx_pdf_write_once.test.sql",
   // V2-09a 09A-04
   "supabase/tests/database/lab_documents_append_only.test.sql",
+  // V2-09a 09A-06a
+  "supabase/tests/database/clinical_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

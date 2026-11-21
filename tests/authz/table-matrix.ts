@@ -530,9 +530,11 @@ export const TARGETS: readonly Target[] = [
       snapshot: "'{}'::jsonb",
     },
     update: "amendment_reason",
-    rules: { select: perm("consultations:view"), insert: perm("consultations:edit"), update: rpcOnly, delete: rpcOnly },
+    // V2-09a 000111 (09A-06a, review S-7): INSERT is revoked from authenticated and the member policy dropped: the two definer commands
+    // (reopen_visit_for_amendment, finalize_visit_amendment) are the only writers (clinical_review_fixes.test.sql).
+    rules: { select: perm("consultations:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
-      "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the " +
+      "append-only amendment history, written by the reopen command only (INSERT revoked since V2-09a 000111); the author is the caller (05-11a guard); the snapshot and the " +
       "number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed " +
       "visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)",
   },
@@ -800,10 +802,12 @@ export const TARGETS: readonly Target[] = [
     update: "title",
     // V2-09a 000110 (R-14): lab documents are append-only: no DELETE policy, DELETE revoked from authenticated, and a BEFORE DELETE trigger refuses the
     // service role and postgres too (lab_documents_append_only.test.sql, tests/labs/lab-documents-append-only.spec.ts).
-    rules: permSiu("labs:view", "labs:edit", rpcOnly),
+    // V2-09a 000111 (09A-06a, review S-1): UPDATE is revoked as well (no request path updates a lab document; the row's storage path, patient and
+    // visit cannot be rewritten by a member).
+    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: rpcOnly, delete: rpcOnly },
     note:
       "05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 " +
-      "(append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's)",
+      "(append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)",
   },
   {
     kind: "table",

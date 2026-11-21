@@ -29,7 +29,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { psql } from "../helpers/sql";
 import { addMemberToTenant, seedTenantSubscription, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { enableApiV1ForFile } from "../helpers/api-v1";
-import { seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 import { deleteRunnerRuns, deleteTenants, insertTenant, letters } from "../jobs/helpers";
 // vi.mock below is hoisted above these imports: the actions resolve the session through the mocked user client.
 import { inviteStaff } from "@/features/staff/actions";
@@ -261,10 +261,8 @@ describe("public links of a clinic that is not full (SUB-D6)", () => {
       .select("id")
       .single();
     if (invErr || !inv) throw new Error(`invoice seed failed: ${invErr?.code}`);
-    // The Rx PDF object exists, so a full clinic's link signs it.
-    const path = `${shareClinic.tenantId}/${visitId}/rx_v1.pdf`;
-    expect((await admin.storage.from("prescriptions").upload(path, Buffer.from("%PDF-1.4 synthetic"), { contentType: "application/pdf" })).error).toBeNull();
-    expect((await admin.from("prescriptions").update({ pdf_storage_path: path }).eq("id", rx.id)).error).toBeNull();
+    // The Rx PDF object exists, so a full clinic's link signs it. V2-09a 09A-06a (R-A): archived by its signer (upload and pair with the signer's client).
+    expect(await archiveRxAs(shareClinic, visitId)).toMatch(/^[0-9a-f]{64}$/);
 
     const rxShare = await shareClinic.client.rpc("create_share_token", { p_resource_type: "prescription", p_resource_id: rx.id });
     if (rxShare.error) throw new Error(`share token failed: ${rxShare.error.code}`);

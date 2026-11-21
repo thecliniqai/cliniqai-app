@@ -3,7 +3,7 @@
  * finalize_visit_amendment, check_in_visit). Synthetic data only; rows are seeded and read with the service-role client,
  * commands are called with the caller's own client.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { insertReturningId, type TestDb } from "./db";
 import { getAdminClient } from "./supabase-admin";
 import type { SeededTenant } from "./tenants";
@@ -131,8 +131,42 @@ export async function signVisitAs(actor: Pick<SeededTenant, "tenantId" | "client
   if (error) throw new Error(`sign_consultation failed: ${error.message}`);
 }
 
-/** Reopens a signed visit for amendment as `actor` (the visit goes back to `in_consultation`, still signed). */
+/**
+ * V2-09a 09A-06a (ruling R-A, review A-3): archives the signed version of the visit's latest prescription as `signer`, the way the app's sign-off does:
+ * the signer's own client uploads synthetic PDF bytes to the canonical key `<tenant>/<visit>/rx_v<n>.pdf` (`upsert: false`) and records the pair. Only
+ * the visit's signer can (the storage policy and the seal guard refuse anyone else). A no-op when the latest header has no signature or is archived.
+ * Returns the recorded hash, or null when there was nothing to archive.
+ */
+export async function archiveRxAs(signer: Pick<SeededTenant, "client">, visitId: string): Promise<string | null> {
+  const { data: rx, error: readErr } = await getAdminClient()
+    .from("prescriptions")
+    .select("id, tenant_id, version, signed_at, pdf_sha256")
+    .eq("visit_id", visitId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (readErr) throw new Error(`prescription read failed: ${readErr.message}`);
+  if (!rx || !rx.signed_at || rx.pdf_sha256) return null;
+  const path = `${rx.tenant_id}/${visitId}/rx_v${rx.version}.pdf`;
+  const bytes = Buffer.from(`%PDF-1.4\n% synthetic archive of ${path}\n%%EOF\n`);
+  const { error: upErr } = await signer.client.storage.from("prescriptions").upload(path, bytes, { contentType: "application/pdf", upsert: false });
+  if (upErr) throw new Error(`rx upload failed: ${upErr.message}`);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const { data: written, error } = await signer.client
+    .from("prescriptions")
+    .update({ pdf_storage_path: path, pdf_sha256: sha256 })
+    .eq("id", rx.id)
+    .select("id");
+  if (error || (written ?? []).length !== 1) throw new Error(`rx pair failed: ${error?.message ?? "no row"}`);
+  return sha256;
+}
+
+/**
+ * Reopens a signed visit for amendment as `actor` (the visit goes back to `in_consultation`, still signed). Like the app's reopen service, the signed
+ * version's PDF is archived first (09A-06a, review A-3: the command refuses RX_ARCHIVE_PENDING otherwise); that works when `actor` is the signer.
+ */
 export async function reopenVisitAs(actor: Pick<SeededTenant, "tenantId" | "client">, visitId: string): Promise<void> {
+  await archiveRxAs(actor, visitId);
   const { error } = await callReopen(actor.client, reopenArgs(actor, visitId));
   if (error) throw new Error(`reopen_visit_for_amendment failed: ${error.message}`);
 }

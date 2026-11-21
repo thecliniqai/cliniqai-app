@@ -19,7 +19,7 @@ import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features
 import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
 import { seedSlotIso } from "../helpers/seed-slots";
-import { seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -148,7 +148,8 @@ describe("01-09 review round 2 fixes (000022)", () => {
       return `tenants/${A.owner.tenantId}/patients/${A.patientId}/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/prescriptions/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
     }
 
-    it("attack step 1 is refused: a member cannot store the payload on their own lab document (CHECK 23514)", async () => {
+    // V2-09a 09A-06a (review S-1): no member updates a lab document at all now (UPDATE revoked, 42501); the CHECK (23514) stays behind it for the system path.
+    it("attack step 1 is refused: a member cannot store the payload on their own lab document (no UPDATE privilege since 000111; CHECK 23514 behind it)", async () => {
       const victimRx = `${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
       await upload("prescriptions", victimRx);
 
@@ -166,7 +167,11 @@ describe("01-09 review round 2 fixes (000022)", () => {
         const { error } = await (A.doctor.client.from("patient_documents") as any)
           .update({ storage_path })
           .eq("id", A.documentId);
-        expect(error?.code, storage_path).toBe("23514");
+        expect(error?.code, storage_path).toBe("42501");
+        expect(error?.message, storage_path).toBe("permission denied for table patient_documents");
+        // The system path (which keeps UPDATE) still meets the 000022 CHECK.
+        const sys = await admin.from("patient_documents").update({ storage_path }).eq("id", A.documentId);
+        expect(sys.error?.code, storage_path).toBe("23514");
       }
       const { data } = await admin.from("patient_documents").select("storage_path").eq("id", A.documentId).single();
       expect((data as { storage_path: string }).storage_path).toBe(A.documentPath);
@@ -192,11 +197,16 @@ describe("01-09 review round 2 fixes (000022)", () => {
         expect(error?.code, pdf_storage_path).toBe("42501");
         expect(error?.message, pdf_storage_path).toBe("RX_PDF_PATH_INVALID");
       }
+      // V2-09a 09A-06a (R-A, review A-1): the derived path alone is refused too (the path and its hash are set together, by the signer, for the object
+      // the signer stored); the signer's archive of that object at the derived key is accepted.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const okRx = await (A.doctor.client.from("prescriptions") as any)
+      const pathOnly = await (A.doctor.client.from("prescriptions") as any)
         .update({ pdf_storage_path: `${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf` })
         .eq("id", sealedRxId);
-      expect(okRx.error).toBeNull();
+      expect(pathOnly.error?.message).toBe("RX_PDF_PATH_INVALID");
+      expect(await archiveRxAs(A.doctor, sealed.visitId)).toMatch(/^[0-9a-f]{64}$/);
+      const { data: okRx } = await admin.from("prescriptions").select("pdf_storage_path").eq("id", sealedRxId).single();
+      expect((okRx as { pdf_storage_path: string }).pdf_storage_path).toBe(`${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf`);
 
       for (const pdf_storage_path of [
         `tenants/${A.owner.tenantId}/referrals/%2e%2e/%2e%2e/${B.owner.tenantId}/x.pdf`,

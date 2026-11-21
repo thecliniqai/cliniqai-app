@@ -274,7 +274,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.communication_queue": ["perm(appointments:view)", "rpc_only", "rpc_only"],
   "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
-  "public.visit_revisions": ["perm(consultations:view)", "perm(consultations:edit)", "rpc_only"],
+  "public.visit_revisions": ["perm(consultations:view)", "rpc_only", "rpc_only"], // V2-09a 000111 (S-7): the commands write amendment rows
   "public.prescriptions": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.prescription_items": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.doctor_custom_diagnoses": [
@@ -373,7 +373,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   ],
   // 05-07a (000088): invitations are created only by invite_staff.
   "public.invitations": ["perm(staff:invite)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "rpc_only"],
+  "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "rpc_only", "rpc_only"], // V2-09a 000111 (S-1): no UPDATE either
   "public.document_share_tokens": ["perm(labs:view)", "rpc_only", "rpc_only", "rpc_only"],
   "public.in_app_notifications": [
     "self(recipient_user_id) AND full",

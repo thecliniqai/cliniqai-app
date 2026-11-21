@@ -69,7 +69,7 @@ Principals:
 | `public.clinical_notes` | U | (perm(consultations:edit) OR perm(vitals:edit)) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.clinical_notes` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.visit_revisions` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.visit_revisions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.consultations` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -130,7 +130,7 @@ Principals:
 | `public.consent_records` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patient_documents` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.patient_documents` | I | perm(labs:edit) | Y | X | Y | Y | Y | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.patient_documents` | U | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.patient_documents` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patient_documents` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.document_share_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -317,7 +317,7 @@ Notes:
 - `public.patients`: 05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql). 05-11d (N-5): created_by = caller on INSERT and never changed (patients_actor_guard, 42501 ACTOR_INVALID)
 - `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). 05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a signed visit's status/doctor change only through the amendment path; a doctor does not reassign doctor_id
 - `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)
-- `public.visit_revisions`: append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)
+- `public.visit_revisions`: append-only amendment history, written by the reopen command only (INSERT revoked since V2-09a 000111); the author is the caller (05-11a guard); the snapshot and the number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
 - `public.consultation_diagnoses`: 05-11d (N-1): keys never change; a signed-in caller records a diagnosis only for its visit's patient and writes diagnoses only while the visit is unsigned or reopened (consultation_diagnoses_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
 - `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the PDF columns only (000108 R-8). The fixture visit is unsigned
@@ -331,7 +331,7 @@ Notes:
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit
 - `public.consent_records`: recorded_by is the caller (05-11b M-ACTOR, consent_records_actor_guard)
-- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's)
+- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT

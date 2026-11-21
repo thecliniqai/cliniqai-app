@@ -11,6 +11,12 @@ begin;
 -- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
 -- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
 grant update on table public.visits to authenticated;
+-- 000111 (09A-06a, review S-7): INSERT on public.visit_revisions is revoked from authenticated and the member INSERT policy (000054) is dropped; the two
+-- definer commands are the writers. This file proves the amendment-row guards themselves (defence in depth, independent of the grant), so the grant and
+-- the 000054 policy are restored for this transaction only; the revocation is proven in clinical_review_fixes.test.sql.
+grant insert on table public.visit_revisions to authenticated;
+create policy visit_revisions_insert on public.visit_revisions for insert to authenticated
+  with check (tenant_id in (select authz.tenant_ids_with('consultations:edit')));
 select plan(28);
 
 insert into auth.users (id, email) values

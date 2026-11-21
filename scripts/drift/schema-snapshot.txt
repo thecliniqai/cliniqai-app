@@ -1176,6 +1176,7 @@ constraint public.tenants.tenants_pkey PRIMARY KEY (id)
 constraint public.tenants.tenants_timezone_iana CHECK (private.is_iana_timezone(timezone))
 constraint public.visit_revisions.uq_visit_revisions_number UNIQUE (visit_id, revision_number)
 constraint public.visit_revisions.visit_revisions_amended_by_fkey FOREIGN KEY (amended_by) REFERENCES auth.users(id)
+constraint public.visit_revisions.visit_revisions_amendment_reason_length CHECK (((char_length(btrim(amendment_reason)) >= 10) AND (char_length(btrim(amendment_reason)) <= 500)))
 constraint public.visit_revisions.visit_revisions_pkey PRIMARY KEY (id)
 constraint public.visit_revisions.visit_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
@@ -1371,8 +1372,8 @@ function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) 
 function private.platform_admins_audit() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f98d06dcb2289673d69b37c8d69732b3
 function private.platform_reason(p_reason text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=189c8b86c8a70940e97fad38ee2c02a6
 function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f4aaf5549452df4e7fc2b979ce12d2b7
-function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9fd3ef8a2c7da8d8aec4289ef7e74e90
-function private.prescriptions_seal_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5fca1369f34198d590c6aaf2c6aa7a6c
+function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5de3efbd0ebc582e2bbddc558aa2eb52
+function private.prescriptions_seal_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5a8ffa66359066ee1e0070433b5af5db
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3647a19f356dc8d41fdd2ea236d17cfe
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
@@ -1395,7 +1396,7 @@ function private.tenants_create_subscription() returns trigger lang=plpgsql secu
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
 function private.today_signal() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b973db9c775436906b509d1c4634c5e
 function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=0411ba64557b426e48555d5d84e2f82e
-function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0f99f95ea14e2873713e5c943fb21baf
+function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=59886ffedbe12a913fe998ba72dccd85
 function private.visit_revisions_append_only() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=de6120b9c9f1c1e567d9405a15026da2
 function private.visit_transition_allowed(p_from text, p_to text, p_signed boolean) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=d2449a1356e9fe1add6a813ad21c580a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
@@ -1485,7 +1486,7 @@ function public.register_and_book(p_tenant_id uuid, p_patient_id uuid, p_new_pat
 function public.register_patient(p_tenant_id uuid, p_patient jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d1e89c32d47e2c66e4903102e640625e
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=a433c27c9b1bd65985e013540a174237
-function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1c127c087b65bd1013c53d9516bfadc8
+function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3c9d1ef558c363c0142424ebd3280931
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.reschedule_visit(p_tenant_id uuid, p_visit_id uuid, p_new_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean, p_override_off_duty boolean, p_override_block boolean, p_notify boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a4c6a72452ed994c42bd62f1ea3a1f01
 function public.resend_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7a640654f8320e8d78f49d73d52cd671
@@ -1499,7 +1500,7 @@ function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version 
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
 function public.share_resource_tenant(p_type text, p_id uuid) returns uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=f202d708281179487dd5ca6d6cf9edb4
 function public.share_token_hash(p_token text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=46b48a816bdde078e25dc7a687214bc5
-function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=cc84a93d00d4693405f611c8d810b0ef
+function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=68f72ec2192951050739baf2afd79933
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
 function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=36dd0dd595ba73ddddeb5a78b1e1c06f
@@ -1878,8 +1879,6 @@ grant table public.clinical_notes MAINTAIN to service_role
 grant table public.clinical_notes REFERENCES to service_role
 grant table public.clinical_notes SELECT to authenticated
 grant table public.clinical_notes SELECT to service_role
-grant table public.clinical_notes TRIGGER to service_role
-grant table public.clinical_notes TRUNCATE to service_role
 grant table public.clinical_notes UPDATE to authenticated
 grant table public.clinical_notes UPDATE to service_role
 grant table public.communication_queue DELETE to service_role
@@ -1908,8 +1907,6 @@ grant table public.consultation_diagnoses MAINTAIN to service_role
 grant table public.consultation_diagnoses REFERENCES to service_role
 grant table public.consultation_diagnoses SELECT to authenticated
 grant table public.consultation_diagnoses SELECT to service_role
-grant table public.consultation_diagnoses TRIGGER to service_role
-grant table public.consultation_diagnoses TRUNCATE to service_role
 grant table public.consultation_diagnoses UPDATE to authenticated
 grant table public.consultation_diagnoses UPDATE to service_role
 grant table public.consultations DELETE to service_role
@@ -1985,8 +1982,6 @@ grant table public.follow_ups MAINTAIN to service_role
 grant table public.follow_ups REFERENCES to service_role
 grant table public.follow_ups SELECT to authenticated
 grant table public.follow_ups SELECT to service_role
-grant table public.follow_ups TRIGGER to service_role
-grant table public.follow_ups TRUNCATE to service_role
 grant table public.follow_ups UPDATE to authenticated
 grant table public.follow_ups UPDATE to service_role
 grant table public.in_app_notifications DELETE to authenticated
@@ -2053,9 +2048,6 @@ grant table public.patient_documents MAINTAIN to service_role
 grant table public.patient_documents REFERENCES to service_role
 grant table public.patient_documents SELECT to authenticated
 grant table public.patient_documents SELECT to service_role
-grant table public.patient_documents TRIGGER to service_role
-grant table public.patient_documents TRUNCATE to service_role
-grant table public.patient_documents UPDATE to authenticated
 grant table public.patient_documents UPDATE to service_role
 grant table public.patients DELETE to service_role
 grant table public.patients INSERT to service_role
@@ -2121,8 +2113,6 @@ grant table public.prescription_items MAINTAIN to service_role
 grant table public.prescription_items REFERENCES to service_role
 grant table public.prescription_items SELECT to authenticated
 grant table public.prescription_items SELECT to service_role
-grant table public.prescription_items TRIGGER to service_role
-grant table public.prescription_items TRUNCATE to service_role
 grant table public.prescription_items UPDATE to authenticated
 grant table public.prescription_items UPDATE to service_role
 grant table public.prescriptions DELETE to service_role
@@ -2132,8 +2122,6 @@ grant table public.prescriptions MAINTAIN to service_role
 grant table public.prescriptions REFERENCES to service_role
 grant table public.prescriptions SELECT to authenticated
 grant table public.prescriptions SELECT to service_role
-grant table public.prescriptions TRIGGER to service_role
-grant table public.prescriptions TRUNCATE to service_role
 grant table public.prescriptions UPDATE to service_role
 grant table public.queue_token_counters DELETE to service_role
 grant table public.queue_token_counters INSERT to service_role
@@ -2229,14 +2217,11 @@ grant table public.tenants TRUNCATE to service_role
 grant table public.tenants UPDATE to authenticated
 grant table public.tenants UPDATE to service_role
 grant table public.visit_revisions DELETE to service_role
-grant table public.visit_revisions INSERT to authenticated
 grant table public.visit_revisions INSERT to service_role
 grant table public.visit_revisions MAINTAIN to service_role
 grant table public.visit_revisions REFERENCES to service_role
 grant table public.visit_revisions SELECT to authenticated
 grant table public.visit_revisions SELECT to service_role
-grant table public.visit_revisions TRIGGER to service_role
-grant table public.visit_revisions TRUNCATE to service_role
 grant table public.visit_revisions UPDATE to service_role
 grant table public.visits DELETE to service_role
 grant table public.visits INSERT to service_role
@@ -2244,8 +2229,6 @@ grant table public.visits MAINTAIN to service_role
 grant table public.visits REFERENCES to service_role
 grant table public.visits SELECT to authenticated
 grant table public.visits SELECT to service_role
-grant table public.visits TRIGGER to service_role
-grant table public.visits TRUNCATE to service_role
 grant table public.visits UPDATE to service_role
 grant table public.waitlist_entries DELETE to service_role
 grant table public.waitlist_entries INSERT to service_role
@@ -2616,7 +2599,6 @@ policy public.memberships.memberships_update cmd=w permissive=t roles=authentica
 policy public.opd_diagnoses.opd_diagnoses_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.patient_documents.patient_documents_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
 policy public.patient_documents.patient_documents_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:view'::text) AS tenant_ids_with)) check=-
-policy public.patient_documents.patient_documents_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:view'::text) AS tenant_ids_with)) check=-
 policy public.patients.patients_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
@@ -2650,7 +2632,6 @@ policy public.tenant_messaging_config.tenant_messaging_config_update cmd=w permi
 policy public.tenant_subscriptions.tenant_subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.billing_tenant_ids() AS billing_tenant_ids)) check=-
 policy public.tenants.tenants_select cmd=r permissive=t roles=authenticated using=(id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids)) check=-
 policy public.tenants.tenants_update cmd=w permissive=t roles=authenticated using=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
-policy public.visit_revisions.visit_revisions_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))
 policy public.visit_revisions.visit_revisions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.visits.visits_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
 policy public.visits.visits_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
@@ -2671,7 +2652,7 @@ policy storage.objects.clinic_records_referral_letter_update cmd=w permissive=t 
 policy storage.objects.prescriptions_receipt_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
 policy storage.objects.prescriptions_receipt_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:view'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
 policy storage.objects.prescriptions_receipt_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
-policy storage.objects.prescriptions_rx_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))) AND (EXISTS ( SELECT 1    FROM (prescriptions p      JOIN visits v ON (((v.tenant_id = p.tenant_id) AND (v.id = p.visit_id))))   WHERE (((p.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((p.visit_id)::text = split_part(objects.name, '/'::text, 2)) AND ((('rx_v'::text || (p.version)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (p.signed_at IS NOT NULL) AND (p.pdf_sha256 IS NULL) AND (v.signed_at IS NOT NULL) AND (v.status <> 'in_consultation'::text)))))
+policy storage.objects.prescriptions_rx_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))) AND (EXISTS ( SELECT 1    FROM (prescriptions p      JOIN visits v ON (((v.tenant_id = p.tenant_id) AND (v.id = p.visit_id))))   WHERE (((p.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((p.visit_id)::text = split_part(objects.name, '/'::text, 2)) AND ((('rx_v'::text || (p.version)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (p.signed_at IS NOT NULL) AND (p.pdf_sha256 IS NULL) AND (v.signed_at IS NOT NULL) AND (v.status <> 'in_consultation'::text) AND (v.signed_by = ( SELECT auth.uid() AS uid))))))
 policy storage.objects.prescriptions_rx_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:view'::text) t(t)))) check=-
 relation ops.alert_rules kind=r rls=t force_rls=f
 relation ops.alerts kind=r rls=t force_rls=f

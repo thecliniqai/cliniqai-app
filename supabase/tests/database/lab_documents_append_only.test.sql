@@ -90,11 +90,11 @@ $f$;
 
 -- 1. Catalogue ------------------------------------------------------------------------------------------------------------
 select is((select array_agg(cmd::text order by cmd::text) from pg_policies where schemaname = 'public' and tablename = 'patient_documents'),
-  array['INSERT', 'SELECT', 'UPDATE'], 'patient_documents has SELECT, INSERT and UPDATE policies and no DELETE policy');
+  array['INSERT', 'SELECT'], 'patient_documents has SELECT and INSERT policies only: no UPDATE (000111, review S-1) and no DELETE policy');
 select is(array[has_table_privilege('authenticated', 'public.patient_documents', 'DELETE'), has_table_privilege('anon', 'public.patient_documents', 'DELETE'),
                 has_table_privilege('authenticated', 'public.patient_documents', 'INSERT'), has_table_privilege('authenticated', 'public.patient_documents', 'UPDATE'),
                 has_table_privilege('authenticated', 'public.patient_documents', 'SELECT')],
-  array[false, false, true, true, true], 'authenticated holds no DELETE on patient_documents (anon neither); SELECT, INSERT and UPDATE stay');
+  array[false, false, true, false, true], 'authenticated holds no DELETE and (000111, S-1) no UPDATE on patient_documents (anon neither); SELECT and INSERT stay');
 select has_trigger('public', 'patient_documents', 'patient_documents_no_delete', 'patient_documents carries the append-only trigger');
 select is(
   (select p.proname || ':' || p.prosecdef::text || ':' || array_to_string(p.proconfig, ',') || ':' || has_function_privilege('authenticated', p.oid, 'EXECUTE')::text
@@ -137,10 +137,10 @@ select is(pg_temp.attempt('authenticated', 'c1100000-0000-4000-8000-000000000104
   'ok:1', 'control: a nurse (labs:edit) still uploads a lab document (INSERT)');
 select is(pg_temp.attempt('authenticated', 'c1100000-0000-4000-8000-000000000102', 'c1100000-0000-4000-8000-00000000000a',
   $$update public.patient_documents set notes = 'Reviewed' where id = 'c1100000-0000-4000-8000-00000000d001'$$),
-  'ok:1', 'control: a doctor (labs:edit) still updates a document''s notes (UPDATE)');
+  'denied:permission denied for table patient_documents', '000111 (S-1): a doctor (labs:edit) no longer updates a document, not even its notes (no request path writes one)');
 select is(pg_temp.attempt('authenticated', 'c1100000-0000-4000-8000-000000000105', 'c1100000-0000-4000-8000-00000000000a',
   $$update public.patient_documents set notes = 'Reviewed' where id = 'c1100000-0000-4000-8000-00000000d001'$$),
-  'ok:0', 'control: a receptionist (no labs:edit) still updates nothing');
+  'denied:permission denied for table patient_documents', 'and a receptionist (no labs:edit) is refused the same way');
 
 -- 3. Storage: append-only objects -------------------------------------------------------------------------------------
 select is(pg_temp.attempt('authenticated', 'c1100000-0000-4000-8000-000000000104', 'c1100000-0000-4000-8000-00000000000a',

@@ -3,9 +3,11 @@
 -- while the signed version's pair survives in the revision snapshot.
 --
 -- 1. Matrix: PDF-pair operations x state x role. States: draft (D), sealed with no PDF archived (S), sealed and archived (A), amending with the signed
---    version's pair still on the header (M), sealed with a legacy path and no hash (L). Roles: owner and doctor (the request path, column grant), service_role and
---    postgres (the system path), plus admin, nurse, receptionist, another clinic's owner and anon (never change a header). Every probe runs in a
---    rolled-back subtransaction.
+--    version's pair still on the header (M), sealed with a legacy path and no hash (L), and (000111, S-3) sealed and archived whose object is missing (X).
+--    Roles: the doctor (the visits' signer) and the owner (not the signer) on the request path (column grant), service_role and postgres (the system path),
+--    plus admin, nurse, receptionist, another clinic's owner and anon (never change a header). Every probe runs in a rolled-back subtransaction.
+--    000111 (09A-06a, ruling R-A): the pair is set by the signer only, both columns together, only for an object the signer stored at the key; the
+--    objects of S, A, M, L and the lifecycle are therefore recorded in storage.objects as the signer's uploads (owner_id = the doctor).
 -- 2. The column and its CHECKs; the column grant (authenticated: pdf_storage_path, pdf_sha256, updated_at only).
 -- 3. INSERT carries no pair.
 -- 4. Lifecycle through the commands: sign, archive, reopen, finalize: the pair is cleared, the snapshot holds it, version 2 is archived once at its own key.
@@ -41,16 +43,16 @@ insert into public.patients (id, tenant_id, full_name, phone, created_by) values
   ('c1090000-0000-4000-8000-000000001001', 'c1090000-0000-4000-8000-00000000000a', 'Synthetic Rx Pdf Patient', '+919000010901',
    'c1090000-0000-4000-8000-000000000101');
 
--- Visits with a header: D 2001 draft, S 2002 sealed, A 2003 sealed and archived, M 2004 amending (archived before it was reopened), L 2005 sealed with a legacy path.
--- E 2011 is a draft with no header (INSERT probes). All start open; the others are signed the way production does (R-15).
+-- Visits with a header: D 2001 draft, S 2002 sealed, A 2003 sealed and archived, M 2004 amending (archived before it was reopened), L 2005 sealed with a legacy path,
+-- X 2006 sealed and archived with its object gone. E 2011 is a draft with no header (INSERT probes). All start open; the others are signed the way production does (R-15).
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, created_by)
   select ('c1090000-0000-4000-8000-0000000020' || n)::uuid, 'c1090000-0000-4000-8000-00000000000a', 'c1090000-0000-4000-8000-000000001001',
          'c1090000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', 'c1090000-0000-4000-8000-000000000101'
-    from unnest(array['01', '02', '03', '04', '05', '11']) n;
+    from unnest(array['01', '02', '03', '04', '05', '06', '11']) n;
 update public.clinical_notes set clinical_notes = 'Synthetic note' where tenant_id = 'c1090000-0000-4000-8000-00000000000a';
 insert into public.prescriptions (id, tenant_id, visit_id, patient_id, doctor_id)
   select ('c1090000-0000-4000-8000-0000000030' || right(v.id::text, 2))::uuid, v.tenant_id, v.id, v.patient_id, v.doctor_id
-    from public.visits v where right(v.id::text, 2) in ('01', '02', '03', '04', '05');
+    from public.visits v where right(v.id::text, 2) in ('01', '02', '03', '04', '05', '06');
 insert into public.prescription_items (prescription_id, medicine_name, dosage, duration)
   select p.id, 'Synthetic medicine', '1-0-1', '5 days' from public.prescriptions p where p.tenant_id = 'c1090000-0000-4000-8000-00000000000a';
 
@@ -69,19 +71,32 @@ declare
 begin
   perform pg_temp.as_actor(d, format($q$update public.visits set status = 'completed', signed_at = now(), signed_by = %L
     where id in ('c1090000-0000-4000-8000-000000002002', 'c1090000-0000-4000-8000-000000002003',
-                 'c1090000-0000-4000-8000-000000002004', 'c1090000-0000-4000-8000-000000002005')$q$, d));
+                 'c1090000-0000-4000-8000-000000002004', 'c1090000-0000-4000-8000-000000002005', 'c1090000-0000-4000-8000-000000002006')$q$, d));
 end $do$;
 -- The headers are signed (sign-off seals the active headers; here the same write, while the visits are already signed, so the guard is bypassed for this one
 -- fixture statement the way a pre-000108 sign-off would have: owner DDL in this rolled-back transaction).
 alter table public.prescriptions disable trigger prescriptions_seal_guard;
 update public.prescriptions set signed_at = now() - interval '1 day' where tenant_id = 'c1090000-0000-4000-8000-00000000000a'
-   and visit_id in ('c1090000-0000-4000-8000-000000002002', 'c1090000-0000-4000-8000-000000002003', 'c1090000-0000-4000-8000-000000002004', 'c1090000-0000-4000-8000-000000002005');
+   and visit_id in ('c1090000-0000-4000-8000-000000002002', 'c1090000-0000-4000-8000-000000002003', 'c1090000-0000-4000-8000-000000002004',
+                    'c1090000-0000-4000-8000-000000002005', 'c1090000-0000-4000-8000-000000002006');
 alter table public.prescriptions enable trigger prescriptions_seal_guard;
--- A: archived. M: archived, then reopened. L: a legacy path with no hash.
-update public.prescriptions set pdf_storage_path = tenant_id::text || '/' || visit_id::text || '/rx_v1.pdf', pdf_sha256 = repeat('b', 64)
- where visit_id in ('c1090000-0000-4000-8000-000000002003', 'c1090000-0000-4000-8000-000000002004');
+-- 000111 (R-A): the signer's uploads (the storage API records owner_id = the uploader), one object per sealed header at its canonical key.
+insert into storage.objects (bucket_id, name, owner, owner_id)
+  select 'prescriptions', p.tenant_id::text || '/' || p.visit_id::text || '/rx_v1.pdf', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-000000000102'
+    from public.prescriptions p where p.visit_id in ('c1090000-0000-4000-8000-000000002002', 'c1090000-0000-4000-8000-000000002003', 'c1090000-0000-4000-8000-000000002004',
+                                                    'c1090000-0000-4000-8000-000000002005', 'c1090000-0000-4000-8000-000000002006');
+-- A, M, X: archived by the signer. M is then reopened; X loses its object (storage admin, outside the app).
+do $do$ begin
+  perform pg_temp.as_actor('c1090000-0000-4000-8000-000000000102', $q$update public.prescriptions set pdf_storage_path = tenant_id::text || '/' || visit_id::text || '/rx_v1.pdf', pdf_sha256 = repeat('b', 64)
+    where visit_id in ('c1090000-0000-4000-8000-000000002003', 'c1090000-0000-4000-8000-000000002004', 'c1090000-0000-4000-8000-000000002006')$q$);
+end $do$;
+set local storage.allow_delete_query = 'true';
+delete from storage.objects where bucket_id = 'prescriptions' and name like '%/c1090000-0000-4000-8000-000000002006/rx_v1.pdf';
+-- L: a legacy path with no hash (pre-000109 data; the pair is now set only as a pair, so the row is written with the guard off: owner DDL, rolled back).
+alter table public.prescriptions disable trigger prescriptions_seal_guard;
 update public.prescriptions set pdf_storage_path = tenant_id::text || '/' || visit_id::text || '/rx_v1.pdf'
  where visit_id = 'c1090000-0000-4000-8000-000000002005';
+alter table public.prescriptions enable trigger prescriptions_seal_guard;
 do $do$
 declare
   d constant uuid := 'c1090000-0000-4000-8000-000000000102';
@@ -93,8 +108,8 @@ end $do$;
 select is((select string_agg(right(v.id::text, 2) || ':' || v.status || ':' || (v.signed_at is not null)::text || ':' || coalesce(p.pdf_sha256 is not null, false)::text
                               || ':' || coalesce((p.pdf_storage_path is not null)::text, '-'), ',' order by v.id)
              from public.visits v left join public.prescriptions p on p.visit_id = v.id where v.tenant_id = 'c1090000-0000-4000-8000-00000000000a'),
-  '01:in_consultation:false:false:false,02:completed:true:false:false,03:completed:true:true:true,04:in_consultation:true:true:true,05:completed:true:false:true,11:in_consultation:false:false:false',
-  'fixture: D open, S sealed unarchived, A sealed archived, M amending with its pair, L sealed with a legacy path and no hash');
+  '01:in_consultation:false:false:false,02:completed:true:false:false,03:completed:true:true:true,04:in_consultation:true:true:true,05:completed:true:false:true,06:completed:true:true:true,11:in_consultation:false:false:false',
+  'fixture: D open, S sealed unarchived, A sealed archived, M amending with its pair, L sealed with a legacy path and no hash, X sealed archived (object gone)');
 
 create function pg_temp.attempt(p_db_role text, p_user uuid, p_tenant uuid, p_sql text) returns text language plpgsql as $f$
 declare
@@ -124,8 +139,8 @@ $f$;
 
 create temp table roles (role text, db_role text, uid uuid, tenant uuid, kind text);
 insert into roles values
-  ('owner',        'authenticated', 'c1090000-0000-4000-8000-000000000101', 'c1090000-0000-4000-8000-00000000000a', 'usr'),
-  ('doctor',       'authenticated', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-00000000000a', 'usr'),
+  ('owner',        'authenticated', 'c1090000-0000-4000-8000-000000000101', 'c1090000-0000-4000-8000-00000000000a', 'owner'),
+  ('doctor',       'authenticated', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-00000000000a', 'doctor'),
   ('admin',        'authenticated', 'c1090000-0000-4000-8000-000000000103', 'c1090000-0000-4000-8000-00000000000a', 'other'),
   ('nurse',        'authenticated', 'c1090000-0000-4000-8000-000000000104', 'c1090000-0000-4000-8000-00000000000a', 'other'),
   ('receptionist', 'authenticated', 'c1090000-0000-4000-8000-000000000105', 'c1090000-0000-4000-8000-00000000000a', 'other'),
@@ -137,60 +152,66 @@ insert into roles values
 create temp table states (state text, visit uuid);
 insert into states values
   ('D', 'c1090000-0000-4000-8000-000000002001'), ('S', 'c1090000-0000-4000-8000-000000002002'), ('A', 'c1090000-0000-4000-8000-000000002003'),
-  ('M', 'c1090000-0000-4000-8000-000000002004'), ('L', 'c1090000-0000-4000-8000-000000002005');
+  ('M', 'c1090000-0000-4000-8000-000000002004'), ('L', 'c1090000-0000-4000-8000-000000002005'), ('X', 'c1090000-0000-4000-8000-000000002006');
 
--- {v} the visit, {t} the clinic. e_*: 'ok' admitted (1 row), otherwise a regex over the refusal. e_usr: the request path (owner, doctor); e_sys: service_role and postgres.
--- Expectations are in the state order D, S, A, M, L; '|' separates them.
-create temp table ops (op text, sql text, e_sys text, e_usr text);
+-- {v} the visit, {t} the clinic. e_*: 'ok' admitted (1 row), otherwise a regex over the refusal. e_sys: service_role and postgres; e_owner: the owner (request
+-- path, not the signer); e_doctor: the doctor (request path, the signer). Expectations are in the state order D, S, A, M, L, X; '|' separates them.
+-- 000111 (R-A): only the signer sets a pair (RX_PDF_SIGNER_ONLY for everyone else, the system path included), both columns together (a hash alone, or a hash on a
+-- legacy path, is refused), and only the signer clears a pair at the same version, only when its object is missing (X).
+create temp table ops (op text, sql text, e_sys text, e_owner text, e_doctor text);
 insert into ops values
   ('set the pair at the canonical key',
    $$update public.prescriptions set pdf_storage_path = '{t}/{v}/rx_v1.pdf', pdf_sha256 = repeat('a', 64) where visit_id = '{v}'$$,
-   'RX_PDF_NOT_SEALED|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|ok', null),
+   'RX_PDF_NOT_SEALED|RX_PDF_SIGNER_ONLY|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null,
+   'RX_PDF_NOT_SEALED|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE'),
   ('set the hash only',
    $$update public.prescriptions set pdf_sha256 = repeat('c', 64) where visit_id = '{v}'$$,
-   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|ok', null),
+   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null, null),
   ('set the pair at another version''s key',
    $$update public.prescriptions set pdf_storage_path = '{t}/{v}/rx_v9.pdf', pdf_sha256 = repeat('a', 64) where visit_id = '{v}'$$,
-   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null),
+   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null, null),
   ('set the pair at another visit''s key',
    $$update public.prescriptions set pdf_storage_path = '{t}/c1090000-0000-4000-8000-0000000020ff/rx_v1.pdf', pdf_sha256 = repeat('a', 64) where visit_id = '{v}'$$,
-   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null),
+   'RX_PDF_NOT_SEALED|RX_PDF_PATH_INVALID|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null, null),
   ('clear the pair',
    $$update public.prescriptions set pdf_storage_path = null, pdf_sha256 = null where visit_id = '{v}'$$,
-   'ok|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null),
+   'ok|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE', null,
+   'ok|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|ok'),
   ('clear the hash only',
    $$update public.prescriptions set pdf_sha256 = null where visit_id = '{v}'$$,
-   'ok|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|ok', null),
+   'ok|ok|RX_PDF_WRITE_ONCE|RX_PDF_WRITE_ONCE|ok|RX_PDF_WRITE_ONCE', null, null),
   ('raise the version and clear the pair',
    $$update public.prescriptions set version = version + 1, pdf_storage_path = null, pdf_sha256 = null where visit_id = '{v}'$$,
-   'ok|RX_SEALED|RX_SEALED|ok|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[5]), '|')),
+   'ok|RX_SEALED|RX_SEALED|ok|RX_SEALED|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[6]), '|'), null),
   ('raise the version and keep the pair',
    $$update public.prescriptions set version = version + 1 where visit_id = '{v}'$$,
-   'ok|RX_SEALED|RX_SEALED|RX_PDF_PATH_INVALID|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[5]), '|')),
+   'ok|RX_SEALED|RX_SEALED|RX_PDF_PATH_INVALID|RX_SEALED|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[6]), '|'), null),
   ('update letterhead_mode',
    $$update public.prescriptions set letterhead_mode = 'preprinted_letterhead' where visit_id = '{v}'$$,
-   'ok|RX_SEALED|RX_SEALED|ok|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[5]), '|')),
+   'ok|RX_SEALED|RX_SEALED|ok|RX_SEALED|RX_SEALED', array_to_string(array_fill('permission denied'::text, array[6]), '|'), null),
   ('update updated_at',
    $$update public.prescriptions set updated_at = now() where visit_id = '{v}'$$,
-   'ok|ok|ok|ok|ok', null);
-update ops set e_usr = e_sys where e_usr is null;
+   'ok|ok|ok|ok|ok|ok', null, null);
+update ops set e_owner = e_sys where e_owner is null;
+update ops set e_doctor = e_owner where e_doctor is null;
 
 create temp table res as
 select o.op, s.state, k.role, k.kind,
-       (string_to_array(case k.kind when 'sys' then o.e_sys else o.e_usr end, '|'))[array_position(array['D', 'S', 'A', 'M', 'L'], s.state)] as expected,
+       (string_to_array(case k.kind when 'sys' then o.e_sys when 'owner' then o.e_owner when 'doctor' then o.e_doctor else o.e_owner end, '|'))
+         [array_position(array['D', 'S', 'A', 'M', 'L', 'X'], s.state)] as expected,
        pg_temp.attempt(k.db_role, k.uid, k.tenant, replace(replace(o.sql, '{v}', s.visit::text), '{t}', k.tenant::text)) as outcome
   from ops o cross join states s cross join roles k;
 
 -- 1. The matrix ---------------------------------------------------------------------------------------------------------
-select is((select count(*)::int from res), 10 * 5 * 9, 'the matrix ran every operation in every state as every role (10 x 5 x 9)');
+select is((select count(*)::int from res), 10 * 6 * 9, 'the matrix ran every operation in every state as every role (10 x 6 x 9)');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res where outcome ~ '^error:'), null,
   'no probe failed for a reason other than the guard and the grants (no undefined column, no unexpected constraint)');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
-            where kind in ('sys', 'usr') and role in ('owner', 'doctor', 'service_role', 'postgres') and expected = 'ok' and outcome !~ '^ok:1'), null,
+            where kind in ('sys', 'owner', 'doctor') and role in ('owner', 'doctor', 'service_role', 'postgres') and expected = 'ok' and outcome !~ '^ok:1'), null,
   'owner, doctor, service_role and postgres: the admitted writes of the matrix take effect on the one header');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where role in ('owner', 'doctor', 'service_role', 'postgres') and expected <> 'ok' and expected <> 'permission denied' and outcome !~ ('^denied:(' || expected || ')$')), null,
-  'every refused write carries the guard''s own fixed name (RX_PDF_NOT_SEALED, RX_PDF_PATH_INVALID, RX_PDF_WRITE_ONCE, RX_SEALED), for the request path and the system path alike');
+  'every refused write carries the guard''s own fixed name (RX_PDF_NOT_SEALED, RX_PDF_PATH_INVALID, RX_PDF_SIGNER_ONLY, RX_PDF_WRITE_ONCE, RX_SEALED), for the request path and the system path alike');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where role in ('owner', 'doctor') and expected = 'permission denied' and outcome !~ '^denied:permission denied'), null,
   'version and letterhead_mode are not writable by the request path at all (column grant)');
@@ -202,7 +223,8 @@ select is((select string_agg(right(visit_id::text, 2) || ':' || version::text ||
              from public.prescriptions where tenant_id = 'c1090000-0000-4000-8000-00000000000a'),
   '01:1:-:-:blank_paper,02:1:-:-:blank_paper,03:1:c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002003/rx_v1.pdf:b:blank_paper,'
   '04:1:c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002004/rx_v1.pdf:b:blank_paper,'
-  '05:1:c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002005/rx_v1.pdf:-:blank_paper',
+  '05:1:c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002005/rx_v1.pdf:-:blank_paper,'
+  '06:1:c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002006/rx_v1.pdf:b:blank_paper',
   'the probes rolled back: the fixtures are unchanged');
 
 -- 2. The column, its CHECKs and the grant --------------------------------------------------------------------------------
@@ -211,12 +233,12 @@ select is((select data_type || ':' || is_nullable from information_schema.column
 select is((select array_agg(c.conname::text order by c.conname) from pg_constraint c
             where c.conrelid = 'public.prescriptions'::regclass and c.conname in ('prescriptions_pdf_sha256_shape', 'prescriptions_pdf_hash_needs_path') and c.convalidated),
   array['prescriptions_pdf_hash_needs_path', 'prescriptions_pdf_sha256_shape'], 'both CHECKs exist and are validated');
-select is(pg_temp.attempt('postgres', null, 'c1090000-0000-4000-8000-00000000000a',
+select is(pg_temp.attempt('authenticated', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-00000000000a',
   $$update public.prescriptions set pdf_storage_path = 'c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002002/rx_v1.pdf', pdf_sha256 = 'XYZ' where visit_id = 'c1090000-0000-4000-8000-000000002002'$$),
   'error:23514:new row for relation "prescriptions" violates check constraint "prescriptions_pdf_sha256_shape"',
-  'a hash that is not 64 lower-case hex characters is refused by the CHECK (the guard admits the canonical path)');
-select is(pg_temp.attempt('postgres', null, 'c1090000-0000-4000-8000-00000000000a',
-  $$update public.prescriptions set pdf_sha256 = upper(repeat('a', 64)) where visit_id = 'c1090000-0000-4000-8000-000000002005'$$),
+  'a hash that is not 64 lower-case hex characters is refused by the CHECK (the guard admits the signer''s canonical pair)');
+select is(pg_temp.attempt('authenticated', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-00000000000a',
+  $$update public.prescriptions set pdf_storage_path = 'c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002002/rx_v1.pdf', pdf_sha256 = upper(repeat('a', 64)) where visit_id = 'c1090000-0000-4000-8000-000000002002'$$),
   'error:23514:new row for relation "prescriptions" violates check constraint "prescriptions_pdf_sha256_shape"', 'upper-case hex is refused too');
 -- The guard refuses a hash without a path first; the CHECK is the second line (shown with the guard off: owner DDL in this rolled-back transaction).
 alter table public.prescriptions disable trigger prescriptions_seal_guard;
@@ -274,6 +296,10 @@ insert into public.prescriptions (id, tenant_id, visit_id, patient_id, doctor_id
    'c1090000-0000-4000-8000-000000001001', 'c1090000-0000-4000-8000-000000000102', 1);
 insert into public.prescription_items (prescription_id, medicine_name, dosage, duration) values
   ('c1090000-0000-4000-8000-000000003031', 'Synthetic medicine', '1-0-1', '5 days');
+-- 000111 (R-A): the signer's uploads of version 1 and (after the amendment) version 2, as the storage API records them.
+insert into storage.objects (bucket_id, name, owner, owner_id) values
+  ('prescriptions', 'c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002031/rx_v1.pdf', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-000000000102'),
+  ('prescriptions', 'c1090000-0000-4000-8000-00000000000a/c1090000-0000-4000-8000-000000002031/rx_v2.pdf', 'c1090000-0000-4000-8000-000000000102', 'c1090000-0000-4000-8000-000000000102');
 select is(pg_temp.call_as('c1090000-0000-4000-8000-000000000102',
   $$select (public.sign_consultation('c1090000-0000-4000-8000-00000000000a', 'c1090000-0000-4000-8000-000000002031', 'c1090000-0000-4000-8000-0000000c0011') ->> 'sealed_prescriptions')$$),
   '1', 'sign-off seals the header (no PDF pair yet)');

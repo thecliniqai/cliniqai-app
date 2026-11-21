@@ -238,6 +238,19 @@ begin
   return v_out;
 end
 $f$;
+-- 000111 (09A-06a, ruling R-A, review A-3): the reopen refuses RX_ARCHIVE_PENDING until the signed version is archived, and only the signer archives it:
+-- an object the signer owns at the canonical key (inserted here the way the storage API records an upload, owner_id = the signer) and the pair, set
+-- under the signer's own claims. Returns the header id (the UPDATE's RETURNING) or the refusal.
+create function pg_temp.archive_rx_as(p_signer uuid, p_rx uuid) returns text language plpgsql as $f$
+declare
+  v_path text;
+begin
+  select p.tenant_id::text || '/' || p.visit_id::text || '/rx_v' || p.version::text || '.pdf' into v_path from public.prescriptions p where p.id = p_rx;
+  insert into storage.objects (bucket_id, name, owner, owner_id) values ('prescriptions', v_path, p_signer, p_signer::text);
+  return pg_temp.call_as(p_signer, format($q$update public.prescriptions set pdf_storage_path = %L, pdf_sha256 = %L where id = %L returning id$q$,
+                                          v_path, encode(sha256(convert_to(v_path, 'UTF8')), 'hex'), p_rx));
+end
+$f$;
 insert into public.webhook_subscriptions (id, tenant_id, endpoint_url, event_types, signing_secret, is_active, created_by) values
   ('c1080000-0000-4000-8000-0000000000e1', 'c1080000-0000-4000-8000-00000000000a', 'https://hooks.example.test/c108',
    array['visit.completed', 'prescription.issued'], 'synthetic-signing-secret', true, 'c1080000-0000-4000-8000-000000000101');
@@ -281,6 +294,9 @@ select is(pg_temp.call_as('c1080000-0000-4000-8000-000000000102',
 alter table public.visits disable trigger visits_integrity_guard;
 update public.visits set signed_at = now() - interval '1 day' where id = 'c1080000-0000-4000-8000-000000002031';
 alter table public.visits enable trigger visits_integrity_guard;
+do $do$ begin
+  perform pg_temp.archive_rx_as('c1080000-0000-4000-8000-000000000102', 'c1080000-0000-4000-8000-000000003031');
+end $do$;
 select is(pg_temp.call_as('c1080000-0000-4000-8000-000000000102',
   $$select (public.reopen_visit_for_amendment('c1080000-0000-4000-8000-00000000000a', 'c1080000-0000-4000-8000-000000002031', 'Synthetic amendment reason for the test', 'c1080000-0000-4000-8000-0000000c0012') ->> 'revision_number')$$),
   '1', 'reopened with revision 1');

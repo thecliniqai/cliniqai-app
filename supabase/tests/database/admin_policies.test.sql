@@ -174,8 +174,8 @@ select set_eq(
     'tenant_messaging_config.tenant_messaging_config_update',
     'in_app_notifications.in_app_notifications_select', 'in_app_notifications.in_app_notifications_update',
     'document_share_tokens.document_share_tokens_select',
+    -- 000111 (09A-06a, S-1): patient_documents_update dropped (lab documents are append-only).
     'patient_documents.patient_documents_select', 'patient_documents.patient_documents_insert',
-    'patient_documents.patient_documents_update',
     'audit_logs.audit_logs_select'
   ]::text[],
   'the admin/system tables have exactly the S/I/U policies of 000057/000060 (the v1 subscriptions/payment_records were dropped in 000086, 05-09c)'

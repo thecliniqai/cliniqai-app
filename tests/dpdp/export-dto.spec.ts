@@ -18,7 +18,7 @@ import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../he
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor, mockCtx } from "../helpers/context";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
-import { signVisitAs } from "../helpers/clinical-commands";
+import { archiveRxAs, signVisitAs } from "../helpers/clinical-commands";
 
 const admin = getAdminClient();
 
@@ -107,11 +107,8 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
     // V2-09a (000109): the PDF path is written only for a signed header of a sealed visit (R-15: signed the way production does), so the export can
     // be shown to leave the stored path out.
     await signVisitAs(owner, visitId);
-    const { error: pathErr } = await admin
-      .from("prescriptions")
-      .update({ pdf_storage_path: `${owner.tenantId}/${visitId}/rx_v1.pdf` })
-      .eq("id", rxId);
-    if (pathErr) throw new Error(`seed pdf path failed: ${pathErr.message}`);
+    // V2-09a 09A-06a (R-A): the pair is the signer's (upload and pair with the signer's own client).
+    if (!(await archiveRxAs(owner, visitId))) throw new Error("seed pdf archive failed");
     storagePath = `tenants/${owner.tenantId}/patients/${patientId}/labs/${randomUUID()}.pdf`;
     await insertId("patient_documents", {
       tenant_id: owner.tenantId,

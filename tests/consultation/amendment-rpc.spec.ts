@@ -31,6 +31,7 @@ import { createBarrier, gateClient } from "../helpers/write-barrier";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import {
+  archiveRxAs,
   callFinalize,
   callReopen,
   callSign,
@@ -67,12 +68,16 @@ afterAll(async () => {
   expect(leftoverFaults()).toBe(0);
 });
 
-/** A visit signed through the sign command (so the visit, its prescription and the outbox are as production leaves them). */
+/**
+ * A visit signed through the sign command and archived by its signer, as production's sign-off leaves it (so the visit, its prescription and the
+ * outbox are as production leaves them). V2-09a 09A-06a (review A-3): the reopen refuses RX_ARCHIVE_PENDING until the signed Rx is archived.
+ */
 async function signedVisit(t: SeededTenant, opts: { doctor?: SeededTenant; marker?: string } = {}): Promise<ClinicalVisit> {
   const doctor = opts.doctor ?? members.doctor;
   const v = await seedClinicalVisit(t, { doctorId: doctor.userId, diagnosis: true, prescriptions: 1, marker: opts.marker });
   const { error } = await callSign(doctor.client, signArgs(t, v.visitId));
   if (error) throw new Error(`seed sign failed: ${error.code} ${error.message}`);
+  await archiveRxAs(doctor, v.visitId);
   return v;
 }
 
@@ -210,6 +215,10 @@ describe("finalize_visit_amendment: one transaction", () => {
   it("a second amendment cycle makes version 3", async () => {
     const v = await reopenedVisit(tenantA);
     expect((await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId))).data).toMatchObject({ version: 2 });
+    // V2-09a 09A-06a (review A-3): version 2 must be archived (by its signer, the finalizer) before it can be reopened.
+    const early = await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }));
+    expect(early.error?.message).toBe("RX_ARCHIVE_PENDING");
+    await archiveRxAs(members.doctor, v.visitId);
     expect((await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }))).data).toMatchObject({ revision_number: 2 });
     const third = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId));
     expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false });

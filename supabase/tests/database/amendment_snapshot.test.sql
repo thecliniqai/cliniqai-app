@@ -19,6 +19,12 @@ grant update on table public.visits to authenticated;
 -- 000108 (09A-02): UPDATE on public.prescriptions is narrowed for authenticated to the PDF columns. The amendment flow below bumps the header version
 -- directly (the pre-command steps this file was written for); the guards are what it proves, so the grant is widened for this transaction only.
 grant update on table public.prescriptions to authenticated;
+-- 000111 (09A-06a, review S-7): INSERT on public.visit_revisions is revoked from authenticated and the member INSERT policy (000054) is dropped; the two
+-- definer commands are the writers. This file proves the amendment-row guards themselves (defence in depth, independent of the grant), so the grant and
+-- the 000054 policy are restored for this transaction only; the revocation is proven in clinical_review_fixes.test.sql.
+grant insert on table public.visit_revisions to authenticated;
+create policy visit_revisions_insert on public.visit_revisions for insert to authenticated
+  with check (tenant_id in (select authz.tenant_ids_with('consultations:edit')));
 select plan(61);
 
 insert into auth.users (id, email) values

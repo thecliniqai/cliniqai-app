@@ -215,8 +215,11 @@ select pg_temp.as_actor('c2c00000-0000-4000-8000-000000000103', $q$update public
 alter table public.prescriptions disable trigger prescriptions_seal_guard;
 update public.prescriptions set signed_at = now() where visit_id in ('c2c00000-0000-4000-8000-000000005002', 'c2c00000-0000-4000-8000-000000005003', 'c2c00000-0000-4000-8000-000000005004');
 alter table public.prescriptions enable trigger prescriptions_seal_guard;
-update public.prescriptions set pdf_storage_path = tenant_id::text || '/' || visit_id::text || '/rx_v1.pdf', pdf_sha256 = repeat('a', 64)
- where visit_id = 'c2c00000-0000-4000-8000-000000005003';
+-- 000111 (R-A): 5003 is archived by its signer: the signer's upload (owner_id = the doctor, as the storage API records it), then the pair under the doctor's JWT.
+insert into storage.objects (bucket_id, name, owner, owner_id) values
+  ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005003/rx_v1.pdf', 'c2c00000-0000-4000-8000-000000000103', 'c2c00000-0000-4000-8000-000000000103');
+select pg_temp.as_actor('c2c00000-0000-4000-8000-000000000103', $q$update public.prescriptions set pdf_storage_path = tenant_id::text || '/' || visit_id::text || '/rx_v1.pdf', pdf_sha256 = repeat('a', 64)
+ where visit_id = 'c2c00000-0000-4000-8000-000000005003'$q$);
 select pg_temp.as_actor('c2c00000-0000-4000-8000-000000000103', $q$insert into public.visit_revisions (tenant_id, visit_id, amended_by, amendment_reason)
   values ('c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000005004', 'c2c00000-0000-4000-8000-000000000103', 'Synthetic amendment reason')$q$);
 select pg_temp.as_actor('c2c00000-0000-4000-8000-000000000103', $q$update public.visits set status = 'in_consultation' where id = 'c2c00000-0000-4000-8000-000000005004'$q$);
@@ -229,9 +232,9 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$insert
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$insert into storage.objects (bucket_id, name) values ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005004/rx_v1.pdf')$$),
   'denied:new row violates row-level security policy for table "objects"', 'nor an open amendment''s');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$insert into storage.objects (bucket_id, name) values ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005002/rx_v1.pdf')$$),
-  '1', 'a sealed visit''s signed header with no archived PDF: the doctor archives it at its own version');
+  '1', 'a sealed visit''s signed header with no archived PDF: the doctor who signed it archives it at its own version');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000101', null, $$insert into storage.objects (bucket_id, name) values ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005002/rx_v1.pdf')$$),
-  '1', 'and so does the owner (prescriptions:edit)');
+  'denied:new row violates row-level security policy for table "objects"', 'the owner (prescriptions:edit, not the signer) cannot (000111, ruling R-A)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$insert into storage.objects (bucket_id, name) values ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005002/rx_v2.pdf')$$),
   'denied:new row violates row-level security policy for table "objects"', 'a future version''s key cannot be planted ahead of its signature');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$insert into storage.objects (bucket_id, name) values ('prescriptions', 'c2c00000-0000-4000-8000-00000000000a/c2c00000-0000-4000-8000-000000005003/rx_v1.pdf')$$),
