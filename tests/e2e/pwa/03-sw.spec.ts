@@ -11,7 +11,7 @@ import { storageStatePath } from "../support/run-data";
 test.use({ storageState: storageStatePath("owner") });
 
 test("the shell registers /sw.js (scope /, update via cache: none) and it activates", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/today");
   await waitForServiceWorker(page);
   const reg = await page.evaluate(async () => {
     const r = await navigator.serviceWorker.getRegistration("/");
@@ -33,7 +33,7 @@ test("/sw.js is served no-store with a same-origin-only CSP, signed in and signe
 });
 
 test("the precache holds the five public shell URLs (≤ 150 kB) and the offline page's stylesheets, in this build's cache", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/today");
   await waitForServiceWorker(page);
   const name = await shellCacheName(page);
   const stamp = /const BUILD = "([^"]+)";/.exec(await (await page.request.get("/sw.js")).text())?.[1];

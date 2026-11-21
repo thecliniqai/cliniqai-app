@@ -41,7 +41,11 @@ export async function seedBookedToday(name = todayName("Booked"), time = "10:00"
 }
 
 /** A walk-in already in the queue (status `waiting`) with the next free token of the day. */
-export async function seedWaitingToday(name = todayName("Waiting"), vitals?: Record<string, number>): Promise<TodayVisit & { token: number }> {
+export async function seedWaitingToday(
+  name = todayName("Waiting"),
+  vitals?: Record<string, number>,
+  doctorId?: string,
+): Promise<TodayVisit & { token: number }> {
   const { tenantA } = run();
   const admin = getAdminClient();
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, name);
@@ -50,7 +54,7 @@ export async function seedWaitingToday(name = todayName("Waiting"), vitals?: Rec
     .insert({
       tenant_id: tenantA.id,
       patient_id: patient.id,
-      doctor_id: tenantA.users.doctor.id,
+      doctor_id: doctorId ?? tenantA.users.doctor.id,
       origin_type: "walk_in",
       status: "waiting",
       estimated_duration_minutes: 15,
@@ -77,6 +81,12 @@ export async function seedWaitingToday(name = todayName("Waiting"), vitals?: Rec
     if (noted.error) throw new Error(`today seed: vitals failed: ${noted.error.message}`);
   }
   return { visitId: data.id, patientId: patient.id, name, token };
+}
+
+/** The vitals JSON stored on the visit's clinical note (null when none). */
+export async function vitalsOfVisit(visitId: string): Promise<Record<string, unknown> | null> {
+  const { data } = await getAdminClient().from("clinical_notes").select("vitals").eq("visit_id", visitId).maybeSingle();
+  return (data?.vitals as Record<string, unknown> | null) ?? null;
 }
 
 export async function visitStatusOf(visitId: string): Promise<string | null> {

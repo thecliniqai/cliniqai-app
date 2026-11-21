@@ -116,7 +116,7 @@ test.describe("doctor", () => {
   test.use({ storageState: storageStatePath("doctor") });
 
   test("billing reports are refused by the server (redirected away)", async ({ page }, testInfo) => {
-    await page.goto("/cabin");
+    await page.goto("/today");
     await characteriseVisibility(page, testInfo, "Billing navigation for a doctor", /Billing/);
 
     for (const path of ["/billing/reports", "/billing/register"]) {

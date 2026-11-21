@@ -70,7 +70,7 @@ test.describe("browse as owner", () => {
       .single();
     expect(error).toBeNull();
 
-    const today = await page.goto("/");
+    const today = await page.goto("/today");
     expect(today!.headers()["cache-control"]).toMatch(NO_STORE);
     await waitForServiceWorker(page);
     await page.reload();

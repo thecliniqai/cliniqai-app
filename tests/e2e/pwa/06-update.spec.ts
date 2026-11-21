@@ -114,9 +114,9 @@ test.describe("update toast and safe point (owner)", () => {
   test.use({ storageState: storageStatePath("owner") });
 
   test("@golden the page and the status route carry the same deployment id: no toast on load", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/today");
     expect(await pageDeploymentId(page)).toBe(E2E_DEPLOYMENT_ID);
-    const html = await (await page.request.get("/", { maxRedirects: 0 })).text();
+    const html = await (await page.request.get("/today", { maxRedirects: 0 })).text();
     expect(html).toMatch(new RegExp(`<html[^>]* data-dpl-id="${E2E_DEPLOYMENT_ID}"`));
     const status = await page.request.get("/api/session-status", { maxRedirects: 0 });
     expect(status.status()).toBe(200);
@@ -128,7 +128,7 @@ test.describe("update toast and safe point (owner)", () => {
   });
 
   test("@golden another deployment → the toast after a resume; Reload reloads", async ({ page }) => {
-    await openAndSettle(page, "/");
+    await openAndSettle(page, "/today");
     expect(await pageDeploymentId(page)).toBe(E2E_DEPLOYMENT_ID);
     await expect(toast(page).getByText(READY)).toHaveCount(0);
     await reportNewDeployment(page);
@@ -136,7 +136,7 @@ test.describe("update toast and safe point (owner)", () => {
     await resumeUntilToast(page, READY);
     await toast(page).getByRole("button", { name: "Reload" }).click();
     await expect.poll(() => hasMarker(page).catch(() => false)).toBe(false);
-    await expect(page).toHaveURL((url) => url.pathname === "/");
+    await expect(page).toHaveURL((url) => url.pathname === "/today");
   });
 
   test("typed input: a client navigation does not reload; the next navigation (nothing typed) does", async ({ page }) => {
@@ -159,7 +159,7 @@ test.describe("update toast and safe point (owner)", () => {
   });
 
   test("@golden nothing typed: the next client navigation applies the update (reload)", async ({ page }) => {
-    await openAndSettle(page, "/");
+    await openAndSettle(page, "/today");
     await reportNewDeployment(page);
     await resumeUntilToast(page, READY);
     await setMarker(page);

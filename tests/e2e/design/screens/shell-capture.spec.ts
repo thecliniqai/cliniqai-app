@@ -1,5 +1,5 @@
 /**
- * Shell before/after captures (V2-06 06-04b, DoD 3): Login, Today, Patients, the consult and the Live Queue at the four
+ * Shell before/after captures (V2-06 06-04b, DoD 3): Login, Today, Patients, the consult and the receptionist's Today at the four
  * design widths, as the role that uses each screen, into the git-ignored `design-captures/06-04b/<label>/<project>/`.
  * Runs only in the design-* projects (the PR and nightly lanes ignore `tests/e2e/design/screens/**`). The label
  * ("before" on the plan base build, "after" on the 06-04b build) comes from `design-captures/06-04b/label.json`,
@@ -32,10 +32,10 @@ const SIGNED_OUT = { cookies: [], origins: [] };
 
 const SCREENS: Array<{ name: string; role: E2eRole | null; url: () => string }> = [
   { name: "login", role: null, url: () => "/login" },
-  { name: "today", role: "owner", url: () => "/" },
+  { name: "today", role: "owner", url: () => "/today" },
   { name: "patients", role: "owner", url: () => "/patients" },
   { name: "consult", role: "doctor", url: () => `/consultation/${readRunData().tenantA.visitId}` },
-  { name: "queue", role: "receptionist", url: () => "/queue" },
+  { name: "today-receptionist", role: "receptionist", url: () => "/today" },
 ];
 
 async function shoot(page: Page, project: string, name: string): Promise<void> {

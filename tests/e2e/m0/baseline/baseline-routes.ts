@@ -7,6 +7,8 @@ import type { Page } from "@playwright/test";
 import { expect } from "../../fixtures";
 import { dashboardRoutes, routeSlug } from "../../support/routes";
 import { readRunData, type E2eRole } from "../../support/run-data";
+import { seedPatient, seedVisit, testTag } from "../../support/m0-data";
+import { openBill, openToday } from "../../support/today-page";
 
 export interface BaselineRoute {
   pattern: string;
@@ -18,7 +20,7 @@ export interface BaselineRoute {
 }
 
 /** Doctor-facing screens are captured as the doctor; everything else as the owner (who can open every page). */
-const DOCTOR_ROUTES = new Set(["/cabin", "/consultation/[id]"]);
+const DOCTOR_ROUTES = new Set(["/consultation/[id]"]);
 
 function fillSegment(pattern: string): string {
   const { tenantA } = readRunData();
@@ -60,9 +62,10 @@ export const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Pag
     name: "flow-walk-in-drawer",
     role: "receptionist",
     open: async (page) => {
-      await page.goto("/queue");
-      await page.getByRole("button", { name: "+ Add Walk-In" }).click();
-      await expect(page.getByRole("heading", { name: "Quick Walk-In Registration" })).toBeVisible();
+      // V2-08 08-03b: the walk-in is a sheet on Today (`?walkin=1`).
+      await page.goto("/today");
+      await page.getByRole("link", { name: "Add walk-in" }).click();
+      await expect(page.getByRole("dialog", { name: "Add walk-in" })).toBeVisible();
     },
   },
   {
@@ -87,12 +90,21 @@ export const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Pag
     name: "flow-checkout-drawer",
     role: "receptionist",
     open: async (page) => {
-      await page.goto("/queue");
-      await page
-        .getByRole("heading", { name: readRunData().tenantA.patientName, exact: true })
-        .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]")
-        .getByRole("button", { name: /Checkout/ })
-        .click();
+      // V2-08 08-03b: Collect (or Bill) on a completed visit's Today row opens the checkout drawer. Run data's visit is in
+      // consultation (nothing to bill yet), so this flow seeds its own completed one.
+      const { tenantA } = readRunData();
+      const name = `E2E Synthetic Flow Checkout ${testTag()}`;
+      const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, name);
+      await seedVisit({
+        tenantId: tenantA.id,
+        patientId: patient.id,
+        doctorId: tenantA.users.doctor.id,
+        createdBy: tenantA.users.receptionist.id,
+        status: "completed",
+        signedAt: new Date().toISOString(),
+      });
+      await openToday(page);
+      await openBill(page, name);
       await expect(page.getByRole("heading", { name: "Patient Checkout & Billing" })).toBeVisible();
     },
   },

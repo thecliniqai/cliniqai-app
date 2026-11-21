@@ -48,7 +48,7 @@ test("signed out: /manifest.webmanifest answers 200 application/manifest+json wi
   const manifest = (await res.json()) as Record<string, unknown>;
   expect(manifest).toMatchObject({
     id: "/",
-    start_url: "/?source=pwa",
+    start_url: "/today?source=pwa",
     scope: "/",
     display: "standalone",
     theme_color: expect.stringMatching(/^#[0-9a-f]{6}$/i),

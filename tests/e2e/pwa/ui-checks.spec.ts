@@ -62,7 +62,7 @@ test.describe("signed in", () => {
   for (const w of DESIGN_WIDTHS) {
     test(`offline banner on Today at ${w.width}px: axe clean, adds no horizontal scroll`, async ({ page, context }, testInfo) => {
       await page.setViewportSize({ width: w.width, height: w.height });
-      await page.goto("/");
+      await page.goto("/today");
       await waitForServiceWorker(page);
       const scrollBefore = await noHorizontalScroll(page);
       await context.setOffline(true);
@@ -78,7 +78,7 @@ test.describe("signed in", () => {
     test(`user menu with Switch user at ${w.width}px: visible, axe clean`, async ({ page }, testInfo) => {
       // Read-only: the menu is opened, never used, so the shared nurse session is safe.
       await page.setViewportSize({ width: w.width, height: w.height });
-      await page.goto("/");
+      await page.goto("/today");
       await page.getByRole("button", { name: /^Account menu/ }).click();
       for (const name of ["Switch user", "Sign out", "Sign out of all devices"]) {
         await expect(page.getByRole("menuitem", { name, exact: true })).toBeInViewport();

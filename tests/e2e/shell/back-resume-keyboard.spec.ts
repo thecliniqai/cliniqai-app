@@ -86,8 +86,8 @@ async function resume(page: Page): Promise<void> {
 
 test("visibilitychange on Today triggers one RSC refresh; on Patients none", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  const today = countRefreshes(page, "/");
-  await page.goto("/");
+  const today = countRefreshes(page, "/today");
+  await page.goto("/today");
   await expect(page.getByRole("main")).toBeVisible();
   await page.waitForLoadState("networkidle");
   expect(today()).toBe(0);

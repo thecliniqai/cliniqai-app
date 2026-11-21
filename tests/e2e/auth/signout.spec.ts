@@ -194,7 +194,7 @@ test.describe("user menu with the sign-out items", () => {
     test(`at ${size.width}px: both items visible, 0 serious/critical axe violations`, async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== "desktop-chrome", "sets its own viewport; checked once");
       await page.setViewportSize(size);
-      await page.goto("/");
+      await page.goto("/today");
       await openUserMenu(page);
       for (const name of ["Sign out", "Sign out of all devices"]) {
         await expect(page.getByRole("menuitem", { name, exact: true })).toBeVisible();

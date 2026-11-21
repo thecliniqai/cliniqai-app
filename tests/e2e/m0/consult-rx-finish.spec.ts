@@ -27,6 +27,7 @@ import {
   visitById,
 } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { openToday, rowOf } from "../support/today-page";
 import { knownBug, knownBugMessage } from "../support/known-bug";
 
 test.use({ storageState: storageStatePath("doctor") });
@@ -52,12 +53,11 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   const notes = "Synthetic note: two days of mild fever, no red flags.";
   const meds = [`E2E Synthetic Med A ${tag}`, `E2E Synthetic Med B ${tag}`];
 
-  // Open the waiting patient from the cabin.
-  await page.goto("/cabin");
-  const card = page
-    .getByRole("heading", { name: patientName, exact: true })
-    .locator("xpath=ancestor::div[.//button[contains(., 'Consultation')]][1]");
-  await ux.click(card.getByRole("button", { name: /Start Consultation/ }), "Start Consultation");
+  // Open the waiting patient from the doctor's Today (R-14: the cabin is "My queue"); the filter box finds this patient among
+  // the clinic's shared synthetic rows and the row's own action calls them in.
+  await openToday(page, "/today?mode=doctor");
+  await ux.fill(page.getByLabel("Token, name or mobile"), patientName, "Token, name or mobile");
+  await ux.click(rowOf(page, patientName).getByRole("button", { name: `Call in ${patientName}` }), "Call in");
   await expect(page).toHaveURL(new RegExp(`/consultation/${visitId}$`));
   // The workspace is open for this patient. (v1 hides the header h1 on narrow screens, so anchor on the notes field,
   // visible at every width, and check the patient's name is in the page's h1 without requiring it to be shown.)

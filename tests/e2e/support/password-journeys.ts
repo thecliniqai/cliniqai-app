@@ -38,7 +38,7 @@ export async function uiSignIn(page: Page, user: JourneyUser): Promise<void> {
   await page.getByLabel(/^Email/).fill(user.email);
   await page.getByLabel(/^Password/).fill(user.password);
   await submit.click();
-  await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
+  await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
 }
 
 /** A fresh browser context with the fixture's loopback-only network block; blocked hosts land in `blocked`. */

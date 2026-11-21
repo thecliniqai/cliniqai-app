@@ -66,7 +66,7 @@ function unreadableIsAcceptable(capturedUrl: string, probedPath: string): boolea
   if (url.pathname === probedPath && !url.searchParams.has("_rsc")) return true;
   // V2-08 08-01a (P1-07): a role without consultations:view is redirected to its home before the visit is read. That
   // landing document is clinic A's own page, and the final DOM is checked below.
-  if (url.pathname === "/" && !url.searchParams.has("_rsc")) return true;
+  if (url.pathname === "/today" && !url.searchParams.has("_rsc")) return true;
   return url.searchParams.has("_rsc") && url.pathname !== probedPath;
 }
 

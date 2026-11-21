@@ -7,13 +7,18 @@
  *   1. the response is lost once: the automatic retry succeeds; exactly one invoice and one payment exist;
  *   2. every attempt is lost (the payment and the reload that follows): the form keeps its values and shows an error;
  *      after the route is cleared a manual retry gives exactly one invoice and one payment.
- * Walk-in and booking legs are added by 08-03b and 08-04b. Synthetic data only.
+ * Walk-in leg (08-03b), a NEW patient in the walk-in sheet, where the patient, the visit and the token are one command:
+ *   3. the response is lost once: the automatic retry succeeds; exactly one patient, one visit and one token exist;
+ *   4. every attempt is lost: the sheet keeps what was typed and says so; the server committed once; after the route is
+ *      cleared a manual retry changes nothing (still one patient, one visit, one token; no orphan patient).
+ * The booking leg is added by 08-04b. Synthetic data only.
  */
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
-import { invoicesOf, run, seedPatient, seedQueueToken, seedVisit, testTag } from "../support/m0-data";
+import { invoicesOf, patientsByName, run, seedPatient, seedQueueToken, seedVisit, syntheticPhoneDigits, testTag, tokenOf, visitsOf } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 import { commitThenAbort } from "../support/commit-then-abort";
+import { openBill, openToday } from "../support/today-page";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -38,11 +43,8 @@ async function openCheckout(page: Page, utr: string): Promise<{ visitId: string;
   });
   await seedQueueToken(tenantA.id, visitId);
 
-  await page.goto("/queue");
-  const card = page
-    .getByRole("heading", { name: patientName, exact: true })
-    .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
-  await card.getByRole("button", { name: /Checkout/ }).click();
+  await openToday(page);
+  await openBill(page, patientName);
   const drawer = checkoutDrawer(page);
   await expect(drawer).toBeVisible();
   await drawer.getByLabel(/^OPD Consultation Fee/).fill("600");
@@ -94,5 +96,64 @@ test.describe("payment: the response is lost after the commit", () => {
     expect(invoices).toHaveLength(1);
     expect(invoices[0].status).toBe("paid");
     expect(invoices[0].payments).toEqual([{ amount: 600, payment_method: "upi", reference_number: utr }]);
+  });
+});
+
+/** The walk-in sheet with a NEW patient typed in, ready to submit; the patient's name is unique to the test. */
+async function openNewcomer(page: Page): Promise<{ name: string; sheet: Locator }> {
+  const name = `E2E Synthetic Retry Walk-in ${testTag()}`;
+  await openToday(page, "/today?walkin=1");
+  const sheet = page.getByRole("dialog", { name: "Add walk-in" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByText("Loading doctors…")).toHaveCount(0);
+  await sheet.getByRole("combobox", { name: "Patient" }).fill(name);
+  await sheet.getByRole("option", { name: /Register as new patient/ }).click();
+  await sheet.getByRole("textbox", { name: "Mobile number" }).fill(syntheticPhoneDigits());
+  await sheet.getByRole("textbox", { name: "Age" }).fill("33");
+  await sheet.getByRole("radio", { name: "Male", exact: true }).click();
+  return { name, sheet };
+}
+
+/** One patient, one walk-in visit, one token: what a committed walk-in leaves, however often the request was sent. */
+async function expectOneWalkIn(name: string): Promise<string> {
+  const { tenantA } = run();
+  const patients = await patientsByName(tenantA.id, name);
+  expect(patients, "exactly one patient (no orphan from a retry)").toHaveLength(1);
+  const visits = await visitsOf(tenantA.id, patients[0].id);
+  expect(visits).toHaveLength(1);
+  expect(visits[0]).toMatchObject({ origin_type: "walk_in", status: "waiting" });
+  expect(await tokenOf(visits[0].id)).not.toBeNull();
+  return visits[0].id;
+}
+
+test.describe("walk-in: the response is lost after the commit", () => {
+  test("lost once: the automatic retry succeeds with one patient, one visit and one token", async ({ page }) => {
+    const { name, sheet } = await openNewcomer(page);
+    const cut = await commitThenAbort(page, { first: 1, matches: (r) => (r.postData() ?? "").includes(name) });
+
+    await sheet.getByRole("button", { name: "Register and add to queue" }).click();
+    await expect(page.getByRole("dialog", { name: "Add walk-in" })).toHaveCount(0, { timeout: 30_000 });
+    expect(cut.aborted).toBe(1);
+    await cut.clear();
+    await expectOneWalkIn(name);
+  });
+
+  test("lost on every attempt: the sheet keeps its values and shows an error; a manual retry after the route is cleared adds nothing", async ({ page }) => {
+    const { name, sheet } = await openNewcomer(page);
+    const cut = await commitThenAbort(page, { first: "all", matches: (r) => (r.postData() ?? "").includes(name) });
+
+    await sheet.getByRole("button", { name: "Register and add to queue" }).click();
+    await expect(sheet.getByText(/Couldn't save/)).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByRole("dialog", { name: "Add walk-in" })).toBeVisible();
+    await expect(sheet.getByRole("textbox", { name: "Full name" })).toHaveValue(name);
+    expect(cut.aborted).toBeGreaterThanOrEqual(2);
+    await cut.clear();
+
+    // The server committed the first attempt, once.
+    await expectOneWalkIn(name);
+
+    await sheet.getByRole("button", { name: "Retry" }).click();
+    await expect(page.getByRole("dialog", { name: "Add walk-in" })).toHaveCount(0, { timeout: 30_000 });
+    await expectOneWalkIn(name);
   });
 });

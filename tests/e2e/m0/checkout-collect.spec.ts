@@ -10,14 +10,9 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { invoicesOf, run, seedPatient, seedQueueToken, seedVisit, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { openBill, openToday } from "../support/today-page";
 
 test.use({ storageState: storageStatePath("receptionist") });
-
-function queueCard(page: Page, patientName: string): Locator {
-  return page
-    .getByRole("heading", { name: patientName, exact: true })
-    .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
-}
 
 function checkoutDrawer(page: Page): Locator {
   return page
@@ -41,12 +36,11 @@ test("bill a completed visit, collect cash then UPI balance → invoice paid, tw
   await seedQueueToken(tenantA.id, visitId);
   const utr = `E2E${Date.now()}`;
 
-  await page.goto("/queue");
-  const card = queueCard(page, patientName);
-  await expect(card).toBeVisible();
+  await openToday(page);
 
-  // 1. Create the invoice (₹600) and collect ₹200 in cash.
-  await ux.click(card.getByRole("button", { name: /Checkout/ }), "Checkout");
+  // 1. Create the invoice (₹600) and collect ₹200 in cash. The patient is found with the filter box (tenant A is shared);
+  // the visit has no invoice yet, so its row says "Bill" (08-03b: Collect on a To-bill row, Bill on any other completed one).
+  await openBill(page, patientName, ux);
   let drawer = checkoutDrawer(page);
   await expect(drawer).toBeVisible();
   await ux.fill(drawer.getByLabel(/^OPD Consultation Fee/), "600", "OPD Consultation Fee");
@@ -63,7 +57,8 @@ test("bill a completed visit, collect cash then UPI balance → invoice paid, tw
   // 2. Reopen and collect the ₹400 balance by UPI; the final submit is double-clicked.
   await ux.click(drawer.getByRole("button", { name: "Close drawer" }), "Close drawer");
   await expect(page.getByRole("heading", { name: "Patient Checkout & Billing" })).toHaveCount(0);
-  await ux.click(queueCard(page, patientName).getByRole("button", { name: /Checkout/ }), "Checkout");
+  // The row is in To bill now, with the ₹400 still due.
+  await openBill(page, patientName, ux);
   drawer = checkoutDrawer(page);
   await expect(drawer.getByText("₹400 Pending")).toBeVisible();
   await expect(drawer.getByLabel(/^Amount to Collect/)).toHaveValue("400");

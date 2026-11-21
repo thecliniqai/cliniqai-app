@@ -137,6 +137,7 @@ export const PREF_KEYS = [
   "clinicos.pref.signedInSessions",
   "clinicos.pref.density",
   "clinicos.pref.lastLane",
+  "clinicos.pref.shortcuts",
 ];
 
 const AUTH_COOKIE = /^sb-[a-z0-9-]+-auth-token(?:\.\d+)?$/;

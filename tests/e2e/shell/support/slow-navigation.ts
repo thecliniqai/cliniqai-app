@@ -66,7 +66,7 @@ export async function holdNavigation(page: Page, pathname: string, holdMs?: numb
  */
 export async function clickNavLink(page: Page, name: string, nav: HeldNavigation): Promise<void> {
   // 06-09e: every locator is scoped to the shell's navigation (the visible Primary nav, or the More sheet). A page's own
-  // content can hold a link of the same name (Today's "Live Queue" and "Calendar" buttons), so an unscoped
+  // content can hold a link of the same name, so an unscoped
   // `getByRole("link", { name })` matched two links whenever that content had rendered (CI run 43705726084).
   const primaryNav = page.getByRole("navigation", { name: "Primary" });
   const primary = primaryNav.getByRole("link", { name, exact: true });

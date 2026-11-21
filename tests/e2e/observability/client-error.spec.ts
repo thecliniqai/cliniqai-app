@@ -63,7 +63,7 @@ test("a client render error shows the boundary without its message and lands in 
 
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Go to Today" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("link", { name: "Go to Today" })).toHaveAttribute("href", "/today");
   const text = await page.locator("body").innerText();
   for (const value of SYNTHETIC) expect(text).not.toContain(value);
 

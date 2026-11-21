@@ -122,7 +122,7 @@ test.describe("M-REMOVED: removed from the active clinic with another clinic lef
     // 06-09d (PR-lane run 1 root cause): the shell's first status check must have answered before the removal, or its
     // 403 signs the page out while the test's own `goto` is loading (net::ERR_ABORTED). See the 06-06 wave note.
     const firstCheck = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/session-status" && r.status() === 200, { timeout: 30_000 });
-    await page.goto("/");
+    await page.goto("/today");
     await firstCheck;
     // The clinic name is in the shell (in the sidebar at desktop widths, out of view on phones).
     await expect(page.getByText(a.tenantName).first()).toBeAttached();

@@ -5,8 +5,8 @@
  *   screen stays visible (in memory); going online removes the banner.
  * Before 06-05: Chrome's own offline error page, and no banner.
  *
- * Part 2, the write buttons (06-02a, R-32; spec 4 complete): v1 call sites of the Button primitive, unchanged. Offline,
- * the submit buttons of the walk-in drawer ("Register & Issue Token") and the register sheet ("Register patient", V2-08 08-02)
+ * Part 2, the write buttons (06-02a, R-32; spec 4 complete): call sites of the Button primitive. Offline, the submit buttons
+ * of the walk-in sheet ("Register and add to queue", V2-08 08-03b) and the register sheet ("Register patient", V2-08 08-02)
  * are disabled (`aria-disabled`, still focusable), described by "You're offline. Changes are disabled until you
  * reconnect.", and a click does not submit the form; online again they are enabled and undescribed. Before 06-02a:
  * the buttons stayed enabled offline and a click submitted.
@@ -14,6 +14,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test, waitForServiceWorker } from "./fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
+import { testTag } from "../support/m0-data";
+import { seedWaitingToday } from "../support/today-data";
+import { rowOf } from "../support/today-page";
 
 const OFFLINE_REASON = "You're offline. Changes are disabled until you reconnect.";
 
@@ -21,19 +24,25 @@ test.use({ storageState: storageStatePath("owner") });
 
 test("offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online", async ({ page, context }) => {
   const patientName = readRunData().tenantA.patientName;
-  await page.goto("/");
+  const seeded = await seedWaitingToday();
+  await page.goto("/today");
   await waitForServiceWorker(page);
   await page.reload(); // a controlled load, so the page's static assets are in static-v1 for the offline render
   const banner = page.getByRole("status").filter({ hasText: "You're offline" });
   const main = page.getByRole("main");
-  await expect(main.getByText(/E2E Synthetic/).first()).toBeVisible();
+  // A row on screen: below 1280 px only the Waiting lane is shown, so this spec seeds a waiting patient of its own.
+  await expect(rowOf(page, seeded.name)).toBeVisible();
   const onScreen = await main.innerText(); // Today's rows (synthetic patients of this run)
   await expect(banner).toHaveCount(0);
 
   await context.setOffline(true);
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(/You're offline · showing data from \d{1,2}:\d{2}\s?(am|pm)\. Changes are disabled until you reconnect\./i);
-  expect(await main.innerText(), "the rows already on screen stay (held in memory)").toBe(onScreen);
+  // Offline, every write button (Check in, Collect, ...) carries its screen-reader reason (Button's offline rule, tested below);
+  // the rows themselves must be unchanged, so that text is left out of the comparison.
+  const withoutReasons = async () => (await main.innerText()).split(OFFLINE_REASON).join("").replace(/\n{2,}/g, "\n");
+  const rowsOnScreen = onScreen.replace(/\n{2,}/g, "\n");
+  expect(await withoutReasons(), "the rows already on screen stay (held in memory)").toBe(rowsOnScreen);
 
   // Back online, Today re-fetches once (lib/pwa/resume.ts, router.refresh()). Wait for that RSC answer before going
   // offline again: if the network drops while it is in flight, Next falls back to a full navigation of the current URL
@@ -48,7 +57,7 @@ test("offline: a navigation shows the /offline page; Today keeps its rows and sh
   await page.goto("/patients");
   await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
   await expect(page.getByText("Patient data isn't stored on this device. Reconnect to continue.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/today");
   await expect(page.getByText(patientName)).toHaveCount(0);
   await expect(page.getByText(/E2E Synthetic/)).toHaveCount(0);
   await context.setOffline(false);
@@ -64,15 +73,16 @@ async function countSubmits(page: Page): Promise<() => Promise<number>> {
   return () => page.evaluate(() => (window as unknown as { __submits: number }).__submits);
 }
 
-test("offline: the walk-in drawer and patient form submit buttons are disabled with the reason, and enabled again online", async ({ page, context }) => {
-  // The walk-in drawer's new-patient form (the v1 queue page).
-  await page.goto("/queue");
-  await page.getByRole("button", { name: "+ Add Walk-In" }).click();
-  const drawer = page
-    .getByRole("heading", { name: "Quick Walk-In Registration" })
-    .locator("xpath=ancestor::div[contains(@class,'fixed')][1]");
-  await drawer.getByRole("button", { name: "New Patient" }).click();
-  const issue = drawer.getByRole("button", { name: "Register & Issue Token" });
+test("offline: the walk-in sheet and patient form submit buttons are disabled with the reason, and enabled again online", async ({ page, context }) => {
+  // The walk-in sheet's new-patient form (Today, `?walkin=1`).
+  await page.goto("/today?walkin=1");
+  const drawer = page.getByRole("dialog", { name: "Add walk-in" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("Loading doctors…")).toHaveCount(0);
+  // A name nobody has (tenant A is shared), so the picker offers "Register as new patient".
+  await drawer.getByRole("combobox", { name: "Patient" }).fill(`E2E Synthetic Offline ${testTag()}`);
+  await drawer.getByRole("option", { name: /Register as new patient/ }).click();
+  const issue = drawer.getByRole("button", { name: "Register and add to queue" });
   await expect(issue).toBeEnabled();
   await expect(issue).toHaveAccessibleDescription("");
   const drawerSubmits = await countSubmits(page);

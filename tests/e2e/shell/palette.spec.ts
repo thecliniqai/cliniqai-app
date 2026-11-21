@@ -46,7 +46,7 @@ test.describe("owner", () => {
     const digits = patient.phone.slice(-10);
 
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.getByRole("main")).toBeVisible();
     // The search route's answers, taken on the way through (route.fetch).
     const bodies: string[] = [];
@@ -112,7 +112,7 @@ test.describe("owner", () => {
     expect(await groupHeadings(page)).toEqual(["Actions", "Navigate"]);
   });
 
-  test("a token in today's queue is found by its number and opens the Live Queue", async ({ page }) => {
+  test("a token in today's queue is found by its number and opens Today", async ({ page }) => {
     const { tenantA } = readRunData();
     const p = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Queue Palette ${testTag()}`);
     const visitId = await seedVisit({
@@ -132,14 +132,14 @@ test.describe("owner", () => {
     await expect(row).toBeVisible();
     expect(await groupHeadings(page)).toContain("Today queue");
     await row.click();
-    await page.waitForURL((url) => url.pathname === "/queue");
+    await page.waitForURL((url) => url.pathname === "/today");
   });
 
   // 06-09c (IND L-3): before, "re" + Enter typed fast (meant for a patient called Rekha) opened "Register patient": the
   // first matching action was the default selection while the patient search ran.
   test("Enter before the answer to what is typed opens nothing; after the answer it acts", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.getByRole("main")).toBeVisible();
     // Hold the patient search's answer, so the search is still running when Enter is pressed.
     let release: () => void = () => undefined;
@@ -153,7 +153,7 @@ test.describe("owner", () => {
     await expect(dialog(page).getByRole("progressbar")).toBeVisible();
     await page.keyboard.press("Enter");
     await page.waitForTimeout(300);
-    expect(new URL(page.url()).pathname).toBe("/");
+    expect(new URL(page.url()).pathname).toBe("/today");
     await expect(dialog(page)).toBeVisible();
     release();
     await expect(dialog(page).getByRole("progressbar")).toHaveCount(0);
@@ -165,7 +165,7 @@ test.describe("owner", () => {
 
   test("below 768 px the palette is full screen with a Close button (opened from the Search button)", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 360, height: 780 });
-    await page.goto("/");
+    await page.goto("/today");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(dialog(page)).toBeVisible();
     await settleAnimations(page);
@@ -183,15 +183,14 @@ test.describe("receptionist", () => {
 
   test("a receptionist sees no settings action and no settings destination", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await openWithShortcut(page);
     const options = await dialog(page).getByRole("option").allTextContents();
     expect(options.map((o) => o.trim())).toEqual([
       "Register patient",
       "Add walk-in",
       "Book appointment",
-      "Dashboard",
-      "Live Queue",
+      "Today",
       "Calendar",
       "Patients",
       "Visits",
