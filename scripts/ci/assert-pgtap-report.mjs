@@ -100,6 +100,11 @@
  *          the first header of an open visit is admitted) = 8391 (57 files). authz_matrix keeps its cell count (the prescriptions INSERT
  *          cell frees the fixture header and writes version 1; the UPDATE cell sets letterhead_mode); visit_integrity and
  *          amendment_snapshot widen the prescriptions UPDATE grant inside their own transaction, like they do for visits.
+ *   8430 — V2-09a 09A-03 (000109 rx_pdf_write_once): 8391 + rx_pdf_write_once 28 (new file, every one required) + storage_policies 11 (46 -> 57) (the Rx INSERT cases
+ *          of section 2b: draft, amending, sealed unarchived as doctor and as owner, a future version, an archived header, a nurse, another clinic, a key with
+ *          no visit, no DELETE; the two old Rx cases change their expectation and the catalogue loses the Rx UPDATE policy) = 8430 (58 files). prescription_seal
+ *          and grants keep their counts (the column list and two expectations change); authz_matrix keeps its cell count (the rx INSERT and UPDATE cells become
+ *          `none`).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -111,7 +116,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8391;
+export const FLOOR = 8430;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -205,6 +210,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/clinical_seal.test.sql",
   // V2-09a 09A-02
   "supabase/tests/database/prescription_seal.test.sql",
+  // V2-09a 09A-03
+  "supabase/tests/database/rx_pdf_write_once.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

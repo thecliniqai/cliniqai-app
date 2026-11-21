@@ -2020,6 +2020,7 @@ export type Database = {
           id: string;
           letterhead_mode: string;
           patient_id: string;
+          pdf_sha256: string | null;
           pdf_storage_path: string | null;
           signed_at: string | null;
           status: string;
@@ -2036,6 +2037,7 @@ export type Database = {
           id?: string;
           letterhead_mode?: string;
           patient_id: string;
+          pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
           signed_at?: string | null;
           status?: string;
@@ -2051,6 +2053,7 @@ export type Database = {
           id?: string;
           letterhead_mode?: string;
           patient_id?: string;
+          pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
           signed_at?: string | null;
           status?: string;

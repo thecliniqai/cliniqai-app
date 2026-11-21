@@ -385,7 +385,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "storage:prescriptions/rx": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)", "none"],
+  "storage:prescriptions/rx": ["perm(prescriptions:view)", "none", "none", "none"],
   "storage:prescriptions/receipt": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",

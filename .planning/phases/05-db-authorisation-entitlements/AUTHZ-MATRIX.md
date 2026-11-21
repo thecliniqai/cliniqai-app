@@ -281,8 +281,8 @@ Principals:
 | `ops.error_events` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.error_events` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `storage:prescriptions/rx` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `storage:prescriptions/rx` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `storage:prescriptions/rx` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:prescriptions/rx` | I | none | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `storage:prescriptions/rx` | U | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/rx` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/receipt` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:prescriptions/receipt` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -363,7 +363,7 @@ Notes:
 - `public.opd_diagnoses`: global reference data: SELECT for every signed-in user
 - `ops.jobs`: no API role holds USAGE on schema ops
 - `ops.error_events`: no API role holds USAGE on schema ops
-- `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); UPDATE kept: the archive upserts (R-23)
+- `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE
 - `storage:prescriptions/receipt`: `<tenant>/receipts/inv_<invoice>.pdf` (features/billing/pdf/generator.ts); a doctor archives the receipt of their own visit's invoice (Sign & Bill, R-7); the INSERT cell names an invoice that does not exist
 - `storage:prescriptions/malformed`: no class matches: denied without an error (before 05-02c: 22P02 from the key cast, BACKEND C9)
 - `storage:clinic-records/lab`: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture is a legacy synthetic name, the INSERT cell the id-only shape)

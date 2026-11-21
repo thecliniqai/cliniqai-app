@@ -5,7 +5,7 @@
 --    change), of pdf_storage_path, letterhead_mode and updated_at (the columns a request path may still write, 000108), DELETE, INSERT of version 1
 --    and of version 2 on a visit with no header. States: draft, sealed, amending. Roles: owner, doctor, admin, nurse, receptionist of clinic A,
 --    owner of clinic B, anon, service_role, postgres. Every probe runs in a rolled-back subtransaction.
--- 2. The column grant (has_column_privilege): authenticated updates only letterhead_mode, pdf_storage_path and updated_at.
+-- 2. The column grant (has_column_privilege): authenticated updates only pdf_storage_path, pdf_sha256 and updated_at (000109; 000108 had letterhead_mode instead of the hash).
 -- 3. Sign order: the sign-off command still seals a visit with two unsealed active headers (it seals before it signs now).
 -- 4. Finalize: reopen and finalize as the doctor give header version 2, one prescription.issued outbox row per version with the key
 --    `...:signed` and `...:signed:v2`, `version` in the data, nothing on replay, nothing for a visit with no header.
@@ -138,10 +138,12 @@ insert into ops values
      'ok', 'RX_SEALED', 'ok', 'permission denied', 'permission denied', 'permission denied'),
   ('update amendment_reason',$$update public.prescriptions set amendment_reason = 'rewritten reason' where visit_id = '{v}'$$,
      'ok', 'RX_SEALED', 'ok', 'permission denied', 'permission denied', 'permission denied'),
+  -- V2-09a 000109 (R-12): the PDF pair is write-once and only for a signed header of a sealed visit; the headers of this file are unsigned, so a path is
+  -- refused in every state (the pair's own cases are in rx_pdf_write_once.test.sql). letterhead_mode is set at INSERT only: no request-path grant, and frozen once sealed.
   ('update pdf_storage_path',$$update public.prescriptions set pdf_storage_path = '{t}/{v}/rx_v1.pdf' where visit_id = '{v}'$$,
-     'ok', 'ok', 'ok', 'ok', 'ok', 'ok'),
+     'RX_PDF_NOT_SEALED', 'RX_PDF_NOT_SEALED', 'RX_PDF_NOT_SEALED', 'RX_PDF_NOT_SEALED', 'RX_PDF_NOT_SEALED', 'RX_PDF_NOT_SEALED'),
   ('update letterhead_mode', $$update public.prescriptions set letterhead_mode = 'preprinted_letterhead' where visit_id = '{v}'$$,
-     'ok', 'ok', 'ok', 'ok', 'ok', 'ok'),
+     'ok', 'RX_SEALED', 'ok', 'permission denied', 'permission denied', 'permission denied'),
   ('update updated_at',      $$update public.prescriptions set updated_at = now() where visit_id = '{v}'$$,
      'ok', 'ok', 'ok', 'ok', 'ok', 'ok'),
   ('delete header',          $$delete from public.prescriptions where visit_id = '{v}'$$,
@@ -165,20 +167,20 @@ select is((select count(*)::int from res), 10 * 3 * 9, 'the matrix ran every ope
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res where outcome ~ '^error:'), null,
   'no probe failed for a reason other than the seal and the grants (no undefined column, no unique violation)');
 select is((select string_agg(op || '/' || role || ' => ' || outcome, '; ') from res
-            where state = 'sealed' and op not in ('update pdf_storage_path', 'update letterhead_mode', 'update updated_at') and outcome ~ '^ok:[1-9]'), null,
-  'SEALED: no role changes, deletes or adds a header of a sealed visit (the PDF path, letterhead and updated_at are the only columns left open)');
+            where state = 'sealed' and op not in ('update updated_at') and outcome ~ '^ok:[1-9]'), null,
+  'SEALED: no role changes, deletes or adds a header of a sealed visit (updated_at is the only column left open; the PDF pair is write-once, 000109)');
 select is((select string_agg(op || '/' || role || ' => ' || outcome, '; ') from res
             where kind = 'sys' and expected is not null and expected <> 'ok' and outcome !~ ('^denied:(' || expected || ')')), null,
   'service_role and postgres are refused with the guard''s own fixed name where the visit is sealed (RX_SEALED, PRESCRIPTION_VISIT_SIGNED)');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where kind = 'sys' and expected = 'ok' and outcome !~ '^ok:1'), null,
-  'service_role and postgres still write a draft and an amending visit''s header (the v1 API, the commands), and the open PDF columns of a sealed one');
+  'service_role and postgres still write a draft and an amending visit''s header (the v1 API, the commands) and updated_at of a sealed one');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where kind = 'usr' and expected is not null and expected <> 'ok' and outcome !~ ('^denied:(' || expected || ')')), null,
   'owner and doctor: the commands'' columns and DELETE are refused by privilege, a second version by PRESCRIPTION_VERSION_FORBIDDEN, a sealed visit by the guard');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where kind = 'usr' and expected = 'ok' and outcome !~ '^ok:1'), null,
-  'owner and doctor still write the PDF columns of any header and a first version 1 on an open visit');
+  'owner and doctor still write updated_at of any header and a first version 1 on an open visit');
 select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outcome, '; ') from res
             where role in ('owner_b', 'anon') and outcome ~ '^ok:[1-9]'), null,
   'another clinic''s owner and anon never change a header in any state');
@@ -190,7 +192,7 @@ select is((select string_agg(op || '/' || state || '/' || role || ' => ' || outc
 select is((select array_agg(a.attname::text order by a.attname) from pg_attribute a
             where a.attrelid = 'public.prescriptions'::regclass and a.attnum > 0 and not a.attisdropped
               and has_column_privilege('authenticated', 'public.prescriptions', a.attname, 'UPDATE')),
-  array['letterhead_mode', 'pdf_storage_path', 'updated_at'], 'authenticated may UPDATE letterhead_mode, pdf_storage_path and updated_at only (R-8)');
+  array['pdf_sha256', 'pdf_storage_path', 'updated_at'], 'authenticated may UPDATE pdf_storage_path, pdf_sha256 and updated_at only (R-8, narrowed by 000109)');
 select is((select array_agg(a.attname::text order by a.attname) from pg_attribute a
             where a.attrelid = 'public.prescriptions'::regclass and a.attnum > 0 and not a.attisdropped
               and has_column_privilege('anon', 'public.prescriptions', a.attname, 'UPDATE')), null, 'anon may UPDATE no column');
