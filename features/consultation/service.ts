@@ -21,6 +21,7 @@ import { clinicalNotesEmbed, embeddedClinicalNotes, withClinicalNotes } from "@/
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { SIGNED_CONSULTATION_MESSAGE } from "./record-state";
 import type { DraftFields, ServerDraft } from "./draft";
+import { parseAssistContext, type AssistContext } from "./assist-ranking";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move.
@@ -172,6 +173,28 @@ export async function getConsultationDraft(ctx: ServiceContext, visitId: string)
   } catch (err: unknown) {
     return { success: false, error: clientErrorMessage(err, "Failed to load the consultation.", "consultation.get_consultation_draft.failed") };
   }
+}
+
+/**
+ * The calling doctor's own learned order for the consult (`public.consult_assist_context`, 000113; V2-09b R-12): names and counts from their last 300
+ * signed visits in the active clinic. `consultations:edit`. Smart Assist only, so a refused or failed read answers `null`, never an error: the tiles then
+ * keep the catalogue order. The tenant is the session's; the function filters on it again and applies RLS.
+ */
+export async function getConsultAssistContext(ctx: ServiceContext): Promise<AssistContext | null> {
+  try {
+    assertPerm(ctx.role, "consultations:edit");
+  } catch {
+    return null;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db as any).rpc("consult_assist_context", { p_tenant_id: ctx.tenantId });
+  if (error) {
+    log.error({ event: "consultation.assist_context.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return null;
+  }
+  const parsed = parseAssistContext(data);
+  if (!parsed) log.error({ event: "consultation.assist_context.failed", code: "result_shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
+  return parsed;
 }
 
 export interface PastVisitEncounter {

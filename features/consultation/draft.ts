@@ -23,7 +23,7 @@ export type DraftFieldKey = (typeof DRAFT_FIELD_KEYS)[number];
 
 export interface DraftFollowUp {
   /** The UI's interval word; the database stores the date and the note only. */
-  interval?: "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom";
+  interval?: "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "1_month" | "custom";
   follow_up_date: string;
   notes?: string | null;
 }

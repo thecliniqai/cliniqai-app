@@ -43,7 +43,7 @@ export function findingLines(data: SpecialtyData | null): string[] {
       .filter(([, present]) => present === true)
       .map(([key]) => PICCLE_LABEL[key] ?? key);
     if (signs.length > 0) lines.push(`Signs: ${signs.join(", ")}`);
-    for (const [key, label] of [["cvs", "CVS"], ["rs", "RS"], ["pa", "PA"], ["cns", "CNS"]] as const) {
+    for (const [key, label] of [["gen", "General"], ["ent", "ENT"], ["cvs", "CVS"], ["rs", "RS"], ["pa", "PA"], ["cns", "CNS"]] as const) {
       const text = data.systemic?.[key]?.trim();
       if (text) lines.push(`${label}: ${text}`);
     }

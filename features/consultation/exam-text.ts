@@ -1,0 +1,112 @@
+import type { ExamState, ExamSystemState, GPSpecialty } from "./schema";
+import { examTemplateById, type ExamSystemDef, type ExamTemplate } from "./exam-templates";
+
+/**
+ * Pure helpers of the structured exam (V2-09b 09B-03, R-9): building and editing `specialty_data.exam`, and mirroring it into the `systemic` texts and
+ * leaving `general_exam` alone, so every reader that predates the exam (the summary pane, the DPDP export, an older build) keeps working.
+ * No React, no I/O.
+ *
+ * The mirrored text of a system is, while it is normal, "Normal: <the template's normal text>"; once marked abnormal,
+ * "Abnormal: <findings, comma separated> (<side>) · <note>" with the parts that are empty left out, and "Abnormal" alone when nothing was chosen.
+ */
+
+/** `systemic` keys the mirror writes. A template system with another key (`oral`) is not mirrored. */
+export const MIRRORED_SYSTEMS = ["gen", "ent", "cvs", "rs", "pa", "cns"] as const;
+type MirroredSystem = (typeof MIRRORED_SYSTEMS)[number];
+
+const SYSTEMIC_MAX = 500;
+
+export function normalSystem(): ExamSystemState {
+  return { abnormal: false, findings: [], side: null, note: null };
+}
+
+/** A fresh exam for a template: every system starts normal ("all findings start normal"). */
+export function newExam(template: ExamTemplate): ExamState {
+  const systems: Record<string, ExamSystemState> = {};
+  for (const system of template.systems) systems[system.key] = normalSystem();
+  return { template_id: template.id, systems };
+}
+
+/** The text of one system for the note. */
+export function systemText(def: ExamSystemDef, state: ExamSystemState | undefined): string {
+  if (!state || !state.abnormal) return `Normal: ${def.normal}`;
+  const found = state.findings.join(", ");
+  const withSide = found && state.side ? `${found} (${state.side})` : found;
+  const note = state.note?.trim() ?? "";
+  const parts = [withSide, note].filter((p) => p.length > 0);
+  return parts.length === 0 ? "Abnormal" : `Abnormal: ${parts.join(" · ")}`;
+}
+
+/** Does the exam hold anything the doctor entered (an abnormal system, a finding or a note)? Switching or clearing a template asks first when it does. */
+export function examHasData(exam: ExamState | null | undefined): boolean {
+  if (!exam) return false;
+  return Object.values(exam.systems).some((s) => s.abnormal || s.findings.length > 0 || (s.note?.trim() ?? "") !== "");
+}
+
+function updateSystem(exam: ExamState, key: string, change: (current: ExamSystemState) => ExamSystemState): ExamState {
+  const current = exam.systems[key] ?? normalSystem();
+  return { ...exam, systems: { ...exam.systems, [key]: change(current) } };
+}
+
+/** Normal or Abnormal. Back to Normal drops the findings, the side and the note of that system. */
+export function setSystemAbnormal(exam: ExamState, key: string, abnormal: boolean): ExamState {
+  return updateSystem(exam, key, (s) => (abnormal ? { ...s, abnormal: true } : normalSystem()));
+}
+
+/** The findings chosen for a system (the order they were tapped in). Choosing one makes the system abnormal; clearing them all leaves it abnormal. */
+export function setFindings(exam: ExamState, key: string, findings: readonly string[]): ExamState {
+  return updateSystem(exam, key, (s) => ({ ...s, abnormal: s.abnormal || findings.length > 0, findings: [...findings] }));
+}
+
+export function setSystemSide(exam: ExamState, key: string, side: ExamSystemState["side"]): ExamState {
+  return updateSystem(exam, key, (s) => ({ ...s, side: side ?? null }));
+}
+
+export function setSystemNote(exam: ExamState, key: string, note: string): ExamState {
+  return updateSystem(exam, key, (s) => ({ ...s, note: note === "" ? null : note.slice(0, 200) }));
+}
+
+/** The `systemic` texts an exam mirrors to, for the systems of its template that have a `systemic` key. */
+export function mirrorExam(exam: ExamState): Partial<Record<MirroredSystem, string>> {
+  const template = examTemplateById(exam.template_id);
+  const out: Partial<Record<MirroredSystem, string>> = {};
+  if (!template) return out;
+  for (const def of template.systems) {
+    if ((MIRRORED_SYSTEMS as readonly string[]).includes(def.key)) {
+      out[def.key as MirroredSystem] = systemText(def, exam.systems[def.key]).slice(0, SYSTEMIC_MAX);
+    }
+  }
+  return out;
+}
+
+/**
+ * The GP `specialty_data` with the exam set (or cleared with `null`) and the `systemic` texts mirrored. `general_exam` and the `systemic` keys the
+ * exam does not cover are kept. Clearing removes the keys the cleared exam's template mirrored (the texts were its own), and the `exam` object itself.
+ */
+export function withExam(data: GPSpecialty | undefined, exam: ExamState | null): GPSpecialty {
+  const base: GPSpecialty = { ...(data ?? { specialty: "general_physician" }), specialty: "general_physician" };
+  const systemic: Record<string, string | null | undefined> = { ...(base.systemic ?? {}) };
+  const previous = base.exam ? examTemplateById(base.exam.template_id) : null;
+  if (previous) {
+    for (const def of previous.systems) if ((MIRRORED_SYSTEMS as readonly string[]).includes(def.key)) delete systemic[def.key];
+  }
+  const next: GPSpecialty = { ...base };
+  if (exam) {
+    Object.assign(systemic, mirrorExam(exam));
+    next.exam = exam;
+  } else {
+    delete next.exam;
+  }
+  if (Object.keys(systemic).length > 0) next.systemic = systemic;
+  else delete next.systemic;
+  return next;
+}
+
+/** Does the GP data hold anything the doctor entered (signs, an exam with data, or free systemic text)? Switching the specialty asks first when it does. */
+export function gpDataHasContent(data: GPSpecialty | undefined): boolean {
+  if (!data) return false;
+  if (Object.values(data.general_exam ?? {}).some(Boolean)) return true;
+  // With an exam the `systemic` texts are its mirror (a fresh template reads "Normal: ..." everywhere), so only what the doctor entered counts.
+  if (data.exam) return examHasData(data.exam);
+  return Object.values(data.systemic ?? {}).some((t) => (t ?? "").trim() !== "");
+}

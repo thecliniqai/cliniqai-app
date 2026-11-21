@@ -106,6 +106,25 @@ export type DentalTooth = z.infer<typeof dentalToothSchema>;
 /**
  * Discriminated union schemas for Specialty Data payloads.
  */
+/**
+ * V2-09b 09B-03 (R-9): the structured exam the template tiles write, `specialty_data.exam`. One entry per system of the chosen template; the normal
+ * text of a system lives in the template (features/consultation/exam-templates.ts), so a system with `abnormal: false` stores nothing else. A pure
+ * function (features/consultation/exam-text.ts) mirrors it into `systemic` for the readers that predate it.
+ */
+export const EXAM_SIDES = ["Right", "Left", "Bilateral"] as const;
+export const examSystemSchema = z.object({
+  abnormal: z.boolean(),
+  findings: z.array(z.string().min(1).max(80)).max(20),
+  side: z.enum(EXAM_SIDES).nullable().optional(),
+  note: z.string().max(200).nullable().optional(),
+});
+export const examSchema = z.object({
+  template_id: z.string().regex(/^[a-z0-9_]{1,24}$/),
+  systems: z.record(z.string().regex(/^[a-z0-9_]{1,16}$/), examSystemSchema),
+});
+export type ExamSystemState = z.infer<typeof examSystemSchema>;
+export type ExamState = z.infer<typeof examSchema>;
+
 export const gpSpecialtySchema = z.object({
   specialty: z.literal("general_physician"),
   general_exam: z
@@ -118,8 +137,11 @@ export const gpSpecialtySchema = z.object({
       edema: z.boolean().default(false),
     })
     .optional(),
+  exam: examSchema.optional(),
   systemic: z
     .object({
+      gen: z.string().max(500).nullable().optional(),
+      ent: z.string().max(500).nullable().optional(),
       cvs: z.string().max(500).nullable().optional(),
       rs: z.string().max(500).nullable().optional(),
       pa: z.string().max(500).nullable().optional(),
@@ -164,7 +186,7 @@ export type SpecialtyData = z.infer<typeof specialtyDataSchema>;
  * Follow-up schedule recommendation schema.
  */
 export const followUpSchema = z.object({
-  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "custom"]).optional(),
+  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "1_month", "custom"]).optional(),
   follow_up_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
 });
@@ -200,7 +222,7 @@ export type SaveConsultationDraftInput = z.infer<typeof saveConsultationDraftSch
  * `conflict_overwrite` is the audit flag the client sets after "Keep mine" (R-5).
  */
 export const draftFollowUpSchema = z.object({
-  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "custom"]).optional(),
+  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "1_month", "custom"]).optional(),
   follow_up_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   notes: z.string().max(500).nullable().optional(),
 });

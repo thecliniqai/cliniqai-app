@@ -7,7 +7,6 @@ import {
   ChiefComplaintItem,
   ClinicalSpecialty,
   SpecialtyData,
-  GPSpecialty,
   DentalSpecialty,
   PediatricsSpecialty,
   FollowUpInput,
@@ -22,10 +21,8 @@ import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/fea
 import { changedDraftKeys, type DraftFields } from "@/features/consultation/draft";
 import type { FlushResult } from "@/features/consultation/draft-saver";
 import { VitalsBlock } from "../vitals-block";
-import { ChiefComplaintsSection } from "../chief-complaints-section";
 import { DiagnosisSection } from "../diagnosis-section";
 import { PrescriptionBuilder } from "../prescription-builder";
-import { GPSystemicReview } from "../specialty/gp-systemic-review";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
@@ -37,8 +34,6 @@ import { CreateReferralModal } from "@/components/referrals/create-referral-moda
 import { SaveStatus } from "@/components/clinical/save-status";
 import { StatusChip } from "@/components/clinical/status-chip";
 import { Button, buttonClassName } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
-import { NativeSelect } from "@/components/ui/native-select";
 import { formatAge } from "@/lib/ui/age";
 import { reportClientError } from "@/lib/log/client";
 import { addDaysYmd, daysBetweenYmd, todayInTz } from "@/lib/datetime";
@@ -58,6 +53,10 @@ import { useMinWidth } from "./use-min-width";
 import { clinicDateLabel, signedAtLabel } from "./format";
 import { ShortcutSheet, readShortcutsEnabled } from "@/components/today/shortcut-sheet";
 import { PlanSection, type FollowUpIntervalChoice } from "./sections/plan-section";
+import { ComplaintsSection } from "./sections/complaints-section";
+import { ExaminationSection } from "./sections/examination-section";
+import { daysForInterval } from "@/features/consultation/catalogue";
+import type { AssistContext } from "@/features/consultation/assist-ranking";
 
 export interface ConsultWorkspaceProps {
   visit: {
@@ -119,6 +118,11 @@ export interface ConsultWorkspaceProps {
    * Not used by the frame yet.
    */
   assist?: Record<string, boolean>;
+  /**
+   * The calling doctor's learned order (`consult_assist_context`, V2-09b R-12), read on the server only when the clinic is entitled to
+   * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
+   */
+  assistContext?: AssistContext | null;
 }
 
 const SECTION_IDS = ["complaints", "examination", "diagnosis", "prescription", "plan"] as const;
@@ -170,6 +174,7 @@ export function ConsultWorkspace({
   canCollectPayment = false,
   canAmend = false,
   assist,
+  assistContext = null,
 }: ConsultWorkspaceProps) {
   const router = useRouter();
   const timeZone = useClinicTimeZone();
@@ -404,8 +409,7 @@ export function ConsultWorkspace({
       setFollowUpNotes("");
     } else if (interval !== "custom") {
       // Counted from the clinic's date in its zone (V2-03 03-05)
-      const days = { "3_days": 3, "5_days": 5, "1_week": 7, "2_weeks": 14 }[interval] ?? 0;
-      setFollowUpDate(addDaysYmd(todayInTz(timeZone), days));
+      setFollowUpDate(addDaysYmd(todayInTz(timeZone), daysForInterval(interval)));
     }
   };
 
@@ -666,12 +670,12 @@ export function ConsultWorkspace({
               title="Complaints"
               shortcut={1}
               summary={chiefComplaints.length > 0 ? plural(chiefComplaints.length, "complaint", "complaints") : "None added"}
-              flat
             >
-              <ChiefComplaintsSection
+              <ComplaintsSection
                 complaints={chiefComplaints}
                 clinicalNotes={clinicalNotes}
                 disabled={readOnly}
+                context={assistContext}
                 onComplaintsChange={setChiefComplaints}
                 onClinicalNotesChange={setClinicalNotes}
               />
@@ -687,44 +691,37 @@ export function ConsultWorkspace({
                 <div id="vitals">
                   <VitalsBlock key={editorKey} vitals={vitals ?? {}} disabled={readOnly} onChange={setVitals} />
                 </div>
-                {/* The specialty picker moves into the exam template tiles in 09B-03 (R-9); until then it lives with the exam it chooses. */}
-                <Field label="Specialty" htmlFor="workspace-specialty" className="max-w-56">
-                  <NativeSelect
-                    id="workspace-specialty"
-                    value={specialty}
-                    disabled={readOnly}
-                    onChange={(e) => setSpecialty(e.target.value as ClinicalSpecialty)}
-                  >
-                    <option value="general_physician">General Physician</option>
-                    <option value="dental">Dental</option>
-                    <option value="pediatrics">Pediatrics</option>
-                  </NativeSelect>
-                </Field>
-                {specialty === "general_physician" && (
-                  <GPSystemicReview
-                    disabled={readOnly}
-                    data={specialtyData?.specialty === "general_physician" ? specialtyData : undefined}
-                    onChange={(data: GPSpecialty) => setSpecialtyData(data)}
-                  />
-                )}
-                {specialty === "dental" && (
-                  <DentalOdontogram
-                    disabled={readOnly}
-                    data={specialtyData?.specialty === "dental" ? specialtyData : undefined}
-                    onChange={(data: DentalSpecialty) => setSpecialtyData(data)}
-                  />
-                )}
-                {specialty === "pediatrics" && (
-                  <PediatricsTools
-                    disabled={readOnly}
-                    data={specialtyData?.specialty === "pediatrics" ? specialtyData : undefined}
-                    onChange={(data: PediatricsSpecialty) => setSpecialtyData(data)}
-                    patientGender={patient.gender === "female" ? "female" : "male"}
-                    patientAgeMonths={patientAgeMonths}
-                    currentWeightKg={vitals?.weight ?? null}
-                    currentHeightCm={vitals?.height ?? null}
-                  />
-                )}
+                {/* Template tiles, findings and signs (09B-03). Dental and Child hand over to the existing odontogram and paediatrics tools. */}
+                <ExaminationSection
+                  specialty={specialty}
+                  specialtyData={specialtyData}
+                  readOnly={readOnly}
+                  complaints={chiefComplaints}
+                  context={assistContext}
+                  onChange={(nextSpecialty, data) => {
+                    setSpecialty(nextSpecialty);
+                    setSpecialtyData(data);
+                  }}
+                >
+                  {specialty === "dental" && (
+                    <DentalOdontogram
+                      disabled={readOnly}
+                      data={specialtyData?.specialty === "dental" ? specialtyData : undefined}
+                      onChange={(data: DentalSpecialty) => setSpecialtyData(data)}
+                    />
+                  )}
+                  {specialty === "pediatrics" && (
+                    <PediatricsTools
+                      disabled={readOnly}
+                      data={specialtyData?.specialty === "pediatrics" ? specialtyData : undefined}
+                      onChange={(data: PediatricsSpecialty) => setSpecialtyData(data)}
+                      patientGender={patient.gender === "female" ? "female" : "male"}
+                      patientAgeMonths={patientAgeMonths}
+                      currentWeightKg={vitals?.weight ?? null}
+                      currentHeightCm={vitals?.height ?? null}
+                    />
+                  )}
+                </ExaminationSection>
               </div>
             </ConsultSection>
 
@@ -803,6 +800,8 @@ export function ConsultWorkspace({
                 isOpeningReferralPdf={isOpeningReferralPdf}
                 onOpenReferral={() => setIsReferralModalOpen(true)}
                 onOpenReferralPdf={(id) => void handleOpenReferralPdf(id)}
+                context={assistContext}
+                diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
               />
             </ConsultSection>
           </div>

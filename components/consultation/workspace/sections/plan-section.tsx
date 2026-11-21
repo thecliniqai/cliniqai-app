@@ -1,108 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, FlaskConical, Plus, Printer, Share2, UploadCloud, X, Calendar } from "lucide-react";
+import { Check, FlaskConical, Plus, Printer, Share2, UploadCloud, Calendar } from "lucide-react";
 import type { Referral } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { CHIP_INTERACTIVE, CHIP_ITEM, CHIP_DISABLED, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { Button } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
+import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
+import { ADVICE, FOLLOW_UP_INTERVALS, INVESTIGATIONS, type FollowUpInterval } from "@/features/consultation/catalogue";
+import { orderPlanTiles, usualFollowUp, usualPlanFor, type AssistContext } from "@/features/consultation/assist-ranking";
+import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { RemoveButton } from "./remove-button";
 
 /**
- * The Plan section of the consult (06-UI-SPEC §7: investigations, advice, follow-up, refer, attach). V2-09b 09B-02a hosts the v1 bodies here with
- * the design-system tokens; 09B-03 replaces the tiles with the ranked catalogue and 09B-05 the attachment placeholder with the real upload.
+ * The Plan section of the consult (06-UI-SPEC §7: investigations, advice, follow-up, refer, attach). V2-09b 09B-03 (R-9, R-12): investigations, advice
+ * and the follow-up interval are tiles from the catalogue (features/consultation/catalogue.ts), with this doctor's usual for the diagnosis listed first
+ * when the clinic has Smart Assist terminology (`context`; Smart Assist label only there) and the catalogue order otherwise. Free entry of a test or an
+ * advice line is kept. 09B-05 replaces the attachment placeholder with the real upload.
  * Every control is disabled on a read-only record (sealed, unsigned completed, cancelled), the referral excepted: it is its own record (R-6).
  */
 
-export const COMMON_INVESTIGATIONS = [
-  "Complete Blood Count (CBC)",
-  "Fasting Blood Sugar (FBS)",
-  "Postprandial Blood Sugar (PPBS)",
-  "HbA1c",
-  "Thyroid Profile (TSH, T3, T4)",
-  "Lipid Profile",
-  "Urine Routine & Microscopic",
-  "Chest X-Ray (PA View)",
-  "Serum Creatinine / KFT",
-  "Liver Function Test (LFT)",
-  "Serum Electrolytes",
-  "Serum Uric Acid",
-  "ECG (12-Lead)",
-  "Ultrasound Whole Abdomen",
-];
-
-export const COMMON_ADVICE_CHIPS = [
-  "Warm saline gargles 3-4 times daily",
-  "Steam inhalation twice daily",
-  "Plenty of oral fluids (3-4 litres/day)",
-  "Avoid cold, fried and spicy food",
-  "Diabetic diet: low glycemic index, small frequent meals",
-  "Soft, easily digestible bland diet",
-  "Adequate bed rest for 2-3 days",
-  "Avoid heavy lifting and strenuous exertion",
-  "Keep wound clean and dry",
-  "Take medications strictly after meals",
-];
-
-export type FollowUpIntervalChoice = "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom";
-
-const FOLLOW_UP_CHOICES: ReadonlyArray<{ id: FollowUpIntervalChoice; label: string }> = [
-  { id: "none", label: "No Follow-Up (N/A)" },
-  { id: "3_days", label: "3 Days" },
-  { id: "5_days", label: "5 Days" },
-  { id: "1_week", label: "1 Week" },
-  { id: "2_weeks", label: "2 Weeks" },
-  { id: "custom", label: "Custom Date" },
-];
-
-/** A selectable tile (aria-pressed): the ChipGroup tile look on a plain button, so the visible text is its accessible name ("+ Steam inhalation…"). */
-function OptionTile({
-  selected,
-  disabled,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  disabled: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-pressed={selected}
-      data-state={selected ? "on" : "off"}
-      onClick={onClick}
-      className={cn(
-        CHIP_ITEM.tile,
-        "max-lg:min-h-control",
-        TRANSITION,
-        FOCUS_RING,
-        disabled ? CHIP_DISABLED : CHIP_INTERACTIVE.tile,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RemoveButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "inline-flex size-control-compact shrink-0 cursor-pointer items-center justify-center rounded-sm text-fg-muted hover:text-danger-fg disabled:cursor-not-allowed disabled:text-fg-disabled max-lg:size-control",
-        FOCUS_RING,
-      )}
-    >
-      <X aria-hidden="true" className="size-3.5" />
-    </button>
-  );
-}
+export type FollowUpIntervalChoice = FollowUpInterval;
 
 function SubHeading({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -110,6 +29,20 @@ function SubHeading({ icon, children }: { icon: React.ReactNode; children: React
       {icon}
       {children}
     </h3>
+  );
+}
+
+/** "Smart Assist · usual for {diagnosis} first": shown only where the order comes from this doctor's own history. */
+function UsualNote({ shown, diagnosis, what }: { shown: boolean; diagnosis?: string; what?: string }) {
+  if (!shown || !diagnosis) return null;
+  return (
+    <p data-usual-note="" className="mb-2 flex flex-wrap items-center gap-x-2 text-label text-fg-muted">
+      <SmartAssistLabel />
+      <span>
+        {what ? `${what}: your usual` : "usual"} for {diagnosis}
+        {what ? "" : " first"}
+      </span>
+    </p>
   );
 }
 
@@ -129,10 +62,18 @@ export interface PlanSectionProps {
   isOpeningReferralPdf: boolean;
   onOpenReferral: () => void;
   onOpenReferralPdf: (referralId: string) => void;
+  /** The calling doctor's learned order (null: the catalogue order, no label). */
+  context?: AssistContext | null;
+  /** The diagnoses added so far, primary first: the usual plan is looked up for the first this doctor has signed before. */
+  diagnosisNames?: readonly string[];
 }
 
 export function PlanSection(props: PlanSectionProps) {
   const { readOnly, investigations, advice, followUpInterval, activeReferral } = props;
+  const usual = usualPlanFor(props.context ?? null, props.diagnosisNames ?? []);
+  const usualInterval = usualFollowUp(usual);
+  const investigationTiles = orderPlanTiles(INVESTIGATIONS, usual?.investigations ?? []);
+  const adviceTiles = orderPlanTiles(ADVICE, usual?.advice ?? []);
   const [customInvestigation, setCustomInvestigation] = useState("");
   const [customAdvice, setCustomAdvice] = useState("");
 
@@ -153,24 +94,17 @@ export function PlanSection(props: PlanSectionProps) {
     <div className="flex flex-col gap-6">
       <div>
         <SubHeading icon={<FlaskConical aria-hidden="true" className="size-4 text-accent-fg" />}>Investigations advised</SubHeading>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {COMMON_INVESTIGATIONS.map((name) => {
-            const selected = investigations.includes(name);
-            return (
-              <OptionTile
-                key={name}
-                selected={selected}
-                disabled={readOnly}
-                onClick={() =>
-                  selected ? props.onInvestigationsChange(investigations.filter((i) => i !== name)) : addInvestigation(name)
-                }
-              >
-                {selected ? "✓ " : "+ "}
-                {name}
-              </OptionTile>
-            );
-          })}
-        </div>
+        <UsualNote shown={investigationTiles.some((t) => t.usual)} diagnosis={usual?.diagnosis} />
+        <ChipGroup
+          type="multiple"
+          variant="tile"
+          aria-label="Investigations advised"
+          className="mb-3"
+          disabled={readOnly}
+          value={investigations}
+          onValueChange={props.onInvestigationsChange}
+          items={investigationTiles.map((t) => ({ value: t.name, label: t.name }))}
+        />
         {investigations.length > 0 && (
           <ul className="mb-3 flex flex-wrap gap-2 rounded-md bg-surface-soft p-2">
             {investigations.map((item, index) => (
@@ -211,22 +145,17 @@ export function PlanSection(props: PlanSectionProps) {
 
       <div className="border-t border-border pt-4">
         <SubHeading icon={null}>Diet &amp; general advice</SubHeading>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {COMMON_ADVICE_CHIPS.map((text) => {
-            const selected = advice.includes(text);
-            return (
-              <OptionTile
-                key={text}
-                selected={selected}
-                disabled={readOnly}
-                onClick={() => (selected ? props.onAdviceChange(advice.filter((a) => a !== text)) : addAdvice(text))}
-              >
-                {selected ? "✓ " : "+ "}
-                {text}
-              </OptionTile>
-            );
-          })}
-        </div>
+        <UsualNote shown={adviceTiles.some((t) => t.usual)} diagnosis={usual?.diagnosis} />
+        <ChipGroup
+          type="multiple"
+          variant="tile"
+          aria-label="Diet and general advice"
+          className="mb-3"
+          disabled={readOnly}
+          value={advice}
+          onValueChange={props.onAdviceChange}
+          items={adviceTiles.map((t) => ({ value: t.name, label: t.name }))}
+        />
         {advice.length > 0 && (
           <ul className="mb-3 flex flex-col gap-1.5">
             {advice.map((item, index) => (
@@ -267,13 +196,22 @@ export function PlanSection(props: PlanSectionProps) {
 
       <div className="border-t border-border pt-4">
         <SubHeading icon={<Calendar aria-hidden="true" className="size-4 text-accent-fg" />}>Follow-up recommendation</SubHeading>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {FOLLOW_UP_CHOICES.map(({ id, label }) => (
-            <OptionTile key={id} selected={followUpInterval === id} disabled={readOnly} onClick={() => props.onFollowUpInterval(id)}>
-              {label}
-            </OptionTile>
-          ))}
-        </div>
+        {usualInterval && <UsualNote shown diagnosis={usual?.diagnosis} what="Follow-up" />}
+        <ChipGroup
+          type="single"
+          variant="tile"
+          aria-label="Follow-up"
+          className="mb-3"
+          disabled={readOnly}
+          value={followUpInterval}
+          onValueChange={(next) => props.onFollowUpInterval(next as FollowUpIntervalChoice)}
+          items={FOLLOW_UP_INTERVALS.map((i) => ({ value: i.id, label: i.label, meta: i.id === usualInterval ? "your usual" : undefined }))}
+        />
+        {followUpInterval !== "none" && props.followUpDate && (
+          <p data-follow-up-hint="" className="mb-3 text-body-sm text-fg-secondary">
+            {formatClinicDateWithWeekday(props.followUpDate)} · the front desk books it when you finish
+          </p>
+        )}
         {followUpInterval === "none" ? (
           <p className="flex items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-soft p-3 text-body-sm text-fg-secondary">
             <Check aria-hidden="true" className="size-4 shrink-0 text-success-fg" />
