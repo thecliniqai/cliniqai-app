@@ -1,8 +1,9 @@
 /**
  * V2-09b 09B-06a: the consult rows of the review fix round (09B-REVIEW-TRIAGE.md), each on real rows:
  *   - A-1  taps that have not been sent yet are saved when the doctor leaves the consult inside the app (a link, a history step), before the 5 s timer.
- *          The taps are dispatched as click events that move no focus, as a tap on an iPad does (Safari does not focus a button), so no `focusout` save
- *          can hide the defect;
+ *          The taps are advice tiles dispatched as click events that move no focus, as a tap on an iPad does (Safari does not focus a button), so no
+ *          `focusout` save can hide the defect (a complaint tile is not used here: adding a complaint moves focus to its duration on purpose, and in
+ *          Chromium removing a focused element fires `focusout`, which saves on its own);
  *   - A-2  a template never silently replaces free-text findings an older record holds: it asks, and "Keep what I entered" keeps them;
  *   - A-3  no follow-up is preselected: an unrelated edit stores none; a tap on a tile stores it;
  *   - A-6  after Amend, Finalize and Amend again, the first save carries only what the doctor changed then (the saver starts from the server's copy);
@@ -76,38 +77,55 @@ async function tap(target: Locator) {
   await target.dispatchEvent("click");
 }
 
+const adviceTile = (page: Page, name: string) => page.getByRole("group", { name: "Diet and general advice" }).getByRole("button", { name, exact: true });
+const adviceOf = async (visitId: string) => {
+  const { data, error } = await getAdminClient().from("clinical_notes").select("advice").eq("visit_id", visitId).single();
+  if (error) throw new Error(error.message);
+  return data.advice as string[];
+};
+const noFocus = (page: Page) => page.evaluate(() => document.activeElement === document.body || document.activeElement === null);
+
 const complaintTile = (page: Page, name: string) => page.getByRole("group", { name: "Complaints", exact: true }).getByRole("button", { name, exact: true });
 
 test.describe("A-1: unsent taps are saved when the doctor leaves inside the app", () => {
-  test("a link to Today, tapped within 5 s of two complaint taps, saves them", async ({ page }) => {
+  test("a link to Today, tapped within 5 s of two advice taps, saves them", async ({ page }) => {
     const { tenantId, visitId } = await seedOpenConsult("Leave Link");
     await openConsult(page, visitId);
-    await tap(complaintTile(page, "Fever"));
-    await tap(complaintTile(page, "Cough"));
-    await expect(page.getByRole("list", { name: "Complaints added" }).getByRole("listitem")).toHaveCount(2);
-    // Nothing was sent yet: no timer has run and no focus moved.
+    await tap(adviceTile(page, "Steam inhalation twice daily"));
+    await tap(adviceTile(page, "Low salt diet"));
+    await expect(adviceTile(page, "Low salt diet")).toHaveAttribute("aria-pressed", "true");
+    // Nothing was sent yet: no timer has run and nothing is focused.
+    expect(await noFocus(page)).toBe(true);
     expect(await draftSaveAudits(tenantId, visitId)).toHaveLength(0);
 
     await page.locator('a[href="/today"]').first().dispatchEvent("click");
     await expect(page).toHaveURL(/\/today/);
-    await expect.poll(() => complaintNames(visitId), { timeout: 12_000 }).toEqual(["Fever", "Cough"]);
+    await expect.poll(() => adviceOf(visitId), { timeout: 12_000 }).toEqual(["Steam inhalation twice daily", "Low salt diet"]);
   });
 
   test("a history step (Forward to the page the doctor came from) within 5 s of a tap saves it", async ({ page }) => {
     const { visitId } = await seedOpenConsult("Leave History");
     await openConsult(page, visitId);
-    // Make a client-side history entry: to Today by the app's link, then Back to the consult (both client navigations).
+    // A marker on the window proves every step below is a client-side navigation (a document load would clear it and fire pagehide, which saves anyway).
+    const sameDocument = () => page.evaluate(() => (window as unknown as { __e2eDocMark?: number }).__e2eDocMark === 1);
+    await page.evaluate(() => ((window as unknown as { __e2eDocMark?: number }).__e2eDocMark = 1));
+    // Make a client-side history entry: to Today by the app's link, then Back to the consult.
     await page.locator('a[href="/today"]').first().dispatchEvent("click");
     await expect(page).toHaveURL(/\/today/);
     await page.goBack();
     await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
     await awaitHydrated(page);
+    expect(await sameDocument()).toBe(true);
+    // Nothing focused, as after a tap on an iPad (removing a focused element fires focusout in Chromium, which would save by itself).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
-    await tap(complaintTile(page, "Headache"));
-    await expect(page.getByRole("list", { name: "Complaints added" }).getByRole("listitem")).toHaveCount(1);
+    await tap(adviceTile(page, "Walk 30 min daily"));
+    await expect(adviceTile(page, "Walk 30 min daily")).toHaveAttribute("aria-pressed", "true");
+    expect(await noFocus(page)).toBe(true);
     await page.goForward();
     await expect(page).toHaveURL(/\/today/);
-    await expect.poll(() => complaintNames(visitId), { timeout: 12_000 }).toEqual(["Headache"]);
+    expect(await sameDocument()).toBe(true);
+    await expect.poll(() => adviceOf(visitId), { timeout: 12_000 }).toEqual(["Walk 30 min daily"]);
   });
 });
 
