@@ -104,6 +104,8 @@
  *   6455 — V2-09a 09A-04, unchanged: REQUIRED_FILES + tests/labs/lab-documents-append-only.spec.ts (11). The suite lost the two deleteLabDocument cases of
  *          review2-fixes-db.spec.ts (rewritten as one) and the delete case of no-raw-error-logging.spec.ts (replaced) and no-raw-error-responses.spec.ts (-1);
  *          the floor is re-measured once at the phase close.
+ *   6455 — V2-09a 09A-05, unchanged: REQUIRED_FILES + tests/consultation/workspace-sealed.spec.ts (9) and
+ *          tests/consultation/sealed-refusal-messages.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -465,6 +467,8 @@ const REQUIRED_FILES = [
   "tests/security/ac6-rewrite-signed-rx.spec.ts",
   "tests/prescriptions/rx-pdf-archive.spec.ts",
   "tests/labs/lab-documents-append-only.spec.ts",
+  "tests/consultation/workspace-sealed.spec.ts",
+  "tests/consultation/sealed-refusal-messages.spec.ts",
 ];
 
 const file = process.argv[2];

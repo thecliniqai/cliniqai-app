@@ -55,7 +55,7 @@ async function check(page: Page, testInfo: TestInfo, name: string, scopes: strin
   await page.screenshot({ path: path.join(OUT_DIR, `${name}.png`), fullPage: false, animations: "disabled", caret: "hide" });
   const whole = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const blocking = whole.violations.filter((v) => BLOCKING_IMPACTS.has(v.impact ?? ""));
-  const scoped: Record<string, Array<{ id: string; impact: string | null; nodes: string[] }>> = {};
+  const scoped: Record<string, Array<{ id: string; impact: string | null | undefined; nodes: string[] }>> = {};
   for (const scope of scopes) {
     expect(await page.locator(scope).count(), `scope ${scope} is on the page (${name})`).toBeGreaterThan(0);
     const result = await new AxeBuilder({ page }).withTags(TAGS).include(scope).analyze();
