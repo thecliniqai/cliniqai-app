@@ -10,6 +10,7 @@ import {
   orderPlanTiles,
   parseAssistContext,
   rankComplaints,
+  rankDiagnoses,
   rankTemplates,
   usualFollowUp,
   usualPlanFor,
@@ -196,5 +197,62 @@ describe("the follow-up intervals", () => {
     expect(daysForInterval("1_month")).toBe(30);
     expect(daysForInterval("none")).toBe(0);
     expect(daysForInterval("custom")).toBe(0);
+  });
+});
+
+describe("rankDiagnoses (09B-04a)", () => {
+  const dx = (name: string, n = 1, icd11: string | null = null) => ({
+    name, icd11, snomed: null, chronic: null, custom: null, n, investigations: [], advice: [], follow_up_days: null,
+  });
+  const history = ctx({
+    complaints: [{ name: "Fever", n: 20 }],
+    pairs: [
+      { complaint: "Fever", diagnosis: "Viral fever", n: 12 },
+      { complaint: "Fever", diagnosis: "Typhoid", n: 3 },
+      { complaint: "Cough", diagnosis: "Acute URTI", n: 8 },
+      { complaint: "Headache", diagnosis: "Migraine", n: 5 },
+    ],
+    diagnoses: [dx("Migraine"), dx("Acute URTI"), dx("Viral fever", 12, "MG26"), dx("Typhoid"), dx("Gout"), dx("Asthma"), dx("Anaemia"), dx("Eczema"), dx("Sciatica")],
+  });
+  const names = (list: { name: string }[]) => list.map((d) => d.name);
+
+  it("without the context there is nothing to rank (the fixed specialty chips apply)", () => {
+    expect(rankDiagnoses({ context: null, complaints: ["Fever"], added: [] })).toEqual({ likely: [], recent: [] });
+  });
+  it("likely: the doctor's diagnoses that co-occurred with the complaints on screen, most co-occurrences first", () => {
+    const r = rankDiagnoses({ context: history, complaints: ["Fever", "Cough"], added: [] });
+    expect(names(r.likely)).toEqual(["Viral fever", "Acute URTI", "Typhoid"]);
+  });
+  it("complaints are matched without case", () => {
+    expect(names(rankDiagnoses({ context: history, complaints: ["fever"], added: [] }).likely)).toEqual(["Viral fever", "Typhoid"]);
+  });
+  it("no complaint on screen: nothing is likely, the recent ones are offered in the order given", () => {
+    const r = rankDiagnoses({ context: history, complaints: [], added: [] });
+    expect(r.likely).toEqual([]);
+    expect(names(r.recent)).toEqual(["Migraine", "Acute URTI", "Viral fever", "Typhoid", "Gout"]);
+  });
+  it("a complaint with no history adds nothing", () => {
+    expect(rankDiagnoses({ context: history, complaints: ["Knee pain"], added: [] }).likely).toEqual([]);
+  });
+  it("a diagnosis already added is not offered, in either group, whatever its case", () => {
+    const r = rankDiagnoses({ context: history, complaints: ["Fever"], added: ["viral FEVER"] });
+    expect(names(r.likely)).toEqual(["Typhoid"]);
+    expect([...names(r.likely), ...names(r.recent)]).not.toContain("Viral fever");
+  });
+  it("recent holds the others, never a likely one again, and at most five", () => {
+    const r = rankDiagnoses({ context: history, complaints: ["Fever"], added: [] });
+    expect(names(r.recent)).toEqual(["Migraine", "Acute URTI", "Gout", "Asthma", "Anaemia"]);
+    expect(r.recent).toHaveLength(5);
+  });
+  it("likely is capped at four", () => {
+    const many = ctx({
+      pairs: ["A", "B", "C", "D", "E", "F"].map((n, i) => ({ complaint: "Fever", diagnosis: `Dx ${n}`, n: 10 - i })),
+      diagnoses: ["A", "B", "C", "D", "E", "F"].map((n) => dx(`Dx ${n}`)),
+    });
+    expect(names(rankDiagnoses({ context: many, complaints: ["Fever"], added: [] }).likely)).toEqual(["Dx A", "Dx B", "Dx C", "Dx D"]);
+  });
+  it("a pair whose diagnosis is not among the doctor's recent ones is not offered (no name without its code)", () => {
+    const c = ctx({ pairs: [{ complaint: "Fever", diagnosis: "Unknown dx", n: 9 }], diagnoses: [dx("Viral fever")] });
+    expect(rankDiagnoses({ context: c, complaints: ["Fever"], added: [] }).likely).toEqual([]);
   });
 });

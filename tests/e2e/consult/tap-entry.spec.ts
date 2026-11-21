@@ -202,8 +202,9 @@ test.describe.serial("learned order from the doctor's own signed visits (R-12)",
     const { tenantA } = run();
     const admin = getAdminClient();
     const doctor = tenantA.users.doctor;
-    // Three signed visits of the doctor: the same complaint and diagnosis, one usual test and a follow-up a week out (each signed today).
-    for (let i = 0; i < 3; i++) {
+    // Six signed visits of the doctor: the same complaint (more often than any other spec's history gives Fever) and diagnosis, one usual test and a
+    // follow-up a week out (each signed today).
+    for (let i = 0; i < 6; i++) {
       const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic History ${i} ${testTag()}`);
       const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
       const notes = await admin

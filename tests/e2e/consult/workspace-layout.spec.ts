@@ -176,12 +176,13 @@ for (const width of [360, 744, 820]) {
 
 const widthOf = (locator: Locator) => locator.evaluate((el) => Math.round(el.getBoundingClientRect().width));
 
-test("@golden 1180 px: the patient column (264 px) beside the note, with identity, vitals grid, allergies, problems, last visit and history; no Patient button, no Summary", async ({ page }) => {
+test("@golden 1180 px: the patient column (264 px) beside the note, with identity, vitals grid, allergies, problems, the snapshot and history; no Patient button, no Summary", async ({ page }) => {
   await openConsult(page, 1180, 800);
   const column = page.locator("[data-patient-column]");
   await expect(column).toBeVisible();
   expect(await widthOf(column)).toBe(264);
-  for (const heading of ["Vitals", "Allergies", "Problems", "Last visit", "History"]) {
+  // 09B-04a: with assist.snapshot (the default plan) the plain "Last visit" block is the Smart Assist snapshot; tap-entry and smart-assist cover its content.
+  for (const heading of ["Vitals", "Allergies", "Problems", "Snapshot", "History"]) {
     await expect(column.getByRole("heading", { name: new RegExp(`^${heading}`, "i") })).toBeVisible();
   }
   await expect(column).toContainText("Penicillin");

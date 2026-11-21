@@ -25,7 +25,8 @@ import { reportClientError } from "@/lib/log/client";
  * the list is the workspace's own state (no prop-to-state copy) and the typeahead runs from the input's change handler, so no effect sets state.
  *
  * - "Likely from the complaints" and "Your recent" tiles (Smart Assist label): this doctor's own signed history only, when the clinic has
- *   `assist.terminology` (`context`). Without it, or with no history, the fixed chips of the specialty are the fallback (the v1 list).
+ *   `assist.terminology` (`context`). The fixed chips of the specialty (the v1 list) are always there under them: the only group for a doctor with no
+ *   history or no entitlement, and a way to a diagnosis the history does not hold.
  * - A combobox over `GET /api/terminology/diagnoses` (a route handler, never a server action: it aborts with each keystroke and runs beside a draft
  *   save), debounced 200 ms: the doctor's own custom diagnoses first, then the catalogue ranked by name, synonym and abbreviation expansion. Codes are
  *   labelled ICD-11. Enter or a tap adds the highlighted row; the last row adds what was typed as the doctor's own diagnosis.
@@ -122,7 +123,6 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
 
   const addedKeys = new Set(diagnoses.map((d) => d.diagnosis_name.toLowerCase()));
   const ranked = rankDiagnoses({ context, complaints, added: diagnoses.map((d) => d.diagnosis_name) });
-  const learned = ranked.likely.length > 0 || ranked.recent.length > 0;
 
   const handleAdd = async (input: DiagnosisInput) => {
     if (disabled) return;
@@ -252,7 +252,7 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
           />
         </div>
       )}
-      {!learned && (
+      {/* The v1 chips of the specialty stay whatever the history offers: a doctor with no history relies on them, and one with history may want a diagnosis the history does not hold. */}
         <div>
           <p className="mb-2 text-label font-semibold text-fg-secondary">Quick OPD diagnoses · {specialty.replace("_", " ")}</p>
           <ChipGroup
@@ -269,7 +269,6 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
             items={quick.map((q) => ({ value: q.name, label: q.name, meta: q.icd11, disabled: addedKeys.has(q.name.toLowerCase()) }))}
           />
         </div>
-      )}
 
       <Command
         label="Search diagnoses"

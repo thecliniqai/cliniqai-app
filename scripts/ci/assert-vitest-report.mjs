@@ -112,6 +112,9 @@
  *          draft-rebase.spec.ts (28). The suite only grew; the floor is re-measured once at the phase close (09B-PLAN).
  *   6455 — V2-09b 09B-03 (tap-first entry), unchanged: REQUIRED_FILES + tests/consultation/exam-text.spec.ts (50), assist-ranking.spec.ts (25),
  *          catalogue.spec.ts (12) and assist-context-service.spec.ts (7). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09b 09B-04a (Smart Assist read side), unchanged: REQUIRED_FILES + tests/terminology/diagnosis-search.spec.ts (36), diagnosis-search-route.spec.ts (12)
+ *          and tests/consultation/snapshot.spec.ts (14); assist-ranking.spec.ts gains 9 cases. Two cases of the deleted catch-up summary left
+ *          tests/ai/prescription-suggestions.spec.ts and three cases (one per unconfigured provider) tests/security/ai-containment.spec.ts. The floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -487,6 +490,10 @@ const REQUIRED_FILES = [
   "tests/consultation/assist-ranking.spec.ts",
   "tests/consultation/catalogue.spec.ts",
   "tests/consultation/assist-context-service.spec.ts",
+  // V2-09b 09B-04a
+  "tests/terminology/diagnosis-search.spec.ts",
+  "tests/terminology/diagnosis-search-route.spec.ts",
+  "tests/consultation/snapshot.spec.ts",
 ];
 
 const file = process.argv[2];

@@ -29,6 +29,8 @@ import { assertLocalTestEnv, loadLocalStackKeys, loadTestEnv } from "../../tests
 
 const ROOT = path.resolve(__dirname, "../..");
 const TARGET_MS = 150;
+/** V2-09b R-18: the INVOKER Smart Assist reads (consult_assist_context, search_diagnoses, patient_snapshot) on the synthetic seed: p95 under 50 ms. */
+const READ_TARGET_MS = 50;
 const WARMUP = 5;
 
 function argValue(name: string): string | undefined {
@@ -38,7 +40,7 @@ function argValue(name: string): string | undefined {
 
 export interface LatencyRow {
   name: string;
-  kind: "command" | "baseline";
+  kind: "command" | "baseline" | "read";
   calls: number;
   errors: number;
   p50_ms: number;
@@ -99,6 +101,7 @@ async function main(): Promise<void> {
   const t = { tenantId: owner.tenantId, userId: owner.userId };
   const N = callsPerCommand + WARMUP;
   const rows: Array<Omit<LatencyRow, "p95_over_baseline">> = [];
+  const catalogueIds: string[] = [];
   let failed = false;
 
   /** Prepares N calls (seeding outside the timed region), times them, and records one row. */
@@ -272,8 +275,70 @@ async function main(): Promise<void> {
     await measure("baseline: visits select", "baseline", async () => () => receptionist.client.from("visits").select("id, status, scheduled_at").limit(20));
     await measure("baseline: search_patients", "baseline", async () => () => receptionist.client.rpc("search_patients", { p_query: "Latencyfind", p_limit: 8 }));
     await measure("baseline: available_slots", "baseline", async () => () => receptionist.client.rpc("available_slots", { p_doctor_id: t.userId, p_date: ymd(4) }));
+
+    // ---- V2-09b R-18: the Smart Assist reads on a synthetic seed: 2,000 catalogue rows, 300 signed visits of one doctor (the owner here), 50 of them
+    // for one patient. The visits are signed through the command (a signed visit cannot be inserted), so this leg seeds about 1,200 rows before it times.
+    const catalogue = Array.from({ length: 2000 }, (_, i) => ({
+      name: `Latency diagnosis ${i} ${["fever", "cough", "pain", "infection", "syndrome"][i % 5]}`,
+      icd11_code: null,
+      synonyms: [`ld${i}`, `latency alias ${i}`],
+      specialties: ["general_physician"],
+      is_chronic: i % 7 === 0,
+    }));
+    for (let i = 0; i < catalogue.length; i += 500) {
+      const { data, error } = await admin.from("opd_diagnoses").insert(catalogue.slice(i, i + 500)).select("id");
+      if (error) throw new Error(`catalogue seed failed: ${error.message}`);
+      catalogueIds.push(...(data ?? []).map((r) => r.id));
+    }
+    const hotPatient = await desk.seedPatient(t);
+    const pool: string[] = [];
+    for (let i = 0; i < 30; i++) pool.push(await desk.seedPatient(t));
+    const complaints = ["Fever", "Cough", "Headache", "Body ache", "Cold"];
+    for (let i = 0; i < 300; i++) {
+      // 50 visits for one patient (the snapshot's), the rest spread over 30 patients (a fresh seed has no planner statistics yet, and 250 visits of one patient
+      // would make the diagnosis join scan that patient's rows 250 times, which a real clinic's history never does; thousands of new patients would exhaust the
+      // local connection pool).
+      const patientId = i < 50 ? hotPatient : pool[i % pool.length]!;
+      const { data: visit, error: visitError } = await admin
+        .from("visits")
+        .insert({ tenant_id: t.tenantId, patient_id: patientId, doctor_id: t.userId, origin_type: "walk_in", status: "in_consultation", created_by: t.userId })
+        .select("id")
+        .single();
+      if (visitError || !visit) throw new Error(`signed-history seed failed: ${visitError?.message}`);
+      const notes = await admin
+        .from("clinical_notes")
+        .update({
+          clinical_notes: "Synthetic latency note",
+          chief_complaints: [{ symptom: complaints[i % 5], duration_val: 2, duration_unit: "days" }, { symptom: complaints[(i + 2) % 5], duration_val: 1, duration_unit: "days" }],
+          investigations_advised: ["CBC", `Test ${i % 6}`],
+          advice: [`Advice ${i % 4}`],
+        })
+        .eq("visit_id", visit.id);
+      if (notes.error) throw new Error(`signed-history seed failed: ${notes.error.message}`);
+      const dx = await admin
+        .from("consultation_diagnoses")
+        .insert({ tenant_id: t.tenantId, visit_id: visit.id, patient_id: patientId, diagnosis_name: `Latency history diagnosis ${i % 14}`, icd11_code: "ZZ00" });
+      if (dx.error) throw new Error(`signed-history seed failed: ${dx.error.message}`);
+      const signed = await owner.client.rpc("sign_consultation", clinical.signArgs(t, visit.id));
+      if (signed.error) throw new Error(`signed-history seed failed: ${signed.error.message}`);
+    }
+    // A table that was just filled has no planner statistics (the reads then plan badly, and the figure measures that, not the query). Autovacuum's
+    // ANALYZE runs within its 60 s nap; a clinic's tables have had it for a long time.
+    console.log("[latency] waiting 75 s for autovacuum to analyze the seeded tables");
+    await new Promise((resolve) => setTimeout(resolve, 75_000));
+    await measure("read: consult_assist_context", "read", async () => () => owner.client.rpc("consult_assist_context", { p_tenant_id: t.tenantId }));
+    await measure("read: search_diagnoses", "read", async (i) => () =>
+      owner.client.rpc("search_diagnoses", { p_tenant_id: t.tenantId, p_terms: [`latency diagnosis ${(i * 13) % 2000}`, "latency fever"], p_specialty: "general_physician", p_limit: 12 }),
+    );
+    await measure("read: patient_snapshot", "read", async () => () =>
+      owner.client.rpc("patient_snapshot", { p_tenant_id: t.tenantId, p_patient_id: hotPatient }),
+    );
   } finally {
-    // Remove what this run made (the clinic cascades; then the two users).
+    // Remove what this run made (the catalogue rows; the clinic cascades; then the two users).
+    for (let i = 0; i < catalogueIds.length; i += 100) {
+      const { error } = await admin.from("opd_diagnoses").delete().in("id", catalogueIds.slice(i, i + 100));
+      if (error) console.error(`[latency] cleanup: deleting the synthetic catalogue rows failed: ${error.message}`);
+    }
     const { error: tenantError } = await admin.from("tenants").delete().eq("id", owner.tenantId);
     if (tenantError) console.error(`[latency] cleanup: deleting the synthetic clinic failed: ${tenantError.message}`);
     for (const id of [owner.userId, receptionist.userId]) {
@@ -287,11 +352,12 @@ async function main(): Promise<void> {
     ...r,
     p95_over_baseline: baseline && baseline.p95_ms > 0 ? round1(r.p95_ms / baseline.p95_ms) : null,
   }));
-  const over = result.filter((r) => r.kind === "command" && r.p95_ms >= TARGET_MS);
+  const over = result.filter((r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS));
   const report = {
     description:
       "p50, p95 and p99 of one supabase-js round trip (PostgREST, local Supabase stack) per command, sequential calls with fresh request ids and prepared rows; the baselines are plain INVOKER reads on the same stack",
     target_p95_ms: TARGET_MS,
+    read_target_p95_ms: READ_TARGET_MS,
     calls_per_command: callsPerCommand,
     warmup_calls_not_counted: WARMUP,
     node: process.version,
@@ -306,9 +372,9 @@ async function main(): Promise<void> {
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     console.log(`[latency] wrote ${path.relative(ROOT, file)}`);
   }
-  if (over.length > 0) console.error(`[latency] p95 at or above ${TARGET_MS} ms: ${over.map((r) => `${r.name} (${r.p95_ms} ms)`).join(", ")}`);
+  if (over.length > 0) console.error(`[latency] p95 over its target (${TARGET_MS} ms a command, ${READ_TARGET_MS} ms a Smart Assist read): ${over.map((r) => `${r.name} (${r.p95_ms} ms)`).join(", ")}`);
   if (!report.passed) process.exit(1);
-  console.log(`[latency] PASS: every command p95 is under ${TARGET_MS} ms`);
+  console.log(`[latency] PASS: every command p95 is under ${TARGET_MS} ms and every Smart Assist read under ${READ_TARGET_MS} ms`);
 }
 
 main().catch((error: unknown) => {
