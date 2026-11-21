@@ -72,6 +72,10 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
   const { startIso, endIsoExclusive } = dayWindowUtc(date, timeZone);
   const permissions = ROLE_PERMISSIONS[ctx.role];
   const canEdit = hasPerm(ctx.role, "appointments:edit");
+  // `createScheduleBlock`: another doctor's time or the whole clinic needs clinic:manage; a doctor may block their own.
+  const manages = hasPerm(ctx.role, "clinic:manage");
+  const ownsColumn = hasPerm(ctx.role, "appointments:edit") && known.has(ctx.userId);
+  const block = { allowed: manages || ownsColumn, doctorId: manages || !ownsColumn ? null : ctx.userId };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let visitQuery = (ctx.db.from("visits") as any)
@@ -192,5 +196,5 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
     }
   }
 
-  return { ok: true, data: { date, today, timeZone, doctors, doctorFilter, appointments, blocks, free, waitlist, week, canEdit } };
+  return { ok: true, data: { date, today, timeZone, doctors, doctorFilter, appointments, blocks, free, waitlist, week, canEdit, block } };
 }

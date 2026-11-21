@@ -30,7 +30,7 @@ export interface RegisterPatientSheetProps {
   onRegistered?: (patientId: string) => void;
 }
 
-export function RegisterPatientSheet({ open, onOpenChange, defaultValues, onRegistered }: RegisterPatientSheetProps) {
+function RegisterPatientBody({ onOpenChange, defaultValues, onRegistered }: Omit<RegisterPatientSheetProps, "open">) {
   const router = useRouter();
   const command = useCommand();
   const findDuplicates = useDuplicateLookup();
@@ -57,21 +57,29 @@ export function RegisterPatientSheet({ open, onOpenChange, defaultValues, onRegi
   };
 
   return (
+    <QuickRegisterForm
+      onSubmit={submit}
+      findDuplicates={findDuplicates}
+      onUseExisting={useExisting}
+      onEdit={command.reset}
+      saveStatus={{
+        ...saveStatusProps(command),
+        onRetry: command.saveState === "error" ? () => void (lastValues.current && submit(lastValues.current)) : undefined,
+      }}
+      defaultValues={defaultValues}
+    />
+  );
+}
+
+export function RegisterPatientSheet({ open, onOpenChange, defaultValues, onRegistered }: RegisterPatientSheetProps) {
+  // The command, its request id and its save state live in the body, which exists only while the sheet is open: a reopened
+  // sheet is an empty form with no "Saved" or "Couldn't save" left over from the last registration (V2-08 08-06a, A-6).
+  return (
     <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
       <ResponsiveSheetContent data-register-patient-sheet="" aria-describedby={undefined}>
         <ResponsiveSheetHeader title="Register patient" />
         <ResponsiveSheetBody>
-          <QuickRegisterForm
-            onSubmit={submit}
-            findDuplicates={findDuplicates}
-            onUseExisting={useExisting}
-            onEdit={command.reset}
-            saveStatus={{
-              ...saveStatusProps(command),
-              onRetry: command.saveState === "error" ? () => void (lastValues.current && submit(lastValues.current)) : undefined,
-            }}
-            defaultValues={defaultValues}
-          />
+          <RegisterPatientBody onOpenChange={onOpenChange} defaultValues={defaultValues} onRegistered={onRegistered} />
         </ResponsiveSheetBody>
       </ResponsiveSheetContent>
     </ResponsiveSheet>

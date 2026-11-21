@@ -50,6 +50,7 @@ export function ScheduleView({ data }: { data: ScheduleData }) {
         open={blockOpen}
         onOpenChange={setBlockOpen}
         doctors={data.doctors.map((d) => ({ id: d.id, name: d.name }))}
+        doctorId={data.block.doctorId ?? undefined}
         initialDate={data.date}
       />
     </div>

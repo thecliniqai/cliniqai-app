@@ -91,6 +91,12 @@ export interface ScheduleData {
   /** Week overview: the seven days from `weekStart` for the one selected doctor (empty unless the week view was asked for). */
   week: { doctorId: string; days: WeekDayCount[] } | null;
   canEdit: boolean;
+  /**
+   * Who may block time (the service's rule, `createScheduleBlock`): `clinic:manage` blocks any doctor or the whole clinic
+   * (`doctorId` null); a doctor blocks only their own time (`doctorId` is theirs); every other role sees no button
+   * (V2-08 08-06a, A-8).
+   */
+  block: { allowed: boolean; doctorId: string | null };
 }
 
 /** A line of a doctor's column on the day view, in time order. */

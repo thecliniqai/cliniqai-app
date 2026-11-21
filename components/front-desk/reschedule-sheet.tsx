@@ -74,7 +74,9 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
           visit_id: target.visitId,
           new_scheduled_at: slotInstant(plan.date, time, timeZone),
           doctor_id: plan.doctorId,
-          estimated_duration_minutes: plan.minutes,
+          // The visit keeps its own duration (A-7): the grid length of the picked slot is not the visit's length. The server
+          // checks the slot against the visit's duration, so a 30-minute visit is never squeezed into a 15-minute gap.
+          estimated_duration_minutes: null,
           is_overbooked: flags.overbook,
           override_off_duty: flags.offDuty,
           override_block: flags.block,

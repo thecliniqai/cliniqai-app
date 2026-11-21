@@ -87,7 +87,7 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
           <Button type="button" variant="secondary" startIcon={<Clock aria-hidden="true" />} onClick={onOpenWaitlist}>
             Waitlist ({data.waitlist.length})
           </Button>
-          {data.canEdit && (
+          {data.block.allowed && (
             <Button type="button" variant="secondary" startIcon={<Ban aria-hidden="true" />} onClick={onOpenBlock}>
               Block time
             </Button>
