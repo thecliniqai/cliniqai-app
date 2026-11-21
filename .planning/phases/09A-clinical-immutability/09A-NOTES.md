@@ -365,3 +365,86 @@ evidence. Counts are from the runs named beside them.
 - Nothing in 09A-04 touches the consultation workspace. The workspace's "Print Rx" and the sign modal's PDF link use the route, which serves the archive for a sealed Rx and a render otherwise.
 - A lab document can no longer be deleted by tests either: a fixture that needs to remove one must delete the clinic (the cascade is allowed) or use a unique patient per case.
 - `tests/e2e/a11y/amendment-screens.spec.ts` (09A-05) can reuse the `check()` pattern of `lab-reports-screens.spec.ts`.
+
+## 09A-05 Amend from the workspace; journey 6 (no migration)
+
+### What changed
+
+- `features/consultation/record-state.ts`: now also holds `SIGNED_CONSULTATION_MESSAGE` (moved out of `consultation/service.ts`, same text) and `isSealedRefusal(err)` (SQLSTATE 42501 plus one of the nine fixed guard
+  names; a plain privilege error is not one). The diagnosis (add, remove, note), Rx item (add, remove, the header insert) and follow-up services answer a sealed refusal with the fixed text and never the driver message (R-17).
+- `app/(dashboard)/consultation/[id]/page.tsx`: also selects `signed_at`, `current_revision`, the latest header's `version` and, only while amending, the latest `visit_revisions.amendment_reason`; passes `canAmend`
+  (consultations:edit, prescriptions:edit and appointments:edit, i.e. owner and doctor: the two commands check all three).
+- `components/consultation/consultation-workspace.tsx`: `state = recordState(visit)`. Read-only = sealed, or a visit completed unsigned, or cancelled. `disabled` goes to the vitals block, the complaints and notes, the three specialty
+  panels, the diagnosis section, the Rx builder, the investigation and advice chips and inputs, the follow-up chips and inputs, the specialty selects and the attachment input; the AI catch-up is hidden and the history drawer's Repeat Rx
+  and Copy notes are not passed. Sealed: chip "Signed {clinic-zone date, time} · Rx v{n}", WhatsApp, Print Rx, Receipt and Amend. Amending: a `Banner` "Amending a signed consultation (v{n} to v{n+1}): {reason}", Save draft and
+  Finalize amendment, no Complete and Sign. Draft: unchanged. `prescription-builder.tsx`: the Protocol Templates button is disabled and the save-as-template row is hidden when `disabled`.
+- `components/consultation/amendment-modal.tsx` rebuilt on the V2-06 `Dialog` (same props; reason 10 to 500 characters with the counter, `useCommand`, `Alert` for the error, the UI-SPEC strings kept; the discard guard asks before a typed
+  reason is thrown away). New `components/consultation/finalize-amendment-dialog.tsx`: the confirmation for `finalizeVisitAmendment` (saves the form first, stops if the save fails, `useCommand`, `router.refresh()` on success).
+- No migration, no registry change except `scripts/ci/assert-vitest-report.mjs` REQUIRED_FILES (+2 specs; FLOOR unchanged, re-measured once at the close). The waiver file did not change.
+
+### Deviations from the plan, with reasons
+
+1. **"Re-sign / Bill" is deleted, not renamed.** `complete_and_bill` on a signed visit has one billing-only branch (a visit this same user signed that has no live invoice resumes at billing), but the app never reaches it: Sign & Bill
+   always creates the invoice, so a signed visit either has one (ALREADY_BILLED) or was signed by someone else (ALREADY_SIGNED). The modal is titled "Complete & Sign", so offering it on a signed visit would mislead. Billing a signed visit
+   stays at the desk (checkout); the Receipt link remains.
+2. **Read-only for unsigned completed and cancelled visits too.** The plan names the sealed state; R-11 says an unsigned completed visit is terminal and read-only in the app, and `isDraftLocked` already refused its saves. Its inputs were
+   live before (the save failed afterwards); they are disabled now. A cancelled visit shows no Complete and Sign or Save Draft (it showed them before).
+3. **Banner tone.** `Banner` has three tones (trial, past-due, offline); `past-due` (warning) is the nearest, used with `role="status"` and a pencil icon. A dedicated amendment tone would be a V2-09b design-system call.
+4. **The finalize confirmation is a `Dialog`, not a sheet** (the plan allows either): a short confirmation, like the amendment dialog. "Print Rx" is not offered while amending (the plan's amending action list has none; the PDF of a draft or open
+   amendment is an on-demand render, so it stays reachable from the preview elsewhere).
+5. **Signed version shown.** The chip and the banner use the header's `version` when there is a header, else `current_revision` (+1 when sealed); an Rx-less consultation shows no "Rx v" part in the chip.
+6. **Accessibility baseline.** `/consultation/[id]` is the v1 workspace V2-09b rebuilds and carries M0 baseline debt. The amendment-screens spec therefore asserts ZERO serious/critical violations on the new surfaces (header and chip, the
+   dialogs, the banner, scoped with `include`) and, for the page as a whole, no rule id outside the M0 baseline (the rule of the other consult screens). While doing it: the WhatsApp Rx & Bill button was white on emerald-600 (failed
+   color-contrast at 820 and 1280): now emerald-700; the mobile specialty select had no name: `aria-label`; the header action buttons and the two specialty selects are 44 px; the icon-only Save draft has a name.
+7. **Fixtures.** The e2e fixture had already moved to `signSeededVisit` in 09A-01 (deviation 6 there); this plan adds `seedSignedConsultation(label)` (waiting visit, note, one unsigned item, the doctor's `sign_consultation`; every service-role
+   write error-checked, the note write must affect exactly one row) and uses it in the plain P1-03 test, the journey and the screens. The command-only sign leaves no archive; the reopen archives `rx_v1.pdf` first as the signer
+   (09A-03). The journey's subscription is created after the seed sign, so only the `...:signed:v2` event is expected.
+
+### Grep (before and after)
+
+- `grep -rn 'knownBug("P1-03"' tests app components features lib docs scripts` returns nothing (the word survives in the 08 verification note and the plan text, which are history). `knownBug` itself stays (register-patient, the matcher spec).
+- `grep -rn "Re-sign" app components features tests docs` returns nothing.
+- `grep -rln "AmendmentModal\|amendment-modal"`: the workspace only (the modal had no consumer before).
+- Callers of the three services whose refusal text changed: the diagnosis, prescription and follow-up actions and `saveConsultationDraft` (which ignores the follow-up result: a sealed visit is refused earlier by `isDraftLocked`).
+
+### Tests added or changed (file: name)
+
+- `tests/consultation/sealed-refusal-messages.spec.ts` (9): a signed consultation answers add and remove diagnosis, edit a diagnosis note, add and remove a medication and change the follow-up date with `SIGNED_CONSULTATION_MESSAGE`, rows unchanged;
+  `isSealedRefusal` ignores a plain privilege error; the same writes succeed on a draft and on a reopened visit (controls).
+- `tests/consultation/workspace-sealed.spec.ts` (9): the workspace rendered with react-dom/server from real props, asserting the markup's own attributes. Draft: inputs live, Complete and Sign, no Amend. Sealed: notes, medicine search, diagnosis
+  search, remove control, every investigation, advice and follow-up chip, the custom inputs, the specialty selects and Protocol Templates disabled; signed chip "Signed 15 Jan 2031, 3:42 pm · Rx v1" for 10:12Z (clinic zone); Print Rx, WhatsApp, Receipt
+  present; Complete and Sign and Re-sign / Bill absent; Amend for a user who may amend and not for one who may not (nurse). Amending: banner "(v1 to v2): reason" (a second amendment "v2 to v3"), editable, Save draft and Finalize amendment, no Complete and
+  Sign, no Amend. Unsigned completed: read-only, no Amend.
+- `tests/e2e/m0/consult-rx-finish.spec.ts`: the second test is a plain test (no `knownBug`): medicine search, "Remove medication", notes, diagnosis search disabled, no vitals editor, no Complete and Sign, chip "Rx v1", Amend visible. New
+  "journey 6 tail" test: Amend, confirm disabled at 9 characters and enabled at 10+, banner with the reason, add a medicine, Finalize amendment (dialog), chip "Rx v2", then from the database: status `completed`, `signed_at` changed; ONE
+  `visit_revisions` row (number 1, the reason, `captured_by` database, `prescription.version` 1 with the v1 item and the v1 PDF pair); the same header at version 2 with both items; one `visit.reopen_for_amendment` and one `visit.amend_finalized` audit
+  row; one `prescription.issued` outbox row `...:signed:v2` with `version: 2`; `rx_v1.pdf` and `rx_v2.pdf` each downloaded and hashed (the v1 hash equals the snapshot's, the v2 hash equals the header's, they differ); the route returns `%PDF-`
+  whose SHA-256 equals the stored hash. The first test's text is unchanged.
+- `tests/e2e/a11y/amendment-screens.spec.ts` (9 = 3 screens x 360, 820, 1280): sealed workspace; amend dialog (keyboard open, focus lands on the reason, Escape asks before discarding a typed reason, Escape closes and focus returns to Amend, a keyboard press
+  on the confirm button reopens); amending banner, header buttons at least 44 px, the finalize confirmation (keyboard, Escape, focus return). Axe as in deviation 6.
+
+### Acceptance items to tests
+
+- Known-bug e2e becomes a plain assertion: `consult-rx-finish.spec.ts` second test (desktop-chrome, pixel-7); grep clean.
+- Journey 6 tail (sealed read-only, the amendment needs a justification) and T-08: the journey test (desktop-chrome, pixel-7), `workspace-sealed.spec.ts`.
+- An amendment creates a new version with an audit row, from the UI: the same journey reads the revision, the version 2 header, both audit rows and the event from the database.
+- PDFs write-once and hashed, from the UI: the journey checks both objects and hashes and the served bytes.
+- Amendment dialog on the V2-06 `Dialog` (07 hand-off, 06-08 row): `amendment-screens.spec.ts`, the journey.
+- Messages (task 5): `sealed-refusal-messages.spec.ts`.
+
+### Counts
+
+- Vitest affected folders (`tests/consultation prescriptions terminology components ui design ci security clinical integration`; `terminology` and `ui` do not exist as folders): 2919 tests in 120 files, all pass, none retried. `tests/ci/vitest-report-gate.spec.ts` (9) passes with the new REQUIRED_FILES.
+  Before the first full run the two new specs ran alone: 9 and 9 pass.
+- e2e after `npm run e2e:build`: `npx playwright test tests/e2e/m0 tests/e2e/a11y/amendment-screens.spec.ts tests/e2e/a11y/clinical-split-screens.spec.ts tests/e2e/a11y/sign-and-bill-screens.spec.ts --project=desktop-chrome --project=pixel-7
+  --project=iphone-15 --retries=0`: 59 passed in 1.5 min (8 auth setup, 51 specs: desktop-chrome 39, pixel-7 10, iphone-15 2, as each project's testMatch selects), 0 retries, 0 failed. The journey ran on desktop-chrome and pixel-7 (the projects the plan names).
+  The same spec file had one failure in my first runs, both mine and both real: the journey's event assertion expected the v1 key although the subscription came after the seed sign, and the sealed-screen axe found the white-on-emerald-600 WhatsApp label.
+- `npm run typecheck` clean; `npx eslint .` 0 errors (413 warnings, unchanged; none new in files this plan created); `npm run inventory` exit 0 (0 flagged, 121 exports); `npm run ci:ui-policy` PASS and `npm run ci:ai-l1` PASS (no delta).
+
+### Notes for the close and for 09A-06a / V2-09b
+
+- 09A-06a (triage A-3): the e2e fixtures sign through the command only, so the first Amend reopens a visit whose signed Rx has no archive yet; the reopen service archives it first as the signer. If the fix round makes the reopen refuse
+  with `RX_ARCHIVE_PENDING` unless the signer's self-heal worked, these fixtures stay valid because the doctor who signs is the doctor who amends; an owner amending a colleague's visit would be refused until the signer opens it.
+- 09A-06a (R-A, S-5): the workspace's Print Rx link and the finalize hand-off assume the route serves the archive after finalize; keep `rx_v2.pdf` archived before `finalizeVisitAmendment` returns (the journey reads it from the database right after).
+- V2-09b must keep `recordState`, the sealed read-only contract (every input disabled, Amend for owner and doctor) and the two flows (reopen with a 10 to 500 character reason, finalize with the form saved first) as its contract; the specs above are the check.
+- The page now makes two extra reads (latest header version; the latest revision reason only while amending).
