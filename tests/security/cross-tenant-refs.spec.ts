@@ -12,7 +12,6 @@
  */
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createVisit } from "@/features/visits/service";
 import { createScheduleBlock } from "@/features/visits/scheduling-service";
 import { addToWaitlist } from "@/features/waitlist/service";
 import { grantConsent, toggleGlobalConsent, withdrawConsent } from "@/features/patients/consent-service";
@@ -27,6 +26,7 @@ import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../he
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { callWalkIn, walkInArgs } from "../helpers/front-desk-commands";
 
 const admin = getAdminClient();
 const TABLES = ["visits", "waitlist_entries", "consent_records", "follow_ups", "consultation_diagnoses", "referrals",
@@ -87,18 +87,15 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     B = await seedPatientAndVisit(ownerB, "B");
   }, 60_000);
 
-  const visitInput = (patient_id: string, doctor_id: string) => ({
-    patient_id,
-    doctor_id,
-    origin_type: "walk_in" as const,
-    estimated_duration_minutes: 15,
-    is_overbooked: false,
-  });
+  // V2-08 08-06a (S-1): a visit is created by the definer commands only (the user client holds no INSERT on `visits`), so the
+  // reference checks of the retired `createVisit` service are the walk-in command's: PATIENT_NOT_FOUND / DOCTOR_NOT_FOUND.
+  const walkIn = (patient: string, doctor: string) =>
+    callWalkIn(receptionistA.client, walkInArgs(receptionistA, { p_patient_id: patient, p_doctor_id: doctor }));
 
-  it("createVisit (and bookAppointment / waitlist promotion through it): B patient or B doctor refused", async () => {
-    expect((await createVisit(ctxFor(receptionistA), visitInput(B.patient, doctorA.userId))).success).toBe(false);
-    expect((await createVisit(ctxFor(receptionistA), visitInput(A.patient, ownerB.userId))).success).toBe(false);
-    expect((await createVisit(ctxFor(receptionistA), visitInput(A.patient, doctorA.userId))).success).toBe(true);
+  it("enqueue_walk_in (the visit-creating command; booking and waitlist promotion use the same step): B patient or B doctor refused", async () => {
+    expect((await walkIn(B.patient, doctorA.userId)).error).not.toBeNull();
+    expect((await walkIn(A.patient, ownerB.userId)).error).not.toBeNull();
+    expect((await walkIn(A.patient, doctorA.userId)).error).toBeNull();
   });
 
   it("addToWaitlist: B patient or B doctor refused", async () => {
@@ -212,7 +209,7 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     await admin.from("patients").update({ erased_at: new Date().toISOString(), status: "erased" }).eq("id", erased.patient);
     const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     for (const patient of [deleted.patient, erased.patient]) {
-      expect((await createVisit(ctxFor(receptionistA), visitInput(patient, doctorA.userId))).success).toBe(false);
+      expect((await walkIn(patient, doctorA.userId)).error).not.toBeNull();
       expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 }, randomUUID())).ok).toBe(false);
       expect((await grantConsent(ctxFor(nurseA), patient, "data_sharing")).success).toBe(false);
     }

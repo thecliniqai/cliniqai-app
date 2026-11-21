@@ -30,18 +30,6 @@ import type { AppErrorCode } from "@/lib/errors/app-error";
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
 
-const createVisitSchema = z.object({
-  patient_id: z.string().uuid("Invalid patient ID"),
-  doctor_id: z.string().uuid("Invalid doctor ID"),
-  origin_type: z.enum(["scheduled", "walk_in"]),
-  scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
-  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
-  reason_for_visit: z.string().max(500).nullable().optional(),
-  is_overbooked: z.boolean().default(false),
-});
-
-export type CreateVisitInput = z.infer<typeof createVisitSchema>;
-
 /**
  * The reason a visit insert carries when the doctor's slot was taken between the slot check and the insert: the
  * `visits_no_double_booking` exclusion constraint (V2-05 05-08, DB-08) refuses a second overlapping, non-overbooked
@@ -58,106 +46,6 @@ export const SLOT_TAKEN_MESSAGE =
  */
 export function isSlotTakenError(err: DbErrorLike | null | undefined): boolean {
   return isDeadlock(err) || mapDbError(err).reason === SLOT_TAKEN_REASON;
-}
-
-export type CreateVisitResult =
-  | { success: true; visitId: string }
-  | {
-      success: false;
-      error: string;
-      fieldErrors?: Record<string, string[]>;
-      /** Set when the slot was taken (CONFLICT, reason {@link SLOT_TAKEN_REASON}). */
-      conflict?: true;
-      code?: AppErrorCode;
-      reason?: string;
-    };
-
-export async function createVisit(ctx: ServiceContext, input: CreateVisitInput): Promise<CreateVisitResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    const parseResult = createVisitSchema.safeParse(input);
-    if (!parseResult.success) {
-      const fieldErrors: Record<string, string[]> = {};
-      for (const issue of parseResult.error.issues) {
-        const field = issue.path[0]?.toString() || "form";
-        fieldErrors[field] = fieldErrors[field] || [];
-        fieldErrors[field].push(issue.message);
-      }
-      return {
-        success: false,
-        error: "Please correct the highlighted errors.",
-        fieldErrors,
-      };
-    }
-    const data = parseResult.data;
-
-    // The patient and the doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not check this).
-    if (!(await patientInTenant(ctx, data.patient_id))) {
-      return { success: false, error: "Patient not found or access denied." };
-    }
-    if (!(await memberOfTenant(ctx, data.doctor_id))) {
-      return { success: false, error: "Doctor not found in this clinic." };
-    }
-
-    // Insert visit under RLS. Two concurrent inserts of conflicting slots can both find the other's not-yet-committed
-    // row while checking `visits_no_double_booking`; PostgreSQL then aborts one of them as a deadlock (40P01) instead
-    // of 23P01. The other transaction goes on and commits, so one retry answers definitively: 23P01 (the slot is
-    // taken) or, if the other failed, the booking itself (V2-05 05-08; the shared helper since 05-11c).
-    const insertVisit = () => (
-      supabase.from("visits") as unknown as {
-        insert: (row: Record<string, unknown>) => {
-          select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { code?: string; message: string } | null }>;
-          };
-        };
-      }
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        patient_id: data.patient_id,
-        doctor_id: data.doctor_id,
-        origin_type: data.origin_type,
-        status: data.origin_type === "walk_in" ? "waiting" : "booked",
-        scheduled_at: data.scheduled_at || null,
-        estimated_duration_minutes: data.estimated_duration_minutes,
-        reason_for_visit: data.reason_for_visit || null,
-        is_overbooked: data.is_overbooked,
-        created_by: session.userId,
-      })
-      .select("id")
-      .single();
-    const { data: newVisit, error: insertError } = await retryOnDeadlock(insertVisit);
-
-    if (insertError || !newVisit) {
-      if (isSlotTakenError(insertError)) {
-        // Expected under concurrency (two desks booking one slot): not an error to alert on.
-        return { success: false, error: SLOT_TAKEN_MESSAGE, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON };
-      }
-      log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to schedule visit in database." };
-    }
-
-    await recordAudit(ctx, {
-      action: "visit.create",
-      entityType: "visit",
-      entityId: newVisit.id,
-      metadata: {
-        origin_type: data.origin_type,
-        fields_changed: ["created"],
-      },
-    });
-
-    return { success: true, visitId: newVisit.id };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to create visit.", "visits.create_visit.failed"),
-    };
-  }
 }
 
 export type GetVisitsResult =

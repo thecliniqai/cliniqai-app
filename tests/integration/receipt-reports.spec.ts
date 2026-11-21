@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 import {
   createVisitInvoice,
   recordPayment,

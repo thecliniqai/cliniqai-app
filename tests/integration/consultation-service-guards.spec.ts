@@ -8,7 +8,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
-import { createVisit, recordVisitVitals } from "@/features/visits/service";
+import { recordVisitVitals } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,

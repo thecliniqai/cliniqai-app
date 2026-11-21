@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 import { ctxFor } from "../helpers/context";
 import {
   createVisitInvoice,

@@ -23,7 +23,7 @@ import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
-import { createVisit } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
 

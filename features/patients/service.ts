@@ -17,74 +17,8 @@ import { DUPLICATE_REASONS, DUPLICATE_STRENGTHS, PATIENT_SEARCH_LIMIT, type Dupl
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type CreatePatientResult =
-  { success: true; patientId: string } | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-export async function createPatient(ctx: ServiceContext, input: PatientInput): Promise<CreatePatientResult> {
-  const parseResult = patientSchema.safeParse(input);
-  if (!parseResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
-      fieldErrors[field] = fieldErrors[field] || [];
-      fieldErrors[field].push(issue.message);
-    }
-    return {
-      success: false,
-      error: "Please correct the highlighted errors.",
-      fieldErrors,
-    };
-  }
-
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "patients:edit");
-    const session = ctx;
-    const data = parseResult.data;
-
-    // 1. Insert patient under RLS
-    const { data: newPatient, error: insertError } = await (supabase.from("patients") as any)
-      .insert({
-        tenant_id: session.tenantId,
-        full_name: data.full_name,
-        phone: data.phone,
-        date_of_birth: data.date_of_birth,
-        age: data.age ?? null,
-        sex: data.sex || null,
-        address: data.address || null,
-        allergies: data.allergies || [],
-        chronic_conditions: data.chronic_conditions || [],
-        emergency_contact: data.emergency_contact || null,
-        abha_id: data.abha_id,
-        created_by: session.userId,
-      })
-      .select("id")
-      .single();
-
-    if (insertError || !newPatient) {
-      log.error({ event: "patients.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to register patient in clinic database." };
-    }
-
-    // 2. Audit record creation
-    await recordAudit(ctx, {
-      action: "patient.create",
-      entityType: "patient",
-      entityId: newPatient.id,
-      metadata: {
-        fields_changed: ["created"],
-      },
-    });
-
-    return { success: true, patientId: newPatient.id };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to register patient.", "patients.create_patient.failed"),
-    };
-  }
-}
+// V2-08 08-06a (S-8): `createPatient` is gone with the INSERT grant on `patients`: a patient is registered only by the
+// `register_patient` command (and the walk-in and booking commands), which normalise the phone, close the key set and audit.
 
 /** Fixed text when a caller without consultations:view changes allergies or chronic conditions (R-8, 05-02b). */
 export const PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE =

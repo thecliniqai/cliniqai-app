@@ -5,13 +5,14 @@
  * The permission landed in 05-01b (`patients:edit` for receptionists); 000055 binds the patients policies to the
  * active clinic and adds `patients_clinical_fields_guard`: a caller without consultations:view in the row's clinic
  * may update demographics but not allergies or chronic conditions (R-8). INSERT is not restricted, so the desk may
- * record allergies at intake.
+ * record allergies at intake. Registration is the `register_patient` command (V2-08 08-06a).
  *
- * Every call goes through the real service with the user's own JWT client (RLS applies, as in a request); rows are
+ * Every call goes through the real service or command with the user's own JWT client (RLS applies, as in a request); rows are
  * read back with the service-role client. Synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { createPatient, updatePatient, PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE } from "@/features/patients/service";
+import { randomUUID } from "node:crypto";
+import { updatePatient, PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE } from "@/features/patients/service";
 import type { PatientInput } from "@/features/patients/schema";
 import type { ServiceContext } from "@/lib/auth/context";
 import { ctxFor } from "../helpers/context";
@@ -24,6 +25,23 @@ let phoneSeq = 0;
 function syntheticMobile(): string {
   phoneSeq = (phoneSeq + 1) % 100;
   return `90000000${String(phoneSeq).padStart(2, "0")}`;
+}
+
+/**
+ * Registers a patient the way the app does since V2-08 08-06a (S-8): through the `register_patient` command on the caller's own
+ * client (`authenticated` holds no INSERT on `patients`; the retired `createPatient` service wrote the table directly).
+ */
+async function createPatient(
+  ctx: ServiceContext,
+  patient: PatientInput,
+): Promise<{ success: true; patientId: string } | { success: false; error: string }> {
+  const { data, error } = await ctx.db.rpc("register_patient", {
+    p_tenant_id: ctx.tenantId,
+    p_patient: patient,
+    p_client_request_id: randomUUID(),
+  } as never);
+  if (error || !data) return { success: false, error: error?.message ?? "no result" };
+  return { success: true, patientId: (data as { patient_id: string }).patient_id };
 }
 
 function input(over: Partial<PatientInput> = {}): PatientInput {

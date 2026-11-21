@@ -5,7 +5,7 @@
  * Two concurrent writes of overlapping slots can each find the other's not-yet-committed index entry while checking the
  * `visits_no_double_booking` exclusion constraint; PostgreSQL then aborts one of them as a deadlock (SQLSTATE 40P01)
  * instead of answering 23P01. The survivor commits, so one retry of the aborted write answers definitively (23P01 → the
- * slot is taken). `retryOnDeadlock` (lib/db/retry.ts) is that one retry, shared by `createVisit`, `POST /api/v1/visits`,
+ * slot is taken). `retryOnDeadlock` (lib/db/retry.ts) is that one retry, shared by `POST /api/v1/visits`,
  * `POST /api/v1/appointments`, `PATCH /api/v1/appointments/:id` and the patient reschedule link.
  *
  * The deadlock is forced, not hoped for. A superuser session ("holder") inserts visit X and waits, inside its open
@@ -29,12 +29,10 @@ import { POST as postAppointment } from "@/app/api/v1/appointments/route";
 import { PATCH as patchAppointment } from "@/app/api/v1/appointments/[id]/route";
 import { POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route";
 import { generateRescheduleToken } from "@/features/appointments/system";
-import { createVisit, SLOT_TAKEN_MESSAGE, SLOT_TAKEN_REASON } from "@/features/visits/service";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { publicEnv } from "@/lib/env";
 import * as enqueueModule from "@/lib/jobs/enqueue";
 import { enableApiV1ForFile } from "../helpers/api-v1";
-import { ctxFor } from "../helpers/context";
 import { psql, psqlAsync } from "../helpers/sql";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
@@ -59,14 +57,12 @@ describe("slot writers under a forced deadlock: the loser gets the taken slot (0
   const admin = getAdminClient();
   let owner: SeededTenant;
   let doctor: SeededTenant;
-  let desk: SeededTenant;
   let rawKey: string;
   let patientId: string;
 
   beforeAll(async () => {
     owner = await seedTenantWithOwner("Synthetic Deadlock Retry Clinic");
     doctor = await addMemberToTenant(owner.tenantId, "doctor");
-    desk = await addMemberToTenant(owner.tenantId, "receptionist");
     // A doctor who works around the clock, so no shift check decides these cases.
     const { error: shiftErr } = await admin
       .from("memberships")
@@ -266,22 +262,5 @@ describe("slot writers under a forced deadlock: the loser gets the taken slot (0
     } finally {
       vi.restoreAllMocks();
     }
-  });
-
-  it("createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict", async () => {
-    const at = istAt(37, 10, 0);
-    const target = plusMinutes(at, 10);
-    const res = await raceAgainstHolder(at, () =>
-      createVisit(ctxFor(desk), {
-        patient_id: patientId,
-        doctor_id: doctor.userId,
-        origin_type: "scheduled",
-        scheduled_at: target,
-        estimated_duration_minutes: 15,
-        is_overbooked: false,
-      })
-    );
-    expect(res).toEqual({ success: false, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON, error: SLOT_TAKEN_MESSAGE });
-    expect(await visitsAt(target)).toBe(0);
   });
 });

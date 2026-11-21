@@ -7,7 +7,7 @@
  * stderr and any `console.*` call) is captured; it must contain the event and `23505` and none of the phone, the email
  * or the message text. Before the sweep these paths printed the raw error through `console.error`.
  *
- * Paths: a patients write (`createPatient`), a labs write (`deleteLabDocument`), the prescription PDF route
+ * Paths: a labs write (`deleteLabDocument`; the patients write case went with the retired `createPatient`, V2-08 08-06a), the prescription PDF route
  * (`GET /api/visits/[id]/prescription-pdf`), the v1 error envelope (`apiError`) (04-03b deleted the cron webhook route and its case).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -47,7 +47,6 @@ vi.mock("@/lib/auth/context", async (importOriginal) => ({
 
 vi.mock("@/lib/supabase/system", () => ({ getSystemDb: mocks.getSystemDb }));
 
-import { createPatient } from "@/features/patients/service";
 import { deleteLabDocument } from "@/features/labs/service";
 import { GET as getPrescriptionPdf } from "@/app/api/visits/[id]/prescription-pdf/route";
 import { apiError } from "@/lib/api/envelope";
@@ -133,28 +132,6 @@ function expectNoRawError(): void {
 }
 
 describe("server error branches log the event and code, never the raw error (03-09c)", () => {
-  it("patients write: createPatient insert failure", async () => {
-    const db = fakeDb((table, op) =>
-      table === "patients" && op === "insert" ? { data: null, error: phiError() } : { data: null, error: null }
-    );
-
-    const result = await createPatient(ctxWith(db), {
-      full_name: "Synthetic Patient",
-      phone: "9000000001",
-      age: null,
-      date_of_birth: null,
-      abha_id: null,
-    });
-
-    expect(result).toMatchObject({ success: false, error: "Failed to register patient in clinic database." });
-    // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.
-    expectNoRawError();
-    const [line, ...rest] = linesFor("patients.create_insert.failed");
-    expect(rest).toEqual([]);
-    expect(line).toMatchObject({ level: "error", code: "23505", requestId: REQUEST_ID, tenantId: TENANT_ID });
-    expect(Object.keys(line).sort()).toEqual(["code", "event", "level", "requestId", "tenantId", "ts"]);
-  });
-
   it("labs write: deleteLabDocument row delete failure", async () => {
     // The row delete fails. Since V2-05 05-04 the row is deleted first, so the storage step is never reached.
     const db = fakeDb((table, op) => {
