@@ -56,7 +56,7 @@ describe("referral_source_clinics(p_ids) (migration 000026)", () => {
     if (phoneErr) throw new Error(`seed phone: ${phoneErr.message}`);
     await listInReferralDirectory(B.tenantId); // 05-06: the in-network target must be listed in the referral directory
 
-    const { data: patient, error: patientErr } = await A.client
+    const { data: patient, error: patientErr } = await getAdminClient()
       .from("patients")
       .insert({ tenant_id: A.tenantId, full_name: "Synthetic Patient RSC", phone: "+919000000026", created_by: A.userId })
       .select("id")

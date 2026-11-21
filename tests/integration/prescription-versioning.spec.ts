@@ -19,6 +19,7 @@ import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
 import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -40,7 +41,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // 2. Create test patient for Tenant A
-    const { data: patient, error: pErr } = await tenantA.client
+    const { data: patient, error: pErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,

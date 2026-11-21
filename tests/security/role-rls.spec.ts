@@ -12,6 +12,7 @@
  *   - the services a receptionist reaches (visit history, queue) return clinical data as absent.
  * 05-02b adds this file's front-desk and financial cases. Seeded with the service role; synthetic data only.
  */
+import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { getPatientVisitHistory } from "@/features/patients/service";
 import { getTodayBoard } from "@/features/today/queries";
@@ -194,13 +195,19 @@ describe("clinical_notes RLS through PostgREST (05-02a, acceptance 2)", () => {
       } as never);
       expect(injected.error?.code).toBe("PGRST204");
 
-      const { data, error } = await receptionist.client
-        .from("visits")
-        .insert({ tenant_id: owner.tenantId, patient_id: patientId, doctor_id: doctor.userId, origin_type: "walk_in", created_by: receptionist.userId })
-        .select("id")
-        .single();
-      expect(error).toBeNull();
-      const notes = await admin.from("clinical_notes").select("*").eq("visit_id", data!.id);
+      // V2-08 08-06a (S-1): a receptionist books through the command (INSERT on visits is revoked); the trigger still creates the one
+      // empty clinical_notes row.
+      const booked = await receptionist.client.rpc("enqueue_walk_in", {
+        p_tenant_id: owner.tenantId,
+        p_patient_id: patientId,
+        p_new_patient: null,
+        p_doctor_id: doctor.userId,
+        p_priority: "normal",
+        p_client_request_id: randomUUID(),
+      } as never);
+      expect(booked.error).toBeNull();
+      const data = { id: (booked.data as { visit_id: string }).visit_id };
+      const notes = await admin.from("clinical_notes").select("*").eq("visit_id", data.id);
       expect(notes.data).toHaveLength(1);
       expect(notes.data![0]).toMatchObject({
         tenant_id: owner.tenantId,

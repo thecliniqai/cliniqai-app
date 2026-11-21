@@ -30,7 +30,7 @@ function useClinicClock(instant: Date): void {
 }
 
 async function seedPatient(t: SeededTenant, fullName: string, phone: string): Promise<string> {
-  const { data, error } = await t.client
+  const { data, error } = await getAdminClient()
     .from("patients")
     .insert({ tenant_id: t.tenantId, full_name: fullName, phone, age: 40, created_by: t.userId })
     .select("id")
@@ -125,7 +125,7 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
   });
 
   it("a visit at 02:00 IST on 13 Nov is in the 13 Nov list and not in the 12 Nov list", async () => {
-    const { data: visit, error } = await ist.client
+    const { data: visit, error } = await getAdminClient()
       .from("visits")
       .insert({
         tenant_id: ist.tenantId,

@@ -52,7 +52,7 @@ describe("consultation service guards (01-01c)", () => {
     nurse = await addMemberToTenant(owner.tenantId, "nurse");
     receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
 
-    const { data: patient, error } = await owner.client
+    const { data: patient, error } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: owner.tenantId,

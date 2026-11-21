@@ -18,7 +18,7 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
     sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     // Seed patient
-    const { data: patient } = await (tenantA.client.from("patients") as any)
+    const { data: patient } = await (getAdminClient().from("patients") as any)
       .insert({
         tenant_id: tenantA.tenantId,
         full_name: "Kavita Verma",

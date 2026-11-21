@@ -6,6 +6,7 @@ import { ctxFor } from "../helpers/context";
 import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
 import { saveConsultationDraft } from "@/features/consultation/service";
 import { consultationDraftInput } from "../helpers/fixtures";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -18,7 +19,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     tenantB = await seedTenantWithOwner("Beacon Health Center");
 
     // 1. Create a patient in Tenant A
-    const { data: pA, error: pAErr } = await tenantA.client
+    const { data: pA, error: pAErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,

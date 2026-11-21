@@ -19,7 +19,7 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     tenantB = await seedTenantWithOwner("Beacon Care Hospital");
 
     // Create 2 test patients for Tenant A via tenantA client
-    const { data: p1, error: p1Err } = await tenantA.client
+    const { data: p1, error: p1Err } = await admin
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -34,7 +34,7 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     if (p1Err || !p1) throw new Error(`Failed to seed patient A1: ${p1Err?.message}`);
     patientA1Id = p1.id;
 
-    const { data: p2, error: p2Err } = await tenantA.client
+    const { data: p2, error: p2Err } = await admin
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -50,9 +50,9 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     patientA2Id = p2.id;
   });
 
-  it("1. Tenant A owner can create a visit and check in patient, receiving sequential token #1", async () => {
+  it("1. A visit (seeded: no member inserts one since V2-08 08-06a, S-1) is checked in through the token RPC, receiving sequential token #1", async () => {
     // 1. Create visit for patient 1
-    const { data: v1, error: v1Err } = await tenantA.client
+    const { data: v1, error: v1Err } = await admin
       .from("visits")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -120,7 +120,7 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
 
   it("2. Checking in a second patient receives sequential token #2 on the same day", async () => {
     // 1. Create walk-in visit for patient 2
-    const { data: v2, error: v2Err } = await tenantA.client
+    const { data: v2, error: v2Err } = await admin
       .from("visits")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -244,7 +244,7 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     const today = first!.date as string;
 
     // Create a 3rd visit for Tenant A
-    const { data: v3 } = await tenantA.client
+    const { data: v3 } = await admin
       .from("visits")
       .insert({
         tenant_id: tenantA.tenantId,

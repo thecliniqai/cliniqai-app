@@ -23,7 +23,7 @@ interface PatientFields {
 }
 
 async function patient(t: Tenant, fields: PatientFields): Promise<string> {
-  const { data, error } = await t.client
+  const { data, error } = await getAdminClient()
     .from("patients")
     .insert({ tenant_id: t.tenantId, created_by: t.userId, ...fields })
     .select("id")
@@ -33,7 +33,7 @@ async function patient(t: Tenant, fields: PatientFields): Promise<string> {
 }
 
 async function visitWithToken(t: Tenant, patientId: string, status: string, token: number | null): Promise<string> {
-  const { data, error } = await t.client
+  const { data, error } = await getAdminClient()
     .from("visits")
     .insert({
       tenant_id: t.tenantId,

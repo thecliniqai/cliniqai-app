@@ -250,12 +250,15 @@ describe("the DELETE column (final since 05-04)", () => {
  * "Target policy matrix"); none may fall back to a legacy rule. 05-02c moves the remaining admin/system tables.
  */
 const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
-  "public.patients": ["perm(patients:view)", "perm(patients:edit)", "perm(patients:edit)"],
+  // V2-08 08-06a (S-8): a patient is registered by register_patient and the walk-in / booking commands (definer), never by an insert.
+  "public.patients": ["perm(patients:view)", "rpc_only", "perm(patients:edit)"],
   "public.consent_records": ["perm(patients:view)", "perm(patients:edit)", "rpc_only"],
-  "public.visits": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  // V2-08 08-06a (S-1): visits are created by the definer commands and the service role, never by an insert.
+  "public.visits": ["perm(appointments:view)", "rpc_only", "perm(appointments:edit)"],
   // 05-11a M-TOKEN: token rows are written only by issue_queue_token (SECURITY DEFINER).
   "public.queue_tokens": ["perm(appointments:view)", "rpc_only", "perm(appointments:edit)"],
-  "public.waitlist_entries": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  // V2-08 08-06a (S-2): add_to_waitlist, promote_waitlist_entry and cancel_visit (definer) are the only writers.
+  "public.waitlist_entries": ["perm(appointments:view)", "rpc_only", "rpc_only"],
   "public.schedule_blocks": [
     "perm(appointments:view)",
     "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
@@ -326,7 +329,9 @@ describe("the clinical, front-desk and financial S/I/U rules (target since 05-02
   });
 
   it("has the plan's example cells (05-02b 'Tests that fail without the change')", () => {
-    expect(outcome("public.patients", "insert", "receptionist_a")).toBe("ok");
+    // PO-3: the receptionist registers patients, through register_patient (V2-08 08-06a, S-8: not by an insert) and edits demographics.
+    expect(outcome("public.patients", "insert", "receptionist_a")).toBe("denied");
+    expect(outcome("public.patients", "update", "receptionist_a")).toBe("1");
     expect(outcome("public.payments", "insert", "doctor_a")).toBe("denied");
     expect(outcome("public.payments", "insert", "nurse_a")).toBe("denied");
     // 05-11b (M-INVOICE): not even a collector inserts a payment directly; record_payment is the only writer.

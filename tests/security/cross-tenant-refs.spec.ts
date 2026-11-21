@@ -222,18 +222,21 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     expect(rows ?? []).toEqual([]);
   });
 
-  it("direct PostgREST writes that bypass the services' check are stopped by the composite FKs (05-03, 23503)", async () => {
-    // The member's own JWT, straight to PostgREST: RLS admits the row (its own tenant_id is A), so before 05-03 the
-    // single-column FKs (id only) let both rows in. The composite (tenant_id, …) FKs refuse them.
+  it("direct writes that bypass the commands' checks are stopped: no member insert (S-1), and the composite FKs refuse the system path (05-03, 23503)", async () => {
+    // V2-08 08-06a (S-1): the member's own JWT cannot insert a visit at all, whichever ids it names.
     const row = { tenant_id: ownerA.tenantId, origin_type: "walk_in", created_by: receptionistA.userId };
-    const bPatient = await receptionistA.client.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
+    const viaMember = await receptionistA.client.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
+    expect(viaMember.error?.code).toBe("42501");
+    expect(viaMember.data).toBeNull();
+    // The composite (tenant_id, ...) FKs (05-03) are still the last line for the writers that keep INSERT (service role, /api/v1):
+    // a row of clinic A pointing at clinic B's patient or doctor is refused with 23503, in-clinic references work.
+    const bPatient = await admin.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
     expect(bPatient.error?.code).toBe("23503");
     expect(bPatient.data).toBeNull();
-    const bDoctor = await receptionistA.client.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: ownerB.userId }).select("id");
+    const bDoctor = await admin.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: ownerB.userId }).select("id");
     expect(bDoctor.error?.code).toBe("23503");
     expect(bDoctor.data).toBeNull();
-    // Control: the same direct insert inside clinic A succeeds, so the refusals are the cross-tenant references.
-    const own = await receptionistA.client.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: doctorA.userId }).select("id");
+    const own = await admin.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: doctorA.userId }).select("id");
     expect(own.error).toBeNull();
     expect(own.data).toHaveLength(1);
   });

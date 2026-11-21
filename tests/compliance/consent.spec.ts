@@ -13,7 +13,7 @@ describe("Immutable Append-Only Consent Records (REQ-compliance-data-layer)", ()
     tenantB = await seedTenantWithOwner("Max Healthcare");
 
     // Seed patient in Tenant A
-    const { data: p } = await (tenantA.client.from("patients") as any)
+    const { data: p } = await (getAdminClient().from("patients") as any)
       .insert({
         tenant_id: tenantA.tenantId,
         full_name: "Pooja Hegde",

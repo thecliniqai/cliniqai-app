@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -13,21 +14,18 @@ describe("Audit Logging & Patient Traceability (REQ-compliance-data-layer, REQ-n
   });
 
   it("proves creating a patient writes a patient record and an audit log row under RLS", async () => {
-    // 1. Insert patient via tenant A owner
-    const { data: newPatient, error: pError } = await (tenantA.client.from("patients") as any)
-      .insert({
-        tenant_id: tenantA.tenantId,
-        full_name: "Rahul Verma",
-        phone: "+919876543210",
-        created_by: tenantA.userId,
-      })
-      .select("id")
-      .single();
-
+    // 1. Register the patient through the command (V2-08 08-06a, S-8: `authenticated` holds no INSERT on patients any more); the
+    //    command writes the patient.create audit row in the same transaction.
+    const { data: registered, error: pError } = await tenantA.client.rpc("register_patient", {
+      p_tenant_id: tenantA.tenantId,
+      p_patient: { full_name: "Rahul Verma", phone: "9876543210", age: 40 },
+      p_client_request_id: randomUUID(),
+    } as never);
     expect(pError).toBeNull();
-    expect(newPatient?.id).toBeDefined();
+    const newPatient = { id: (registered as { patient_id: string }).patient_id };
+    expect(newPatient.id).toBeDefined();
 
-    // 2. Write the audit row the way the app does since V2-05 05-02c (log_audit; direct INSERT is revoked, R-20)
+    // 2. A member cannot write the audit row directly (V2-05 05-02c, R-20: INSERT on audit_logs is revoked)
     const { error: directError } = await (tenantA.client.from("audit_logs") as any).insert({
       tenant_id: tenantA.tenantId,
       actor_id: tenantA.userId,
@@ -37,15 +35,6 @@ describe("Audit Logging & Patient Traceability (REQ-compliance-data-layer, REQ-n
       entity_id: newPatient.id,
     });
     expect(directError?.code).toBe("42501");
-    const { error: aError } = await tenantA.client.rpc("log_audit", {
-      p_tenant: tenantA.tenantId,
-      p_action: "patient.create",
-      p_entity_type: "patient",
-      p_entity_id: newPatient.id,
-      p_metadata: { fields_changed: ["created"] },
-    });
-
-    expect(aError).toBeNull();
 
     // 3. Verify audit log exists
     const { data: auditRows } = await (tenantA.client.from("audit_logs") as any)

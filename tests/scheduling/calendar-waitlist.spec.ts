@@ -6,6 +6,7 @@ import { registerAndBook } from "@/features/visits/scheduling-service";
 import { addToWaitlist, getWaitlistForDate } from "@/features/waitlist/service";
 import { cancelVisit } from "@/features/visits/scheduling-service";
 import { addDaysYmd, todayInTz, weekdayOfYmd } from "@/lib/datetime";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -29,7 +30,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
     tenant = await seedTenantWithOwner("Zenith Care Clinic");
 
     // Create 3 test patients
-    const { data: p1 } = await tenant.client
+    const { data: p1 } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenant.tenantId,
@@ -43,7 +44,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
 
     patient1Id = p1!.id;
 
-    const { data: p2 } = await tenant.client
+    const { data: p2 } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenant.tenantId,
@@ -57,7 +58,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
 
     patient2Id = p2!.id;
 
-    const { data: p3 } = await tenant.client
+    const { data: p3 } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenant.tenantId,

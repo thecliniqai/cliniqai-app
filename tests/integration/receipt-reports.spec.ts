@@ -18,6 +18,7 @@ import {
 import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
 import { ctxFor } from "../helpers/context";
 import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -33,7 +34,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     tenantB = await seedTenantWithOwner("Fortis Health Center");
 
     // 1. Create Patient in Tenant A
-    const { data: pA, error: pAErr } = await tenantA.client
+    const { data: pA, error: pAErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
