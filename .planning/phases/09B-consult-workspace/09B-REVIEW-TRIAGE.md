@@ -41,3 +41,31 @@ in production; it only widens the pre-authentication memory surface (S-1 / A-5).
 
 - Consult route JS 368 kB against the 200 kB report-only budget: V2-14 performance backlog.
 - 09B-P3 (staging): duplicate follow-ups per visit check before 000112 (query in `09B-NOTES.md`).
+
+## 09B-06a outcome (executor, 2026-11-21)
+
+"Failed without" was measured, not assumed. Database rows: `000116_consult_review_fixes.sql` moved out, `db reset` to 000115, `consult_review_fixes.test.sql` run (40 of 48 assertions failed; the 8 that passed
+are controls: boundaries accepted, valid complaints and follow-ups accepted, the closed-visit count, and the two S-7 grant assertions, see S-7); then 000116 restored without its S-2 block and reset again (assertions 13-22
+failed, the controls 8-12 passed). The migration was restored byte for byte (`cmp` against a saved copy) and the stack reset. App rows: each fix reverted in the working tree by a scripted edit, the specs run, then
+`git checkout` of those files; for the UI rows the app was rebuilt (`npm run e2e:build`) and the e2e run on desktop-chrome: one build with A-1, A-2, A-3, A-7 and the A-4 client reverted together (each test fails on
+its own row), and one build with A-6 alone (A-3 reverted too would have put the follow-up in its audit row). pgTAP numbers are the assertions of `consult_review_fixes.test.sql`.
+
+| Row | Commit(s) | Test(s) | Failed without the fix |
+|---|---|---|---|
+| S-1 / A-5 (R-U) | ba6e23b, 9a73d60, 98a7e15 | Vitest `proxy-body-limit` (413 for a signed-out 2 MB POST to `/login` and to the consult, an unsized body, a signed-in 2 MB POST to `/today`; a signed-in 4 MB POST to `/consultation/…` and `/patients/…` passes); `file-drop.spec` "accepts … up to exactly 4 MB"; e2e `upload` "a 5 MB file and an .exe are refused …" | yes (proxy gate off: 4 of 7 failed, the 3 pass-through controls passed) |
+| A-1 | 41cca25, 87c1585 | e2e `review-fixes` A-1 "a link to Today …" and "a history step …"; Vitest `draft-saver` "A-1: release() saves what is unsent at once …" | yes (both e2e: the advice stayed unsaved; Vitest: no request) |
+| A-2 | 95398e2 | e2e `review-fixes` A-2 (the ask, Keep keeps the text and the row's version, Switch applies) | yes (no dialog; the legacy text replaced) |
+| A-3 | 41cca25, 3e844cb | e2e `review-fixes` A-3 (no tile checked, an unrelated edit stores no follow-up, a tap stores 5 days); Vitest `workspace-sealed` (no date field on a sealed visit without a follow-up) | yes (both) |
+| A-4 | 9561fd2, 98a7e15, 491a736 | pgTAP #1-#7; Vitest `lab-upload-review-fixes` A-4 (a retry after a lost answer, three parallel sends, an orphan object adopted only with the same bytes, the id reused for another patient); e2e `upload` "A-4: an upload whose answer is lost …" (Chromium; skipped on WebKit, see notes) | yes (DB run: #1-#7; service revert: 4 of 4; client not sending the id: the e2e stored two rows) |
+| S-2 / A-8 | 9561fd2, 98a7e15, 8b1b4f3, 16b29c4 | pgTAP #13-#22 (sealed, completed, cancelled refused for doctor, nurse, service role, owner; catalog); controls #8-#12; Vitest `lab-upload-review-fixes` S-2 (refused with no row and no object; draft and amending take one) | yes (migration without S-2: #13-#22; service check off: the object was stored before the trigger refused the row) |
+| S-3 | not fixed (deferred to V2-14) | inventory in 09B-NOTES 09B-06a: `recordVisitVitals` still writes `clinical_notes.vitals` with the caller's JWT | n/a |
+| S-4 | 9561fd2, a69f07c, 16b29c4 | pgTAP #25-#48 (16 refusals, 5 acceptance controls, the stored-date exception and its control) | yes (#25-#32, #35-#42, #44, #45, #48 failed; the controls #33, #34, #43, #46, #47 passed) |
+| A-6 | 41cca25 | e2e `review-fixes` A-6 (Amend, edit, Finalize, Amend, one tap: `fields_changed` is `["chief_complaints"]`) | yes (`clinical_notes` was in `fields_changed`) |
+| A-7 | 41cca25 | Vitest `draft-saver` "A-7: an out-of-range vital is held back …" and "… systolic not above diastolic and a fractional pulse …"; e2e `review-fixes` A-7 (marked in place, the complaint saved, vitals not, corrected then saved) | yes (Vitest 2 of 2; e2e, saver hold-back off: the whole save was refused, so no "saved" state and the complaint not stored) |
+| A-9 | not changed (accepted) | note in 09B-NOTES 09B-06a | n/a |
+| S-5 | not changed (accepted, V2-12) | none | n/a |
+| S-6 | 98a7e15 | Vitest `lab-upload-review-fixes` S-6 (HTML declared PNG refused, nothing stored; a PNG named `.html` stored as `.png`; bidi and control characters stripped; 255 cap); `file-drop.spec` S-6 helper cases | yes (service revert: 2 of 2) |
+| S-7 | 9561fd2 | pgTAP #23, #24 | no: the defect did not exist on this database. Migration 000059's `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` already left both functions with `{postgres=X/postgres}`; the REVOKE is kept as the checklist statement and the assertions guard against a regression |
+
+Specs whose meaning changed with the new rules were adapted, not deleted (09B-NOTES 09B-06a, deviation 8). Counts: pgTAP 8824 (65 files, FLOOR 8824); Vitest affected 288 files, 5677 tests (5674 passed, 3
+skipped, 0 failed); e2e desktop-chrome 242 passed, pixel-7 and iphone-15 102 passed and 1 skipped, iphone-15 without the golden filter 20 passed and 1 skipped; 0 retries everywhere.

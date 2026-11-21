@@ -678,3 +678,103 @@ Table registries (a new tenant table): `tests/authz/table-matrix.{ts,spec.ts}` (
 - `Today` rows carry `followUp` only for roles that may book; the doctor's Plan uses `upcomingVisits` from the page loader (`getUpcomingVisitInstants`).
 - `FileDrop` is generic (accepts a type list, a refusal function and an upload function); V2-09c's camera capture adds a `capture` input beside it, not inside it.
 
+
+## 09B-06a Review fix round (migration 000116_consult_review_fixes)
+
+Inputs: `09B-REVIEW-TRIAGE.md` (decisions and ruling R-U), `09B-REVIEW-A.md`, `09B-REVIEW-SEC.md`. `ls supabase/migrations | tail -1` showed 000115 as the newest; 000116 was free.
+The outcome table (row, commits, tests, failed without the fix) is in `09B-REVIEW-TRIAGE.md`, "09B-06a outcome".
+
+### What changed
+
+- `000116_consult_review_fixes.sql`: `patient_documents.client_request_id` with the partial unique index `(tenant_id, client_request_id)` (A-4); `private.patient_documents_visit_open`, BEFORE INSERT on
+  `patient_documents`, every writer: a row linked to a completed, cancelled or sealed visit is refused (`DOCUMENT_VISIT_LOCKED`, 42501; S-2 / A-8); `save_consultation_draft` replaced from its latest body
+  (000112:269-534; the diff adds only the S-4 checks: vitals ranges and integer fields of `vitalsSchema`, systolic above diastolic, `sugar_type`, complaint keys and types, a follow-up date from the clinic's today to
+  +366 days with the stored date accepted unchanged); EXECUTE revoked on the two 000115 trigger functions (S-7). `expected-migration.ts`, the schema snapshot and `types/database.ts` bumped in the same commit.
+- Upload (`features/labs/{service,utils,schema}.ts`, `components/ui/file-drop.tsx`, `attachments.tsx`, `patient-lab-documents.tsx`): one request id per file, re-sent on Retry; the object key is the request id; a
+  repeat answers with the stored row (no second object, row, audit or webhook); an object left by a failed attempt is adopted only when its bytes are this file's; the same id for another patient, visit or uploader
+  is refused (A-4). A closed visit is refused before anything is stored (S-2). First bytes must match the type, the extension comes from the type, the stored file name loses C0/C1 and bidi characters and is capped
+  at 255 (S-6). The file limit is 4 MB, "File is larger than 4 MB, the upload limit." (R-U).
+- `next.config.ts` `bodySizeLimit` 4mb; `proxy.ts` answers 413 before any body is read to a non-GET/HEAD request with a `content-length` over 1 MB or not a number, or none on POST/PUT/PATCH (or chunked), unless
+  the caller is signed in and the path starts with `/consultation/` or `/patients/`; with Auth unavailable a large body is refused (R-U, S-1 / A-5).
+- Consult draft: `draft-saver.ts` `release()` (flush, then dispose) used by the hook on unmount and record-state change (A-1); `isSendable` holds back a dirty field the server would refuse, marks it
+  (`invalidFields`), saves the rest, and `flush()` answers `invalid` (A-7; the hook adds the follow-up date range); `VitalsBlock` marks invalid vitals in place (`aria-invalid`, "Not saved until corrected");
+  the follow-up date input has `min`/`max` and an inline message. No preselected follow-up: 5 days (or the doctor's usual) is marked "suggested" and nothing is stored before a tap (A-3). The saver made after
+  Amend or Finalize starts from the page's current props (A-6). A template asks before it replaces free-text findings of an older record (`legacyTextReplacedBy`, A-2).
+
+### S-3 writer inventory (deferred)
+
+`grep -rn "updateClinicalNotes\|from(\"clinical_notes\")" app features lib components` (writes only): `features/visits/service.ts:600` `recordVisitVitals` (the nurse's and doctor's vitals sheet on Today,
+`components/today/vitals-sheet.tsx`) writes `clinical_notes.vitals` with the caller's JWT through `lib/db/clinical-notes.ts` `updateClinicalNotes`. `scripts/perf/command-latency.ts:309` writes it too (a script, not a
+request path). Every other writer is the definer command. A request-path writer remains, so `UPDATE (vitals)` stays granted to `authenticated` and S-3 is deferred to V2-14 (a `record_vitals` definer
+command in the V2-07 pattern with validation, recorder and audit, then the revoke). No pgTAP for S-3.
+
+### A-9 note (accepted, by design)
+
+Shorthand expands `.name` macros before it splits segments and reads markers, so a macro whose text holds `;`, a new line or a marker (`adv`, `c/o`, `f/u`) routes parts of itself to other sections. This is by
+design: the preview shows every part with its section before anything is inserted, nothing is inserted without Enter or a tap, and the invariant (no word that is not in the input, a fixed expansion or a macro the
+input names) holds (`shorthand.spec.ts`). A doctor can write a macro meant for one section without markers.
+
+### Backlog rows added (V2-14)
+
+| Item | Owner | Source |
+|---|---|---|
+| `specialty_data` validation per specialty in `save_consultation_draft` (keys and types of the GP, dental and paediatrics shapes) and removal of the `z.record(...)` arm of the union in `draftPatchSchema` / `saveConsultationDraftSchema` | V2-14 | S-4 (part deferred) |
+| `record_vitals` definer command, then revoke `UPDATE (vitals)` on `clinical_notes` from `authenticated` | V2-14 | S-3 (inventory above) |
+| Uploads above 4 MB: a direct-to-Storage upload (signed upload URL under the storage RLS, a small finalize action) | PO decision (proposed V2-14 or earlier) | R-U |
+| Consult route JS 368 kB against the 200 kB report-only budget | V2-14 | triage, other close items |
+
+The plan's deferred row "Magic-byte type check on uploads" (V2-14) is done here (S-6).
+
+### Deviations, with reasons
+
+1. **R-U, the "missing content-length" rule.** The gate refuses a body with no `content-length` (a `transfer-encoding`, or a body stream), not every POST without the header. The first form answered 413 to
+   bodiless POSTs and DELETEs, which the proxy specs send (`api-v1-switch`, `proxy-matcher`, `proxy-session`, `session-auth-close-db`: 49 cases in the first affected run) and which carry nothing to buffer. Browsers send a length for
+   every server action. With Auth unavailable a large body is refused (the session is unknown).
+2. **S-2: the trigger leaves a foreign visit to the FK.** It refuses a row whose visit in the row's clinic is closed; a visit id that is not the clinic's still fails the composite FK with 23503
+   (`composite_fks.test.sql` asserts that code). Every role holding `labs:edit` (owner, doctor, nurse) holds `appointments:view`, so the visits SELECT policy shows the trigger every visit of its clinic.
+3. **S-4: a follow-up date the visit already holds is accepted unchanged**, so an amendment of an older visit can still edit the note of a follow-up whose date has passed. The client holds back an out-of-range
+   date like an invalid vital (A-7), with `min`/`max` on the date input, so a typed date never blocks the other fields.
+4. **S-7 could not fail without the fix.** Migration 000059 (`ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`) already left the two 000115 functions with
+   `{postgres=X/postgres}`; measured with 000116 moved out. The REVOKE is kept as the per-migration checklist statement; the two pgTAP assertions guard against a regression.
+5. **A-6 is proved in e2e, not Vitest.** The repository has no DOM test environment (09B-05 deviation 2) and the defect needs a component that stays mounted across a refresh; `review-fixes.spec.ts` A-6
+   (Amend, edit, Finalize, Amend, one tap: the audit row's `fields_changed` is `["chief_complaints"]`) measures it on real rows.
+6. **A-1 e2e uses advice tiles.** Adding a complaint moves focus to its duration on purpose, and Chromium fires `focusout` when a focused element is removed, which saved the draft without the fix (measured: the
+   history case passed on the reverted build). Advice tiles move no focus; the taps are dispatched click events and a window marker proves both steps are client-side navigations.
+7. **A-4 lost-answer e2e is skipped on WebKit.** Under WebKit the request `route.fetch()` replays to the server stored nothing (measured on iphone-15: one cut, zero rows), so the precondition cannot be produced
+   there. Chromium runs it; the server rule is Vitest `lab-upload-review-fixes` A-4.
+8. **Fixtures that broke on the new rules were adapted, not deleted:** fixed 2031/2032 follow-up dates in Vitest and pgTAP became dates relative to the clinic's today (`followUpDay(n)`, `c112.d1/d2`); fixtures that
+   linked a document to a signed or completed visit attach it while the visit is open (`seedSignedConsultation({ beforeSign })`, `clinical_review_fixes.test.sql`, `dpdp-rights`: its insert was unchecked and was
+   silently refused); `tenant_local_dates.test.sql` excludes the new trigger from its date-filler set; the specs that relied on the preselected 5-day follow-up now tap a tile or expect none.
+
+### Tests added or changed (file: what)
+
+- pgTAP `consult_review_fixes.test.sql` (48): A-4 column and index, the duplicate refused, another clinic and null ids free; S-2 open visits take a document (draft, waiting, amending, nurse, no visit),
+  sealed / completed / cancelled refused for doctor, nurse, service role and table owner, the trigger catalog; S-7 grants; S-4 24 cases (ranges, integers, BP order, sugar_type, complaint keys and types, the
+  follow-up range and the stored-date exception, boundaries accepted). Changed: `consult_draft_save` (relative dates), `clinical_review_fixes` (fixture visit), `tenant_local_dates` (exclusion).
+- Vitest `tests/labs/lab-upload-review-fixes.spec.ts` (8), `tests/api/proxy-body-limit.spec.ts` (7), `draft-saver.spec.ts` (+4), `file-drop.spec.ts` (4 MB, S-6 helpers +3), `workspace-sealed.spec.ts` (no date field on a
+  sealed visit with no follow-up); fixture dates in `draft-save-rpc`, `sealed-refusal-messages`, `workspace-review-fixes`, `ac6-rewrite-signed-rx`; `lab-documents` (4 MB); `dpdp-rights` (fixture order).
+- e2e `tests/e2e/consult/review-fixes.spec.ts` (6: A-1 x2, A-2, A-3, A-6, A-7); `upload.spec.ts` (+1 A-4, 5 MB refusal, key = request id, sealed fixture); `consult-screens.spec.ts` (sealed fixture);
+  `tap-entry`, `smart-assist`, `workspace-layout` (no preselected follow-up).
+
+### Counts and checks (tool output of the runs named)
+
+- pgTAP after `npx supabase db reset --local`, `npm run test:pgtap`: **8824 tests, 65 files, all pass**; `assert-pgtap-report.mjs` PASS at FLOOR 8824 (8776 + 48), REQUIRED_FILES gains the file.
+- Vitest, affected (`tests/consultation tests/labs tests/components tests/auth tests/security tests/api tests/pwa tests/observability tests/dpdp tests/compliance tests/jobs tests/integration tests/clinical tests/today
+  tests/visits tests/messaging tests/audit tests/authz tests/ci tests/setup tests/terminology tests/prescriptions tests/billing/collect-permission.spec.ts tests/referrals tests/patients`, which includes everything
+  that covers `proxy.ts`): **288 files, 5677 tests: 5674 passed, 3 skipped (existing), 0 failed**. Vitest REQUIRED_FILES gains the two new files; FLOOR stays 6455 (re-measured at the close).
+- e2e after `npm run e2e:build` (the last app change, the proxy gate, was rebuilt before these runs), every run `--retries=0`:
+  - desktop-chrome: `tests/e2e/consult tests/e2e/journeys tests/e2e/m0/consult-rx-finish.spec.ts tests/e2e/today tests/e2e/schedule tests/e2e/a11y/{consult-screens,amendment-screens,sign-and-bill-screens,
+    clinical-split-screens,lab-reports-screens}.spec.ts tests/e2e/pwa/05-cache-audit.spec.ts tests/e2e/pwa/13-idempotent-retry.spec.ts`: **242 passed, 0 failed** (8 of them sign-in setup; 8.0 min).
+  - pixel-7 and iphone-15: journey 6 plus `review-fixes`, `upload`, `tap-entry`, `smart-assist`, `workspace-layout`: **102 passed, 1 skipped, 0 failed** (pixel-7 62, iphone-15 33 with its `@golden` filter, setup 8).
+  - iphone-15 without its `@golden` filter (a temporary config, deleted after the run): `review-fixes` and `upload`: **20 passed, 1 skipped** (the WebKit skip, deviation 7).
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (unchanged); `npm run inventory` exit 0; `ci:ui-policy` and `ci:ai-l1` PASS; schema snapshot `--check` PASS; `npm run db:drift:local` PASS.
+
+### Flakes and infra
+
+- No test passed only on retry (every run `--retries=0`). Failures during the round, each root-caused: the proxy specs' bodiless POSTs (deviation 1); fixtures on closed visits and fixed dates (deviation 8); the
+  A-7 locator matched SpO2 and temperature placeholders ("98" and "98.6"; exact match now) and the empty vitals are `{}`, not null; the A-1 history case passing without the fix (deviation 6); the WebKit replay
+  (deviation 7); the 360 summary drawer expected the preselected follow-up.
+- The web server logs `[e2e-net-guard] blocked non-loopback connection to ""` once per run during the amendment flow (`amendment-screens` 360, and A-6); the tests pass and no code on that path changed in this round.
+  Not investigated further; recorded for the close.
+- Tracked evidence PNGs rewritten by `tablet-captures.spec.ts` were restored with `git checkout` after each lane; `.planning/dev-messages.txt` was not recreated.
+
