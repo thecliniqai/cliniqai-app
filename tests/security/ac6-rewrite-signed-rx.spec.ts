@@ -11,6 +11,7 @@
  * not while it is being amended; no PDF can be planted for a draft or an amending visit; the service role cannot move or rewrite the recorded path and hash
  * (RX_PDF_WRITE_ONCE). Synthetic data only.
  */
+import { followUpDay } from "../helpers/consult-draft";
 import { beforeAll, describe, expect, it } from "vitest";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -176,13 +177,14 @@ async function expectCommandWrites(db: TestDb, r: Rec, admitted: boolean) {
     p_tenant_id: r.tenantId,
     p_visit_id: r.visitId,
     p_expected_version: row.draft_version,
-    p_patch: { clinical_notes: "Rewritten note", follow_up: { follow_up_date: "2032-01-01" } },
+    // A date the command takes (000116, 09B-06a S-4: from the clinic's today to +366 days; the range is checked before the lock).
+    p_patch: { clinical_notes: "Rewritten note", follow_up: { follow_up_date: followUpDay(90) } },
     p_client_request_id: randomUUID(),
   });
   if (admitted) {
     expect(error).toBeNull();
     const { data } = await admin.from("follow_ups").select("follow_up_date").eq("visit_id", r.visitId);
-    expect(data).toEqual([{ follow_up_date: "2032-01-01" }]);
+    expect(data).toEqual([{ follow_up_date: followUpDay(90) }]);
   } else {
     expect(error).toMatchObject({ code: "P0001", message: "DRAFT_LOCKED" });
   }

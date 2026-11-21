@@ -32,7 +32,8 @@ function request(
   if (opts.signedIn) headers.set("cookie", `${COOKIE}=${encodeSession(session)}`);
   // A body stream of unknown length (nothing is read from it: the gate looks at headers and at whether there is a body).
   const body = opts.stream ? new ReadableStream({ start: (c) => c.close() }) : undefined;
-  return new NextRequest(`http://localhost${path}`, { method: opts.method ?? "POST", headers, body, ...(body ? { duplex: "half" } : {}) } as RequestInit);
+  const init = { method: opts.method ?? "POST", headers, body, ...(body ? { duplex: "half" } : {}) };
+  return new NextRequest(`http://localhost${path}`, init as ConstructorParameters<typeof NextRequest>[1]);
 }
 
 const passedOn = (res: Response) => res.status === 200 && res.headers.get("x-middleware-next") === "1";

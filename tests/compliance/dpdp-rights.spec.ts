@@ -113,7 +113,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         patient_id: patientId,
         doctor_id: doctorA.userId,
         origin_type: "scheduled",
-        status: "completed",
+        // Completed below, after the report is attached (000116, 09B-06a S-2: no document on a completed visit).
+        status: "in_consultation",
         scheduled_at: new Date().toISOString(),
         reason_for_visit: "Quarterly diabetes follow-up",
         created_by: tenantA.userId,
@@ -169,8 +170,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       },
     ]);
 
-    // 7. Seed patient document
-    await admin.from("patient_documents").insert({
+    // 7. Seed patient document (while the visit is open), then complete the visit
+    const { error: docErr } = await admin.from("patient_documents").insert({
       tenant_id: tenantA.tenantId,
       patient_id: patientId,
       visit_id: visitId,
@@ -185,6 +186,9 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       is_abnormal: false,
       uploaded_by: tenantA.userId,
     });
+    expect(docErr).toBeNull();
+    const { error: doneErr } = await admin.from("visits").update({ status: "completed" }).eq("id", visitId);
+    expect(doneErr).toBeNull();
 
     // 8. Seed billing records: Invoice and Payment
     const { data: inv } = await admin
