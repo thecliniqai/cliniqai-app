@@ -102,6 +102,19 @@ export function withExam(data: GPSpecialty | undefined, exam: ExamState | null):
   return next;
 }
 
+/**
+ * The `systemic` keys whose typed text a template would replace (09B-06a, review A-2): with no structured exam yet, a legacy free-text finding (a v1
+ * draft, or an amendment of a visit signed before V2-09b) for a system the template mirrors would be overwritten by "Normal: ...". Empty when there is
+ * an exam (its texts are the exam's own mirror) or nothing typed.
+ */
+export function legacyTextReplacedBy(data: GPSpecialty | undefined, template: ExamTemplate): MirroredSystem[] {
+  if (!data || data.exam) return [];
+  const typed = data.systemic ?? {};
+  return template.systems
+    .map((def) => def.key)
+    .filter((key): key is MirroredSystem => (MIRRORED_SYSTEMS as readonly string[]).includes(key) && ((typed as Record<string, string | null | undefined>)[key] ?? "").trim() !== "");
+}
+
 /** Does the GP data hold anything the doctor entered (signs, an exam with data, or free systemic text)? Switching the specialty asks first when it does. */
 export function gpDataHasContent(data: GPSpecialty | undefined): boolean {
   if (!data) return false;

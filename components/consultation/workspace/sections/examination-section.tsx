@@ -8,6 +8,7 @@ import { EXAM_TEMPLATES, examTemplateById } from "@/features/consultation/exam-t
 import {
   examHasData,
   gpDataHasContent,
+  legacyTextReplacedBy,
   newExam,
   setSystemAbnormal,
   setSystemNote,
@@ -116,6 +117,17 @@ export function ExaminationSection({ specialty, specialtyData, readOnly, complai
       return;
     }
     const start = () => onChange("general_physician", withExam(specialty === "general_physician" ? gpOf(specialtyData) : undefined, newExam(next)));
+    // 09B-06a (A-2): typed free-text findings of an older record are never replaced silently by the template's "Normal" texts; Cancel keeps them.
+    const replaced = specialty === "general_physician" ? legacyTextReplacedBy(gp, next) : [];
+    if (replaced.length > 0) {
+      const names = LEGACY_SYSTEMS.filter((sys) => (replaced as readonly string[]).includes(sys.key)).map((sys) => sys.label);
+      ask(
+        `Replace the typed findings with ${next.name}?`,
+        `The findings typed for ${names.join(", ")} will be replaced by the template, which starts every system as normal.`,
+        start,
+      );
+      return;
+    }
     const losing = specialty === "general_physician" ? examHasData(exam) : specialtyHasContent(specialty, specialtyData);
     if (losing) {
       ask(`Switch to ${next.name}?`, "The findings entered for the current template will be cleared. The general signs are kept.", start);
