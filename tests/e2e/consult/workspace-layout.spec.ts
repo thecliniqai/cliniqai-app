@@ -233,10 +233,11 @@ test("@golden 360 px: the Finish bar's Patient button opens the patient context 
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await page.locator("[data-section-strip]").getByRole("button", { name: "Summary" }).click();
-  // The drawer shows the draft as the patient will see it: with nothing added, the preselected 5-day follow-up is all there is.
+  // The drawer shows the draft as the patient will see it: with nothing added (no follow-up is preselected since 09B-06a, A-3) it says so.
   const drawer = page.getByRole("dialog", { name: "Summary" });
   await expect(drawer).toContainText("As the patient will see it");
-  await expect(drawer.getByRole("region", { name: "Follow-up" })).toBeVisible();
+  await expect(drawer).toContainText("Nothing to show yet.");
+  await expect(drawer.getByRole("region", { name: "Follow-up" })).toHaveCount(0);
 });
 
 test("@golden 1280 px: the Summary toggle opens a 272 px pane that shows the draft as it is typed; closed by default, aria-pressed follows", async ({ page }) => {
