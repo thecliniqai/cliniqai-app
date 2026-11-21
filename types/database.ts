@@ -1479,6 +1479,7 @@ export type Database = {
       };
       patient_documents: {
         Row: {
+          client_request_id: string | null;
           created_at: string;
           document_type: string;
           file_size_bytes: number;
@@ -1498,6 +1499,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          client_request_id?: string | null;
           created_at?: string;
           document_type?: string;
           file_size_bytes: number;
@@ -1516,6 +1518,7 @@ export type Database = {
           visit_id?: string | null;
         };
         Update: {
+          client_request_id?: string | null;
           created_at?: string;
           document_type?: string;
           file_size_bytes?: number;

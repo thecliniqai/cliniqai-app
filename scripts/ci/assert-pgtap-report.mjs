@@ -128,6 +128,9 @@
  *   8776 — V2-09b 09B-04b (000115 doctor_text_macros): 8632 + doctor_text_macros 46 (new file, every one required) + authz_matrix 96 (the new tenant table: 4 operations x 24
  *          principals, generated) + composite_fks 2 (the doctor_text_macros FK: the refusal and the control) = 8776 (64 files). authz_completeness, access_lock_rls and
  *          delete_rules keep their counts (set comparisons and a sweep over the catalogue).
+ *   8824 — V2-09b 09B-06a (000116 consult_review_fixes): 8776 + consult_review_fixes 48 (new file, every one required) = 8824 (65 files). consult_draft_save
+ *          (follow-up dates relative to the clinic's today), clinical_review_fixes (the fixture document on the draft visit) and tenant_local_dates (the new
+ *          BEFORE INSERT trigger is not a date filler) keep their counts.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -139,7 +142,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8776;
+export const FLOOR = 8824;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -247,6 +250,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/diagnosis_search_snapshot.test.sql",
   // V2-09b 09B-04b
   "supabase/tests/database/doctor_text_macros.test.sql",
+  // V2-09b 09B-06a
+  "supabase/tests/database/consult_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

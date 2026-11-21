@@ -209,13 +209,19 @@ select is(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-40
 select is(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 5, '{"clinical_notes": "replayed"}'::jsonb, current_setting('c112.req')::uuid),
   'error:P0001:IDEMPOTENCY_MISMATCH', 'the same id with another expected version is IDEMPOTENCY_MISMATCH');
 
--- follow-up upsert, change and delete
-select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 7, '{"follow_up": {"interval": "1_week", "follow_up_date": "2031-02-01", "notes": "review"}}'::jsonb))->>'draft_version', '8',
+-- follow-up upsert, change and delete (09B-06a, S-4: a follow-up falls from the clinic's today to +366 days, so the dates are relative to it)
+do $$
+begin
+  perform set_config('c112.d1', to_char(public.tenant_local_date('c1120000-0000-4000-8000-00000000000a', now()) + 20, 'YYYY-MM-DD'), true);
+  perform set_config('c112.d2', to_char(public.tenant_local_date('c1120000-0000-4000-8000-00000000000a', now()) + 30, 'YYYY-MM-DD'), true);
+end
+$$;
+select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 7, format('{"follow_up": {"interval": "1_week", "follow_up_date": "%s", "notes": "review"}}', current_setting('c112.d1'))::jsonb))->>'draft_version', '8',
   'the doctor sets a follow-up');
-select ok(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 8, '{"follow_up": {"follow_up_date": "2031-03-01"}}'::jsonb) like 'ok:%', 'the doctor changes the follow-up');
+select ok(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 8, format('{"follow_up": {"follow_up_date": "%s"}}', current_setting('c112.d2'))::jsonb) like 'ok:%', 'the doctor changes the follow-up');
 select is((select count(*)::text || '|' || min(follow_up_date)::text || '|' || coalesce(min(notes), 'null') || '|' || min(doctor_id::text) || '|' || min(status) from public.follow_ups
             where visit_id = 'c1120000-0000-4000-8000-000000002001'),
-  '1|2031-03-01|null|c1120000-0000-4000-8000-000000000102|scheduled', 'a second follow-up patch changes the one row (still one row per visit)');
+  '1|' || current_setting('c112.d2') || '|null|c1120000-0000-4000-8000-000000000102|scheduled', 'a second follow-up patch changes the one row (still one row per visit)');
 select ok(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 9, '{"follow_up": null}'::jsonb) like 'ok:%', 'the doctor clears the follow-up');
 select is((select count(*) from public.follow_ups where visit_id = 'c1120000-0000-4000-8000-000000002001'), 0::bigint, 'follow_up null deletes it');
 
@@ -259,7 +265,7 @@ select is(pg_temp.act('authenticated', 'c1120000-0000-4000-8000-000000000201', '
 select is((select advice[1] from public.clinical_notes where visit_id = 'c1120000-0000-4000-8000-000000002007'), 'Rest', 'no refused call changed clinic A''s row');
 
 -- sealed, unsigned completed, cancelled: DRAFT_LOCKED, nothing written; amending is admitted
-select is((select string_agg(r.n || '=' || pg_temp.save('c1120000-0000-4000-8000-000000000102', r.v, 0, '{"clinical_notes": "rewrite", "follow_up": {"follow_up_date": "2031-01-01"}}'::jsonb), ',' order by r.n)
+select is((select string_agg(r.n || '=' || pg_temp.save('c1120000-0000-4000-8000-000000000102', r.v, 0, format('{"clinical_notes": "rewrite", "follow_up": {"follow_up_date": "%s"}}', current_setting('c112.d1'))::jsonb), ',' order by r.n)
              from (values ('sealed', 'c1120000-0000-4000-8000-000000002003'::uuid), ('completed', 'c1120000-0000-4000-8000-000000002005'::uuid),
                           ('cancelled', 'c1120000-0000-4000-8000-000000002004'::uuid)) r(n, v)),
   'cancelled=error:P0001:DRAFT_LOCKED,completed=error:P0001:DRAFT_LOCKED,sealed=error:P0001:DRAFT_LOCKED', 'sealed, unsigned completed and cancelled visits are DRAFT_LOCKED');
@@ -289,7 +295,7 @@ select is((select v.specialty || '|' || (v.metadata ->> 'ai_assisted') || '|' ||
 create function pg_temp.fault() returns trigger language plpgsql as $f$ begin raise exception 'SPIKE_FAULT' using errcode = 'XX000'; end $f$;
 create trigger c112_fault before insert on public.follow_ups for each row
   when (new.visit_id = 'c1120000-0000-4000-8000-000000002008') execute function pg_temp.fault();
-select is(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002008', 1, '{"clinical_notes": "must not persist", "follow_up": {"follow_up_date": "2031-05-01"}}'::jsonb),
+select is(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002008', 1, format('{"clinical_notes": "must not persist", "follow_up": {"follow_up_date": "%s"}}', current_setting('c112.d2'))::jsonb),
   'error:XX000:SPIKE_FAULT', 'a fault in the follow-up write fails the save');
 select is((select coalesce(clinical_notes, 'null') || '|' || draft_version || '|' || (select count(*) from public.follow_ups where visit_id = 'c1120000-0000-4000-8000-000000002008') || '|'
           || (select count(*) from public.audit_logs where entity_id = 'c1120000-0000-4000-8000-000000002008' and action = 'consultation.draft_save')
