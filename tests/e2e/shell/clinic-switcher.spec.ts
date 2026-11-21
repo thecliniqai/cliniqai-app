@@ -70,13 +70,24 @@ test("@golden two clinics: choose a clinic, the cookie pins the device, the pati
   await expect(page.getByRole("button", { name: b.tenantName })).toBeVisible();
 
   // 2. Choosing A opens A's Today and pins the device.
+  // The lifetime is asserted on the server's Set-Cookie (Max-Age 400 days): WebKit on Linux stores at most 365 days
+  // (CI 44864640479 and 44874140074, iphone-15: 365.0), so the jar only proves the cookie was kept for most of a year.
+  const pinned = page.waitForResponse(async (r) =>
+    (await r.headersArray()).some((h) => h.name.toLowerCase() === "set-cookie" && h.value.startsWith(`${COOKIE}=`)),
+  );
   await page.getByRole("button", { name: a.tenantName }).click();
+  // WebKit splits Set-Cookie at the comma of `Expires=Sun, ...`: match the joined values.
+  const header = (await (await pinned).headersArray())
+    .filter((h) => h.name.toLowerCase() === "set-cookie")
+    .map((h) => h.value)
+    .join(", ");
+  expect(header, "400-day cookie").toMatch(new RegExp(`${COOKIE}=[^\\n]*?;\\s*Max-Age=34560000(;|,|$)`, "i"));
   await page.locator("[data-today-board]").waitFor({ timeout: 30_000 });
   const cookie = (await context.cookies()).find((c) => c.name === COOKIE);
   expect(cookie?.value).toBe(a.tenantId);
   expect(cookie).toMatchObject({ httpOnly: true, sameSite: "Lax", path: "/" });
   const days = ((cookie?.expires ?? 0) * 1000 - Date.now()) / 86_400_000;
-  expect(days, "400-day cookie").toBeGreaterThan(399);
+  expect(days).toBeGreaterThan(364);
   expect(days).toBeLessThan(401);
 
   // 3. A's patient is on the list, B's is not.

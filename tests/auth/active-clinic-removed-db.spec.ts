@@ -120,6 +120,40 @@ describe("removed from the active clinic, one clinic left (local stack)", () => 
     expect(ctx).toMatchObject({ ok: false, reason: "no_membership" });
   });
 
+  it("the session ends between the layout's two auth checks (a sign-out in flight): a redirect to /login, not the error page", async () => {
+    // CI 44874140074 (desktop flake): the shell's session-status watch signed the device out while a navigation to /today
+    // rendered; the layout's own getUser() still saw the user, getActiveMembership()'s did not, and the layout rethrew
+    // UnauthenticatedError to the route error page. Real client; only the second getUser() answers "no user".
+    const real = dual.client as { auth: object };
+    let calls = 0;
+    const auth = new Proxy(real.auth, {
+      get(target, prop) {
+        if (prop === "getUser") {
+          return async () => {
+            calls += 1;
+            if (calls === 1) return (target as { getUser: () => Promise<unknown> }).getUser();
+            return { data: { user: null }, error: null };
+          };
+        }
+        const v = Reflect.get(target, prop);
+        return typeof v === "function" ? v.bind(target) : v;
+      },
+    });
+    state.client = new Proxy(real, {
+      get(target, prop) {
+        if (prop === "auth") return auth;
+        const v = Reflect.get(target, prop);
+        return typeof v === "function" ? v.bind(target) : v;
+      },
+    });
+    const err = await DashboardLayout({ children: null }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(calls).toBeGreaterThanOrEqual(2);
+    expect((err as { digest?: unknown } | null)?.digest).toMatch(/^NEXT_REDIRECT;.*;\/login;/);
+  });
+
   it("no cookie (nothing picked): the remaining clinic answers", async () => {
     await setMembershipStatus(dual.userId, a, "removed");
     state.cookies.delete(ACTIVE_TENANT_COOKIE);

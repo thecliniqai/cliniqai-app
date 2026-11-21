@@ -12,6 +12,7 @@ import {
   readActiveClinicCookie,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
+import { redirectIfUnauthenticated } from "@/lib/auth/page";
 import { AppShell } from "@/components/shell/app-shell";
 import { FrontDeskSheets } from "@/components/front-desk/front-desk-sheets";
 import { hasPerm } from "@/lib/permissions";
@@ -73,6 +74,9 @@ export default async function DashboardLayout({
     if (error instanceof MultipleClinicsSelectionRequiredError) {
       return <ClinicPicker clinics={await listUserClinics()} />;
     }
+    // V2-08 08-06a: the session ended between the check above and this one (a sign-out in flight on this device, e.g. the
+    // shell's session-status watch): sign-in, as the wrapped pages do, never the error page.
+    redirectIfUnauthenticated(error);
     throw error;
   }
 
