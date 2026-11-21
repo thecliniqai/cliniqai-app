@@ -403,7 +403,7 @@ evidence. Counts are from the runs named beside them.
 ### Grep (before and after)
 
 - `grep -rn 'knownBug("P1-03"' tests app components features lib docs scripts` returns nothing (the word survives in the 08 verification note and the plan text, which are history). `knownBug` itself stays (register-patient, the matcher spec).
-- `grep -rn "Re-sign" app components features tests docs` returns nothing.
+- `grep -rn "Re-sign" app components features tests docs` returns only the negative assertions in `workspace-sealed.spec.ts`.
 - `grep -rln "AmendmentModal\|amendment-modal"`: the workspace only (the modal had no consumer before).
 - Callers of the three services whose refusal text changed: the diagnosis, prescription and follow-up actions and `saveConsultationDraft` (which ignores the follow-up result: a sealed visit is refused earlier by `isDraftLocked`).
 
