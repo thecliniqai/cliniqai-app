@@ -66,7 +66,7 @@ test.describe("the skeleton shows during a slow client navigation", () => {
   for (const [name, path, from] of [
     ["Today", "/today", "/patients"],
     ["Patients", "/patients", "/today"],
-    ["Calendar", "/calendar", "/today"],
+    ["Schedule", "/schedule", "/today"],
     ["Billing & Reports", "/billing/reports", "/today"],
   ] as const) {
     test(`${name} (${path})`, async ({ page }) => {

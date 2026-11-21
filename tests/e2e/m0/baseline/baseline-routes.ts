@@ -72,9 +72,10 @@ export const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Pag
     name: "flow-booking-drawer",
     role: "receptionist",
     open: async (page) => {
-      await page.goto("/calendar");
-      await page.getByRole("button", { name: "+ Book Appointment" }).click();
-      await expect(page.getByRole("dialog", { name: "Schedule Appointment" })).toBeVisible();
+      // V2-08 08-04b: booking is a sheet on the Schedule (`?book=1`); the capture id keeps its v1 name.
+      await page.goto("/schedule");
+      await page.getByRole("link", { name: "Book appointment" }).click();
+      await expect(page.getByRole("dialog", { name: "Book appointment" })).toBeVisible();
     },
   },
   {

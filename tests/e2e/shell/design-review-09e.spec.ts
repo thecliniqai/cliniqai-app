@@ -7,7 +7,7 @@
  * - M2: below 1280 px a queue row keeps its actions in a right-hand column beside the content (rows of about 80 px;
  *   44 px targets below 1024 px); at 1280 px the actions sit on a line under the content (the lane board).
  * - M3: at 360 px every BottomBar caption is one line and every icon sits on the same line; the links keep their v1
- *   accessible names (and the long "My Calendar" shows "Calendar").
+ *   accessible names (and the long "My Schedule" shows "Schedule").
  * - M4: no monospace face on Login, a patient's record or the consult; numbers, IDs and phones are Inter with tabular
  *   figures.
  * - M5: `/offline` (named mark, WifiOff glyph, Manrope 800 heading, Retry with its icon), the install card (Manrope 700

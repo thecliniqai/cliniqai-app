@@ -49,8 +49,8 @@ function resumeHarness(path = "/") {
 }
 
 describe("refresh on resume", () => {
-  it("live views are Today and the calendar only (the queue and the cabin redirect)", () => {
-    for (const p of ["/today", "/calendar", "/today/"]) expect(isLiveView(p), p).toBe(true);
+  it("live views are Today and the Schedule only (the queue and the cabin redirect)", () => {
+    for (const p of ["/today", "/schedule", "/today/"]) expect(isLiveView(p), p).toBe(true);
     for (const p of ["/", "/queue", "/cabin"]) expect(isLiveView(p), p).toBe(false);
     for (const p of ["/patients", "/patients/abc", "/consultation/abc", "/settings/clinic", "/visits"]) {
       expect(isLiveView(p), p).toBe(false);

@@ -23,16 +23,18 @@ describe("the per-device switch", () => {
 });
 
 describe("which key does what", () => {
-  it("W opens the walk-in sheet, N registers a patient, ? lists them (any case)", () => {
+  it("W opens the walk-in sheet, B books, N registers a patient, ? lists them (any case)", () => {
     expect(shortcutFor(key("w"), true)).toBe("walkin");
     expect(shortcutFor(key("W"), true)).toBe("walkin");
+    expect(shortcutFor(key("b"), true)).toBe("book");
+    expect(shortcutFor(key("B"), true)).toBe("book");
     expect(shortcutFor(key("n"), true)).toBe("new");
     expect(shortcutFor(key("?"), true)).toBe("help");
-    expect(SHORTCUTS.map((s) => s.action)).toEqual(["walkin", "new", "help"]);
+    expect(SHORTCUTS.map((s) => s.action)).toEqual(["walkin", "book", "new", "help"]);
   });
 
   it("typing in a field never triggers a shortcut; neither does a modifier, an IME composition or an open sheet", () => {
-    for (const k of ["w", "n", "?"]) {
+    for (const k of ["w", "b", "n", "?"]) {
       expect(shortcutFor(key(k, { targetIsEditable: true }), true), k).toBeNull();
       expect(shortcutFor(key(k, { ctrlKey: true }), true), k).toBeNull();
       expect(shortcutFor(key(k, { metaKey: true }), true), k).toBeNull();
@@ -42,8 +44,9 @@ describe("which key does what", () => {
     }
   });
 
-  it("with the switch off W and N do nothing, and ? still opens the list (it is how the switch is reached)", () => {
+  it("with the switch off W, B and N do nothing, and ? still opens the list (it is how the switch is reached)", () => {
     expect(shortcutFor(key("w"), false)).toBeNull();
+    expect(shortcutFor(key("b"), false)).toBeNull();
     expect(shortcutFor(key("n"), false)).toBeNull();
     expect(shortcutFor(key("?"), false)).toBe("help");
     expect(shortcutFor(key("x"), true)).toBeNull();

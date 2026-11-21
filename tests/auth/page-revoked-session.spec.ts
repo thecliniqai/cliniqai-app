@@ -26,7 +26,7 @@ vi.mock("@/lib/supabase/server", async (importOriginal) => {
 import TodayPage from "@/app/(dashboard)/today/page";
 import PatientsPage from "@/app/(dashboard)/patients/(list)/page";
 import PatientDetailPage from "@/app/(dashboard)/patients/[id]/page";
-import CalendarPage from "@/app/(dashboard)/calendar/page";
+import SchedulePage from "@/app/(dashboard)/schedule/page";
 import VisitsPage from "@/app/(dashboard)/visits/page";
 import ReferralsPage from "@/app/(dashboard)/referrals/page";
 import ProfilePage from "@/app/(dashboard)/profile/page";
@@ -44,7 +44,7 @@ const PAGES: Array<[string, (p: any) => Promise<unknown>]> = [
   ["/today", TodayPage],
   ["/patients", PatientsPage],
   ["/patients/[id]", PatientDetailPage],
-  ["/calendar", CalendarPage],
+  ["/schedule", SchedulePage],
   ["/visits", VisitsPage],
   ["/referrals", ReferralsPage],
   ["/profile", ProfilePage],

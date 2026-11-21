@@ -11,14 +11,19 @@
  *   3. the response is lost once: the automatic retry succeeds; exactly one patient, one visit and one token exist;
  *   4. every attempt is lost: the sheet keeps what was typed and says so; the server committed once; after the route is
  *      cleared a manual retry changes nothing (still one patient, one visit, one token; no orphan patient).
- * The booking leg is added by 08-04b. Synthetic data only.
+ * Booking leg (08-04b), a NEW patient in the booking sheet, where the patient and the visit are one command (`register_and_book`):
+ *   5. the response is lost once: the automatic retry succeeds; exactly one patient and one booked visit exist;
+ *   6. every attempt is lost: the sheet keeps what was typed and says so; the server committed once; after the route is cleared
+ *      "Retry" (the form's own submit, same request id) changes nothing (still one patient, one visit; no orphan patient).
+ * Synthetic data only.
  */
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
-import { invoicesOf, patientsByName, run, seedPatient, seedQueueToken, seedVisit, syntheticPhoneDigits, testTag, tokenOf, visitsOf } from "../support/m0-data";
+import { freeBookingDate, invoicesOf, istInstant, patientsByName, run, seedPatient, seedQueueToken, seedVisit, syntheticPhoneDigits, testTag, tokenOf, visitsOf } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 import { commitThenAbort } from "../support/commit-then-abort";
 import { openBill, openToday } from "../support/today-page";
+import { openBookingSheet, setSlot } from "../support/schedule-page";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -155,5 +160,63 @@ test.describe("walk-in: the response is lost after the commit", () => {
     await sheet.getByRole("button", { name: "Retry" }).click();
     await expect(page.getByRole("dialog", { name: "Add walk-in" })).toHaveCount(0, { timeout: 30_000 });
     await expectOneWalkIn(name);
+  });
+});
+
+/** The booking sheet with a NEW patient typed in and a 10:00 slot chosen, ready to submit; the patient's name is unique to the test. */
+async function openBookingNewcomer(page: Page, ux: import("../support/ux-counter").UxCounter): Promise<{ name: string; sheet: Locator; date: string }> {
+  const { tenantA } = run();
+  const name = `E2E Synthetic Retry Booking ${testTag()}`;
+  const date = await freeBookingDate(tenantA.id, tenantA.users.doctor.id);
+  const sheet = await openBookingSheet(page, ux, date);
+  await sheet.getByRole("combobox", { name: "Patient" }).fill(name);
+  await sheet.getByRole("option", { name: /Register as new patient/ }).click();
+  await setSlot(sheet, ux, "10:00", tenantA.users.doctor.id);
+  await sheet.getByRole("textbox", { name: "Mobile number" }).fill(syntheticPhoneDigits());
+  await sheet.getByRole("textbox", { name: "Age" }).fill("36");
+  await sheet.getByRole("radio", { name: "Female", exact: true }).click();
+  return { name, sheet, date };
+}
+
+/** One patient and one booked visit at 10:00 IST on `date`: what a committed booking leaves, however often the request was sent. */
+async function expectOneBooking(name: string, date: string): Promise<void> {
+  const { tenantA } = run();
+  const patients = await patientsByName(tenantA.id, name);
+  expect(patients, "exactly one patient (no orphan from a retry)").toHaveLength(1);
+  const visits = await visitsOf(tenantA.id, patients[0].id);
+  expect(visits).toHaveLength(1);
+  expect(visits[0]).toMatchObject({ origin_type: "scheduled", status: "booked", is_overbooked: false });
+  expect(new Date(visits[0].scheduled_at!).toISOString()).toBe(istInstant(date, "10:00"));
+}
+
+test.describe("booking: the response is lost after the commit", () => {
+  test("lost once: the automatic retry succeeds with one patient and one booked visit", async ({ page, ux }) => {
+    const { name, sheet, date } = await openBookingNewcomer(page, ux);
+    const cut = await commitThenAbort(page, { first: 1, matches: (r) => (r.postData() ?? "").includes(name) });
+
+    await sheet.getByRole("button", { name: "Register and book" }).click();
+    await expect(page.getByRole("dialog", { name: "Book appointment" })).toHaveCount(0, { timeout: 30_000 });
+    expect(cut.aborted).toBe(1);
+    await cut.clear();
+    await expectOneBooking(name, date);
+  });
+
+  test("lost on every attempt: the sheet keeps its values and shows an error; Retry after the route is cleared adds nothing", async ({ page, ux }) => {
+    const { name, sheet, date } = await openBookingNewcomer(page, ux);
+    const cut = await commitThenAbort(page, { first: "all", matches: (r) => (r.postData() ?? "").includes(name) });
+
+    await sheet.getByRole("button", { name: "Register and book" }).click();
+    await expect(sheet.getByText(/Couldn't save/)).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByRole("dialog", { name: "Book appointment" })).toBeVisible();
+    await expect(sheet.getByRole("textbox", { name: "Full name" })).toHaveValue(name);
+    expect(cut.aborted).toBeGreaterThanOrEqual(2);
+    await cut.clear();
+
+    // The server committed the first attempt, once.
+    await expectOneBooking(name, date);
+
+    await sheet.getByRole("button", { name: "Retry" }).click();
+    await expect(page.getByRole("dialog", { name: "Book appointment" })).toHaveCount(0, { timeout: 30_000 });
+    await expectOneBooking(name, date);
   });
 });

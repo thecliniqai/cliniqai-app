@@ -84,6 +84,8 @@
  *          no-show-confirm-rpc}.spec.ts, tests/waitlist/waitlist-commands-rpc.spec.ts, tests/scheduling/patient-reschedule.spec.ts;
  *          257 in total). The floor is re-measured at the next gate; the suite grew (the mock-based confirmAppointment cases and
  *          two raw-error cases went with the deleted services).
+ *   6385 — V2-08 08-04b, unchanged: REQUIRED_FILES + the two 08-04b specs (tests/schedule/{slot-adapter,schedule-model}.spec.ts; 259
+ *          in total). The floor is re-measured at the next gate; the suite grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -426,6 +428,9 @@ const REQUIRED_FILES = [
   "tests/visits/no-show-confirm-rpc.spec.ts",
   "tests/waitlist/waitlist-commands-rpc.spec.ts",
   "tests/scheduling/patient-reschedule.spec.ts",
+  // V2-08 08-04b (the Schedule and the booking UIs).
+  "tests/schedule/slot-adapter.spec.ts",
+  "tests/schedule/schedule-model.spec.ts",
 ];
 
 const file = process.argv[2];

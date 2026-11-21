@@ -86,7 +86,7 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
     await expect(card.getByRole("heading", { name: "Install CliniQ AI on this device" })).toBeVisible();
 
     const { visitId } = readRunData().tenantA;
-    for (const path of ["/clinic/new", `/consultation/${visitId}`, "/calendar", "/patients"]) {
+    for (const path of ["/clinic/new", `/consultation/${visitId}`, "/schedule", "/patients"]) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       await expect(page.locator("[data-install-card]"), path).toHaveCount(0);

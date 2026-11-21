@@ -5,7 +5,7 @@
  * | IA destination | v1 destinations (v1 names)                         | Receptionist | Nurse | Doctor | Admin | Owner |
  * |----------------|----------------------------------------------------|--------------|-------|--------|-------|-------|
  * | Today          | Today `/today` (V2-08 R-14: one screen, modes by role) | ●        | ●     | ●      | ●     | ●     |
- * | Schedule       | Calendar `/calendar` ("My Calendar" for a doctor)  | ●            | ○     | ●      | ●     | ●     |
+ * | Schedule       | Schedule `/schedule` ("My Schedule" for a doctor)  | ●            | ○     | ●      | ●     | ●     |
  * | Patients       | Patients `/patients`                               | ●            | ●     | ●      | ●     | ●     |
  * | Reports        | Billing & Reports `/billing/reports`               | –            | –     | – (P3, no billing:view) | ● | ● |
  * | Records        | Visits `/visits`, Referrals `/referrals`           | ○            | ○     | ○ (under More) | ○ (§3.3 secondary) | ○ |
@@ -30,7 +30,7 @@ const ROLES: UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
 
 const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
   owner: {
-    primary: ["Today /today", "Calendar /calendar", "Patients /patients", "Billing & Reports /billing/reports"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients", "Billing & Reports /billing/reports"],
     secondary: [
       "Visits /visits",
       "Referrals /referrals",
@@ -41,7 +41,7 @@ const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
     ],
   },
   admin: {
-    primary: ["Today /today", "Calendar /calendar", "Patients /patients", "Billing & Reports /billing/reports"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients", "Billing & Reports /billing/reports"],
     secondary: [
       "Visits /visits",
       "Referrals /referrals",
@@ -52,16 +52,16 @@ const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
     ],
   },
   doctor: {
-    primary: ["Today /today", "My Calendar /calendar", "Patients /patients"],
+    primary: ["Today /today", "My Schedule /schedule", "Patients /patients"],
     secondary: ["Visits /visits", "Referrals /referrals"],
   },
   receptionist: {
-    primary: ["Today /today", "Calendar /calendar", "Patients /patients"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients"],
     secondary: ["Visits /visits", "Referrals /referrals"],
   },
   nurse: {
     primary: ["Today /today", "Patients /patients"],
-    secondary: ["Calendar /calendar", "Visits /visits", "Referrals /referrals"],
+    secondary: ["Schedule /schedule", "Visits /visits", "Referrals /referrals"],
   },
 };
 
@@ -126,11 +126,11 @@ describe("navForRole: the IA §3.2 table restricted to the v1 URLs", () => {
     expect(hrefs).not.toContain("/referrals");
   });
 
-  it("'+ New' actions are Add walk-in and Register patient, only for a role that may do them (V2-08 08-03b; Book joins in 08-04b)", () => {
+  it("'+ New' actions are Add walk-in, Register patient and Book appointment, only for a role that may do them (V2-08 08-03b, 08-04b)", () => {
     const labels = (role: UserRole) => navForRole(role).newActions.map((a) => `${a.label} ${a.href}`);
-    expect(labels("receptionist")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1"]);
-    expect(labels("owner")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1"]);
-    expect(labels("doctor")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1"]);
+    expect(labels("receptionist")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
+    expect(labels("owner")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
+    expect(labels("doctor")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
     for (const role of ROLES) for (const a of navForRole(role).newActions) expect(hasPerm(role, a.permission)).toBe(true);
   });
 
@@ -155,7 +155,7 @@ describe("paths: active destination, titles, root, Back parent, focus mode", () 
 
   it("titles are static (never page data) and use the v1 names", () => {
     expect(screenTitle("/today", owner)).toBe("Today");
-    expect(screenTitle("/calendar", doctor)).toBe("My Calendar");
+    expect(screenTitle("/schedule", doctor)).toBe("My Schedule");
     expect(screenTitle("/patients/6f1c0e0e-0000-4000-8000-000000000000", owner)).toBe("Patient");
     expect(screenTitle("/consultation/6f1c0e0e-0000-4000-8000-000000000000", doctor)).toBe("Consultation");
     expect(screenTitle("/profile", owner)).toBe("My Profile");

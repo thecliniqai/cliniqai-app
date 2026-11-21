@@ -50,8 +50,8 @@ const HEADINGS: Record<AccessUser, string> = {
 /** The deep links each user opens (dashboard pages of every kind: list, detail, guard-backed, settings). */
 const DEEP_LINKS: Record<AccessUser, string[]> = {
   "locked-owner": ["/", "/today", "/patients", `/patients/${SOME_ID}`, "/settings/billing", "/billing/reports"],
-  "locked-receptionist": ["/", "/today", "/calendar", `/consultation/${SOME_ID}`, "/staff"],
-  "onboarding-owner": ["/", "/patients", "/calendar", "/settings/clinic"],
+  "locked-receptionist": ["/", "/today", "/schedule", `/consultation/${SOME_ID}`, "/staff"],
+  "onboarding-owner": ["/", "/patients", "/schedule", "/settings/clinic"],
 };
 
 /** PWA_STRATEGY §3.1 public assets (they exist from V2-06 06-05); for a locked user they must never redirect. */

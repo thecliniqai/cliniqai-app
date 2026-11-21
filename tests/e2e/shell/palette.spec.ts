@@ -191,7 +191,7 @@ test.describe("receptionist", () => {
       "Add walk-in",
       "Book appointment",
       "Today",
-      "Calendar",
+      "Schedule",
       "Patients",
       "Visits",
       "Referrals",

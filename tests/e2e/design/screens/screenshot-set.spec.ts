@@ -90,7 +90,7 @@ const CAPTURES: Record<string, Capture> = {
   "gallery-shell": gallery("shell"),
 
   "owner-today": route(() => "/today"),
-  "owner-calendar": route(() => "/calendar"),
+  "owner-schedule": route(() => "/schedule"),
   "owner-patients": route(() => "/patients"),
   "owner-patient": route(() => `/patients/${readRunData().tenantA.patientId}`),
   "owner-billing": route(() => "/billing/reports"),
@@ -118,7 +118,7 @@ const CAPTURES: Record<string, Capture> = {
   },
 
   "receptionist-today": route(() => "/today"),
-  "receptionist-calendar": route(() => "/calendar"),
+  "receptionist-schedule": route(() => "/schedule"),
   "receptionist-patients": route(() => "/patients"),
 
   "doctor-today": route(() => "/today"),

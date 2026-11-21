@@ -115,12 +115,12 @@ test.describe("install surfaces (iOS path)", () => {
     });
   }
 
-  test("the card never renders on /clinic/new, a consult or the calendar", async ({ page }) => {
+  test("the card never renders on /clinic/new, a consult or the Schedule", async ({ page }) => {
     await iosDevice(page);
     await page.goto("/today");
     await expect(page.locator("[data-install-card]")).toBeVisible();
     const { visitId } = readRunData().tenantA;
-    for (const p of ["/clinic/new", `/consultation/${visitId}`, "/calendar"]) {
+    for (const p of ["/clinic/new", `/consultation/${visitId}`, "/schedule"]) {
       await page.goto(p);
       await page.waitForLoadState("networkidle");
       await expect(page.locator("[data-install-card]"), p).toHaveCount(0);
