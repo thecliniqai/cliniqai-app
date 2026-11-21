@@ -9,7 +9,7 @@ reviews in the morning. All results below come from tool output in `evidence/`.
 |---|---|---|---|
 | Local evidence run (1 run, lean process) | `924d935fc55fbbaea016e95c05b83bee04051005` | Vitest 352 files, 7180/7180 passed, 0 skipped; pgTAP 55 files, 8321/8321, gate PASS; typecheck, eslint and inventory exit 0; static checks: 0 P1-34 boundary messages, 0 UTC-today messages, service-role factory only `lib/supabase/system.ts` | `evidence/summary.json`, `full-run-1.json`, `pgtap-run-1.tap`, `static-checks.json` |
 | CI run [44874140074](https://github.com/thecliniqai/cliniqai-app/actions/runs/44874140074) | `924d935` | **Red**: e2e failed. iphone-15 `shell/clinic-switcher.spec.ts:60` failed 3 of 3 (also red at `2967c33`, run 44864640479); desktop `clinic-switcher.spec.ts:109` passed only on retry. Root causes and fix below | GitHub run log |
-| CI run (fix and these docs) | PR #14 head (`5e9177c` plus the gate-docs commit) | Recorded with the gate decision below, from `phase-evidence.mjs --ci-run`; written in the first commit of the V2-09a branch so the merge needs no extra CI run | `evidence/ci-run.json` |
+| CI run [44877351718](https://github.com/thecliniqai/cliniqai-app/actions/runs/44877351718) | `eed69d26b62ee3c1439260052cf5a5da68c372bf` (PR head: fix `5e9177c` plus gate docs) | static, security, test, build and e2e all success; pgTAP 55 files, 8321 tests, 0 failed, gate PASS; e2e **0 retried** (the only `✘` are the two declared expected failures) | `evidence/ci-run.json`, `ci-pgtap-report.tap` |
 
 `dirty_worktree: true` in `summary.json` refers only to untracked files outside the phase (`docs/live-roadmap.html`,
 `docs/whatsapp-templates-v2.md`, `.planning/debug/`, the V2-09a plan); no tracked file differed.
@@ -66,4 +66,6 @@ The `✘` marks on `security/network-block.spec.ts` and `m0/consult-rx-finish.sp
 
 ## Gate decision (2026-11-21)
 
-Recorded after the CI run of the PR head (see Runs): in the V2-09a branch's first commit, with the merge commit SHA.
+Approved by Claude as CTO delegate under the PO's delegation of 2026-11-21 (CI green, 0 retried). PR #14 merged into
+`feature/v2` with a merge commit, `082d40e55c8ea35bb55cc7f29cd244ffe4667d57`. The PO reviews in the morning (08-P1) and owns
+08-P2, 08-P3 and 08-P4 (staging migrations and the hosted Realtime setting were not touched).
