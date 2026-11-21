@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { GET as getVisits, POST as createVisit } from "@/app/api/v1/visits/route";
 import { GET as getVisitById, PATCH as patchVisitById } from "@/app/api/v1/visits/[id]/route";
-import { DELETE as cancelAppointmentById } from "@/app/api/v1/appointments/[id]/route";
+import { DELETE as cancelAppointmentById, PATCH as rescheduleAppointmentById } from "@/app/api/v1/appointments/[id]/route";
 import { seedSlotIso } from "../helpers/seed-slots";
 import { GET as getPrescriptions, POST as createPrescription } from "@/app/api/v1/prescriptions/route";
 import { GET as getPrescriptionById } from "@/app/api/v1/prescriptions/[id]/route";
@@ -447,6 +447,33 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.error.code).toBe("VISIT_LOCKED");
       expect(await readVisit(seeded.visitId)).toEqual(before);
       expect(before?.status).toBe("completed");
+    });
+
+    // V2-09a 09A-06a (review A-7): the reschedule of a signed appointment answered 403 FORBIDDEN (the seal's 42501 through apiDbError), which tells an
+    // API client its key lacks permission; it is the same fixed 409 as DELETE and PATCH /api/v1/visits/[id] now.
+    it("PATCH /api/v1/appointments/[id] (reschedule) of a signed appointment is 409 VISIT_LOCKED and the visit is unchanged", async () => {
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, notes: "Signed synthetic note.", prescriptions: 0, scheduledAt: seedSlotIso() });
+      await signVisitAs(doctorA, seeded.visitId);
+      const before = await readVisit(seeded.visitId);
+      const slot = async () =>
+        (await getAdminClient().from("visits").select("scheduled_at, doctor_id").eq("id", seeded.visitId).single()).data;
+      const slotBefore = await slot();
+
+      for (const body of [{ scheduled_at: seedSlotIso() }, { doctor_id: clinicA.userId }]) {
+        const res = await rescheduleAppointmentById(
+          new NextRequest(`http://localhost/api/v1/appointments/${seeded.visitId}`, {
+            method: "PATCH",
+            headers: { authorization: `Bearer ${keyA.rawToken}`, "content-type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+          { params: Promise.resolve({ id: seeded.visitId }) },
+        );
+        const json = await res.json();
+        expect(res.status, JSON.stringify(body)).toBe(409);
+        expect(json.error.code).toBe("VISIT_LOCKED");
+      }
+      expect(await readVisit(seeded.visitId)).toEqual(before);
+      expect(await slot()).toEqual(slotBefore);
     });
 
     it("Key B cannot read or patch Clinic A visit (returns 404)", async () => {
