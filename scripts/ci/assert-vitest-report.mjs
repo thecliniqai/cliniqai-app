@@ -118,6 +118,8 @@
  *   6455 — V2-09b 09B-04b (Smart Assist write side), unchanged: REQUIRED_FILES + tests/consultation/shorthand.spec.ts (80) and macros.spec.ts (14). The suite only grew;
  *          the floor is re-measured once at the phase close.
  *   6455 — V2-09b 09B-05 (upload), unchanged: REQUIRED_FILES + tests/components/file-drop.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09b 09B-06a (review fix round), unchanged: REQUIRED_FILES + tests/labs/lab-upload-review-fixes.spec.ts (8) and tests/api/proxy-body-limit.spec.ts (7).
+ *          The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -502,6 +504,9 @@ const REQUIRED_FILES = [
   "tests/consultation/macros.spec.ts",
   // V2-09b 09B-05
   "tests/components/file-drop.spec.ts",
+  // V2-09b 09B-06a
+  "tests/labs/lab-upload-review-fixes.spec.ts",
+  "tests/api/proxy-body-limit.spec.ts",
 ];
 
 const file = process.argv[2];
