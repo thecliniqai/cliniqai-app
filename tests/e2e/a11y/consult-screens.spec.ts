@@ -12,6 +12,7 @@ import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
+import { awaitHydrated } from "../support/hydrated";
 import { storageStatePath } from "../support/run-data";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
@@ -65,6 +66,7 @@ for (const size of WIDTHS) {
       const visitId = await seedDraftVisit();
       await page.setViewportSize(size);
       await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
       await expect(page.locator("[data-consult-workspace]")).toBeVisible();
       await checkWholePage(page, testInfo, `draft-${size.width}`);
     });
@@ -73,6 +75,7 @@ for (const size of WIDTHS) {
       const { visitId } = await seedSignedConsultation("Axe Sealed");
       await page.setViewportSize(size);
       await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
       await expect(page.getByTestId("signed-chip")).toBeVisible();
       await checkWholePage(page, testInfo, `sealed-${size.width}`);
     });
@@ -81,6 +84,7 @@ for (const size of WIDTHS) {
       const { visitId } = await seedSignedConsultation("Axe Amending");
       await page.setViewportSize(size);
       await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
       await page.getByRole("button", { name: "Amend", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Reopen Visit for Clinical Amendment" });
       await dialog.getByLabel(/Reason for Amendment/).fill(REASON);
@@ -93,6 +97,7 @@ for (const size of WIDTHS) {
       const visitId = await seedDraftVisit();
       await page.setViewportSize(size);
       await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
       await page.getByRole("button", { name: "Finish visit" }).click();
       await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
       await checkWholePage(page, testInfo, `sign-and-bill-${size.width}`);

@@ -162,3 +162,173 @@ member widen the two grants inside their own transaction, as 09A-06a did: `amend
 - Registries touched and current: `expected-migration.ts` 000112, schema snapshot, `types/database.ts`, `authz:gen` outputs, pgTAP FLOOR 8554 and REQUIRED_FILES,
   Vitest REQUIRED_FILES, `RPC_REASON_CODES`, `AUDIT_ACTIONS` / `COMMAND_ONLY_AUDIT_ACTIONS` / `AUDIT_METADATA_KEYS` with the SQL lists, the definer registry and the
   not-full-clinic classification in `definer_functions.test.sql`, the guard manifest and valid inputs.
+
+## 09B-02a Workspace frame: regions, sections, sealed contract, Sign & Bill sheet, cut-over (no migration)
+
+09B-02b was executed in the same session on the same working tree, so the frame and the context panes landed together in one code commit (`8efcb69`; the
+split is by file in the sections below). `ls supabase/migrations | tail -3` showed 000112 as the newest: neither plan adds a migration, `EXPECTED_MIGRATION`
+is unchanged.
+
+### v1 behaviour inventory (M4 criterion 1; V2-DX-R2-V1-CONSULT-ANALYSIS §3 and the deleted file)
+
+| v1 capability | New home | Plan | Test |
+|---|---|---|---|
+| Vitals tiles, BMI, flags, record or edit vitals (`vitals-block.tsx`) | Examination section (body unchanged); a read-only grid with flags in the patient column | 02a, 02b (flags `assist.vitals`) | `amendment-screens` B-1 (`#vitals`), `workspace-layout` (vitals flags, grid) |
+| 12 complaint chips, durations, custom complaint, per-complaint note, HPI textarea | Complaints section (body unchanged) | 02a; tiles and ranking 09B-03 | `workspace-sealed`, `workspace-review-fixes`, `draft-persistence` (notes) |
+| PICCLE signs, systemic texts, dental odontogram, paediatrics tools | Examination section (bodies unchanged) | 02a; templates 09B-03 | `workspace-review-fixes` (all three specialties read-only) |
+| Header specialty `<select>` (desktop and mobile copies) | One `NativeSelect` "Specialty" in Examination until the template tiles replace it (see deviation 2) | 02a; removal 09B-03 | `workspace-sealed` (disabled when sealed) |
+| Diagnosis chips, search, custom, chronic, note, remove | Diagnosis section (body unchanged) | 02a; search route 09B-04a | `workspace-review-fixes`, `amendment-screens` |
+| Medicine search, staging, presets, Rx lines, protocol templates, allergy warning in the builder, Repeat last Rx | Prescription section (builder unchanged; it now reports its items through `onItemsChange`, so the strip count, the summary and Sign & Bill's medicine count are live) | 02a; V2-09c | `consult-rx-finish`, `amendment-screens` |
+| 14 investigation chips, 10 advice chips, custom test and advice | Plan section (tiles are `aria-pressed` toggles on the design-system tile look; texts verbatim, the "+ " and "✓ " prefixes kept) | 02a; catalogue 09B-03 | `draft-persistence` (advice tile), `workspace-sealed` (30 tiles disabled) |
+| Follow-up interval chips, date, instructions, the 5-day default | Plan section (same state, same default; saved with the first edit, Save draft or Finish) | 02a | `workspace-review-fixes` B-5, `draft-persistence` |
+| Referral card, create modal, print letter | Plan section | 02a | `workspace-review-fixes` (the referral stays available when read-only) |
+| Attachments dropzone (a no-op) | Plan section, unchanged placeholder | 09B-05 | none (see Known stubs) |
+| Allergy chip in the header and the amber alert card | The allergy strip (`AllergyBanner`, three states), sticky, on sealed records too | 02a | `workspace-layout`, `consult-screens` |
+| Identity, token badge, status badge, UHID, phone | Top bar (compact identity as the page's `h1`, `TokenChip`, `StatusChip`) | 02a | `consult-rx-finish` (name in the `h1`), `design-review-09e` (one Back) |
+| History drawer, Repeat this Rx, Copy notes | Patient column (1180 and up) and Patient sheet; same actions, clinic-zone dates | 02b | `workspace-layout`, `no-client-command-chains` (Repeat Rx exception) |
+| Autosave text, Save Draft, Ctrl/Cmd+S | `SaveStatus` slot, "Save draft" (kept for the amending contract) | 09B-01 | `draft-persistence` |
+| Complete & Sign (hand-rolled modal) | "Finish visit" opens the Sign & Bill `ResponsiveSheet` (same commands and copy) | 02a | `sign-and-bill-screens`, `consult-rx-finish`, `journey-08` |
+| WhatsApp Rx & Bill, Print Rx, Receipt on a completed visit | A record bar at the top of the note (visible at every width) | 02a | `workspace-sealed` |
+| Signed chip, Amend, amending banner, Finalize amendment | Same logic: chip and Amend in the top bar (Amend in the Finish bar on a phone), banner gains "opened {date}" | 02a | `workspace-sealed`, `amendment-screens`, `consult-rx-finish`, `consult-screens` |
+| Section jump bar (7 anchors) | Section strip (phones) and Alt+1 to Alt+5 | 02a | `workspace-layout` |
+| Returning-patient catch-up card (LLM) | Removed from the workspace; the patient column shows the last visit from `pastEncounters` until the snapshot of 09B-04a (the file and its action stay until then) | 04a | none |
+| AI scribe modal | Removed with the v1 workspace (C37); `generateSoapAction` and `lib/ai/soap-generator.ts` untouched for V2-12 | V2-12 | `ai-labels` (the case that rendered the modal is deleted) |
+
+### What changed
+
+- New `components/consultation/workspace/`: `consult-workspace.tsx` (record state, draft hook, dialogs, section refs; the draft block of 09B-01 re-hosted
+  verbatim), `consult-top-bar.tsx`, `allergy-strip.tsx`, `amending-banner.tsx`, `consult-section.tsx`, `section-strip.tsx`, `finish-bar.tsx`,
+  `sections/plan-section.tsx`, `format.ts` (clinic-zone dates; the v1 history used the browser's zone).
+- Layout: the root is the shell's `main` content at `100dvh - bar` from 768 px with `overflow-clip`; the header (top bar, allergy strip, strip) is sticky below
+  768 and a fixed row above; the note scrolls on its own (`data-note-scroll`). Label column 96 px at 768 to 1179, 120 px from 1180 (custom property
+  `--label-col`), one column and the label above the body below 768.
+- `SignAndBillModal` moved onto `ResponsiveSheet` (`size="lg"`): the hand-rolled dialog and scroll lock are gone; Close on the success screen still goes to
+  `/today?mode=doctor`; Escape and outside click are held while the sign-off runs.
+- `app/(dashboard)/consultation/[id]/page.tsx`: `allergies` is passed as stored (`null` = not recorded, `[]` = none), `amendment_opened_at` (the latest
+  `visit_revisions.amended_at`), the `assist` map (every `assist.*` key from `activeEntitlements()`, empty when the clinic is not `full`). `loading.tsx` is a
+  skeleton of the new regions.
+- Deleted: `consultation-workspace.tsx`, `ai-scribe-modal.tsx`. `PatientIdentityHeader` compact gains `nameHeading` (the consult's name is the page's `h1`,
+  which `consult-rx-finish` and `design-review-09e` assert).
+
+### Deviations from the plan, with reasons
+
+1. **One Back control, in the shell's top bar.** R-7 lists "Back to My queue" in the consult top bar. `design-review-09e.spec.ts` (06-09e M1) asserts exactly one
+   Back on the consult, in the shell's bar, and the shell's Back already returns to the queue through the in-app history; a second one would break an approved
+   assertion. The consult bar has none.
+2. **The specialty select stays, inside Examination.** The plan removes the header select in favour of the template tiles of 09B-03, which do not exist yet;
+   removing it now would leave dentists and paediatricians no way to switch. It is a labelled `NativeSelect` (disabled when read-only) until 09B-03.
+3. **"Finish visit" starts the flush and opens the sheet; it does not wait.** The sheet's own sign-off flushes again before the command, and a refusal
+   (a conflict, a role that may not save) shows inside the sheet, which is what `journey-08` asserts for a nurse. Waiting first would have kept the sheet
+   closed on a refusal and hidden the reason.
+4. **Alt+n does nothing behind an open dialog or sheet** (the overlay holds focus); the plan says "always". Moving focus out of a modal would fight its trap.
+5. **The sealed spec's tile selector** is `data-state` (the Plan tiles), not the old v1 class names; the assertion (every tile disabled, more than 20) is the same.
+6. **Counts and summary use live state**: the builder's items (`onItemsChange`) feed the strip, the summary and Sign & Bill's medicine count (before, the
+   Sign & Bill count was the page's stale `prescription_items.length`).
+7. **The e2e a11y consult specs run desktop-chrome only** (the config ignores `a11y/` on the other projects); the widths are set in the specs.
+8. A Chromium quirk cost two iterations and is recorded here for 09B-03: sticky section labels inside the scrolling note added their range to the *document's*
+   scroll height, so `scrollIntoView` scrolled the page under the fixed header. The note container is `relative` now. Separately, Tailwind v4 orders
+   `min-[1180px]:` before `md:`, so two classes that set the same property at both breakpoints resolve to `md:`; the label column uses one custom property
+   and non-overlapping ranges, and `max-[1180px]:` means `< 1180px`.
+
+### Known stubs
+
+- The Plan section's attachment dropzone is the v1 no-op placeholder (`components/consultation/workspace/sections/plan-section.tsx`, "Upload lab report or
+  radiograph"); 09B-05 builds `FileDrop` and the upload. Recorded in `.planning/WINDOWS.md` (below).
+
+### Tests added or changed (file: what)
+
+- `tests/e2e/consult/workspace-layout.spec.ts` (new, 17 tests, `@golden`): 360 px strip, Finish bar, allergy strip and no BottomBar; the allergy strip after
+  scrolling to Plan at 360 and 1280; the strip follows the scroll; Alt+1 to Alt+5 at 360, 820 and 1280, in the note field too; the section order; label
+  columns 120, 96 and stacked; no horizontal scroll at 360, 375, 744, 800, 820, 1180, 1280 (also scrolled to Plan); every frame control at least 44 px at 360, 744
+  and 820 (the 02b cases are listed below).
+- `tests/e2e/a11y/consult-screens.spec.ts` (new, 16 tests): zero serious or critical axe violations on the **whole page, with no M0 baseline allowance**, for the
+  draft, the sealed record, the amending record and the Sign & Bill sheet open, at 360, 820, 1180 and 1280, plus no horizontal scroll.
+- Re-pointed (selectors only): `workspace-sealed`, `workspace-review-fixes`, `consult-rx-finish`, `amendment-screens`, `sign-and-bill-screens`, `v2-01-screens`,
+  `clinical-split-screens`, `journey-08`, `baseline-routes`, `no-client-command-chains`, `ai-labels`, `g3-screens.json` (comment).
+
+### Counts
+
+See the end of the 09B-02b section (one e2e lane covers both).
+
+## 09B-02b Context panes, history, shortcuts, tablet layouts (no migration)
+
+### What changed
+
+- `patient-context.tsx` (shared content), `patient-column.tsx` (264 px, `surface-soft`, right hairline, scrolls on its own, `min-[1180px]:block`),
+  `patient-sheet.tsx` (`ResponsiveSheet`, opened from the top bar at 768 to 1179 and from the Finish bar below 768), `history-list.tsx` (the drawer's content:
+  Repeat this Rx and Copy notes only while editable, clinic-zone dates), `summary-pane.tsx` (the read-only draft "as the patient will see it": complaints,
+  findings, diagnoses, medicines, tests, advice, follow-up with weekday; 272 px from 1280; `SummarySheet` below). The Summary toggle is `aria-pressed`, closed by
+  default to 1439 and open from 1440 (`useMinWidth`); a phone opens the drawer from a "Summary" pill at the end of the section strip. `patient-history-drawer.tsx`
+  is deleted.
+- Vitals grid: BP, pulse, temperature, SpO₂, weight, resp. rate; with `assist.vitals` a flagged value is `danger-fg` with its word ("· high"), from
+  `lib/clinical/vitals.ts` (`flagOf`); without it the values are plain.
+- Shortcuts (`use-consult-shortcuts.ts`): `createShortcutHandler` (pure, the hook adds the listener). Alt+1 to Alt+5 always; M (medicine search) and F (Finish
+  visit) behind `clinicos.pref.shortcuts` with no modifier, no field and no dialog; `/` is reported as `command` and ignored until 09B-04b; `?` opens the existing
+  `ShortcutSheet`, which gained optional `shortcuts` and `note` props so the consult lists its own keys.
+- `lib/pwa/device-prefs.ts` unchanged (reuse only).
+
+### Deviations
+
+1. **Commits are by file, not by plan** (one working tree): `ed08464` (Sign & Bill sheet), `8efcb69` (frame and panes together), `62164f64` (re-pointed
+   specs), `7b667c5e` (new specs), then this notes commit and the tag fix.
+2. **The Summary drawer's entry on a phone** is a "Summary" pill after the section pills (the plan says "Patient and Summary as drawers" and gives the Finish
+   bar only the Patient button). There is no Summary at 768 to 1279: the plan has the pane from 1280 only.
+3. **The summary shows the preselected 5-day follow-up** from the first render (it is part of the draft on screen, as in Plan), so the drawer is never empty.
+4. **The patient column is in the DOM but not drawn below 1180** (CSS), so `clinical-split-screens` reads the first visible copy of the vitals text.
+5. **Route weight** (`npm run ci:route-js`, report-only): `/consultation/[id]` is **353.7 kB gz (route-specific 225.2)** against the 200 kB budget; 27 of 28
+   routes are over their budget on this base (`/patients` 293.4, `/today` 320.7). At V2-06 the same route measured 213.0 kB and `/patients` 161.7, so the whole
+   app grew about 130 kB since (shared code); the consult grew about 140. Not met as written; the budget is report-only. The v1 bodies are still in the
+   route (09B-03 and 09B-04a replace them), so the number is recorded here for the close, not fixed here.
+6. **The tablet captures** are written by `tablet-captures.spec.ts` (tagged `@golden` so the nightly projects pick it up).
+
+### Tests added or changed
+
+- `workspace-layout.spec.ts` (+9): the patient column (264 px, six sections, no Patient button or Summary at 1180), its own scroll and absence below 1180, the
+  Patient sheet at 820 with Escape and focus return, the Finish bar's Patient drawer and the Summary drawer at 360 (settled box 360 wide at the bottom edge), the
+  summary pane at 1280 (272 px, closed, `aria-pressed`, shows an advice tile tapped a moment ago and the follow-up weekday, toggles closed), 1440 open, vitals
+  flags (BP "· high", pulse not), and M, F, ? behind the switch (and with it off).
+- `tests/consultation/consult-shortcuts.spec.ts` (new, 20): the handler with a fake document: Alt+digit in a field and with the switch off, `code` not `key`,
+  not behind a dialog, Alt+6 / Ctrl / Cmd / Shift variants; M, F, `/`, `?` with the switch on and off, in a field, behind a dialog, with modifiers and during IME
+  composition.
+- `tests/e2e/consult/tablet-captures.spec.ts` (new, 12): draft and amending at 360, 744, 820, 1180, 1280 and 1440: which regions exist, the label column, the
+  summary default, no horizontal scroll, and a capture in `.planning/phases/09B-consult-workspace/evidence/screens/`.
+
+### Counts (tool output of the runs named; one lane covers 09B-02a and 09B-02b)
+
+- Vitest, affected (`tests/consultation tests/design tests/ci tests/components tests/pwa tests/today`): 80 files, 1533 tests, all pass (run before the last
+  spec-only edits; `consult-shortcuts`, `workspace-sealed`, `workspace-review-fixes` re-run after them: 35 tests, pass).
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 406 warnings (the baseline was 413); `npm run inventory` exit 0 (no action or route added or removed);
+  `npm run ci:ui-policy` and `npm run ci:ai-l1` PASS; the React Compiler waiver file did not change.
+- e2e, after `npm run e2e:build`: `npx playwright test tests/e2e/consult tests/e2e/m0 tests/e2e/journeys tests/e2e/a11y/{consult-screens,amendment-screens,
+  sign-and-bill-screens,clinical-split-screens}.spec.ts tests/e2e/pwa/05-cache-audit.spec.ts --project=desktop-chrome --project=pixel-7 --project=iphone-15
+  --retries=0`: **277 passed, 0 failed, 0 retries** (8.6 min; the a11y files run on desktop-chrome only, the other projects run the `@golden` tests).
+- Tablet projects, once: `tablet-captures.spec.ts` and `workspace-layout.spec.ts` on `ipad-mini-744`, `android-tablet-800`, `ipad-gen7`, `ipad-gen7-landscape`,
+  `galaxy-tab-s4-landscape`: **208 passed, 0 failed** (3.3 min). The captures of the desktop-chrome run (12 PNGs: draft and amending at the six widths) are in
+  `.planning/phases/09B-consult-workspace/evidence/screens/`; the per-device copies the tablet run wrote (96 files, 32 MB) were not kept.
+- Earlier runs of the same lane failed for causes fixed in the tree, none by retry: sticky labels scrolling the document (deviation 8 of 02a), the Tailwind
+  ordering of `md:` and `min-[1180px]:` (label column, the Patient button at exactly 1179 px), the `h1` for the patient's name, "Finish visit" waiting on the
+  flush (journey-08), and, on iphone-15 only, a click or key press before React had hydrated (WebKit hydrates later): `tests/e2e/support/hydrated.ts` waits
+  for it, and the focus-return case opens the sheet by keyboard because Safari does not focus a button on click.
+- Route weight: see deviation 5 of 02b (353.7 kB gz, not under 200).
+
+### Flakes
+
+None: no test passed only on retry (retries 0 throughout). The iphone-15 failures above were reproducible (a hydration race, not a flake) and are fixed at the root.
+
+### Hand-offs for 09B-03 (and later)
+
+- The Examination section hosts the v1 vitals block, the specialty `NativeSelect` (id `workspace-specialty`) and the specialty panels; 09B-03 replaces the select
+  with the template tiles and may delete the select with its `workspace-sealed` selector. Complaints, Diagnosis and Prescription are `flat` v1 bodies inside
+  `ConsultSection`; the Plan section is `sections/plan-section.tsx` (constants `COMMON_INVESTIGATIONS`, `COMMON_ADVICE_CHIPS`, `FollowUpIntervalChoice`): the
+  catalogue of 09B-03 replaces them and the `OptionTile` helper can move to `ChipGroup`.
+- `ConsultWorkspaceProps.assist` is the `assist.*` map (key to boolean) resolved in the page; `assist.vitals` already gates the flags in the patient column.
+  `summaryContent` (draft on screen) is the one place the summary reads; add the structured exam there when `specialty_data.exam` exists (`findingLines`).
+- `use-consult-shortcuts.ts`: `singleKeyShortcut` already returns `command` for `/` (the host ignores it); 09B-04b adds its handler in `onAction`.
+  `ShortcutSheet` takes `shortcuts` and `note`.
+- Layout rules to keep: `data-note-scroll` is `relative` (see deviation 8); header is `<header>` sticky below 768; do not set the same property with `md:` and a
+  `min-[..]:` variant. New specs that click or type right after `goto` call `awaitHydrated(page)`.
+- The Finish bar holds Patient plus the primary action; the strip's "Summary" pill opens the drawer; the record bar (WhatsApp, Print Rx, Receipt) is in the note.
+- `amendment_opened_at` and `allergies: null | []` are new page props; the allergy strip shows "Allergies not recorded" for null.
+- `LLM_FEATURE_FILES` in `scripts/ci/ai-l1-greps.mjs` still names the deleted `ai-scribe-modal.tsx` (its fixtures use the path); `returning-patient-catchup.tsx`
+  and its action are unreferenced by the workspace and go in 09B-04a.
+

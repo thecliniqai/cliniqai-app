@@ -17,6 +17,7 @@ import { expect, test } from "../fixtures";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { seedClinicalNotes } from "../../helpers/clinical-notes";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
+import { awaitHydrated } from "../support/hydrated";
 import { storageStatePath } from "../support/run-data";
 
 test.use({ storageState: storageStatePath("doctor") });
@@ -44,6 +45,7 @@ async function openConsult(page: Page, width: number, height = 800): Promise<str
   await page.setViewportSize({ width, height });
   await page.goto(`/consultation/${visitId}`);
   await expect(page.locator("[data-consult-workspace]")).toBeVisible();
+  await awaitHydrated(page);
   return visitId;
 }
 
@@ -58,7 +60,7 @@ async function inViewport(page: Page, locator: Locator): Promise<boolean> {
 const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
-test("360 px: the section strip, Finish bar and allergy strip are on screen, with no BottomBar", async ({ page }) => {
+test("@golden 360 px: the section strip, Finish bar and allergy strip are on screen, with no BottomBar", async ({ page }) => {
   await openConsult(page, 360, 780);
   await expect(page.locator("[data-section-strip]")).toBeVisible();
   await expect(page.locator("[data-finish-bar]")).toBeVisible();
@@ -73,7 +75,7 @@ test("360 px: the section strip, Finish bar and allergy strip are on screen, wit
 });
 
 for (const width of [360, 1280]) {
-  test(`${width} px: the allergy strip is still on screen after scrolling to Plan`, async ({ page }) => {
+  test(`@golden ${width} px: the allergy strip is still on screen after scrolling to Plan`, async ({ page }) => {
     await openConsult(page, width, width === 360 ? 780 : 800);
     const strip = page.locator("[data-allergy-strip]");
     expect(await inViewport(page, strip)).toBe(true);
@@ -85,7 +87,7 @@ for (const width of [360, 1280]) {
   });
 }
 
-test("360 px: the section strip follows the scroll and a tap moves focus to the section", async ({ page }) => {
+test("@golden 360 px: the section strip follows the scroll and a tap moves focus to the section", async ({ page }) => {
   await openConsult(page, 360, 780);
   const strip = page.locator("[data-section-strip]");
   await expect(strip.getByRole("button", { name: /^Complaints/ })).toHaveAttribute("aria-current", "true");
@@ -97,7 +99,7 @@ test("360 px: the section strip follows the scroll and a tap moves focus to the 
 });
 
 for (const width of [360, 820, 1280]) {
-  test(`${width} px: Alt+1 to Alt+5 move focus to the section headings, in a text field too`, async ({ page }) => {
+  test(`@golden ${width} px: Alt+1 to Alt+5 move focus to the section headings, in a text field too`, async ({ page }) => {
     await openConsult(page, width);
     for (const [index, section] of SECTIONS.entries()) {
       await page.keyboard.press(`Alt+Digit${index + 1}`);
@@ -113,7 +115,7 @@ for (const width of [360, 820, 1280]) {
   });
 }
 
-test("the five sections are in the specified order, each with its heading", async ({ page }) => {
+test("@golden the five sections are in the specified order, each with its heading", async ({ page }) => {
   await openConsult(page, 1280);
   const ids = await page.locator("[data-consult-section]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-consult-section")));
   expect(ids).toEqual(SECTIONS.map((s) => s.id));
@@ -122,7 +124,7 @@ test("the five sections are in the specified order, each with its heading", asyn
   }
 });
 
-test("1180 px and up: a label column of 120 px beside each section; 820 px: 96 px", async ({ page }) => {
+test("@golden 1180 px and up: a label column of 120 px beside each section; 820 px: 96 px", async ({ page }) => {
   await openConsult(page, 1180, 800);
   const widthOfLabel = () => page.locator("#plan-title").evaluate((h) => (h.parentElement as HTMLElement).getBoundingClientRect().width);
   expect(Math.round(await widthOfLabel())).toBe(120);
@@ -134,7 +136,7 @@ test("1180 px and up: a label column of 120 px beside each section; 820 px: 96 p
 });
 
 for (const width of [360, 375, 744, 800, 820, 1180, 1280]) {
-  test(`no horizontal scroll at ${width} px`, async ({ page }) => {
+  test(`@golden no horizontal scroll at ${width} px`, async ({ page }) => {
     await openConsult(page, width, width < 768 ? 780 : 900);
     expect(await noHorizontalScroll(page)).toBe(true);
     // Also with the Plan section (the widest tiles) in view.
@@ -144,7 +146,7 @@ for (const width of [360, 375, 744, 800, 820, 1180, 1280]) {
 }
 
 for (const width of [360, 744, 820]) {
-  test(`${width} px: every interactive control of the frame is at least 44 px`, async ({ page }) => {
+  test(`@golden ${width} px: every interactive control of the frame is at least 44 px`, async ({ page }) => {
     await openConsult(page, width, width < 768 ? 780 : 900);
     const controls = page.locator(
       "[data-consult-top-bar] :is(button, a[href]), [data-section-strip] button, [data-finish-bar] :is(button, a[href])",
@@ -174,7 +176,7 @@ for (const width of [360, 744, 820]) {
 
 const widthOf = (locator: Locator) => locator.evaluate((el) => Math.round(el.getBoundingClientRect().width));
 
-test("1180 px: the patient column (264 px) beside the note, with identity, vitals grid, allergies, problems, last visit and history; no Patient button, no Summary", async ({ page }) => {
+test("@golden 1180 px: the patient column (264 px) beside the note, with identity, vitals grid, allergies, problems, last visit and history; no Patient button, no Summary", async ({ page }) => {
   await openConsult(page, 1180, 800);
   const column = page.locator("[data-patient-column]");
   await expect(column).toBeVisible();
@@ -189,7 +191,7 @@ test("1180 px: the patient column (264 px) beside the note, with identity, vital
   await expect(page.locator("[data-summary-pane]")).toHaveCount(0);
 });
 
-test("the patient column scrolls on its own and is not drawn below 1180 px", async ({ page }) => {
+test("@golden the patient column scrolls on its own and is not drawn below 1180 px", async ({ page }) => {
   await openConsult(page, 1180, 800);
   expect(await page.locator("[data-patient-column]").evaluate((el) => getComputedStyle(el).overflowY)).toBe("auto");
   await page.setViewportSize({ width: 1179, height: 800 });
@@ -197,11 +199,13 @@ test("the patient column scrolls on its own and is not drawn below 1180 px", asy
   await expect(page.getByRole("button", { name: "Patient", exact: true })).toBeVisible();
 });
 
-test("820 px: the Patient button opens the patient sheet; Escape closes it and focus returns to the button", async ({ page }) => {
+test("@golden 820 px: the Patient button opens the patient sheet; Escape closes it and focus returns to the button", async ({ page }) => {
   await openConsult(page, 820, 1000);
   await expect(page.locator("[data-patient-column]")).toBeHidden();
   const button = page.getByRole("button", { name: "Patient", exact: true });
-  await button.click();
+  // By keyboard: Safari does not focus a button on click, so there would be no opener to return to.
+  await button.focus();
+  await page.keyboard.press("Enter");
   const sheet = page.getByRole("dialog", { name: "Patient" });
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText("Penicillin");
@@ -210,7 +214,7 @@ test("820 px: the Patient button opens the patient sheet; Escape closes it and f
   await expect(button).toBeFocused();
 });
 
-test("360 px: the Finish bar's Patient button opens the patient context as a drawer; the strip's Summary opens the summary drawer", async ({ page }) => {
+test("@golden 360 px: the Finish bar's Patient button opens the patient context as a drawer; the strip's Summary opens the summary drawer", async ({ page }) => {
   await openConsult(page, 360, 780);
   const patient = page.locator("[data-finish-bar]").getByRole("button", { name: "Patient", exact: true });
   await expect(patient).toBeVisible();
@@ -234,7 +238,7 @@ test("360 px: the Finish bar's Patient button opens the patient context as a dra
   await expect(drawer.getByRole("region", { name: "Follow-up" })).toBeVisible();
 });
 
-test("1280 px: the Summary toggle opens a 272 px pane that shows the draft as it is typed; closed by default, aria-pressed follows", async ({ page }) => {
+test("@golden 1280 px: the Summary toggle opens a 272 px pane that shows the draft as it is typed; closed by default, aria-pressed follows", async ({ page }) => {
   await openConsult(page, 1280, 800);
   const toggle = page.getByRole("button", { name: "Summary", exact: true });
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -255,7 +259,7 @@ test("1280 px: the Summary toggle opens a 272 px pane that shows the draft as it
   await expect(pane).toHaveCount(0);
 });
 
-test("1440 px: the summary pane is open by default; the note column keeps its room", async ({ page }) => {
+test("@golden 1440 px: the summary pane is open by default; the note column keeps its room", async ({ page }) => {
   await openConsult(page, 1440, 900);
   await expect(page.getByRole("button", { name: "Summary", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("[data-summary-pane]")).toBeVisible();
@@ -264,7 +268,7 @@ test("1440 px: the summary pane is open by default; the note column keeps its ro
   expect(await widthOf(page.locator("[data-note-scroll]"))).toBeGreaterThanOrEqual(640);
 });
 
-test("vitals in the patient column follow the draft, and an out-of-range value carries its word when the clinic has the vitals flags", async ({ page }) => {
+test("@golden vitals in the patient column follow the draft, and an out-of-range value carries its word when the clinic has the vitals flags", async ({ page }) => {
   const { tenantA } = run();
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Flags ${testTag()}`);
   const visitId = await seedVisit({
@@ -290,7 +294,7 @@ test.describe("single-key shortcuts behind the per-device switch (R-7)", () => {
     await page.addInitScript(() => localStorage.setItem("clinicos.pref.shortcuts", "on"));
   });
 
-  test("M focuses the medicine search, ? lists the shortcuts, F opens Finish; none of them act inside a field", async ({ page }) => {
+  test("@golden M focuses the medicine search, ? lists the shortcuts, F opens Finish; none of them act inside a field", async ({ page }) => {
     await openConsult(page, 1280, 800);
     await page.locator("body").click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("m");
@@ -314,7 +318,7 @@ test.describe("single-key shortcuts behind the per-device switch (R-7)", () => {
     await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
   });
 
-  test("with the switch off, M and F are left alone and ? still opens the list", async ({ page }) => {
+  test("@golden with the switch off, M and F are left alone and ? still opens the list", async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem("clinicos.pref.shortcuts", "off"));
     await openConsult(page, 1280, 800);
     await page.locator("#complaints-title").focus();

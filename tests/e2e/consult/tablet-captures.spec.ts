@@ -14,6 +14,7 @@ import { ROOT } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { seedClinicalNotes } from "../../helpers/clinical-notes";
 import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
+import { awaitHydrated } from "../support/hydrated";
 import { storageStatePath } from "../support/run-data";
 
 test.use({ storageState: storageStatePath("doctor") });
@@ -96,20 +97,22 @@ async function capture(page: Page, testInfo: TestInfo, state: string, width: num
 }
 
 for (const e of WIDTHS) {
-  test(`draft at ${e.width} px: structure and capture`, async ({ page }, testInfo) => {
+  test(`@golden draft at ${e.width} px: structure and capture`, async ({ page }, testInfo) => {
     const visitId = await seedDraft();
     await page.setViewportSize({ width: e.width, height: e.height });
     await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
     await expect(page.locator("[data-consult-workspace]")).toBeVisible();
     await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toHaveValue(/dry cough/);
     await assertStructure(page, e, "draft");
     await capture(page, testInfo, "draft", e.width);
   });
 
-  test(`amending at ${e.width} px: structure, banner and capture`, async ({ page }, testInfo) => {
+  test(`@golden amending at ${e.width} px: structure, banner and capture`, async ({ page }, testInfo) => {
     const { visitId } = await seedSignedConsultation("Capture Amending");
     await page.setViewportSize({ width: e.width, height: e.height });
     await page.goto(`/consultation/${visitId}`);
+    await awaitHydrated(page);
     await page.getByRole("button", { name: "Amend", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Reopen Visit for Clinical Amendment" });
     await dialog.getByLabel(/Reason for Amendment/).fill(REASON);
