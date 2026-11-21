@@ -536,3 +536,19 @@ No item is unplanned. Items outside this phase are under Deferred.
   pre-printed paper on a real printer), `09C-P3` staging migrate of 000117 to 000119 after `09B-P4` (not delegated), `09C-P4` CDCI reload with substance
   ids on staging, and on production at V2-15 (hosted; PO only), `09C-P5` acknowledgement of Q-1, Q-2, Q-6, Q-8, Q-9.
 - New dependencies: none.
+
+## CTO delegate rulings on the defaults (2026-11-22)
+
+These override the defaults above where they differ. Rule applied: a default may not depart from an approved document;
+where it would, the approved document stands and the change goes to the PO.
+
+- **Q-2 overruled.** DESIGN_SYSTEM §7.10 is approved: an `@media print` stylesheet for the Rx (A4/A5, letterhead from
+  settings, configurable margins for pre-printed letterhead) plus the server PDF for WhatsApp delivery. 09C-04 builds the
+  print stylesheet on the signed Rx view, sharing the A4/A5, letterhead and margin settings with the PDF. Keep it small:
+  one print stylesheet, no separate print route unless the existing view cannot carry it.
+- **Q-8 overruled.** WhatsApp is **not** preselected on the finish review. PO-23(h) accepts WhatsApp processing for
+  reminders and billing notices; preselecting Rx delivery by WhatsApp widens that default and is the PO's call (09C-P5).
+  The channel choice stays one tap.
+- **Q-9 overruled.** The printed product line stays as it is today; dropping or rewording branding on the prescription
+  is a product decision for the PO (09C-P5). The page and version line ("Rx v{n} · Page x of y") is added alongside it.
+- Q-1, Q-3…Q-7, Q-10…Q-17: defaults approved as written.
