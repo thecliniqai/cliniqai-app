@@ -36,3 +36,19 @@ export function labStorageExtension(originalFilename: string): string {
 export function labStorageKey(tenantId: string, patientId: string, documentId: string, originalFilename: string): string {
   return `tenants/${tenantId}/patients/${patientId}/labs/${documentId}.${labStorageExtension(originalFilename)}`;
 }
+
+/**
+ * What a lab or consult upload accepts (V2-09b 09B-05, R-16), exported once: the server (`uploadLabDocument`) and the upload control (`FileDrop`)
+ * both read these, so the client check and the server check cannot drift. The client check is a courtesy; the server's is the one that counts.
+ */
+export const LAB_ACCEPTED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const LAB_MAX_FILE_BYTES = 25 * 1024 * 1024; // 25MB
+export const LAB_INVALID_TYPE_MESSAGE = "Invalid file type. Allowed formats: PDF, JPEG, PNG, WEBP.";
+export const LAB_TOO_LARGE_MESSAGE = "File size exceeds the 25MB limit. Please upload a smaller file.";
+
+/** The refusal text for a file the upload would not take, or null when it is acceptable (a type, then the size). */
+export function labFileRefusal(file: { type: string; size: number }): string | null {
+  if (!(LAB_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)) return LAB_INVALID_TYPE_MESSAGE;
+  if (file.size > LAB_MAX_FILE_BYTES) return LAB_TOO_LARGE_MESSAGE;
+  return null;
+}

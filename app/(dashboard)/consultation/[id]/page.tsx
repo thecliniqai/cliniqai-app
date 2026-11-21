@@ -26,6 +26,8 @@ import type { PatientSnapshot } from "@/features/consultation/snapshot";
 import type { AssistContext } from "@/features/consultation/assist-ranking";
 import { listDoctorMacros } from "@/features/consultation/macros-service";
 import { getUpcomingVisitInstants } from "@/features/consultation/upcoming-visits";
+import { getPatientDocuments } from "@/features/labs/service";
+import { toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
 import type { DoctorMacro } from "@/features/consultation/macros";
 import { resolveServiceContext } from "@/lib/auth/context";
 
@@ -183,6 +185,17 @@ async function ConsultationPage(props: ConsultationPageProps) {
     if (resolved.ok) upcomingVisits = await getUpcomingVisitInstants(resolved.ctx, patientId, visitRow.doctor_id);
   }
 
+  // 11. The patient's documents (V2-09b 09B-05, P1-24), newest first, for a role that may read them (labs:view); the consult lists this visit's and the
+  // patient column the five newest. A failed or refused read is "no list" (null): no Attachments block is drawn.
+  let documents: ConsultDocument[] | null = null;
+  if (hasPerm(membership.role, "labs:view")) {
+    const resolved = await resolveServiceContext("labs:view");
+    if (resolved.ok) {
+      const listed = await getPatientDocuments(resolved.ctx, patientId);
+      if (listed.success) documents = listed.documents.map(toConsultDocument);
+    }
+  }
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -249,6 +262,8 @@ async function ConsultationPage(props: ConsultationPageProps) {
       macros={macros}
       upcomingVisits={upcomingVisits}
       canBook={hasPerm(membership.role, "appointments:edit")}
+      documents={documents}
+      canUpload={hasPerm(membership.role, "labs:edit")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

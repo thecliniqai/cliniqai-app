@@ -117,6 +117,7 @@
  *          tests/ai/prescription-suggestions.spec.ts and three cases (one per unconfigured provider) tests/security/ai-containment.spec.ts. The floor is re-measured once at the phase close.
  *   6455 — V2-09b 09B-04b (Smart Assist write side), unchanged: REQUIRED_FILES + tests/consultation/shorthand.spec.ts (80) and macros.spec.ts (14). The suite only grew;
  *          the floor is re-measured once at the phase close.
+ *   6455 — V2-09b 09B-05 (upload), unchanged: REQUIRED_FILES + tests/components/file-drop.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -499,6 +500,8 @@ const REQUIRED_FILES = [
   // V2-09b 09B-04b
   "tests/consultation/shorthand.spec.ts",
   "tests/consultation/macros.spec.ts",
+  // V2-09b 09B-05
+  "tests/components/file-drop.spec.ts",
 ];
 
 const file = process.argv[2];

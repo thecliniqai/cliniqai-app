@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, FlaskConical, Plus, Printer, Share2, UploadCloud, Calendar } from "lucide-react";
+import { Check, FlaskConical, Plus, Printer, Share2, Calendar } from "lucide-react";
 import type { Referral } from "@/lib/db/types";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
@@ -17,7 +16,7 @@ import { RemoveButton } from "./remove-button";
  * The Plan section of the consult (06-UI-SPEC §7: investigations, advice, follow-up, refer, attach). V2-09b 09B-03 (R-9, R-12): investigations, advice
  * and the follow-up interval are tiles from the catalogue (features/consultation/catalogue.ts), with this doctor's usual for the diagnosis listed first
  * when the clinic has Smart Assist terminology (`context`; Smart Assist label only there) and the catalogue order otherwise. Free entry of a test or an
- * advice line is kept. 09B-05 replaces the attachment placeholder with the real upload.
+ * advice line is kept.The attachments block (09B-05) is hosted by the workspace.
  * Every control is disabled on a read-only record (sealed, unsigned completed, cancelled), the referral excepted: it is its own record (R-6).
  */
 
@@ -70,6 +69,8 @@ export interface PlanSectionProps {
   followUpSuggestion?: React.ReactNode;
   /** "Book follow-up" or its "booked" note (09B-04b, R-15), drawn under the date hint. */
   bookFollowUp?: React.ReactNode;
+  /** The attachments block (09B-05, R-16): the upload control and this visit's documents. */
+  attachments?: React.ReactNode;
 }
 
 export function PlanSection(props: PlanSectionProps) {
@@ -312,33 +313,10 @@ export function PlanSection(props: PlanSectionProps) {
         )}
       </div>
 
-      {/* Attach: the dropzone is a placeholder until 09B-05 builds FileDrop and the append-only upload (R-16). */}
+      {/* Attach (09B-05, R-16): the real upload and this visit's documents, hosted by the workspace. */}
       <div className="border-t border-border pt-4">
         <SubHeading icon={null}>Clinical attachments &amp; investigation reports</SubHeading>
-        <div className="space-y-2 rounded-md border border-dashed border-border-strong bg-surface-soft p-6 text-center">
-          <UploadCloud aria-hidden="true" className="mx-auto size-8 text-fg-icon" />
-          <label
-            htmlFor="clinical-file-upload"
-            className={cn(
-              "inline-flex min-h-control cursor-pointer items-center text-body-sm font-semibold text-accent-fg",
-              readOnly && "cursor-not-allowed text-fg-disabled",
-            )}
-          >
-            Upload lab report or radiograph
-            <input
-              id="clinical-file-upload"
-              type="file"
-              multiple
-              disabled={readOnly}
-              accept="image/png,image/jpeg,application/pdf"
-              className="sr-only"
-              onChange={() => {
-                // Placeholder: the real upload is 09B-05.
-              }}
-            />
-          </label>
-          <p className="text-label text-fg-muted">Drag and drop JPEG, PNG, or PDF files (up to 10MB each)</p>
-        </div>
+        {props.attachments}
       </div>
     </div>
   );

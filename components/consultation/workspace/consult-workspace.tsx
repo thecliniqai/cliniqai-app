@@ -57,6 +57,8 @@ import { ExaminationSection } from "./sections/examination-section";
 import { DiagnosisSection } from "./sections/diagnosis-section";
 import { daysForInterval } from "@/features/consultation/catalogue";
 import { CommandBar } from "./command-bar";
+import { Attachments } from "./attachments";
+import type { ConsultDocument } from "@/features/labs/consult-documents";
 import { MacroList } from "./macro-list";
 import { BookFollowUp, FollowUpSuggestion } from "./follow-up-suggestion";
 import type { DoctorMacro } from "@/features/consultation/macros";
@@ -141,6 +143,13 @@ export interface ConsultWorkspaceProps {
   upcomingVisits?: string[];
   /** The role may book an appointment (`appointments:edit`): "Book follow-up" opens the V2-08 booking sheet. */
   canBook?: boolean;
+  /**
+   * The patient's documents, newest first (09B-05, P1-24), read on the server for a role with `labs:view`; `null`: the role may not read them (no list, no
+   * "Documents" block). This visit's own documents are the Plan list; the patient column shows the five newest.
+   */
+  documents?: ConsultDocument[] | null;
+  /** The role holds `labs:edit`: the upload is offered (else the drop zone is disabled with the reason). */
+  canUpload?: boolean;
 }
 
 const SECTION_IDS = ["complaints", "examination", "diagnosis", "prescription", "plan"] as const;
@@ -203,6 +212,8 @@ export function ConsultWorkspace({
   macros = [],
   upcomingVisits = [],
   canBook = false,
+  documents: initialDocuments = null,
+  canUpload = false,
 }: ConsultWorkspaceProps) {
   const router = useRouter();
   const timeZone = useClinicTimeZone();
@@ -258,6 +269,8 @@ export function ConsultWorkspace({
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const [isMacroListOpen, setIsMacroListOpen] = useState(false);
   const [macroList, setMacroList] = useState<DoctorMacro[]>(macros);
+  // The patient's documents (09B-05): a report uploaded here is added at the top of the list at once; the server copy is read again on the next load.
+  const [documents, setDocuments] = useState<ConsultDocument[] | null>(initialDocuments);
   const [shortcutsOn, setShortcutsOn] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
@@ -538,6 +551,7 @@ export function ConsultWorkspace({
     timeZone,
     onRepeatRx: readOnly ? undefined : handleRepeatRx,
     onCopyNotes: readOnly ? undefined : handleCopyNotes,
+    documents: documents ? documents.slice(0, 5) : undefined,
   };
   const summaryContent: SummaryContent = {
     complaints: chiefComplaints,
@@ -880,6 +894,18 @@ export function ConsultWorkspace({
                 diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
                 followUpSuggestion={suggestion ? <FollowUpSuggestion phrase={suggestion} today={clinicToday} onAccept={acceptSuggestion} /> : null}
                 bookFollowUp={followUpOn ? <BookFollowUp href={bookHref} booked={followUpBooked} date={followUpDate} /> : null}
+                attachments={
+                  documents ? (
+                    <Attachments
+                      visitId={visit.id}
+                      patientId={patient.id}
+                      documents={documents.filter((d) => d.visit_id === visit.id)}
+                      readOnly={readOnly}
+                      canUpload={canUpload}
+                      onUploaded={(doc) => setDocuments((current) => [doc, ...(current ?? [])])}
+                    />
+                  ) : null
+                }
               />
             </ConsultSection>
           </div>

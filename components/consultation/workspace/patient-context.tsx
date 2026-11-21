@@ -8,6 +8,8 @@ import type { PatientSnapshot } from "@/features/consultation/snapshot";
 import { cn } from "@/lib/utils";
 import { clinicDateLabel } from "./format";
 import { HistoryList, type HistoryListProps } from "./history-list";
+import { DocumentRow } from "./attachments";
+import type { ConsultDocument } from "@/features/labs/consult-documents";
 
 /**
  * The patient's context (06-UI-SPEC §7, V2-09b 09B-02b): the same content in the patient column (1180 px and up) and in the Patient sheet (768 to 1179
@@ -34,6 +36,8 @@ export interface PatientContextProps {
   timeZone: string;
   onRepeatRx?: HistoryListProps["onRepeatRx"];
   onCopyNotes?: HistoryListProps["onCopyNotes"];
+  /** The patient's recent documents (09B-05, P1-24), newest first; `undefined`: the role may not read them, nothing is drawn. */
+  documents?: readonly ConsultDocument[];
 }
 
 export function Caption({ children, id }: { children: ReactNode; id?: string }) {
@@ -44,7 +48,7 @@ export function Caption({ children, id }: { children: ReactNode; id?: string }) 
   );
 }
 
-export function PatientContext({ patient, vitals, flags, snapshot = null, encounters, timeZone, onRepeatRx, onCopyNotes }: PatientContextProps) {
+export function PatientContext({ patient, vitals, flags, snapshot = null, encounters, timeZone, onRepeatRx, onCopyNotes, documents }: PatientContextProps) {
   const last = encounters[0];
   const allergies = patient.allergies;
   const conditions = patient.chronic_conditions ?? [];
@@ -105,6 +109,21 @@ export function PatientContext({ patient, vitals, flags, snapshot = null, encoun
             </p>
           ) : (
             <p className="text-body-sm text-fg-secondary">First visit in this clinic</p>
+          )}
+        </section>
+      )}
+
+      {documents && (
+        <section aria-labelledby="pc-documents" data-patient-documents="">
+          <Caption id="pc-documents">Documents{documents.length > 0 ? ` (${documents.length})` : ""}</Caption>
+          {documents.length > 0 ? (
+            <ul aria-label="Patient documents" className="flex flex-col gap-1.5">
+              {documents.map((doc) => (
+                <DocumentRow key={doc.id} doc={doc} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-body-sm text-fg-secondary">None on file</p>
           )}
         </section>
       )}

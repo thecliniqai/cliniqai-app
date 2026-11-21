@@ -11,15 +11,12 @@ import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECOND
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult } from "./types";
-import { formatAmendedFilename, labStorageKey } from "./utils";
+import { formatAmendedFilename, labFileRefusal, labStorageKey } from "./utils";
 import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { getTenantToday } from "@/lib/datetime/server";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-
-const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
 export type UploadLabDocumentResult =
   | { success: true; document: PatientDocument }
@@ -43,19 +40,9 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       return { success: false, error: "Please select a valid document file to upload." };
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return {
-        success: false,
-        error: "Invalid file type. Allowed formats: PDF, JPEG, PNG, WEBP.",
-      };
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return {
-        success: false,
-        error: "File size exceeds the 25MB limit. Please upload a smaller file.",
-      };
-    }
+    // The type and the size limit are `labFileRefusal` (features/labs/utils.ts), the same rule and texts the upload control checks before it sends anything.
+    const refusal = labFileRefusal(file);
+    if (refusal) return { success: false, error: refusal };
 
     // 2. Validate metadata
     const rawInput = {
