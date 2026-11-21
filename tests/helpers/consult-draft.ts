@@ -8,6 +8,15 @@ import type { ServiceContext } from "@/lib/auth/context";
 import type { DraftPatch, SaveConsultationDraftInput } from "@/features/consultation/schema";
 import { saveConsultationDraft, type SaveConsultationDraftResult } from "@/features/consultation/service";
 import { getAdminClient } from "./supabase-admin";
+import { addDaysYmd, todayInTz } from "@/lib/datetime";
+
+/**
+ * A follow-up date `days` after the clinic's today (Asia/Kolkata, the tenants default). Since 000116 (09B-06a, S-4) the draft command takes a follow-up
+ * only from the clinic's today to today + 366, so fixtures use dates relative to today instead of fixed ones.
+ */
+export function followUpDay(days: number): string {
+  return addDaysYmd(todayInTz("Asia/Kolkata"), days);
+}
 
 /** The visit's current `clinical_notes.draft_version` (service-role read; throws when the row cannot be read). */
 export async function draftVersionOf(visitId: string): Promise<number> {

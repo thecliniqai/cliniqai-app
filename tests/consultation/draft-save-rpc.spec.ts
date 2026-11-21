@@ -21,7 +21,7 @@ import { createBarrier, gateClient } from "../helpers/write-barrier";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import { reopenVisitAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
-import { draftVersionOf, saveDraftAs } from "../helpers/consult-draft";
+import { draftVersionOf, saveDraftAs, followUpDay } from "../helpers/consult-draft";
 import type { Json } from "@/types/database";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -92,7 +92,7 @@ describe("save_consultation_draft: one transaction", () => {
       advice: ["Rest"],
       investigations_advised: ["CBC"],
       specialty: "pediatrics",
-      follow_up: { interval: "1_week", follow_up_date: "2031-02-01", notes: "Review" },
+      follow_up: { interval: "1_week", follow_up_date: followUpDay(20), notes: "Review" },
     });
     const { data, error } = await call(members.doctor.client, a);
     expect(error).toBeNull();
@@ -108,7 +108,7 @@ describe("save_consultation_draft: one transaction", () => {
     const { data: visit } = await admin.from("visits").select("specialty").eq("id", v.visitId).single();
     expect(visit?.specialty).toBe("pediatrics");
     expect(await followUpsOf(v.visitId)).toEqual([
-      { follow_up_date: "2031-02-01", notes: "Review", doctor_id: members.doctor.userId, status: "scheduled" },
+      { follow_up_date: followUpDay(20), notes: "Review", doctor_id: members.doctor.userId, status: "scheduled" },
     ]);
 
     const rows = await auditRows(tenantA.tenantId, "consultation.draft_save", v.visitId);
@@ -136,7 +136,7 @@ describe("save_consultation_draft: one transaction", () => {
     await saveDraftAs(ctxFor(members.doctor), v.visitId, {
       clinical_notes: "Keep me",
       advice: ["Keep advice"],
-      follow_up: { follow_up_date: "2031-04-01" },
+      follow_up: { follow_up_date: followUpDay(40) },
     });
     const before = await notesRow(v.visitId);
     const res = await call(members.doctor.client, args(v.visitId, before.draft_version, { investigations_advised: ["ECG"] }));
@@ -147,7 +147,7 @@ describe("save_consultation_draft: one transaction", () => {
       investigations_advised: ["ECG"],
       draft_version: before.draft_version + 1,
     });
-    expect((await followUpsOf(v.visitId)).map((f) => f.follow_up_date)).toEqual(["2031-04-01"]);
+    expect((await followUpsOf(v.visitId)).map((f) => f.follow_up_date)).toEqual([followUpDay(40)]);
   });
 
   it("the version rises by one per save", async () => {
@@ -161,7 +161,7 @@ describe("save_consultation_draft: one transaction", () => {
 
   it("rollback: a fault after the notes write (the follow-up insert) leaves the notes, the version, the follow-up, the audit row and the claim untouched; the same id then succeeds", async () => {
     const v = await openVisit({ notes: "Original" });
-    const a = args(v.visitId, 1, { clinical_notes: "Must not persist", follow_up: { follow_up_date: "2031-05-01" } });
+    const a = args(v.visitId, 1, { clinical_notes: "Must not persist", follow_up: { follow_up_date: followUpDay(50) } });
     await withFault({ table: "public.follow_ups", column: "visit_id", marker: v.visitId, event: "insert" }, async () => {
       const { data, error } = await call(members.doctor.client, a);
       expect(data).toBeNull();
@@ -264,9 +264,9 @@ describe("save_consultation_draft: the version (R-2, R-5)", () => {
 describe("save_consultation_draft: the follow-up and the start step", () => {
   it("one follow-up per visit: set, change (same row) and delete (null)", async () => {
     const v = await openVisit();
-    await saveDraftAs(ctxFor(members.doctor), v.visitId, { follow_up: { follow_up_date: "2031-06-01", notes: "First" } });
-    await saveDraftAs(ctxFor(members.doctor), v.visitId, { follow_up: { follow_up_date: "2031-06-08" } });
-    expect(await followUpsOf(v.visitId)).toEqual([{ follow_up_date: "2031-06-08", notes: null, doctor_id: members.doctor.userId, status: "scheduled" }]);
+    await saveDraftAs(ctxFor(members.doctor), v.visitId, { follow_up: { follow_up_date: followUpDay(60), notes: "First" } });
+    await saveDraftAs(ctxFor(members.doctor), v.visitId, { follow_up: { follow_up_date: followUpDay(67) } });
+    expect(await followUpsOf(v.visitId)).toEqual([{ follow_up_date: followUpDay(67), notes: null, doctor_id: members.doctor.userId, status: "scheduled" }]);
     await saveDraftAs(ctxFor(members.doctor), v.visitId, { follow_up: null });
     expect(await followUpsOf(v.visitId)).toEqual([]);
   });
@@ -369,7 +369,7 @@ describe("save_consultation_draft: who may call it, and on what", () => {
       ["cancelled", cancelled, "Cancelled note"],
     ] as const) {
       const before = await notesRow(visit.visitId);
-      const a = args(visit.visitId, before.draft_version, { clinical_notes: "Rewrite", follow_up: { follow_up_date: "2031-07-01" } });
+      const a = args(visit.visitId, before.draft_version, { clinical_notes: "Rewrite", follow_up: { follow_up_date: followUpDay(70) } });
       const res = await call(members.doctor.client, a);
       expect(res.error, name).toMatchObject({ code: "P0001", message: "DRAFT_LOCKED" });
       expect(mapDbError(res.error), name).toMatchObject({ code: "CONFLICT", reason: "DRAFT_LOCKED" });
@@ -468,7 +468,7 @@ describe("saveConsultationDraft (the service)", () => {
       clinical_notes: "Readable",
       advice: ["Rest"],
       specialty: "dental",
-      follow_up: { follow_up_date: "2031-08-01", notes: "Soon" },
+      follow_up: { follow_up_date: followUpDay(80), notes: "Soon" },
     });
     const read = await getConsultationDraft(ctxFor(members.doctor), v.visitId);
     expect(read).toMatchObject({
@@ -477,7 +477,7 @@ describe("saveConsultationDraft (the service)", () => {
         draftVersion: 1,
         status: "in_consultation",
         signedAt: null,
-        fields: { clinical_notes: "Readable", advice: ["Rest"], specialty: "dental", follow_up: { follow_up_date: "2031-08-01", notes: "Soon" } },
+        fields: { clinical_notes: "Readable", advice: ["Rest"], specialty: "dental", follow_up: { follow_up_date: followUpDay(80), notes: "Soon" } },
       },
     });
     expect((await getConsultationDraft(ctxFor(members.receptionist), v.visitId)).success).toBe(false);

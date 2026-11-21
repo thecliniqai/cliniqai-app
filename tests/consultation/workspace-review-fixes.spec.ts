@@ -20,7 +20,7 @@ import { callFinalize, finalizeArgs, reopenVisitAs, seedClinicalVisit, signVisit
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 import type { Json } from "@/lib/db/types";
 import { recordState, signedVersionOf } from "@/features/consultation/record-state";
-import { saveDraftAs } from "../helpers/consult-draft";
+import { saveDraftAs, followUpDay } from "../helpers/consult-draft";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined, replace: () => undefined }) }));
 
@@ -89,7 +89,7 @@ async function seedPopulatedSealed(specialty: keyof typeof SPECIALTY_DATA): Prom
       patient_id: visit.patientId,
       visit_id: visit.visitId,
       doctor_id: doctor.userId,
-      follow_up_date: "2031-03-01",
+      follow_up_date: followUpDay(30),
       status: "scheduled",
     }),
     "follow-up"
@@ -248,7 +248,7 @@ describe("B-5: a failed follow-up write fails the draft save, and nothing of it 
     const seeded = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 0, notes: "Synthetic signed note" });
     await signVisitAs(doctor, seeded.visitId);
     await reopenVisitAs(doctor, seeded.visitId);
-    const patch = { clinical_notes: "Synthetic amended note", follow_up: { interval: "1_week" as const, follow_up_date: "2031-06-01", notes: null } };
+    const patch = { clinical_notes: "Synthetic amended note", follow_up: { interval: "1_week" as const, follow_up_date: followUpDay(60), notes: null } };
     await withFault({ table: "public.follow_ups", column: "visit_id", marker: seeded.visitId, event: "insert" }, async () => {
       const res = await saveDraftAs(ctxFor(doctor), seeded.visitId, patch);
       expect(res).toMatchObject({ success: false, code: "INTERNAL", error: "Failed to save draft. Please try again." });
@@ -261,6 +261,6 @@ describe("B-5: a failed follow-up write fails the draft save, and nothing of it 
     // Control: without the fault the same save succeeds and writes the follow-up.
     expect((await saveDraftAs(ctxFor(doctor), seeded.visitId, patch)).success).toBe(true);
     const { data: after } = await admin.from("follow_ups").select("follow_up_date").eq("visit_id", seeded.visitId);
-    expect(after).toEqual([{ follow_up_date: "2031-06-01" }]);
+    expect(after).toEqual([{ follow_up_date: followUpDay(60) }]);
   }, 90_000);
 });

@@ -11,7 +11,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { reopenVisitAs, seedClinicalVisit, signVisitAs, type ClinicalVisit } from "../helpers/clinical-commands";
 import { insertReturningId } from "../helpers/db";
 import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
-import { saveDraftAs } from "../helpers/consult-draft";
+import { saveDraftAs, followUpDay } from "../helpers/consult-draft";
 import { addConsultationDiagnosis, removeConsultationDiagnosis, updateDiagnosisNote } from "@/features/terminology/service";
 import { addPrescriptionItem, getOrCreateDraftPrescription, removePrescriptionItem } from "@/features/prescriptions/service";
 
@@ -41,7 +41,7 @@ async function seedCase(): Promise<Case> {
     patient_id: visit.patientId,
     visit_id: visit.visitId,
     doctor_id: doctor.userId,
-    follow_up_date: "2031-03-01",
+    follow_up_date: followUpDay(30),
     status: "scheduled",
   });
   const { data } = await admin.from("consultation_diagnoses").select("id").eq("visit_id", visit.visitId).single();
@@ -122,10 +122,10 @@ describe("a signed consultation answers every refused write with the fixed text 
   });
 
   it("changing the follow-up date", async () => {
-    const res = await saveDraftAs(ctxFor(doctor), sealed.visit.visitId, { follow_up: { follow_up_date: "2031-04-01" } });
+    const res = await saveDraftAs(ctxFor(doctor), sealed.visit.visitId, { follow_up: { follow_up_date: followUpDay(40) } });
     // V2-09b: the draft command refuses a sealed visit itself (DRAFT_LOCKED) with the same fixed text.
     expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE, code: "CONFLICT", reason: "DRAFT_LOCKED" });
-    expect((await counts(sealed.visit.visitId)).followUps).toEqual(["2031-03-01"]);
+    expect((await counts(sealed.visit.visitId)).followUps).toEqual([followUpDay(30)]);
   });
 
   // 09A-06a (review B-7): the header insert of getOrCreateDraftPrescription on a signed consultation with no prescription.
@@ -160,7 +160,7 @@ describe.each([
     const item = await addPrescriptionItem(ctx, c.visit.visitId, newItem);
     expect(item.success).toBe(true);
     if (item.success) expect((await removePrescriptionItem(ctx, item.itemId)).success).toBe(true);
-    expect((await saveDraftAs(ctx, c.visit.visitId, { follow_up: { follow_up_date: "2031-05-01" } })).success).toBe(true);
-    expect((await counts(c.visit.visitId)).followUps).toEqual(["2031-05-01"]);
+    expect((await saveDraftAs(ctx, c.visit.visitId, { follow_up: { follow_up_date: followUpDay(50) } })).success).toBe(true);
+    expect((await counts(c.visit.visitId)).followUps).toEqual([followUpDay(50)]);
   });
 });
