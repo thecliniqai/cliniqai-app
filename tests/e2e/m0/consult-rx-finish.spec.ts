@@ -21,11 +21,13 @@ import {
   run,
   seedPatient,
   seedQueueToken,
-  seedSignedPrescription,
+  seedPrescription,
+  signSeededVisit,
   seedVisit,
   testTag,
   visitById,
 } from "../support/m0-data";
+import { getAdminClient } from "../../helpers/supabase-admin";
 import { storageStatePath } from "../support/run-data";
 import { openToday, rowOf } from "../support/today-page";
 import { knownBug, knownBugMessage } from "../support/known-bug";
@@ -126,23 +128,23 @@ test("a signed prescription is read-only in the workspace (known v1 gap P1-03)",
     const doctorId = tenantA.users.doctor.id;
     const tag = testTag();
     const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Signed ${tag}`);
-    const signedAt = new Date().toISOString();
+    // Seeded the way production makes a signed record (V2-09a R-15): an open visit with a note and a prescription, then the doctor's sign-off.
     const visitId = await seedVisit({
       tenantId: tenantA.id,
       patientId: patient.id,
       doctorId,
       createdBy: tenantA.users.receptionist.id,
-      status: "completed",
-      signedAt,
+      status: "waiting",
     });
-    await seedSignedPrescription({
+    await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", visitId);
+    await seedPrescription({
       tenantId: tenantA.id,
       visitId,
       patientId: patient.id,
       doctorId,
-      signedAt,
       medicineName: `E2E Synthetic Sealed Med ${tag}`,
     });
+    await signSeededVisit(tenantA.id, visitId, tenantA.users.doctor.email);
 
     await page.goto(`/consultation/${visitId}`);
     await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
