@@ -723,3 +723,10 @@ Commits (branch `v2/phase-08-front-desk`, base 0dcaccf): listed by the orchestra
 - `FrontDeskSheets` takes `canBook`; the clinic switcher's hard navigation to `/today` tears down the sheets with the layout. The Schedule's data is `getSchedule` (`features/schedule/queries.ts`); `/schedule`'s waitlist and week read call `getAvailableSlots` (service) once per doctor and day.
 - This plan added no command; the latency script's list is 08-04a's. `getAvailableSlots` (the database's `available_slots`) is already one of its baselines.
 - Data-dependent search flakes are root-caused (000104); any spec that types a synthetic name with digits is safe from the mobile-fragment rule now.
+
+## Orchestrator note (2026-11-21)
+
+Commit `716067e` ("ci(v2-08): test job limit 45 min") also carries the deletion of `components/calendar/**` that 08-04b
+had staged with `git rm` at that moment; the replacement code is in `412ae60`. History was not rewritten.
+The walk-in flake of CI 44851237140 (`pwa/13-idempotent-retry`, "Register as new patient" never shown) was root-caused by
+08-04b: `search_patients` (000101) read the digits of a run-tagged name as a mobile fragment; fixed in 000104.
