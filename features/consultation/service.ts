@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -146,10 +147,11 @@ export async function saveConsultationDraft(
       return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     }
 
-    // 2. Determine new status: if waiting, transition to in_consultation
-    const updatedStatus = visit.status === "waiting" ? "in_consultation" : undefined;
+    // 2. A waiting visit is moved to in_consultation after the draft is saved, through the start_consultation command
+    // (V2-08 08-04a: `status` is not a column a request path writes any more).
+    const startsConsultation = visit.status === "waiting";
 
-    // 3. Update the visit row (status, specialty), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
+    // 3. Update the visit row (specialty, metadata), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
     // visit write carries the sign-off lock in its filter and goes first, so a draft never lands on a visit that was
     // signed before this save began; a sign-off racing in between the two writes is the residual V2-09a closes with
     // the record-immutability rules (R-21).
@@ -160,10 +162,6 @@ export async function saveConsultationDraft(
 
     if (data.metadata) {
       updatePayload.metadata = data.metadata;
-    }
-
-    if (updatedStatus) {
-      updatePayload.status = updatedStatus;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,6 +197,22 @@ export async function saveConsultationDraft(
       }
       log.error({ event: "consultation.draft_save.failed", code: errorTag(notesRaw), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save draft. Please try again." };
+    }
+
+    if (startsConsultation) {
+      // Best effort: the draft is saved either way; a refusal (a role without appointments:edit, a state that moved on)
+      // leaves the status as it was and the sign-off accepts a waiting visit too.
+      const started = await callCommand(
+        ctx,
+        "start_consultation",
+        { p_visit_id: data.visit_id, p_client_request_id: randomUUID() },
+        z.object({ visit_id: z.string().uuid() }).passthrough(),
+        {},
+        { event: "consultation.draft_save_start.failed" }
+      );
+      if (!started.ok) {
+        log.warn({ event: "consultation.draft_save_start.refused", reason: "start_refused", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      }
     }
 
     // 4. Handle follow-up record if provided

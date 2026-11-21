@@ -41,9 +41,10 @@ export function WaitlistDrawer({
 
   // Existing patient: found with the shared patient search (V2-08 08-02)
   const [chosenPatient, setChosenPatient] = useState<PatientHit | null>(null);
-  // Registering a new patient here is one command (the same request id on a retry); the waitlist entry that follows is the
-  // drawer's own call until 08-04a's add_to_waitlist command and 08-04b's rewrite.
+  // Registering a new patient here is one command (the same request id on a retry); the waitlist entry that follows is its own
+  // command (add_to_waitlist, 08-04a); 08-04b's rewrite folds the two into one screen.
   const registerCommand = useCommand();
+  const waitlistCommand = useCommand();
 
   // New Patient Form
   const [newPatient, setNewPatient] = useState({
@@ -100,17 +101,22 @@ export function WaitlistDrawer({
         return;
       }
 
-      const res = await addToWaitlist({
-        patient_id: patientIdToWaitlist,
-        doctor_id: doctorId === "any" ? null : doctorId,
-        target_date: targetDate,
-        time_window: timeWindow || null,
-        priority: priority,
-        notes: notes || null,
-      });
+      const res = await waitlistCommand.run((id) =>
+        addToWaitlist(
+          {
+            patient_id: patientIdToWaitlist,
+            doctor_id: doctorId === "any" ? null : doctorId,
+            target_date: targetDate,
+            time_window: timeWindow || null,
+            priority: priority,
+            notes: notes || null,
+          },
+          id
+        )
+      );
 
-      if (!res.success) {
-        setError(res.error);
+      if (!res.ok) {
+        setError(res.error.message);
         setLoading(false);
         return;
       }

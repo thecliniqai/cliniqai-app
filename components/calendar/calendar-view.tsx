@@ -8,7 +8,8 @@ import { WaitlistDrawer } from "./waitlist-drawer";
 import { BlockTimeModal } from "./block-time-modal";
 import { SoftBlockOverrideDialog } from "./soft-block-override-dialog";
 import { Button } from "@/components/ui/button";
-import { cancelVisit, confirmAppointment } from "@/features/visits/actions";
+import { cancelVisit, confirmAppointment } from "@/features/visits/scheduling";
+import { useCommand } from "@/lib/commands/use-command";
 import { WaitlistEntryWithPatient } from "@/features/waitlist/actions";
 import { ScheduleBlock } from "@/lib/db/types";
 import { addDaysYmd, todayInTz } from "@/lib/datetime";
@@ -182,23 +183,26 @@ export function CalendarView({
     setIsBookingOpen(true);
   };
 
+  const cancelCommand = useCommand();
+  const confirmCommand = useCommand();
+
   const handleCancelVisit = async (visitId: string) => {
     if (!confirm("Are you sure you want to cancel this appointment?")) return;
 
-    try {
-      const res = await cancelVisit(visitId);
-      if (res.success) {
-        if (res.autoPromoted) {
-          setPromotionNotice(
-            "Appointment was cancelled. A waitlisted patient was automatically promoted into this vacated slot!"
-          );
-        }
-        handleRefresh();
-      } else {
-        alert(res.error);
+    // One atomic command (V2-08 08-04a). The reason dialog and the "tell the patient" box arrive with the Schedule screen
+    // (08-04b); until then a calendar cancel is "other" and sends no message, as before.
+    const res = await cancelCommand.run((id) =>
+      cancelVisit({ visit_id: visitId, reason_code: "other", notify: false, promote_waitlist: true }, id)
+    );
+    if (res.ok) {
+      if (res.value.autoPromoted) {
+        setPromotionNotice(
+          "Appointment was cancelled. A waitlisted patient was automatically promoted into this vacated slot!"
+        );
       }
-    } catch {
-      alert("Failed to cancel appointment.");
+      handleRefresh();
+    } else {
+      alert(res.error.message);
     }
   };
 
@@ -230,13 +234,13 @@ export function CalendarView({
         )
       );
 
-      const res = await confirmAppointment(visitId);
-      if (res.success) {
+      const res = await confirmCommand.run((id) => confirmAppointment(visitId, id));
+      if (res.ok) {
         handleRefresh();
       } else {
         // Revert on error
         setLocalVisits(visits);
-        alert(res.error || "Failed to confirm appointment");
+        alert(res.error.message || "Failed to confirm appointment");
       }
     } catch {
       setLocalVisits(visits);

@@ -2,20 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
+import { contextFailureToAppError } from "@/lib/commands/context-error";
+import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as waitlistService from "./service";
 import type {
   AddToWaitlistInput,
-  AddToWaitlistResult,
+  AddToWaitlistValue,
   GetWaitlistResult,
-  PromoteWaitlistResult,
+  PromoteWaitlistInput,
+  PromoteWaitlistValue,
 } from "./service";
 
 export type {
   AddToWaitlistInput,
-  AddToWaitlistResult,
+  AddToWaitlistValue,
   WaitlistEntryWithPatient,
   GetWaitlistResult,
-  PromoteWaitlistResult,
+  PromoteWaitlistInput,
+  PromoteWaitlistValue,
 } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
@@ -30,13 +34,17 @@ function revalidate(...paths: string[]) {
 }
 
 /**
- * Adds a patient to the clinic's appointment waitlist (D-08).
+ * Adds a patient to the clinic's appointment waitlist (D-08) as one atomic command (V2-08 08-04a). `client_request_id` is
+ * required (the same id replays the first result).
  */
-export async function addToWaitlist(input: AddToWaitlistInput): Promise<AddToWaitlistResult> {
+export async function addToWaitlist(
+  input: AddToWaitlistInput,
+  clientRequestId: string
+): Promise<CommandResult<AddToWaitlistValue>> {
   const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await waitlistService.addToWaitlist(resolved.ctx, input);
-  if (result.success) revalidate("/calendar");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await waitlistService.addToWaitlist(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/calendar");
   return result;
 }
 
@@ -50,12 +58,16 @@ export async function getWaitlistForDate(targetDate: string, doctorId?: string):
 }
 
 /**
- * Explicitly promotes a waitlist entry into an appointment slot.
+ * Explicitly promotes a waitlist entry into an appointment slot as one atomic command (V2-08 08-04a). A slot that is taken,
+ * off duty or blocked answers CONFLICT (SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED) and writes nothing.
  */
-export async function promoteWaitlistEntry(entryId: string, scheduledAt: string): Promise<PromoteWaitlistResult> {
+export async function promoteWaitlistEntry(
+  input: PromoteWaitlistInput,
+  clientRequestId: string
+): Promise<CommandResult<PromoteWaitlistValue>> {
   const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await waitlistService.promoteWaitlistEntry(resolved.ctx, entryId, scheduledAt);
-  if (result.success) revalidate("/calendar", "/today");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await waitlistService.promoteWaitlistEntry(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/today");
   return result;
 }

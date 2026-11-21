@@ -13,6 +13,12 @@ import type {
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
   CheckSlotResult,
+  RescheduleVisitInput,
+  RescheduleVisitValue,
+  CancelVisitInput,
+  CancelVisitValue,
+  MarkNoShowValue,
+  ConfirmAppointmentValue,
 } from "./scheduling-service";
 
 export type {
@@ -22,6 +28,12 @@ export type {
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
   CheckSlotResult,
+  RescheduleVisitInput,
+  RescheduleVisitValue,
+  CancelVisitInput,
+  CancelVisitValue,
+  MarkNoShowValue,
+  ConfirmAppointmentValue,
 } from "./scheduling-service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
@@ -94,5 +106,58 @@ export async function registerAndBook(
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
   if (result.ok) revalidate("/calendar", "/today", "/patients");
+  return result;
+}
+
+/**
+ * Moves a booked, confirmed or missed appointment to a new time as one atomic command (V2-08 08-04a): the slot check, the
+ * status back to booked, the audit row, the optional patient message and the webhook event commit together. A slot that is
+ * taken, off duty or blocked answers CONFLICT (reasons SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED) and writes nothing.
+ * `client_request_id` is required (the same id replays the first result).
+ */
+export async function rescheduleVisit(
+  input: RescheduleVisitInput,
+  clientRequestId: string
+): Promise<CommandResult<RescheduleVisitValue>> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await schedulingService.rescheduleVisit(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/today");
+  return result;
+}
+
+/**
+ * Cancels a booked, confirmed or waiting appointment as one atomic command (V2-08 08-04a): the reason, the waitlist
+ * promotion into the vacated slot, the optional patient message and the webhook event commit together.
+ */
+export async function cancelVisit(
+  input: CancelVisitInput,
+  clientRequestId: string
+): Promise<CommandResult<CancelVisitValue>> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await schedulingService.cancelVisit(resolved.ctx, input, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/today");
+  return result;
+}
+
+/** Marks a booked or confirmed appointment whose time has passed as a no-show (V2-08 08-04a). */
+export async function markNoShow(visitId: string, clientRequestId: string): Promise<CommandResult<MarkNoShowValue>> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/today");
+  return result;
+}
+
+/** Confirms a booked appointment (V2-08 08-04a). */
+export async function confirmAppointment(
+  visitId: string,
+  clientRequestId: string
+): Promise<CommandResult<ConfirmAppointmentValue>> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId);
+  if (result.ok) revalidate("/calendar", "/today");
   return result;
 }

@@ -12,8 +12,12 @@ import { Visit, DoctorWeeklySchedule, ScheduleBlock } from "@/lib/db/types";
 import {
   registerAndBookSchema,
   createScheduleBlockSchema,
+  rescheduleVisitSchema,
+  cancelVisitSchema,
   type RegisterAndBookInput,
   type CreateScheduleBlockInput,
+  type RescheduleVisitInput,
+  type CancelVisitInput,
 } from "./schema";
 import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { errorTag, log } from "@/lib/log";
@@ -29,7 +33,7 @@ import { appError, type Result } from "@/lib/errors/app-error";
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
 
-export type { RegisterAndBookInput, CreateScheduleBlockInput };
+export type { RegisterAndBookInput, CreateScheduleBlockInput, RescheduleVisitInput, CancelVisitInput };
 
 export type CreateScheduleBlockResult =
   | { success: true; block: ScheduleBlock }
@@ -540,21 +544,28 @@ const availableSlotRowsSchema = z.array(z.object({ slot_start: z.string(), slot_
 /**
  * The doctor's free slots on a clinic-local date (V2-07 07-03, R-8, PR-7): `public.available_slots`, computed in the
  * database in the clinic's time zone from the weekly shifts, the schedule blocks and the booked, non-overbooked
- * visits. No UI uses it yet (the booking sheet and the reschedule route switch in V2-08). `appointments:view`.
+ * visits (a NULL schedule reads as the default hours, V2-08 08-04a). The Schedule screen's booking and reschedule sheets use
+ * it (08-04b); `excludeVisitId` lists a visit's own slot again. `appointments:view`.
  */
 export async function getAvailableSlots(
   ctx: ServiceContext,
   doctorId: string,
-  date: string
+  date: string,
+  /** The visit being rescheduled: its own slot is listed again (V2-08 08-04a). */
+  excludeVisitId?: string
 ): Promise<Result<AvailableSlot[]>> {
   if (!hasPerm(ctx.role, "appointments:view")) {
     return { ok: false, error: appError("FORBIDDEN", { message: AVAILABLE_SLOTS_MESSAGES.FORBIDDEN }) };
   }
-  if (!isUuid(doctorId) || !isDateOnly(date)) {
+  if (!isUuid(doctorId) || !isDateOnly(date) || (excludeVisitId !== undefined && !isUuid(excludeVisitId))) {
     return { ok: false, error: appError("VALIDATION_FAILED", { message: AVAILABLE_SLOTS_MESSAGES.VALIDATION_FAILED }) };
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (ctx.db as any).rpc("available_slots", { p_doctor_id: doctorId, p_date: date });
+  const { data, error } = await (ctx.db as any).rpc("available_slots", {
+    p_doctor_id: doctorId,
+    p_date: date,
+    ...(excludeVisitId ? { p_exclude_visit_id: excludeVisitId } : {}),
+  });
   if (error) {
     const mapped = mapDbError(error, AVAILABLE_SLOTS_MESSAGES);
     if (mapped.code === "INTERNAL") {
@@ -571,4 +582,210 @@ export async function getAvailableSlots(
     ok: true,
     value: rows.data.map((r) => ({ start: new Date(r.slot_start).toISOString(), end: new Date(r.slot_end).toISOString() })),
   };
+}
+
+/** Fixed, data-free texts by reason or code for the staff scheduling commands (V2-08 08-04a). The driver message never reaches the caller. */
+export const SCHEDULING_COMMAND_MESSAGES = {
+  NOT_FOUND: "Appointment not found.",
+  FORBIDDEN: "You do not have permission to change appointments.",
+  VALIDATION_FAILED: "Please check the appointment details.",
+  SLOT_TAKEN: SLOT_TAKEN_MESSAGE,
+  SLOT_OFF_DUTY: "Selected time is outside doctor shift hours. Confirmation required to book off-duty slot.",
+  SLOT_BLOCKED: "The doctor is unavailable at this time. Confirmation required to book a blocked slot.",
+  SLOT_IN_PAST: "Pick a time that has not passed.",
+  VISIT_NOT_RESCHEDULABLE: "Only a booked, confirmed or missed appointment can be moved.",
+  VISIT_NOT_CANCELLABLE: "This appointment can no longer be cancelled.",
+  VISIT_NOT_MARKABLE: "Only a booked or confirmed appointment can be marked as missed.",
+  VISIT_NOT_CONFIRMABLE: "Only a booked appointment can be confirmed.",
+  NO_SHOW_TOO_EARLY: "The appointment time has not passed yet.",
+  VISIT_TRANSITION_INVALID: "This appointment can no longer be changed this way.",
+  LOCK_TIMEOUT: "The calendar is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to update the appointment.",
+} as const satisfies DbErrorMessages;
+
+const rescheduleResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  is_overbooked: z.boolean(),
+  message_enqueued: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export interface RescheduleVisitValue {
+  visitId: string;
+  isOverbooked: boolean;
+  messageEnqueued: boolean;
+  replayed: boolean;
+}
+
+function invalidInput(error: z.ZodError): Result<never> {
+  return { ok: false, error: appError("VALIDATION_FAILED", { message: error.issues[0]?.message ?? SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
+}
+
+/**
+ * Moves a booked, confirmed or missed appointment to a new time as one atomic command (`public.reschedule_visit`, V2-08
+ * 08-04a): the slot is checked in the clinic's time zone as a booking is (SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED unless
+ * overbooked or overridden), the visit goes back to `booked`, and the patient message and webhook event are queued in the
+ * same transaction. `appointments:edit`.
+ */
+export async function rescheduleVisit(
+  ctx: ServiceContext,
+  input: RescheduleVisitInput,
+  clientRequestId: string
+): Promise<Result<RescheduleVisitValue>> {
+  const parsed = rescheduleVisitSchema.safeParse(input);
+  const id = clientRequestIdSchema.safeParse(clientRequestId);
+  if (!parsed.success) return invalidInput(parsed.error);
+  if (!id.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: SCHEDULING_COMMAND_MESSAGES.FORBIDDEN }) };
+  }
+  const data = parsed.data;
+  const outcome = await callCommand(
+    ctx,
+    "reschedule_visit",
+    {
+      p_visit_id: data.visit_id,
+      p_new_scheduled_at: data.new_scheduled_at,
+      p_client_request_id: clientRequestId,
+      p_doctor_id: data.doctor_id ?? null,
+      p_duration_minutes: data.estimated_duration_minutes ?? null,
+      p_overbook: data.is_overbooked,
+      p_override_off_duty: data.override_off_duty,
+      p_override_block: data.override_block,
+      p_notify: data.notify,
+    },
+    rescheduleResultSchema,
+    SCHEDULING_COMMAND_MESSAGES,
+    { event: "visits.reschedule_visit.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return { ok: true, value: { visitId: v.visit_id, isOverbooked: v.is_overbooked, messageEnqueued: v.message_enqueued, replayed: v.replayed } };
+}
+
+const cancelResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  promoted: z.boolean(),
+  replacement_visit_id: z.string().uuid().nullable(),
+  promoted_patient_id: z.string().uuid().nullable(),
+  message_enqueued: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export interface CancelVisitValue {
+  visitId: string;
+  /** A waitlisted patient was booked into the vacated slot (D-08). */
+  autoPromoted: boolean;
+  replacementVisitId: string | null;
+  promotedPatientId: string | null;
+  messageEnqueued: boolean;
+  replayed: boolean;
+}
+
+/**
+ * Cancels a booked, confirmed or waiting appointment as one atomic command (`public.cancel_visit`, V2-08 08-04a): the
+ * status, the reason (a closed code plus an optional note), the audit row, the waitlist promotion into the vacated slot
+ * (D-08), the optional patient message and the webhook event commit together. `appointments:edit`.
+ */
+export async function cancelVisit(
+  ctx: ServiceContext,
+  input: CancelVisitInput,
+  clientRequestId: string
+): Promise<Result<CancelVisitValue>> {
+  const parsed = cancelVisitSchema.safeParse(input);
+  const id = clientRequestIdSchema.safeParse(clientRequestId);
+  if (!parsed.success) return invalidInput(parsed.error);
+  if (!id.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: SCHEDULING_COMMAND_MESSAGES.FORBIDDEN }) };
+  }
+  const data = parsed.data;
+  const outcome = await callCommand(
+    ctx,
+    "cancel_visit",
+    {
+      p_visit_id: data.visit_id,
+      p_reason_code: data.reason_code,
+      p_client_request_id: clientRequestId,
+      p_reason_note: data.reason_note ?? null,
+      p_notify: data.notify,
+      p_promote_waitlist: data.promote_waitlist,
+    },
+    cancelResultSchema,
+    SCHEDULING_COMMAND_MESSAGES,
+    { event: "visits.cancel_visit.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return {
+    ok: true,
+    value: {
+      visitId: v.visit_id,
+      autoPromoted: v.promoted,
+      replacementVisitId: v.replacement_visit_id,
+      promotedPatientId: v.promoted_patient_id,
+      messageEnqueued: v.message_enqueued,
+      replayed: v.replayed,
+    },
+  };
+}
+
+const markNoShowResultSchema = z.object({ visit_id: z.string().uuid(), replayed: z.boolean() });
+
+export interface MarkNoShowValue {
+  visitId: string;
+  replayed: boolean;
+}
+
+/** Marks a booked or confirmed appointment whose time has passed as a no-show (`public.mark_no_show`, V2-08 08-04a). `appointments:edit`. */
+export async function markNoShow(ctx: ServiceContext, visitId: string, clientRequestId: string): Promise<Result<MarkNoShowValue>> {
+  const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!input.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: SCHEDULING_COMMAND_MESSAGES.FORBIDDEN }) };
+  }
+  const outcome = await callCommand(
+    ctx,
+    "mark_no_show",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    markNoShowResultSchema,
+    SCHEDULING_COMMAND_MESSAGES,
+    { event: "visits.mark_no_show.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  return { ok: true, value: { visitId: outcome.value.visit_id, replayed: outcome.value.replayed } };
+}
+
+const confirmResultSchema = z.object({ visit_id: z.string().uuid(), already_confirmed: z.boolean(), replayed: z.boolean() });
+
+export interface ConfirmAppointmentValue {
+  visitId: string;
+  /** True when the visit was already confirmed: nothing was changed. */
+  alreadyConfirmed: boolean;
+  replayed: boolean;
+}
+
+/** Confirms a booked appointment (`public.confirm_appointment`, V2-08 08-04a). `appointments:edit`. */
+export async function confirmAppointment(
+  ctx: ServiceContext,
+  visitId: string,
+  clientRequestId: string
+): Promise<Result<ConfirmAppointmentValue>> {
+  const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!input.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: SCHEDULING_COMMAND_MESSAGES.FORBIDDEN }) };
+  }
+  const outcome = await callCommand(
+    ctx,
+    "confirm_appointment",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    confirmResultSchema,
+    SCHEDULING_COMMAND_MESSAGES,
+    { event: "visits.confirm_appointment.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return { ok: true, value: { visitId: v.visit_id, alreadyConfirmed: v.already_confirmed, replayed: v.replayed } };
 }

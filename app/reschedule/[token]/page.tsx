@@ -37,6 +37,8 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
   const [appointment, setAppointment] = useState<AppointmentDetails | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  // The clinic's zone (V2-08 08-04a, R-16): the route sends it with the slots; dates and times are named in it.
+  const [timeZone, setTimeZone] = useState<string>(DEFAULT_CLINIC_TZ);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [confirmedNewTime, setConfirmedNewTime] = useState<string | null>(null);
 
@@ -56,6 +58,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
       setAppointment(data.appointment);
       setAvailableSlots(data.available_slots || []);
       setSelectedDate(data.selected_date);
+      if (typeof data.timezone === "string") setTimeZone(data.timezone);
     } catch {
       setError("Failed to connect to the clinic server. Please try again.");
     } finally {
@@ -107,9 +110,9 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
     }
   };
 
-  // The next 5 clinic dates (V2-03 03-05). The link carries no tenant zone yet (P1-20), so the clinic default zone
-  // names them; each label formats noon UTC of that calendar date in UTC, so it names the same date in any browser.
-  const dateOptions = nextNDays(DEFAULT_CLINIC_TZ, 5).map((isoDate) => {
+  // The next 5 clinic dates (V2-03 03-05) in the clinic's zone; each label formats noon UTC of that calendar date in UTC,
+  // so it names the same date in any browser.
+  const dateOptions = nextNDays(timeZone, 5).map((isoDate) => {
     const d = new Date(`${isoDate}T12:00:00Z`);
     return {
       isoDate,
@@ -123,7 +126,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
-      timeZone: "Asia/Kolkata",
+      timeZone,
     });
   };
 
@@ -177,7 +180,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
                   {new Date(confirmedNewTime).toLocaleString("en-IN", {
                     dateStyle: "medium",
                     timeStyle: "short",
-                    timeZone: "Asia/Kolkata",
+                    timeZone,
                   })}
                 </strong>
               </span>
@@ -244,7 +247,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
               {new Date(appointment.current_scheduled_at).toLocaleString("en-IN", {
                 dateStyle: "medium",
                 timeStyle: "short",
-                timeZone: "Asia/Kolkata",
+                timeZone,
               })}
             </span>
           </div>

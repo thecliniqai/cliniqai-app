@@ -2,30 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
-import type { VisitStatus } from "@/lib/db/types";
 import type { VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption } from "./schema";
 import type { RecordVitalsInput } from "@/features/consultation/schema";
 import * as visitsService from "./service";
-import type {
-  GetVisitsResult,
-  UpdateVisitStatusResult,
-  ConfirmAppointmentResult,
-  CancelVisitResult,
-  RecordVisitVitalsResult,
-} from "./service";
+import type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
 
-export type {
-  GetVisitsResult,
-  UpdateVisitStatusResult,
-  ConfirmAppointmentResult,
-  CancelVisitResult,
-  RecordVisitVitalsResult,
-} from "./service";
+export type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
-// Visits are created only by the front-desk commands (V2-07 07-03: enqueue_walk_in, register_and_book) and by the
-// waitlist promotion; there is no standalone createVisit action any more.
+// Visits are created only by the front-desk commands (V2-07 07-03: enqueue_walk_in, register_and_book, V2-08 08-04a:
+// promote_waitlist_entry and the cancel promotion); their status, time and doctor change only through the commands
+// (reschedule, cancel, no-show, confirm in `scheduling.ts`; check-in, start and complete in the queue actions).
 
 function revalidate(...paths: string[]) {
   try {
@@ -39,30 +27,6 @@ export async function getVisitsForDate(dateStr: string, doctorId?: string): Prom
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return visitsService.getVisitsForDate(resolved.ctx, dateStr, doctorId);
-}
-
-export async function updateVisitStatus(visitId: string, newStatus: VisitStatus): Promise<UpdateVisitStatusResult> {
-  const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await visitsService.updateVisitStatus(resolved.ctx, visitId, newStatus);
-  if (result.success) revalidate("/calendar", "/today");
-  return result;
-}
-
-export async function confirmAppointment(visitId: string): Promise<ConfirmAppointmentResult> {
-  const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await visitsService.confirmAppointment(resolved.ctx, visitId);
-  if (result.success) revalidate("/calendar", "/today");
-  return result;
-}
-
-export async function cancelVisit(visitId: string): Promise<CancelVisitResult> {
-  const resolved = await resolveServiceContext("appointments:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await visitsService.cancelVisit(resolved.ctx, visitId);
-  if (result.success) revalidate("/calendar", "/today");
-  return result;
 }
 
 /**
