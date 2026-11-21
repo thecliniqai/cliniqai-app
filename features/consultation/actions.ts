@@ -2,25 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
-import { SaveConsultationDraftInput } from "./schema";
+import type { SaveDraftCommandInput } from "./schema";
+import type { ServerDraft } from "./draft";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { toCommandResult } from "@/lib/commands/command-result";
-import type { Result as CommandResult } from "@/lib/errors/app-error";
+import { appError, type Result as CommandResult } from "@/lib/errors/app-error";
 import * as consultationService from "./service";
-import type {
-  SaveConsultationDraftResult,
-  RecordFollowUpInput,
-  RecordFollowUpResult,
-  GetPatientConsultationHistoryResult,
-} from "./service";
+import type { GetPatientConsultationHistoryResult } from "./service";
 
-export type {
-  SaveConsultationDraftResult,
-  RecordFollowUpInput,
-  RecordFollowUpResult,
-  PastVisitEncounter,
-  GetPatientConsultationHistoryResult,
-} from "./service";
+export type { PastVisitEncounter, GetPatientConsultationHistoryResult } from "./service";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
@@ -33,18 +23,30 @@ function revalidate(...paths: string[]) {
   }
 }
 
-export async function saveConsultationDraft(input: SaveConsultationDraftInput): Promise<SaveConsultationDraftResult> {
+/**
+ * The consult's draft save as one atomic command (V2-09b R-3): `Result` with the `AppError` code and reason the draft saver needs
+ * (`CONFLICT` / `DRAFT_CONFLICT` makes it read the server copy and rebase; `DRAFT_LOCKED` stops it); `client_request_id` is required and the same
+ * id replays the first result.
+ */
+export async function saveConsultationDraft(
+  input: SaveDraftCommandInput
+): Promise<CommandResult<{ visitId: string; draftVersion: number; started: boolean; replayed: boolean }>> {
   const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.saveConsultationDraft(resolved.ctx, input);
-  if (result.success) revalidate(`/consultation/${result.visitId}`, "/today");
-  return result;
+  // The consult page is not revalidated per save: the editor holds the draft in memory and Today refreshes on its own signals (000102).
+  if (!result.success) {
+    return { ok: false, error: appError(result.code ?? "INTERNAL", { message: result.error, reason: result.reason, fieldErrors: result.fieldErrors }) };
+  }
+  return { ok: true, value: { visitId: result.visitId, draftVersion: result.draftVersion, started: result.started, replayed: result.replayed } };
 }
 
-export async function recordFollowUp(input: RecordFollowUpInput): Promise<RecordFollowUpResult> {
-  const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return consultationService.recordFollowUp(resolved.ctx, input);
+/** The server copy of the consult draft, for the conflict rebase (V2-09b R-5). */
+export async function getConsultationDraft(visitId: string): Promise<CommandResult<ServerDraft>> {
+  const resolved = await resolveServiceContext("consultations:view");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await consultationService.getConsultationDraft(resolved.ctx, visitId);
+  return result.success ? { ok: true, value: result.draft } : { ok: false, error: appError(result.code ?? "INTERNAL", { message: result.error }) };
 }
 
 export async function getPatientConsultationHistory(

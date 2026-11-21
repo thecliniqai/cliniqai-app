@@ -165,6 +165,8 @@ export interface ClinicalNotes {
   specialty_data: Record<string, unknown>;
   investigations_advised: string[];
   advice: string[];
+  /** V2-09b (R-2): raised by exactly 1 on every committed update; the draft save compares it (`save_consultation_draft`). */
+  draft_version: number;
   created_at: string;
   updated_at: string;
 }

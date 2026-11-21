@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
  * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
  *
  * V2-07 07-04a (migration 000099, F-1): the actions only an atomic command writes are NOT in this list: `visit.complete_and_sign`,
- * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote`, and (V2-08 08-06a, migration 000106) `visit.create` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}). The API-key path's own actions are in {@link API_KEY_ONLY_AUDIT_ACTIONS}.
+ * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote`, and (V2-08 08-06a, migration 000106) `visit.create`, and (V2-09b 09B-01, migration 000112) `consultation.draft_save` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}). The API-key path's own actions are in {@link API_KEY_ONLY_AUDIT_ACTIONS}.
  * The commands write them through `private.log_command_audit`; `log_audit` refuses them, so no member can forge them.
  */
 export const AUDIT_ACTIONS = [
@@ -20,10 +20,8 @@ export const AUDIT_ACTIONS = [
   "patient.consent.granted",
   "patient.consent.withdrawn",
   "clinic.profile.update",
-  "consultation.draft_save",
   "consultation.complete_sign",
   "consultation.amend",
-  "follow_up.record",
   "diagnosis.add",
   "diagnosis.remove",
   "diagnosis.update_note",
@@ -81,6 +79,8 @@ export const COMMAND_ONLY_AUDIT_ACTIONS = [
   "waitlist.add",
   "waitlist.promote",
   "visit.create",
+  // V2-09b 09B-01 (migration 000112): one row per draft save, written inside save_consultation_draft.
+  "consultation.draft_save",
 ] as const;
 
 /**
@@ -132,6 +132,8 @@ export interface RecordAuditParams {
  */
 export const AUDIT_METADATA_KEYS = [
   "fields_changed",
+  "draft_version",
+  "conflict_overwrite",
   "reason",
   "consent_type",
   "view_context",

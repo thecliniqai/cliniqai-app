@@ -156,6 +156,8 @@ async function main(): Promise<void> {
       const { visitId } = await clinical.seedClinicalVisit(t);
       const signed = await owner.client.rpc("sign_consultation", clinical.signArgs(t, visitId));
       if (signed.error) throw new Error(`prepare reopen: sign failed: ${signed.error.message}`);
+      // 09A-06a (A-3): the reopen waits until the signed version's Rx PDF is archived, by its signer (here the owner who signed).
+      await clinical.archiveRxAs(owner, visitId);
       const args = clinical.reopenArgs(t, visitId);
       return () => owner.client.rpc("reopen_visit_for_amendment", args);
     });
@@ -163,6 +165,7 @@ async function main(): Promise<void> {
       const { visitId } = await clinical.seedClinicalVisit(t);
       const signed = await owner.client.rpc("sign_consultation", clinical.signArgs(t, visitId));
       if (signed.error) throw new Error(`prepare finalize: sign failed: ${signed.error.message}`);
+      await clinical.archiveRxAs(owner, visitId);
       const reopened = await owner.client.rpc("reopen_visit_for_amendment", clinical.reopenArgs(t, visitId));
       if (reopened.error) throw new Error(`prepare finalize: reopen failed: ${reopened.error.message}`);
       const args = clinical.finalizeArgs(t, visitId);
@@ -199,6 +202,23 @@ async function main(): Promise<void> {
       const { visitId } = await seedVisit(t, undefined, { status: "waiting" });
       const args = clinical.completeVisitArgs(t, visitId);
       return () => receptionist.client.rpc("complete_visit", args);
+    });
+    // V2-09b 09B-01 (R-18): the consult's draft save, one call per fresh in-consultation visit at version 0, a patch of the note, the advice and a follow-up
+    // (the heaviest the saver sends at once). The V2-08 condition: p95 under 150 ms.
+    await measure("save_consultation_draft", "command", async (i) => {
+      const { visitId } = await seedVisit(t, undefined, { status: "in_consultation" });
+      const args = {
+        p_tenant_id: t.tenantId,
+        p_visit_id: visitId,
+        p_expected_version: 0,
+        p_patch: {
+          clinical_notes: `Synthetic latency note ${i}`,
+          advice: ["Synthetic advice"],
+          follow_up: { follow_up_date: ymd(7), notes: null },
+        },
+        p_client_request_id: randomUUID(),
+      };
+      return () => owner.client.rpc("save_consultation_draft", args);
     });
     await measure("register_patient", "command", async (i) => {
       const args = {

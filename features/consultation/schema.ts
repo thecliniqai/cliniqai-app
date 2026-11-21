@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientRequestIdSchema } from "@/lib/commands/request-id";
 
 /**
  * Vitals measurement bounds and clinical validation schema (caller input).
@@ -192,3 +193,39 @@ export const saveConsultationDraftSchema = z.object({
 export type ClinicalSpecialty = "general_physician" | "dental" | "pediatrics";
 
 export type SaveConsultationDraftInput = z.infer<typeof saveConsultationDraftSchema>;
+
+/**
+ * V2-09b 09B-01 (R-3): the patch of `save_consultation_draft`. Each key is optional; only the keys present are written. The field rules are the
+ * ones of `saveConsultationDraftSchema` above. `follow_up: null` removes the visit's follow-up; `provenance` is cleaned by the service;
+ * `conflict_overwrite` is the audit flag the client sets after "Keep mine" (R-5).
+ */
+export const draftFollowUpSchema = z.object({
+  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "custom"]).optional(),
+  follow_up_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+export const draftPatchSchema = z
+  .object({
+    vitals: vitalsSchema.nullable(),
+    chief_complaints: z.array(chiefComplaintItemSchema),
+    clinical_notes: z.string().nullable(),
+    specialty_data: z.union([specialtyDataSchema, z.record(z.string(), z.unknown())]).nullable(),
+    investigations_advised: z.array(z.string()),
+    advice: z.array(z.string()),
+    specialty: z.enum(["general_physician", "dental", "pediatrics"]),
+    provenance: z.record(z.string(), z.unknown()).nullable(),
+    follow_up: draftFollowUpSchema.nullable(),
+    conflict_overwrite: z.boolean(),
+  })
+  .partial();
+
+export const saveDraftCommandSchema = z.object({
+  visit_id: z.string().uuid("Invalid visit ID"),
+  expected_version: z.number().int().min(0),
+  patch: draftPatchSchema,
+  client_request_id: clientRequestIdSchema,
+});
+
+export type DraftPatch = z.infer<typeof draftPatchSchema>;
+export type SaveDraftCommandInput = z.input<typeof saveDraftCommandSchema>;

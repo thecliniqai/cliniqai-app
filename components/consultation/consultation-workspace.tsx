@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Vitals,
@@ -12,7 +12,7 @@ import {
   PediatricsSpecialty,
   FollowUpInput,
 } from "@/features/consultation/schema";
-import { saveConsultationDraft, type PastVisitEncounter } from "@/features/consultation/actions";
+import type { PastVisitEncounter } from "@/features/consultation/actions";
 import { VitalsBlock } from "./vitals-block";
 import { ChiefComplaintsSection } from "./chief-complaints-section";
 import { PatientHistoryDrawer } from "./patient-history-drawer";
@@ -31,12 +31,15 @@ import { PediatricsTools } from "./specialty/pediatrics-tools";
 import { SignAndBillModal } from "./sign-and-bill-modal";
 import { AmendmentModal } from "./amendment-modal";
 import { FinalizeAmendmentDialog } from "./finalize-amendment-dialog";
-import { recordState, signedVersionOf } from "@/features/consultation/record-state";
+import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
+import { changedDraftKeys, type DraftFields } from "@/features/consultation/draft";
+import type { FlushResult } from "@/features/consultation/draft-saver";
+import { SaveStatus } from "@/components/clinical/save-status";
+import { useConsultDraft } from "./use-consult-draft";
+import { DraftConflictDialog } from "./draft-conflict-dialog";
 import { Banner } from "@/components/ui/banner";
 import {
-  Clock,
   CheckCircle2,
-  AlertCircle,
   History,
   Save,
   FlaskConical,
@@ -89,6 +92,8 @@ export interface ConsultationWorkspaceProps {
      * the signatures of a sealed visit and is one ahead of the signed version while amending.
      */
     current_revision?: number | null;
+    /** `clinical_notes.draft_version` the page read (V2-09b R-2): the version the draft saver's first save is made against. */
+    draft_version?: number | null;
     /** Version of the visit's latest prescription header, null when there is none. */
     prescription_version?: number | null;
     /** The reason given when the open amendment was started (the latest `visit_revisions` row); only read while amending. */
@@ -225,16 +230,8 @@ export function ConsultationWorkspace({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [isAiScribeOpen, setIsAiScribeOpen] = useState(false);
-  const [aiSectionsUsed] = useState<string[]>(
-    () => (visit.metadata?.ai_sections_used as string[]) ?? []
-  );
 
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
-  const inFlightSaveRef = useRef<Promise<unknown> | null>(null);
 
   // Referral State
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -263,7 +260,6 @@ export function ConsultationWorkspace({
   };
 
   const handleAcceptSoapDraft = (draft: SoapDraft) => {
-    markDirty();
     if (draft.chief_complaints && draft.chief_complaints.length > 0) {
       const newComplaints: ChiefComplaintItem[] = draft.chief_complaints.map((c) => {
         // Parse duration string into val + unit
@@ -333,103 +329,95 @@ export function ConsultationWorkspace({
       ? patient.age * 12
       : 24;
 
-  // Mark form as dirty when inputs change
-  const markDirty = () => {
-    setIsDirty(true);
+  // The draft (V2-09b R-2 to R-5): what is on screen is handed to the draft saver, which holds it in memory only and saves it within 5 s, on blur,
+  // when the app is hidden and before Sign, Amend or Finalize. A change is a field that differs from the server copy; no handler marks anything.
+  const currentFields: DraftFields = {
+    vitals,
+    chief_complaints: chiefComplaints,
+    clinical_notes: clinicalNotes,
+    specialty_data: specialtyData,
+    investigations_advised: investigations,
+    advice: adviceList,
+    specialty,
+    follow_up: followUpInterval !== "none" && followUpDate ? { interval: followUpInterval, follow_up_date: followUpDate, notes: followUpNotes || null } : null,
   };
-
-  // Perform draft save
-  const handleSaveDraft = useCallback(
-    async (silent = false) => {
-      // If a save is already executing, wait for it to finish first
-      if (inFlightSaveRef.current) {
-        try {
-          await inFlightSaveRef.current;
-        } catch {
-          // Ignore previous error and proceed with latest state
-        }
-      }
-
-      if (!silent) setIsSaving(true);
-      setSaveError(null);
-
-      const payload = {
-        visit_id: visit.id,
-        vitals,
-        chief_complaints: chiefComplaints,
-        clinical_notes: clinicalNotes,
-        specialty,
-        specialty_data: specialtyData,
-        investigations_advised: investigations,
-        advice: adviceList,
-        follow_up: (followUpInterval !== "none" && followUpDate) ? {
-          interval: followUpInterval,
-          follow_up_date: followUpDate,
-          notes: followUpNotes || null,
-        } : null,
-        metadata: {
-          ...(visit.metadata || {}),
-          ...(aiSectionsUsed.length > 0
-            ? { ai_assisted: true, ai_sections_used: aiSectionsUsed }
-            : {}),
-        },
-      };
-
-      const savePromise = saveConsultationDraft(payload);
-      inFlightSaveRef.current = savePromise;
-
-      try {
-        const result = await savePromise;
-        if (result.success) {
-          setLastSavedAt(new Date());
-          setIsDirty(false);
-          return { success: true };
-        } else {
-          setSaveError(result.error);
-          return { success: false, error: result.error };
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Auto-save failed.";
-        setSaveError(msg);
-        return { success: false, error: msg };
-      } finally {
-        inFlightSaveRef.current = null;
-        if (!silent) setIsSaving(false);
-      }
-    },
-    [
-      visit.id,
-      visit.metadata,
-      vitals,
-      chiefComplaints,
-      clinicalNotes,
-      specialty,
-      specialtyData,
-      investigations,
-      adviceList,
-      followUpInterval,
-      followUpDate,
-      followUpNotes,
-      aiSectionsUsed,
-    ]
-  );
-
-  // 15-second debounced auto-save effect
+  const [initialFields] = useState<DraftFields>(currentFields);
+  // The server copy the saver starts from: the same fields, with the visit's own follow-up (the screen preselects a default one that is not saved
+  // until the doctor edits something or saves).
+  const serverFields: DraftFields = {
+    ...initialFields,
+    follow_up: visit.follow_up?.follow_up_date
+      ? { follow_up_date: visit.follow_up.follow_up_date, notes: visit.follow_up.notes ?? null }
+      : null,
+  };
+  const applyArrived = (arrived: Partial<DraftFields>) => {
+    if ("vitals" in arrived) setVitals(arrived.vitals ?? null);
+    if (arrived.chief_complaints) setChiefComplaints(arrived.chief_complaints);
+    if ("clinical_notes" in arrived) setClinicalNotes(arrived.clinical_notes ?? "");
+    if ("specialty_data" in arrived) setSpecialtyData((arrived.specialty_data as SpecialtyData | null) ?? null);
+    if (arrived.investigations_advised) setInvestigations(arrived.investigations_advised);
+    if (arrived.advice) setAdviceList(arrived.advice);
+    if (arrived.specialty) setSpecialty(arrived.specialty);
+    if ("follow_up" in arrived) {
+      const fu = arrived.follow_up;
+      setFollowUpInterval(fu?.follow_up_date ? (fu.interval ?? "custom") : "none");
+      setFollowUpDate(fu?.follow_up_date ?? "");
+      setFollowUpNotes(fu?.notes ?? "");
+    }
+  };
+  const consultDraft = useConsultDraft({
+    visitId: visit.id,
+    enabled: !readOnly,
+    resetKey: editorKey,
+    serverFields,
+    serverVersion: visit.draft_version ?? 0,
+    onRebased: applyArrived,
+  });
+  // Nothing is sent before the doctor changes something on screen (the preselected follow-up alone is not a change).
+  const editedRef = useRef(false);
+  const { update: updateDraft } = consultDraft;
   useEffect(() => {
-    if (!isDirty) return;
+    if (!editedRef.current) {
+      if (changedDraftKeys(initialFields, currentFields).length === 0) return;
+      editedRef.current = true;
+    }
+    updateDraft(currentFields);
+    // currentFields is rebuilt from the state below every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vitals, chiefComplaints, clinicalNotes, specialtyData, investigations, adviceList, specialty, followUpInterval, followUpDate, followUpNotes, updateDraft]);
 
-    const timer = setTimeout(() => {
-      handleSaveDraft(true);
-    }, 15000);
-
-    return () => clearTimeout(timer);
-  }, [isDirty, handleSaveDraft]);
+  /** "Save draft", Ctrl/Cmd+S, Sign, Amend, Finalize: what is on screen is saved, or the reason it was not comes back. */
+  const handleSaveDraft = async (): Promise<{ success: boolean; error?: string }> => {
+    updateDraft(currentFields);
+    const result: FlushResult = await consultDraft.flush();
+    if (result.ok) return { success: true };
+    const text: Record<string, string> = {
+      conflict: "This consultation was changed in another tab or device. Choose which version to keep, then try again.",
+      locked: SIGNED_CONSULTATION_MESSAGE,
+      offline: "You are offline. Reconnect to save.",
+    };
+    return { success: false, error: text[result.reason] ?? result.error?.message ?? "Failed to save draft. Please try again." };
+  };
+  const saveDraftRef = useRef(handleSaveDraft);
+  useEffect(() => {
+    saveDraftRef.current = handleSaveDraft;
+  });
+  useEffect(() => {
+    if (readOnly) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void saveDraftRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [readOnly]);
 
   // Handle follow up interval changes
   const handleIntervalChange = (
     interval: "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom"
   ) => {
-    markDirty();
     setFollowUpInterval(interval);
     if (interval === "none") {
       setFollowUpDate("");
@@ -445,13 +433,11 @@ export function ConsultationWorkspace({
   const addInvestigation = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed || investigations.includes(trimmed)) return;
-    markDirty();
     setInvestigations([...investigations, trimmed]);
     setCustomInvestigation("");
   };
 
   const removeInvestigation = (index: number) => {
-    markDirty();
     setInvestigations(investigations.filter((_, i) => i !== index));
   };
 
@@ -459,13 +445,11 @@ export function ConsultationWorkspace({
   const addAdviceItem = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || adviceList.includes(trimmed)) return;
-    markDirty();
     setAdviceList([...adviceList, trimmed]);
     setCustomAdvice("");
   };
 
   const removeAdviceItem = (index: number) => {
-    markDirty();
     setAdviceList(adviceList.filter((_, i) => i !== index));
   };
 
@@ -503,7 +487,6 @@ export function ConsultationWorkspace({
 
   // Handle Copy Notes callback from history drawer
   const handleCopyNotes = (notes: string) => {
-    markDirty();
     setClinicalNotes((prev) => (prev ? `${prev}\n\n[Prior Note]: ${notes}` : notes));
     setIsHistoryOpen(false);
     scrollToSection("complaints");
@@ -616,7 +599,6 @@ export function ConsultationWorkspace({
                 value={specialty}
                 disabled={readOnly}
                 onChange={(e) => {
-                  markDirty();
                   setSpecialty(e.target.value as ClinicalSpecialty);
                 }}
                 className="h-11 px-2.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
@@ -627,26 +609,6 @@ export function ConsultationWorkspace({
               </select>
             </div>
 
-            {/* Auto-save status */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
-              {isSaving ? (
-                <>
-                  <Clock className="h-3.5 w-3.5 text-accent-fg animate-spin" />
-                  <span className="text-accent-fg font-medium">Saving draft...</span>
-                </>
-              ) : lastSavedAt ? (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>
-                    Saved {lastSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </>
-              ) : isDirty ? (
-                <span className="text-amber-600 font-medium">• Unsaved changes</span>
-              ) : (
-                <span className="text-fg-subtle">Draft ready</span>
-              )}
-            </div>
           </div>
 
           {/* Right: Actions */}
@@ -658,7 +620,6 @@ export function ConsultationWorkspace({
                 value={specialty}
                 disabled={readOnly}
                 onChange={(e) => {
-                  markDirty();
                   setSpecialty(e.target.value as ClinicalSpecialty);
                 }}
                 className="h-11 px-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
@@ -668,6 +629,15 @@ export function ConsultationWorkspace({
                 <option value="pediatrics">Pediatrics</option>
               </select>
             </div>
+
+            {/* The save state (V2-09b R-4): Saving…, Saved · time, Offline, Couldn't save · Retry. Always in the top bar; a phone draws only the failures. */}
+            {/* A fixed width from md up: the quiet states (empty, Saving…, Saved) never move the controls beside it, so a click that starts on a button
+                after a blur-triggered save still lands on it. */}
+            {!readOnly && (
+              <div className="flex md:min-w-40 md:justify-end">
+                <SaveStatus {...consultDraft.saveStatusProps} />
+              </div>
+            )}
 
             {/* Patient History Trigger */}
             <button
@@ -690,9 +660,9 @@ export function ConsultationWorkspace({
                 {/* Manual Save Draft */}
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={consultDraft.state.saveState === "saving"}
                   aria-label="Save draft"
-                  onClick={() => handleSaveDraft(false)}
+                  onClick={() => void handleSaveDraft()}
                   className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Save className="h-4 w-4 text-gray-500" />
@@ -775,9 +745,9 @@ export function ConsultationWorkspace({
                 {/* Manual Save Draft */}
                 <button
                   type="button"
-                  disabled={isSaving}
+                  disabled={consultDraft.state.saveState === "saving"}
                   aria-label="Save draft"
-                  onClick={() => handleSaveDraft(false)}
+                  onClick={() => void handleSaveDraft()}
                   className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Save className="h-4 w-4 text-gray-500" />
@@ -858,28 +828,10 @@ export function ConsultationWorkspace({
           patientId={patient.id}
           pastEncounters={pastEncounters}
           onAppendNotes={(notes) => {
-            markDirty();
             setClinicalNotes((prev) => (prev ? `${prev}\n\n${notes}` : notes));
           }}
         />
             )}
-
-        {/* Error notification if save failed */}
-        {saveError && (
-          <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
-              <span>{saveError}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSaveError(null)}
-              className="text-rose-600 hover:text-rose-800 font-semibold ml-4"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {/* Patient Known Allergies Banner (Prominent Warning) */}
         {patient.allergies && patient.allergies.length > 0 && (
@@ -910,7 +862,6 @@ export function ConsultationWorkspace({
             vitals={vitals ?? {}}
             disabled={readOnly}
             onChange={(newVitals) => {
-              markDirty();
               setVitals(newVitals);
             }}
           />
@@ -923,11 +874,9 @@ export function ConsultationWorkspace({
             clinicalNotes={clinicalNotes}
             disabled={readOnly}
             onComplaintsChange={(newComplaints) => {
-              markDirty();
               setChiefComplaints(newComplaints);
             }}
             onClinicalNotesChange={(newNotes) => {
-              markDirty();
               setClinicalNotes(newNotes);
             }}
           />
@@ -954,7 +903,6 @@ export function ConsultationWorkspace({
                 disabled={readOnly}
                 data={specialtyData?.specialty === "general_physician" ? specialtyData : undefined}
                 onChange={(data: GPSpecialty) => {
-                  markDirty();
                   setSpecialtyData(data);
                 }}
               />
@@ -965,7 +913,6 @@ export function ConsultationWorkspace({
                 disabled={readOnly}
                 data={specialtyData?.specialty === "dental" ? specialtyData : undefined}
                 onChange={(data: DentalSpecialty) => {
-                  markDirty();
                   setSpecialtyData(data);
                 }}
               />
@@ -976,7 +923,6 @@ export function ConsultationWorkspace({
                 disabled={readOnly}
                 data={specialtyData?.specialty === "pediatrics" ? specialtyData : undefined}
                 onChange={(data: PediatricsSpecialty) => {
-                  markDirty();
                   setSpecialtyData(data);
                 }}
                 patientGender={patient.gender === "female" ? "female" : "male"}
@@ -1257,7 +1203,6 @@ export function ConsultationWorkspace({
                       disabled={readOnly}
                       value={followUpDate}
                       onChange={(e) => {
-                        markDirty();
                         setFollowUpDate(e.target.value);
                         setFollowUpInterval("custom");
                       }}
@@ -1278,7 +1223,6 @@ export function ConsultationWorkspace({
                       disabled={readOnly}
                       value={followUpNotes}
                       onChange={(e) => {
-                        markDirty();
                         setFollowUpNotes(e.target.value);
                       }}
                       placeholder="e.g. Review with repeat fasting blood sugar and lipid profile reports"
@@ -1422,6 +1366,13 @@ export function ConsultationWorkspace({
       />
 
       {/* Solo Doctor Complete & Sign + Billing Modal */}
+      {/* R-5: the same field was changed here and in another tab or device; nothing is overwritten silently. */}
+      <DraftConflictDialog
+        fields={consultDraft.state.conflict?.fields ?? null}
+        onUseTheirs={() => void consultDraft.resolveConflict("theirs")}
+        onKeepMine={() => void consultDraft.resolveConflict("mine")}
+      />
+
       <SignAndBillModal
         isOpen={isSignModalOpen}
         onClose={() => setIsSignModalOpen(false)}
@@ -1432,7 +1383,7 @@ export function ConsultationWorkspace({
         medicinesCount={visit.prescription_items?.length || 0}
         followUpDate={followUpInterval === "none" ? null : (followUpDate || null)}
         canCollect={canCollectPayment}
-        onSaveDraftBeforeSign={() => handleSaveDraft(false)}
+        onSaveDraftBeforeSign={() => handleSaveDraft()}
       />
 
       {/* Amendment: reopen a signed consultation with a reason (the database snapshots the signed version), then finalize it. */}
@@ -1452,7 +1403,7 @@ export function ConsultationWorkspace({
         onOpenChange={setIsFinalizeOpen}
         visitId={visit.id}
         fromVersion={signedVersion}
-        onBeforeFinalize={() => handleSaveDraft(false)}
+        onBeforeFinalize={() => handleSaveDraft()}
         onSuccess={() => {
           focusAfterRefreshRef.current = "sealed";
           router.refresh();

@@ -737,15 +737,12 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(24)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-01'" },
     insert: { id: q(FX.row(25)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-02'" },
     update: "notes",
-    rules: {
-      select: perm("appointments:view"),
-      insert: any(perm("appointments:edit"), perm("consultations:edit")),
-      update: any(perm("appointments:edit"), perm("consultations:edit")),
-      delete: perm("consultations:edit"),
-    },
+    // V2-09b 000112 (R-3): save_consultation_draft (definer) is the writer; INSERT, UPDATE and DELETE are revoked from authenticated.
+    rules: { select: perm("appointments:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
       "05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the " +
-      "visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit",
+      "visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit. " +
+      "V2-09b 000112: written only by save_consultation_draft (SECURITY DEFINER, consultations:edit; one follow-up per visit)",
   },
   {
     kind: "table",

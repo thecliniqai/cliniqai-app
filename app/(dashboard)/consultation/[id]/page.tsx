@@ -54,7 +54,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
       specialty,
       signed_at,
       current_revision,
-      ${clinicalNotesEmbed()},
+      ${clinicalNotesEmbed(undefined, true)},
       patient:patients (
         id,
         full_name,
@@ -178,6 +178,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
     prescription_items: initialPrescriptionItems,
     signed_at: (visitRow.signed_at as string | null) ?? null,
     current_revision: (visitRow.current_revision as number | null) ?? 1, // the database default (09A-06a, review B-2)
+    draft_version: (embeddedClinicalNotes(visitRow)?.draft_version as number | undefined) ?? 0,
     prescription_version: (latestHeader?.version as number | undefined) ?? null,
     amendment_reason: amendmentReason,
   };

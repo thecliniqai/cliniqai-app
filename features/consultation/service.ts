@@ -1,48 +1,30 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
-import { recordAudit } from "@/lib/audit/audit";
-import { memberOfTenant, visitInTenant } from "@/lib/auth/tenant-refs";
 import {
-  saveConsultationDraftSchema,
-  SaveConsultationDraftInput,
+  saveDraftCommandSchema,
   Vitals,
   ChiefComplaintItem,
+  type SaveDraftCommandInput,
 } from "./schema";
 import { archivePrescriptionPdf, isArchivable, isVisitSigner } from "../prescriptions/pdf/generator";
 import { loadPrescriptionPdfSource } from "../prescriptions/pdf/payload";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
+import type { DbErrorMessages } from "@/lib/db/errors";
 import { callCommand } from "@/lib/commands/call-command";
 import { clientRequestIdSchema } from "@/lib/commands/request-id";
 import type { AppError } from "@/lib/errors/app-error";
 import { z } from "zod";
-import { clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { clinicalNotesEmbed, embeddedClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { isSealedRefusal, recordState, SIGNED_CONSULTATION_MESSAGE } from "./record-state";
+import { SIGNED_CONSULTATION_MESSAGE } from "./record-state";
+import type { DraftFields, ServerDraft } from "./draft";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
-// its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
-// pass the same context so the callee's own check applies.
+// its server action checked before the move.
 
-/** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
-const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
-/** V2-09a 09A-06a (review B-5): the follow-up write failed, so the save is not complete (Finalize amendment stops on it). */
-export const FOLLOW_UP_SAVE_FAILED_MESSAGE = "Draft saved, but the follow-up could not be saved. Please try again.";
-
-/**
- * Completed or cancelled (unsigned: terminal in the app, V2-09a R-11), or sealed: signed and not reopened for amendment
- * (`recordState`, V2-09a R-2). The database refuses the sealed case for every writer; the unsigned terminal states stay an app rule.
- */
-function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
-  if (visit.status === "completed" || visit.status === "cancelled") return true;
-  return recordState(visit) === "sealed";
-}
-
-// The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
 /**
  * The AI provenance a draft save may write to `visits.metadata` (V2-08 08-06a, S-3; the database allows exactly these two keys on a
  * direct write): `ai_assisted` (boolean) and `ai_sections_used` (up to 20 short strings). Anything else the caller sent is dropped.
@@ -57,60 +39,38 @@ export function draftProvenance(raw: Record<string, unknown> | null | undefined)
   return Object.keys(out).length > 0 ? out : null;
 }
 
-const VITALS_MEASUREMENTS = [
-  "systolic",
-  "diastolic",
-  "pulse",
-  "temperature",
-  "spo2",
-  "weight",
-  "height",
-  "respiratory_rate",
-  "bmi",
-] as const;
+const saveDraftRpcResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  draft_version: z.number().int().min(0),
+  started: z.boolean(),
+  replayed: z.boolean(),
+});
 
-function sameMeasurements(a: Record<string, unknown> | null | undefined, b: Record<string, unknown> | null | undefined) {
-  return VITALS_MEASUREMENTS.every((k) => (a?.[k] ?? null) === (b?.[k] ?? null));
-}
-
-function hasAnyMeasurement(v: Record<string, unknown> | null | undefined) {
-  return VITALS_MEASUREMENTS.some((k) => v?.[k] != null);
-}
-
-/**
- * The recorder of the vitals is never caller-chosen (V2-01 F6, SEC-02). When the draft carries the same
- * measurements as the stored row, the stored attribution is kept (a doctor saving a draft does not re-attribute a
- * nurse's reading); when the measurements change, the acting user becomes the recorder.
- */
-function attributeVitals(
-  ctx: ServiceContext,
-  incoming: Vitals | null | undefined,
-  stored: Record<string, unknown> | null | undefined
-): Record<string, unknown> {
-  const vitals: Record<string, unknown> = { ...(incoming ?? {}) };
-  delete vitals.recorded_by;
-  if (!hasAnyMeasurement(vitals)) {
-    return vitals;
-  }
-  if (stored && sameMeasurements(vitals, stored) && typeof stored.recorded_by === "string") {
-    vitals.recorded_by = stored.recorded_by;
-  } else {
-    vitals.recorded_by = ctx.userId;
-  }
-  return vitals;
-}
+/** Fixed, data-free texts of the draft save (the driver message never reaches the caller). */
+const DRAFT_SAVE_MESSAGES = {
+  NOT_FOUND: "Visit record not found or access denied.",
+  FORBIDDEN: "You do not have permission to change this consultation.",
+  LOCK_TIMEOUT: "This consultation is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  DRAFT_CONFLICT: "This consultation was changed in another tab or device.",
+  DRAFT_LOCKED: SIGNED_CONSULTATION_MESSAGE,
+  INTERNAL: "Failed to save draft. Please try again.",
+} as const satisfies DbErrorMessages;
 
 export type SaveConsultationDraftResult =
-  | { success: true; visitId: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+  | { success: true; visitId: string; draftVersion: number; started: boolean; replayed: boolean }
+  | { success: false; error: string; code?: AppError["code"]; reason?: string; fieldErrors?: Record<string, string[]> };
 
 /**
- * Saves or auto-saves an in-progress consultation draft.
- * Updates the SOAP clinical sections, specialty data, and creates or updates follow-ups.
+ * Saves the consult draft as one atomic command (`public.save_consultation_draft`, V2-09b R-3): the keys present in `patch` are written to
+ * the notes, the visit's specialty and the visit's follow-up, a waiting visit is started, and the audit row is written, in one transaction.
+ * `expected_version` is the `draft_version` the client last saw; a stale one is `CONFLICT` / `DRAFT_CONFLICT` with no data (the client reads
+ * the server copy with `getConsultationDraft` and rebases). A signed, completed or cancelled visit is `DRAFT_LOCKED` with the fixed signed
+ * text. The same `client_request_id` replays the first result.
  */
 export async function saveConsultationDraft(
   ctx: ServiceContext,
-  input: SaveConsultationDraftInput
+  input: SaveDraftCommandInput
 ): Promise<SaveConsultationDraftResult> {
   try {
     assertPerm(ctx.role, "consultations:edit");
@@ -118,278 +78,99 @@ export async function saveConsultationDraft(
     return { success: false, error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed") };
   }
 
-  const parseResult = saveConsultationDraftSchema.safeParse(input);
-  if (!parseResult.success) {
+  const parsed = saveDraftCommandSchema.safeParse(input);
+  if (!parsed.success) {
     const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
+    for (const issue of parsed.error.issues) {
+      const field = issue.path.filter((p) => p !== "patch")[0]?.toString() || "form";
       fieldErrors[field] = fieldErrors[field] || [];
       fieldErrors[field].push(issue.message);
     }
-    const issueSummary = parseResult.error.issues
-      .map((i) => `${i.path.join(".") || "field"}: ${i.message}`)
-      .join("; ");
-    return {
-      success: false,
-      error: `Validation error: ${issueSummary}`,
-      fieldErrors,
-    };
+    const issueSummary = parsed.error.issues.map((i) => `${i.path.join(".") || "field"}: ${i.message}`).join("; ");
+    return { success: false, error: `Validation error: ${issueSummary}`, code: "VALIDATION_FAILED", fieldErrors };
   }
 
-  const supabase = ctx.db;
-
-  try {
-    const data = parseResult.data;
-
-    // 1. Verify visit exists and belongs to this tenant
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select(`id, patient_id, status, signed_at, metadata, ${clinicalNotesEmbed(["vitals"])}`)
-      .eq("id", data.visit_id)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (visitFetchErr || !visit) {
-      return {
-        success: false,
-        error: "Visit record not found or access denied.",
-      };
-    }
-
-    // A signed consultation is read-only (review finding AR-Info I3; same lock as sign-off and the /api/v1 PATCH
-    // guard). The one exception is a visit reopened for amendment (reopenVisitForAmendment): it keeps signed_at but is
-    // back in 'in_consultation' until finalizeVisitAmendment re-signs it. The lock is repeated in the UPDATE filter.
-    if (isDraftLocked(visit)) {
-      return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    }
-
-    // 2. A waiting visit is moved to in_consultation after the draft is saved, through the start_consultation command
-    // (V2-08 08-04a: `status` is not a column a request path writes any more).
-    const startsConsultation = visit.status === "waiting";
-
-    // 3. Update the visit row (specialty, metadata), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
-    // visit write carries the sign-off lock in its filter and goes first, so a draft never lands on a visit that was
-    // signed before this save began; a sign-off racing in between the two writes is the residual V2-09a closes with
-    // the record-immutability rules (R-21).
-    const updatePayload: Record<string, unknown> = {
-      specialty: data.specialty,
-      updated_at: new Date().toISOString(),
-    };
-
-    // V2-08 08-06a (S-3): a direct write of `visits.metadata` is limited by the database to the AI provenance of an open draft,
-    // so only those two keys are taken from the caller and merged into what the visit stores (the confirmation and cancellation
-    // keys are never sent back, and a stale copy never overwrites them).
-    const provenance = draftProvenance(data.metadata);
-    if (provenance) {
-      updatePayload.metadata = { ...((visit.metadata as Record<string, unknown> | null) ?? {}), ...provenance };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedRows, error: updateErr } = await (supabase.from("visits") as any)
-      .update(updatePayload)
-      .eq("id", data.visit_id)
-      .eq("tenant_id", ctx.tenantId)
-      .not("status", "in", "(completed,cancelled)")
-      .or("signed_at.is.null,status.eq.in_consultation")
-      .select("id");
-
-    if (updateErr) {
-      log.error({ event: "consultation.draft_save.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to save draft. Please try again." };
-    }
-    if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
-      // Signed (or closed) between the read above and this write.
-      return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    }
-
-    const { error: notesErr, raw: notesRaw } = await updateClinicalNotes(supabase, ctx.tenantId, data.visit_id, {
-      vitals: attributeVitals(ctx, data.vitals, embeddedClinicalNotes(visit)?.vitals),
-      chief_complaints: (data.chief_complaints ?? []) as unknown as Array<Record<string, unknown>>,
-      clinical_notes: data.clinical_notes ?? null,
-      specialty_data: (data.specialty_data ?? {}) as Record<string, unknown>,
-      investigations_advised: data.investigations_advised ?? [],
-      advice: data.advice ?? [],
-    });
-    if (notesErr) {
-      if (notesErr.code === "FORBIDDEN") {
-        log.warn({ event: "consultation.draft_save.refused", reason: notesErr.reason === "ROW_NOT_AFFECTED" ? "row_not_affected" : "forbidden", requestId: await getRequestId(), tenantId: ctx.tenantId });
-        return { success: false, error: notesErr.message };
-      }
-      log.error({ event: "consultation.draft_save.failed", code: errorTag(notesRaw), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to save draft. Please try again." };
-    }
-
-    if (startsConsultation) {
-      // Best effort: the draft is saved either way; a refusal (a role without appointments:edit, a state that moved on)
-      // leaves the status as it was and the sign-off accepts a waiting visit too.
-      const started = await callCommand(
-        ctx,
-        "start_consultation",
-        { p_visit_id: data.visit_id, p_client_request_id: randomUUID() },
-        z.object({ visit_id: z.string().uuid() }).passthrough(),
-        {},
-        { event: "consultation.draft_save_start.failed" }
-      );
-      if (!started.ok) {
-        log.warn({ event: "consultation.draft_save_start.refused", reason: "start_refused", requestId: await getRequestId(), tenantId: ctx.tenantId });
-      }
-    }
-
-    // 4. Handle follow-up record if provided
-    if (data.follow_up?.follow_up_date) {
-      // 09A-06a (review B-5): the result is checked. A failed follow-up write fails the save, so the amendment's Finalize (which saves first and stops
-      // on a failed save) never seals a version whose follow-up is not the one on screen.
-      const followUp = await recordFollowUp(ctx, {
-        visitId: data.visit_id,
-        patientId: visit.patient_id,
-        followUpDate: data.follow_up.follow_up_date,
-        notes: data.follow_up.notes ?? undefined,
-      });
-      if (!followUp.success) {
-        return { success: false, error: followUp.error === SIGNED_CONSULTATION_MESSAGE ? SIGNED_CONSULTATION_MESSAGE : FOLLOW_UP_SAVE_FAILED_MESSAGE };
-      }
-    } else {
-      // If doctor selected None / N/A, delete any existing follow_up for this visit. RLS may filter the delete
-      // (V2-05 05-04): compare the deleted rows with the visible ones, so a follow-up that is still there is reported.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: visibleFollowUps, error: followUpReadErr } = await (supabase.from("follow_ups") as any)
-        .select("id")
-        .eq("visit_id", data.visit_id)
-        .eq("tenant_id", ctx.tenantId);
-      if (followUpReadErr) {
-        log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpReadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-        return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
-      }
-      const visibleCount = Array.isArray(visibleFollowUps) ? visibleFollowUps.length : 0;
-      if (visibleCount > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: deletedFollowUps, error: followUpDeleteErr } = await (supabase.from("follow_ups") as any)
-          .delete()
-          .eq("visit_id", data.visit_id)
-          .eq("tenant_id", ctx.tenantId)
-          .select("id");
-        if (followUpDeleteErr) {
-          log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpDeleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
-        }
-        if (unaffectedRowsError(deletedFollowUps, visibleCount)) {
-          log.warn({ event: "consultation.follow_up_clear.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
-          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
-        }
-      }
-    }
-
-    // 5. Record audit log
-    await recordAudit(ctx, {
-      action: "consultation.draft_save",
-      entityType: "visit",
-      entityId: data.visit_id,
-      metadata: {
-        specialty: data.specialty,
-        fields_changed: ["vitals", "chief_complaints", "clinical_notes", "specialty_data", "advice"],
-      },
-    });
-
-    return { success: true, visitId: data.visit_id };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed"),
-    };
+  const { visit_id: visitId, expected_version: expectedVersion, client_request_id: clientRequestId } = parsed.data;
+  const patch: Record<string, unknown> = { ...parsed.data.patch };
+  if ("provenance" in patch) {
+    const provenance = draftProvenance(patch.provenance as Record<string, unknown> | null);
+    if (provenance) patch.provenance = provenance;
+    else delete patch.provenance;
   }
+  if (Object.keys(patch).filter((k) => k !== "conflict_overwrite").length === 0) {
+    return { success: false, error: "Nothing to save.", code: "VALIDATION_FAILED" };
+  }
+
+  const outcome = await callCommand(
+    ctx,
+    "save_consultation_draft",
+    { p_visit_id: visitId, p_expected_version: expectedVersion, p_patch: patch, p_client_request_id: clientRequestId },
+    saveDraftRpcResultSchema,
+    DRAFT_SAVE_MESSAGES,
+    { event: "consultation.draft_save.failed" }
+  );
+  if (!outcome.ok) return commandFailure(outcome.error);
+  return {
+    success: true,
+    visitId,
+    draftVersion: outcome.value.draft_version,
+    started: outcome.value.started,
+    replayed: outcome.value.replayed,
+  };
 }
 
-export interface RecordFollowUpInput {
-  visitId: string;
-  patientId: string;
-  /** Target doctor for the follow-up (defaults to the acting user). */
-  doctorId?: string;
-  followUpDate: string;
-  notes?: string;
-}
-
-export type RecordFollowUpResult =
-  | { success: true; followUpId: string }
-  | { success: false; error: string };
+export type GetConsultationDraftResult = { success: true; draft: ServerDraft } | { success: false; error: string; code?: AppError["code"] };
 
 /**
- * Persists a follow-up appointment date for the patient.
+ * The server copy of a consult draft, for the client's conflict rebase (V2-09b R-5): the draft fields, the follow-up, the specialty, `draft_version`
+ * and the record state it was read in. consultations:view; the tenant is the session's.
  */
-export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpInput): Promise<RecordFollowUpResult> {
-  const supabase = ctx.db;
-
+export async function getConsultationDraft(ctx: ServiceContext, visitId: string): Promise<GetConsultationDraftResult> {
   try {
-    assertPerm(ctx.role, "consultations:edit");
-
-    // The visit (and its patient) and any doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not
-    // check this).
-    if (!(await visitInTenant(ctx, input.visitId, input.patientId))) {
-      return { success: false, error: "Visit not found or access denied." };
-    }
-    if (input.doctorId && !(await memberOfTenant(ctx, input.doctorId))) {
-      return { success: false, error: "Doctor not found in this clinic." };
-    }
-
-    // Check if an existing follow-up is already tied to this visit
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (supabase.from("follow_ups") as any)
-      .select("id")
-      .eq("tenant_id", ctx.tenantId)
-      .eq("visit_id", input.visitId)
-      .maybeSingle();
-
-    let followUpId: string;
-
-    if (existing?.id) {
-      // Update existing follow-up
-      followUpId = existing.id;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: updateErr } = await (supabase.from("follow_ups") as any)
-        .update({
-          follow_up_date: input.followUpDate,
-          notes: input.notes ?? null,
-        })
-        .eq("id", followUpId)
-        .eq("tenant_id", ctx.tenantId);
-
-      if (updateErr) throw updateErr;
-    } else {
-      // Insert new follow-up
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: inserted, error: insertErr } = await (supabase.from("follow_ups") as any)
-        .insert({
-          tenant_id: ctx.tenantId,
-          patient_id: input.patientId,
-          visit_id: input.visitId,
-          doctor_id: input.doctorId || ctx.userId,
-          follow_up_date: input.followUpDate,
-          notes: input.notes ?? null,
-          status: "scheduled",
-        })
-        .select("id")
-        .single();
-
-      if (insertErr || !inserted) throw insertErr ?? new Error("Failed to create follow-up");
-      followUpId = inserted.id;
-    }
-
-    await recordAudit(ctx, {
-      action: "follow_up.record",
-      entityType: "follow_up",
-      entityId: followUpId,
-      metadata: {
-        follow_up_date: input.followUpDate,
-      },
-    });
-
-    return { success: true, followUpId };
+    assertPerm(ctx.role, "consultations:view");
   } catch (err: unknown) {
-    // A signed consultation's follow-up is sealed with it (000107): a fixed text, never the driver's (V2-09a R-17).
-    if (isSealedRefusal(err)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to record follow-up.", "consultation.record_follow_up.failed"),
+    return { success: false, error: clientErrorMessage(err, "Failed to load the consultation.", "consultation.get_consultation_draft.failed") };
+  }
+  if (!z.string().uuid().safeParse(visitId).success) {
+    return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: visit, error: visitErr } = await (ctx.db.from("visits") as any)
+      .select(
+        `id, status, signed_at, specialty, notes:clinical_notes(vitals, chief_complaints, clinical_notes, specialty_data, investigations_advised, advice, draft_version)`
+      )
+      .eq("id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+    if (visitErr) throw visitErr;
+    const notes = embeddedClinicalNotes(visit) as (Record<string, unknown> & { draft_version?: number }) | null;
+    if (!visit || !notes) return { success: false, error: "Visit record not found or access denied.", code: "NOT_FOUND" };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: followUp, error: followUpErr } = await (ctx.db.from("follow_ups") as any)
+      .select("follow_up_date, notes")
+      .eq("visit_id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+    if (followUpErr) throw followUpErr;
+
+    const fields: DraftFields = {
+      vitals: (notes.vitals as Vitals | null) ?? null,
+      chief_complaints: (notes.chief_complaints as ChiefComplaintItem[] | null) ?? [],
+      clinical_notes: (notes.clinical_notes as string | null) ?? "",
+      specialty_data: (notes.specialty_data as DraftFields["specialty_data"]) ?? null,
+      investigations_advised: (notes.investigations_advised as string[] | null) ?? [],
+      advice: (notes.advice as string[] | null) ?? [],
+      specialty: (visit.specialty as DraftFields["specialty"]) ?? "general_physician",
+      follow_up: followUp ? { follow_up_date: followUp.follow_up_date as string, notes: (followUp.notes as string | null) ?? null } : null,
     };
+    return {
+      success: true,
+      draft: { fields, draftVersion: notes.draft_version ?? 0, status: visit.status as string, signedAt: (visit.signed_at as string | null) ?? null },
+    };
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to load the consultation.", "consultation.get_consultation_draft.failed") };
   }
 }
 

@@ -35,10 +35,10 @@ export const CLINICAL_NOTES_EMBED_KEY = "notes";
 
 /**
  * PostgREST embed of the visit's clinical_notes row, for a select on `visits` (one-to-one over the composite FK).
- * `fields` defaults to every moved column.
+ * `fields` defaults to every moved column; `withDraftVersion` adds `draft_version` (V2-09b R-2, the consult page).
  */
-export function clinicalNotesEmbed(fields: readonly ClinicalNoteField[] = CLINICAL_NOTE_FIELDS): string {
-  return `${CLINICAL_NOTES_EMBED_KEY}:clinical_notes(${fields.join(", ")})`;
+export function clinicalNotesEmbed(fields: readonly ClinicalNoteField[] = CLINICAL_NOTE_FIELDS, withDraftVersion = false): string {
+  return `${CLINICAL_NOTES_EMBED_KEY}:clinical_notes(${[...fields, ...(withDraftVersion ? ["draft_version"] : [])].join(", ")})`;
 }
 
 /** The clinical content of one visit as the app reads it: each field `null` when absent or hidden by RLS. */

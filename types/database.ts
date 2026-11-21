@@ -433,6 +433,7 @@ export type Database = {
           chief_complaints: NonNullable<Json>;
           clinical_notes: string | null;
           created_at: string;
+          draft_version: number;
           investigations_advised: string[];
           specialty_data: NonNullable<Json>;
           tenant_id: string;
@@ -446,6 +447,7 @@ export type Database = {
           chief_complaints?: NonNullable<Json>;
           clinical_notes?: string | null;
           created_at?: string;
+          draft_version?: number;
           investigations_advised?: string[];
           specialty_data?: NonNullable<Json>;
           tenant_id: string;
@@ -458,6 +460,7 @@ export type Database = {
           chief_complaints?: NonNullable<Json>;
           clinical_notes?: string | null;
           created_at?: string;
+          draft_version?: number;
           investigations_advised?: string[];
           specialty_data?: NonNullable<Json>;
           tenant_id?: string;
@@ -3732,6 +3735,16 @@ export type Database = {
       };
       revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
+      save_consultation_draft: {
+        Args: {
+          p_client_request_id: string;
+          p_expected_version: number;
+          p_patch: Json;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       search_medicines: {
         Args: {
           p_doctor_id: string;
