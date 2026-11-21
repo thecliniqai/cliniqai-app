@@ -4,8 +4,8 @@
  * the service role only simulates corruption. Synthetic data only.
  *
  * Covered: the archive after sign-off (object, `%PDF-`, SHA-256 equals the stored bytes, audit row), a second archive is a no-op, a draft preview and a
- * print variant store nothing, a lost archive is archived once on open (self-heal), a duplicate object with no recorded hash is adopted, a legacy path with
- * no hash gets its hash on the first read, reopen then finalize keeps `rx_v1.pdf` and its hash (snapshot) and archives `rx_v2.pdf` once, overwrite and delete
+ * print variant store nothing, a lost archive is archived once on open (self-heal), a duplicate object the signer stored with no recorded hash is adopted,
+ * a legacy path with no hash is never trusted (09A-06a), reopen then finalize keeps `rx_v1.pdf` and its hash (snapshot) and archives `rx_v2.pdf` once, overwrite and delete
  * and planting by a member fail, the PDF route serves the archived bytes, and a tampered object is never served (fresh render + audit row).
  */
 import { createHash, randomUUID } from "node:crypto";
@@ -13,6 +13,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { pdfText } from "../helpers/pdf-text";
+import { psql } from "../helpers/sql";
 import {
   callFinalize,
   finalizeArgs,
@@ -31,6 +33,7 @@ import { GET as getPrescriptionPdf } from "@/app/api/visits/[id]/prescription-pd
 import {
   archivePrescriptionPdf,
   prescriptionPdfPath,
+  REGENERATED_COPY_NOTICE,
   renderPrescriptionPdf,
   resolvePrescriptionPdf,
   sha256Hex,
@@ -184,7 +187,9 @@ describe("self-heal on open", () => {
     expect(audit).toHaveLength(1);
   }, 60_000);
 
-  it("an object that exists with no recorded hash (an archive that stopped after the upload) is adopted: the stored bytes are hashed and recorded, never replaced", async () => {
+  // 09A-06a (R-A): adoption needs the object to be the signer's own upload (here: the doctor who signed); an object anyone else stored is never adopted
+  // (tests/prescriptions/rx-archive-signer.spec.ts).
+  it("an object the signer stored with no recorded hash (an archive that stopped after the upload) is adopted: the stored bytes are hashed and recorded, never replaced", async () => {
     const visit = await seedVisit();
     await signVisitAs(doctor, visit.visitId);
     const stored = Buffer.from("%PDF-1.4 stored by an earlier archive that stopped before recording it");
@@ -198,20 +203,34 @@ describe("self-heal on open", () => {
     expect(await header(visit.visitId)).toMatchObject({ pdf_storage_path: keyOf(visit.visitId), pdf_sha256: sha(stored) });
   }, 60_000);
 
-  it("a legacy header (a path, no hash) gets its hash recorded on the first read, from the stored bytes", async () => {
+  // V2-09a 09A-06a (review S-2 (c), PO-15): "trust on first use" is gone. A legacy header (a path written before 000109, no hash) is never trusted: its
+  // object is not served, its hash is never recorded (the pair is set only as a pair, by the signer, for the signer's object), and readers get a
+  // regenerated copy that says so.
+  it("a legacy header (a path, no hash) is never trusted: the hash is not recorded, the stored bytes are not served, a regenerated copy is", async () => {
     const visit = await seedVisit();
     await signVisitAs(doctor, visit.visitId);
     const legacy = Buffer.from("%PDF-1.4 legacy archive written before the hash existed");
     const { error: upErr } = await doctor.client.storage.from(BUCKET).upload(keyOf(visit.visitId), legacy, { contentType: "application/pdf", upsert: false });
     expect(upErr).toBeNull();
-    const { error: pathErr } = await admin.from("prescriptions").update({ pdf_storage_path: keyOf(visit.visitId) }).eq("id", visit.prescriptionIds[0]);
-    expect(pathErr).toBeNull();
+    // The path alone is refused for every writer now, so the legacy row is written as a pre-000109 migration would have (owner DDL, one transaction).
+    expect((await admin.from("prescriptions").update({ pdf_storage_path: keyOf(visit.visitId) }).eq("id", visit.prescriptionIds[0])).error?.message).toBe(
+      "RX_PDF_PATH_INVALID"
+    );
+    psql(
+      `begin; alter table public.prescriptions disable trigger prescriptions_seal_guard; ` +
+        `update public.prescriptions set pdf_storage_path = '${keyOf(visit.visitId)}' where id = '${visit.prescriptionIds[0]}'; ` +
+        `alter table public.prescriptions enable trigger prescriptions_seal_guard; commit;`
+    );
 
     const source = await loadPrescriptionPdfSource(ctxFor(doctor), visit.visitId);
     const served = await resolvePrescriptionPdf(ctxFor(doctor), source!);
-    expect(served.buffer.equals(legacy)).toBe(true);
-    expect(served.storagePath).toBe(keyOf(visit.visitId));
-    expect((await header(visit.visitId)).pdf_sha256).toBe(sha(legacy));
+    expect(served.buffer.equals(legacy)).toBe(false);
+    expect(served).toMatchObject({ storagePath: null, regenerated: true });
+    expect(pdfText(served.buffer)).toContain(REGENERATED_COPY_NOTICE);
+    expect(await header(visit.visitId)).toMatchObject({ pdf_storage_path: keyOf(visit.visitId), pdf_sha256: null });
+    // Nor can the signer record a hash for it afterwards (a hash alone, on an existing path).
+    const hashOnly = await doctor.client.from("prescriptions").update({ pdf_sha256: sha(legacy) }).eq("id", visit.prescriptionIds[0]);
+    expect(hashOnly.error?.message).toBe("RX_PDF_WRITE_ONCE");
   }, 60_000);
 });
 

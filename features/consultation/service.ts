@@ -11,7 +11,7 @@ import {
   Vitals,
   ChiefComplaintItem,
 } from "./schema";
-import { archivePrescriptionPdf, isArchivable } from "../prescriptions/pdf/generator";
+import { archivePrescriptionPdf, isArchivable, isVisitSigner } from "../prescriptions/pdf/generator";
 import { loadPrescriptionPdfSource } from "../prescriptions/pdf/payload";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -583,6 +583,8 @@ export const CLINICAL_COMMAND_MESSAGES = {
   AMENDMENT_NOT_OPEN: "This consultation is not open for amendment.",
   AMENDMENT_REASON_INVALID:
     "A valid reason for amendment of at least 10 characters is required for medical audit compliance.",
+  RX_ARCHIVE_PENDING:
+    "The signed prescription PDF has not been archived yet. The doctor who signed it must open the prescription first; then try again.",
 } as const satisfies DbErrorMessages;
 
 /** The amendment reason is 10 to 500 characters (the audit row holds it, whose values are bounded at 500; V2-07 07-04a F-11). */
@@ -654,9 +656,10 @@ export async function completeAndSignConsultation(
 
 /**
  * Archives the signed version of the visit's prescription (V2-09a R-12), rendered and stored AFTER the commit (R-4: no external call inside a
- * transaction), best-effort: the record is already signed whatever happens here, and opening the PDF archives it again if it is missing. Used by the
- * sign-off, by Sign & Bill (`complete_and_bill`, V2-07 07-03), by the amendment's finalize (with the new `version`) and before a reopen. It does nothing
- * for a visit that is not sealed, for a header with no signature, or for a header whose PDF is already archived (the pair is write-once).
+ * transaction), best-effort: the record is already signed whatever happens here, and the signer's next open of the PDF archives it if it is missing.
+ * Used by the sign-off, by Sign & Bill (`complete_and_bill`, V2-07 07-03), by the amendment's finalize (with the new `version`) and before a reopen.
+ * It does nothing for a visit that is not sealed, for a header with no signature, for a header whose PDF is already archived (the pair is write-once),
+ * and (09A-06a ruling R-A) for a caller who is not the visit's signer: only the signer archives, the database refuses anyone else.
  */
 export async function archiveSealedPrescriptionPdf(
   ctx: ServiceContext,
@@ -665,7 +668,7 @@ export async function archiveSealedPrescriptionPdf(
 ): Promise<void> {
   try {
     const source = await loadPrescriptionPdfSource(ctx, visitId, { version: options.version });
-    if (!source?.header || source.header.pdf_sha256 || !isArchivable(ctx, source)) return;
+    if (!source?.header || source.header.pdf_sha256 || !isArchivable(ctx, source) || !isVisitSigner(ctx, source)) return;
     await archivePrescriptionPdf(ctx, source.payload);
   } catch (pdfErr) {
     log.warn({ event: "consultation.rx_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
@@ -705,8 +708,9 @@ export async function reopenVisitForAmendment(
     return { success: false, error: "Invalid request.", code: "VALIDATION_FAILED" };
   }
 
-  // The signed version is archived first (best effort, never blocks): once the visit is reopened it is no longer sealed, and the database refuses an archive
-  // of an open amendment. The snapshot the reopen takes then holds the signed version's path and hash.
+  // The signed version is archived first: once the visit is reopened it is no longer sealed, and the database refuses an archive of an open amendment.
+  // The snapshot the reopen takes then holds the signed version's path and hash. Only the signer can archive it (R-A); if it is still missing the
+  // command refuses with RX_ARCHIVE_PENDING (09A-06a, review A-3) and the caller gets the fixed retry text.
   await archiveSealedPrescriptionPdf(ctx, visitId);
 
   const outcome = await callCommand(

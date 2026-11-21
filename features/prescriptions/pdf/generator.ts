@@ -13,7 +13,7 @@ import { PrescriptionDocument, PrescriptionPdfPayload } from "./prescription-doc
 import type { PrescriptionPdfSource } from "./payload";
 
 /**
- * Prescription PDFs (V2-09a 09A-03, R-12). Three pieces, none of which overwrites anything:
+ * Prescription PDFs (V2-09a 09A-03, R-12; 09A-06a ruling R-A). Three pieces, none of which overwrites anything:
  *
  *  - `renderPrescriptionPdf(payload)`: pure, no storage;
  *  - `archivePrescriptionPdf(ctx, payload, buffer?)`: the one archive of a signed version. SHA-256 of the exact bytes, upload `upsert: false` to the
@@ -24,11 +24,19 @@ import type { PrescriptionPdfSource } from "./payload";
  *    returns the stored bytes.
  *
  * `resolvePrescriptionPdf` is the policy every reader shares (the PDF route and the in-app preview): a sealed header at its own letterhead is served from
- * the archive (archived first when it is missing: self-heal); a draft, an open amendment and a print variant (another letterhead) are rendered on demand
- * and never stored. The hash gives integrity after archive, not authenticity of origin (no digital signature).
+ * the archive; a draft, an open amendment and a print variant (another letterhead) are rendered on demand and never stored. The hash gives integrity
+ * after archive, not authenticity of origin (no digital signature).
+ *
+ * Ruling R-A (09A-06a, migration 000111): only the doctor who signed the visit archives its Rx. The database refuses anyone else's object and pair, and
+ * an object at the key that the signer did not store is never adopted (the incident is audited). A missing archive therefore self-heals only when the
+ * signer opens the record; every other reader of a sealed Rx without a verified archive gets an on-demand render that carries a visible
+ * "Regenerated copy" line (review S-8) and is never stored.
  */
 
 const RX_BUCKET = "prescriptions";
+
+/** Printed on an on-demand render served in place of a missing or failed archive (review S-8): the bytes are not the archived signed document. */
+export const REGENERATED_COPY_NOTICE = "Regenerated copy, not the archived original";
 
 /** Converts a Node ReadableStream or raw buffer into a single Buffer. */
 async function streamToBuffer(stream: unknown): Promise<Buffer> {
@@ -56,7 +64,7 @@ export function prescriptionPdfPath(tenantId: string, visitId: string, version: 
   return `${tenantId}/${visitId}/rx_v${version}.pdf`;
 }
 
-/** Compiles an electronic prescription into an A4 PDF on the server. Pure: nothing is stored. */
+/** Compiles an electronic prescription into an A4 PDF on the server. Pure: nothing is stored. A payload with `regenerated_notice` prints that line. */
 export async function renderPrescriptionPdf(payload: PrescriptionPdfPayload): Promise<Buffer> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(PrescriptionDocument, { payload }) as any;
@@ -65,12 +73,29 @@ export async function renderPrescriptionPdf(payload: PrescriptionPdfPayload): Pr
 }
 
 export interface ArchivedPrescriptionPdf {
-  /** `archived`: uploaded and recorded now; `adopted`: the object already existed with no hash and was recorded; `already_archived`: nothing to do. */
+  /**
+   * `archived`: uploaded and recorded now; `adopted`: the object already existed with no hash, the signer had stored it (an earlier archive stopped
+   * before its record), and it was recorded; `already_archived`: nothing to do.
+   */
   status: "archived" | "adopted" | "already_archived";
   storagePath: string;
   sha256: string;
   /** The archived bytes; absent for `already_archived`. */
   buffer?: Buffer;
+}
+
+/** The storage error behind the provider's fixed-message wrapper (the original error is on `cause`). */
+function storageCause(err: unknown): { statusCode?: unknown; status?: unknown; error?: unknown; message?: unknown; originalError?: { status?: unknown } } | null {
+  return (err as { cause?: never } | null)?.cause ?? null;
+}
+
+/** A download whose object does not exist (404, or the 400 "not found" some Storage versions answer), as opposed to a transient failure. */
+export function isMissingObjectError(err: unknown): boolean {
+  const cause = storageCause(err);
+  if (!cause) return false;
+  const status = String(cause.statusCode ?? cause.status ?? cause.originalError?.status ?? "");
+  if (status === "404") return true;
+  return /not[ _]?found/i.test(`${String(cause.error ?? "")} ${String(cause.message ?? "")}`) || (status === "400" && !cause.message);
 }
 
 /** The Storage API's "object already exists" (409), through the provider's fixed-message wrapper (the original error is on `cause`). */
@@ -103,8 +128,10 @@ async function readHeader(ctx: ServiceContext, prescriptionId: string): Promise<
 
 /**
  * Archives the signed version once (see the file header). Idempotent: a header that already has its hash is left alone and nothing is rendered or
- * uploaded. A duplicate object is adopted (downloaded, hashed, recorded) only while the header has no hash. Throws with a fixed message when the archive
- * cannot be completed (the record is already signed; callers treat it as best-effort and the next open archives it, R-12).
+ * uploaded. A duplicate object is adopted (downloaded, hashed, recorded) only while the header has no hash AND only when the signer stored it: the
+ * database refuses the pair otherwise (RX_PDF_OBJECT_INVALID, 000111), and the planted object is audited as an integrity incident, never recorded.
+ * The caller must be the visit's signer (R-A); the database refuses anyone else. Throws with a fixed message when the archive cannot be completed (the
+ * record is already signed; callers treat it as best-effort and the signer's next open archives it, R-12).
  */
 export async function archivePrescriptionPdf(
   ctx: ServiceContext,
@@ -163,6 +190,13 @@ export async function archivePrescriptionPdf(
     .is("pdf_sha256", null)
     .select("id");
   if (recordErr) {
+    if (status === "adopted" && (recordErr as { message?: string }).message === "RX_PDF_OBJECT_INVALID") {
+      // 000111 (R-A): the object at the key was not stored by the signer (planted by another member before 000111, or by the service role or a storage
+      // admin). It is never adopted: the incident is audited (the hash of what is there, no PHI) and every reader gets a regenerated copy.
+      log.error({ event: "prescriptions.pdf_integrity_failed", code: "FOREIGN_OBJECT", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      await auditIntegrityFailure(ctx, { id: header.id, version: header.version, storagePath, sha256, reason: "FOREIGN_OBJECT" });
+      throw new Error("The stored prescription PDF was not written by the signing doctor.", { cause: recordErr });
+    }
     log.error({ event: "prescriptions.pdf_record.failed", code: errorTag(recordErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     throw new Error("Failed to record the prescription PDF archive.", { cause: recordErr });
   }
@@ -198,40 +232,57 @@ export interface ArchivedHeader {
 
 export interface ReadArchivedPrescriptionPdf {
   buffer: Buffer;
-  /** true: the stored bytes matched the recorded SHA-256. false: they did not (or the object was missing); `buffer` is a fresh render of the sealed rows. */
+  /** true: the stored bytes matched the recorded SHA-256. false: they did not, or could not be read; `buffer` is then a regenerated render of the sealed rows. */
   verified: boolean;
+  /** Why the archive was not served: HASH_MISMATCH (tampering: audited), OBJECT_MISSING or READ_FAILED (not audited as tampering, review A-6). */
+  failure?: "HASH_MISMATCH" | "OBJECT_MISSING" | "READ_FAILED";
+}
+
+async function auditIntegrityFailure(
+  ctx: ServiceContext,
+  row: { id: string; version: number; storagePath: string; sha256: string; reason: "HASH_MISMATCH" | "FOREIGN_OBJECT" }
+): Promise<void> {
+  try {
+    await recordAudit(ctx, {
+      action: "prescription.pdf_integrity_failed",
+      entityType: "prescription",
+      entityId: row.id,
+      metadata: { version: row.version, sha256: row.sha256, storage_path: row.storagePath, reason: row.reason },
+    });
+  } catch (auditErr) {
+    log.warn({ event: "prescriptions.pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+  }
 }
 
 /**
- * Reads an archived Rx PDF and checks it against the recorded SHA-256. The stored bytes are returned only when the hash matches; on a mismatch (or a
- * missing object) a fresh render of the sealed rows is returned instead, the failure is logged by tag and audited (`prescription.pdf_integrity_failed`).
+ * Reads an archived Rx PDF and checks it against the recorded SHA-256. The stored bytes are returned only when the hash matches. Otherwise the
+ * regenerated render (`renderFresh`, which carries the S-8 notice) is returned: a hash mismatch is an integrity failure (logged by tag and audited as
+ * `prescription.pdf_integrity_failed`); a missing object or a failed read is not tampering (review A-6): a warn log and no audit row.
  */
 export async function readArchivedPrescriptionPdf(
   ctx: ServiceContext,
   header: ArchivedHeader,
   renderFresh: () => Promise<Buffer>
 ): Promise<ReadArchivedPrescriptionPdf> {
-  let stored: Buffer | null = null;
+  let stored: Buffer;
   try {
     stored = await downloadFile({ path: header.pdf_storage_path, bucket: RX_BUCKET }, getStorageProviderForDb(ctx.db, RX_BUCKET));
-  } catch {
-    stored = null;
+  } catch (readErr) {
+    const failure = isMissingObjectError(readErr) ? "OBJECT_MISSING" : "READ_FAILED";
+    log.warn({ event: "prescriptions.pdf_archive_read.failed", code: failure, requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { buffer: await renderFresh(), verified: false, failure };
   }
-  if (stored && sha256Hex(stored) === header.pdf_sha256) {
+  if (sha256Hex(stored) === header.pdf_sha256) {
     return { buffer: stored, verified: true };
   }
-  log.error({ event: "prescriptions.pdf_integrity_failed", code: stored ? "HASH_MISMATCH" : "OBJECT_MISSING", requestId: await getRequestId(), tenantId: ctx.tenantId });
-  try {
-    await recordAudit(ctx, {
-      action: "prescription.pdf_integrity_failed",
-      entityType: "prescription",
-      entityId: header.id,
-      metadata: { version: header.version, sha256: header.pdf_sha256, storage_path: header.pdf_storage_path },
-    });
-  } catch (auditErr) {
-    log.warn({ event: "prescriptions.pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-  }
-  return { buffer: await renderFresh(), verified: false };
+  log.error({ event: "prescriptions.pdf_integrity_failed", code: "HASH_MISMATCH", requestId: await getRequestId(), tenantId: ctx.tenantId });
+  await auditIntegrityFailure(ctx, { id: header.id, version: header.version, storagePath: header.pdf_storage_path, sha256: header.pdf_sha256, reason: "HASH_MISMATCH" });
+  return { buffer: await renderFresh(), verified: false, failure: "HASH_MISMATCH" };
+}
+
+/** True when the caller is the doctor who signed the visit: the only one who may archive its Rx (ruling R-A, migration 000111). */
+export function isVisitSigner(ctx: ServiceContext, source: PrescriptionPdfSource): boolean {
+  return ctx.actorType !== "api_key" && Boolean(source.visit.signed_by) && source.visit.signed_by === ctx.userId;
 }
 
 /**
@@ -249,68 +300,97 @@ export interface ServedPrescriptionPdf {
   buffer: Buffer;
   /** The archived object's key when the bytes come from (or were just written to) the archive and matched its hash; else null (rendered on demand). */
   storagePath: string | null;
-  /** true: matched the recorded hash. false: the archive failed its check and a fresh render is served. null: nothing was compared (rendered on demand, or a legacy hash recorded now). */
+  /** true: matched the recorded hash. false: the archive failed its check and a regenerated copy is served. null: nothing was compared (rendered on demand, or archived now). */
   verified: boolean | null;
+  /** true: an on-demand render served in place of a missing or failed archive; it prints the "Regenerated copy" notice (review S-8). */
+  regenerated: boolean;
   version: number;
 }
 
 /**
- * What a reader gets for a prescription (R-12). A sealed header (signed visit, not reopened) at its own letterhead is served from the archive and
- * verified against its hash; if it has no archive yet it is archived first (self-heal; a legacy header with a path and no hash gets its hash recorded on
- * this first read). Everything else (a draft, an open amendment, a print variant, a header with no signature, an archive that cannot be written) is
- * rendered on demand from the current rows and never stored.
+ * What a reader gets for a prescription (R-12, ruling R-A). A sealed header (signed visit, not reopened) at its own letterhead is served from the archive
+ * and verified against its hash. Its signer self-heals a missing archive (archived now; a recorded pair whose object is gone is cleared first, review
+ * S-3); anyone else, a legacy path with no hash, an archive that fails its check and an archive that cannot be written get a regenerated copy (S-8),
+ * never stored. A draft, an open amendment, a print variant and a header with no signature are rendered on demand from the current rows (no notice:
+ * they are not in place of an archive) and never stored.
  */
 export async function resolvePrescriptionPdf(ctx: ServiceContext, source: PrescriptionPdfSource): Promise<ServedPrescriptionPdf> {
   const { payload, header } = source;
   const version = payload.version;
   const renderNow = () => renderPrescriptionPdf(payload);
-  const onDemand = async (): Promise<ServedPrescriptionPdf> => ({ buffer: await renderNow(), storagePath: null, verified: null, version });
+  const renderRegenerated = () => renderPrescriptionPdf({ ...payload, regenerated_notice: REGENERATED_COPY_NOTICE });
+  const onDemand = async (): Promise<ServedPrescriptionPdf> => ({ buffer: await renderNow(), storagePath: null, verified: null, regenerated: false, version });
+  const regenerated = async (verified: boolean | null): Promise<ServedPrescriptionPdf> => ({
+    buffer: await renderRegenerated(),
+    storagePath: null,
+    verified,
+    regenerated: true,
+    version,
+  });
 
   if (!header || !isArchivable(ctx, source)) {
     return onDemand();
   }
+  const signer = isVisitSigner(ctx, source);
 
   if (header.pdf_sha256 && header.pdf_storage_path) {
     const read = await readArchivedPrescriptionPdf(
       ctx,
       { id: header.id, version: header.version, pdf_storage_path: header.pdf_storage_path, pdf_sha256: header.pdf_sha256 },
-      renderNow
+      renderRegenerated
     );
-    return { buffer: read.buffer, storagePath: read.verified ? header.pdf_storage_path : null, verified: read.verified, version };
+    if (read.verified) {
+      return { buffer: read.buffer, storagePath: header.pdf_storage_path, verified: true, regenerated: false, version };
+    }
+    if (read.failure !== "OBJECT_MISSING" || !signer) {
+      return { buffer: read.buffer, storagePath: null, verified: false, regenerated: true, version };
+    }
+    // S-3: the signer's archive is gone. The signer (and only the signer, the database checks it and that the object is missing) clears the broken pair,
+    // then archives again below.
+    if (!(await clearMissingArchivePair(ctx, header.id, header.pdf_sha256))) {
+      return { buffer: read.buffer, storagePath: null, verified: false, regenerated: true, version };
+    }
+  } else if (header.pdf_storage_path) {
+    // A legacy path with no recorded hash (pre-000109 rows only, PO-15): never trusted and never recorded (review S-2 (c)).
+    return regenerated(null);
   }
 
+  if (!signer) {
+    // R-A: only the signer archives; everyone else gets a regenerated copy until the signer opens the record.
+    return regenerated(null);
+  }
   try {
-    if (header.pdf_storage_path) {
-      // Legacy: an archive with no recorded hash. The first read downloads it, hashes it and records the hash (trust on first use).
-      try {
-        const bytes = await downloadFile({ path: header.pdf_storage_path, bucket: RX_BUCKET }, getStorageProviderForDb(ctx.db, RX_BUCKET));
-        const sha256 = sha256Hex(bytes);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (ctx.db.from("prescriptions") as any)
-          .update({ pdf_sha256: sha256, updated_at: new Date().toISOString() })
-          .eq("id", header.id)
-          .eq("tenant_id", ctx.tenantId)
-          .is("pdf_sha256", null);
-        if (error) throw error;
-        return { buffer: bytes, storagePath: header.pdf_storage_path, verified: null, version };
-      } catch (legacyErr) {
-        log.warn({ event: "prescriptions.pdf_legacy_hash.failed", code: errorTag(legacyErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      }
-    }
     const archived = await archivePrescriptionPdf(ctx, payload);
     if (archived.buffer) {
-      return { buffer: archived.buffer, storagePath: archived.storagePath, verified: null, version };
+      return { buffer: archived.buffer, storagePath: archived.storagePath, verified: null, regenerated: false, version };
     }
     // A concurrent archiver recorded it between our read and our write: read theirs, verified.
     const read = await readArchivedPrescriptionPdf(
       ctx,
       { id: header.id, version: header.version, pdf_storage_path: archived.storagePath, pdf_sha256: archived.sha256 },
-      renderNow
+      renderRegenerated
     );
-    return { buffer: read.buffer, storagePath: read.verified ? archived.storagePath : null, verified: read.verified, version };
+    return { buffer: read.buffer, storagePath: read.verified ? archived.storagePath : null, verified: read.verified, regenerated: !read.verified, version };
   } catch (archiveErr) {
-    // The record is signed whatever happens here: serve a render and let the next open try again.
+    // The record is signed whatever happens here: serve a regenerated copy and let the signer's next open try again.
     log.warn({ event: "prescriptions.pdf_self_heal.failed", code: errorTag(archiveErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return onDemand();
+    return regenerated(null);
   }
+}
+
+/** S-3: clears a recorded pair whose object is missing (the database admits it only for the signer and only when the object is gone). */
+async function clearMissingArchivePair(ctx: ServiceContext, prescriptionId: string, sha256: string): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("prescriptions") as any)
+    .update({ pdf_storage_path: null, pdf_sha256: null, updated_at: new Date().toISOString() })
+    .eq("id", prescriptionId)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("pdf_sha256", sha256)
+    .select("id");
+  if (error || !Array.isArray(data) || data.length !== 1) {
+    log.warn({ event: "prescriptions.pdf_pair_clear.failed", code: errorTag(error ?? "ROW_NOT_AFFECTED"), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return false;
+  }
+  log.warn({ event: "prescriptions.pdf_pair_cleared", code: "OBJECT_MISSING", requestId: await getRequestId(), tenantId: ctx.tenantId });
+  return true;
 }

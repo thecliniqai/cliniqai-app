@@ -33,7 +33,8 @@ export interface PrescriptionPdfSource {
   payload: PrescriptionPdfPayload;
   /** The header the payload is about: the one named by `prescriptionId`, else the visit's latest version; null when the visit has none. */
   header: PrescriptionPdfHeader | null;
-  visit: { status: string; signed_at: string | null };
+  /** `signed_by`: the visit's signer, the only one who archives its Rx (ruling R-A, 09A-06a). */
+  visit: { status: string; signed_at: string | null; signed_by: string | null };
 }
 
 export interface PrescriptionPdfSourceOptions {
@@ -195,7 +196,7 @@ export async function loadPrescriptionPdfSource(
           pdf_sha256: rx.pdf_sha256 ?? null,
         }
       : null,
-    visit: { status: visit.status, signed_at: visit.signed_at ?? null },
+    visit: { status: visit.status, signed_at: visit.signed_at ?? null, signed_by: visit.signed_by ?? null },
   };
 }
 

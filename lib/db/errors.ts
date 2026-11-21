@@ -115,6 +115,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   VISIT_NOT_SIGNED: "CONFLICT",
   AMENDMENT_NOT_OPEN: "CONFLICT",
   AMENDMENT_REASON_INVALID: "VALIDATION_FAILED",
+  // V2-09a 09A-06a (migration 000111, review A-3): the reopen waits until the signed version's Rx PDF is archived (by its signer); retryable.
+  RX_ARCHIVE_PENDING: "CONFLICT",
   VISIT_NOT_CHECKABLE: "CONFLICT",
   // V2-07 07-03 (migration 000098): the front-desk commands. The doctor's slot is taken / outside the clinic-local shifts /
   // inside a schedule block (register_and_book; the overbook confirmation re-sends with the override); a visit this user
