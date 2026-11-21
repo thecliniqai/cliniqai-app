@@ -102,9 +102,15 @@ describe("sealed: a signed consultation is read-only", () => {
       ["input", 'placeholder="Type custom test name'],
       ["input", 'placeholder="Add custom advice'],
       ["input", 'id="follow-up-date-input"'],
-      ["select", 'id="workspace-specialty"'],
     ] as const) {
       expect(isDisabled(openTag(html, tag, needle)), `${tag} ${needle}`).toBe(true);
+    }
+    // 09B-03: the specialty is chosen with the exam template tiles (the header select is gone); every one is disabled on a sealed record.
+    const tileButtons = [...html.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/g)];
+    for (const name of ["Fever workup", "GP general", "Respiratory", "Abdomen", "Dental", "Child"]) {
+      const tile = tileButtons.find((m) => text(m[2]).startsWith(name));
+      expect(tile, `template tile ${name}`).toBeTruthy();
+      expect(isDisabled(tile![1]), `template tile ${name}`).toBe(true);
     }
     // Every investigation and advice tile and every follow-up interval tile (the referral is a separate record and stays available). They are the
     // toggle tiles of the Plan section (`data-state`); 14 + 10 + 6 of them.

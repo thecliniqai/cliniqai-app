@@ -250,7 +250,7 @@ test("@golden 1280 px: the Summary toggle opens a 272 px pane that shows the dra
   expect(await widthOf(pane)).toBe(272);
   await expect(pane).toContainText("Summary · as the patient will see it");
   // What the doctor taps appears at once, from the in-memory draft.
-  await page.getByRole("button", { name: /\+ Steam inhalation twice daily/ }).click();
+  await page.getByRole("button", { name: "Steam inhalation twice daily", exact: true }).click();
   await expect(pane.getByRole("region", { name: "Advice" })).toContainText("Steam inhalation twice daily");
   // The follow-up date (5 days preselected) is shown in the clinic zone with its weekday.
   await expect(pane.getByRole("region", { name: "Follow-up" })).toContainText(/^Follow-up\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} \w{3} \d{4}$/);
