@@ -107,16 +107,16 @@ function continueSignedOut(request: NextRequest, requestId: string, previous: Ne
  * V2-09b 09B-06a (ruling R-U; review S-1 / A-5): the request-body gate. The server-action body limit is 4 MB for every action (next.config.ts) and Next
  * reads the body before any action authenticates, so a request that may carry more than 1 MB is answered 413 here, before anything reads it, unless the
  * caller is signed in and posts to a page that hosts the report upload (`/consultation/…`, `/patients/…`). "May carry": a `content-length` over 1 MB or
- * not a plain number, or no `content-length` on a POST, PUT or PATCH (or on any request with a `transfer-encoding`), since its size is then unknown.
+ * not a plain number, or a body with no `content-length` (a `transfer-encoding`, or a body stream), since its size is then unknown. A request with
+ * neither a length nor a body (a bodiless POST or DELETE) carries nothing and passes.
  */
 export const PROXY_MAX_BODY_BYTES = 1024 * 1024;
-const LENGTH_EXPECTED_METHODS: ReadonlySet<string> = new Set(["POST", "PUT", "PATCH"]);
 
 export function bodyMayExceedProxyLimit(request: NextRequest): boolean {
   const method = request.method.toUpperCase();
   if (method === "GET" || method === "HEAD") return false;
   const length = request.headers.get("content-length");
-  if (length === null) return LENGTH_EXPECTED_METHODS.has(method) || request.headers.has("transfer-encoding");
+  if (length === null) return request.headers.has("transfer-encoding") || request.body !== null;
   const trimmed = length.trim();
   return !/^\d+$/.test(trimmed) || Number(trimmed) > PROXY_MAX_BODY_BYTES;
 }

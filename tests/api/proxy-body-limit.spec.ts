@@ -1,7 +1,7 @@
 /**
  * V2-09b 09B-06a, ruling R-U (review S-1 / A-5): the request-body gate of `proxy.ts`. The server-action body limit is 4 MB for every action and Next reads
  * the body before an action authenticates, so the proxy answers 413, before anything reads the body, to a non-GET/HEAD request that may carry more than
- * 1 MB (a `content-length` over 1 MB or not a number, or none on a POST, PUT or PATCH) unless the caller is signed in and the path is an upload page
+ * 1 MB (a `content-length` over 1 MB or not a number, or a body with no length) unless the caller is signed in and the path is an upload page
  * (`/consultation/…`, `/patients/…`). Driven through the real `proxy` against the local stack's GoTrue with a real session (no body is ever sent: the
  * gate reads headers only). Synthetic users only.
  */
@@ -22,12 +22,17 @@ function encodeSession(session: Session): string {
 
 let session: Session;
 
-function request(path: string, opts: { method?: string; length?: string | null; signedIn?: boolean; chunked?: boolean } = {}): NextRequest {
+function request(
+  path: string,
+  opts: { method?: string; length?: string | null; signedIn?: boolean; chunked?: boolean; stream?: boolean } = {},
+): NextRequest {
   const headers = new Headers({ "next-action": "0123456789abcdef" });
   if (opts.length !== undefined && opts.length !== null) headers.set("content-length", opts.length);
   if (opts.chunked) headers.set("transfer-encoding", "chunked");
   if (opts.signedIn) headers.set("cookie", `${COOKIE}=${encodeSession(session)}`);
-  return new NextRequest(`http://localhost${path}`, { method: opts.method ?? "POST", headers });
+  // A body stream of unknown length (nothing is read from it: the gate looks at headers and at whether there is a body).
+  const body = opts.stream ? new ReadableStream({ start: (c) => c.close() }) : undefined;
+  return new NextRequest(`http://localhost${path}`, { method: opts.method ?? "POST", headers, body, ...(body ? { duplex: "half" } : {}) } as RequestInit);
 }
 
 const passedOn = (res: Response) => res.status === 200 && res.headers.get("x-middleware-next") === "1";
@@ -56,9 +61,9 @@ describe("R-U: the proxy refuses large or unsized bodies before any action reads
     expect((await proxy(request("/patients/abc", { length: String(2 * MB) }))).status).toBe(413);
   });
 
-  it("a POST with no content-length, a chunked request and a content-length that is not a number are 413", async () => {
-    expect((await proxy(request("/login", { length: null }))).status).toBe(413);
-    expect((await proxy(request("/login", { method: "PUT", length: null }))).status).toBe(413);
+  it("a body with no content-length (a stream, chunked) and a content-length that is not a number are 413", async () => {
+    expect((await proxy(request("/login", { length: null, stream: true }))).status).toBe(413);
+    expect((await proxy(request("/login", { method: "PUT", length: null, stream: true }))).status).toBe(413);
     expect((await proxy(request("/login", { method: "DELETE", length: null, chunked: true }))).status).toBe(413);
     expect((await proxy(request("/login", { length: "12abc" }))).status).toBe(413);
   });
@@ -73,10 +78,11 @@ describe("R-U: the proxy refuses large or unsized bodies before any action reads
     expect(passedOn(await proxy(request("/patients/abc", { length: String(4 * MB), signedIn: true })))).toBe(true);
   });
 
-  it("small bodies, bodiless deletes and GETs pass whoever sends them", async () => {
+  it("small bodies, bodiless POSTs and deletes, and GETs pass whoever sends them", async () => {
     expect(passedOn(await proxy(request("/login", { length: "512" })))).toBe(true);
     expect(passedOn(await proxy(request("/login", { length: String(MB) })))).toBe(true);
     expect(passedOn(await proxy(request("/login", { method: "DELETE", length: null })))).toBe(true);
+    expect(passedOn(await proxy(request("/login", { length: null })))).toBe(true);
     expect(passedOn(await proxy(request("/login", { method: "GET", length: String(50 * MB) })))).toBe(true);
   });
 });
