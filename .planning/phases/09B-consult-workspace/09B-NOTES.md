@@ -830,3 +830,23 @@ Every e2e run on the local stack after `npx supabase db reset --local` (a killed
 - Vitest `tests/consultation/assist-ranking.spec.ts` 39 passed (a no-op and a case-sensitive mutant of `quickChipsBesideLearned` fail 3 each).
 - Vitest `tests/consultation tests/terminology`: 21 files, 494 tests, all passed.
 - `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (unchanged); `npm run inventory` exit 0, 0 flagged; `ci:ui-policy` and `ci:ai-l1` PASS.
+
+### CI 44942218223 (head 3a01bc0a): the earlier fixes held; one new failure
+
+0 retried to pass; every 44924479177 failure gone; the lane finished, but in 62.5 of its 65 minutes. One hard failure, iphone-15 only, 3 of 3: today-live
+"a check-in on one screen reaches another browser of the clinic within 2 s" (`[data-lane="waiting"]` row not visible within 2 s). Debug session:
+`.planning/debug/ci-44942218223-today-live-webkit.md`.
+
+| # | Test (project) | Root cause | Wrong | Fix (commit) |
+|---|---|---|---|---|
+| 11 | `today/today-live` :64 (iphone-15, hard; first CI run of 09B code that reached iphone-15) | A signal makes a screen re-read and re-render the whole clinic day, and the shared clinic A collects the day of every spec of every project. When iphone-15 (last, about an hour in) reached the test, the day held 397 visits (259 in consultation; about 210-230 from the consult specs 09B added). In each attempt the 1280 px WebKit observer got the signal (0.46-0.58 s on the retries) and the refreshed day (the RSC payload had the row in Waiting, token 82), but had not drawn it 0.65-0.68 s later when the window closed; its first render of the day took 2.76 s. desktop-chrome and pixel-7 passed with the same data. Locally the update takes 0.53 s (5 rows) to 0.60 s (400 rows) on WebKit, the RSC-to-DOM step 0-6 ms against 25-47 ms; the original test passed 3 of 3 even with 900 rows and the CPU loaded, and at the end of both local full lanes: not reproducible locally, so the runner's WebKit is the second condition. Eliminated: Realtime delivery (in time), tokens (the first `phx_join` without the token is refused after 5 s and the rejoin succeeds, on every load since V2-08, before Live), the own-doctor helper (closed contexts, not on Today), 09B's Today changes (small; the observer is in front mode), the net-guard line (once at server start). | test (isolation) + environment | The case makes its own clinic (owner as observer, receptionist, both signed in through the login UI); `seedBookedToday` takes an optional clinic; assertions unchanged (1a58b49) |
+| 12 | CI budget | The lane ran 62.5 of 65 minutes: this runner took 2.1x the local time (desktop-chrome 36.0 against 16.8 min, iphone-15 8.8 against 3.0), where 44924479177's took 1.54x. | CI budget | Lane 85 min, job 95 (da9a6d8). **PO decision**: splitting the lane is the lasting fix |
+
+Observations for the PO, not changed: (1) Today re-renders every row of the day on each signal; with 400 visits the CI WebKit needs most of a second for it.
+(2) PostgREST's `max_rows = 1000` cuts the Today board silently above 1000 visits a day (seen with 1500 seeded visits in an experiment). (3) The Realtime
+client's first join is sent without the access token, refused after 5 s, and rejoined: Today takes about 6 s to show Live (V2-08 behaviour).
+
+Stability (tool output): `tests/e2e/today/today-live.spec.ts`, desktop-chrome, pixel-7, iphone-15, `--retries=0 --repeat-each=3`: **44 passed, 0 failed**
+(the 2 s case 3 of 3 on each). Full lane at 1a58b49, `CI=true npm run e2e:pr`: **1014 passed, 0 failed, 0 flaky (0 retried), 247 skipped (29.2 min)**; the
+2 s case passed first time on all three projects; the two network-block cases failed with their KNOWN-BUG assertion as declared. Temporary experiment
+specs were deleted; PNGs restored; `.planning/dev-messages.txt` not recreated. da9a6d8 changes only `ci.yml`.
