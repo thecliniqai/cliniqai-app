@@ -128,6 +128,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/billing/subscription.ts#getSubscriptionOverview": "clinic:manage",
   "features/clinics/actions.ts#createClinic":
     { authenticated: "Onboarding: a signed-in user without a clinic creates one; create_clinic_with_owner binds the owner membership to auth.uid()." },
+  "features/clinics/actions.ts#switchClinic":
+    { authenticated: "The clinic switcher (V2-08 08-05, R-17): a signed-in user picks one of their own clinics; the cookie is written only for an active membership read under RLS, so a forged or foreign id writes nothing." },
   "features/clinics/profile.ts#getClinicProfile": "clinic:view",
   "features/clinics/profile.ts#getClinicProfileWithMembership": "clinic:view",
   "features/clinics/profile.ts#updateClinicProfile": "clinic:manage",
@@ -232,6 +234,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/visits/scheduling.ts#markNoShow": "appointments:edit",
   "features/visits/scheduling.ts#confirmAppointment": "appointments:edit",
   "features/visits/scheduling.ts#getAvailableSlots": "appointments:view",
+  "features/visits/scheduling.ts#getSlotAssist": "appointments:view",
   "features/visits/scheduling.ts#getRescheduleTarget": "appointments:view",
   "features/visits/scheduling.ts#createScheduleBlock": "appointments:edit",
   "features/visits/scheduling.ts#deleteScheduleBlock": "appointments:edit",
@@ -264,6 +267,8 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
+  "features/clinics/actions.ts#switchClinic":
+    "V2-08 08-05 ({ authenticated }): the leg's caller is the shared outsider, who has no membership of tenant A and so correctly cannot switch to it; the success path, the cookie attributes and the refusals (forged, foreign, removed) are covered by tests/clinics/switch-clinic-db.spec.ts. The forged-id variants still run (B's id: refused, nothing written).",
   "features/staff/actions.ts#removeStaff":
     "V2-05 05-05: the world's tenant-A membership is the caller's own, which remove_member refuses (SELF_REMOVAL), and removing any other member of the shared world would change the later legs; the successful path is covered by supabase/tests/database/remove_member.test.sql and tests/integration/auth/remove-member.spec.ts. The forged-id variants still run (B's membership: not found).",
 };

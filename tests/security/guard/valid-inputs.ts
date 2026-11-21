@@ -292,6 +292,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/visits/scheduling.ts#getScheduleBlocksForDate": { args: (a) => [dateAhead(5), a.callerUser] },
   // The slot list (V2-08 08-04b): a clinic doctor, a date ahead and a visit whose own slot is listed again.
   "features/visits/scheduling.ts#getAvailableSlots": { args: (a) => [a.ownerUser, dateAhead(6), a.visit] },
+  "features/visits/scheduling.ts#getSlotAssist": { args: (a) => [a.ownerUser, a.patient] },
   "features/visits/scheduling.ts#getRescheduleTarget": { args: (a) => [a.visit] },
   "features/settings/actions.ts#getDoctorScheduleBlocks": { args: (a) => [a.callerUser] },
   "features/waitlist/actions.ts#promoteWaitlistEntry": {

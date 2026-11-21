@@ -86,6 +86,10 @@
  *          two raw-error cases went with the deleted services).
  *   6385 — V2-08 08-04b, unchanged: REQUIRED_FILES + the two 08-04b specs (tests/schedule/{slot-adapter,schedule-model}.spec.ts; 259
  *          in total). The floor is re-measured at the next gate; the suite grew.
+ *   6455 — V2-08 08-05: 6385 + 70 new tests = 6455 (tests/visits/{suggest-slots 15, slot-suggestion-context-db 6,
+ *          slot-assist-entitlement-db 4}.spec.ts, tests/patients/duplicate-rules-db.spec.ts 28, tests/clinics/switch-clinic-db.spec.ts 11,
+ *          and the guard suite's legs for the two new actions switchClinic and getSlotAssist: 6); REQUIRED_FILES + the five new specs
+ *          (264 in total). The floor is re-measured at the next gate; the suite grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -94,7 +98,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 6385;
+const FLOOR = 6455;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -431,6 +435,12 @@ const REQUIRED_FILES = [
   // V2-08 08-04b (the Schedule and the booking UIs).
   "tests/schedule/slot-adapter.spec.ts",
   "tests/schedule/schedule-model.spec.ts",
+  // V2-08 08-05 (Smart Assist, the clinic switcher).
+  "tests/visits/suggest-slots.spec.ts",
+  "tests/visits/slot-suggestion-context-db.spec.ts",
+  "tests/visits/slot-assist-entitlement-db.spec.ts",
+  "tests/patients/duplicate-rules-db.spec.ts",
+  "tests/clinics/switch-clinic-db.spec.ts",
 ];
 
 const file = process.argv[2];
