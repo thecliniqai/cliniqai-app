@@ -25,7 +25,9 @@ import type { SaveStatusProps } from "@/components/clinical/save-status";
  *  - when the workspace goes away (an in-app navigation, Back) or the record state changes, the old saver is released: what is unsent is saved at once,
  *    then it is disposed (09B-06a, A-1; before, the cleanup only disposed it and up to 5 s of taps were lost);
  *  - saves on blur (focus leaves a field), when the page is hidden (`visibilitychange`, `pagehide`) and when the device comes back online;
- *  - registers `beforeunload` only while something is unsaved or a save is in flight, so an idle or saved consult leaves without a prompt;
+ *  - registers `beforeunload` only while something is unsaved or a save is in flight, so an idle or saved consult leaves without a prompt. The guard
+ *    follows the saver's own state, in the same call that makes the draft dirty (CI 44924479177: it used to be added by an effect one React render after
+ *    the state update, so a tab closed within that render left without the question);
  *  - exposes `flush()` for Sign, Amend, Finalize, Finish, "Save draft" and Ctrl/Cmd+S, and the props of `SaveStatus`.
  * A read-only record has no saver (`enabled` false): `flush()` is then a success with nothing to save.
  */
@@ -41,6 +43,21 @@ const IDLE: DraftSaverState = {
   error: null,
   invalidFields: [],
 };
+
+/** Adds or removes the `beforeunload` guard held in `slot`; idempotent. */
+function syncUnloadGuard(slot: { current: (() => void) | null }, on: boolean): void {
+  if (on && !slot.current) {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    slot.current = () => window.removeEventListener("beforeunload", onBeforeUnload);
+  } else if (!on && slot.current) {
+    slot.current();
+    slot.current = null;
+  }
+}
 
 export interface UseConsultDraft {
   state: DraftSaverState;
@@ -64,6 +81,8 @@ export function useConsultDraft(options: {
   const { visitId, enabled, resetKey } = options;
   const timeZone = useClinicTimeZone();
   const saverRef = useRef<DraftSaver | null>(null);
+  /** Removes the unload guard while it is registered. */
+  const unloadGuard = useRef<(() => void) | null>(null);
   const latest = useRef(options);
   const zone = useRef(timeZone);
   const [state, setState] = useState<DraftSaverState>(IDLE);
@@ -100,7 +119,11 @@ export function useConsultDraft(options: {
       registerBusy,
       onAppErrorCode: (code) => void onAppErrorCode(code),
       onRebased: (fields) => latest.current.onRebased(fields),
-      onState: setState,
+      onState: (next) => {
+        // The unload guard exists only while the draft is dirty or a save is in flight (R-4), set here and not by an effect a render later.
+        syncUnloadGuard(unloadGuard, next.unsaved);
+        setState(next);
+      },
       // 09B-06a (A-7, S-4): a vital out of range and a follow-up date the command would refuse (before the clinic's today or after today + 366, unless
       // it is the date already stored) are held back, so the other fields still save.
       isSendable: (key, fields) => {
@@ -116,6 +139,8 @@ export function useConsultDraft(options: {
       // A-1: flush, then dispose. The save is a server action, so it completes on the server even when this screen is gone.
       void saver.release();
       if (saverRef.current === saver) saverRef.current = null;
+      // The released saver reports no more state; the screen it guarded is gone or replaced.
+      syncUnloadGuard(unloadGuard, false);
     };
   }, [visitId, enabled, resetKey]);
 
@@ -139,18 +164,6 @@ export function useConsultDraft(options: {
       window.removeEventListener("online", onOnline);
     };
   }, [enabled]);
-
-  // The unload guard exists only while the draft is dirty or a save is in flight (R-4).
-  const unsaved = enabled && state.unsaved;
-  useEffect(() => {
-    if (!unsaved) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [unsaved]);
 
   const update = useCallback((fields: DraftFields) => saverRef.current?.update(fields), []);
   const flush = useCallback(async (): Promise<FlushResult> => {
