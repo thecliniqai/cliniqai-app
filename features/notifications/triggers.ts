@@ -184,7 +184,7 @@ export async function notifyDoctorScheduleConflict(target: NotificationTarget, i
       eventType: "schedule_conflict",
       title: "Schedule Conflict Alert",
       message: `Overlapping booking detected at ${input.appointmentTime} with ${input.conflictingPatientName}.`,
-      linkUrl: `/calendar`,
+      linkUrl: `/schedule`,
       metadata: { visit_id: input.visitId, appointment_time: input.appointmentTime },
     }
   );
@@ -204,7 +204,7 @@ export async function notifyWaitlistSlotFreed(target: NotificationTarget, input:
       eventType: "waitlist_slot_freed",
       title: "Waitlist Slot Freed",
       message: `Slot with Dr. ${input.doctorName} at ${input.slotTime} is now free. ${input.freedCount} waitlisted patient(s) eligible.`,
-      linkUrl: `/calendar`,
+      linkUrl: `/schedule`,
       metadata: { slot_time: input.slotTime, freed_count: input.freedCount },
     }
   );

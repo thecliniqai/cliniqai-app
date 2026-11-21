@@ -152,7 +152,7 @@ async function applyDeliveryReport(
       event_type: "whatsapp_delivery_failed",
       title: "WhatsApp Delivery Failed",
       message: `Failed to deliver notification to patient (${applied.recipient_phone}). Reason: ${reasonCode}`,
-      link_url: "/calendar",
+      link_url: "/schedule",
     });
     // Not retried (the transition is applied; a retry would see a repeat): logged.
     if (noteError) log.warn({ event: "messaging.dlr_note.failed", code: errorTag(noteError) });
@@ -498,7 +498,7 @@ async function handleRescheduleOrTriage(
       event_type: "reschedule_requested",
       title: "Appointment Reschedule Requested",
       message: `Patient ${appointment.patient?.full_name || from} requested to reschedule via WhatsApp.`,
-      link_url: `/calendar`,
+      link_url: `/schedule`,
     });
 
     if (rescheduleUrl) {

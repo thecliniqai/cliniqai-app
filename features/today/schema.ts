@@ -197,8 +197,8 @@ export interface RowButton {
  * The buttons a row shows in a mode, from the state machine's `actions` for the caller's role (R-7, `rowActions`) and
  * `canConsult` (the role holds `consultations:edit`). Front: Check in and Collect. Triage: Record vitals first, then
  * Check in. Doctor: Start consultation / Call in (a booked, confirmed or no-show visit is checked in first, R-1), Open
- * consult for a visit already with the doctor, and Record vitals. Reschedule, No-show and Cancel arrive with the Schedule
- * (08-04b). Nobody is offered an action the state machine did not list.
+ * consult for a visit already with the doctor, and Record vitals. Move, No-show and Cancel are the ⋯ menu
+ * of the row (`rowMenuItems`, 08-04b), not buttons. Nobody is offered an action the state machine did not list.
  */
 export function rowButtons(
   mode: TodayMode,

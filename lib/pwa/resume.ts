@@ -2,7 +2,7 @@ import { LIVE_VIEWS } from "@/lib/nav/nav-for-role";
 
 /**
  * Refresh on resume (V2-06 06-04b; PWA_STRATEGY §3.2 item 2, 06-UI-SPEC §6 "Resume and refresh"): a live view (Today
- * `/today`, `/calendar`) re-fetches its server data (`router.refresh()`, one RSC request) when the app
+ * `/today`, `/schedule`) re-fetches its server data (`router.refresh()`, one RSC request) when the app
  * comes back to the foreground (`visibilitychange` → visible) and when the network returns (`online`). A tablet left on
  * the front desk overnight shows today's queue, not yesterday's, as soon as it is looked at.
  *

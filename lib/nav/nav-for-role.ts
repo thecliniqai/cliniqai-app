@@ -13,7 +13,7 @@ import { ROLE_PERMISSIONS, type Permission } from "@/lib/permissions/matrix";
  * Destinations are the v1 URLs with their v1 accessible names, verbatim (R-8, CD-30: IA URLs and names arrive with each
  * workflow phase), except Today (`/today`, V2-08 08-03b: it replaced the dashboard, the Live Queue and the Doctor's Cabin;
  * R-14); the subscription page is `/settings/billing` (R-34). Which role sees which destination, and in which
- * group, is IA §3.2 restricted to the v1 URLs: Today; Schedule = Calendar (renamed in 08-04b);
+ * group, is IA §3.2 restricted to the v1 URLs: Today; Schedule (V2-08 08-04b: it replaced the Calendar);
  * Reports = Billing & Reports; Records (visits, referrals) and Settings are the secondary group (IA §3.3). A destination
  * is offered only when the role also holds its permission, so a narrower permission set can only remove items.
  *
@@ -57,7 +57,7 @@ export interface NavModel {
   secondary: NavDestination[];
   /** The phone BottomBar's destinations (at most four primary ones); the rest of the primary group goes to More. */
   bottom: string[];
-  /** "+ New" actions (CD-21): Add walk-in and Register patient (V2-08 08-03b); Book appointment joins in 08-04b. */
+  /** "+ New" actions (CD-21): Add walk-in, Register patient and Book appointment (V2-08 08-03b, 08-04b). */
   newActions: NavAction[];
   /** The palette's Actions group. */
   actions: NavAction[];
@@ -89,11 +89,11 @@ const DESTINATIONS: readonly DestinationSpec[] = [
     audience: ALL_PRIMARY,
     bottomRank: 1,
   },
-  // Schedule: a nurse only views it (○).
+  // Schedule (IA §3.2, V2-08 R-14): day, agenda and week; a nurse only views it (○).
   {
-    id: "calendar",
-    href: "/calendar",
-    label: { default: "Calendar", doctor: "My Calendar" },
+    id: "schedule",
+    href: "/schedule",
+    label: { default: "Schedule", doctor: "My Schedule" },
     icon: "calendar",
     permission: "appointments:view",
     audience: { owner: "primary", admin: "primary", doctor: "primary", receptionist: "primary", nurse: "secondary" },
@@ -172,7 +172,7 @@ const DESTINATIONS: readonly DestinationSpec[] = [
 const ACTIONS: ReadonlyArray<NavAction & { requires: string }> = [
   { id: "register", label: "Register patient", href: "/patients?new=1", permission: "patients:edit", requires: "patients" },
   { id: "walk-in", label: "Add walk-in", href: "/today?walkin=1", permission: "appointments:edit", requires: "today" },
-  { id: "book", label: "Book appointment", href: "/calendar", permission: "appointments:edit", requires: "calendar" },
+  { id: "book", label: "Book appointment", href: "/schedule?book=1", permission: "appointments:edit", requires: "schedule" },
   { id: "invite", label: "Invite staff", href: "/staff", permission: "staff:invite", requires: "staff" },
 ];
 
@@ -226,7 +226,7 @@ export function navForRole(role: UserRole, permissions: readonly Permission[] = 
     primary,
     secondary,
     bottom: primary.filter((d) => bottomIds.has(d.id)).map((d) => d.id),
-    newActions: actions.filter((a) => a.id === "walk-in" || a.id === "register"),
+    newActions: actions.filter((a) => a.id === "walk-in" || a.id === "register" || a.id === "book"),
     actions,
     home: primary[0]?.href ?? "/profile",
   };
@@ -267,8 +267,7 @@ const OTHER_TITLES: ReadonlyArray<[RegExp, string]> = [
   [/^\/staff(\/|$)/, "Staff & Team"],
   [/^\/visits(\/|$)/, "Visits"],
   [/^\/referrals(\/|$)/, "Referrals"],
-  [/^\/calendar(\/|$)/, "Calendar"],
-  [/^\/today(\/|$)/, "Today"],
+    [/^\/today(\/|$)/, "Today"],
 ];
 
 /** The top bar's screen title. */
@@ -301,4 +300,4 @@ export function isFocusMode(pathname: string): boolean {
 }
 
 /** Live views refetched on resume and on `online` (06-UI-SPEC §6 "Resume and refresh"). */
-export const LIVE_VIEWS: readonly string[] = ["/today", "/calendar"];
+export const LIVE_VIEWS: readonly string[] = ["/today", "/schedule"];

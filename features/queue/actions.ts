@@ -40,7 +40,7 @@ export async function checkInVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId);
-  if (result.success) revalidate("/today", "/calendar");
+  if (result.success) revalidate("/today", "/schedule");
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
     queueTokenId: ok.queueTokenId,
@@ -60,7 +60,7 @@ export async function enqueueWalkIn(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.enqueueWalkIn(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/today", "/calendar", "/patients");
+  if (result.ok) revalidate("/today", "/schedule", "/patients");
   return result;
 }
 
@@ -76,7 +76,7 @@ export async function startConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/today", "/calendar");
+  if (result.ok) revalidate("/today", "/schedule");
   return result;
 }
 
@@ -91,7 +91,7 @@ export async function completeVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/today", "/calendar");
+  if (result.ok) revalidate("/today", "/schedule");
   return result;
 }
 

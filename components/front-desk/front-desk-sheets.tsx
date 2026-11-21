@@ -4,26 +4,32 @@ import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { readShortcutsEnabled, ShortcutSheet } from "@/components/today/shortcut-sheet";
 import { shortcutFor, type ShortcutAction } from "./shortcuts";
+import { BookingSheet } from "./booking-sheet";
 import { RegisterPatientSheet } from "./register-patient-sheet";
+import { RescheduleSheet } from "./reschedule-sheet";
 import { WalkInSheet } from "./walk-in-sheet";
 
 /**
  * FrontDeskSheets (V2-08 08-02, 08-03b, R-13): the sheets of the front desk are search-param routes, hosted once in the
  * dashboard layout, so every entry point (Today, Schedule, Patients, the palette, "+ New", a patient profile) is a plain
  * link and a refresh keeps the sheet open. Hosted here: `?new=1` (register a patient; `phone` and `name` prefill it, see
- * `registerHref`) and `?walkin=1` (the walk-in sheet); the booking and reschedule sheets join in 08-04b.
+ * `registerHref`), `?walkin=1` (the walk-in sheet), `?book=1` (booking; `patient`, `doctor`, `date` and `time` prefill it)
+ * and `?reschedule=<visitId>` (move an appointment).
  *
- * Closing a sheet removes its parameters from the URL (`replace`, so Back does not reopen it). The single-key shortcuts
- * (W, N, ?; `shortcuts.ts`) open the same sheets by adding the parameter to the current address.
+ * Closing a sheet removes its parameters from the URL (`replace`, so Back does not reopen it), except `date` and `doctor`:
+ * the Schedule uses those two for its own view, and the booking sheet only reads them. The single-key shortcuts (W, B, N, ?;
+ * `shortcuts.ts`) open the same sheets by adding the parameter to the current address.
  */
-const SHEET_PARAMS = ["new", "phone", "name", "walkin"] as const;
+const SHEET_PARAMS = ["new", "phone", "name", "walkin", "book", "patient", "time", "reschedule"] as const;
 
-function Sheets({ canRegister, canWalkIn }: { canRegister: boolean; canWalkIn: boolean }) {
+function Sheets({ canRegister, canWalkIn, canBook }: { canRegister: boolean; canWalkIn: boolean; canBook: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const registerOpen = canRegister && params.get("new") === "1";
   const walkInOpen = canWalkIn && params.get("walkin") === "1";
+  const bookOpen = canBook && params.get("book") === "1";
+  const rescheduleId = canBook ? params.get("reschedule") : null;
   const [helpOpen, setHelpOpen] = useState(false);
   const [shortcutsOn, setShortcutsOn] = useState(false);
 
@@ -40,7 +46,7 @@ function Sheets({ canRegister, canWalkIn }: { canRegister: boolean; canWalkIn: b
 
   const query = params.toString();
   useEffect(() => {
-    const open = (key: "new" | "walkin") => {
+    const open = (key: "new" | "walkin" | "book") => {
       const next = new URLSearchParams(query);
       next.set(key, "1");
       router.push(`${pathname}?${next.toString()}`);
@@ -62,13 +68,14 @@ function Sheets({ canRegister, canWalkIn }: { canRegister: boolean; canWalkIn: b
       if (!action) return;
       if (action === "help") setHelpOpen(true);
       else if (action === "walkin" && canWalkIn) open("walkin");
+      else if (action === "book" && canBook) open("book");
       else if (action === "new" && canRegister) open("new");
       else return;
       event.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [query, pathname, router, shortcutsOn, canWalkIn, canRegister]);
+  }, [query, pathname, router, shortcutsOn, canWalkIn, canBook, canRegister]);
 
   const close = () => {
     const next = new URLSearchParams(params.toString());
@@ -96,15 +103,33 @@ function Sheets({ canRegister, canWalkIn }: { canRegister: boolean; canWalkIn: b
           if (!open) close();
         }}
       />
+      <BookingSheet
+        open={bookOpen}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+        defaults={{
+          patientId: params.get("patient") ?? undefined,
+          doctorId: params.get("doctor") ?? undefined,
+          date: /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? (params.get("date") ?? undefined) : undefined,
+          time: /^([01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? (params.get("time") ?? undefined) : undefined,
+        }}
+      />
+      <RescheduleSheet
+        visitId={rescheduleId}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+      />
       <ShortcutSheet open={helpOpen} onOpenChange={setHelpOpen} enabled={shortcutsOn} onChange={setShortcutsOn} />
     </>
   );
 }
 
-export function FrontDeskSheets({ canRegister, canWalkIn }: { canRegister: boolean; canWalkIn: boolean }) {
+export function FrontDeskSheets({ canRegister, canWalkIn, canBook }: { canRegister: boolean; canWalkIn: boolean; canBook: boolean }) {
   return (
     <Suspense fallback={null}>
-      <Sheets canRegister={canRegister} canWalkIn={canWalkIn} />
+      <Sheets canRegister={canRegister} canWalkIn={canWalkIn} canBook={canBook} />
     </Suspense>
   );
 }

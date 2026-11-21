@@ -121,7 +121,7 @@ export async function updateDoctorAvailability(
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateDoctorAvailability(resolved.ctx, input);
-  if (result.success) revalidate("/profile", "/staff", "/calendar");
+  if (result.success) revalidate("/profile", "/staff", "/schedule");
   return result;
 }
 
@@ -131,7 +131,7 @@ export async function updateDoctorSlotDuration(
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateDoctorSlotDuration(resolved.ctx, input);
-  if (result.success) revalidate("/profile", "/staff", "/calendar");
+  if (result.success) revalidate("/profile", "/staff", "/schedule");
   return result;
 }
 
@@ -147,6 +147,6 @@ export async function deleteDoctorScheduleBlock(blockId: string): Promise<{ succ
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.deleteScheduleBlock(resolved.ctx, blockId);
-  if (result.success) revalidate("/calendar");
+  if (result.success) revalidate("/schedule");
   return result;
 }

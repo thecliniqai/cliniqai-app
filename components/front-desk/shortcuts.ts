@@ -1,18 +1,19 @@
 /**
- * Single-key shortcuts of the front desk (V2-08 08-03b, R-13; UI-SPEC §8): W opens the walk-in sheet, N the register sheet,
+ * Single-key shortcuts of the front desk (V2-08 08-03b, R-13; UI-SPEC §8): W opens the walk-in sheet, B the booking sheet, N the register sheet,
  * `?` the list. They sit behind a per-device switch (`clinicos.pref.shortcuts`, "on" or "off"); with no stored choice they
  * are on for a fine pointer at 1024 px and up, and off on touch devices and narrow windows. Pure: the keyboard listener
  * (`front-desk-sheets.tsx`) feeds it the event's facts. `tests/today/shortcuts.spec.ts`.
  */
-export type ShortcutAction = "walkin" | "new" | "help";
+export type ShortcutAction = "walkin" | "book" | "new" | "help";
 
 export const SHORTCUTS: readonly { key: string; action: ShortcutAction; label: string }[] = [
   { key: "W", action: "walkin", label: "Add a walk-in" },
+  { key: "B", action: "book", label: "Book an appointment" },
   { key: "N", action: "new", label: "Register a patient" },
   { key: "?", action: "help", label: "Show these shortcuts" },
 ];
 
-/** Whether W and N are live: the stored choice wins; otherwise on for a fine pointer at 1024 px and up. */
+/** Whether W, B and N are live: the stored choice wins; otherwise on for a fine pointer at 1024 px and up. */
 export function shortcutsEnabled(stored: string | null, finePointerWide: boolean): boolean {
   if (stored === "on") return true;
   if (stored === "off") return false;
@@ -32,7 +33,7 @@ export interface ShortcutKeyEvent {
 }
 
 /**
- * The action a key press asks for, or null. `?` always works (it is how the switch is reached); W and N need the
+ * The action a key press asks for, or null. `?` always works (it is how the switch is reached); W, B and N need the
  * shortcuts to be enabled, a free keyboard (no field focused, no sheet open) and no modifier.
  */
 export function shortcutFor(event: ShortcutKeyEvent, enabled: boolean): ShortcutAction | null {
@@ -41,6 +42,7 @@ export function shortcutFor(event: ShortcutKeyEvent, enabled: boolean): Shortcut
   if (!enabled || event.dialogOpen) return null;
   const key = event.key.toLowerCase();
   if (key === "w") return "walkin";
+  if (key === "b") return "book";
   if (key === "n") return "new";
   return null;
 }

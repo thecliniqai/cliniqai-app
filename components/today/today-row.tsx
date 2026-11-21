@@ -8,13 +8,14 @@ import { StatusChip } from "@/components/clinical/status-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
 import { formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
+import { RowMenu, rowMenuItems } from "@/components/front-desk/row-menu";
 import { startLabel, useCheckIn, useStart } from "./use-row-commands";
 
 /**
  * One Today row (V2-08 08-03a, 08-03b; 06-UI-SPEC §7): the V2-06 `QueueRow` fed from a {@link TodayRow}. The buttons come
  * only from the state machine's `actions` for the caller's role (`rowButtons`, R-7), arranged by the mode: Check in and
  * Collect at the desk, Record vitals first in triage, Call in / Start consultation / Open consult for the doctor.
- * Check in and Start are single commands through `useCommand` (`use-row-commands.ts`); Check in moves the row to Waiting
+ * Move, Mark as no-show and Cancel are in the ⋯ menu (`RowMenu`, V2-08 08-04b). Check in and Start are single commands through `useCommand` (`use-row-commands.ts`); Check in moves the row to Waiting
  * at once (`onOptimistic`) and takes it back (`onRollback`) when refused. Opening the row selects it (`?visit=`).
  */
 export interface TodayRowViewProps {
@@ -195,6 +196,8 @@ export function TodayRowView(props: TodayRowViewProps) {
     </>
   );
   const buttons = rowButtons(mode, row, canConsult).filter((b) => !(next && b.kind === "start"));
+  // Move, Mark as no-show and Cancel live in the row's ⋯ menu (V2-08 08-04b); the doctor's own queue has none.
+  const menu = mode !== "doctor" && rowMenuItems(row.actions).length > 0;
 
   return (
     <QueueRow
@@ -210,7 +213,14 @@ export function TodayRowView(props: TodayRowViewProps) {
       selected={selected}
       next={next}
       flashKey={flashKey}
-      actions={buttons.length > 0 ? <RowButtons {...props} buttons={buttons} /> : undefined}
+      actions={
+        buttons.length > 0 || menu ? (
+          <>
+            <RowButtons {...props} buttons={buttons} />
+            {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} />}
+          </>
+        ) : undefined
+      }
     />
   );
 }

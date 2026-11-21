@@ -38,14 +38,6 @@ const SLOT_BASE_MINUTE = Math.floor(Math.random() * 600);
 let slotCounter = 0;
 const futureIso = (days: number) =>
   new Date(Date.now() + days * day + (SLOT_BASE_MINUTE + 60 * slotCounter++) * 60_000).toISOString();
-/** 90+ days out, 10:00-17:00 IST (04:30-11:30 UTC), at a random day and minute. */
-const inShiftIso = (minDays: number) => {
-  const now = new Date();
-  const dayOffset = minDays + Math.floor(Math.random() * 60);
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dayOffset, 4, 30 + Math.floor(Math.random() * 420))
-  ).toISOString();
-};
 const dateAhead = (days: number) => new Date(Date.now() + days * day).toISOString().slice(0, 10);
 const syntheticEmail = () => `guard-invite-${randomUUID().slice(0, 12)}@example.com`;
 const syntheticPhone = () => `+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
@@ -298,9 +290,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     },
   },
   "features/visits/scheduling.ts#getScheduleBlocksForDate": { args: (a) => [dateAhead(5), a.callerUser] },
-  // A random far-future slot inside the A doctor's seeded shift (world.ts GUARD_DOCTOR_SHIFT, 08:00-20:00 IST every
-  // day): a fixed instant would collide with visits the other controls book for the same doctor.
-  "features/visits/scheduling.ts#checkSlotAvailability": { args: (a) => [a.ownerUser, inShiftIso(90), 15] },
+  // The slot list (V2-08 08-04b): a clinic doctor, a date ahead and a visit whose own slot is listed again.
+  "features/visits/scheduling.ts#getAvailableSlots": { args: (a) => [a.ownerUser, dateAhead(6), a.visit] },
+  "features/visits/scheduling.ts#getRescheduleTarget": { args: (a) => [a.visit] },
   "features/settings/actions.ts#getDoctorScheduleBlocks": { args: (a) => [a.callerUser] },
   "features/waitlist/actions.ts#promoteWaitlistEntry": {
     args: (a) => [{ entry_id: a.waitlist, scheduled_at: futureIso(50), is_overbooked: true, ...acting(a) }, randomUUID()],

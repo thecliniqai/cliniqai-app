@@ -7,12 +7,13 @@ import type { Result as CommandResult } from "@/lib/errors/app-error";
 import type { ScheduleBlock } from "@/lib/db/types";
 import * as schedulingService from "./scheduling-service";
 import type {
+  AvailableSlot,
+  RescheduleTarget,
   RegisterAndBookInput,
   RegisterAndBookValue,
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
-  CheckSlotResult,
   RescheduleVisitInput,
   RescheduleVisitValue,
   CancelVisitInput,
@@ -22,12 +23,13 @@ import type {
 } from "./scheduling-service";
 
 export type {
+  AvailableSlot,
+  RescheduleTarget,
   RegisterAndBookInput,
   RegisterAndBookValue,
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
-  CheckSlotResult,
   RescheduleVisitInput,
   RescheduleVisitValue,
   CancelVisitInput,
@@ -54,7 +56,7 @@ export async function createScheduleBlock(input: CreateScheduleBlockInput): Prom
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.createScheduleBlock(resolved.ctx, input);
-  if (result.success) revalidate("/calendar");
+  if (result.success) revalidate("/schedule");
   return result;
 }
 
@@ -65,7 +67,7 @@ export async function deleteScheduleBlock(blockId: string): Promise<DeleteSchedu
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.deleteScheduleBlock(resolved.ctx, blockId);
-  if (result.success) revalidate("/calendar");
+  if (result.success) revalidate("/schedule");
   return result;
 }
 
@@ -79,17 +81,25 @@ export async function getScheduleBlocksForDate(dateStr: string, doctorId?: strin
 }
 
 /**
- * Checks whether a requested doctor appointment slot is available. An unauthenticated or unauthorised caller is
- * told the slot is unavailable (it used to be told "available").
+ * The doctor's free slots on a clinic-local date (V2-08 08-04b): `public.available_slots`, the list the booking and
+ * reschedule sheets show and the command later checks again. `exclude_visit_id` lists a visit's own slot again (a
+ * reschedule). A denied caller gets the permission refusal, never an empty list that reads as "no slots".
  */
-export async function checkSlotAvailability(
+export async function getAvailableSlots(
   doctorId: string,
-  scheduledAt: string,
-  durationMinutes: number = 15
-): Promise<CheckSlotResult> {
+  date: string,
+  excludeVisitId?: string
+): Promise<CommandResult<AvailableSlot[]>> {
   const resolved = await resolveServiceContext("appointments:view");
-  if (!resolved.ok) return { available: false };
-  return schedulingService.checkSlotAvailability(resolved.ctx, doctorId, scheduledAt, durationMinutes);
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  return schedulingService.getAvailableSlots(resolved.ctx, doctorId, date, excludeVisitId);
+}
+
+/** The appointment the reschedule sheet moves (`?reschedule=<visitId>`, V2-08 08-04b): patient name, doctor and the current slot. */
+export async function getRescheduleTarget(visitId: string): Promise<CommandResult<RescheduleTarget>> {
+  const resolved = await resolveServiceContext("appointments:view");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  return schedulingService.getRescheduleTarget(resolved.ctx, visitId);
 }
 
 /**
@@ -105,7 +115,7 @@ export async function registerAndBook(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/today", "/patients");
+  if (result.ok) revalidate("/schedule", "/today", "/patients");
   return result;
 }
 
@@ -122,7 +132,7 @@ export async function rescheduleVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.rescheduleVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/today");
+  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -137,7 +147,7 @@ export async function cancelVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.cancelVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/today");
+  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -146,7 +156,7 @@ export async function markNoShow(visitId: string, clientRequestId: string): Prom
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/today");
+  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -158,6 +168,6 @@ export async function confirmAppointment(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/calendar", "/today");
+  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }

@@ -2,24 +2,6 @@
   "$comment": "React Compiler rule waivers (V2-06 06-08, R-30). Each entry downgrades one react-hooks rule to warn for one file. `sites` is the exact finding count at error (a ratchet), `expires` at most 90 days after `added`; tests/ci/react-compiler-waivers.spec.ts fails on an expired, stale (no longer matching), miscounted or over-90-day entry, and eslint.config.mjs stops applying an expired entry. Renew only with a new reason and owner; prefer fixing.",
   "waivers": [
     {
-      "file": "components/calendar/booking-drawer.tsx",
-      "rule": "set-state-in-effect",
-      "sites": 4,
-      "owner": "V2-08",
-      "added": "2026-11-15",
-      "expires": "2027-02-13",
-      "reason": "Reset-on-open, prop-to-state defaults, slot duration and debounced patient search in one hand-rolled drawer. V2-08 replaces the booking drawer with a ResponsiveSheet booking flow (Today + booking); fixing four coupled effects in the v1 drawer would change its open/default timing that the M0 booking specs characterise."
-    },
-    {
-      "file": "components/calendar/waitlist-drawer.tsx",
-      "rule": "set-state-in-effect",
-      "sites": 1,
-      "owner": "V2-08",
-      "added": "2026-11-15",
-      "expires": "2027-02-13",
-      "reason": "Prop-to-state default date in the v1 waitlist drawer (its patient search is the shared PatientSearch since 08-02), rebuilt with booking in V2-08."
-    },
-    {
       "file": "components/consultation/diagnosis-section.tsx",
       "rule": "set-state-in-effect",
       "sites": 2,

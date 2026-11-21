@@ -6,7 +6,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant } from "@/lib/auth/tenant-refs";
 import { isDateOnly, isUuid } from "@/lib/utils/filter-values";
-import { dayWindowUtc, ymdOf } from "@/lib/datetime";
+import { clockOf, dayWindowUtc, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit, DoctorWeeklySchedule, ScheduleBlock } from "@/lib/db/types";
 import {
@@ -581,6 +581,63 @@ export async function getAvailableSlots(
   return {
     ok: true,
     value: rows.data.map((r) => ({ start: new Date(r.slot_start).toISOString(), end: new Date(r.slot_end).toISOString() })),
+  };
+}
+
+/** What the reschedule sheet shows of the visit it moves (V2-08 08-04b): the patient's name, the doctor and the current slot. */
+export interface RescheduleTarget {
+  visitId: string;
+  patientName: string;
+  doctorId: string;
+  /** Clinic date `YYYY-MM-DD` and wall-clock `HH:mm` of the current appointment. */
+  date: string;
+  time: string;
+  durationMinutes: number;
+  status: Visit["status"];
+}
+
+export const RESCHEDULE_TARGET_MESSAGES = {
+  FORBIDDEN: "You do not have permission to view appointments.",
+  NOT_FOUND: "Appointment not found.",
+  VALIDATION_FAILED: "Appointment not found.",
+  INTERNAL: "Failed to load the appointment.",
+} as const satisfies DbErrorMessages;
+
+/**
+ * The booked appointment the reschedule sheet (`?reschedule=<visitId>`) moves: explicit columns (no `select *`), read on the
+ * caller's own session so RLS decides, `appointments:view`. A visit with no appointment time (a walk-in) is not found here.
+ */
+export async function getRescheduleTarget(ctx: ServiceContext, visitId: string): Promise<Result<RescheduleTarget>> {
+  if (!hasPerm(ctx.role, "appointments:view")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: RESCHEDULE_TARGET_MESSAGES.FORBIDDEN }) };
+  }
+  if (!isUuid(visitId)) return { ok: false, error: appError("NOT_FOUND", { message: RESCHEDULE_TARGET_MESSAGES.NOT_FOUND }) };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("visits") as any)
+    .select("id, doctor_id, status, scheduled_at, estimated_duration_minutes, patients(full_name)")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("id", visitId)
+    .not("scheduled_at", "is", null)
+    .maybeSingle();
+  if (error) {
+    log.error({ event: "visits.reschedule_target.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, error: appError("INTERNAL", { message: RESCHEDULE_TARGET_MESSAGES.INTERNAL }) };
+  }
+  if (!data) return { ok: false, error: appError("NOT_FOUND", { message: RESCHEDULE_TARGET_MESSAGES.NOT_FOUND }) };
+  const timeZone = await getTenantTimeZone(ctx.db, ctx.tenantId);
+  const clock = clockOf(data.scheduled_at as string, timeZone);
+  const patient = Array.isArray(data.patients) ? data.patients[0] : data.patients;
+  return {
+    ok: true,
+    value: {
+      visitId: data.id as string,
+      patientName: (patient?.full_name as string | undefined) ?? "Patient",
+      doctorId: data.doctor_id as string,
+      date: ymdOf(data.scheduled_at as string, timeZone),
+      time: `${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}`,
+      durationMinutes: (data.estimated_duration_minutes as number | null) ?? 15,
+      status: data.status as Visit["status"],
+    },
   };
 }
 

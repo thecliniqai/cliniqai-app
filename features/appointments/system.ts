@@ -198,7 +198,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
         event_type: "waitlist_slot_freed",
         title: "Waitlist Slot Freed",
         message: `An appointment was cancelled. Slot is now available for waitlisted patients.`,
-        link_url: `/calendar`,
+        link_url: `/schedule`,
       });
     }
   } catch (err) {
