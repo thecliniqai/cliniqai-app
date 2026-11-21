@@ -7,15 +7,14 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { FOREIGN_REFERENCE_MESSAGE, visitInTenant } from "@/lib/auth/tenant-refs";
 import { recordAudit } from "@/lib/audit/audit";
 import { PatientDocument } from "@/lib/db/types";
-import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
+import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
-import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
+import { LabDocumentItem, ShareTokenResult } from "./types";
 import { formatAmendedFilename, labStorageKey } from "./utils";
 import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { unaffectedRowsError } from "@/lib/db/errors";
 import { getTenantToday } from "@/lib/datetime/server";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -333,92 +332,6 @@ export async function generateDocumentShareToken(ctx: ServiceContext, documentId
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to create share link."),
-    };
-  }
-}
-
-/**
- * Deletes a lab report document from storage and database under multi-tenant RLS checks.
- */
-export async function deleteLabDocument(ctx: ServiceContext, documentId: string): Promise<DeleteLabDocumentResult> {
-  const supabase = ctx.db;
-
-  try {
-    // labs:edit: the same key as the DELETE policy (000052); before 05-04 the guard was patients:edit.
-    assertPerm(ctx.role, "labs:edit");
-    const session = ctx;
-
-    // 1. Fetch document storage path
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: doc, error: fetchErr } = await (supabase.from("patient_documents") as any)
-      .select("id, patient_id, storage_path, title")
-      .eq("id", documentId)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (fetchErr || !doc) {
-      return { success: false, error: "Document not found or access denied." };
-    }
-
-    // 2. Delete the database record first (V2-05 05-04): RLS may filter it to 0 rows (the DELETE policy needs
-    // labs:edit), and a refused delete must leave both the row and its file in place, with no success and no audit row.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: deleted, error: deleteErr } = await (supabase.from("patient_documents") as any)
-      .delete()
-      .eq("id", documentId)
-      .eq("tenant_id", session.tenantId)
-      .select("id");
-
-    if (deleteErr) {
-      log.error({ event: "labs.document_delete.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to delete document from database." };
-    }
-    const refused = unaffectedRowsError(deleted);
-    if (refused) {
-      log.warn({ event: "labs.document_delete.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: refused.message };
-    }
-
-    // 3. Delete the storage object, only when the stored key is this patient's own (AR2-L5: same rule as
-    // getDocumentSignedUrl). A key outside tenants/<tenant>/patients/<patient>/ is never acted on (with R2's bucket-wide
-    // credentials it could name any object). A storage failure leaves an orphaned object (logged), never a row that
-    // points at a missing file.
-    const ownKey = isPatientStoragePath(session.tenantId, doc.patient_id, doc.storage_path);
-    if (ownKey) {
-      const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
-      try {
-        await deleteFile(
-          {
-            path: doc.storage_path,
-            bucket: "clinic-records",
-          },
-          storageProvider
-        );
-      } catch (storageErr) {
-        log.warn({ event: "labs.delete_storage.failed", code: errorTag(storageErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      }
-    } else {
-      log.warn({ event: "labs.delete_storage.skipped", requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
-
-    // 4. Audit logging
-    await recordAudit(ctx, {
-      action: "patient_document.delete",
-      entityType: "patient_document",
-      entityId: documentId,
-      metadata: {
-        patient_id: doc.patient_id,
-        title: doc.title,
-        // No storage_path: legacy keys (before 05-02c, R-45) embed the patient's name (AR2-L5).
-      },
-    });
-
-    return { success: true };
-  } catch (err: unknown) {
-    log.error({ event: "labs.delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to delete document."),
     };
   }
 }

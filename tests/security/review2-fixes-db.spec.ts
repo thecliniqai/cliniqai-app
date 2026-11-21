@@ -13,7 +13,6 @@ import * as enqueueModule from "@/lib/jobs/enqueue";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { completeVisit, startConsultation } from "@/features/queue/service";
-import { deleteLabDocument } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, SIGN_AND_BILL_ALREADY_DONE_MESSAGE } from "@/features/billing/service";
 import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features/settings/service";
@@ -424,8 +423,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
   });
 
-  describe("AR2-L5: deleteLabDocument", () => {
-    it("deletes this patient's object and does not put the storage path in the audit row", async () => {
+  // V2-09a 000110 (R-14): lab documents are append-only, `deleteLabDocument` and its storage step are gone. The AR2-L5 concerns (a delete never names a storage
+  // key outside the patient's prefix, the audit row carries no storage path) are moot: nothing deletes a row or an object, so the rule is asserted directly.
+  describe("AR2-L5: lab documents are append-only (the delete action is gone)", () => {
+    it("the owner's and the doctor's DELETE of a document is refused; the row and its object remain, and no delete audit row is written", async () => {
       const path = `tenants/${A.owner.tenantId}/patients/${A.patientId}/labs/Synthetic_Name_del_${randomUUID().slice(0, 8)}.pdf`;
       await upload("clinic-records", path);
       const docId = await insertRow("patient_documents", {
@@ -439,57 +440,27 @@ describe("01-09 review round 2 fixes (000022)", () => {
         uploaded_by: A.owner.userId,
       });
 
-      const res = await deleteLabDocument(ctxFor(A.owner), docId);
-      expect(res.success).toBe(true);
+      for (const actor of [A.owner, A.doctor]) {
+        const res = await actor.client.from("patient_documents").delete().eq("id", docId).select("id");
+        expect(res.error?.code).toBe("42501");
+      }
+      // The service role is refused by the trigger itself (LAB_DOCUMENT_DELETE_FORBIDDEN).
+      const system = await admin.from("patient_documents").delete().eq("id", docId);
+      expect(system.error?.code).toBe("42501");
+      expect(system.error?.message).toBe("LAB_DOCUMENT_DELETE_FORBIDDEN");
 
+      const { data: rows } = await admin.from("patient_documents").select("id").eq("id", docId);
+      expect(rows).toHaveLength(1);
       const folder = path.slice(0, path.lastIndexOf("/"));
       const { data: listed } = await admin.storage.from("clinic-records").list(folder);
-      expect((listed ?? []).map((o) => o.name)).not.toContain(path.slice(path.lastIndexOf("/") + 1));
-
+      expect((listed ?? []).map((o) => o.name)).toContain(path.slice(path.lastIndexOf("/") + 1));
       const { data: audits } = await admin
         .from("audit_logs")
-        .select("metadata")
+        .select("id")
         .eq("tenant_id", A.owner.tenantId)
         .eq("action", "patient_document.delete")
         .eq("entity_id", docId);
-      expect(audits).toHaveLength(1);
-      const meta = JSON.stringify(audits?.[0]);
-      expect(meta).not.toContain("storage_path");
-      expect(meta).not.toContain(path);
-      expect(meta).not.toContain("Synthetic_Name");
-    });
-
-    it("a stored key outside the patient's prefix is never passed to storage", async () => {
-      const storage = await import("@/lib/storage");
-      const deleteSpy = vi.spyOn(storage, "deleteFile");
-      const docId = randomUUID();
-      // Since 000022 the CHECK keeps such a row out of the database (a row predating it could still hold one), so the
-      // app-side guard is exercised with a fake client returning a foreign key for the document.
-      const fakeDb = {
-        from: (table: string) => {
-          const chain: Record<string, unknown> = {};
-          for (const m of ["select", "eq", "delete"]) chain[m] = () => chain;
-          chain.single = async () => ({
-            data: {
-              id: docId,
-              patient_id: A.patientId,
-              title: "Synthetic Legacy",
-              storage_path: `tenants/${B.owner.tenantId}/patients/${B.patientId}/labs/victim.pdf`,
-            },
-            error: null,
-          });
-          // The row delete asks for the deleted rows (V2-05 05-04: 0 rows is a refusal): report the one row deleted.
-          chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [{ id: docId }], error: null });
-          chain.insert = async () => ({ error: null });
-          void table;
-          return chain;
-        },
-        rpc: async () => ({ data: null, error: null }),
-        auth: { getUser: async () => ({ data: { user: { id: A.doctor.userId } }, error: null }) },
-      };
-      const res = await deleteLabDocument({ ...ctxFor(A.doctor), db: fakeDb as never }, docId);
-      expect(res.success).toBe(true);
-      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(audits).toHaveLength(0);
     });
   });
 

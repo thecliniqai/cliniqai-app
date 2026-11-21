@@ -8,7 +8,6 @@ import {
   Calendar,
   AlertTriangle,
   Share2,
-  Trash2,
   Check,
   Copy,
   ExternalLink,
@@ -21,7 +20,6 @@ import {
   uploadLabDocument,
   getDocumentSignedUrl,
   generateDocumentShareToken,
-  deleteLabDocument,
 } from "@/features/labs/actions";
 import { LabDocumentItem, ShareTokenResult } from "@/features/labs/types";
 import { todayInTz } from "@/lib/datetime";
@@ -78,10 +76,6 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
   const [shareResult, setShareResult] = useState<ShareTokenResult | null>(null);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
-
-  // Delete modal state
-  const [deleteDoc, setDeleteDoc] = useState<LabDocumentItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter state
   const [filterAbnormalOnly, setFilterAbnormalOnly] = useState(false);
@@ -222,25 +216,6 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
     navigator.clipboard.writeText(fullUrl);
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2500);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteDoc) return;
-    setIsDeleting(true);
-
-    try {
-      const res = await deleteLabDocument(deleteDoc.id);
-      if (res.success) {
-        setDeleteDoc(null);
-        await loadDocuments();
-      } else {
-        alert(res.error || "Failed to delete document.");
-      }
-    } catch {
-      alert("Error deleting document.");
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   const filteredDocs = documents.filter((doc) => {
@@ -401,20 +376,13 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
                   Share
                 </Button>
 
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeleteDoc(doc)}
-                    className="text-fg-subtle hover:text-red-600"
-                    aria-label="Delete document"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                )}
               </div>
             </div>
           ))}
+          {/* V2-09a (000110, R-14): lab documents are append-only; the database refuses every delete. */}
+          <p className="text-xs text-fg-subtle" data-testid="lab-documents-record-note">
+            Uploaded documents are part of the patient&apos;s record and cannot be removed.
+          </p>
         </div>
       )}
 
@@ -654,40 +622,6 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
             <div className="flex justify-end pt-2 border-t border-gray-100">
               <Button type="button" variant="secondary" size="sm" onClick={() => setShareDoc(null)}>
                 Done
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-gray-200 max-w-sm w-full p-6 shadow-xl space-y-4">
-            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-gray-900">Delete Lab Document?</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Are you sure you want to delete <span className="font-semibold text-gray-800">{deleteDoc.title}</span>? This permanently removes the file from clinic storage.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteDoc(null)} disabled={isDeleting}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                size="sm"
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                startIcon={isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              >
-                {isDeleting ? "Deleting..." : "Delete Permanently"}
               </Button>
             </div>
           </div>

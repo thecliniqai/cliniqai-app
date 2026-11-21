@@ -7,7 +7,7 @@
  * stderr and any `console.*` call) is captured; it must contain the event and `23505` and none of the phone, the email
  * or the message text. Before the sweep these paths printed the raw error through `console.error`.
  *
- * Paths: a labs write (`deleteLabDocument`; the patients write case went with the retired `createPatient`, V2-08 08-06a), the prescription PDF route
+ * Paths: a labs write (`generateDocumentShareToken`, which replaced `deleteLabDocument` when lab documents became append-only, V2-09a 000110; the patients write case went with the retired `createPatient`, V2-08 08-06a), the prescription PDF route
  * (`GET /api/visits/[id]/prescription-pdf`), the v1 error envelope (`apiError`) (04-03b deleted the cron webhook route and its case).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -16,17 +16,11 @@ import type { ServiceContext } from "@/lib/auth/context";
 const REQUEST_ID = "3b0e6b8a-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
 const TENANT_ID = "7d1c0b9a-8e7f-4a6b-9c5d-4e3f2a1b0c9d";
 const USER_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
-const PATIENT_ID = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
 const DOCUMENT_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
 
 const PHONE = "+919000000001";
 const EMAIL = "synthetic.user@example.test";
 const MESSAGE = `duplicate key value violates unique constraint "patients_phone_key" Key (phone)=(${PHONE}) contact ${EMAIL}`;
-
-/** A synthetic PostgREST error: the code is log-safe, the message carries row values. */
-function phiError(): { code: string; message: string; details: string; hint: null } {
-  return { code: "23505", message: MESSAGE, details: `Key (phone)=(${PHONE})`, hint: null };
-}
 
 /** A thrown error that carries the same text (an exception rather than a returned `error`). */
 function thrownPhiError(): Error & { code: string } {
@@ -47,7 +41,7 @@ vi.mock("@/lib/auth/context", async (importOriginal) => ({
 
 vi.mock("@/lib/supabase/system", () => ({ getSystemDb: mocks.getSystemDb }));
 
-import { deleteLabDocument } from "@/features/labs/service";
+import { generateDocumentShareToken } from "@/features/labs/service";
 import { GET as getPrescriptionPdf } from "@/app/api/visits/[id]/prescription-pdf/route";
 import { apiError } from "@/lib/api/envelope";
 
@@ -132,26 +126,19 @@ function expectNoRawError(): void {
 }
 
 describe("server error branches log the event and code, never the raw error (03-09c)", () => {
-  it("labs write: deleteLabDocument row delete failure", async () => {
-    // The row delete fails. Since V2-05 05-04 the row is deleted first, so the storage step is never reached.
-    const db = fakeDb((table, op) => {
-      if (table !== "patient_documents") return { data: null, error: null };
-      if (op === "select") {
-        return {
-          data: { id: DOCUMENT_ID, patient_id: PATIENT_ID, storage_path: "elsewhere/x.pdf", title: "Synthetic report" },
-          error: null,
-        };
-      }
-      return { data: null, error: phiError() };
+  it("labs write: generateDocumentShareToken failure", async () => {
+    // The document read throws (a driver error carrying PHI in its text): a fixed result, one tagged line, never the raw text.
+    const db = fakeDb(() => {
+      throw thrownPhiError();
     });
 
-    const result = await deleteLabDocument(ctxWith(db), DOCUMENT_ID);
+    const result = await generateDocumentShareToken(ctxWith(db), DOCUMENT_ID);
 
-    expect(result).toEqual({ success: false, error: "Failed to delete document from database." });
+    expect(result).toMatchObject({ success: false });
+    expect(JSON.stringify(result)).not.toContain(PHONE);
     // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.
     expectNoRawError();
-    expect(linesFor("labs.delete_storage.skipped")).toHaveLength(0);
-    const [line] = linesFor("labs.document_delete.failed");
+    const [line] = linesFor("labs.share_token.failed");
     expect(line).toMatchObject({ level: "error", code: "23505", requestId: REQUEST_ID, tenantId: TENANT_ID });
   });
 
