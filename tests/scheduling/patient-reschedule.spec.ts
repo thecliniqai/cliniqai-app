@@ -9,6 +9,8 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { publicEnv } from "@/lib/env";
 import { GET as getRescheduleRoute, POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route";
 import { generateRescheduleToken } from "@/features/appointments/system";
 import { addDaysYmd, todayInTz, weekdayOfYmd } from "@/lib/datetime";
@@ -222,5 +224,29 @@ describe("the link moves the visit by the same rules", () => {
     expect((await get(token, DAY)).status).toBe(200); // no slots are listed for a non-clinician
     expect(await slotsOf(token, DAY)).toEqual([]);
 });
+  // V2-08 08-06a (S-6): the anon holder of one patient's link called the context RPC directly for any one-day window and got the
+  // exact times of every other patient's booking with that doctor. The context no longer carries a list of booked times.
+  it("S-6: the anon context of a link names the clinic, doctor and own time, and never another appointment's time", async () => {
+    const doctor = await doctorWith(weekSchedule([{ start: "10:00", end: "13:00" }]));
+    const mine = await linkFor(tenantA, doctor, at(DAY, 10, 0));
+    const otherAt = at(DAY, 11, 30);
+    await seedBookedVisit(tenantA, await seedPatient(tenantA), doctor, otherAt);
+    const anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+    const { data, error } = await anon.rpc("get_reschedule_context", { p_token: mine.token, p_from: at(DAY, 0, 0), p_to: at(DAY, 23, 59) });
+    expect(error).toBeNull();
+    const context = data as Record<string, unknown>;
+    expect(context.status).toBe("ok");
+    expect(context).toHaveProperty("clinic");
+    expect(context).toHaveProperty("doctor");
+    expect(context).not.toHaveProperty("booked");
+    // The other patient's 11:30 IST booking appears nowhere in the answer, in any representation.
+    const text = JSON.stringify(data);
+    expect(text).not.toContain(otherAt);
+    expect(text).not.toContain("11:30");
+    // The free slots (the route's source) are still served, and do not include the other booking's time.
+    const slots = await slotsOf(mine.token, DAY);
+    expect(slots).toContain(at(DAY, 10, 15));
+    expect(slots).not.toContain(otherAt);
+  });
 });
 

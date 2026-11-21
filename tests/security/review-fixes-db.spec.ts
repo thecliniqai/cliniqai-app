@@ -486,7 +486,10 @@ describe("01-08 review fixes (000021)", () => {
       expect((await rescheduleGet(second)).status).toBe(200);
     });
 
-    it("get_reschedule_context returns booked times for at most one day", async () => {
+    // V2-08 08-06a (S-6): the context used to return the booked times of the doctor for a window of at most one day (the AR-L2 bound);
+    // the anon holder of one link could read every other patient's time. It returns no list at all now: the free slots come from
+    // `get_reschedule_slots` (tests/scheduling/patient-reschedule.spec.ts).
+    it("get_reschedule_context returns no booked times, whatever the window", async () => {
       const day1 = dayAt(20, 5);
       const day5 = dayAt(24, 5);
       await freshVisit(day1);
@@ -499,10 +502,10 @@ describe("01-08 review fixes (000021)", () => {
         p_from: from.toISOString(),
         p_to: new Date(from.getTime() + 30 * 86_400_000).toISOString(),
       });
-      const booked = ((data as { booked: string[] }).booked ?? []).map((b) => new Date(b).getTime());
-      expect(booked).toContain(day1.getTime());
-      expect(booked).not.toContain(day5.getTime());
-      for (const b of booked) expect(b - from.getTime()).toBeLessThanOrEqual(86_400_000);
+      expect((data as { status: string }).status).toBe("ok");
+      expect(data).not.toHaveProperty("booked");
+      expect(JSON.stringify(data)).not.toContain(day1.toISOString().slice(0, 16));
+      expect(JSON.stringify(data)).not.toContain(day5.toISOString().slice(0, 16));
     });
   });
 

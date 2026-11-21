@@ -124,7 +124,7 @@ describe("today signals: delivery to the clinic's own members", () => {
     expect(signal.kind).toBe("visit");
   });
 
-  it("a status change, a queue token, a payment and a vitals change each send one signal for the visit", async () => {
+  it("a status change, a queue token, an invoice, a payment and a vitals change each send a signal for the visit", async () => {
     const admin = getAdminClient();
     const { visitId, patientId } = await seedVisit(tenantA);
     const listener = await listen(receptionistA.client, tenantA.tenantId);
@@ -153,6 +153,12 @@ describe("today signals: delivery to the clinic's own members", () => {
       invoice_number: `RT-${randomUUID().slice(0, 8)}`,
       total_amount: 500,
     });
+    // V2-08 08-06a (A-5): a new invoice and a change of its total signal the Today board (another desk's amount and lane).
+    expect(await until(() => kinds().includes("invoice"), 2_000)).toBe(true);
+    const invoiceSignals = () => kinds().filter((k) => k === "invoice").length;
+    const before = invoiceSignals();
+    await admin.from("invoices").update({ total_amount: 650 }).eq("id", invoice);
+    expect(await until(() => invoiceSignals() > before, 2_000)).toBe(true);
     const paid = await admin.from("payments").insert({
       tenant_id: tenantA.tenantId,
       invoice_id: invoice,

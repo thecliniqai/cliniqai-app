@@ -25,7 +25,7 @@ import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import { outboxRows } from "../helpers/clinical-commands";
-import { messagesOfVisit, seedBookedVisit, seedPatient, visitsOfPatient } from "../helpers/front-desk-commands";
+import { messagesOfVisit, seedBlock, seedBookedVisit, seedPatient, visitsOfPatient } from "../helpers/front-desk-commands";
 import { callCancel, cancelArgs, ist, schedRow, seedWaitlistEntry, subscribeAppointmentEvents, waitlistRow } from "../helpers/scheduling-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -216,6 +216,55 @@ describe("cancel_visit: the waitlist (D-08)", () => {
     expect(await waitlistRow(pastEntry)).toMatchObject({ status: "waiting" });
   });
 
+  // V2-08 08-06a (A-2): the promotion books a slot the way the booking does; and the reasons "doctor unavailable" and "clinic closed"
+  // never promote. Before, both put a waitlisted patient into a slot of a doctor who was away, with no message to that patient.
+  it.each(["doctor_unavailable", "clinic_closed"])("A-2: the reason %s never promotes, even into a working slot with an entry waiting", async (reason) => {
+    const at = ist(nextWeek(), 0, 11, 0);
+    const entry = await seedWaitlistEntry(tenantA, await seedPatient(tenantA), istDate(at));
+    const { visitId } = await booked(at);
+    const res = await callCancel(members.receptionist.client, cancelArgs(tenantA, visitId, { p_reason_code: reason, p_promote_waitlist: true }));
+    expect(res.error).toBeNull();
+    expect(res.data).toMatchObject({ promoted: false, replacement_visit_id: null });
+    expect(await waitlistRow(entry)).toMatchObject({ status: "waiting" });
+    expect(await schedRow(visitId)).toMatchObject({ status: "cancelled" });
+  });
+
+  it("A-2: a slot under a schedule block promotes nobody; the entry stays waiting (before: booked into the block)", async () => {
+    const at = ist(nextWeek(), 0, 11, 0);
+    const entry = await seedWaitlistEntry(tenantA, await seedPatient(tenantA), istDate(at));
+    const { visitId } = await booked(at);
+    await seedBlock(tenantA, at, new Date(Date.parse(at) + 10 * 60_000).toISOString(), tenantA.userId);
+    const res = await callCancel(members.receptionist.client, cancelArgs(tenantA, visitId, { p_reason_code: "patient_request" }));
+    expect(res.error).toBeNull();
+    expect(res.data).toMatchObject({ promoted: false });
+    expect(await waitlistRow(entry)).toMatchObject({ status: "waiting" });
+  });
+
+  it("A-2: a clinic-wide block counts too, and a slot the doctor does not work (a Sunday) promotes nobody", async () => {
+    const week = nextWeek();
+    const blockedAt = ist(week, 0, 11, 0);
+    const blockedEntry = await seedWaitlistEntry(tenantA, await seedPatient(tenantA), istDate(blockedAt));
+    const blocked = await booked(blockedAt);
+    await seedBlock(tenantA, ist(week, 0, 10, 0), ist(week, 0, 14, 0), null);
+    expect((await callCancel(tenantA.client, cancelArgs(tenantA, blocked.visitId))).data).toMatchObject({ promoted: false });
+    expect(await waitlistRow(blockedEntry)).toMatchObject({ status: "waiting" });
+
+    const sundayAt = ist(week, 6, 11, 0);
+    const sundayEntry = await seedWaitlistEntry(tenantA, await seedPatient(tenantA), istDate(sundayAt));
+    const sunday = await booked(sundayAt, { is_overbooked: true });
+    expect((await callCancel(tenantA.client, cancelArgs(tenantA, sunday.visitId))).data).toMatchObject({ promoted: false });
+    expect(await waitlistRow(sundayEntry)).toMatchObject({ status: "waiting" });
+  });
+
+  it("A-2 control: a patient_request cancel of a working slot still promotes", async () => {
+    const at = ist(nextWeek(), 1, 11, 0);
+    const patient = await seedPatient(tenantA);
+    await seedWaitlistEntry(tenantA, patient, istDate(at));
+    const { visitId } = await booked(at);
+    const res = await callCancel(members.receptionist.client, cancelArgs(tenantA, visitId, { p_reason_code: "patient_request" }));
+    expect(res.data).toMatchObject({ promoted: true, promoted_patient_id: patient });
+  });
+
   it("an entry whose patient was deleted is skipped, and the next one is promoted", async () => {
     const week = nextWeek();
     const at = ist(week, 0, 11, 0);
@@ -370,9 +419,9 @@ describe("cancelVisit (service)", () => {
     await seedWaitlistEntry(tenantA, patient, istDate(at));
     const { visitId } = await booked(at);
     const id = randomUUID();
-    const first = await cancelVisit(ctxFor(members.receptionist), { visit_id: visitId, reason_code: "clinic_closed", notify: true }, id);
+    const first = await cancelVisit(ctxFor(members.receptionist), { visit_id: visitId, reason_code: "patient_request", notify: true }, id);
     expect(first).toMatchObject({ ok: true, value: { visitId, autoPromoted: true, promotedPatientId: patient, messageEnqueued: true, replayed: false } });
-    expect(await cancelVisit(ctxFor(members.receptionist), { visit_id: visitId, reason_code: "clinic_closed", notify: true }, id)).toMatchObject({ ok: true, value: { replayed: true } });
+    expect(await cancelVisit(ctxFor(members.receptionist), { visit_id: visitId, reason_code: "patient_request", notify: true }, id)).toMatchObject({ ok: true, value: { replayed: true } });
     expect(await cancelVisit(ctxFor(tenantA), { visit_id: visitId, reason_code: "bored" as never }, randomUUID())).toMatchObject({ ok: false, error: { code: "VALIDATION_FAILED" } });
     expect(await cancelVisit(ctxFor(tenantA), { visit_id: visitId, reason_code: "other" }, "not-a-uuid")).toMatchObject({ ok: false, error: { code: "VALIDATION_FAILED" } });
     expect(await cancelVisit(ctxFor(tenantA), { visit_id: visitId, reason_code: "other" }, randomUUID())).toMatchObject({

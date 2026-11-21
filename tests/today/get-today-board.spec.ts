@@ -167,13 +167,6 @@ describe("getTodayBoard: the day and the projection", () => {
     }
   });
 
-  it("A-4: a cancelled invoice does not count as billed", async () => {
-    const extra = await seedVisit(tenantA, members.doctor.userId, { status: "completed" });
-    await invoice(tenantA, extra.visitId, extra.patientId, 300, 0);
-    await getAdminClient().from("invoices").update({ status: "cancelled" }).eq("visit_id", extra.visitId);
-    expect(byId(await boardOf("owner"), extra.visitId)).toMatchObject({ billed: false });
-  });
-
   it("A-10: a no-show whose time passed today is in Booked for a role that can check it in, Done for one that cannot", async () => {
     expect(groupIntoLanes(await boardOf("receptionist")).booked.map((r) => r.visitId)).toContain(ids.noShow);
     const nurse = await boardOf("nurse");
@@ -273,5 +266,15 @@ describe("getTodayBoard: isolation", () => {
     const result = await getTodayBoard(ctxFor(tenantB), { now: NOW });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.board.rows.map((r) => r.visitId)).toEqual([ids.other]);
+  });
+});
+
+describe("getTodayBoard: invoices (A-4)", () => {
+  // Last in the file: it adds a completed visit to the shared clinic, which the lane expectations above must not see.
+  it("A-4: a cancelled invoice does not count as billed", async () => {
+    const extra = await seedVisit(tenantA, members.doctor.userId, { status: "completed" });
+    await invoice(tenantA, extra.visitId, extra.patientId, 300, 0);
+    await getAdminClient().from("invoices").update({ status: "cancelled" }).eq("visit_id", extra.visitId);
+    expect(byId(await boardOf("owner"), extra.visitId)).toMatchObject({ billed: false });
   });
 });
