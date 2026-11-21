@@ -54,7 +54,8 @@ export class SupabaseStorageProvider implements StorageProvider {
     const client = await this.getClient();
     const { error } = await client.storage.from(bucket).upload(options.path, options.buffer, {
       contentType: options.contentType,
-      upsert: options.upsert ?? true,
+      // V2-09a 000109 (R-13): an object is written once unless the caller says otherwise (receipts and referral letters still regenerate).
+      upsert: options.upsert ?? false,
     });
 
     if (error) {

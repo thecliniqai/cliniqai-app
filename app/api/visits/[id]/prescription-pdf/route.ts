@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
-import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
-import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
+import { resolvePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
+import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { resolveTimeZone, ymdOf } from "@/lib/datetime";
-import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 export async function GET(
   request: Request,
@@ -32,166 +30,32 @@ export async function GET(
       return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
     }
     const ctx = resolved.ctx;
-    const supabase = ctx.db;
-    const membership = ctx;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    // 3. Fetch visit data under strict tenant isolation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
-      .select(`*, ${clinicalNotesEmbed()}`)
-      .eq("id", visitId)
-      .eq("tenant_id", membership.tenantId)
-      .single();
-
-    if (visitErr || !visitRow) {
-      return new NextResponse("Visit not found or access denied", { status: 404 });
-    }
-    // The clinical content comes from clinical_notes (V2-05 05-02a).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const visit = withClinicalNotes(visitRow) as any;
-
-    // 4. Fetch clinic tenant details
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("id, name, address, phone, registration_number, logo_url, timezone")
-      .eq("id", membership.tenantId)
-      .single();
-
-    // 5. Fetch patient details
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: patient } = await (supabase.from("patients") as any)
-      .select("id, full_name, age, sex, phone, address, abha_id")
-      .eq("id", visit.patient_id)
-      .eq("tenant_id", membership.tenantId)
-      .single();
-
-    // 6. Fetch doctor membership info
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: doctorMember } = await (supabase.from("memberships") as any)
-      .select("full_name, qualifications, medical_council_reg_no")
-      .eq("tenant_id", membership.tenantId)
-      .eq("user_id", visit.doctor_id)
-      .maybeSingle();
-
-    // 7. Fetch consultation diagnoses
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
-      .select("diagnosis_name, icd11_code, snomed_concept_id")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", membership.tenantId)
-      .order("created_at", { ascending: true });
-
-    // 8. Fetch active prescription and items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prescription } = await (supabase.from("prescriptions") as any)
-      .select("id, version, status, letterhead_mode, amendment_reason, signed_at")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", membership.tenantId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let items: Array<{
-      medicine_name: string;
-      generic_name?: string | null;
-      dose_form?: string | null;
-      dosage: string;
-      timing?: string | null;
-      duration: string;
-      special_instructions?: string | null;
-    }> = [];
-
-    if (prescription?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rxItems } = await (supabase.from("prescription_items") as any)
-        .select("medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order")
-        .eq("prescription_id", prescription.id)
-        .order("sort_order", { ascending: true });
-
-      items = rxItems || [];
-    }
-
-    // 9. Fetch scheduled follow-up
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: followUp } = await (supabase.from("follow_ups") as any)
-      .select("follow_up_date")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", membership.tenantId)
-      .maybeSingle();
-
-    // 10. Parse query parameters
+    // 3. The letterhead: a print variant is rendered on demand and never archived (V2-09a R-12, Q-7); without it the header's own mode applies.
     const { searchParams } = new URL(request.url);
     const requestedLetterhead = searchParams.get("letterhead");
-    const letterheadMode: "blank_paper" | "preprinted_letterhead" =
-      requestedLetterhead === "preprinted_letterhead"
-        ? "preprinted_letterhead"
-        : prescription?.letterhead_mode === "preprinted_letterhead"
-          ? "preprinted_letterhead"
-          : "blank_paper";
-
     const isDownload = searchParams.get("download") === "true";
 
-    // 11. Build payload
-    const payload: PrescriptionPdfPayload = {
-      tenant_id: membership.tenantId,
-      visit_id: visit.id,
-      prescription_id: prescription?.id || "",
-      version: prescription?.version || 1,
-      letterhead_mode: letterheadMode,
-      amendment_reason: prescription?.amendment_reason || null,
-      signed_at: visit.signed_at || prescription?.signed_at || null,
-      clinic: {
-        name: tenant?.name || "Clinic",
-        address: tenant?.address || null,
-        phone: tenant?.phone || null,
-        registration_number: tenant?.registration_number || null,
-        logo_url: tenant?.logo_url || null,
-      },
-      doctor: {
-        name: doctorMember?.full_name || user?.user_metadata?.full_name || "Doctor",
-        qualifications: doctorMember?.qualifications || null,
-        medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
-      },
-      patient: {
-        full_name: patient?.full_name || "Patient",
-        age: patient?.age || null,
-        sex: patient?.sex || null,
-        phone: patient?.phone || null,
-        address: typeof patient?.address === "string" ? patient.address : null,
-        abha_id: patient?.abha_id || null,
-        uhid: patient?.id ? patient.id.slice(0, 8).toUpperCase() : null,
-      },
-      visit: {
-        visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
-        vitals: visit.vitals || null,
-        chief_complaints: visit.chief_complaints || [],
-        clinical_notes: visit.clinical_notes || null,
-        specialty: visit.specialty || "general_physician",
-      },
-      diagnoses: (diagnoses || []).map((d: { diagnosis_name: string; icd11_code?: string; snomed_concept_id?: string }) => ({
-        diagnosis_name: d.diagnosis_name,
-        icd11_code: d.icd11_code || null,
-        snomed_concept_id: d.snomed_concept_id || null,
-      })),
-      medications: items,
-      investigations_advised: visit.investigations_advised || [],
-      advice: visit.advice || [],
-      follow_up_date: followUp?.follow_up_date || null,
-    };
+    // 4. Load the visit's prescription under strict tenant isolation (the caller's own client; RLS applies). One builder for every reader.
+    const source = await loadPrescriptionPdfSource(ctx, visitId, {
+      letterhead:
+        requestedLetterhead === "preprinted_letterhead" || requestedLetterhead === "blank_paper" ? requestedLetterhead : undefined,
+    });
+    if (!source) {
+      return new NextResponse("Visit not found or access denied", { status: 404 });
+    }
 
-    // 12. Compile and archive PDF
-    const { buffer } = await generateAndArchivePrescriptionPdf(ctx, payload);
+    // 5. A sealed prescription is served from the write-once archive after its SHA-256 is checked (archived first when it is missing); a draft, an open
+    // amendment or a print variant is rendered on demand. A mismatch serves a fresh render, never the stored bytes (R-12).
+    const served = await resolvePrescriptionPdf(ctx, source);
 
-    const cleanName = (patient?.full_name || "Patient").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const filename = `Rx-${cleanName}-${visit.id.slice(0, 8)}.pdf`;
+    const cleanName = (source.payload.patient.full_name || "Patient").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filename = `Rx-${cleanName}-${source.payload.visit_id.slice(0, 8)}.pdf`;
     const disposition = isDownload
       ? `attachment; filename="${filename}"`
       : `inline; filename="${filename}"`;
 
-    return new Response(new Uint8Array(buffer), {
+    return new Response(new Uint8Array(served.buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

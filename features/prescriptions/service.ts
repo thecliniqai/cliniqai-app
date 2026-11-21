@@ -14,13 +14,12 @@ import {
   ProtocolTemplateInput,
   MedicineSearchResult,
 } from "./schema";
-import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
-import { PrescriptionPdfPayload } from "./pdf/prescription-document";
+import { isArchivable, resolvePrescriptionPdf } from "./pdf/generator";
+import { loadPrescriptionPdfSource } from "./pdf/payload";
+import { getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
-import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
-import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
@@ -547,10 +546,10 @@ export async function getPrescriptionPdfSignedUrl(
   try {
     assertPerm(ctx.role, "prescriptions:view");
 
-    // 1. Fetch prescription record
+    // 1. Fetch the prescription record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
-      .select("id, visit_id, patient_id, doctor_id, version, status, amendment_reason, signed_at")
+      .select("id, visit_id, version")
       .eq("id", prescriptionId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -559,129 +558,29 @@ export async function getPrescriptionPdfSignedUrl(
       return { success: false, error: "Prescription not found or access denied." };
     }
 
-    // 2. Fetch visit record
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
-      .select(`id, status, specialty, created_at, scheduled_at, signed_at, ${clinicalNotesEmbed()}`)
-      .eq("id", rx.visit_id)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (visitErr || !visitRow) {
+    // 2. The payload every reader shares (V2-09a R-12), for this header and the requested letterhead.
+    const source = await loadPrescriptionPdfSource(ctx, rx.visit_id, { prescriptionId: rx.id, letterhead: letterheadMode });
+    if (!source) {
       return { success: false, error: "Visit encounter record not found." };
     }
-    // The clinical content comes from clinical_notes (V2-05 05-02a).
-    const visit = withClinicalNotes(visitRow);
 
-    // 3. Fetch clinic tenant details
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("name, address, phone, registration_number, logo_url, timezone")
-      .eq("id", ctx.tenantId)
-      .single();
-
-    // 4. Fetch patient details
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: patient } = await (supabase.from("patients") as any)
-      .select("full_name, age, sex, phone, address, abha_id")
-      .eq("id", rx.patient_id)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    // 5. Fetch doctor membership info
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: doctorMember } = await (supabase.from("memberships") as any)
-      .select("qualifications, medical_council_reg_no")
-      .eq("tenant_id", ctx.tenantId)
-      .eq("user_id", rx.doctor_id)
-      .maybeSingle();
-
-    // 6. Fetch consultation diagnoses
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
-      .select("diagnosis_name, icd11_code, snomed_concept_id")
-      .eq("visit_id", rx.visit_id)
-      .eq("tenant_id", ctx.tenantId)
-      .order("created_at", { ascending: true });
-
-    // 7. Fetch prescription items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: items } = await (supabase.from("prescription_items") as any)
-      .select("medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order")
-      .eq("prescription_id", rx.id)
-      .order("sort_order", { ascending: true });
-
-    // 8. Fetch follow-up
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: followUp } = await (supabase.from("follow_ups") as any)
-      .select("follow_up_date")
-      .eq("visit_id", rx.visit_id)
-      .eq("tenant_id", ctx.tenantId)
-      .maybeSingle();
-
-    // 9. Build payload
-    const payload: PrescriptionPdfPayload = {
-      tenant_id: ctx.tenantId,
-      visit_id: rx.visit_id,
-      prescription_id: rx.id,
-      version: rx.version,
-      letterhead_mode: letterheadMode,
-      amendment_reason: rx.amendment_reason || null,
-      signed_at: rx.signed_at || visit.signed_at || null,
-      clinic: {
-        name: tenant?.name || "Clinic",
-        address: tenant?.address || null,
-        phone: tenant?.phone || null,
-        registration_number: tenant?.registration_number || null,
-        logo_url: tenant?.logo_url || null,
-      },
-      doctor: {
-        name: "Doctor",
-        qualifications: doctorMember?.qualifications || null,
-        medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
-      },
-      patient: {
-        full_name: patient?.full_name || "Patient",
-        age: patient?.age || null,
-        sex: patient?.sex || null,
-        phone: patient?.phone || null,
-        address: typeof patient?.address === "string" ? patient.address : null,
-        abha_id: patient?.abha_id || null,
-        uhid: rx.patient_id.slice(0, 8).toUpperCase(),
-      },
-      visit: {
-        visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
-        vitals: visit.vitals || null,
-        chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
-        clinical_notes: visit.clinical_notes || null,
-        specialty: visit.specialty || "general_physician",
-      },
-      diagnoses: (diagnoses || []).map((d: { diagnosis_name: string; icd11_code?: string; snomed_concept_id?: string }) => ({
-        diagnosis_name: d.diagnosis_name,
-        icd11_code: d.icd11_code || null,
-        snomed_concept_id: d.snomed_concept_id || null,
-      })),
-      medications: (items || []).map((item: { medicine_name: string; generic_name?: string | null; dose_form?: string | null; dosage: string; timing?: string | null; duration: string; special_instructions?: string | null }) => ({
-        medicine_name: item.medicine_name,
-        generic_name: item.generic_name,
-        dose_form: item.dose_form,
-        dosage: item.dosage,
-        timing: item.timing,
-        duration: item.duration,
-        special_instructions: item.special_instructions,
-      })),
-      investigations_advised: visit.investigations_advised || [],
-      advice: visit.advice || [],
-      follow_up_date: followUp?.follow_up_date || null,
-    };
-
-    // 10. Generate PDF and get a 5-minute signed URL
-    const { signedUrl } = await generateAndArchivePrescriptionPdf(ctx, payload);
-
+    // 3. A sealed prescription at its own letterhead is read from the write-once archive (archived first when it is missing), its SHA-256 checked, and a
+    // 5-minute signed URL of the archived object returned. A draft, an open amendment, a print variant and an archive that fails its check are rendered
+    // on demand by the PDF route (no-store, never stored): the link is the route's, which the browser opens with the session.
+    if (isArchivable(ctx, source)) {
+      const served = await resolvePrescriptionPdf(ctx, source);
+      if (served.storagePath) {
+        const { signedUrl } = await getSignedUrl(
+          { path: served.storagePath, expiresInSeconds: VIEW_LINK_TTL_SECONDS, bucket: "prescriptions" },
+          getStorageProviderForDb(ctx.db, "prescriptions")
+        );
+        return { success: true, signedUrl, version: served.version };
+      }
+    }
     return {
       success: true,
-      signedUrl,
-      version: rx.version,
+      signedUrl: `/api/visits/${rx.visit_id}/prescription-pdf?letterhead=${letterheadMode}`,
+      version: Number(rx.version),
     };
   } catch (err: unknown) {
     log.error({ event: "prescriptions.pdf_signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
