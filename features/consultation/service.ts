@@ -41,6 +41,20 @@ function isDraftLocked(visit: { status?: string | null; signed_at?: string | nul
 }
 
 // The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
+/**
+ * The AI provenance a draft save may write to `visits.metadata` (V2-08 08-06a, S-3; the database allows exactly these two keys on a
+ * direct write): `ai_assisted` (boolean) and `ai_sections_used` (up to 20 short strings). Anything else the caller sent is dropped.
+ */
+export function draftProvenance(raw: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  const out: Record<string, unknown> = {};
+  if (typeof raw.ai_assisted === "boolean") out.ai_assisted = raw.ai_assisted;
+  if (Array.isArray(raw.ai_sections_used)) {
+    out.ai_sections_used = raw.ai_sections_used.filter((x): x is string => typeof x === "string" && x.length > 0 && x.length <= 40).slice(0, 20);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 const VITALS_MEASUREMENTS = [
   "systolic",
   "diastolic",
@@ -128,7 +142,7 @@ export async function saveConsultationDraft(
     // 1. Verify visit exists and belongs to this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select(`id, patient_id, status, signed_at, ${clinicalNotesEmbed(["vitals"])}`)
+      .select(`id, patient_id, status, signed_at, metadata, ${clinicalNotesEmbed(["vitals"])}`)
       .eq("id", data.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -160,8 +174,12 @@ export async function saveConsultationDraft(
       updated_at: new Date().toISOString(),
     };
 
-    if (data.metadata) {
-      updatePayload.metadata = data.metadata;
+    // V2-08 08-06a (S-3): a direct write of `visits.metadata` is limited by the database to the AI provenance of an open draft,
+    // so only those two keys are taken from the caller and merged into what the visit stores (the confirmation and cancellation
+    // keys are never sent back, and a stale copy never overwrites them).
+    const provenance = draftProvenance(data.metadata);
+    if (provenance) {
+      updatePayload.metadata = { ...((visit.metadata as Record<string, unknown> | null) ?? {}), ...provenance };
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
