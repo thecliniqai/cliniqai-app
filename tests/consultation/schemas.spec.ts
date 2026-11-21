@@ -108,6 +108,19 @@ describe("Consultation Schema & Boundary Validation (REQ-specialty-templates, RE
       };
       expect(chiefComplaintItemSchema.safeParse(invalidDuration).success).toBe(false);
     });
+
+    // V2-09b 09B-04b (Q-16): shorthand gives a complaint no duration when none was typed; the schema takes it as it is and never fills one in.
+    it("accepts a complaint with no duration and does not invent one", () => {
+      const result = chiefComplaintItemSchema.safeParse({ symptom: "Fever" });
+      expect(result.success).toBe(true);
+      expect(result.success && result.data).toEqual({ symptom: "Fever" });
+    });
+
+    it("still refuses a zero or fractional duration and an unknown unit when one is given", () => {
+      expect(chiefComplaintItemSchema.safeParse({ symptom: "Fever", duration_val: 0 }).success).toBe(false);
+      expect(chiefComplaintItemSchema.safeParse({ symptom: "Fever", duration_val: 1.5, duration_unit: "days" }).success).toBe(false);
+      expect(chiefComplaintItemSchema.safeParse({ symptom: "Fever", duration_val: 2, duration_unit: "fortnights" }).success).toBe(false);
+    });
   });
 
   describe("Specialty Templates Schema", () => {
