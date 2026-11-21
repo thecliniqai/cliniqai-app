@@ -18,7 +18,7 @@ import { getAdminClient } from "../../helpers/supabase-admin";
 import { expect, test } from "../fixtures";
 import { freeBookingDate, istInstant, run, seedPatient, seedVisit, testTag, visitById, visitsOf } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
-import { appointmentOf, conflictDialog, moveSheet, openSchedule, setSlot, slotsLoaded } from "../support/schedule-page";
+import { appointmentOf, bookingSheet, conflictDialog, moveSheet, openSchedule, setSlot, slotsLoaded } from "../support/schedule-page";
 import { settleAnimations } from "../support/settle";
 import { seedBookedToday } from "../support/today-data";
 import { openToday, rowOf, filterToday } from "../support/today-page";
@@ -330,6 +330,50 @@ test("the B shortcut opens the booking sheet (shortcuts switched on for this dev
   await page.keyboard.press("b");
   await expect(page.getByRole("dialog", { name: "Book appointment" })).toBeVisible();
   await expect(page).toHaveURL(/book=1/);
+});
+
+test("Smart Assist: the suggested times follow the patient's usual time of day and the first one is chosen", async ({ page }) => {
+  const { tenantA } = run();
+  const doctorId = tenantA.users.doctor.id;
+  const date = await freeBookingDate(tenantA.id, doctorId);
+  const name = `E2E Synthetic Assist ${testTag()}`;
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, name);
+  // Three attended visits in the evening (18:00 clinic time) on earlier days: the patient's usual time of day.
+  // (Overbooked on purpose: the seed never collides with another spec's slot under the no-double-booking constraint.)
+  for (const daysAgo of [3, 4, 5]) {
+    const day = new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10);
+    const { error } = await getAdminClient()
+      .from("visits")
+      .insert({
+        tenant_id: tenantA.id,
+        patient_id: patient.id,
+        doctor_id: doctorId,
+        origin_type: "scheduled",
+        status: "completed",
+        scheduled_at: istInstant(day, "18:00"),
+        is_overbooked: true,
+        estimated_duration_minutes: 15,
+        created_by: tenantA.users.owner.id,
+      });
+    expect(error).toBeNull();
+  }
+  await openSchedule(page, date, `doctor=${doctorId}&book=1&patient=${patient.id}`);
+  const sheet = bookingSheet(page);
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator("[data-booking-patient]")).toContainText(name);
+  await slotsLoaded(sheet);
+  const assist = sheet.locator("[data-smart-assist-slots]");
+  await expect(assist).toBeVisible();
+  await expect(assist).toContainText("Smart Assist");
+  await expect(assist).toContainText("Suggested times");
+  const chips = assist.getByRole("radio");
+  await expect(chips).toHaveCount(3);
+  // Evening first: every suggestion is 5 pm or later, and the first is the chosen time.
+  for (const chip of await chips.all()) await expect(chip).toHaveAccessibleName(/^Suggested [5-9]:\d\d pm$/);
+  await expect(chips.first()).toBeChecked();
+  // The ordinary slot list holds the same time, chosen too.
+  const first = (await chips.first().getAttribute("aria-label"))!.replace("Suggested ", "");
+  await expect(sheet.getByRole("radio", { name: first, exact: true })).toBeChecked();
 });
 
 test("keyboard only: B, the name, Enter, Enter books the earliest free slot", async ({ page, ux }) => {

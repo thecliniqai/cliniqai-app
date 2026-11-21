@@ -4,8 +4,9 @@
  * As a receptionist: open the register sheet from the Patients list, enter mobile number, name, age and sex, tick the
  * patient's AI objection and register; the patient's profile opens and the row, the objection and its stamp are in the
  * database (one patient, `ai_processing_objected`, `objected_at`, the receptionist as the recorder). A second entry with the
- * same mobile number and name shows the duplicate banner (age and sex of the candidate, so a family number stays readable)
- * and "Use this patient" opens the existing record: still one row. The sheet is axe-clean (0 serious or critical) at the
+ * same mobile number and name shows the Smart Assist duplicate warning (AI-14: probably the same person; age and sex of the
+ * candidate, so a family number stays readable), the same mobile with another name shows the information list, and "Use this
+ * patient" opens the existing record: still one row. The sheet is axe-clean (0 serious or critical) at the
  * project's width (phone, tablet, desktop projects run the same journey); the interaction counts are written by the `ux`
  * counter (`test-results/m0/counts/journey-03-register-patient.json`, desktop-chrome) for the evidence.
  */
@@ -72,11 +73,23 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
   await expect(again).toBeVisible();
   await again.getByRole("textbox", { name: "Mobile number" }).fill(phoneDigits);
   await again.getByRole("textbox", { name: "Full name" }).fill(fullName);
-  const banner = again.getByRole("status").filter({ hasText: "may already be registered" });
+  // The same mobile and name is probably the same person: Smart Assist (the clinic is entitled) says so as a warning with the
+  // candidate's age and sex, never the whole number.
+  const banner = again.getByRole("alert").filter({ hasText: "probably already registered" });
   await expect(banner).toBeVisible({ timeout: 20_000 });
+  await expect(banner).toContainText("Smart Assist");
   await expect(banner).toContainText(`Same mobile · ${fullName} · 34 y · F`);
   await expect(banner).toContainText(`•${phoneDigits.slice(-4)}`);
   await expect(banner).not.toContainText(phoneDigits);
+
+  // The same mobile with another name is a family number: an information list (possible), not the warning.
+  await again.getByRole("textbox", { name: "Full name" }).fill(`E2E Synthetic Family ${testTag()}`);
+  const family = again.getByRole("status").filter({ hasText: "may already be registered" });
+  await expect(family).toBeVisible({ timeout: 20_000 });
+  await expect(family).toContainText(`Same mobile · ${fullName} · 34 y · F`);
+  await expect(banner).toHaveCount(0);
+  await again.getByRole("textbox", { name: "Full name" }).fill(fullName);
+  await expect(banner).toBeVisible({ timeout: 20_000 });
   await banner.getByRole("button", { name: /Use this patient/ }).click();
   await expect(page).toHaveURL(new RegExp(`/patients/${patientId}$`), { timeout: 20_000 });
   expect(await patientsByName(tenantA.id, fullName)).toHaveLength(1);
