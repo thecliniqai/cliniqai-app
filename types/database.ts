@@ -3620,6 +3620,14 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      patient_snapshot: {
+        Args: {
+          p_exclude_visit_id?: string;
+          p_patient_id: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
       permission_matrix: {
         Args: Record<PropertyKey, never>;
@@ -3745,6 +3753,22 @@ export type Database = {
           p_visit_id: string;
         };
         Returns: Json;
+      };
+      search_diagnoses: {
+        Args: {
+          p_limit?: number;
+          p_specialty?: string;
+          p_tenant_id: string;
+          p_terms: string[];
+        };
+        Returns: {
+          icd11_code: string;
+          id: string;
+          is_chronic: boolean;
+          is_custom: boolean;
+          name: string;
+          snomed_concept_id: string;
+        }[];
       };
       search_medicines: {
         Args: {

@@ -1477,6 +1477,7 @@ function public.normalize_indian_phone_e164(raw_phone text) returns text lang=pl
 function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, p_seq integer) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=298e7bdd6c125b654f910a39def7cfc6
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
+function public.patient_snapshot(p_tenant_id uuid, p_patient_id uuid, p_exclude_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=acfeac716c2dc7156fb337970d28aadc
 function public.patients_clinical_fields_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=0cd27f8d47d2cdb83c07494b52b75c1c
 function public.peek_invitation(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=eb3e0439d1e55230792a241f80ba9030
 function public.permission_matrix() returns TABLE(role text, perm text) lang=sql security_definer=f volatility=i config=search_path="" body_md5=39ee865d6f01342a333f400391c113a5
@@ -1499,6 +1500,7 @@ function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb 
 function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=bc0d165d6ce1fc022c1e6c5fb621e15c
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ca7ce0b4227190877841fdaf065edb2b
 function public.save_consultation_draft(p_tenant_id uuid, p_visit_id uuid, p_expected_version integer, p_patch jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=981c57aa3f2421c1e0c73ae49d778652
+function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) returns TABLE(id uuid, name text, icd11_code text, snomed_concept_id text, is_chronic boolean, is_custom boolean) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fc21a2c9e8d04022c17b0aaa5a3a28cf
 function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
 function public.search_patients(p_query text, p_limit integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=127c66d8a5f6775348e6d73e968f0087
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
@@ -1689,6 +1691,7 @@ grant function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id 
 grant function public.ops_alert_payload(p_alert_id uuid) EXECUTE to service_role
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to anon
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to authenticated
+grant function public.patient_snapshot(p_tenant_id uuid, p_patient_id uuid, p_exclude_visit_id uuid) EXECUTE to authenticated
 grant function public.patients_clinical_fields_guard() EXECUTE to service_role
 grant function public.peek_invitation(p_token_hash text) EXECUTE to anon
 grant function public.peek_invitation(p_token_hash text) EXECUTE to authenticated
@@ -1717,6 +1720,7 @@ grant function public.revoke_invitation(p_invitation_id uuid) EXECUTE to authent
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to authenticated
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_role
 grant function public.save_consultation_draft(p_tenant_id uuid, p_visit_id uuid, p_expected_version integer, p_patch jsonb, p_client_request_id uuid) EXECUTE to authenticated
+grant function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to service_role
 grant function public.search_patients(p_query text, p_limit integer) EXECUTE to authenticated
