@@ -156,10 +156,10 @@ describe("server error branches log the event and code, never the raw error (03-
   });
 
   it("prescription PDF route: an exception becomes a fixed 500 and one line", async () => {
-    const db = fakeDb(() => ({ data: null, error: null }));
-    (db.auth as unknown as { getUser: () => Promise<never> }).getUser = async () => {
+    // The route loads the visit through the shared payload builder (V2-09a); an exception thrown by that read is the branch under test.
+    const db = fakeDb(() => {
       throw thrownPhiError();
-    };
+    });
     mocks.resolveServiceContext.mockResolvedValue({ ok: true, ctx: ctxWith(db) });
 
     const res = await getPrescriptionPdf(new Request(`http://localhost/api/visits/${DOCUMENT_ID}/prescription-pdf`), {

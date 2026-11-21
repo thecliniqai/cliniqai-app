@@ -511,26 +511,28 @@ describe("completeAndBillConsultation (service)", () => {
       expect(await consolidated(v.visitId)).toHaveLength(1);
     });
 
-    it("a replay after a lost post-commit renders the missing prescription PDF and receipt, and still queues one message", async () => {
+    // The prescription PDF is write-once since V2-09a (000109): a recorded archive cannot be cleared to fake a loss, and the replay leaves it alone. The
+    // loss of the Rx archive itself (command ran, archive never did) is covered where the commands are called alone: sign-consultation-rpc.spec.ts and
+    // tests/prescriptions/rx-pdf-archive.spec.ts (self-heal on open); here the archive step is the same function.
+    it("a replay after a lost post-commit renders the missing receipt, leaves the archived prescription PDF alone, and still queues one message", async () => {
       const v = await messageableVisit();
       const req = input(v);
       const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string };
       expect(first.success).toBe(true);
-      // Simulate the first call dying right after the commit: no archive, no receipt (the queued message stays: it may or may not
+      // Simulate the first call dying right after the commit: no receipt (the queued message stays: it may or may not
       // have been queued before the loss, and a repeat must not add a second).
       const path = await rxPath(v.visitId);
       expect(path).toBeTruthy();
-      await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
-      await admin.storage.from("prescriptions").remove([path as string, receiptPath(first.invoiceId)]);
+      await admin.storage.from("prescriptions").remove([receiptPath(first.invoiceId)]);
       expect(await receiptExists(first.invoiceId)).toBe(false);
       const before = await pdfAudits(v.prescriptionIds[0], first.invoiceId);
 
       const replay = await completeAndBillConsultation(ctxFor(tenantA), req);
       expect(replay).toMatchObject({ success: true, invoiceId: first.invoiceId, paymentRecorded: true, replayed: true });
-      expect(await rxPath(v.visitId)).toMatch(/rx_v1\.pdf$/);
+      expect(await rxPath(v.visitId)).toBe(path);
       expect(await receiptExists(first.invoiceId)).toBe(true);
       const after = await pdfAudits(v.prescriptionIds[0], first.invoiceId);
-      expect(after.rx).toBe(before.rx + 1);
+      expect(after.rx).toBe(before.rx);
       expect(after.receipt).toBe(before.receipt + 1);
       expect(await consolidated(v.visitId)).toHaveLength(1);
       // The command itself wrote nothing new.

@@ -1,17 +1,24 @@
 /**
- * THREAT_MODEL AC-6 (rewrite a signed prescription and its record), database legs; V2-09a 09A-02 (09A-03 adds the storage legs).
+ * THREAT_MODEL AC-6 (rewrite a signed prescription and its record), database legs (V2-09a 09A-02) and storage legs (09A-03).
  *
  * On a SIGNED visit, as the clinic owner and as the doctor (their own JWT clients, PostgREST) and as the service role (the v1 API's client):
  * UPDATE, DELETE and INSERT on the Rx items, the Rx header (version, status, signed_at, amendment_reason), the clinical note, diagnoses and
  * follow-ups, and the visit itself (status, signature, signer, specialty, reason for the visit). Every write is refused with SQLSTATE 42501
  * and the rows are re-read unchanged. The same writes succeed on a DRAFT visit and (content only) on an AMENDING one, so a refusal is the
- * seal and not a broken fixture. Synthetic data only.
+ * seal and not a broken fixture.
+ *
+ * Storage legs (000109): the signed version's archived PDF cannot be overwritten (upsert, update), deleted or replaced by a member, not on a sealed visit and
+ * not while it is being amended; no PDF can be planted for a draft or an amending visit; the service role cannot move or rewrite the recorded path and hash
+ * (RX_PDF_WRITE_ONCE). Synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import type { TestDb } from "../helpers/db";
 import { reopenVisitAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { ctxFor } from "../helpers/context";
+import { completeAndSignConsultation } from "@/features/consultation/service";
+import { randomUUID } from "node:crypto";
 
 const admin = getAdminClient();
 let owner: SeededTenant;
@@ -144,4 +151,81 @@ describe("AC-6, database legs: a signed record cannot be rewritten, by anyone", 
       }
     });
   }
+});
+
+// Storage legs --------------------------------------------------------------------------------------------------------------------------
+const FORGED = Buffer.from("%PDF-1.4 forged replacement");
+
+async function archivedRecord() {
+  const v = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 1, notes: "Synthetic signed note." });
+  const { error } = await admin.from("prescription_items").insert({
+    tenant_id: owner.tenantId,
+    prescription_id: v.prescriptionIds[0],
+    medicine_name: "Synthetic medicine",
+    dosage: "1-0-1",
+    duration: "5 days",
+  });
+  if (error) throw new Error(`item seed failed: ${error.message}`);
+  const signed = await completeAndSignConsultation(ctxFor(doctor), v.visitId, randomUUID());
+  if (!signed.success) throw new Error("sign-off failed");
+  const key = `${owner.tenantId}/${v.visitId}/rx_v1.pdf`;
+  const { data: rx, error: rxErr } = await admin.from("prescriptions").select("pdf_storage_path, pdf_sha256").eq("id", v.prescriptionIds[0]).single();
+  if (rxErr || !rx?.pdf_sha256) throw new Error("the archive did not run");
+  return { ...v, key, rx };
+}
+
+async function bytesOf(key: string) {
+  const { data } = await admin.storage.from("prescriptions").download(key);
+  return data ? Buffer.from(await data.arrayBuffer()) : null;
+}
+
+describe("AC-6, storage legs: the signed version's PDF cannot be rewritten, deleted or planted", () => {
+  for (const who of ["owner", "doctor"] as const) {
+    const client = () => (who === "owner" ? owner.client : doctor.client);
+
+    it(`SEALED, as the ${who}: upsert, update and remove of the archived PDF fail and the bytes and the hash are unchanged`, async () => {
+      const r = await archivedRecord();
+      const before = await bytesOf(r.key);
+      const storage = client().storage.from("prescriptions");
+      expect((await storage.upload(r.key, FORGED, { contentType: "application/pdf", upsert: true })).error).not.toBeNull();
+      expect((await storage.update(r.key, FORGED, { contentType: "application/pdf" })).error).not.toBeNull();
+      expect((await storage.remove([r.key])).data ?? []).toHaveLength(0);
+      expect((await bytesOf(r.key))!.equals(before!)).toBe(true);
+      const { data } = await admin.from("prescriptions").select("pdf_storage_path, pdf_sha256").eq("id", r.prescriptionIds[0]).single();
+      expect(data).toEqual(r.rx);
+    }, 60_000);
+
+    it(`AMENDING, as the ${who}: the signed version's object stays read-only while the amendment is open, and nothing can be planted at the next version`, async () => {
+      const r = await archivedRecord();
+      const before = await bytesOf(r.key);
+      await reopenVisitAs(doctor, r.visitId);
+      const storage = client().storage.from("prescriptions");
+      expect((await storage.upload(r.key, FORGED, { contentType: "application/pdf", upsert: true })).error).not.toBeNull();
+      expect((await storage.remove([r.key])).data ?? []).toHaveLength(0);
+      expect((await storage.upload(`${owner.tenantId}/${r.visitId}/rx_v2.pdf`, FORGED, { contentType: "application/pdf" })).error).not.toBeNull();
+      expect((await bytesOf(r.key))!.equals(before!)).toBe(true);
+      expect(await bytesOf(`${owner.tenantId}/${r.visitId}/rx_v2.pdf`)).toBeNull();
+    }, 60_000);
+
+    it(`DRAFT, as the ${who}: no PDF can be uploaded under the final key of a draft visit`, async () => {
+      const v = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 1 });
+      const key = `${owner.tenantId}/${v.visitId}/rx_v1.pdf`;
+      expect((await client().storage.from("prescriptions").upload(key, FORGED, { contentType: "application/pdf" })).error).not.toBeNull();
+      expect(await bytesOf(key)).toBeNull();
+    }, 60_000);
+  }
+
+  it("SEALED, as the service role: the recorded path and hash cannot be moved, changed or cleared (RX_PDF_WRITE_ONCE); the row is re-read unchanged", async () => {
+    const r = await archivedRecord();
+    for (const patch of [
+      { pdf_sha256: "f".repeat(64) },
+      { pdf_storage_path: `${owner.tenantId}/${r.visitId}/rx_v2.pdf`, pdf_sha256: "f".repeat(64) },
+      { pdf_storage_path: null, pdf_sha256: null },
+    ]) {
+      const { error } = await admin.from("prescriptions").update(patch).eq("id", r.prescriptionIds[0]);
+      expect(error?.code, JSON.stringify(Object.keys(patch))).toBe("42501");
+    }
+    const { data } = await admin.from("prescriptions").select("pdf_storage_path, pdf_sha256").eq("id", r.prescriptionIds[0]).single();
+    expect(data).toEqual(r.rx);
+  }, 60_000);
 });

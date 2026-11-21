@@ -18,6 +18,7 @@ import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../he
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor, mockCtx } from "../helpers/context";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
+import { signVisitAs } from "../helpers/clinical-commands";
 
 const admin = getAdminClient();
 
@@ -86,6 +87,7 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
       doctor_id: doctorId,
       origin_type: "walk_in",
       reason_for_visit: "Synthetic follow-up",
+      status: "waiting",
       created_by: owner.userId,
     });
     await seedClinicalNotes(visitId, { clinical_notes: "Synthetic clinical note", vitals: { pulse: 72 } });
@@ -94,7 +96,6 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
       patient_id: patientId,
       visit_id: visitId,
       doctor_id: doctorId,
-      pdf_storage_path: `${owner.tenantId}/${visitId}/rx_v1.pdf`,
     });
     await insertId("prescription_items", {
       tenant_id: owner.tenantId,
@@ -103,6 +104,14 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
       dosage: "1-0-1",
       duration: "5 days",
     });
+    // V2-09a (000109): the PDF path is written only for a signed header of a sealed visit (R-15: signed the way production does), so the export can
+    // be shown to leave the stored path out.
+    await signVisitAs(owner, visitId);
+    const { error: pathErr } = await admin
+      .from("prescriptions")
+      .update({ pdf_storage_path: `${owner.tenantId}/${visitId}/rx_v1.pdf` })
+      .eq("id", rxId);
+    if (pathErr) throw new Error(`seed pdf path failed: ${pathErr.message}`);
     storagePath = `tenants/${owner.tenantId}/patients/${patientId}/labs/${randomUUID()}.pdf`;
     await insertId("patient_documents", {
       tenant_id: owner.tenantId,

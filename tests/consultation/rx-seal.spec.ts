@@ -60,14 +60,23 @@ describe("a request path cannot write the columns only the commands change (R-8)
     expect(await header(draft.visitId)).toEqual(before.draft);
   });
 
-  it("the PDF columns stay writable for the roles that hold prescriptions:edit (the generator's own update)", async () => {
-    const { data, error } = await members.doctor.client
-      .from("prescriptions")
-      .update({ letterhead_mode: "preprinted_letterhead", updated_at: new Date().toISOString() })
-      .eq("id", sealed.prescriptionIds[0])
-      .select("id, letterhead_mode");
+  it("letterhead_mode is set at INSERT only (000109): refused by privilege for the roles that hold prescriptions:edit, on a signed and on a draft header", async () => {
+    for (const rxId of [sealed.prescriptionIds[0], draft.prescriptionIds[0]]) {
+      for (const actor of [owner, members.doctor]) {
+        const { data, error } = await actor.client.from("prescriptions").update({ letterhead_mode: "preprinted_letterhead" }).eq("id", rxId).select("id");
+        expect(error?.code).toBe("42501");
+        expect(data).toBeNull();
+      }
+    }
+    const { data: row } = await admin.from("prescriptions").select("letterhead_mode").eq("id", sealed.prescriptionIds[0]).single();
+    expect(row?.letterhead_mode).toBe("blank_paper");
+  });
+
+  it("updated_at stays writable for the roles that hold prescriptions:edit (the archive's own touch); the PDF pair has its own spec (rx-pdf-archive.spec.ts)", async () => {
+    const stamp = new Date().toISOString();
+    const { data, error } = await members.doctor.client.from("prescriptions").update({ updated_at: stamp }).eq("id", sealed.prescriptionIds[0]).select("id");
     expect(error).toBeNull();
-    expect(data).toEqual([{ id: sealed.prescriptionIds[0], letterhead_mode: "preprinted_letterhead" }]);
+    expect(data).toEqual([{ id: sealed.prescriptionIds[0] }]);
   });
 });
 

@@ -439,9 +439,10 @@ describe("amendment (service)", () => {
     expect((await reopenVisitForAmendment(doctorCtx, v.visitId, "r".repeat(500), randomUUID())).success).toBe(true);
   });
 
-  // F-7 (07-04a): the amended PDF is rendered after a replay when its version is not archived (the first call may have died
-  // right after the commit); it reads the reason from the amendment row now that the stored result holds none (F-5).
-  it("a replayed finalize renders the missing amended PDF, stamped with the reason from the revision, and renders nothing when it is archived", async () => {
+  // F-7 (07-04a): the amended PDF is archived after a replay when its version is not archived (the first call may have died
+  // right after the commit). Write-once since V2-09a (000109): a recorded path and hash cannot be cleared to fake that loss, so
+  // the loss is simulated honestly (the command runs alone, the archive never does); the header holds no PDF pair then.
+  it("a replayed finalize archives the missing amended PDF, and archives nothing when it is already archived", async () => {
     const admin = getAdminClient();
     const v = await signedVisit(tenantA);
     const doctorCtx = ctxFor(members.doctor);
@@ -449,18 +450,25 @@ describe("amendment (service)", () => {
     const finalizeId = randomUUID();
     const pdfPath = async () => (await admin.from("prescriptions").select("pdf_storage_path").eq("visit_id", v.visitId).single()).data?.pdf_storage_path ?? null;
     const archives = async () => (await auditRows(tenantA.tenantId, "prescription.generate_pdf", v.prescriptionIds[0])).length;
+    const before = await archives();
 
-    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: false });
-    expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
-    const archived = await archives();
+    // The first call died right after the commit: version 2 is signed, its PDF was never archived (finalize cleared the pair).
+    const first = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId, { p_client_request_id: finalizeId }));
+    expect(first.data).toMatchObject({ version: 2, replayed: false });
+    expect(await pdfPath()).toBeNull();
+    expect(await archives()).toBe(before);
 
+    // The replay archives version 2, once; the archived amended PDF carries the reason (the header's own amendment_reason).
     expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
-    expect(await archives()).toBe(archived);
-
-    await admin.from("prescriptions").update({ pdf_storage_path: null }).eq("visit_id", v.visitId);
-    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
     expect(await pdfPath()).toMatch(/rx_v2\.pdf$/);
-    expect(await archives()).toBe(archived + 1);
+    expect(await archives()).toBe(before + 1);
+    const { data: rx } = await admin.from("prescriptions").select("amendment_reason, pdf_sha256").eq("visit_id", v.visitId).single();
+    expect(rx?.amendment_reason).toBe("Synthetic amendment reason text");
+    expect(rx?.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    // Untouched replay: archived, left alone.
+    expect(await finalizeVisitAmendment(doctorCtx, v.visitId, finalizeId)).toMatchObject({ success: true, version: 2, replayed: true });
+    expect(await archives()).toBe(before + 1);
   });
 
   it("a receptionist is refused with the permission text before any command runs", async () => {

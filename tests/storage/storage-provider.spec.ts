@@ -153,6 +153,16 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
   });
 
   describe("3. Storage Operations Delegation", () => {
+    it("SupabaseStorageProvider.upload writes once by default (upsert false, V2-09a R-13) and upserts only when the caller says so", async () => {
+      const upload = vi.fn(async () => ({ data: { path: "x" }, error: null }));
+      const callerClient = { storage: { from: vi.fn(() => ({ upload })) } } as unknown as Parameters<typeof getStorageProviderForDb>[0];
+      const provider = getStorageProviderForDb(callerClient, "prescriptions");
+      const buffer = Buffer.from("%PDF-1.4 synthetic");
+      await provider.upload({ path: "t/v/rx_v1.pdf", buffer, contentType: "application/pdf" });
+      await provider.upload({ path: "t/r/inv_1.pdf", buffer, contentType: "application/pdf", upsert: true });
+      expect(upload.mock.calls.map((c: unknown[]) => (c[2] as { upsert: boolean }).upsert)).toEqual([false, true]);
+    });
+
     it("uploadFile validates path and delegates to active provider", async () => {
       const mockProvider: StorageProvider = {
         name: "mock",

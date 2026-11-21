@@ -6,7 +6,8 @@ import { erasePatientRecord } from "@/features/dpdp/erasure";
 import { getPatient, searchPatients, getPatients } from "@/features/patients/service";
 import { toggleGlobalConsent } from "@/features/patients/consent-service";
 import { updateStatutorySettings } from "@/features/settings/service";
-import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
+import { renderPrescriptionPdf } from "@/features/prescriptions/pdf/generator";
+import { buildPrescriptionPdfPayload } from "@/features/prescriptions/pdf/payload";
 import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
 import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
@@ -626,51 +627,25 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       }
     });
 
-    it("generateAndArchivePrescriptionPdf enriches statutory registration fields in payload and PDF", async () => {
-      const pdfResult = await generateAndArchivePrescriptionPdf(
-        ctxFor(tenantA),
-        {
-          tenant_id: tenantA.tenantId,
-          visit_id: visitId,
-          prescription_id: prescriptionId,
-          version: 1,
-          letterhead_mode: "blank_paper",
-          clinic: {
-            name: "DPDP Test Clinic Alpha",
-            address: "42 Healthcare Road",
-            phone: "+919876543210",
-            // Notice: statutory fields omitted here — generator should enrich from public.tenants
-          },
-          doctor: {
-            name: "Dr. Vikram Joshi",
-            qualifications: "MBBS, MD",
-            medical_council_reg_no: "MMC-2015-8899",
-          },
-          patient: {
-            full_name: "Aarav Sharma",
-            age: 36,
-            sex: "male",
-            phone: "+919876543210",
-          },
-          visit: {
-            visit_date: "09/11/2026",
-          },
-          diagnoses: [{ diagnosis_name: "Type 2 Diabetes" }],
-          medications: [
-            {
-              medicine_name: "Metformin",
-              dosage: "500 mg",
-              timing: "Twice daily",
-              duration: "30 days",
-            },
-          ],
-        }
-      );
+    it("the shared Rx PDF payload carries the clinic's statutory registration fields from public.tenants, and renders to a PDF (V2-09a: the builder enriches, the render is pure)", async () => {
+      const { data: tenantRow, error } = await getAdminClient()
+        .from("tenants")
+        .select("clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no")
+        .eq("id", tenantA.tenantId)
+        .single();
+      expect(error).toBeNull();
+      expect(tenantRow?.gstin).toBeTruthy();
 
-      expect(pdfResult).toBeDefined();
-      expect(pdfResult.buffer).toBeDefined();
-      expect(Buffer.isBuffer(pdfResult.buffer)).toBe(true);
-      expect(pdfResult.buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
+      const payload = await buildPrescriptionPdfPayload(ctxFor(tenantA), visitId);
+      expect(payload?.prescription_id).toBe(prescriptionId);
+      expect(payload?.clinic.clinical_establishment_reg_no).toBe(tenantRow?.clinical_establishment_reg_no);
+      expect(payload?.clinic.state_medical_council_reg_no).toBe(tenantRow?.state_medical_council_reg_no);
+      expect(payload?.clinic.gstin).toBe(tenantRow?.gstin);
+      expect(payload?.clinic.drug_license_no).toBe(tenantRow?.drug_license_no);
+
+      const bytes = await renderPrescriptionPdf(payload!);
+      expect(Buffer.isBuffer(bytes)).toBe(true);
+      expect(bytes.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
     });
   });
 });

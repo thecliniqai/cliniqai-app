@@ -11,6 +11,7 @@
  * `test.fail()`: v1 leaves the builder editable after sign-off and the server still accepts items on the signed
  * prescription — clinical immutability is roadmap item P1-03 (V2-09a).
  */
+import { createHash } from "node:crypto";
 import { expect, test } from "../fixtures";
 import {
   diagnosesOf,
@@ -114,7 +115,20 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   const pdf = await page.request.get(`/api/visits/${visitId}/prescription-pdf`);
   expect(pdf.status()).toBe(200);
   expect(pdf.headers()["content-type"]).toContain("application/pdf");
-  expect((await pdf.body()).subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  const pdfBytes = await pdf.body();
+  expect(pdfBytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  // V2-09a (R-12): the PDF is archived once, at the versioned key, and its SHA-256 is stored; the route served those very bytes (hash read from the database).
+  const admin = getAdminClient();
+  const { data: archived, error: archivedErr } = await admin
+    .from("prescriptions")
+    .select("pdf_storage_path, pdf_sha256")
+    .eq("visit_id", visitId)
+    .single();
+  expect(archivedErr).toBeNull();
+  expect(archived?.pdf_storage_path).toBe(`${tenantA.id}/${visitId}/rx_v1.pdf`);
+  expect(archived?.pdf_sha256).toBe(createHash("sha256").update(pdfBytes).digest("hex"));
+  const { data: stored } = await admin.storage.from("prescriptions").download(archived!.pdf_storage_path!);
+  expect(createHash("sha256").update(Buffer.from(await stored!.arrayBuffer())).digest("hex")).toBe(archived?.pdf_sha256);
 
   // After sign-off the workspace offers print/re-bill, not "Complete & Sign".
   await page.goto(`/consultation/${visitId}`);

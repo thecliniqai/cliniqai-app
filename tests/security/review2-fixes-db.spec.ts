@@ -20,6 +20,7 @@ import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features
 import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -178,18 +179,24 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
 
     it("the prescription and referral path columns refuse encoded or foreign paths; derived paths are accepted", async () => {
-      const rxPayload = `${A.owner.tenantId}/${A.visitId}/%2e%2e/%2e%2e/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
-      for (const pdf_storage_path of [rxPayload, `${A.owner.tenantId}/${A.visitId}/other.pdf`, `${A.owner.tenantId}/${B.visitId}/rx_v1.pdf`]) {
+      // V2-09a (000109): the Rx path is written only for a signed header of a sealed visit and only at its own key, so the seal guard answers before the
+      // 000022 CHECK does (RX_PDF_PATH_INVALID, 42501); the signed visit is seeded the way production does (R-15).
+      const sealed = await seedClinicalVisit(A.owner, { doctorId: A.doctor.userId, prescriptions: 1 });
+      await signVisitAs(A.doctor, sealed.visitId);
+      const sealedRxId = sealed.prescriptionIds[0];
+      const rxPayload = `${A.owner.tenantId}/${sealed.visitId}/%2e%2e/%2e%2e/${B.owner.tenantId}/${B.visitId}/rx_v1.pdf`;
+      for (const pdf_storage_path of [rxPayload, `${A.owner.tenantId}/${sealed.visitId}/other.pdf`, `${A.owner.tenantId}/${B.visitId}/rx_v1.pdf`]) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (A.doctor.client.from("prescriptions") as any)
           .update({ pdf_storage_path })
-          .eq("id", A.prescriptionId);
-        expect(error?.code, pdf_storage_path).toBe("23514");
+          .eq("id", sealedRxId);
+        expect(error?.code, pdf_storage_path).toBe("42501");
+        expect(error?.message, pdf_storage_path).toBe("RX_PDF_PATH_INVALID");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const okRx = await (A.doctor.client.from("prescriptions") as any)
-        .update({ pdf_storage_path: `${A.owner.tenantId}/${A.visitId}/rx_v2.pdf` })
-        .eq("id", A.prescriptionId);
+        .update({ pdf_storage_path: `${A.owner.tenantId}/${sealed.visitId}/rx_v1.pdf` })
+        .eq("id", sealedRxId);
       expect(okRx.error).toBeNull();
 
       for (const pdf_storage_path of [

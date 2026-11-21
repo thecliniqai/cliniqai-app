@@ -230,7 +230,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
     });
 
     it("renders advised investigations in prescription requisition PDF", async () => {
-      const { generateAndArchivePrescriptionPdf } = await import("@/features/prescriptions/pdf/generator");
+      const { renderPrescriptionPdf } = await import("@/features/prescriptions/pdf/generator");
 
       const payload = {
         tenant_id: tenantA.tenantId,
@@ -276,10 +276,11 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
         advice: ["30 minutes brisk walking daily", "Reduce refined sugars"],
       };
 
-      const result = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
-      expect(result.buffer).toBeInstanceOf(Buffer);
-      expect(result.buffer.length).toBeGreaterThan(1000);
-      expect(result.storagePath).toBe(`${tenantA.tenantId}/${visitId}/rx_v1.pdf`);
+      // Pure render (V2-09a R-12): nothing is stored; the archive of a signed version is tested in tests/prescriptions/rx-pdf-archive.spec.ts.
+      const buffer = await renderPrescriptionPdf(payload);
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(1000);
+      expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
     });
   });
 });
