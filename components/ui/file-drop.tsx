@@ -4,6 +4,7 @@ import React, { useId, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, FileText, Loader2, RotateCw, UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { newClientRequestId } from "@/lib/commands/use-command";
 
 /**
  * FileDrop (V2-09b 09B-05; DESIGN_SYSTEM §6.2, R-16): a drop zone and a file picker in one control, one status row per file.
@@ -14,6 +15,8 @@ import { Button } from "./button";
  *   refused file is a failed row with the reason and no request.
  * - Files go up one at a time through `onUpload` (a server action takes one file; it exposes no byte progress, so a row is queued, uploading, stored or
  *   failed, not a percentage). A failed upload has Retry, which re-sends only that file. A stored row stays until dismissed.
+ * - Each file gets one request id when it is taken (V2-09b 09B-06a, A-4); Retry sends the same id, so a retry after a lost response is answered with the
+ *   row the first attempt stored instead of a second copy.
  * - Not a no-op: with `disabled` the control says why (`disabledReason`) and takes nothing. No `capture` attribute (camera capture is V2-09c).
  */
 export type FileDropResult = { ok: true } | { ok: false; error: string };
@@ -23,12 +26,12 @@ export interface FileDropProps {
   label: string;
   /** The file types the picker offers (MIME types). */
   accept: readonly string[];
-  /** The limits as the user reads them ("PDF, JPEG, PNG or WEBP, up to 25 MB each"). */
+  /** The limits as the user reads them ("PDF, JPEG, PNG or WEBP, up to 4 MB each"). */
   limitsText: string;
   /** The client check: the refusal text for a file, or null when it may be sent. */
   refuse: (file: { type: string; size: number }) => string | null;
-  /** Sends one file; resolves with the outcome (a thrown error is a failed row too). */
-  onUpload: (file: File) => Promise<FileDropResult>;
+  /** Sends one file with its request id (the same id on every Retry of that file); resolves with the outcome (a thrown error is a failed row too). */
+  onUpload: (file: File, requestId: string) => Promise<FileDropResult>;
   multiple?: boolean;
   disabled?: boolean;
   /** Why the control is disabled; drawn in place of the zone's prompt. */
@@ -41,6 +44,8 @@ type RowStatus = "queued" | "uploading" | "stored" | "failed";
 interface Row {
   id: number;
   file: File;
+  /** One per file for its whole life: every Retry re-sends it (A-4). */
+  requestId: string;
   status: RowStatus;
   error?: string;
   /** A failure that sending again cannot fix (the client check): no Retry. */
@@ -75,7 +80,7 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple
     chain.current = chain.current.then(async () => {
       patch(row.id, { status: "uploading", error: undefined });
       try {
-        const result = await onUpload(row.file);
+        const result = await onUpload(row.file, row.requestId);
         if (result.ok) patch(row.id, { status: "stored" });
         else patch(row.id, { status: "failed", error: result.error });
       } catch {
@@ -91,7 +96,14 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple
     const added: Row[] = [];
     for (const file of multiple ? picked : picked.slice(0, 1)) {
       const reason = refuse(file);
-      const row: Row = { id: nextId.current++, file, status: reason ? "failed" : "queued", error: reason ?? undefined, final: reason ? true : undefined };
+      const row: Row = {
+        id: nextId.current++,
+        file,
+        requestId: newClientRequestId(),
+        status: reason ? "failed" : "queued",
+        error: reason ?? undefined,
+        final: reason ? true : undefined,
+      };
       added.push(row);
       if (!reason) accepted.push(row);
     }

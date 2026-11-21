@@ -22,19 +22,61 @@ export function formatAmendedFilename(
   return `${cleanPatient}_${cleanOriginal}_${reportDate}.${ext}`;
 }
 
-/** The lower-case extension of an uploaded file for its storage key: [a-z0-9]{1,10}, `pdf` when there is none. */
-export function labStorageExtension(originalFilename: string): string {
-  const rawExt = originalFilename.includes(".") ? originalFilename.split(".").pop() || "" : "";
-  return rawExt.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "pdf";
+/**
+ * The storage extension of an accepted type (V2-09b 09B-06a, S-6): taken from the type the server verified (the declared MIME type, checked against the
+ * file's first bytes by `labFileSignatureMatches`), never from the client's file name, so `report.html` sent as `image/png` is stored as `.png`.
+ */
+const LAB_EXTENSION_BY_TYPE: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export function labStorageExtension(mimeType: string): string {
+  return LAB_EXTENSION_BY_TYPE[mimeType] ?? "bin";
 }
 
 /**
- * The storage key of a lab document (V2-05 05-02c, R-45, T-05-41): ids only, so a key (and every signed-URL path) never
- * names a person: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>`. The document id is the
- * `patient_documents.id` inserted after the upload, so two uploads never share a key.
+ * The storage key of a lab document (V2-05 05-02c, R-45, T-05-41): ids only, so a key (and every signed-URL path) never names a person:
+ * `tenants/<tenant>/patients/<patient>/labs/<object id>.<ext>`. The object id is the upload's client request id (09B-06a, A-4: a repeat of the same
+ * upload names the same object), or the new row's id when the caller sent none; the extension comes from the verified type (S-6).
  */
-export function labStorageKey(tenantId: string, patientId: string, documentId: string, originalFilename: string): string {
-  return `tenants/${tenantId}/patients/${patientId}/labs/${documentId}.${labStorageExtension(originalFilename)}`;
+export function labStorageKey(tenantId: string, patientId: string, objectId: string, mimeType: string): string {
+  return `tenants/${tenantId}/patients/${patientId}/labs/${objectId}.${labStorageExtension(mimeType)}`;
+}
+
+/**
+ * Does the file start with the signature of its declared type (09B-06a, S-6)? `%PDF-`; JPEG `FF D8 FF`; PNG `89 50 4E 47 0D 0A 1A 0A`; WEBP `RIFF` then
+ * `WEBP` at offset 8. A file whose bytes do not match its label is refused, so the stored content type is the content.
+ */
+export function labFileSignatureMatches(mimeType: string, head: Uint8Array): boolean {
+  const starts = (bytes: number[], offset = 0) => head.length >= offset + bytes.length && bytes.every((b, i) => head[offset + i] === b);
+  switch (mimeType) {
+    case "application/pdf":
+      return starts([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    case "image/jpeg":
+      return starts([0xff, 0xd8, 0xff]);
+    case "image/png":
+      return starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    case "image/webp":
+      return starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8);
+    default:
+      return false;
+  }
+}
+
+// C0 controls, DEL and C1 controls, and the Unicode bidirectional marks, embeddings, overrides and isolates (ALM, LRM, RLM, LRE..RLO, LRI..PDI).
+const UNSAFE_NAME_CHARS = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+export const LAB_FILENAME_MAX = 255;
+
+/**
+ * The client's file name as it is stored (`patient_documents.original_filename`, 09B-06a, S-6): control and bidirectional-formatting characters removed
+ * (a name such as `scan\u202Efdp.exe` cannot draw itself as `scanexe.pdf`), trimmed, at most 255 characters; `document` when nothing is left.
+ */
+export function cleanOriginalFilename(name: string): string {
+  const cleaned = Array.from(name.replace(UNSAFE_NAME_CHARS, "").trim()).slice(0, LAB_FILENAME_MAX).join("");
+  return cleaned || "document";
 }
 
 /**
@@ -42,9 +84,16 @@ export function labStorageKey(tenantId: string, patientId: string, documentId: s
  * both read these, so the client check and the server check cannot drift. The client check is a courtesy; the server's is the one that counts.
  */
 export const LAB_ACCEPTED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
-export const LAB_MAX_FILE_BYTES = 25 * 1024 * 1024; // 25MB
+// 09B-06a, ruling R-U: 4 MB. Production runs on Vercel, which refuses request bodies over 4.5 MB, so a larger file could never arrive (the server-action
+// body limit is "4mb", next.config.ts). Uploads up to 25 MB need a direct-to-Storage upload: a PO decision (09B-REVIEW-TRIAGE R-U).
+export const LAB_MAX_FILE_BYTES = 4 * 1024 * 1024; // 4 MB
+export const LAB_MAX_FILE_LABEL = "4 MB";
 export const LAB_INVALID_TYPE_MESSAGE = "Invalid file type. Allowed formats: PDF, JPEG, PNG, WEBP.";
-export const LAB_TOO_LARGE_MESSAGE = "File size exceeds the 25MB limit. Please upload a smaller file.";
+export const LAB_TOO_LARGE_MESSAGE = "File is larger than 4 MB, the upload limit. Please upload a smaller file.";
+/** The file's bytes do not match its type (09B-06a, S-6). */
+export const LAB_CONTENT_MISMATCH_MESSAGE = "The file's content does not match its type. Upload a PDF, JPEG, PNG or WEBP file.";
+/** A report linked to a visit whose record is signed, completed or cancelled (09B-06a, S-2 / A-8). */
+export const LAB_VISIT_LOCKED_MESSAGE = "This visit's record is signed or closed. Reports can no longer be added to it.";
 
 /** The refusal text for a file the upload would not take, or null when it is acceptable (a type, then the size). */
 export function labFileRefusal(file: { type: string; size: number }): string | null {

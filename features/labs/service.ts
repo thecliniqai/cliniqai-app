@@ -7,11 +7,20 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { FOREIGN_REFERENCE_MESSAGE, visitInTenant } from "@/lib/auth/tenant-refs";
 import { recordAudit } from "@/lib/audit/audit";
 import { PatientDocument } from "@/lib/db/types";
-import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
+import { uploadFile, downloadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult } from "./types";
-import { formatAmendedFilename, labFileRefusal, labStorageKey } from "./utils";
+import {
+  cleanOriginalFilename,
+  formatAmendedFilename,
+  LAB_CONTENT_MISMATCH_MESSAGE,
+  LAB_VISIT_LOCKED_MESSAGE,
+  labFileRefusal,
+  labFileSignatureMatches,
+  labStorageKey,
+} from "./utils";
+import { recordState } from "@/features/consultation/record-state";
 import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -22,9 +31,20 @@ export type UploadLabDocumentResult =
   | { success: true; document: PatientDocument }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
+/** The upload of this request id was already used for another patient, visit or uploader (09B-06a, A-4). */
+export const LAB_REQUEST_REUSED_MESSAGE = "This upload was already used for another record. Choose the file again.";
+
 /**
  * Uploads a patient diagnostic lab report or document, enforces auto-amended naming,
  * archives to private storage, and stores document record in PostgreSQL.
+ *
+ * V2-09b 09B-06a:
+ *  - A-4 idempotency: the form's `client_request_id` (one per file, re-sent on Retry) names the stored object and is stored on the row (unique per clinic,
+ *    000116). A repeat whose row exists returns that row (no second object, row, audit or webhook); a repeat after an object was stored but no row was
+ *    (a failure in between) adopts the object only when its bytes equal this file's. The same id for another patient, visit or uploader is refused.
+ *  - S-2 / A-8: a report linked to a visit whose record is signed, completed or cancelled is refused before anything is stored (the database refuses
+ *    the row too: `patient_documents_visit_open`).
+ *  - S-6: the file's first bytes must match its declared type; the storage extension comes from that type; the stored file name is cleaned.
  */
 export async function uploadLabDocument(ctx: ServiceContext, formData: FormData): Promise<UploadLabDocumentResult> {
   const supabase = ctx.db;
@@ -54,6 +74,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       report_date: formData.get("report_date") || (await getTenantToday(supabase, session.tenantId)).today,
       notes: formData.get("notes") || undefined,
       is_abnormal: formData.get("is_abnormal"),
+      client_request_id: formData.get("client_request_id") || undefined,
     };
 
     const parseResult = uploadLabDocumentSchema.safeParse(rawInput);
@@ -67,7 +88,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       return { success: false, error: "Validation failed.", fieldErrors };
     }
 
-    const { patient_id, visit_id, title, document_type, report_date, notes, is_abnormal } = parseResult.data;
+    const { patient_id, visit_id, title, document_type, report_date, notes, is_abnormal, client_request_id } = parseResult.data;
 
     // 3. The patient must be this clinic's
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,29 +107,48 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       return { success: false, error: FOREIGN_REFERENCE_MESSAGE };
     }
 
-    // 4. Storage key of ids only (R-45, T-05-41): the document's own id names the object, so the key, the signed-URL path,
-    // the audit row and the logs never carry the patient's name, and two uploads never share a key. The readable name
+    // A-4: a repeat of an upload that was stored returns the stored row and stores nothing.
+    if (client_request_id) {
+      const earlier = await documentForRequest(ctx, client_request_id);
+      if (earlier) return repeatOf(earlier, { patient_id, visit_id: visit_id || null, uploaded_by: session.userId });
+    }
+
+    // S-2 / A-8: nothing is attached to a visit whose record is signed, completed or cancelled (checked before the object is stored).
+    if (visit_id && (await visitLocked(ctx, visit_id))) {
+      return { success: false, error: LAB_VISIT_LOCKED_MESSAGE };
+    }
+
+    // S-6: the bytes must be what the type says.
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (!labFileSignatureMatches(file.type, buffer.subarray(0, 16))) {
+      return { success: false, error: LAB_CONTENT_MISMATCH_MESSAGE };
+    }
+
+    // 4. Storage key of ids only (R-45, T-05-41): the upload's request id (A-4), else the new row's own id, names the object, so the key, the
+    // signed-URL path, the audit row and the logs never carry the patient's name, and two uploads never share a key. The readable name
     // (formatAmendedFilename) is computed only when a download URL is signed.
     const documentId = crypto.randomUUID();
-    const storagePath = labStorageKey(session.tenantId, patient_id, documentId, file.name);
+    const storagePath = labStorageKey(session.tenantId, patient_id, client_request_id ?? documentId, file.type);
 
-    // 5. Read buffer and upload via unified storage abstraction
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    // 5. Upload via unified storage abstraction
     const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
 
-    await uploadFile(
-      {
-        path: storagePath,
-        buffer,
-        contentType: file.type,
-        bucket: "clinic-records",
-        // Never replace an earlier report (before 05-02c a same-name, same-date upload overwrote it).
-        upsert: false,
-      },
-      storageProvider
-    );
+    try {
+      await uploadFile(
+        {
+          path: storagePath,
+          buffer,
+          contentType: file.type,
+          bucket: "clinic-records",
+          // Never replace an earlier report (before 05-02c a same-name, same-date upload overwrote it).
+          upsert: false,
+        },
+        storageProvider
+      );
+    } catch (uploadErr) {
+      // A-4: an earlier attempt of this upload stored the object and failed before its row. The object is kept only when it holds exactly these bytes.
+      if (!client_request_id || !(await sameObject(storageProvider, storagePath, buffer))) throw uploadErr;
+    }
 
     // 6. Insert row into patient_documents
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,7 +160,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
         visit_id: visit_id || null,
         title,
         document_type,
-        original_filename: file.name,
+        original_filename: cleanOriginalFilename(file.name),
         storage_path: storagePath,
         file_size_bytes: file.size,
         mime_type: file.type,
@@ -128,10 +168,20 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
         notes: notes || null,
         is_abnormal,
         uploaded_by: session.userId,
+        client_request_id: client_request_id ?? null,
       })
       .select("*")
       .single();
 
+    // A-4: a parallel repeat of this upload inserted first (unique per clinic and request id): its row is the answer.
+    if (insertErr?.code === "23505" && client_request_id) {
+      const earlier = await documentForRequest(ctx, client_request_id);
+      if (earlier) return repeatOf(earlier, { patient_id, visit_id: visit_id || null, uploaded_by: session.userId });
+    }
+    // S-2: the visit was closed between the check above and the insert (the database refuses the row).
+    if (insertErr?.code === "42501" && String(insertErr.message ?? "").includes("DOCUMENT_VISIT_LOCKED")) {
+      return { success: false, error: LAB_VISIT_LOCKED_MESSAGE };
+    }
     if (insertErr || !newDoc) {
       log.error({ event: "labs.document_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save document metadata in clinic database." };
@@ -165,6 +215,53 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       success: false,
       error: clientErrorMessage(err, "An unexpected error occurred during upload."),
     };
+  }
+}
+
+/** The clinic's document stored under this upload request id, read under the caller's RLS (09B-06a, A-4). */
+async function documentForRequest(ctx: ServiceContext, requestId: string): Promise<PatientDocument | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("patient_documents") as any)
+    .select("*")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("client_request_id", requestId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PatientDocument | null) ?? null;
+}
+
+/** A repeat answers with the stored row only when it is the same upload: same patient, visit and uploader. */
+function repeatOf(
+  earlier: PatientDocument,
+  sent: { patient_id: string; visit_id: string | null; uploaded_by: string },
+): UploadLabDocumentResult {
+  if (earlier.patient_id !== sent.patient_id || (earlier.visit_id ?? null) !== sent.visit_id || earlier.uploaded_by !== sent.uploaded_by) {
+    return { success: false, error: LAB_REQUEST_REUSED_MESSAGE };
+  }
+  return { success: true, document: earlier };
+}
+
+/** The visit's record is signed (not reopened), completed or cancelled (09B-06a, S-2): `recordState` plus the closed statuses. */
+async function visitLocked(ctx: ServiceContext, visitId: string): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("visits") as any)
+    .select("status, signed_at")
+    .eq("id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return true;
+  const visit = data as { status: string; signed_at: string | null };
+  return visit.status === "completed" || visit.status === "cancelled" || recordState(visit) === "sealed";
+}
+
+/** The object at `path` holds exactly `bytes` (an earlier attempt of the same upload stored it). */
+async function sameObject(provider: ReturnType<typeof getStorageProviderForDb>, path: string, bytes: Buffer): Promise<boolean> {
+  try {
+    const stored = await downloadFile({ path, bucket: "clinic-records" }, provider);
+    return stored.equals(bytes);
+  } catch {
+    return false;
   }
 }
 

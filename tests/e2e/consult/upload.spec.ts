@@ -3,8 +3,9 @@
  * `uploadLabDocument` (one action per file, this visit's id):
  *   - a PDF and a JPEG are stored (a row with this visit id, the object at its id-only key, the bytes intact) and listed; the list survives a refresh
  *     and the documents appear on the patient's record;
- *   - a 26 MB file and an .exe are refused on the client with the server's own texts and send no request at all;
+ *   - a 5 MB file (the limit is 4 MB since 09B-06a, ruling R-U) and an .exe are refused on the client with the server's own texts and send no request;
  *   - the rows move queued, uploading, stored; a failed upload (the request aborted) shows Retry, and Retry stores exactly one row, sending only that file;
+ *   - 09B-06a (A-4): an upload whose answer is lost after the server stored it, retried, is one row and one object (one request id per file);
  *   - a sealed consult shows its list and no drop zone;
  *   - no part of the file is left in Cache Storage or IndexedDB.
  * Synthetic data only.
@@ -13,8 +14,9 @@ import { randomUUID } from "node:crypto";
 import type { Page, Request } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
-import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
+import { run, seedPatient, seedPrescription, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
 import { storageDump } from "../support/storage-dump";
+import { commitThenAbort } from "../support/commit-then-abort";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { storageStatePath } from "../support/run-data";
 
@@ -52,7 +54,7 @@ const rows = (page: Page) => page.locator("[data-file-drop] [data-file-row]");
 async function documentsOf(visitId: string) {
   const { data, error } = await admin
     .from("patient_documents")
-    .select("id, title, original_filename, storage_path, mime_type, file_size_bytes, visit_id, patient_id, tenant_id")
+    .select("id, title, original_filename, storage_path, mime_type, file_size_bytes, visit_id, patient_id, tenant_id, client_request_id")
     .eq("visit_id", visitId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
@@ -79,8 +81,9 @@ test("@golden a PDF and a JPEG are stored with this visit, listed, still there a
   const [first, second] = documents;
   expect(first).toMatchObject({ title: `e2e-report-${tag}`, original_filename: `e2e-report-${tag}.pdf`, mime_type: "application/pdf", patient_id: patientId, tenant_id: tenantA.id });
   expect(second).toMatchObject({ title: `e2e-scan-${tag}`, mime_type: "image/jpeg" });
-  // The object is at its id-only key and holds exactly the bytes sent.
-  expect(first.storage_path).toBe(`tenants/${tenantA.id}/patients/${patientId}/labs/${first.id}.pdf`);
+  // The object is at its id-only key (the upload's request id since 09B-06a, A-4) and holds exactly the bytes sent.
+  expect(first.client_request_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  expect(first.storage_path).toBe(`tenants/${tenantA.id}/patients/${patientId}/labs/${first.client_request_id}.pdf`);
   expect(first.storage_path).not.toContain(tag);
   const stored = await admin.storage.from("clinic-records").download(first.storage_path);
   expect(stored.error).toBeNull();
@@ -116,19 +119,19 @@ test("a 2 MB report is stored (above Next's default 1 MB server-action body limi
   expect(doc.file_size_bytes).toBe(bytes.length);
 });
 
-test("a 26 MB file and an .exe are refused before any request, with the server's own texts", async ({ page }) => {
+test("a 5 MB file and an .exe are refused before any request, with the server's own texts (the limit is 4 MB, ruling R-U)", async ({ page }) => {
   const { visitId } = await openFreshConsult(page, "UploadRefused");
   const sent: string[] = [];
   page.on("request", (r) => {
     if (isAction(r)) sent.push(r.url());
   });
   await picker(page).setInputFiles([
-    { name: "too-big.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(26 * 1024 * 1024, 0x20) },
+    { name: "too-big.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(5 * 1024 * 1024, 0x20) },
     { name: "run-me.exe", mimeType: "application/x-msdownload", buffer: Buffer.from("MZ synthetic") },
   ]);
   await expect(rows(page)).toHaveCount(2);
   await expect(rows(page).first()).toHaveAttribute("data-status", "failed");
-  await expect(rows(page).first()).toContainText("File size exceeds the 25MB limit. Please upload a smaller file.");
+  await expect(rows(page).first()).toContainText("File is larger than 4 MB, the upload limit. Please upload a smaller file.");
   await expect(rows(page).nth(1)).toHaveAttribute("data-status", "failed");
   await expect(rows(page).nth(1)).toContainText("Invalid file type. Allowed formats: PDF, JPEG, PNG, WEBP.");
   // Sending again cannot change the answer: no Retry on a refused file, only a dismiss.
@@ -181,9 +184,38 @@ test("the row moves queued, uploading, stored; a request that fails shows Retry,
   await expect(page.getByRole("list", { name: "Attachments" }).getByRole("listitem")).toHaveCount(2);
 });
 
+test("A-4: an upload whose answer is lost after the server stored it, retried, is one row and one object", async ({ page }) => {
+  const { tenantA } = run();
+  const { visitId, patientId } = await openFreshConsult(page, "UploadLost");
+  const marker = `E2ELOST${testTag().replace(/\W/g, "")}`;
+  const cut = await commitThenAbort(page, { first: 1, matches: (r) => (r.postDataBuffer()?.toString("latin1") ?? "").includes(marker) });
+  await picker(page).setInputFiles([{ name: `lost-${marker}.pdf`, mimeType: "application/pdf", buffer: pdf(marker) }]);
+  const row = rows(page).first();
+  await expect(row).toHaveAttribute("data-status", "failed", { timeout: 20_000 });
+  expect(cut.aborted).toBe(1);
+  await cut.clear();
+  // The server did store it: one row already.
+  expect(await documentsOf(visitId)).toHaveLength(1);
+
+  await page.getByRole("button", { name: `Retry lost-${marker}.pdf` }).click();
+  await expect(row).toHaveAttribute("data-status", "stored", { timeout: 20_000 });
+  const documents = await documentsOf(visitId);
+  expect(documents).toHaveLength(1);
+  const objects = await admin.storage.from("clinic-records").list(`tenants/${tenantA.id}/patients/${patientId}/labs`);
+  expect((objects.data ?? []).map((o) => o.name)).toEqual([`${documents[0].client_request_id}.pdf`]);
+  await expect(page.getByRole("list", { name: "Attachments" }).getByRole("listitem")).toHaveCount(1);
+});
+
 test("a sealed consult shows its documents and no drop zone", async ({ page }) => {
   const { tenantA } = run();
-  const sealed = await seedSignedConsultation("UploadSealed");
+  // The document is attached while the visit is open, then the visit is signed (since 000116, 09B-06a S-2, no document is linked to a signed visit).
+  const doctor = tenantA.users.doctor;
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic UploadSealed ${testTag()}`);
+  const sealedVisitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
+  const note = await admin.from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", sealedVisitId).select("visit_id");
+  expect(note.error).toBeNull();
+  await seedPrescription({ tenantId: tenantA.id, visitId: sealedVisitId, patientId: patient.id, doctorId: doctor.id, medicineName: `E2E Synthetic Sealed Med ${testTag()}` });
+  const sealed = { visitId: sealedVisitId, patientId: patient.id };
   const id = randomUUID();
   const inserted = await admin.from("patient_documents").insert({
     id,
@@ -200,6 +232,7 @@ test("a sealed consult shows its documents and no drop zone", async ({ page }) =
     uploaded_by: tenantA.users.doctor.id,
   });
   expect(inserted.error).toBeNull();
+  await signSeededVisit(tenantA.id, sealed.visitId, doctor.email);
   await page.goto(`/consultation/${sealed.visitId}`);
   await awaitHydrated(page);
   await expect(page.getByRole("list", { name: "Attachments" })).toContainText("E2E Synthetic sealed report");

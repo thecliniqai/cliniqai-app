@@ -135,10 +135,10 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       expect(found?.is_abnormal).toBe(true);
     });
 
-    it("rejects files exceeding 25MB limit", async () => {
-      // Mock File with size property > 25MB
+    it("rejects files exceeding the 4 MB limit (09B-06a, R-U; was 25MB)", async () => {
+      // Mock File with size property > 4 MB
       const mockLargeFile = new File(["test"], "huge.pdf", { type: "application/pdf" });
-      Object.defineProperty(mockLargeFile, "size", { value: 26 * 1024 * 1024 });
+      Object.defineProperty(mockLargeFile, "size", { value: 4 * 1024 * 1024 + 1 });
 
       const formData = new FormData();
       formData.set("file", mockLargeFile);
@@ -148,7 +148,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       formData.set("report_date", "2026-10-22");
 
       const uploadRes = await uploadLabDocument(ctxFor(tenantA), formData);
-      expect(uploadRes).toMatchObject({ success: false, error: expect.stringContaining("25MB") });
+      expect(uploadRes).toMatchObject({ success: false, error: expect.stringContaining("larger than 4 MB") });
     });
   });
 

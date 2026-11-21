@@ -5,7 +5,7 @@ import { ExternalLink, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileDrop, type FileDropResult } from "@/components/ui/file-drop";
 import { getDocumentSignedUrl, uploadLabDocument } from "@/features/labs/actions";
-import { LAB_ACCEPTED_MIME_TYPES, labFileRefusal } from "@/features/labs/utils";
+import { LAB_ACCEPTED_MIME_TYPES, LAB_MAX_FILE_LABEL, labFileRefusal } from "@/features/labs/utils";
 import { titleFromFilename, toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
 import { reportClientError } from "@/lib/log/client";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
@@ -81,8 +81,10 @@ export function DocumentRow({ doc }: { doc: ConsultDocument }) {
 }
 
 export function Attachments({ visitId, patientId, documents, readOnly, canUpload, onUploaded }: AttachmentsProps) {
-  const upload = async (file: File): Promise<FileDropResult> => {
+  const upload = async (file: File, requestId: string): Promise<FileDropResult> => {
     const form = new FormData();
+    // 09B-06a (A-4): the same id on every Retry of this file, so a retry after a lost response returns the stored row instead of a second copy.
+    form.set("client_request_id", requestId);
     form.set("file", file);
     form.set("patient_id", patientId);
     form.set("visit_id", visitId);
@@ -106,7 +108,7 @@ export function Attachments({ visitId, patientId, documents, readOnly, canUpload
         <FileDrop
           label="Upload lab report or radiograph"
           accept={LAB_ACCEPTED_MIME_TYPES}
-          limitsText="PDF, JPEG, PNG or WEBP, up to 25 MB each."
+          limitsText={`PDF, JPEG, PNG or WEBP, up to ${LAB_MAX_FILE_LABEL} each.`}
           refuse={labFileRefusal}
           onUpload={upload}
           disabled={!canUpload}
