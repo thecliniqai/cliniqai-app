@@ -11,7 +11,14 @@
 -- tenant still cascades through children that RESTRICT each other (teardown and purge depend on it).
 -- Each cell runs in a subtransaction that is always rolled back (pg_temp.try); the file rolls back. Synthetic data.
 begin;
-select plan(111);
+-- 000112 (09B-01): follow_ups_one_per_visit makes a clone of a follow-up that keeps its visit a 23505 before any FK is checked, so the three follow_ups cases
+-- clone onto visit ...1004 (tenant A, no follow-up; the tenant-B override of the visit case still names ...1005).
+-- 000112 (09B-01, R-3): UPDATE on public.clinical_notes is narrowed for authenticated to (vitals) and INSERT, UPDATE and DELETE on public.follow_ups are revoked
+-- (save_consultation_draft is the writer). This file proves the guards, triggers and policies themselves (defence in depth, independent of the grants), so the
+-- grants are widened for this transaction only; the narrowing is proven in consult_draft_save.test.sql.
+grant update on table public.clinical_notes to authenticated;
+grant insert, update, delete on table public.follow_ups to authenticated;
+select plan(113);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
 insert into auth.users (id, email) values ('cf000000-0000-4000-8000-000000000101', 'cfk-doctor-a@example.test'), ('cf000000-0000-4000-8000-000000000201', 'cfk-owner-b@example.test');
@@ -60,6 +67,7 @@ insert into public.schedule_blocks (id, tenant_id, doctor_id, start_time, end_ti
 insert into public.doctor_custom_diagnoses (id, tenant_id, doctor_id, diagnosis_name) values ('cf000000-0000-4000-8000-000000002011', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000000101', 'Synthetic CFK diagnosis');
 insert into public.doctor_custom_medicines (id, tenant_id, doctor_id, medicine_name) values ('cf000000-0000-4000-8000-000000002012', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000000101', 'Synthetic CFK medicine');
 insert into public.doctor_prescription_templates (id, tenant_id, doctor_id, template_name) values ('cf000000-0000-4000-8000-000000002013', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000000101', 'Synthetic CFK template');
+insert into public.doctor_text_macros (id, tenant_id, doctor_id, shortcut, expansion) values ('cf000000-0000-4000-8000-000000002014', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000000101', '.cfk1', 'Synthetic CFK macro');
 -- SET NULL (<col>) children of the visit and the API key deleted below.
 insert into public.follow_ups (id, tenant_id, patient_id, visit_id, doctor_id, follow_up_date) values ('cf000000-0000-4000-8000-000000002020', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000001001', 'cf000000-0000-4000-8000-000000001010', 'cf000000-0000-4000-8000-000000000101', '2030-01-02');
 insert into public.patient_documents (id, tenant_id, patient_id, visit_id, title, original_filename, storage_path, file_size_bytes, mime_type, uploaded_by) values
@@ -112,9 +120,9 @@ insert into cfk_case values
   ('consultations_tenant_patient_fkey', 'consultations', $w$id = 'cf000000-0000-4000-8000-000000002005'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('consultations_tenant_doctor_fkey', 'consultations', $w$id = 'cf000000-0000-4000-8000-000000002005'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('consent_records_tenant_patient_fkey', 'consent_records', $w$id = 'cf000000-0000-4000-8000-000000002006'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
-  ('follow_ups_tenant_patient_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
-  ('follow_ups_tenant_visit_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)', true),
-  ('follow_ups_tenant_doctor_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
+  ('follow_ups_tenant_patient_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid(), 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
+  ('follow_ups_tenant_visit_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid(), 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)', true),
+  ('follow_ups_tenant_doctor_fkey', 'follow_ups', $w$id = 'cf000000-0000-4000-8000-000000002007'$w$, jsonb_build_object('id', gen_random_uuid(), 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('patient_documents_tenant_patient_fkey', 'patient_documents', $w$id = 'cf000000-0000-4000-8000-00000000100a'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002', 'storage_path', 'tenants/cf000000-0000-4000-8000-00000000000a/patients/cf000000-0000-4000-8000-000000001002/labs/cfk.pdf'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('patient_documents_tenant_visit_fkey', 'patient_documents', $w$id = 'cf000000-0000-4000-8000-00000000100a'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)', true),
   ('document_share_tokens_tenant_document_fkey', 'document_share_tokens', $w$id = 'cf000000-0000-4000-8000-000000002008'$w$, jsonb_build_object('id', gen_random_uuid(), 'token_hash', repeat('c', 64)), jsonb_build_object('document_id', 'cf000000-0000-4000-8000-00000000100b'), 'FOREIGN KEY (tenant_id, document_id) REFERENCES patient_documents(tenant_id, id) ON DELETE CASCADE', true),
@@ -137,6 +145,7 @@ insert into cfk_case values
   ('schedule_blocks_tenant_doctor_fkey', 'schedule_blocks', $w$id = 'cf000000-0000-4000-8000-000000002010'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('doctor_custom_diagnoses_tenant_doctor_fkey', 'doctor_custom_diagnoses', $w$id = 'cf000000-0000-4000-8000-000000002011'$w$, jsonb_build_object('id', gen_random_uuid(), 'diagnosis_name', 'Synthetic CFK diagnosis 2'), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('doctor_custom_medicines_tenant_doctor_fkey', 'doctor_custom_medicines', $w$id = 'cf000000-0000-4000-8000-000000002012'$w$, jsonb_build_object('id', gen_random_uuid(), 'medicine_name', 'Synthetic CFK medicine 2'), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
+  ('doctor_text_macros_tenant_doctor_fkey', 'doctor_text_macros', $w$id = 'cf000000-0000-4000-8000-000000002014'$w$, jsonb_build_object('id', gen_random_uuid(), 'shortcut', '.cfk2'), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('doctor_prescription_templates_tenant_doctor_fkey', 'doctor_prescription_templates', $w$id = 'cf000000-0000-4000-8000-000000002013'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true);
 
 -- 1. The composite FK set is exactly the plan's (name, table, definition), all validated ------------------------------
@@ -145,7 +154,7 @@ select set_eq(
       from pg_constraint c
      where c.contype = 'f' and c.connamespace = 'public'::regnamespace and cardinality(c.conkey) > 1$$,
   $$select tbl || ' ' || fk || ' ' || defn from cfk_case$$,
-  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a), the visit signer (05-11a) and the three location FKs (07-00) (columns, parent, delete action)');
+  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a), the visit signer (05-11a) the three location FKs (07-00) and doctor_text_macros (000115) (columns, parent, delete action)');
 select is((select count(*)::int from pg_constraint c join pg_namespace n on n.oid = c.connamespace
             where c.contype = 'f' and not c.convalidated and n.nspname in ('public', 'ops', 'private')), 0,
   'no foreign key in public/ops/private is left NOT VALID');

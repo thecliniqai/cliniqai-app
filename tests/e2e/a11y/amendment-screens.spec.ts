@@ -215,7 +215,7 @@ test.describe("amendment: in-session transitions", () => {
     await page.locator("#prescription").getByRole("button", { name: /Add as custom medicine/ }).click();
     await expect(page.getByText("Configure Dosage & Instructions:")).toBeVisible();
 
-    await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
+    await page.getByRole("button", { name: /Finish visit/ }).first().click();
     const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
     await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
     await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });

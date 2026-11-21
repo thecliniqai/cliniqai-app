@@ -53,6 +53,7 @@ import {
   sessionRouteCrossTenantLeg,
   sessionRouteDenialLegs,
   sessionSearchRouteLegs,
+  sessionDiagnosisSearchRouteLegs,
   tenantSnapshot,
   webhookRouteLegs,
   type RequestSlot,
@@ -130,6 +131,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
       });
 
       it.each(ofKind("session-search"))("session-search denial: %s", async (_k, c, guard) => {
+        const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b.patient);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("session-diagnosis-search"))("session-diagnosis-search denial: %s", async (_k, c, guard) => {
         const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b.patient);
         expect(violations, report(violations)).toEqual([]);
       });
@@ -253,6 +259,12 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
       // A search route has no id to forge: tenant B's patient is searched by name and by number (the control seeds tenant A rows).
       it.each(ofKind("session-search"))("session-search: %s", async (_k, c: RouteCase, guard) => {
         const violations = await sessionSearchRouteLegs(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      // The diagnosis typeahead (09B-04a): a synthetic catalogue row is found with exactly the projection keys; hostile queries are data.
+      it.each(ofKind("session-diagnosis-search"))("session-diagnosis-search: %s", async (_k, c: RouteCase, guard) => {
+        const violations = await sessionDiagnosisSearchRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

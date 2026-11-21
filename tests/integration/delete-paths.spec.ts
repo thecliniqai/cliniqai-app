@@ -14,7 +14,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { removePrescriptionItem } from "@/features/prescriptions/service";
 import { removeConsultationDiagnosis } from "@/features/terminology/service";
 import { deleteInvoiceItem } from "@/features/billing/service";
-import { saveConsultationDraft } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import type { ServiceContext } from "@/lib/auth/context";
 import { ctxFor } from "../helpers/context";
@@ -169,7 +169,8 @@ describe("delete paths: no silent no-ops (05-04)", () => {
       doctor_id: doctor.userId,
       follow_up_date: "2030-01-01",
     });
-    const res = await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId }));
+    // V2-09b: the patch names the follow-up (null) to clear it; a patch that does not name it leaves it alone.
+    const res = await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, follow_up: null }));
     expect(res.success).toBe(true);
     expect(await exists("follow_ups", followUpId)).toBe(false);
   });

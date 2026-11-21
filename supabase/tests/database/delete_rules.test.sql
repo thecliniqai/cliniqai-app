@@ -10,6 +10,11 @@
 -- 4. Deleting a TENANT still cascades every row of that clinic to 0 (teardown and future purge, research Pitfall 4).
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
 begin;
+-- 000112 (09B-01, R-3): UPDATE on public.clinical_notes is narrowed for authenticated to (vitals) and INSERT, UPDATE and DELETE on public.follow_ups are revoked
+-- (save_consultation_draft is the writer). This file proves the guards, triggers and policies themselves (defence in depth, independent of the grants), so the
+-- grants are widened for this transaction only; the narrowing is proven in consult_draft_save.test.sql.
+grant update on table public.clinical_notes to authenticated;
+grant insert, update, delete on table public.follow_ups to authenticated;
 select plan(35);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
@@ -187,6 +192,7 @@ select set_eq(
            ('doctor_custom_diagnoses', 'doctor_custom_diagnoses_delete'),
            ('doctor_custom_medicines', 'doctor_custom_medicines_delete'),
            ('doctor_prescription_templates', 'doctor_prescription_templates_delete'),
+           ('doctor_text_macros', 'doctor_text_macros_delete'),
            ('follow_ups', 'follow_ups_delete'), ('in_app_notifications', 'in_app_notifications_delete'),
            ('invoice_items', 'invoice_items_delete'),
            ('prescription_items', 'prescription_items_delete'), ('schedule_blocks', 'schedule_blocks_delete'),

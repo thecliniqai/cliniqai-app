@@ -737,15 +737,12 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(24)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-01'" },
     insert: { id: q(FX.row(25)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-02'" },
     update: "notes",
-    rules: {
-      select: perm("appointments:view"),
-      insert: any(perm("appointments:edit"), perm("consultations:edit")),
-      update: any(perm("appointments:edit"), perm("consultations:edit")),
-      delete: perm("consultations:edit"),
-    },
+    // V2-09b 000112 (R-3): save_consultation_draft (definer) is the writer; INSERT, UPDATE and DELETE are revoked from authenticated.
+    rules: { select: perm("appointments:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
       "05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the " +
-      "visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit",
+      "visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit. " +
+      "V2-09b 000112: written only by save_consultation_draft (SECURITY DEFINER, consultations:edit; one follow-up per visit)",
   },
   {
     kind: "table",
@@ -877,6 +874,20 @@ export const TARGETS: readonly Target[] = [
     insert: { id: q(FX.row(36)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine 2'" },
     update: "medicine_name",
     rules: { select: perm("consultations:view"), insert: ownConsultationRow, update: ownConsultationRow, delete: ownConsultationRow },
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "doctor_text_macros",
+    key: ["id"],
+    // V2-09b 000115: a doctor's own text macros; the owning doctor only, for every operation (the BEFORE INSERT trigger sets doctor_id to the caller).
+    fixture: { id: q(FX.row(75)), tenant_id: A, doctor_id: U.doctorA, shortcut: "'.syn1'", expansion: "'Synthetic macro text'" },
+    insert: { id: q(FX.row(76)), tenant_id: A, doctor_id: U.doctorA, shortcut: "'.syn2'", expansion: "'Synthetic macro text 2'" },
+    update: "expansion",
+    rules: { select: ownConsultationRow, insert: perm("consultations:edit"), update: ownConsultationRow, delete: ownConsultationRow },
+    note:
+      "the BEFORE INSERT trigger sets doctor_id to the caller (a forged doctor_id is replaced), so an insert by any holder of consultations:edit stores " +
+      "the caller's own row; the select, update and delete rules keep the owner-only filter",
   },
   {
     kind: "table",

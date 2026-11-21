@@ -10,7 +10,7 @@ import * as contextModule from "@/lib/auth/context";
 import * as serverClientModule from "@/lib/supabase/server";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { shareReferralLetterViaWhatsApp, getOutboundReferrals, getPatientReferrals } from "@/features/referrals/service";
-import { saveConsultationDraft } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { getInAppNotifications, markAllNotificationsRead } from "@/features/notifications/service";
 import { updateClinicSettings } from "@/features/settings/service";
 import { GET as receiptPdfRoute } from "@/app/api/invoices/[id]/receipt-pdf/route";

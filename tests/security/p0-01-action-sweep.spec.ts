@@ -66,7 +66,7 @@ const AUTH_FAILURE = /unauthenticated|signed in|sign in/i;
  * Actions whose failure message is deliberately generic (AI-01: AI actions never echo error detail). They are still
  * held to every other assertion: no data access, forged arguments unread, nothing written.
  */
-const GENERIC_FAILURE_MESSAGE = new Set(["generateSoapAction", "getPatientCatchUpSummaryAction"]);
+const GENERIC_FAILURE_MESSAGE = new Set(["generateSoapAction"]);
 
 /** Every table the actions can write (supabase/migrations). Row counts must be identical before and after. */
 const TABLES = [

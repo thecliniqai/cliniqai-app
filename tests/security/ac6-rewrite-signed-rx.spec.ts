@@ -11,6 +11,7 @@
  * not while it is being amended; no PDF can be planted for a draft or an amending visit; the service role cannot move or rewrite the recorded path and hash
  * (RX_PDF_WRITE_ONCE). Synthetic data only.
  */
+import { followUpDay } from "../helpers/consult-draft";
 import { beforeAll, describe, expect, it } from "vitest";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -75,20 +76,22 @@ async function snapshot(r: Rec) {
   return { visit: visit.data, notes: notes.data, rx: rx.data, items: items.data, dx: dx.data, fu: fu.data };
 }
 
-type Write = { name: string; kind: "content" | "seal"; users: boolean; run: (db: TestDb, r: Rec) => PromiseLike<{ error: { code?: string; message?: string } | null }> };
+/** `command`: since 000112 a member no longer writes this row directly (the privilege is gone: 42501 in every state); `save_consultation_draft` is the writer. */
+type Write = { name: string; kind: "content" | "seal"; users: boolean; command?: boolean; run: (db: TestDb, r: Rec) => PromiseLike<{ error: { code?: string; message?: string } | null }> };
 
+// 000112 (one follow-up per visit): the follow-up writes run update, delete, insert, so the insert finds the visit free.
 // `users`: also attempted through a member's JWT (some columns carry no UPDATE privilege for a member at all; those are refused by privilege there).
 const writes: Write[] = [
-  { name: "note: update", kind: "content", users: true, run: (db, r) => db.from("clinical_notes").update({ clinical_notes: "Rewritten note" }).eq("visit_id", r.visitId) },
+  { name: "note: update", kind: "content", users: true, command: true, run: (db, r) => db.from("clinical_notes").update({ clinical_notes: "Rewritten note" }).eq("visit_id", r.visitId) },
   { name: "diagnosis: insert", kind: "content", users: true, run: (db, r) => db.from("consultation_diagnoses").insert({ tenant_id: r.tenantId, visit_id: r.visitId, patient_id: r.patientId, diagnosis_name: "Added diagnosis" }) },
   { name: "diagnosis: update", kind: "content", users: true, run: (db, r) => db.from("consultation_diagnoses").update({ diagnosis_name: "Rewritten diagnosis" }).eq("id", r.diagnosisId) },
   { name: "item: insert", kind: "content", users: true, run: (db, r) => db.from("prescription_items").insert({ tenant_id: r.tenantId, prescription_id: r.rxId, medicine_name: "Added medicine", dosage: "1-0-1", duration: "3 days" }) },
   { name: "item: update", kind: "content", users: true, run: (db, r) => db.from("prescription_items").update({ dosage: "9-9-9" }).eq("id", r.itemId) },
-  { name: "follow-up: insert", kind: "content", users: true, run: (db, r) => db.from("follow_ups").insert({ tenant_id: r.tenantId, patient_id: r.patientId, visit_id: r.visitId, doctor_id: doctor.userId, follow_up_date: "2031-04-01" }) },
-  { name: "follow-up: update", kind: "content", users: true, run: (db, r) => db.from("follow_ups").update({ follow_up_date: "2032-01-01" }).eq("id", r.followUpId) },
+  { name: "follow-up: update", kind: "content", users: true, command: true, run: (db, r) => db.from("follow_ups").update({ follow_up_date: "2032-01-01" }).eq("visit_id", r.visitId) },
+  { name: "follow-up: delete", kind: "content", users: true, command: true, run: (db, r) => db.from("follow_ups").delete().eq("visit_id", r.visitId) },
+  { name: "follow-up: insert", kind: "content", users: true, command: true, run: (db, r) => db.from("follow_ups").insert({ tenant_id: r.tenantId, patient_id: r.patientId, visit_id: r.visitId, doctor_id: doctor.userId, follow_up_date: "2031-04-01" }) },
   { name: "item: delete", kind: "content", users: true, run: (db, r) => db.from("prescription_items").delete().eq("id", r.itemId) },
   { name: "diagnosis: delete", kind: "content", users: true, run: (db, r) => db.from("consultation_diagnoses").delete().eq("id", r.diagnosisId) },
-  { name: "follow-up: delete", kind: "content", users: true, run: (db, r) => db.from("follow_ups").delete().eq("id", r.followUpId) },
   { name: "note: delete", kind: "content", users: false, run: (db, r) => db.from("clinical_notes").delete().eq("visit_id", r.visitId) },
   { name: "header: version", kind: "seal", users: true, run: (db, r) => db.from("prescriptions").update({ version: 5 }).eq("id", r.rxId) },
   { name: "header: status", kind: "seal", users: true, run: (db, r) => db.from("prescriptions").update({ status: "amended" }).eq("id", r.rxId) },
@@ -132,8 +135,10 @@ describe("AC-6, database legs: a signed record cannot be rewritten, by anyone", 
       const r = await record("draft");
       for (const w of writes.filter((x) => x.kind === "content" && (!isUser || x.users))) {
         const { error } = await w.run(clientOf(), r);
-        expect(error, `${who}: ${w.name}`).toBeNull();
+        if (isUser && w.command) expect(error?.code, `${who}: ${w.name} (the privilege is gone since 000112)`).toBe("42501");
+        else expect(error, `${who}: ${w.name}`).toBeNull();
       }
+      if (isUser) await expectCommandWrites(clientOf(), r, true);
     });
 
     it(`AMENDING, as the ${who}: the content writes succeed; signature, status and delete of the visit stay refused${isUser ? ", and so do the commands' columns" : ""}`, async () => {
@@ -147,11 +152,43 @@ describe("AC-6, database legs: a signed record cannot be rewritten, by anyone", 
       expect(await snapshot(r)).toEqual(before);
       for (const w of writes.filter((x) => x.kind === "content" && (!isUser || x.users))) {
         const { error } = await w.run(clientOf(), r);
-        expect(error, `${who}: ${w.name}`).toBeNull();
+        if (isUser && w.command) expect(error?.code, `${who}: ${w.name} (the privilege is gone since 000112)`).toBe("42501");
+        else expect(error, `${who}: ${w.name}`).toBeNull();
       }
+      if (isUser) await expectCommandWrites(clientOf(), r, true);
     });
+
+    if (isUser) {
+      it(`SEALED, as the ${who}: the draft command is refused too (DRAFT_LOCKED) and the note and the follow-up are re-read unchanged`, async () => {
+        const r = await record("sealed");
+        const before = await snapshot(r);
+        await expectCommandWrites(clientOf(), r, false);
+        expect(await snapshot(r)).toEqual(before);
+      });
+    }
   }
 });
+
+/** The member's writer for the note and the follow-up (000112): admitted on a draft or amending record, DRAFT_LOCKED on a sealed one. */
+async function expectCommandWrites(db: TestDb, r: Rec, admitted: boolean) {
+  const { data: row, error: readErr } = await admin.from("clinical_notes").select("draft_version").eq("visit_id", r.visitId).single();
+  if (readErr || !row) throw new Error(`draft_version read failed: ${readErr?.message}`);
+  const { error } = await db.rpc("save_consultation_draft", {
+    p_tenant_id: r.tenantId,
+    p_visit_id: r.visitId,
+    p_expected_version: row.draft_version,
+    // A date the command takes (000116, 09B-06a S-4: from the clinic's today to +366 days; the range is checked before the lock).
+    p_patch: { clinical_notes: "Rewritten note", follow_up: { follow_up_date: followUpDay(90) } },
+    p_client_request_id: randomUUID(),
+  });
+  if (admitted) {
+    expect(error).toBeNull();
+    const { data } = await admin.from("follow_ups").select("follow_up_date").eq("visit_id", r.visitId);
+    expect(data).toEqual([{ follow_up_date: followUpDay(90) }]);
+  } else {
+    expect(error).toMatchObject({ code: "P0001", message: "DRAFT_LOCKED" });
+  }
+}
 
 // Storage legs --------------------------------------------------------------------------------------------------------------------------
 const FORGED = Buffer.from("%PDF-1.4 forged replacement");

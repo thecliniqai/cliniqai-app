@@ -106,7 +106,8 @@ for (const size of WIDTHS) {
         await page.goto(`/consultation/${visitId}`);
         await expect(page.getByLabel(NOTES_LABEL)).toHaveValue(NOTE);
         await expect(page.getByText("Vital Signs")).toBeVisible();
-        await expect(page.getByText(/128\s*\/\s*84/).first()).toBeVisible();
+        // (V2-09b: below 1180 px the patient column is in the DOM but not drawn, so take the first one that is visible.)
+        await expect(page.getByText(/128\s*\/\s*84/).filter({ visible: true }).first()).toBeVisible();
         await check(page, testInfo, `consultation-doctor-${size.width}`, "/consultation/[id]");
       });
     });

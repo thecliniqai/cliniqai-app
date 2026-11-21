@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "../helpers/seed-visit";
 import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
-import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/service";
+import { getPatientConsultationHistory } from "@/features/consultation/service";
+import { saveDraftAs, saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
@@ -331,15 +332,9 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   it("8. Doctor selects follow-up in 5 days; persists to follow_ups table", async () => {
     const followUpDate = new Date(Date.now() + 5 * 86400000).toISOString().split("T")[0];
 
-    const followUpRes = await recordFollowUp(
-      ctxFor(tenantA),
-      {
-        visitId: visitAId,
-        patientId: patientAId,
-        followUpDate,
-        notes: "RCT obturation and crown preparation",
-      }
-    );
+    const followUpRes = await saveDraftAs(ctxFor(tenantA), visitAId, {
+      follow_up: { follow_up_date: followUpDate, notes: "RCT obturation and crown preparation" },
+    });
 
     expect(followUpRes.success).toBe(true);
 

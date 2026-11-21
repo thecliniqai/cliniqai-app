@@ -8,7 +8,7 @@
  * - the screen is never replaced when the connection drops (carried from the V2-07 merge): offline, or with the server
  *   unreachable while the browser still says it is online, a refresh is not attempted, the rows stay and no navigation
  *   happens; once the server answers again the board catches up.
- * Synthetic data only; tenant A is shared, so every row is found by its own unique name.
+ * Synthetic data only; tenant A is shared, so every row is found by its own unique name. The 2 s case has its own clinic (see {@link ownClinic}).
  */
 import type { Page } from "@playwright/test";
 import { expect, test, routeLoopbackOnly } from "../fixtures";
@@ -16,6 +16,9 @@ import { E2E_BASE_URL } from "../support/app-env";
 import { storageStatePath } from "../support/run-data";
 import { seedBookedToday, seedWaitingToday, tokensOfVisit, todayName, visitStatusOf } from "../support/today-data";
 import { countRscRequests, openToday, rowInLane, rowOf, showLane } from "../support/today-page";
+import { uiSignIn } from "../support/password-journeys";
+import { testTag } from "../support/m0-data";
+import { addMemberToTenant, seedTenantWithOwner, seededUserPassword } from "../../helpers/tenants";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -61,8 +64,28 @@ test("@golden check-in is one action: the row moves to Waiting at once; the data
   await expect(rowInLane(page, "booked", name)).toHaveCount(0);
 });
 
+/**
+ * A clinic of the test's own: an owner (the observer, a practicing doctor) and a receptionist (the screen that checks in), both signed in through the login
+ * UI. A signal makes a screen re-read and re-render the whole clinic day, and clinic A's day grows with every spec of every project. CI 44942218223: iphone-15
+ * runs last (about an hour in); the day held 397 visits, and the 1280 px observer received the signal and the refreshed day in time but had not drawn it
+ * within 2 s on the runner's WebKit. The 2 s is measured on a clinic day the test controls, not on what the run has left in clinic A.
+ */
+async function ownClinic(): Promise<{ owner: { email: string }; receptionist: { email: string }; seed: () => ReturnType<typeof seedBookedToday> }> {
+  const owner = await seedTenantWithOwner(`E2E Synthetic Clinic Live ${testTag()}`);
+  const receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
+  const clinic = { tenantId: owner.tenantId, ownerId: owner.userId, doctorId: owner.userId, createdBy: receptionist.userId };
+  return {
+    owner: { email: owner.userEmail },
+    receptionist: { email: receptionist.userEmail },
+    seed: () => seedBookedToday(todayName("Booked"), "10:00", clinic),
+  };
+}
+
 test("@golden a check-in on one screen reaches another browser of the clinic within 2 s (private Realtime channel)", async ({ page, browser }) => {
-  const { visitId, name } = await seedBookedToday();
+  const clinic = await ownClinic();
+  const { visitId, name } = await clinic.seed();
+  await page.context().clearCookies();
+  await uiSignIn(page, { email: clinic.receptionist.email, password: seededUserPassword() });
   await openToday(page);
   await expect(liveStatus(page)).toHaveText("Live", { timeout: 20_000 });
 
@@ -70,12 +93,12 @@ test("@golden a check-in on one screen reaches another browser of the clinic wit
   const other = await browser.newContext({
     baseURL: E2E_BASE_URL,
     serviceWorkers: "block",
-    storageState: storageStatePath("owner"),
     viewport: { width: 1280, height: 900 },
   });
   await routeLoopbackOnly(other, blocked);
   try {
     const observer = await other.newPage();
+    await uiSignIn(observer, { email: clinic.owner.email, password: seededUserPassword() });
     await openToday(observer);
     await expect(liveStatus(observer)).toHaveText("Live", { timeout: 20_000 });
     await expect(rowInLane(observer, "booked", name)).toBeVisible();

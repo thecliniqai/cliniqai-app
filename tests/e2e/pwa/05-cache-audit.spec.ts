@@ -44,6 +44,7 @@ import { addMemberToTenant, seededUserPassword } from "../../helpers/tenants";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { logOffset, readLogFrom, SERVER_STDOUT_LOG } from "../support/server-log";
+import { storageDump } from "../support/storage-dump";
 
 const NO_STORE = /^(?=.*\bprivate\b)(?=.*\bno-store\b)/;
 
@@ -121,7 +122,40 @@ test.describe("browse as owner", () => {
     expect(state.sessionKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
     expect(await authCookies(context), "still signed in (browsing only)").not.toEqual([]);
   });
+
+  // V2-09b 09B-01 (R-4, T-09B-04, PWA §4 D-3): the unsent draft lives in memory only. A note typed in the consult and saved leaves no part of its
+  // text in any storage API: not in localStorage, sessionStorage, IndexedDB (every database, every store) or Cache Storage (URLs and response bodies).
+  test("a consult note typed and saved is held in memory only: no storage API holds any part of it", async ({ page }) => {
+    const data = run();
+    const patient = await seedPatient(data.tenantA.id, data.tenantA.users.owner.id, `E2E Synthetic Draft Storage ${testTag()}`);
+    const visitId = await seedVisit({
+      tenantId: data.tenantA.id,
+      patientId: patient.id,
+      doctorId: data.tenantA.users.doctor.id,
+      createdBy: data.tenantA.users.owner.id,
+      status: "in_consultation",
+    });
+    const marker = `ZQXDRAFTMARKER${testTag().replace(/\W/g, "")}`;
+    await page.goto("/today");
+    await waitForServiceWorker(page);
+    await page.goto(`/consultation/${visitId}`);
+    const notes = page.getByLabel("History of Present Illness & Clinical Notes");
+    await notes.fill(marker);
+    // Unsent (typed, inside the 5 s wait) and then sent: the text must be on no storage at either moment.
+    const unsent = await storageDump(page);
+    await expect(page.locator("[data-save-status='saved']")).toBeVisible({ timeout: 12_000 });
+    const sent = await storageDump(page);
+    for (const dump of [unsent, sent]) {
+      expect(dump.local).not.toContain(marker);
+      expect(dump.session).not.toContain(marker);
+      expect(dump.indexedDb).not.toContain(marker);
+      expect(dump.caches).not.toContain(marker);
+    }
+    // The audit is not vacuous: the dump does read what these APIs hold (the preference keys and the shell caches).
+    expect(sent.caches.length).toBeGreaterThan(0);
+  });
 });
+
 
 /** Puts on the device what a careless page or library could leave behind, plus one preference that must survive. */
 async function dirtyDevice(page: Page) {

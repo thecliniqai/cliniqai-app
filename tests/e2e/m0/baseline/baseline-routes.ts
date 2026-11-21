@@ -83,7 +83,7 @@ export const FLOW_SCREENS: Array<{ name: string; role: E2eRole; open: (page: Pag
     role: "doctor",
     open: async (page) => {
       await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
-      await page.getByRole("button", { name: /Complete & Sign/ }).first().click();
+      await page.getByRole("button", { name: /Finish visit/ }).first().click();
       await expect(page.getByRole("dialog", { name: "Complete & Sign Consultation" })).toBeVisible();
     },
   },

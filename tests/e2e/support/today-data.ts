@@ -17,22 +17,36 @@ export function todayName(label: string): string {
   return `E2E Synthetic Today ${label} ${testTag()}`;
 }
 
-/** A booked visit for today (clinic time `time`, default 10:00) with the run's doctor. */
-export async function seedBookedToday(name = todayName("Booked"), time = "10:00"): Promise<TodayVisit> {
+/** Where a seeded visit lives: by default the run's clinic A, its doctor and its receptionist. */
+export interface TodayClinic {
+  tenantId: string;
+  /** Registers the patient. */
+  ownerId: string;
+  doctorId: string;
+  /** Creates the visit. */
+  createdBy: string;
+}
+
+function clinicA(): TodayClinic {
   const { tenantA } = run();
-  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, name);
+  return { tenantId: tenantA.id, ownerId: tenantA.users.owner.id, doctorId: tenantA.users.doctor.id, createdBy: tenantA.users.receptionist.id };
+}
+
+/** A booked visit for today (clinic time `time`, default 10:00) with the run's doctor, or in `clinic`. */
+export async function seedBookedToday(name = todayName("Booked"), time = "10:00", clinic: TodayClinic = clinicA()): Promise<TodayVisit> {
+  const patient = await seedPatient(clinic.tenantId, clinic.ownerId, name);
   const { data, error } = await getAdminClient()
     .from("visits")
     .insert({
-      tenant_id: tenantA.id,
+      tenant_id: clinic.tenantId,
       patient_id: patient.id,
-      doctor_id: tenantA.users.doctor.id,
+      doctor_id: clinic.doctorId,
       origin_type: "scheduled",
       status: "booked",
       scheduled_at: istInstant(appToday(), time),
       is_overbooked: true,
       estimated_duration_minutes: 15,
-      created_by: tenantA.users.receptionist.id,
+      created_by: clinic.createdBy,
     })
     .select("id")
     .single();

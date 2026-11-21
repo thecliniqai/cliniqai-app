@@ -3,10 +3,12 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { z } from "zod";
+import { cleanQuery, expandQuery } from "./abbreviations";
+import type { DiagnosisHit } from "./search";
 import {
   searchDiagnosesSchema,
   SearchDiagnosesInput,
-  DiagnosisSearchResult,
   addConsultationDiagnosisSchema,
   AddConsultationDiagnosisInput,
   updateDiagnosisNoteSchema,
@@ -19,11 +21,22 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 
 export type SearchDiagnosesResult =
-  { success: true; results: DiagnosisSearchResult[] } | { success: false; error: string };
+  { success: true; results: DiagnosisHit[] } | { success: false; error: string };
+
+const searchRowSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  icd11_code: z.string().nullable(),
+  snomed_concept_id: z.string().nullable(),
+  is_chronic: z.boolean().nullable(),
+  is_custom: z.boolean().nullable(),
+});
 
 /**
- * Searches the curated Indian OPD terminology catalog (~1,550 conditions)
- * merged with the active doctor's previously entered custom diagnoses.
+ * The diagnosis typeahead (V2-09b R-11, AI-07): `public.search_diagnoses` on the caller's own client (INVOKER: RLS applies) over the curated Indian OPD
+ * catalogue and the calling doctor's own custom diagnoses. The tenant is the session's. With `expand` (the clinic is entitled to `assist.terminology`,
+ * resolved by the caller from the session) the typed query is searched together with its abbreviation expansions (features/terminology/abbreviations.ts);
+ * without it only the typed words are searched. Needs `consultations:view`. A failed read answers a fixed text, never the driver's.
  */
 export async function searchDiagnoses(
   ctx: ServiceContext,
@@ -34,84 +47,33 @@ export async function searchDiagnoses(
     return { success: false, error: "Invalid search query." };
   }
 
-  const supabase = ctx.db;
-
   try {
     assertPerm(ctx.role, "consultations:view");
-    const session = ctx;
-    const { query, specialty, limit } = parseResult.data;
-    const cleanQuery = query.trim();
+    const { query, specialty, limit, expand } = parseResult.data;
+    const terms = expand ? expandQuery(query) : [cleanQuery(query)];
+    if (terms.length === 0 || terms[0].length < 2) return { success: true, results: [] };
 
-    // 1. Fetch matching doctor custom diagnoses for this tenant & doctor
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: customMatches } = await (supabase.from("doctor_custom_diagnoses") as any)
-      .select("id, diagnosis_name, specialty, use_count")
-      .eq("tenant_id", session.tenantId)
-      .eq("doctor_id", session.userId)
-      .ilike("diagnosis_name", `%${cleanQuery}%`)
-      .order("use_count", { ascending: false })
-      .limit(10);
-
-    // 2. Fetch matching central OPD diagnoses
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let centralQuery = (supabase.from("opd_diagnoses") as any)
-      .select("id, name, icd11_code, snomed_concept_id, category, specialties, is_chronic")
-      .ilike("name", `%${cleanQuery}%`)
-      .limit(limit);
-
-    if (specialty) {
-      centralQuery = centralQuery.contains("specialties", [specialty]);
-    }
-
-    const { data: centralMatches, error: centralErr } = await centralQuery;
-    if (centralErr) {
-      log.error({ event: "terminology.diagnosis_search.failed", code: errorTag(centralErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
-
-    // 3. Merge & deduplicate, boosting custom/favorites to top
-    const results: DiagnosisSearchResult[] = [];
-    const seenNames = new Set<string>();
-
-    if (customMatches) {
-      for (const cm of customMatches) {
-        const lower = cm.diagnosis_name.toLowerCase();
-        if (!seenNames.has(lower)) {
-          seenNames.add(lower);
-          results.push({
-            id: cm.id,
-            name: cm.diagnosis_name,
-            icd11_code: null,
-            snomed_concept_id: null,
-            category: "Custom Doctor Diagnosis",
-            specialties: cm.specialty ? [cm.specialty] : [],
-            is_chronic: false,
-            is_custom: true,
-            use_count: cm.use_count,
-          });
-        }
-      }
-    }
-
-    if (centralMatches) {
-      for (const cm of centralMatches) {
-        const lower = cm.name.toLowerCase();
-        if (!seenNames.has(lower)) {
-          seenNames.add(lower);
-          results.push({
-            id: cm.id,
-            name: cm.name,
-            icd11_code: cm.icd11_code ?? null,
-            snomed_concept_id: cm.snomed_concept_id ?? null,
-            category: cm.category ?? null,
-            specialties: cm.specialties ?? [],
-            is_chronic: cm.is_chronic ?? false,
-            is_custom: false,
-          });
-        }
-      }
-    }
-
-    return { success: true, results };
+    const { data, error } = await (ctx.db as any).rpc("search_diagnoses", {
+      p_tenant_id: ctx.tenantId,
+      p_terms: terms,
+      p_specialty: specialty ?? null,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    const rows = z.array(searchRowSchema).safeParse(data ?? []);
+    if (!rows.success) throw new Error("search_diagnoses returned an unexpected shape");
+    return {
+      success: true,
+      results: rows.data.map((r) => ({
+        id: r.id,
+        name: r.name,
+        icd11: r.icd11_code,
+        snomed: r.snomed_concept_id,
+        chronic: r.is_chronic ?? false,
+        custom: r.is_custom ?? false,
+      })),
+    };
   } catch (err: unknown) {
     return {
       success: false,

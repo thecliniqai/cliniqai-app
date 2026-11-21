@@ -4,7 +4,7 @@ import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "../helpers/seed-visit";
 import { ctxFor } from "../helpers/context";
 import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
-import { saveConsultationDraft } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { getAdminClient } from "../helpers/supabase-admin";
 

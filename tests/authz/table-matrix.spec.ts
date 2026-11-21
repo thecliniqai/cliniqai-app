@@ -171,7 +171,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.queue_tokens": "rpc_only",
   "public.waitlist_entries": "rpc_only",
   "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
-  "public.follow_ups": "perm(consultations:edit)",
+  "public.follow_ups": "rpc_only", // V2-09b 000112: save_consultation_draft is the writer
   "public.consent_records": "rpc_only",
   "public.patient_documents": "rpc_only", // V2-09a 000110: append-only
   "public.document_share_tokens": "rpc_only",
@@ -179,6 +179,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.doctor_custom_diagnoses": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_custom_medicines": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_prescription_templates": "perm(consultations:edit) AND self(doctor_id)",
+  "public.doctor_text_macros": "perm(consultations:edit) AND self(doctor_id)", // V2-09b 000115: the owning doctor only, every operation
   "public.communication_queue": "rpc_only",
   "public.in_app_notifications": "self(recipient_user_id) AND full",
   "public.tenant_messaging_config": "rpc_only",
@@ -266,11 +267,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
     "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
     "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
   ],
-  "public.follow_ups": [
-    "perm(appointments:view)",
-    "(perm(appointments:edit) OR perm(consultations:edit))",
-    "(perm(appointments:edit) OR perm(consultations:edit))",
-  ],
+  "public.follow_ups": ["perm(appointments:view)", "rpc_only", "rpc_only"], // V2-09b 000112: save_consultation_draft (definer) is the only writer
   "public.communication_queue": ["perm(appointments:view)", "rpc_only", "rpc_only"],
   "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
@@ -285,6 +282,12 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.doctor_custom_medicines": [
     "perm(consultations:view)",
     "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit) AND self(doctor_id)",
+  ],
+  // V2-09b 000115: a doctor's own macros. The BEFORE INSERT trigger sets doctor_id to the caller, so INSERT needs only the permission.
+  "public.doctor_text_macros": [
+    "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit)",
     "perm(consultations:edit) AND self(doctor_id)",
   ],
   "public.doctor_prescription_templates": [

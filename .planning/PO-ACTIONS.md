@@ -711,3 +711,11 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 - [ ] **08-P3 · Walkthrough** — `.planning/phases/08-front-desk/08-PO-WALKTHROUGH.md`.
 - [ ] **08-P4 · Staging** — after 07-P2, apply 000100–000106 on staging; in the hosted project turn Realtime
   "Allow public access" off (the Today topic is private; S-10 test follows in V2-14).
+
+## V2-09a Clinical integrity (DB)
+
+- [ ] **09A-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation (merge `f15fa25`,
+  CI 44890747932; 1 retried test explained as an unrelated test race, fixed in V2-09b). — PR #15. Evidence:
+  `.planning/phases/09A-clinical-immutability/09A-VERIFICATION.md`. Decide: R-A residual (signer-only Rx archive vs a
+  trusted archive job in V2-14), Q-5 (no lab-document delete until V2-11), ADR-015 erratum.
+- [ ] **09A-P2 · Staging** — after 08-P4, apply 000107–000111 on staging.

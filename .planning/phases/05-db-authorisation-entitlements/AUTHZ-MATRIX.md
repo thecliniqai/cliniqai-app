@@ -121,9 +121,9 @@ Principals:
 | `public.schedule_blocks` | U | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | - | Y | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.schedule_blocks` | D | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | - | Y | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.follow_ups` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.follow_ups` | I | (perm(appointments:edit) OR perm(consultations:edit)) | Y | Y | Y | Y | Y | Y | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.follow_ups` | U | (perm(appointments:edit) OR perm(consultations:edit)) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.follow_ups` | D | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.follow_ups` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.follow_ups` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.follow_ups` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.consent_records` | S | perm(patients:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.consent_records` | I | perm(patients:edit) | Y | Y | Y | Y | Y | Y | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.consent_records` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -148,6 +148,10 @@ Principals:
 | `public.doctor_custom_medicines` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_medicines` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_medicines` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | S | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.doctor_text_macros` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_text_macros` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_prescription_templates` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_prescription_templates` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_prescription_templates` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -329,11 +333,12 @@ Notes:
 - `public.clinic_locations`: the clinic's branches (V2-07 R-5): one default 'Main' per clinic, created by the tenants trigger; SELECT: any member of the active, full clinic; written only by the migration owner / service role (owners manage locations in v2.1)
 - `public.queue_token_counters`: written only by issue_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08 R-18, 05-11a): no member may read or rewind the counter (T-05-21)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
-- `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit
+- `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit. V2-09b 000112: written only by save_consultation_draft (SECURITY DEFINER, consultations:edit; one follow-up per visit)
 - `public.consent_records`: recorded_by is the caller (05-11b M-ACTOR, consent_records_actor_guard)
 - `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's) and UPDATE since 000111 (review S-1)
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
+- `public.doctor_text_macros`: the BEFORE INSERT trigger sets doctor_id to the caller (a forged doctor_id is replaced), so an insert by any holder of consultations:edit stores the caller's own row; the select, update and delete rules keep the owner-only filter
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
 - `public.in_app_notifications`: 05-02c (T-05-11): a notice addressed to a user is theirs alone (the fixture); unaddressed notices go to their role or everyone in the active clinic (admin_policies.test.sql); no user-client writer; UPDATE only of is_read/read_at (05-11b M-NOTICE, api_keys_notices_columns.test.sql)
 - `public.audit_logs`: INSERT revoked: users write through log_audit (actor forced, active clinic, 05-02c T-05-12; audit_v2.test.sql)

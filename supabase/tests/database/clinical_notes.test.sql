@@ -17,6 +17,11 @@ begin;
 -- cases build fixtures and prove the clinical_notes row of a visit a receptionist books through the API role, so the grant is widened for this transaction only; the revoke is
 -- proven in front_desk_review_fixes.test.sql.
 grant insert on table public.visits to authenticated;
+-- 000112 (09B-01, R-3): UPDATE on public.clinical_notes is narrowed for authenticated to (vitals) and INSERT, UPDATE and DELETE on public.follow_ups are revoked
+-- (save_consultation_draft is the writer). This file proves the guards, triggers and policies themselves (defence in depth, independent of the grants), so the
+-- grants are widened for this transaction only; the narrowing is proven in consult_draft_save.test.sql.
+grant update on table public.clinical_notes to authenticated;
+grant insert, update, delete on table public.follow_ups to authenticated;
 select plan(53);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
