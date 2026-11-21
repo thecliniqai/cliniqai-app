@@ -131,6 +131,22 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   ITEM_PRICE_INVALID: "VALIDATION_FAILED",
   ITEM_QUANTITY_INVALID: "VALIDATION_FAILED",
   INVOICE_TOTAL_INVALID: "VALIDATION_FAILED",
+  // V2-08 08-01b (migration 000100): the visit state machine (R-7) refuses a status change its table does not list; a check-in
+  // is for a booking of the clinic-local today (R-8); a visit that is not waiting or in consultation, or is signed, is not
+  // completed at the desk.
+  VISIT_TRANSITION_INVALID: "CONFLICT",
+  VISIT_NOT_TODAY: "CONFLICT",
+  VISIT_NOT_COMPLETABLE: "CONFLICT",
+  // V2-08 08-04a (migration 000103): the staff scheduling commands. A visit that cannot be moved, cancelled, marked a no-show
+  // or confirmed from its status; a no-show before the appointment time; a past slot; a waitlist entry that is no longer
+  // waiting. WAITLIST_ENTRY_NOT_FOUND is P0002 (-> NOT_FOUND).
+  VISIT_NOT_RESCHEDULABLE: "CONFLICT",
+  VISIT_NOT_CANCELLABLE: "CONFLICT",
+  VISIT_NOT_MARKABLE: "CONFLICT",
+  VISIT_NOT_CONFIRMABLE: "CONFLICT",
+  NO_SHOW_TOO_EARLY: "CONFLICT",
+  SLOT_IN_PAST: "VALIDATION_FAILED",
+  WAITLIST_ENTRY_CLOSED: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

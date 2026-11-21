@@ -5,8 +5,8 @@
  *   screen stays visible (in memory); going online removes the banner.
  * Before 06-05: Chrome's own offline error page, and no banner.
  *
- * Part 2, the write buttons (06-02a, R-32; spec 4 complete): v1 call sites of the Button primitive, unchanged. Offline,
- * the submit buttons of the walk-in drawer ("Register & Issue Token") and the patient form ("Save Patient Record")
+ * Part 2, the write buttons (06-02a, R-32; spec 4 complete): call sites of the Button primitive. Offline, the submit buttons
+ * of the walk-in sheet ("Register and add to queue", V2-08 08-03b) and the register sheet ("Register patient", V2-08 08-02)
  * are disabled (`aria-disabled`, still focusable), described by "You're offline. Changes are disabled until you
  * reconnect.", and a click does not submit the form; online again they are enabled and undescribed. Before 06-02a:
  * the buttons stayed enabled offline and a click submitted.
@@ -14,36 +14,62 @@
 import type { Page } from "@playwright/test";
 import { expect, test, waitForServiceWorker } from "./fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
+import { testTag } from "../support/m0-data";
+import { seedWaitingToday } from "../support/today-data";
+import { rowOf } from "../support/today-page";
 
 const OFFLINE_REASON = "You're offline. Changes are disabled until you reconnect.";
 
 test.use({ storageState: storageStatePath("owner") });
 
 test("offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online", async ({ page, context }) => {
+  // Realtime is not what this spec is about (today-live.spec.ts covers it) and it moves on its own clock: the socket opens
+  // mid-test, the status line goes "Connecting…" -> "Live" or "Updating every 20 s", and the (re)subscription sends a refresh
+  // of its own at that moment. Refused, the board polls (every 20 s, far beyond this test) and nothing else refreshes it.
+  await page.routeWebSocket(/\/realtime\//, (ws) => void ws.close({ code: 1008, reason: "refused by the spec" }));
   const patientName = readRunData().tenantA.patientName;
-  await page.goto("/");
+  const seeded = await seedWaitingToday();
+  await page.goto("/today");
   await waitForServiceWorker(page);
   await page.reload(); // a controlled load, so the page's static assets are in static-v1 for the offline render
   const banner = page.getByRole("status").filter({ hasText: "You're offline" });
-  const main = page.getByRole("main");
-  await expect(main.getByText(/E2E Synthetic/).first()).toBeVisible();
-  const onScreen = await main.innerText(); // Today's rows (synthetic patients of this run)
+  // A row on screen: below 1280 px only the Waiting lane is shown, so this spec seeds a waiting patient of its own.
+  const row = rowOf(page, seeded.name);
+  const queueRows = page.locator("[data-queue-row]");
+  await expect(row).toBeVisible();
+  // "The rows stay" is about the rows: this spec's own row, whole (token, name, wait, meta), and that no row of the board is
+  // lost. Not the board's whole text: the live-status line follows the socket, and the "N min" wait of every waiting row of
+  // the shared tenant follows the clock (the rows seeded by other specs are all on this board). Offline, every write button
+  // (Check in, Collect, ...) carries its screen-reader reason (Button's offline rule, tested below), so that text is left out.
+  const rowText = async () => (await row.innerText()).split(OFFLINE_REASON).join("").replace(/\n{2,}/g, "\n");
+  const onScreen = await rowText();
+  const rowCount = await queueRows.count();
   await expect(banner).toHaveCount(0);
 
   await context.setOffline(true);
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(/You're offline · showing data from \d{1,2}:\d{2}\s?(am|pm)\. Changes are disabled until you reconnect\./i);
-  expect(await main.innerText(), "the rows already on screen stay (held in memory)").toBe(onScreen);
+  expect(await rowText(), "the row already on screen stays (held in memory)").toBe(onScreen);
+  expect(await queueRows.count(), "and no other row is lost").toBeGreaterThanOrEqual(rowCount);
 
+  // Back online, Today re-fetches once (lib/pwa/resume.ts, router.refresh()). A walk-in that arrives while the device is offline
+  // is the proof that this refresh was answered AND applied: wait for its row before going offline again. If the network
+  // drops while the refresh is in flight (or just before it is sent), Next falls back to a full navigation of the current URL
+  // (fetch-server-response.js), which aborts the goto below. The spec used to wait for "an RSC response" instead, and the
+  // sidebar's link prefetches (also RSC requests, sent as the network returns) satisfied that wait before the refresh had
+  // gone out (the flakes of CI 44806259261 and 44857737802).
+  const late = await seedWaitingToday();
   await context.setOffline(false);
   await expect(banner).toHaveCount(0);
-  expect(await main.innerText()).toBe(onScreen);
+  await expect(rowOf(page, late.name), "back online Today refreshes and shows what arrived meanwhile").toBeVisible();
+  expect(await rowText(), "back online the row is the same").toBe(onScreen);
+  expect(await queueRows.count(), "and no other row is lost").toBeGreaterThanOrEqual(rowCount + 1);
 
   await context.setOffline(true);
   await page.goto("/patients");
   await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
   await expect(page.getByText("Patient data isn't stored on this device. Reconnect to continue.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/today");
   await expect(page.getByText(patientName)).toHaveCount(0);
   await expect(page.getByText(/E2E Synthetic/)).toHaveCount(0);
   await context.setOffline(false);
@@ -59,15 +85,16 @@ async function countSubmits(page: Page): Promise<() => Promise<number>> {
   return () => page.evaluate(() => (window as unknown as { __submits: number }).__submits);
 }
 
-test("offline: the walk-in drawer and patient form submit buttons are disabled with the reason, and enabled again online", async ({ page, context }) => {
-  // The walk-in drawer's new-patient form (the v1 queue page).
-  await page.goto("/queue");
-  await page.getByRole("button", { name: "+ Add Walk-In" }).click();
-  const drawer = page
-    .getByRole("heading", { name: "Quick Walk-In Registration" })
-    .locator("xpath=ancestor::div[contains(@class,'fixed')][1]");
-  await drawer.getByRole("button", { name: "New Patient" }).click();
-  const issue = drawer.getByRole("button", { name: "Register & Issue Token" });
+test("offline: the walk-in sheet and patient form submit buttons are disabled with the reason, and enabled again online", async ({ page, context }) => {
+  // The walk-in sheet's new-patient form (Today, `?walkin=1`).
+  await page.goto("/today?walkin=1");
+  const drawer = page.getByRole("dialog", { name: "Add walk-in" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("Loading doctors…")).toHaveCount(0);
+  // A name nobody has (tenant A is shared), so the picker offers "Register as new patient".
+  await drawer.getByRole("combobox", { name: "Patient" }).fill(`E2E Synthetic Offline ${testTag()}`);
+  await drawer.getByRole("option", { name: /Register as new patient/ }).click();
+  const issue = drawer.getByRole("button", { name: "Register and add to queue" });
   await expect(issue).toBeEnabled();
   await expect(issue).toHaveAccessibleDescription("");
   const drawerSubmits = await countSubmits(page);
@@ -87,17 +114,45 @@ test("offline: the walk-in drawer and patient form submit buttons are disabled w
   await expect(issue).not.toHaveAttribute("aria-disabled", /.*/);
   await expect(issue).toHaveAccessibleDescription("");
 
-  // The patient form.
-  await page.goto("/patients/new");
-  const save = page.getByRole("button", { name: "Save Patient Record" });
+  // The patient form (the register sheet, V2-08 08-02).
+  await page.goto("/patients?new=1");
+  const save = page.getByRole("button", { name: "Register patient" });
   await expect(save).toBeEnabled();
+  // The sheet slides in with a transition that starts after the first paint, so "no animation is running" can be true too
+  // early: wait until the sheet is fully on screen, or the forced click below lands "outside of the viewport".
+  const sheet = page.getByRole("dialog", { name: "Register patient" });
+  await expect
+    .poll(async () => {
+      const box = await sheet.boundingBox();
+      const view = page.viewportSize();
+      return Boolean(box && view && box.x + box.width <= view.width + 1 && box.y + box.height <= view.height + 1);
+    })
+    .toBe(true);
   const formSubmits = await countSubmits(page);
   await context.setOffline(true);
   await expect(save).toBeDisabled();
   await expect(save).toHaveAccessibleDescription(OFFLINE_REASON);
-  await page.getByLabel(/^Patient Full Name/).press("Enter"); // implicit submission is cancelled too
-  await save.click({ force: true }); // Playwright waits for "enabled" otherwise; a real click still arrives
-  expect(await formSubmits(), "neither Enter nor a click submits offline").toBe(0);
+  await page.getByLabel(/^Full name/).press("Enter"); // implicit submission is cancelled too
+  // The offline banner must not cover the sheet's foot (V2-08 08-03a, carried from 08-02): the point at the button's centre
+  // is the button itself, so a click reaches it (and does nothing, the button being disabled) instead of landing on the
+  // banner outside the sheet and dismissing it.
+  const banner = page.locator("[data-offline-banner] p");
+  await expect(banner).toBeVisible();
+  const hit = await save.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return top === el || el.contains(top);
+  });
+  expect(hit, "the banner does not cover the sheet's submit button").toBe(true);
+  const sheetBox = (await sheet.boundingBox())!;
+  const bannerBox = (await banner.boundingBox())!;
+  expect(sheetBox.y + sheetBox.height, "the sheet ends above the banner").toBeLessThanOrEqual(bannerBox.y + 1);
+  await save.click({ force: true });
+  await expect(sheet, "the click did not dismiss the sheet").toBeVisible();
+  await save.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  expect(await formSubmits(), "neither a click, Enter nor Space on the button submits offline").toBe(0);
   await context.setOffline(false);
   await expect(save).toBeEnabled();
   await expect(save).toHaveAccessibleDescription("");

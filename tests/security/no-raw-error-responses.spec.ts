@@ -14,7 +14,6 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { getPatientConsultationHistory } from "@/features/consultation/service";
 import { deleteLabDocument, generateDocumentShareToken, getDocumentSignedUrl, getPatientDocuments } from "@/features/labs/service";
 import { getVisitPrescription, searchMedicines } from "@/features/prescriptions/service";
-import { cancelVisit, confirmAppointment } from "@/features/visits/service";
 import { deleteScheduleBlock } from "@/features/visits/scheduling-service";
 import { getVisitDiagnoses, searchDiagnoses } from "@/features/terminology/service";
 import { listApiKeys, revokeApiKey } from "@/features/api-keys/service";
@@ -116,8 +115,6 @@ describe("raw error text never reaches a response (03-13d M-ERRMSG)", () => {
     ["labs.deleteLabDocument", (ctx) => deleteLabDocument(ctx, ID)],
     ["prescriptions.getVisitPrescription", (ctx) => getVisitPrescription(ctx, ID)],
     ["prescriptions.searchMedicines", (ctx) => searchMedicines(ctx, "paracetamol")],
-    ["visits.confirmAppointment", (ctx) => confirmAppointment(ctx, ID)],
-    ["visits.cancelVisit", (ctx) => cancelVisit(ctx, ID)],
     ["visits.deleteScheduleBlock", (ctx) => deleteScheduleBlock(ctx, ID)],
     ["terminology.getVisitDiagnoses", (ctx) => getVisitDiagnoses(ctx, ID)],
     ["terminology.searchDiagnoses", (ctx) => searchDiagnoses(ctx, { query: "fever", limit: 10 })],

@@ -348,6 +348,15 @@ body {
 }
 
 /*
+ * V2-08 08-03a: Radix draws a hidden `<input aria-hidden>` beside a checkbox, radio or switch that sits inside a `<form>` (the
+ * value it submits). It is invisible and not focusable, but it inherits the 14 px control size; on touch every text control
+ * is 16 px (no iOS focus zoom), so the hidden mirror says the same instead of being the one exception a scan finds.
+ */
+input[aria-hidden="true"] {
+  font-size: 1rem;
+}
+
+/*
  * Viewport and safe-area utilities (V2-06 06-04a; PWA_STRATEGY §3.3). Full-height layouts use `min-h-app`/`h-app`,
  * never `min-h-screen`/`h-screen` (100vh, which the mobile URL bar and keyboard break; UI policy rule `screen-height`,
  * enforced). Each keeps a 100vh line as the fallback for WebViews without `dvh`. The safe-area paddings read the

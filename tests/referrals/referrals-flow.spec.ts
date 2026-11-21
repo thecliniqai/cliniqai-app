@@ -25,7 +25,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
     sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // Seed patient in Tenant A
-    const { data: patient, error } = await (tenantA.client.from("patients") as any)
+    const { data: patient, error } = await (getAdminClient().from("patients") as any)
       .insert({
         tenant_id: tenantA.tenantId,
         full_name: "Vikram Malhotra",
@@ -43,7 +43,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
     patientAId = patient.id;
 
     // Seed past visit for Vikram Malhotra
-    const { data: pastVisit, error: pastVisitErr } = await (tenantA.client.from("visits") as any)
+    const { data: pastVisit, error: pastVisitErr } = await (getAdminClient().from("visits") as any)
       .insert({
         tenant_id: tenantA.tenantId,
         patient_id: patientAId,

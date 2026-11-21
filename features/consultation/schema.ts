@@ -16,6 +16,9 @@ const vitalsFieldsSchema = z.object({
     height: z.number().min(20, "Height must be >= 20 cm").max(250, "Height must be <= 250 cm").nullable().optional(),
     respiratory_rate: z.number().int().min(8, "Respiratory rate must be >= 8").max(60, "Respiratory rate must be <= 60").nullable().optional(),
     bmi: z.number().nullable().optional(),
+    /** Blood sugar (mg/dL) and what it was taken as; written by the triage VitalsForm (V2-08). */
+    sugar: z.number().min(10, "Blood sugar must be >= 10 mg/dL").max(1000, "Blood sugar must be <= 1000 mg/dL").nullable().optional(),
+    sugar_type: z.enum(["random", "fasting", "pp"]).nullable().optional(),
     recorded_at: z.string().nullable().optional(),
   });
 

@@ -107,8 +107,8 @@ test.describe("H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out", 
   }) => {
     const owner = await seedTenantWithOwner(`PWA Refresh 429 ${readRunData().runTag} ${Date.now()}`);
     await uiSignIn(page, { email: owner.userEmail, password: seededUserPassword() });
-    await page.goto("/patients/new");
-    const name = page.getByLabel(/^Patient Full Name/);
+    await page.goto("/patients?new=1");
+    const name = page.getByLabel(/^Full name/);
     await expect(name).toBeVisible();
     // Typed once the page is idle (WebKit can hydrate after `load`, dropping text typed into the server HTML; 06-09c).
     await page.waitForLoadState("networkidle");
@@ -134,7 +134,7 @@ test.describe("H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out", 
         await page.waitForTimeout(300);
       }
       expect(lines(SERVER_STDERR_LOG, err, "[e2e-auth-faults] refresh answered 429").length, "the server's refresh was rate-limited").toBeGreaterThan(0);
-      expect(new URL(page.url()).pathname).toBe("/patients/new");
+      expect(new URL(page.url()).pathname).toBe("/patients");
       await expect(name).toHaveValue("Synthetic Unsaved Name");
       expect(await page.evaluate(() => document.documentElement.style.visibility), "not concealed").not.toBe("hidden");
       expect((await authCookies(context)).map((c) => [c.name, c.value]), "the auth cookies are untouched").toEqual(before);

@@ -49,15 +49,16 @@ function resumeHarness(path = "/") {
 }
 
 describe("refresh on resume", () => {
-  it("live views are Today, the queue, the calendar and the cabin only", () => {
-    for (const p of ["/", "/queue", "/calendar", "/cabin", "/queue/"]) expect(isLiveView(p), p).toBe(true);
+  it("live views are Today and the Schedule only (the queue and the cabin redirect)", () => {
+    for (const p of ["/today", "/schedule", "/today/"]) expect(isLiveView(p), p).toBe(true);
+    for (const p of ["/", "/queue", "/cabin"]) expect(isLiveView(p), p).toBe(false);
     for (const p of ["/patients", "/patients/abc", "/consultation/abc", "/settings/clinic", "/visits"]) {
       expect(isLiveView(p), p).toBe(false);
     }
   });
 
   it("visible → one refresh on a live view; online → one refresh", () => {
-    const h = resumeHarness("/queue");
+    const h = resumeHarness("/today");
     h.visible();
     expect(h.refresh).toHaveBeenCalledTimes(1);
     h.advance(RESUME_COALESCE_MS + 1);
@@ -66,7 +67,7 @@ describe("refresh on resume", () => {
   });
 
   it("online and visible together refresh once (coalesced)", () => {
-    const h = resumeHarness("/");
+    const h = resumeHarness("/today");
     h.online();
     h.visible();
     expect(h.refresh).toHaveBeenCalledTimes(1);
@@ -79,7 +80,7 @@ describe("refresh on resume", () => {
     h.go("/consultation/x");
     h.advance(RESUME_COALESCE_MS + 1);
     h.visible();
-    h.go("/");
+    h.go("/today");
     h.hide();
     h.advance(RESUME_COALESCE_MS + 1);
     h.visible();
@@ -90,7 +91,7 @@ describe("refresh on resume", () => {
   });
 
   it("stop() removes the listeners", () => {
-    const h = resumeHarness("/");
+    const h = resumeHarness("/today");
     h.stop();
     h.visible();
     expect(h.refresh).not.toHaveBeenCalled();

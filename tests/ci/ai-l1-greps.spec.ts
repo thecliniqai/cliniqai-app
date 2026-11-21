@@ -111,6 +111,7 @@ describe("AI-06 L1 checks", () => {
       "components/clinical/ai-preview-chip.tsx",
       "components/clinical/ai-coming-soon-row.tsx",
       "components/clinical/smart-assist-label.tsx",
+      "components/clinical/ai-objection-field.tsx",
     ];
     /** A scan root holding the real chip files, at their own paths or moved to `components/other/`. */
     function treeWithChips(moved: boolean): string {
@@ -145,6 +146,7 @@ describe("AI-06 L1 checks", () => {
         expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-assist-chip.tsx");
         expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-preview-chip.tsx");
         expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-coming-soon-row.tsx");
+        expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-objection-field.tsx");
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }

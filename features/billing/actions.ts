@@ -47,7 +47,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CommandR
   const resolved = await resolveServiceContext("billing:collect");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.createInvoice(resolved.ctx, input);
-  if (result.ok) revalidate("/queue", `/consultation/${input.visit_id}`);
+  if (result.ok) revalidate("/today", `/consultation/${input.visit_id}`);
   return result;
 }
 
@@ -55,7 +55,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<RecordPa
   const resolved = await resolveServiceContext("billing:collect");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await billingService.recordPayment(resolved.ctx, input);
-  if (result.success) revalidate("/queue", "/cabin", "/billing");
+  if (result.success) revalidate("/today", "/billing");
   return result;
 }
 
@@ -67,7 +67,7 @@ export async function collectPayment(input: CollectPaymentInput): Promise<Comman
   const resolved = await resolveServiceContext("billing:collect");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.collectPayment(resolved.ctx, input);
-  if (result.ok) revalidate("/queue", "/cabin", "/billing", `/consultation/${input.visit_id}`);
+  if (result.ok) revalidate("/today", "/billing", `/consultation/${input.visit_id}`);
   return result;
 }
 
@@ -102,7 +102,7 @@ export async function completeAndBillConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
-  if (result.success) revalidate(`/consultation/${result.visitId}`, "/queue", "/cabin", "/billing");
+  if (result.success) revalidate(`/consultation/${result.visitId}`, "/today", "/billing");
   return toCommandResult(result, (ok) => {
     const { success, ...value } = ok;
     void success;

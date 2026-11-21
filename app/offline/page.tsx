@@ -35,7 +35,7 @@ export default function OfflinePage() {
         {/* A full navigation on purpose (no client router): it must work offline and without JavaScript. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
-          href="/"
+          href="/today"
           className={cn(BUTTON_BASE, TRANSITION, FOCUS_RING, BUTTON_SIZE.lg, BUTTON_VARIANT.primary, BUTTON_INTERACTIVE.primary)}
         >
           <RefreshCw aria-hidden="true" strokeWidth={1.75} className="size-4 shrink-0" />

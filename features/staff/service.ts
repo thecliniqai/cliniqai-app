@@ -40,7 +40,7 @@ export async function getTenantDoctorDirectory(
 
     let query = (supabase.from("memberships") as any)
       .select(
-        "id, user_id, tenant_id, role, full_name, default_specialty, default_slot_duration_minutes, availability_schedule, qualifications, medical_council_reg_no"
+        "id, user_id, tenant_id, role, full_name, default_specialty, default_slot_duration_minutes, availability_schedule"
       )
       .eq("tenant_id", session.tenantId);
     if (!options.includeInactive) query = query.eq("status", "active");
@@ -53,11 +53,11 @@ export async function getTenantDoctorDirectory(
 
     const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
 
-    // Doctors: role == 'doctor' OR (owner when practicing) OR (admin with doctor qualifications/specialty)
+    // Doctors (V2-08 R-2): role == 'doctor' OR (owner when practicing). An admin is never a visit's doctor, with
+    // credentials or without (the database refuses non-clinicians, 000099 G-9).
     const doctorMembers = memberRows.filter((m: any) => {
       if (m.role === "doctor") return true;
       if (m.role === "owner" && ownerPracticing) return true;
-      if (m.role === "admin" && (m.qualifications || m.medical_council_reg_no)) return true;
       return false;
     });
 

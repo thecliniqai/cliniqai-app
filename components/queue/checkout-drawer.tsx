@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { QueueItem } from "./queue-card";
 import {
   createInvoice,
   collectPayment,
@@ -11,7 +10,7 @@ import {
   shareReceiptViaWhatsApp,
   GetVisitBillingResult,
 } from "@/features/billing/actions";
-import { transitionQueueState } from "@/features/queue/actions";
+import { completeVisit } from "@/features/queue/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -37,11 +36,22 @@ import { reportClientError } from "@/lib/log/client";
 import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
 
+/**
+ * What the drawer needs of a visit (V2-08 08-03b: the v1 queue card's `QueueItem` left with that screen). Today's To-bill row
+ * builds it with `toCheckoutTarget` (`components/today/checkout-target.ts`).
+ */
+export interface CheckoutTarget {
+  visit: { id: string; status: string };
+  patient: { id: string; full_name: string; sex?: string | null; age?: number | null; phone?: string | null };
+  queueToken?: { token_number: number } | null;
+  doctorName?: string | null;
+}
+
 interface CheckoutDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  queueItem: QueueItem | null;
+  queueItem: CheckoutTarget | null;
   defaultFee?: number;
 }
 
@@ -90,6 +100,8 @@ export function CheckoutDrawer({
   // outcome is unknown (network, timeout, INTERNAL) the id is kept and changing the form does not rotate it until the
   // billing details have been reloaded (V2-07 07-04a F-13): a committed-but-lost payment must not become a second one.
   const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
+  // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
+  const completeCommand = useCommand();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -335,8 +347,8 @@ export function CheckoutDrawer({
         }
 
         // 3. Complete queue encounter
-        const queueRes = await transitionQueueState(visit.id, "completed");
-        if (!queueRes.success) {
+        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+        if (!queueRes.ok) {
           reportClientError("queue.checkout_transition.failed", null);
         }
 
@@ -1080,7 +1092,11 @@ export function CheckoutDrawer({
                   <Button
                     type="button"
                     onClick={async () => {
-                      await transitionQueueState(visit.id, "completed");
+                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+                      if (!done.ok) {
+                        setError(done.error.message);
+                        return;
+                      }
                       setIsCompleted(true);
                       onSuccess();
                     }}

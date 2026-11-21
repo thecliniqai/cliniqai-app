@@ -110,12 +110,12 @@ export function PatientVisitHistory({
           No appointments, consultations, or prescription records have been logged for this patient.
         </p>
         <div className="flex items-center justify-center gap-2">
-          <Link href={`/calendar?patientId=${patientId}`}>
+          <Link href={`/schedule?book=1&patient=${patientId}`}>
             <Button variant="secondary" size="sm" startIcon={<Calendar className="w-3.5 h-3.5" />}>
               Schedule Appointment
             </Button>
           </Link>
-          <Link href="/queue">
+          <Link href="/today?walkin=1">
             <Button variant="primary" size="sm" startIcon={<PlusCircle className="w-3.5 h-3.5" />}>
               Add to Queue
             </Button>

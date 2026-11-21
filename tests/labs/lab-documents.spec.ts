@@ -6,6 +6,7 @@ import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Lab Reports & Records Management (REQ-lab-records)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -22,7 +23,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
     sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
     sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
-    const { data: patient, error } = await (tenantA.client.from("patients") as any)
+    const { data: patient, error } = await (getAdminClient().from("patients") as any)
       .insert({
         tenant_id: tenantA.tenantId,
         full_name: "Aarav Sharma",
@@ -186,7 +187,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
 
     it("persists advised investigations to visit via consultation draft", async () => {
       // 1. Create a visit for Aarav Sharma
-      const { data: visit, error } = await (tenantA.client.from("visits") as any)
+      const { data: visit, error } = await (getAdminClient().from("visits") as any)
         .insert({
           tenant_id: tenantA.tenantId,
           patient_id: patientAId,

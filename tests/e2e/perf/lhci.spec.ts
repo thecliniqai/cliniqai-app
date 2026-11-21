@@ -105,7 +105,7 @@ test("Lighthouse CI on Login, Today, Patients and Consult (report-only)", async 
   const run = readRunData();
   const groups: Group[] = [
     { name: "signed-out", role: null, paths: ["/login"] },
-    { name: "owner", role: "owner", paths: ["/", "/patients"] },
+    { name: "owner", role: "owner", paths: ["/today", "/patients"] },
     { name: "doctor", role: "doctor", paths: [`/consultation/${run.tenantA.visitId}`] },
   ];
   const expectedPaths = groups.flatMap((g) => g.paths);

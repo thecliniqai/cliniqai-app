@@ -169,8 +169,8 @@ describe("sw.js fetch: what gets respondWith and what is stored", () => {
 
   it("navigation: the navigation-preload response is used when present (no second fetch)", async () => {
     const sw = okWorker();
-    const r = await sw.fetch(req("/queue", { mode: "navigate" }), Promise.resolve(response("preloaded /queue")));
-    expect(await r.response!.text()).toBe("preloaded /queue");
+    const r = await sw.fetch(req("/today", { mode: "navigate" }), Promise.resolve(response("preloaded /today")));
+    expect(await r.response!.text()).toBe("preloaded /today");
     expect(sw.fetchCalls).toEqual([]);
     expect(sw.caches.urls()).toEqual([]);
   });

@@ -13,7 +13,7 @@ import { RxLineItem } from "@/components/clinical/rx-line-item";
 import { VitalsForm } from "@/components/clinical/vitals-form";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { PatientPicker, type PickerPatient } from "@/components/clinical/patient-picker";
-import { QuickRegisterForm, type DuplicateMatch } from "@/components/clinical/quick-register-form";
+import { QuickRegisterForm, type DuplicateMatch, type DuplicateQuery } from "@/components/clinical/quick-register-form";
 import {
   ResponsiveSheet,
   ResponsiveSheetBody,
@@ -68,9 +68,18 @@ function searchPatients(query: string): Promise<readonly PickerPatient[]> {
   return new Promise((resolve) => setTimeout(() => resolve(found), 250));
 }
 
-function findDuplicate(phone: string): DuplicateMatch | null {
-  const p = PATIENTS.find((x) => x.phone === phone);
-  return p ? { id: p.id, name: p.name, lastVisit: "last visit 3 Aug" } : null;
+/** The advisory duplicate lookup, in memory: a patient with the same ten-digit mobile (a short delay, like the server's). */
+function findDuplicates(query: DuplicateQuery): Promise<readonly DuplicateMatch[]> {
+  const found: DuplicateMatch[] = PATIENTS.filter((x) => query.phone !== "" && x.phone === query.phone).map((p) => ({
+    id: p.id,
+    name: p.name,
+    age: p.age ?? null,
+    sex: p.sex ?? null,
+    phoneLast4: (p.phone ?? "").slice(-4),
+    lastVisit: "last visit 3 Aug",
+    reasons: ["same_mobile" as const],
+  }));
+  return new Promise((resolve) => setTimeout(() => resolve(found), 120));
 }
 
 const noop = () => new Promise<void>((resolve) => setTimeout(resolve, 400));
@@ -191,7 +200,7 @@ function RegisterDemo() {
   return (
     <div className="flex w-full max-w-md flex-col gap-2">
       <QuickRegisterForm
-        findDuplicate={findDuplicate}
+        findDuplicates={findDuplicates}
         onUseExisting={(m) => setResult(`Using ${m.name}`)}
         onSubmit={async (values) => {
           await noop();

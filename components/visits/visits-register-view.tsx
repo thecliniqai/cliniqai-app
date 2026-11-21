@@ -190,14 +190,14 @@ export function VisitsRegisterView({
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/calendar">
+          <Link href="/schedule">
             <Button variant="secondary" size="sm" startIcon={<Calendar className="w-3.5 h-3.5" />}>
               Calendar View
             </Button>
           </Link>
-          <Link href="/queue">
+          <Link href="/today">
             <Button variant="primary" size="sm" startIcon={<Clock className="w-3.5 h-3.5" />}>
-              Live Queue
+              Today
             </Button>
           </Link>
         </div>

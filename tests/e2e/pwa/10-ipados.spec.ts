@@ -58,7 +58,7 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
 
   test("Install app opens the iOS three-step sheet, never an Android prompt", async ({ page }) => {
     await touchPoints(page, 5);
-    await page.goto("/");
+    await page.goto("/today");
     expect(await page.evaluate(() => navigator.maxTouchPoints)).toBe(5);
     await openAccountMenu(page);
     const entry = page.getByRole("menuitem", { name: "Install app" });
@@ -71,7 +71,7 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
 
   test("a real Mac (no touch points) gets no install entry", async ({ page }) => {
     await touchPoints(page, 0);
-    await page.goto("/");
+    await page.goto("/today");
     await openAccountMenu(page);
     await expect(page.getByRole("menuitem", { name: "My Profile" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: /Install app|Open in/ })).toHaveCount(0);
@@ -80,19 +80,19 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
   test("the Today card shows from the second session; Not now hides it for good; never on other pages", async ({ page }) => {
     await touchPoints(page, 5);
     await secondSession(page);
-    await page.goto("/");
+    await page.goto("/today");
     const card = page.locator("[data-install-card]");
     await expect(card).toBeVisible();
     await expect(card.getByRole("heading", { name: "Install CliniQ AI on this device" })).toBeVisible();
 
     const { visitId } = readRunData().tenantA;
-    for (const path of ["/clinic/new", `/consultation/${visitId}`, "/queue", "/patients"]) {
+    for (const path of ["/clinic/new", `/consultation/${visitId}`, "/schedule", "/patients"]) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       await expect(page.locator("[data-install-card]"), path).toHaveCount(0);
     }
 
-    await page.goto("/");
+    await page.goto("/today");
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: "Install app" }).click();
     await expectIosSheet(page);
@@ -110,7 +110,7 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
   test("the first signed-in session shows no card", async ({ page }) => {
     await touchPoints(page, 5);
     await page.addInitScript(() => localStorage.removeItem("clinicos.pref.signedInSessions"));
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await settleAnimations(page);
     await expect(page.locator("[data-install-card]")).toHaveCount(0);
@@ -135,7 +135,7 @@ test.describe("iPhone user agent", () => {
 
   test("Install app opens the same iOS sheet", async ({ page }) => {
     await touchPoints(page, 5);
-    await page.goto("/");
+    await page.goto("/today");
     await openAccountMenu(page);
     const entry = page.getByRole("menuitem", { name: "Install app" });
     await expect(entry).toHaveAttribute("data-install-entry", "ios-sheet");
@@ -149,7 +149,7 @@ test.describe("WhatsApp in-app browser (iOS)", () => {
 
   test("the entry is Open in Safari guidance, not the install steps", async ({ page }) => {
     await touchPoints(page, 5);
-    await page.goto("/");
+    await page.goto("/today");
     await openAccountMenu(page);
     await expect(page.getByRole("menuitem", { name: "Install app" })).toHaveCount(0);
     const entry = page.getByRole("menuitem", { name: "Open in Safari" });

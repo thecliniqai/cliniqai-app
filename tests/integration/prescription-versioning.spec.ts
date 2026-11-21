@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/service";
-import { transitionQueueState } from "@/features/queue/service";
+import { createVisit } from "../helpers/seed-visit";
+import { startConsultation } from "@/features/queue/service";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,
@@ -19,6 +19,7 @@ import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
 import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -40,7 +41,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // 2. Create test patient for Tenant A
-    const { data: patient, error: pErr } = await tenantA.client
+    const { data: patient, error: pErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -75,8 +76,8 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     visitAId = visitRes.visitId;
 
     // 2. Transition status to in_consultation
-    const queueRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
-    expect(queueRes.success).toBe(true);
+    const queueRes = await startConsultation(ctxFor(tenantA), visitAId, randomUUID());
+    expect(queueRes.ok).toBe(true);
 
     // 3. Save consultation SOAP clinical documentation
     const draftRes = await saveConsultationDraft(

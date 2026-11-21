@@ -57,12 +57,16 @@ function captureResponses(page: Page): () => Promise<Captured[]> {
  * - a Next.js RSC prefetch of a *different* route (the dashboard nav prefetches clinic-A pages, which cannot
  *   carry B's record);
  * - the probed page's own document, whose server HTML the test fetches directly (`serverHtml` below), because
- *   the browser discards it when the client redirects away.
+ *   the browser discards it when the client redirects away;
+ * - the home document a redirect lands on (below).
  * Anything else must be readable so the "no B data" assertion is not vacuous.
  */
 function unreadableIsAcceptable(capturedUrl: string, probedPath: string): boolean {
   const url = new URL(capturedUrl);
   if (url.pathname === probedPath && !url.searchParams.has("_rsc")) return true;
+  // V2-08 08-01a (P1-07): a role without consultations:view is redirected to its home before the visit is read. That
+  // landing document is clinic A's own page, and the final DOM is checked below.
+  if (url.pathname === "/today" && !url.searchParams.has("_rsc")) return true;
   return url.searchParams.has("_rsc") && url.pathname !== probedPath;
 }
 

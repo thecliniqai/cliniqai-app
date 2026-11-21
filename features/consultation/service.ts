@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -40,6 +41,20 @@ function isDraftLocked(visit: { status?: string | null; signed_at?: string | nul
 }
 
 // The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
+/**
+ * The AI provenance a draft save may write to `visits.metadata` (V2-08 08-06a, S-3; the database allows exactly these two keys on a
+ * direct write): `ai_assisted` (boolean) and `ai_sections_used` (up to 20 short strings). Anything else the caller sent is dropped.
+ */
+export function draftProvenance(raw: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!raw) return null;
+  const out: Record<string, unknown> = {};
+  if (typeof raw.ai_assisted === "boolean") out.ai_assisted = raw.ai_assisted;
+  if (Array.isArray(raw.ai_sections_used)) {
+    out.ai_sections_used = raw.ai_sections_used.filter((x): x is string => typeof x === "string" && x.length > 0 && x.length <= 40).slice(0, 20);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 const VITALS_MEASUREMENTS = [
   "systolic",
   "diastolic",
@@ -127,7 +142,7 @@ export async function saveConsultationDraft(
     // 1. Verify visit exists and belongs to this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select(`id, patient_id, status, signed_at, ${clinicalNotesEmbed(["vitals"])}`)
+      .select(`id, patient_id, status, signed_at, metadata, ${clinicalNotesEmbed(["vitals"])}`)
       .eq("id", data.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -146,10 +161,11 @@ export async function saveConsultationDraft(
       return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     }
 
-    // 2. Determine new status: if waiting, transition to in_consultation
-    const updatedStatus = visit.status === "waiting" ? "in_consultation" : undefined;
+    // 2. A waiting visit is moved to in_consultation after the draft is saved, through the start_consultation command
+    // (V2-08 08-04a: `status` is not a column a request path writes any more).
+    const startsConsultation = visit.status === "waiting";
 
-    // 3. Update the visit row (status, specialty), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
+    // 3. Update the visit row (specialty, metadata), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
     // visit write carries the sign-off lock in its filter and goes first, so a draft never lands on a visit that was
     // signed before this save began; a sign-off racing in between the two writes is the residual V2-09a closes with
     // the record-immutability rules (R-21).
@@ -158,12 +174,12 @@ export async function saveConsultationDraft(
       updated_at: new Date().toISOString(),
     };
 
-    if (data.metadata) {
-      updatePayload.metadata = data.metadata;
-    }
-
-    if (updatedStatus) {
-      updatePayload.status = updatedStatus;
+    // V2-08 08-06a (S-3): a direct write of `visits.metadata` is limited by the database to the AI provenance of an open draft,
+    // so only those two keys are taken from the caller and merged into what the visit stores (the confirmation and cancellation
+    // keys are never sent back, and a stale copy never overwrites them).
+    const provenance = draftProvenance(data.metadata);
+    if (provenance) {
+      updatePayload.metadata = { ...((visit.metadata as Record<string, unknown> | null) ?? {}), ...provenance };
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,6 +215,22 @@ export async function saveConsultationDraft(
       }
       log.error({ event: "consultation.draft_save.failed", code: errorTag(notesRaw), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save draft. Please try again." };
+    }
+
+    if (startsConsultation) {
+      // Best effort: the draft is saved either way; a refusal (a role without appointments:edit, a state that moved on)
+      // leaves the status as it was and the sign-off accepts a waiting visit too.
+      const started = await callCommand(
+        ctx,
+        "start_consultation",
+        { p_visit_id: data.visit_id, p_client_request_id: randomUUID() },
+        z.object({ visit_id: z.string().uuid() }).passthrough(),
+        {},
+        { event: "consultation.draft_save_start.failed" }
+      );
+      if (!started.ok) {
+        log.warn({ event: "consultation.draft_save_start.refused", reason: "start_refused", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      }
     }
 
     // 4. Handle follow-up record if provided

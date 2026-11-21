@@ -57,11 +57,11 @@ Principals:
 | `public.invitations` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patients` | S | perm(patients:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.patients` | I | perm(patients:edit) | Y | Y | Y | Y | Y | Y | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.patients` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patients` | U | perm(patients:edit) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.patients` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visits` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.visits` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.visits` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visits` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.visits` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.clinical_notes` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -113,8 +113,8 @@ Principals:
 | `public.queue_token_counters` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.waitlist_entries` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.waitlist_entries` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.waitlist_entries` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.waitlist_entries` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.waitlist_entries` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.waitlist_entries` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.schedule_blocks` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.schedule_blocks` | I | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |

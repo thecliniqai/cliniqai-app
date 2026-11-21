@@ -38,9 +38,17 @@ import {
 export interface VitalsFormProps {
   /** "Last recorded 12 Oct: BP 142/90 · Wt 79 kg" — formatted by the caller from the last visit. */
   lastRecorded?: string;
-  onSave: (reading: VitalsReading) => Promise<void> | void;
+  /** Resolve `false` when the save failed (the caller says why): the form then does not show "Saved". */
+  onSave: (reading: VitalsReading) => Promise<void | boolean> | void | boolean;
+  /**
+   * Readings already on record for this visit (V2-08 08-06a, A-1): the form opens with them, so a second visit to the sheet
+   * adds to the record instead of starting blank. Read once when the form mounts.
+   */
+  initial?: VitalsReading | null;
   className?: string;
 }
+
+const asText = (n: number | null | undefined) => (n == null ? "" : String(n));
 
 type Field =
   | "systolic"
@@ -86,21 +94,21 @@ function assess(field: Field, text: string, unit: TempUnit, sugar: SugarType): V
   return assessVital(field, text);
 }
 
-export function VitalsForm({ lastRecorded, onSave, className }: VitalsFormProps) {
-  const [values, setValues] = useState<Record<Field, string>>({
-    systolic: "",
-    diastolic: "",
-    pulse: "",
-    temperature: "",
-    spo2: "",
-    respRate: "",
-    weight: "",
-    height: "",
-    sugar: "",
-  });
+export function VitalsForm({ lastRecorded, onSave, initial, className }: VitalsFormProps) {
+  const [values, setValues] = useState<Record<Field, string>>(() => ({
+    systolic: asText(initial?.systolic),
+    diastolic: asText(initial?.diastolic),
+    pulse: asText(initial?.pulse),
+    temperature: asText(initial?.temperatureF),
+    spo2: asText(initial?.spo2),
+    respRate: asText(initial?.respRate),
+    weight: asText(initial?.weight),
+    height: asText(initial?.height),
+    sugar: asText(initial?.sugar),
+  }));
   const [checked, setChecked] = useState<Set<Field>>(new Set());
   const [unit, setUnit] = useState<TempUnit>("F");
-  const [sugarType, setSugarType] = useState<SugarType>("random");
+  const [sugarType, setSugarType] = useState<SugarType>(initial?.sugarType ?? "random");
   const [summary, setSummary] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -179,8 +187,8 @@ export function VitalsForm({ lastRecorded, onSave, className }: VitalsFormProps)
     };
     setSaving(true);
     try {
-      await onSave(reading);
-      setSaved(true);
+      const outcome = await onSave(reading);
+      setSaved(outcome !== false);
     } finally {
       setSaving(false);
     }

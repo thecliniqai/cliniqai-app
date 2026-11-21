@@ -9,7 +9,7 @@ import { CHECKBOX_BOX, CHOICE_ROW, FOCUS_RING, TRANSITION } from "@/lib/ui/varia
 /**
  * Checkbox (V2-06 06-02a; 06-UI-SPEC Checkbox; Radix): a 16 px box (radius 4, border-control); checked = accent fill
  * with a white check, indeterminate = a white bar. `role="checkbox"` with `aria-checked` (`true | false | mixed`),
- * Space toggles, disabled is skipped by Tab. The whole label row is the hit area and is ≥ 44 px on touch.
+ * Space toggles, disabled is skipped by Tab. The whole label row is the hit area (`data-control-box`: target-size checks measure the row, not the 16 px box) and is ≥ 44 px on touch.
  */
 export interface CheckboxProps
   extends Omit<React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>, "children" | "className"> {
@@ -37,7 +37,7 @@ export const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(funct
   );
   if (label === undefined) return box;
   return (
-    <label htmlFor={boxId} className={cn(CHOICE_ROW, "cursor-pointer", className)}>
+    <label htmlFor={boxId} data-control-box="" className={cn(CHOICE_ROW, "cursor-pointer", className)}>
       {box}
       <span>{label}</span>
     </label>

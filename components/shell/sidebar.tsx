@@ -4,6 +4,7 @@ import type { NavDestination, NavModel } from "@/lib/nav/nav-for-role";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { NavIcon } from "./nav-icon";
+import { ClinicSwitcher, type ClinicOption } from "./clinic-switcher";
 import { initialsOf, ROLE_LABEL, type ShellUser } from "./shell-user";
 
 /** A sidebar item (06-UI-SPEC §6): 32 px (44 on touch), radius-sm, icon 16, gap 10, body-sm 500; active = nav tokens + bar. */
@@ -35,6 +36,8 @@ export function Sidebar({
   activeId,
   clinicName,
   user,
+  clinics = [],
+  activeClinicId = "",
   className,
   navLabel = "Primary",
 }: {
@@ -42,6 +45,9 @@ export function Sidebar({
   activeId: string | null;
   clinicName: string;
   user: ShellUser;
+  /** Two or more clinics: the clinic block becomes the switcher (V2-08 08-05, R-17). */
+  clinics?: readonly ClinicOption[];
+  activeClinicId?: string;
   className?: string;
   /** The landmark's name ("Primary"; the gallery names its specimens differently). */
   navLabel?: string;
@@ -60,11 +66,15 @@ export function Sidebar({
             V2-11's clinic profile, so nothing is shown rather than repeating the product name; the mark is named
             "CliniQ AI" because the name is no longer written beside it (CD-35). */}
         <BrandMark size={36} />
-        <div className="min-w-0">
-          <p className="truncate text-body-md font-semibold tracking-title text-fg" title={clinicName}>
-            {clinicName}
-          </p>
-        </div>
+        {clinics.length > 1 ? (
+          <ClinicSwitcher clinics={clinics} activeId={activeClinicId} clinicName={clinicName} />
+        ) : (
+          <div className="min-w-0">
+            <p className="truncate text-body-md font-semibold tracking-title text-fg" title={clinicName}>
+              {clinicName}
+            </p>
+          </div>
+        )}
       </div>
       {model.primary.map((d) => (
         <Item key={d.id} d={d} active={d.id === activeId} />

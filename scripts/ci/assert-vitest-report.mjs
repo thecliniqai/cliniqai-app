@@ -61,6 +61,39 @@
  *          REQUIRED_FILES line, stack 000094) had 6307 tests in 307 files, 0 skipped
  *          (evidence/06-09e/vitest-full-summary.txt); 6307 × 0.95 = 5991.65 → 5992. REQUIRED_FILES +
  *          tests/design/design-review-09e.spec.ts (220 in total).
+ *   6385 — V2-08 08-01a (R-3, the V2-07 backlog item "re-measure the floor"): the full suite at the V2-07 merge tree
+ *          (9ce25d7 + the V2-08 plan docs, stack 000099) had 6721 tests in 320 files, 0 skipped, matching the V2-07
+ *          evidence run; 6721 × 0.95 = 6384.95 → 6385. (The report held 5 failed tests: 4 in tests/commands/use-command.spec.ts,
+ *          which ran against this plan's in-progress runner change, and 1 random-hex collision in tests/labs/lab-storage-key.spec.ts,
+ *          both fixed in the same plan; the count is what the floor uses.) V2-07 added no spec outside tests/e2e that
+ *          REQUIRED_FILES lacks (checked against the V2-06 head d86b332: 13 files, all present). REQUIRED_FILES + the two
+ *          08-01a specs (tests/commands/save-state.spec.ts, tests/staff/doctor-picker.spec.ts; 235 in total).
+ *   6385 — V2-08 08-01b, unchanged: REQUIRED_FILES + the three 08-01b specs (tests/queue/start-consultation-rpc.spec.ts,
+ *          tests/queue/complete-visit-rpc.spec.ts, tests/visits/state-machine.spec.ts; 238 in total). The floor is re-measured at
+ *          the next gate; the suite only grew.
+ *   6385 — V2-08 08-02, unchanged: REQUIRED_FILES + the four 08-02 specs (tests/patients/search-patients-db.spec.ts,
+ *          search-route.spec.ts, find-duplicates-db.spec.ts, register-patient-rpc.spec.ts; 242 in total). The patient specs
+ *          that tested the removed select-star search (10 cases) went with it; the suite grew by 45.
+ *   6385 — V2-08 08-03a, unchanged: REQUIRED_FILES + the seven 08-03a specs (tests/realtime/today-signals.spec.ts,
+ *          tests/today/{get-today-board,live,announcer,schema}.spec.ts, tests/pwa/safe-refresh.spec.ts,
+ *          tests/supabase/realtime-token.spec.ts; 249 in total). The floor is re-measured at the next gate; the suite only grew.
+ *   6385 — V2-08 08-03b, unchanged: REQUIRED_FILES + the three 08-03b specs (tests/today/{modes,shortcuts}.spec.ts,
+ *          tests/ci/no-client-command-chains.spec.ts; 252 in total). The floor is re-measured at the next gate; the suite only
+ *          grew (one `getQueueForDate` guard case went with that function).
+ *   6385 — V2-08 08-04a, unchanged: REQUIRED_FILES + the five 08-04a specs (tests/visits/{reschedule-visit-rpc,cancel-visit-rpc,
+ *          no-show-confirm-rpc}.spec.ts, tests/waitlist/waitlist-commands-rpc.spec.ts, tests/scheduling/patient-reschedule.spec.ts;
+ *          257 in total). The floor is re-measured at the next gate; the suite grew (the mock-based confirmAppointment cases and
+ *          two raw-error cases went with the deleted services).
+ *   6385 — V2-08 08-04b, unchanged: REQUIRED_FILES + the two 08-04b specs (tests/schedule/{slot-adapter,schedule-model}.spec.ts; 259
+ *          in total). The floor is re-measured at the next gate; the suite grew.
+ *   6455 — V2-08 08-05: 6385 + 70 new tests = 6455 (tests/visits/{suggest-slots 15, slot-suggestion-context-db 6,
+ *          slot-assist-entitlement-db 4}.spec.ts, tests/patients/duplicate-rules-db.spec.ts 28, tests/clinics/switch-clinic-db.spec.ts 11,
+ *          and the guard suite's legs for the two new actions switchClinic and getSlotAssist: 6); REQUIRED_FILES + the five new specs
+ *          (264 in total). The floor is re-measured at the next gate; the suite grew.
+ *   6455 — V2-08 08-06a, unchanged: REQUIRED_FILES + tests/visits/record-vitals-merge.spec.ts (6) and
+ *          tests/security/front-desk-direct-writes.spec.ts (10), minus tests/visits/create-visit-slot-race.spec.ts (8, the retired
+ *          `createVisit` service; its replacements are cases in the booking and walk-in command specs). A full run at the close of the
+ *          round had 7180 tests in 352 files, 0 skipped (265 required files); the floor is re-measured at the next gate.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -69,7 +102,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 5992;
+const FLOOR = 6455;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -250,7 +283,6 @@ const REQUIRED_FILES = [
   "tests/scheduling/no-double-booking.spec.ts",
   "tests/integration/queue-token-concurrency.spec.ts",
   "tests/api/v1-slot-conflict.spec.ts",
-  "tests/visits/create-visit-slot-race.spec.ts",
   // 05-11a…e review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-*).
   "tests/visits/signed-visit-integrity.spec.ts",
   "tests/ci/visit-integrity-inline.spec.ts",
@@ -374,6 +406,47 @@ const REQUIRED_FILES = [
   // re-measured at the V2-07 gate.
   "tests/visits/booking-template-fault.spec.ts",
   "tests/visits/slot-conflict-text.spec.ts",
+  // V2-08 08-01a (useCommand SaveStatus mapping, doctor picker R-2).
+  "tests/commands/save-state.spec.ts",
+  "tests/staff/doctor-picker.spec.ts",
+  // V2-08 08-01b (start_consultation, complete_visit, the visit state machine parity).
+  "tests/queue/start-consultation-rpc.spec.ts",
+  "tests/queue/complete-visit-rpc.spec.ts",
+  "tests/visits/state-machine.spec.ts",
+  // V2-08 08-02 (patient search, duplicate lookup and the registration command).
+  "tests/patients/search-patients-db.spec.ts",
+  "tests/patients/search-route.spec.ts",
+  "tests/patients/find-duplicates-db.spec.ts",
+  "tests/patients/register-patient-rpc.spec.ts",
+  // V2-08 08-03a (Today's read model, live updates, the Realtime isolation spec, the safe refresh).
+  "tests/realtime/today-signals.spec.ts",
+  "tests/today/get-today-board.spec.ts",
+  "tests/today/live.spec.ts",
+  "tests/today/announcer.spec.ts",
+  "tests/today/schema.spec.ts",
+  "tests/today/modes.spec.ts",
+  "tests/today/shortcuts.spec.ts",
+  "tests/ci/no-client-command-chains.spec.ts",
+  "tests/pwa/safe-refresh.spec.ts",
+  "tests/supabase/realtime-token.spec.ts",
+  // V2-08 08-04a (the staff scheduling commands and the patient's reschedule link).
+  "tests/visits/reschedule-visit-rpc.spec.ts",
+  "tests/visits/cancel-visit-rpc.spec.ts",
+  "tests/visits/no-show-confirm-rpc.spec.ts",
+  "tests/waitlist/waitlist-commands-rpc.spec.ts",
+  "tests/scheduling/patient-reschedule.spec.ts",
+  // V2-08 08-04b (the Schedule and the booking UIs).
+  "tests/schedule/slot-adapter.spec.ts",
+  "tests/schedule/schedule-model.spec.ts",
+  // V2-08 08-05 (Smart Assist, the clinic switcher).
+  "tests/visits/suggest-slots.spec.ts",
+  "tests/visits/slot-suggestion-context-db.spec.ts",
+  "tests/visits/slot-assist-entitlement-db.spec.ts",
+  "tests/patients/duplicate-rules-db.spec.ts",
+  "tests/clinics/switch-clinic-db.spec.ts",
+  // V2-08 08-06a (the review fix round).
+  "tests/visits/record-vitals-merge.spec.ts",
+  "tests/security/front-desk-direct-writes.spec.ts",
 ];
 
 const file = process.argv[2];

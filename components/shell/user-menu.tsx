@@ -8,11 +8,15 @@ import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { InstallMenuItem } from "@/components/shell/install-entry";
 import { initialsOf } from "@/components/shell/shell-user";
+import { ClinicSwitchItems, type ClinicOption } from "@/components/shell/clinic-switcher";
 
 export interface UserMenuProps {
   userEmail: string;
   role: string;
   tenantName: string;
+  /** Every clinic the user belongs to and the open one: with two or more, the menu offers the others (V2-08 08-05, R-17). */
+  clinics?: readonly ClinicOption[];
+  activeClinicId?: string;
 }
 
 /**
@@ -60,7 +64,7 @@ function SignOutForm({
   );
 }
 
-export function UserMenu({ userEmail, role, tenantName }: UserMenuProps) {
+export function UserMenu({ userEmail, role, tenantName, clinics = [], activeClinicId = "" }: UserMenuProps) {
   const [signingOut, setSigningOut] = useState<"local" | "global" | "switch" | null>(null);
 
   const signOut = (event: React.FormEvent<HTMLFormElement> | null, kind: "local" | "global" | "switch") => {
@@ -114,6 +118,8 @@ export function UserMenu({ userEmail, role, tenantName }: UserMenuProps) {
 
       {/* V2-06 06-06 (PWA §6.1-§6.3): "Install app" / "Open in Chrome" / "Open in Safari" when an install path exists. */}
       <InstallMenuItem />
+
+      {clinics.length > 1 && <ClinicSwitchItems clinics={clinics} activeId={activeClinicId} />}
 
       <DropdownItem
         type="button"

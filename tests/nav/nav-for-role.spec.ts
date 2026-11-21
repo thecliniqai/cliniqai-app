@@ -4,9 +4,8 @@
  *
  * | IA destination | v1 destinations (v1 names)                         | Receptionist | Nurse | Doctor | Admin | Owner |
  * |----------------|----------------------------------------------------|--------------|-------|--------|-------|-------|
- * | Today          | Dashboard `/`, Live Queue `/queue`                 | ●            | ●     | –      | ●     | ●     |
- * | Today (doctor) | Doctor's Cabin `/cabin`                            | –            | –     | ●      | –     | ● (toggle) |
- * | Schedule       | Calendar `/calendar` ("My Calendar" for a doctor)  | ●            | ○     | ●      | ●     | ●     |
+ * | Today          | Today `/today` (V2-08 R-14: one screen, modes by role) | ●        | ●     | ●      | ●     | ●     |
+ * | Schedule       | Schedule `/schedule` ("My Schedule" for a doctor)  | ●            | ○     | ●      | ●     | ●     |
  * | Patients       | Patients `/patients`                               | ●            | ●     | ●      | ●     | ●     |
  * | Reports        | Billing & Reports `/billing/reports`               | –            | –     | – (P3, no billing:view) | ● | ● |
  * | Records        | Visits `/visits`, Referrals `/referrals`           | ○            | ○     | ○ (under More) | ○ (§3.3 secondary) | ○ |
@@ -31,7 +30,7 @@ const ROLES: UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
 
 const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
   owner: {
-    primary: ["Dashboard /", "Live Queue /queue", "Doctor's Cabin /cabin", "Calendar /calendar", "Patients /patients", "Billing & Reports /billing/reports"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients", "Billing & Reports /billing/reports"],
     secondary: [
       "Visits /visits",
       "Referrals /referrals",
@@ -42,7 +41,7 @@ const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
     ],
   },
   admin: {
-    primary: ["Dashboard /", "Live Queue /queue", "Calendar /calendar", "Patients /patients", "Billing & Reports /billing/reports"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients", "Billing & Reports /billing/reports"],
     secondary: [
       "Visits /visits",
       "Referrals /referrals",
@@ -53,16 +52,16 @@ const EXPECTED: Record<UserRole, { primary: string[]; secondary: string[] }> = {
     ],
   },
   doctor: {
-    primary: ["Doctor's Cabin /cabin", "My Calendar /calendar", "Patients /patients"],
+    primary: ["Today /today", "My Schedule /schedule", "Patients /patients"],
     secondary: ["Visits /visits", "Referrals /referrals"],
   },
   receptionist: {
-    primary: ["Dashboard /", "Live Queue /queue", "Calendar /calendar", "Patients /patients"],
+    primary: ["Today /today", "Schedule /schedule", "Patients /patients"],
     secondary: ["Visits /visits", "Referrals /referrals"],
   },
   nurse: {
-    primary: ["Dashboard /", "Live Queue /queue", "Patients /patients"],
-    secondary: ["Calendar /calendar", "Visits /visits", "Referrals /referrals"],
+    primary: ["Today /today", "Patients /patients"],
+    secondary: ["Schedule /schedule", "Visits /visits", "Referrals /referrals"],
   },
 };
 
@@ -87,7 +86,7 @@ describe("navForRole: the IA §3.2 table restricted to the v1 URLs", () => {
       const hrefs = new Set(flat(model).map((d) => d.href));
       for (const a of model.actions) {
         expect(hasPerm(role, a.permission), a.label).toBe(true);
-        expect(a.href === "/patients/new" ? hrefs.has("/patients") : hrefs.has(a.href), a.label).toBe(true);
+        expect(hrefs.has(a.href.split("?")[0]!), a.label).toBe(true);
       }
     });
 
@@ -127,8 +126,12 @@ describe("navForRole: the IA §3.2 table restricted to the v1 URLs", () => {
     expect(hrefs).not.toContain("/referrals");
   });
 
-  it("no '+ New' actions in V2-06 (CD-21: they arrive with V2-08)", () => {
-    for (const role of ROLES) expect(navForRole(role).newActions).toEqual([]);
+  it("'+ New' actions are Add walk-in, Register patient and Book appointment, only for a role that may do them (V2-08 08-03b, 08-04b)", () => {
+    const labels = (role: UserRole) => navForRole(role).newActions.map((a) => `${a.label} ${a.href}`);
+    expect(labels("receptionist")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
+    expect(labels("owner")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
+    expect(labels("doctor")).toEqual(["Register patient /patients?new=1", "Add walk-in /today?walkin=1", "Book appointment /schedule?book=1"]);
+    for (const role of ROLES) for (const a of navForRole(role).newActions) expect(hasPerm(role, a.permission)).toBe(true);
   });
 
   it("the model is plain data (it crosses the server/client boundary)", () => {
@@ -141,39 +144,36 @@ describe("paths: active destination, titles, root, Back parent, focus mode", () 
   const owner = navForRole("owner");
   const doctor = navForRole("doctor");
 
-  it("aria-current goes to the longest matching destination; Dashboard only on /", () => {
-    expect(activeDestination("/", owner)?.id).toBe("dashboard");
+  it("aria-current goes to the longest matching destination", () => {
+    expect(activeDestination("/today", owner)?.id).toBe("today");
     expect(activeDestination("/patients/abc", owner)?.id).toBe("patients");
     expect(activeDestination("/billing/register", owner)?.id).toBe("billing");
     expect(activeDestination("/settings/billing", owner)?.id).toBe("subscription");
     expect(activeDestination("/profile", owner)).toBeNull();
-    expect(activeDestination("/queue", doctor)).toBeNull();
+    expect(activeDestination("/queue", doctor)).toBeNull(); // retired: it redirects (next.config.ts)
   });
 
   it("titles are static (never page data) and use the v1 names", () => {
-    expect(screenTitle("/", owner)).toBe("Dashboard");
-    expect(screenTitle("/calendar", doctor)).toBe("My Calendar");
+    expect(screenTitle("/today", owner)).toBe("Today");
+    expect(screenTitle("/schedule", doctor)).toBe("My Schedule");
     expect(screenTitle("/patients/6f1c0e0e-0000-4000-8000-000000000000", owner)).toBe("Patient");
     expect(screenTitle("/consultation/6f1c0e0e-0000-4000-8000-000000000000", doctor)).toBe("Consultation");
-    expect(screenTitle("/patients/new", owner)).toBe("Register patient");
     expect(screenTitle("/profile", owner)).toBe("My Profile");
   });
 
   it("root screens are the destinations and the profile; everything else shows Back", () => {
-    expect(isRootPath("/", owner)).toBe(true);
+    expect(isRootPath("/today", owner)).toBe(true);
     expect(isRootPath("/patients", owner)).toBe(true);
     expect(isRootPath("/patients/", owner)).toBe(true);
     expect(isRootPath("/profile", owner)).toBe(true);
     expect(isRootPath("/patients/abc", owner)).toBe(false);
-    expect(isRootPath("/patients/new", owner)).toBe(false);
     expect(isRootPath("/consultation/abc", doctor)).toBe(false);
   });
 
   it("Back without history goes to the nav parent, else the role's home", () => {
     expect(navParent("/patients/abc", owner)).toBe("/patients");
-    expect(navParent("/patients/new", owner)).toBe("/patients");
-    expect(navParent("/consultation/abc", doctor)).toBe("/cabin");
-    expect(navParent("/consultation/abc", owner)).toBe("/");
+    expect(navParent("/consultation/abc", doctor)).toBe("/today");
+    expect(navParent("/consultation/abc", owner)).toBe("/today");
     expect(navParent("/billing/register", owner)).toBe("/billing/reports");
   });
 

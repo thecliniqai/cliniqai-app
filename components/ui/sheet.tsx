@@ -33,11 +33,11 @@ export type SheetSize = "md" | "lg";
 
 const PLACEMENT: Record<SheetPlacement, string> = {
   right:
-    "inset-y-0 right-0 h-app max-w-full border-l border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-x-full",
+    "top-0 right-0 h-[calc(100dvh-var(--offline-banner-h,0px))] max-w-full border-l border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-x-full",
   bottom:
-    "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-xl border-t border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-y-full",
+    "inset-x-0 bottom-[var(--offline-banner-h,0px)] max-h-[calc(92dvh-var(--offline-banner-h,0px))] rounded-t-xl border-t border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-y-full",
   responsive:
-    "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-xl border-t border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-y-full md:inset-x-auto md:inset-y-0 md:right-0 md:h-app md:max-h-none md:max-w-full md:rounded-none md:border-t-0 md:border-l md:motion-safe:starting:translate-x-full md:motion-safe:starting:translate-y-0",
+    "inset-x-0 bottom-[var(--offline-banner-h,0px)] max-h-[calc(92dvh-var(--offline-banner-h,0px))] rounded-t-xl border-t border-border motion-safe:transition-[translate] motion-safe:duration-(--duration-sheet) motion-safe:ease-(--ease-out) motion-safe:starting:translate-y-full md:inset-x-auto md:top-0 md:bottom-auto md:right-0 md:h-[calc(100dvh-var(--offline-banner-h,0px))] md:max-h-none md:max-w-full md:rounded-none md:border-t-0 md:border-l md:motion-safe:starting:translate-x-full md:motion-safe:starting:translate-y-0",
 };
 
 const WIDTH: Record<SheetPlacement, Record<SheetSize, string>> = {

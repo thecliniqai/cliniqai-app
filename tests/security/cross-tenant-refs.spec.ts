@@ -12,7 +12,6 @@
  */
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createVisit } from "@/features/visits/service";
 import { createScheduleBlock } from "@/features/visits/scheduling-service";
 import { addToWaitlist } from "@/features/waitlist/service";
 import { grantConsent, toggleGlobalConsent, withdrawConsent } from "@/features/patients/consent-service";
@@ -27,6 +26,7 @@ import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../he
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { callWalkIn, walkInArgs } from "../helpers/front-desk-commands";
 
 const admin = getAdminClient();
 const TABLES = ["visits", "waitlist_entries", "consent_records", "follow_ups", "consultation_diagnoses", "referrals",
@@ -87,26 +87,23 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     B = await seedPatientAndVisit(ownerB, "B");
   }, 60_000);
 
-  const visitInput = (patient_id: string, doctor_id: string) => ({
-    patient_id,
-    doctor_id,
-    origin_type: "walk_in" as const,
-    estimated_duration_minutes: 15,
-    is_overbooked: false,
-  });
+  // V2-08 08-06a (S-1): a visit is created by the definer commands only (the user client holds no INSERT on `visits`), so the
+  // reference checks of the retired `createVisit` service are the walk-in command's: PATIENT_NOT_FOUND / DOCTOR_NOT_FOUND.
+  const walkIn = (patient: string, doctor: string) =>
+    callWalkIn(receptionistA.client, walkInArgs(receptionistA, { p_patient_id: patient, p_doctor_id: doctor }));
 
-  it("createVisit (and bookAppointment / waitlist promotion through it): B patient or B doctor refused", async () => {
-    expect((await createVisit(ctxFor(receptionistA), visitInput(B.patient, doctorA.userId))).success).toBe(false);
-    expect((await createVisit(ctxFor(receptionistA), visitInput(A.patient, ownerB.userId))).success).toBe(false);
-    expect((await createVisit(ctxFor(receptionistA), visitInput(A.patient, doctorA.userId))).success).toBe(true);
+  it("enqueue_walk_in (the visit-creating command; booking and waitlist promotion use the same step): B patient or B doctor refused", async () => {
+    expect((await walkIn(B.patient, doctorA.userId)).error).not.toBeNull();
+    expect((await walkIn(A.patient, ownerB.userId)).error).not.toBeNull();
+    expect((await walkIn(A.patient, doctorA.userId)).error).toBeNull();
   });
 
   it("addToWaitlist: B patient or B doctor refused", async () => {
     const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const input = (patient_id: string, doctor_id: string | null) => ({ patient_id, doctor_id, target_date: date, priority: 0 });
-    expect((await addToWaitlist(ctxFor(receptionistA), input(B.patient, null))).success).toBe(false);
-    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, ownerB.userId))).success).toBe(false);
-    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, doctorA.userId))).success).toBe(true);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(B.patient, null), randomUUID())).ok).toBe(false);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, ownerB.userId), randomUUID())).ok).toBe(false);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, doctorA.userId), randomUUID())).ok).toBe(true);
   });
 
   it("grantConsent, withdrawConsent, toggleGlobalConsent: B patient refused", async () => {
@@ -212,8 +209,8 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     await admin.from("patients").update({ erased_at: new Date().toISOString(), status: "erased" }).eq("id", erased.patient);
     const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     for (const patient of [deleted.patient, erased.patient]) {
-      expect((await createVisit(ctxFor(receptionistA), visitInput(patient, doctorA.userId))).success).toBe(false);
-      expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 })).success).toBe(false);
+      expect((await walkIn(patient, doctorA.userId)).error).not.toBeNull();
+      expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 }, randomUUID())).ok).toBe(false);
       expect((await grantConsent(ctxFor(nurseA), patient, "data_sharing")).success).toBe(false);
     }
     const { data: rows } = await admin
@@ -225,18 +222,21 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     expect(rows ?? []).toEqual([]);
   });
 
-  it("direct PostgREST writes that bypass the services' check are stopped by the composite FKs (05-03, 23503)", async () => {
-    // The member's own JWT, straight to PostgREST: RLS admits the row (its own tenant_id is A), so before 05-03 the
-    // single-column FKs (id only) let both rows in. The composite (tenant_id, …) FKs refuse them.
+  it("direct writes that bypass the commands' checks are stopped: no member insert (S-1), and the composite FKs refuse the system path (05-03, 23503)", async () => {
+    // V2-08 08-06a (S-1): the member's own JWT cannot insert a visit at all, whichever ids it names.
     const row = { tenant_id: ownerA.tenantId, origin_type: "walk_in", created_by: receptionistA.userId };
-    const bPatient = await receptionistA.client.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
+    const viaMember = await receptionistA.client.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
+    expect(viaMember.error?.code).toBe("42501");
+    expect(viaMember.data).toBeNull();
+    // The composite (tenant_id, ...) FKs (05-03) are still the last line for the writers that keep INSERT (service role, /api/v1):
+    // a row of clinic A pointing at clinic B's patient or doctor is refused with 23503, in-clinic references work.
+    const bPatient = await admin.from("visits").insert({ ...row, patient_id: B.patient, doctor_id: doctorA.userId }).select("id");
     expect(bPatient.error?.code).toBe("23503");
     expect(bPatient.data).toBeNull();
-    const bDoctor = await receptionistA.client.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: ownerB.userId }).select("id");
+    const bDoctor = await admin.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: ownerB.userId }).select("id");
     expect(bDoctor.error?.code).toBe("23503");
     expect(bDoctor.data).toBeNull();
-    // Control: the same direct insert inside clinic A succeeds, so the refusals are the cross-tenant references.
-    const own = await receptionistA.client.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: doctorA.userId }).select("id");
+    const own = await admin.from("visits").insert({ ...row, patient_id: A.patient, doctor_id: doctorA.userId }).select("id");
     expect(own.error).toBeNull();
     expect(own.data).toHaveLength(1);
   });

@@ -1,13 +1,10 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   calculateAgeFromDob,
   calculateDobFromAge,
   normalizePhone,
   patientSchema,
 } from "@/features/patients/schema";
-import { seedTenantWithOwner } from "../helpers/tenants";
-import { findPotentialDuplicates } from "@/features/patients/dedup-service";
-import { ctxFor } from "../helpers/context";
 
 describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", () => {
   describe("1. Age and DOB Bidirectional Derivation", () => {
@@ -57,68 +54,6 @@ describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", ()
     });
   });
 
-  describe("3. Database Duplicate Detection Engine", () => {
-    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
-
-    beforeAll(async () => {
-      tenant = await seedTenantWithOwner("Fortis Health Clinic");
-
-      // Seed baseline patient in this tenant
-      const { error } = await tenant.client.from("patients").insert({
-        tenant_id: tenant.tenantId,
-        full_name: "Sunil Narine",
-        phone: "+919811122233",
-        date_of_birth: "1985-06-15",
-        age: 41,
-        created_by: tenant.userId,
-      });
-
-      if (error) throw new Error(`Failed to seed test patient: ${error.message}`);
-    });
-
-    it("detects high-confidence duplicate on exact phone match regardless of formatting", async () => {
-      // Input bare 10-digit phone
-      const matches = await findPotentialDuplicates(
-        ctxFor(tenant),
-        {
-          phone: "9811122233",
-          fullName: "Different Name",
-        }
-      );
-
-      const matched = matches.find((m) => m.patient.phone === "+919811122233");
-      expect(matched).toBeDefined();
-      expect(matched?.confidence).toBe("high");
-      expect(matched?.patient.full_name).toBe("Sunil Narine");
-    });
-
-    it("detects medium-confidence duplicate on matching name + approximate age (within 2 years)", async () => {
-      const matches = await findPotentialDuplicates(
-        ctxFor(tenant),
-        {
-          phone: "9999900000", // Different phone
-          fullName: "sunil narine", // Same name, lowercase
-          age: 42, // Within 2 years of 41
-        }
-      );
-
-      const matched = matches.find((m) => m.patient.full_name === "Sunil Narine");
-      expect(matched).toBeDefined();
-      expect(matched?.confidence).toBe("medium");
-    });
-
-    it("does not match when name matches but age is significantly different", async () => {
-      const matches = await findPotentialDuplicates(
-        ctxFor(tenant),
-        {
-          phone: "9999900000", // Different phone
-          fullName: "Sunil Narine", // Same name
-          age: 20, // 21 years younger -> not the same patient
-        }
-      );
-
-      const matched = matches.find((m) => m.patient.full_name === "Sunil Narine");
-      expect(matched).toBeUndefined();
-    });
-  });
+  // The database duplicate detection (same mobile; same name with the same date of birth or an age within two years) moved
+  // to `public.find_patient_duplicates` in V2-08 08-02: tests/patients/find-duplicates-db.spec.ts.
 });

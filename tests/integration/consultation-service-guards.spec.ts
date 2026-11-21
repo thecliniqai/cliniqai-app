@@ -8,7 +8,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
-import { createVisit, recordVisitVitals } from "@/features/visits/service";
+import { recordVisitVitals } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,
@@ -51,7 +52,7 @@ describe("consultation service guards (01-01c)", () => {
     nurse = await addMemberToTenant(owner.tenantId, "nurse");
     receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
 
-    const { data: patient, error } = await owner.client
+    const { data: patient, error } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: owner.tenantId,

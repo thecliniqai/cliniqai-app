@@ -81,7 +81,7 @@ test("sign-in renders the widget with the build's site key and sends a fresh tok
   await tokensIssued(page, 2);
   await page.getByLabel(/^Password/).fill(user.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
+  await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
   expect(grants).toHaveLength(2);
   const second = captchaTokenOf(grants[1]);
   expect(typeof second).toBe("string");
@@ -175,7 +175,7 @@ test("an expired token shows the expiry copy and is replaced before sign-in", as
   await expect(page.getByRole("status").filter({ hasText: CAPTCHA_EXPIRED })).toHaveCount(0);
   await fillSignIn(page, user.email, user.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
+  await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
   expect(grants).toHaveLength(1);
   // The expired token (…-1) was never sent; the refreshed one (…-2) was.
   expect(captchaTokenOf(grants[0])).toBe("XXXX.DUMMY.TOKEN.XXXX-2");

@@ -48,7 +48,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
       event_type: "waitlist_slot_freed",
       title: "Slot Freed",
       message: "Slot freed with Dr. Amit.",
-      link_url: "/queue",
+      link_url: "/today",
       is_read: false,
       read_at: null,
       metadata: {},

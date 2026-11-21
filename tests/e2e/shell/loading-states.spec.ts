@@ -1,6 +1,6 @@
 /**
  * Loading states for the pages 06-04a left without one (V2-06 06-04b; P1-28 M3 "loading for every route group";
- * 06-04a deviation 1): Today, Patients, a patient, the consult, the Live Queue, the cabin, the calendar and the
+ * 06-04a deviation 1): Today, Patients, a patient, the consult, the calendar and the
  * billing reports show the route skeleton during a slow client navigation, AND their full-page status codes are
  * unchanged by the new boundaries: a record that is not the caller's still answers 404 (journey-09's rule) and a role
  * redirect still answers 307 (the decisions run in the segment layouts above the boundaries). desktop-chrome.
@@ -45,16 +45,17 @@ test.describe("full-page status codes are kept", () => {
 
   test.describe("doctor", () => {
     test.use({ storageState: storageStatePath("doctor") });
-    test("Today redirects a doctor to the cabin with 307; billing reports to Today with 307", async ({ page }) => {
-      expect(await status(page, "/")).toEqual({ status: 307, location: "/cabin" });
-      expect(await status(page, "/billing/reports")).toEqual({ status: 307, location: "/" });
+    test("/ redirects to Today with 307 (R-14); billing reports to Today with 307", async ({ page }) => {
+      expect(await status(page, "/")).toEqual({ status: 307, location: "/today" });
+      expect(await status(page, "/billing/reports")).toEqual({ status: 307, location: "/today" });
     });
   });
 
   test.describe("receptionist", () => {
     test.use({ storageState: storageStatePath("receptionist") });
-    test("the cabin redirects a receptionist to the Live Queue with 307", async ({ page }) => {
-      expect(await status(page, "/cabin")).toEqual({ status: 307, location: "/queue" });
+    test("the retired queue and cabin addresses redirect to Today with 308 (R-14, next.config.ts)", async ({ page }) => {
+      expect(await status(page, "/queue")).toEqual({ status: 308, location: "/today" });
+      expect(await status(page, "/cabin")).toEqual({ status: 308, location: "/today" });
     });
   });
 });
@@ -63,12 +64,10 @@ test.describe("the skeleton shows during a slow client navigation", () => {
   test.use({ storageState: storageStatePath("owner") });
 
   for (const [name, path, from] of [
-    ["Dashboard", "/", "/patients"],
-    ["Patients", "/patients", "/"],
-    ["Live Queue", "/queue", "/"],
-    ["Doctor's Cabin", "/cabin", "/"],
-    ["Calendar", "/calendar", "/"],
-    ["Billing & Reports", "/billing/reports", "/"],
+    ["Today", "/today", "/patients"],
+    ["Patients", "/patients", "/today"],
+    ["Schedule", "/schedule", "/today"],
+    ["Billing & Reports", "/billing/reports", "/today"],
   ] as const) {
     test(`${name} (${path})`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
@@ -76,7 +75,7 @@ test.describe("the skeleton shows during a slow client navigation", () => {
       await page.goto(from);
       await expect(page.getByRole("main")).toBeVisible();
       // 06-09e: wait for the page we start from to finish streaming (its own loading skeleton gone), so its content,
-      // which can hold a link of the same name (Today's "Live Queue" and "Calendar" buttons), is always on screen when
+      // which can hold a link of the same name, is always on screen when
       // the nav link is clicked. Before, the click raced Today's render: locally (a busy shared stack) Today was still
       // its skeleton, on CI it had rendered, and the unscoped locator then matched two links (strict mode).
       await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });

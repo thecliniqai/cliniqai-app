@@ -5,8 +5,8 @@
  * without touching any screen markup. At 360, 820 and 1280 px this spec checks, through the real app:
  *   - the doctor's consultation workspace shows the seeded note and vitals (the page reads the new table);
  *   - the nurse's queue card shows the seeded vitals summary; the receptionist's card for the same visit does not;
- *   - the receptionist's consultation URL (still served, known gap P1-07, V2-08) renders without the note and without
- *     a literal "undefined"/"null";
+ *   - the receptionist's consultation URL is not served (V2-08 08-01a closed P1-07): the user lands on their own home
+ *     screen, with no note and no literal "undefined"/"null";
  *   - no serious/critical axe rule appears that the M0 baseline (02-03b, committed reports) did not already have on
  *     these routes on a PR-lane device (the v1 a11y debt is owned by V2-06…V2-11): BLOCKING on new rule ids; the
  *     counts are attached as a report.
@@ -21,6 +21,7 @@ import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
 import { storageStatePath, type E2eRole } from "../support/run-data";
+import { openToday, rowOf } from "../support/today-page";
 import { seedClinicalNotes } from "../../helpers/clinical-notes";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
@@ -29,7 +30,9 @@ const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
 const BASELINE_DIR = path.join(ROOT, ".planning/phases/02-ci-e2e-foundations/evidence/m0-baseline/axe");
 
 /** Serious/critical rule ids the M0 baseline recorded on `route` on any PR-lane device (desktop, Pixel 7, iPhone 15). */
-function baselineRules(route: "/consultation/[id]" | "/queue"): Set<string> {
+function baselineRules(route: "/consultation/[id]" | "/today"): Set<string> {
+  // Today (V2-08) is a new screen: no v1 debt to tolerate, so any serious or critical rule is new.
+  if (route === "/today") return new Set();
   const ids = new Set<string>();
   for (const file of fs.readdirSync(BASELINE_DIR).filter((f) => f.endsWith(".json"))) {
     const report = JSON.parse(fs.readFileSync(path.join(BASELINE_DIR, file), "utf8")) as {
@@ -68,7 +71,7 @@ async function seededVisit(tag: string): Promise<string> {
   return visitId;
 }
 
-async function check(page: Page, testInfo: TestInfo, name: string, route: "/consultation/[id]" | "/queue"): Promise<void> {
+async function check(page: Page, testInfo: TestInfo, name: string, route: "/consultation/[id]" | "/today"): Promise<void> {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   await page.screenshot({ path: path.join(OUT_DIR, `${name}.png`), fullPage: true, animations: "disabled", caret: "hide" });
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
@@ -111,41 +114,42 @@ for (const size of WIDTHS) {
     test.describe("nurse", () => {
       test.use(as("nurse"));
 
-      test(`queue card shows the vitals summary (${size.width}px)`, async ({ page }, testInfo) => {
+      test(`Today shows the vitals summary on the row (${size.width}px)`, async ({ page }, testInfo) => {
         const tag = testTag();
         await seededVisit(tag);
         await page.setViewportSize(size);
-        await page.goto("/queue");
-        await expect(page.getByText(`E2E Synthetic Split ${tag}`).first()).toBeVisible();
-        await expect(page.getByText(VITALS_SUMMARY).first()).toBeVisible();
-        await check(page, testInfo, `queue-nurse-${size.width}`, "/queue");
+        await openToday(page);
+        await page.getByLabel("Token, name or mobile").fill(`E2E Synthetic Split ${tag}`);
+        await expect(rowOf(page, `E2E Synthetic Split ${tag}`)).toBeVisible();
+        await expect(rowOf(page, `E2E Synthetic Split ${tag}`).getByText(VITALS_SUMMARY)).toBeVisible();
+        await check(page, testInfo, `today-nurse-${size.width}`, "/today");
       });
     });
 
     test.describe("receptionist", () => {
       test.use(as("receptionist"));
 
-      test(`queue shows the visit without its vitals (${size.width}px)`, async ({ page }, testInfo) => {
+      test(`Today shows the visit without its vitals (${size.width}px)`, async ({ page }, testInfo) => {
         const tag = testTag();
         await seededVisit(tag);
         await page.setViewportSize(size);
-        await page.goto("/queue");
-        await expect(page.getByText(`E2E Synthetic Split ${tag}`).first()).toBeVisible();
+        await openToday(page);
+        await page.getByLabel("Token, name or mobile").fill(`E2E Synthetic Split ${tag}`);
+        await expect(rowOf(page, `E2E Synthetic Split ${tag}`)).toBeVisible();
         expect(await bodyText(page)).not.toContain(VITALS_SUMMARY);
-        await check(page, testInfo, `queue-receptionist-${size.width}`, "/queue");
+        await check(page, testInfo, `today-receptionist-${size.width}`, "/today");
       });
 
-      test(`consultation URL renders no note and no "undefined" (P1-07 open) (${size.width}px)`, async ({ page }, testInfo) => {
+      test(`consultation URL is not served: no note, no "undefined" (P1-07) (${size.width}px)`, async ({ page }) => {
         const visitId = await seededVisit(testTag());
         await page.setViewportSize(size);
         const response = await page.goto(`/consultation/${visitId}`);
         expect(response?.status()).toBeLessThan(500);
+        await expect(page).not.toHaveURL(new RegExp(`/consultation/${visitId}`));
+        await expect(page.getByLabel(NOTES_LABEL)).toHaveCount(0);
         const text = await page.locator("body").innerText();
         expect(text).not.toContain(NOTE);
         expect(text).not.toMatch(/\bundefined\b/);
-        const notes = page.getByLabel(NOTES_LABEL);
-        if (await notes.count()) await expect(notes).toHaveValue("");
-        await check(page, testInfo, `consultation-receptionist-${size.width}`, "/consultation/[id]");
       });
     });
   });

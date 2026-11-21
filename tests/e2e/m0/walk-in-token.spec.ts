@@ -3,7 +3,7 @@
  *
  * The front desk adds an EXISTING patient as a walk-in for the doctor. Outcome asserted: one `visits` row (walk-in,
  * status `waiting`, that doctor) and one `queue_tokens` row with the next token number for today, and the patient's
- * card in the live queue shows that token.
+ * row on Today shows that token. (V2-08 08-03b: the walk-in is a sheet on Today, `?walkin=1`.)
  *
  * Characterised as-is: tokens are numbered per clinic per day, not per doctor, so "next number" is the tenant's next
  * number today (v1 read max + 1; since V2-05 05-08 a per-clinic, per-day counter row, `issue_queue_token` since 05-11a, which
@@ -12,6 +12,7 @@
 import { expect, test } from "../fixtures";
 import { appToday, maxTokenToday, run, seedPatient, testTag, tokenOf, visitsOf } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { filterToday, openToday, rowOf, showLane } from "../support/today-page";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -22,34 +23,33 @@ test("walk-in for an existing patient → waiting visit + next queue token, visi
   const patientName = `E2E Synthetic Walk-in ${testTag()}`;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
 
-  await page.goto("/queue");
-  await expect(page.getByRole("heading", { name: "Live Reception Queue" })).toBeVisible();
+  await openToday(page);
   const before = await maxTokenToday(tenantA.id);
 
-  await ux.click(page.getByRole("button", { name: "+ Add Walk-In" }), "+ Add Walk-In");
-  const drawer = page
-    .getByRole("heading", { name: "Quick Walk-In Registration" })
-    .locator("xpath=ancestor::div[contains(@class,'fixed')][1]");
-  await expect(drawer).toBeVisible();
+  // 08-03b: the walk-in is a sheet on Today (`?walkin=1`). Keyboard path: search, Enter picks the patient, Enter adds them.
+  await ux.click(page.getByRole("link", { name: "Add walk-in" }), "Add walk-in");
+  const sheet = page.getByRole("dialog", { name: "Add walk-in" });
+  await expect(sheet).toBeVisible();
 
-  await ux.select(drawer.getByRole("combobox"), doctorId, "Consulting Doctor");
-  await ux.fill(drawer.getByLabel("Search by Name or Phone"), patientName, "Search by Name or Phone");
-  // The results can list other patients: tenant A is shared by every spec and device project, and the search also
-  // matches phones containing all the query's digits run together ("E2E … eab1a8" searched phones for "218", which
-  // another synthetic patient's random number contained, in CI run 43324692904). Issue the token from this patient's
-  // own row, as the front desk would.
-  const result = drawer
-    .getByRole("heading", { name: patientName, exact: true })
-    .locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
-  await expect(result).toBeVisible();
-  await ux.click(result.getByRole("button", { name: "Issue Token" }), "Issue Token");
+  // Search; Enter picks the highlighted patient. The results can list other patients (the search also matches phones
+  // containing the query's digits); this patient's name is unique, so the best match is theirs.
+  await expect(sheet.getByText("Loading doctors…")).toHaveCount(0);
+  await ux.fill(sheet.getByRole("combobox", { name: "Patient" }), patientName, "Patient");
+  await expect(sheet.getByRole("option", { name: new RegExp(patientName) })).toBeVisible();
+  await ux.press(sheet.getByRole("combobox", { name: "Patient" }), "Enter", "Enter (pick the patient)");
 
-  // The drawer closes and the patient's card shows the issued token.
-  await expect(page.getByRole("heading", { name: "Quick Walk-In Registration" })).toHaveCount(0);
-  const card = page
-    .getByRole("heading", { name: patientName, exact: true })
-    .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
-  await expect(card).toBeVisible();
+  // The doctor select shows when the clinic has more than one doctor (the owner practises here): name the doctor.
+  await expect(sheet.locator("[data-walkin-patient]")).toContainText(patientName);
+  const doctorSelect = sheet.getByRole("combobox", { name: "Doctor" });
+  if (await doctorSelect.isVisible()) await ux.select(doctorSelect, doctorId, "Doctor");
+  await ux.click(sheet.getByRole("button", { name: "Add to queue" }), "Add to queue");
+
+  // The sheet closes and the patient's row shows the issued token.
+  await expect(page.getByRole("dialog", { name: "Add walk-in" })).toHaveCount(0);
+  await filterToday(page, patientName);
+  await showLane(page, "Waiting");
+  const row = rowOf(page, patientName);
+  await expect(row).toBeVisible();
   ux.done();
 
   // Database: one walk-in visit for the doctor, now waiting, with the next token for today.
@@ -62,6 +62,6 @@ test("walk-in for an existing patient → waiting visit + next queue token, visi
   expect(token!.token_number).toBeGreaterThan(before);
   expect(token!.token_number).toBe(before + 1);
 
-  await expect(card).toContainText(`#${String(token!.token_number).padStart(2, "0")}`);
-  await expect(card).toContainText("Waiting");
+  await expect(row.locator("[data-token-chip]")).toContainText(String(token!.token_number));
+  await expect(row).toContainText("Walk-in");
 });

@@ -22,7 +22,7 @@ test("a dashboard notFound() renders the dashboard not-found inside the shell", 
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await expect(page.getByRole("banner")).toBeVisible();
-  await expect(main.getByRole("link", { name: "Go to Today" })).toHaveAttribute("href", "/");
+  await expect(main.getByRole("link", { name: "Go to Today" })).toHaveAttribute("href", "/today");
   await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
   expect(await page.locator("body").innerText()).not.toContain(id);
 });
@@ -38,7 +38,7 @@ test("an unmatched URL renders the root not-found outside the shell with HTTP 40
 
 test("a slow client navigation shows the loading skeleton inside the shell, then the page", async ({ page }) => {
   const nav = await holdNavigation(page, "/visits", 1_500);
-  await page.goto("/");
+  await page.goto("/today");
   await expect(page.getByRole("main")).toBeVisible();
   await clickNavLink(page, "Visits", nav);
   await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();

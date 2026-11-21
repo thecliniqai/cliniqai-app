@@ -11,6 +11,7 @@ import { useShortcutLabel } from "@/lib/ui/shortcut-label";
 import { CONTROL_STATE, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { BackButton } from "./back-button";
 import { UserMenu } from "./user-menu";
+import type { ClinicOption } from "./clinic-switcher";
 import type { ShellUser } from "./shell-user";
 
 export const PALETTE_PLACEHOLDER = "Search patients, queue and actions";
@@ -36,6 +37,8 @@ export function TopBar({
   paletteOpen,
   clinicName,
   user,
+  clinics,
+  activeClinicId,
 }: {
   title: string;
   showBack: boolean;
@@ -51,6 +54,8 @@ export function TopBar({
   paletteOpen: boolean;
   clinicName: string;
   user: ShellUser;
+  clinics?: readonly ClinicOption[];
+  activeClinicId?: string;
 }) {
   const shortcut = useShortcutLabel();
   return (
@@ -100,7 +105,7 @@ export function TopBar({
         className="md:hidden"
       />
       <NotificationBell />
-      <UserMenu userEmail={user.email} role={user.role} tenantName={clinicName} />
+      <UserMenu userEmail={user.email} role={user.role} tenantName={clinicName} clinics={clinics} activeClinicId={activeClinicId} />
     </header>
   );
 }

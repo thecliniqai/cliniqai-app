@@ -238,24 +238,26 @@ describe("closed event set, subject state and idempotency", () => {
       completed_at: "2026-11-13T05:06:07.089Z",
     });
 
+    // A completed visit is never cancelled (000100): the cancellation and reschedule events use a second, booked visit.
+    const q = await seedPatient(ownerA.tenantId, ownerA.userId, doctorA.userId, "booked");
     psql(
       `update public.visits set status = 'cancelled', metadata = metadata || '{"cancellation_reason":"patient_cancelled"}', ` +
-        `scheduled_at = '2026-11-20T05:00:00Z' where id = '${p.visitId}'`
+        `scheduled_at = '2026-11-20T05:00:00Z' where id = '${q.visitId}'`
     );
-    const cancelled = await system(getAdminClient(), "system:messaging_webhook", "appointment.cancelled", p.visitId);
+    const cancelled = await system(getAdminClient(), "system:messaging_webhook", "appointment.cancelled", q.visitId);
     expect(cancelled.error).toBeNull();
-    const [cRow] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `appointment.cancelled:${p.visitId}`);
-    expect(JSON.parse(deliveryPayload(cRow.id)).data).toEqual({ appointment_id: p.visitId, reason: "patient_cancelled" });
+    const [cRow] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `appointment.cancelled:${q.visitId}`);
+    expect(JSON.parse(deliveryPayload(cRow.id)).data).toEqual({ appointment_id: q.visitId, reason: "patient_cancelled" });
 
     // appointment.rescheduled: one event per visit AND time (the key carries scheduled_at, as PostgREST writes it).
-    const moved = await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", p.visitId, "system:patient_self_service_reschedule");
+    const moved = await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", q.visitId, "system:patient_self_service_reschedule");
     expect(moved.queued).toBe(1);
-    const key = `appointment.rescheduled:${p.visitId}:2026-11-20T05:00:00+00:00`;
+    const key = `appointment.rescheduled:${q.visitId}:2026-11-20T05:00:00+00:00`;
     const [rRow] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === key);
-    expect(JSON.parse(deliveryPayload(rRow.id)).data).toEqual({ appointment_id: p.visitId, scheduled_at: "2026-11-20T05:00:00+00:00" });
-    expect((await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", p.visitId, "system:patient_self_service_reschedule")).queued).toBe(0);
-    psql(`update public.visits set scheduled_at = '2026-11-21T05:00:00Z' where id = '${p.visitId}'`);
-    expect((await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", p.visitId, "system:patient_self_service_reschedule")).queued).toBe(1);
+    expect(JSON.parse(deliveryPayload(rRow.id)).data).toEqual({ appointment_id: q.visitId, scheduled_at: "2026-11-20T05:00:00+00:00" });
+    expect((await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", q.visitId, "system:patient_self_service_reschedule")).queued).toBe(0);
+    psql(`update public.visits set scheduled_at = '2026-11-21T05:00:00Z' where id = '${q.visitId}'`);
+    expect((await enqueueWebhookEventAsSystem(getAdminClient(), "appointment.rescheduled", q.visitId, "system:patient_self_service_reschedule")).queued).toBe(1);
   });
 
   it("lab_result.ready carries the document id, patient id and title from the document row", async () => {

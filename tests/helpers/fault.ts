@@ -27,6 +27,11 @@ export interface FaultSpec {
   column: string;
   /** Only rows whose `column` equals this value raise the fault. */
   marker: string;
+  /**
+   * A second condition on the NEW row (`column` = `value`, both validated like the marker): lets a fault hit one later
+   * write of a command that writes the same table twice, e.g. the visit's move to `in_consultation` after its check-in.
+   */
+  and?: { column: string; value: string };
   /** Default `insert`. */
   event?: FaultEvent;
   /** SQLSTATE raised (default XX000, which `mapDbError` maps to INTERNAL). */
@@ -59,6 +64,7 @@ export function installScopedFault(spec: FaultSpec): InstalledFault {
   if (!MARKER.test(spec.marker)) throw new Error(`fault: bad marker ${JSON.stringify(spec.marker)}`);
   const errcode = spec.errcode ?? "XX000";
   if (!/^[0-9A-Z]{5}$/.test(errcode)) throw new Error(`fault: bad errcode ${JSON.stringify(errcode)}`);
+  if (spec.and && (!IDENT.test(spec.and.column) || !MARKER.test(spec.and.value))) throw new Error("fault: bad second condition");
   const message = spec.message ?? "SPIKE_FAULT";
   if (!/^[A-Z_]{1,60}$/.test(message)) throw new Error(`fault: bad message ${JSON.stringify(message)}`);
   const event = spec.event ?? "insert";
@@ -68,7 +74,7 @@ export function installScopedFault(spec: FaultSpec): InstalledFault {
   const trigger = `${FAULT_PREFIX}${suffix}`;
   psql(
     `create function ${fn}() returns trigger language plpgsql as $$ begin ` +
-      `if new.${spec.column}::text = '${spec.marker}' then raise exception '${message}' using errcode = '${errcode}'; end if; ` +
+      `if new.${spec.column}::text = '${spec.marker}'${spec.and ? ` and new.${spec.and.column}::text = '${spec.and.value}'` : ""} then raise exception '${message}' using errcode = '${errcode}'; end if; ` +
       `return new; end $$; ` +
       `create trigger ${trigger} before ${event} on ${table} for each row execute function ${fn}();`
   );

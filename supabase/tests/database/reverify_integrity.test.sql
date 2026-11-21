@@ -11,6 +11,14 @@
 -- (reopen, edit the children, finalize), adding a charge while a balance is due, paying through record_payment.
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.patients is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the patient actor guard (N-5) through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.patients to authenticated;
+-- 000103 (08-04a): UPDATE on public.visits is narrowed for authenticated to specialty, metadata and updated_at. This file proves the
+-- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
+-- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
+grant update on table public.visits to authenticated;
 select plan(61);
 
 insert into auth.users (id, email) values

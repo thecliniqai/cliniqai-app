@@ -23,15 +23,13 @@ vi.mock("@/lib/supabase/server", async (importOriginal) => {
   return { ...actual, createClient: async () => mockState.client };
 });
 
-import DashboardPage from "@/app/(dashboard)/(today)/page";
+import TodayPage from "@/app/(dashboard)/today/page";
 import PatientsPage from "@/app/(dashboard)/patients/(list)/page";
 import PatientDetailPage from "@/app/(dashboard)/patients/[id]/page";
-import CalendarPage from "@/app/(dashboard)/calendar/page";
+import SchedulePage from "@/app/(dashboard)/schedule/page";
 import VisitsPage from "@/app/(dashboard)/visits/page";
 import ReferralsPage from "@/app/(dashboard)/referrals/page";
-import CabinPage from "@/app/(dashboard)/cabin/page";
 import ProfilePage from "@/app/(dashboard)/profile/page";
-import QueuePage from "@/app/(dashboard)/queue/page";
 import StaffPage from "@/app/(dashboard)/staff/page";
 import ClinicSettingsPage from "@/app/(dashboard)/settings/clinic/page";
 import ConsultationPage from "@/app/(dashboard)/consultation/[id]/page";
@@ -43,15 +41,13 @@ const props = { params: Promise.resolve({ id: ID }), searchParams: Promise.resol
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PAGES: Array<[string, (p: any) => Promise<unknown>]> = [
-  ["/", DashboardPage],
+  ["/today", TodayPage],
   ["/patients", PatientsPage],
   ["/patients/[id]", PatientDetailPage],
-  ["/calendar", CalendarPage],
+  ["/schedule", SchedulePage],
   ["/visits", VisitsPage],
   ["/referrals", ReferralsPage],
-  ["/cabin", CabinPage],
   ["/profile", ProfilePage],
-  ["/queue", QueuePage],
   ["/staff", StaffPage],
   ["/settings/clinic", ClinicSettingsPage],
   ["/consultation/[id]", ConsultationPage],

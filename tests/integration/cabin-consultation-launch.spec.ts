@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 import { ctxFor } from "../helpers/context";
-import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
 import { saveConsultationDraft } from "@/features/consultation/service";
 import { consultationDraftInput } from "../helpers/fixtures";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -18,7 +19,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     tenantB = await seedTenantWithOwner("Beacon Health Center");
 
     // 1. Create a patient in Tenant A
-    const { data: pA, error: pAErr } = await tenantA.client
+    const { data: pA, error: pAErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -68,8 +69,8 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     expect(waitingVisit?.status).toBe("waiting");
 
     // Step C: Launch consultation (1-tap Start Consultation action)
-    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
-    expect(transitionRes.success).toBe(true);
+    const transitionRes = await startConsultation(ctxFor(tenantA), visitAId, randomUUID());
+    expect(transitionRes.ok).toBe(true);
 
     // Verify visit status is now 'in_consultation'
     const { data: inConsultVisit } = await tenantA.client
@@ -116,7 +117,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
   it("2. Enforces cross-tenant boundary: Tenant B cannot transition or modify Tenant A's visit", async () => {
 
     // Tenant B attempts to transition Tenant A's visit
-    const unauthorizedTransition = await transitionQueueState(ctxFor(tenantB), visitAId, "completed");
+    const unauthorizedTransition = await completeVisit(ctxFor(tenantB), visitAId, randomUUID());
 
     // Should fail or not find the record under RLS
     // In our system, RLS or tenant check returns failure

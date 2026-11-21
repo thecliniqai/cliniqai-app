@@ -128,17 +128,17 @@ describe("reportClientRenderError → ops.error_events", () => {
   it("C L-1: a repeat within a minute writes nothing and logs nothing", async () => {
     const now = Date.now();
     vi.spyOn(Date, "now").mockReturnValue(now);
-    expect(await reportClientRenderError({ name: "RangeError", route: "/queue" })).toEqual({ ok: true });
+    expect(await reportClientRenderError({ name: "RangeError", route: "/today" })).toEqual({ ok: true });
     const lines = logged().split("\n").filter((l) => l.includes('"event":"client.render_error"')).length;
-    for (let i = 0; i < 5; i++) expect(await reportClientRenderError({ name: "RangeError", route: "/queue" })).toEqual({ ok: true });
-    expect(at("RangeError", "/queue").map((r) => r.count)).toEqual([1]);
+    for (let i = 0; i < 5; i++) expect(await reportClientRenderError({ name: "RangeError", route: "/today" })).toEqual({ ok: true });
+    expect(at("RangeError", "/today").map((r) => r.count)).toEqual([1]);
     expect(logged().split("\n").filter((l) => l.includes('"event":"client.render_error"')).length).toBe(lines);
   });
 
   it("an identifier-shaped or unlisted name (Error123456, a made-up class) is stored as client.Error", async () => {
-    expect(await reportClientRenderError({ name: "Error123456", route: "/queue" })).toEqual({ ok: true });
+    expect(await reportClientRenderError({ name: "Error123456", route: "/today" })).toEqual({ ok: true });
     expect(await reportClientRenderError({ name: name("Made"), route: "/patients" })).toEqual({ ok: true });
-    expect(at("Error", "/queue")).toHaveLength(1);
+    expect(at("Error", "/today")).toHaveLength(1);
     expect(at("Error", "/patients")).toHaveLength(1);
     expect(rows(`error_name like '%123456%' or error_name like '%${TAG}%'`)).toEqual([]);
   });
@@ -192,33 +192,33 @@ describe("reportClientRenderError → ops.error_events", () => {
   it("extra keys (a message, frames, acting ids) are ignored: only the name and route are stored", async () => {
     const withExtra = {
       name: "AbortError",
-      route: "/queue",
+      route: "/today",
       message: "free text +919000000000",
       frames: ["app/x.tsx:1"],
       digest: "abc123",
       tenant_id: randomUUID(),
     } as unknown as { name: string; route: string };
     expect(await reportClientRenderError(withExtra)).toEqual({ ok: true });
-    expect(byName("AbortError")).toMatchObject([{ route_path: "/queue", message: "", frames: [], digest: null }]);
+    expect(byName("AbortError")).toMatchObject([{ route_path: "/today", message: "", frames: [], digest: null }]);
   });
 
   it("no session: refused, nothing written", async () => {
     slot.client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    expect(await reportClientRenderError({ name: "TypeError", route: "/queue" })).toEqual({ ok: false });
+    expect(await reportClientRenderError({ name: "TypeError", route: "/today" })).toEqual({ ok: false });
     expect(rows(CLEAN)).toEqual([]);
   });
 
   it("signed in without a clinic membership: refused, nothing written", async () => {
     slot.client = outsiderClient;
-    expect(await reportClientRenderError({ name: "TypeError", route: "/queue" })).toEqual({ ok: false });
+    expect(await reportClientRenderError({ name: "TypeError", route: "/today" })).toEqual({ ok: false });
     expect(rows(CLEAN)).toEqual([]);
   });
 
   it("without the ingest key the report is accepted and nothing is written (sink disabled)", async () => {
     vi.stubEnv("ERROR_INGEST_KEY", undefined);
-    expect(await reportClientRenderError({ name: "TypeError", route: "/queue" })).toEqual({ ok: true });
+    expect(await reportClientRenderError({ name: "TypeError", route: "/today" })).toEqual({ ok: true });
     expect(rows(CLEAN)).toEqual([]);
   });
 });

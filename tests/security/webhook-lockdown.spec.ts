@@ -174,11 +174,30 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
     return data.status;
   }
 
-  async function resetVisit(visitId: string) {
-    const { error } = await (admin.from("visits") as any)
-      .update({ status: "booked", metadata: {} })
-      .eq("id", visitId);
-    if (error) throw new Error(error.message);
+  /**
+   * A clean, booked visit for the side: the visit state machine (000100) never moves a visit back to `booked`, so the side
+   * gets a NEW visit and its sent message is pointed at it (the reply routes by the message's external id).
+   */
+  async function resetVisit(side: SeededSide) {
+    const { data: visit, error } = await (admin.from("visits") as any)
+      .insert({
+        tenant_id: side.tenantId,
+        patient_id: side.patientId,
+        doctor_id: side.userId,
+        origin_type: "scheduled",
+        scheduled_at: seedSlotIso(), // a slot of its own (no overlapping seeds)
+        status: "booked",
+        created_by: side.userId,
+      })
+      .select("id")
+      .single();
+    if (error || !visit) throw new Error(`reset visit: ${error?.message}`);
+    const { error: qErr } = await (admin.from("communication_queue") as any)
+      .update({ appointment_id: visit.id })
+      .eq("tenant_id", side.tenantId)
+      .eq("external_message_id", side.replyMsgId);
+    if (qErr) throw new Error(`reset visit queue: ${qErr.message}`);
+    side.visitId = visit.id;
   }
 
   beforeAll(async () => {
@@ -191,8 +210,8 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
   beforeEach(async () => {
     process.env = { ...originalEnv, MSG91_WEBHOOK_SECRET: SECRET };
     providerFactory = vi.spyOn(messagingModule, "getMessagingProvider");
-    await resetVisit(A.visitId);
-    await resetVisit(B.visitId);
+    await resetVisit(A);
+    await resetVisit(B);
   });
 
   afterEach(() => {
@@ -364,20 +383,16 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
 
     it("AR-L1: a late confirm does not move a waiting visit back to confirmed", async () => {
       await admin.from("visits").update({ status: "waiting" }).eq("id", B.visitId);
-      try {
-        const res = await routeModule.POST(
-          webhook("msg91", {
-            customerNumber: B.patientPhone.replace("+", ""),
-            replyMsgId: B.replyMsgId,
-            interactive: button("btn_confirm"),
-          }),
-          ctx("msg91")
-        );
-        expect(res.status).toBe(200);
-        expect(await visitStatus(B.visitId)).toBe("waiting");
-      } finally {
-        await admin.from("visits").update({ status: "booked" }).eq("id", B.visitId);
-      }
+      const res = await routeModule.POST(
+        webhook("msg91", {
+          customerNumber: B.patientPhone.replace("+", ""),
+          replyMsgId: B.replyMsgId,
+          interactive: button("btn_confirm"),
+        }),
+        ctx("msg91")
+      );
+      expect(res.status).toBe(200);
+      expect(await visitStatus(B.visitId)).toBe("waiting");
     });
 
     it("a queue row whose appointment points at another tenant's visit resolves nothing", async () => {
@@ -501,7 +516,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
 
       // The recipient's own number in its international spellings still matches (AR3-N3: country code required).
       for (const own of [`91${tenDigits}`, `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`, `0091${tenDigits}`]) {
-        await resetVisit(A.visitId);
+        await resetVisit(A);
         await reply(A, "btn_confirm", own);
         expect(await visitStatus(A.visitId), own).toBe("confirmed");
       }
@@ -594,20 +609,18 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       "AR2-L4: a late cancel or reschedule reply does nothing to a %s visit (no link, no cancellation)",
       async (status) => {
         const since = psql("select now()")[0];
+        // booked -> waiting -> in_consultation (the visit state machine, 000100); beforeEach gives the next test a new visit.
+        if (status === "in_consultation") await admin.from("visits").update({ status: "waiting" }).eq("id", B.visitId);
         await admin.from("visits").update({ status }).eq("id", B.visitId);
-        try {
-          const tokenSpy = vi.spyOn(appointmentsActions, "generateRescheduleToken");
-          expect((await reply(B, "btn_cancel")).status).toBe(200);
-          expect(await visitStatus(B.visitId)).toBe(status);
-          expect((await reply(B, "btn_reschedule")).status).toBe(200);
-          expect(await visitStatus(B.visitId)).toBe(status);
-          expect(tokenSpy).not.toHaveBeenCalled();
-          const replies = await repliesFor(B.visitId, since);
-          expect(replies.map((r) => r.template_id)).not.toContain("appointment_cancelled_ack");
-          expect(JSON.stringify(replies)).not.toContain("/reschedule/");
-        } finally {
-          await admin.from("visits").update({ status: "booked" }).eq("id", B.visitId);
-        }
+        const tokenSpy = vi.spyOn(appointmentsActions, "generateRescheduleToken");
+        expect((await reply(B, "btn_cancel")).status).toBe(200);
+        expect(await visitStatus(B.visitId)).toBe(status);
+        expect((await reply(B, "btn_reschedule")).status).toBe(200);
+        expect(await visitStatus(B.visitId)).toBe(status);
+        expect(tokenSpy).not.toHaveBeenCalled();
+        const replies = await repliesFor(B.visitId, since);
+        expect(replies.map((r) => r.template_id)).not.toContain("appointment_cancelled_ack");
+        expect(JSON.stringify(replies)).not.toContain("/reschedule/");
       }
     );
 
@@ -620,7 +633,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       expect(String(link[0].template_params?.message)).toContain("/reschedule/");
       expect(link[0].recipient_phone).toBe(B.patientPhone);
 
-      await resetVisit(B.visitId);
+      await resetVisit(B);
       await reply(B, "btn_cancel");
       expect(await visitStatus(B.visitId)).toBe("cancelled");
     });

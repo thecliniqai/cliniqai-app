@@ -43,3 +43,13 @@ Gate: **G4** (light, per PR). PO approves. All results below come from tool outp
 2. **Sign only after check-in** (F-6): sign-off now requires `waiting` or `in_consultation`. The calendar's "Start Consultation" on booked/confirmed visits needs a check-in first. Recommendation: keep the rule; in V2-08 "Start Consultation" checks the patient in.
 3. **Visit doctor = owner or doctor** (G-9): an admin with credentials is refused as a visit's doctor but still listed by the staff doctor picker. Recommendation: drop them from the picker in V2-08.
 4. **Invoice line cap ₹10,00,000** (F-8): raise if any procedure can cost more.
+
+## Gate decision (2026-11-21)
+
+Approved; the four decisions are recorded in `docs/v2/VERIFICATION_LOG.md` "PO rulings at the V2-07 gate and delegation".
+Merged into `feature/v2` by Claude under the PO's delegation as `9ce25d7`, after merging `feature/v2` (V2-DX, PR #7) into the
+branch (`6e46982`). CI run [44806259261](https://github.com/thecliniqai/cliniqai-app/actions/runs/44806259261) at `6e46982`:
+all five jobs success; e2e 628 passed, **1 retried** (`pwa/04-offline.spec.ts`, desktop-chrome). Root cause: the test went
+offline while Today's resume refresh was in flight, and Next falls back to a full navigation when an RSC fetch fails, which
+aborted the test's `goto`. A test race, not a V2-07 change; fixed in the first V2-08 commit (the test waits for the refresh).
+The product edge case (a network drop during that refresh reloads Today) is owned by V2-08 08-03a.

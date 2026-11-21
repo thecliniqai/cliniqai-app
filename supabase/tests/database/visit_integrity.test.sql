@@ -12,6 +12,14 @@
 --   6. M-TOKEN (INT M-2): the counter refuses to pass 9999 and nothing is written.
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.visits is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the visit insert guard through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.visits to authenticated;
+-- 000103 (08-04a): UPDATE on public.visits is narrowed for authenticated to specialty, metadata and updated_at. This file proves the
+-- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
+-- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
+grant update on table public.visits to authenticated;
 select plan(45);
 
 insert into auth.users (id, email) values

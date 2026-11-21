@@ -2,14 +2,9 @@ import "server-only";
 
 import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
-import { recordAudit } from "@/lib/audit/audit";
-import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
-import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
-import type { QueueItem } from "@/components/queue/queue-card";
-import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
-import { getTenantDoctorMap } from "@/features/staff/service";
+import type { QueuePriority } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
@@ -30,6 +25,7 @@ export const CHECK_IN_COMMAND_MESSAGES = {
   FORBIDDEN: "You do not have permission to check in visits.",
   VALIDATION_FAILED: "Invalid check-in request.",
   VISIT_NOT_CHECKABLE: "This visit can no longer be checked in.",
+  VISIT_NOT_TODAY: "This appointment is not for today. Reschedule it first.",
   LOCK_TIMEOUT: "The queue is busy. Try again.",
   IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
   INTERNAL: "Failed to generate queue token.",
@@ -225,220 +221,124 @@ export async function enqueueWalkIn(
   };
 }
 
-export type TransitionStateResult =
-  | { success: true }
-  | { success: false; error: string };
+// ---------------------------------------------------------------------------------------------------------------------
+// Start consultation and desk completion (V2-08 08-01b, R-1, R-7). Two atomic commands (`public.start_consultation`,
+// `public.complete_visit`, migration 000100) replace the old open status setter: the visit state machine in the database
+// (`visits_status_transition_guard`) refuses every other status change.
+// ---------------------------------------------------------------------------------------------------------------------
 
-/** Visit statuses the queue may move forward (AR2-L2). */
-const QUEUE_OPEN_STATUSES = ["booked", "confirmed", "waiting", "in_consultation"];
+/** Fixed, data-free texts by reason or code for `start_consultation`. The driver message never reaches the caller. */
+export const START_CONSULTATION_MESSAGES = {
+  NOT_FOUND: "Visit record not found.",
+  FORBIDDEN: "You do not have permission to start consultations.",
+  VALIDATION_FAILED: "Invalid request.",
+  VISIT_NOT_CHECKABLE: "This visit can no longer be started.",
+  VISIT_NOT_TODAY: "This appointment is not for today. Reschedule it first.",
+  VISIT_TRANSITION_INVALID: "This visit can no longer be moved in the queue.",
+  LOCK_TIMEOUT: "The queue is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to start the consultation.",
+} as const satisfies DbErrorMessages;
 
-export const QUEUE_TRANSITION_REFUSED_MESSAGE =
-  "This visit can no longer be moved in the queue. Signed or closed consultations change only through an amendment.";
+const startConsultationResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  token_number: z.number().int().nullable(),
+  already_started: z.boolean(),
+  replayed: z.boolean(),
+});
 
-type QueueTokenUpdate = {
-  update: (vals: Record<string, unknown>) => {
-    eq: (col: string, val: string) => {
-      eq: (col: string, val: string) => Promise<{ error: unknown }>;
-    };
-  };
-};
+export interface StartConsultationValue {
+  visitId: string;
+  tokenNumber: number | null;
+  /** True when the visit was already in consultation: nothing was changed. */
+  alreadyStarted: boolean;
+  /** True when this client_request_id was already processed: nothing new was written. */
+  replayed: boolean;
+}
 
-export async function transitionQueueState(
+/**
+ * "Start Consultation" as one atomic command (R-1): a booked, confirmed or no-show visit is checked in first (token,
+ * `waiting`, `queue.check_in` audit row), then moved to `in_consultation` with the `visit.consultation_start` audit row, in
+ * one transaction. `consultations:edit` and `appointments:edit` (owner and doctor).
+ */
+export async function startConsultation(
   ctx: ServiceContext,
   visitId: string,
-  targetState: "in_consultation" | "completed"
-): Promise<TransitionStateResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const nowIso = new Date().toISOString();
-
-    if (targetState !== "in_consultation" && targetState !== "completed") {
-      return { success: false, error: QUEUE_TRANSITION_REFUSED_MESSAGE };
-    }
-
-    // AR2-L2: the queue moves only open, unsigned visits forward. A completed or cancelled visit never goes back to
-    // in_consultation, and a signed visit (including one reopened for amendment) is never moved by the queue: only
-    // the amendment flow (reopenVisitForAmendment / finalizeVisitAmendment) changes those. The precondition sits in
-    // the UPDATE filter, so a concurrent sign-off cannot slip between a read and the write.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: moved, error: moveErr } = await (supabase.from("visits") as any)
-      .update({ status: targetState, updated_at: nowIso })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .in("status", QUEUE_OPEN_STATUSES)
-      .is("signed_at", null)
-      .select("id");
-
-    if (moveErr) {
-      log.error({ event: "queue.transition.failed", code: errorTag(moveErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to transition queue state." };
-    }
-
-    if (!moved || moved.length === 0) {
-      // Completing an already-completed visit (checkout after sign-off) is a no-op, not an error.
-      if (targetState === "completed") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: current } = await (supabase.from("visits") as any)
-          .select("status")
-          .eq("id", visitId)
-          .eq("tenant_id", ctx.tenantId)
-          .maybeSingle();
-        if (current?.status === "completed") {
-          await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
-            .update({ completed_at: nowIso })
-            .eq("visit_id", visitId)
-            .eq("tenant_id", ctx.tenantId);
-          return { success: true };
-        }
-      }
-      return { success: false, error: QUEUE_TRANSITION_REFUSED_MESSAGE };
-    }
-
-    await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
-      .update(targetState === "in_consultation" ? { called_at: nowIso } : { completed_at: nowIso })
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    await recordAudit(ctx, {
-      action: "queue.transition",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        new_status: targetState,
-      },
-    });
-
-    return { success: true };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to transition queue state.", "queue.transition_queue_state.failed"),
-    };
+  clientRequestId: string
+): Promise<Result<StartConsultationValue>> {
+  const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!input.success) {
+    return { ok: false, error: appError("VALIDATION_FAILED", { message: START_CONSULTATION_MESSAGES.VALIDATION_FAILED }) };
   }
+  if (!hasPerm(ctx.role, "consultations:edit") || !hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: START_CONSULTATION_MESSAGES.FORBIDDEN }) };
+  }
+  const outcome = await callCommand(
+    ctx,
+    "start_consultation",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    startConsultationResultSchema,
+    START_CONSULTATION_MESSAGES,
+    { event: "queue.start_consultation.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return { ok: true, value: { visitId: v.visit_id, tokenNumber: v.token_number, alreadyStarted: v.already_started, replayed: v.replayed } };
 }
 
-interface QueueRow extends Visit {
-  patients?: Patient | null;
-  queue_tokens?: QueueToken | QueueToken[] | null;
-  /** The visit's clinical_notes row (vitals only); null when RLS hides it (receptionist, admin; V2-05 05-02a). */
-  [CLINICAL_NOTES_EMBED_KEY]?: unknown;
+/** Fixed, data-free texts by reason or code for `complete_visit`. */
+export const COMPLETE_VISIT_MESSAGES = {
+  NOT_FOUND: "Visit record not found.",
+  FORBIDDEN: "You do not have permission to complete visits.",
+  VALIDATION_FAILED: "Invalid request.",
+  VISIT_NOT_COMPLETABLE:
+    "This visit can't be completed here. An open consultation is finished by the doctor's sign-off; a signed or closed one changes only through an amendment.",
+  VISIT_TRANSITION_INVALID: "This visit can no longer be moved in the queue.",
+  LOCK_TIMEOUT: "The queue is busy. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  INTERNAL: "Failed to complete the visit.",
+} as const satisfies DbErrorMessages;
+
+const completeVisitResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  already_completed: z.boolean(),
+  replayed: z.boolean(),
+});
+
+export interface CompleteVisitValue {
+  visitId: string;
+  /** True when the visit was already completed (the checkout after a sign-off): only the token's completion time is stamped. */
+  alreadyCompleted: boolean;
+  replayed: boolean;
 }
 
-export type GetQueueResult = { success: true; items: QueueItem[] } | { success: false; error: string };
-
-export async function getQueueForDate(
+/**
+ * Completes an unsigned waiting or in-consultation visit at the desk as one atomic command (`appointments:edit`); a visit
+ * that is already completed answers `alreadyCompleted`. A signed visit changes only through the amendment commands.
+ */
+export async function completeVisit(
   ctx: ServiceContext,
-  dateStr: string,
-  doctorId?: string
-): Promise<GetQueueResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:view");
-    const session = ctx;
-
-    // The date is interpolated into PostgREST filter strings below, so only YYYY-MM-DD is accepted.
-    if (!isDateOnly(dateStr)) {
-      return { success: false, error: "Failed to load queue for date." };
-    }
-
-    // The clinic day in the tenant's zone, half-open (V2-03 03-05).
-    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
-      dateStr,
-      await getTenantTimeZone(supabase, session.tenantId)
-    );
-
-    const query = (supabase.from("visits") as unknown as {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          or: (f1: string) => {
-            or: (f2: string) => Promise<{ data: QueueRow[] | null; error: { message: string } | null }> & {
-              eq: (col: string, val: string) => Promise<{ data: QueueRow[] | null; error: { message: string } | null }>;
-            };
-          };
-        };
-      };
-    })
-      .select(`*, patients(*), queue_tokens(*), ${clinicalNotesEmbed(["vitals"])}`)
-      .eq("tenant_id", session.tenantId)
-      .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-      .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
-
-    let data: QueueRow[] | null = null;
-    let error: { message: string } | null = null;
-
-    if (doctorId && doctorId !== "all") {
-      const res = await query.eq("doctor_id", doctorId);
-      data = res.data;
-      error = res.error;
-    } else {
-      const res = await query;
-      data = res.data;
-      error = res.error;
-    }
-
-    if (error) {
-      log.error({ event: "queue.list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to load queue for date." };
-    }
-
-    const doctorMap = await getTenantDoctorMap(ctx);
-
-    const items: QueueItem[] = (data || []).map((row) => {
-      const queueToken = Array.isArray(row.queue_tokens)
-        ? row.queue_tokens[0] || null
-        : row.queue_tokens || null;
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { patients, queue_tokens: _qt, [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visitData } = row;
-      const resolvedDocName = row.doctor_id ? doctorMap[row.doctor_id] : null;
-
-      return {
-        // Triage vitals come from clinical_notes (05-02a): null for a role that may not read them.
-        visit: { ...(visitData as Visit), vitals: embeddedClinicalNotes(row)?.vitals ?? null },
-        patient: patients || null,
-        queueToken: queueToken || null,
-        doctorName: resolvedDocName || (row.doctor_id ? "Doctor" : "Clinic"),
-      };
-    });
-
-    const statusOrder: Record<string, number> = {
-      in_consultation: 1,
-      waiting: 2,
-      booked: 3,
-      confirmed: 3,
-      completed: 4,
-      cancelled: 5,
-      no_show: 6,
-    };
-
-    items.sort((a, b) => {
-      const orderA = statusOrder[a.visit.status] ?? 99;
-      const orderB = statusOrder[b.visit.status] ?? 99;
-      if (orderA !== orderB) return orderA - orderB;
-
-      if (a.visit.status === "waiting" && b.visit.status === "waiting") {
-        const tokenA = a.queueToken?.token_number ?? 999999;
-        const tokenB = b.queueToken?.token_number ?? 999999;
-        return tokenA - tokenB;
-      }
-
-      if (a.visit.scheduled_at && b.visit.scheduled_at) {
-        return new Date(a.visit.scheduled_at).getTime() - new Date(b.visit.scheduled_at).getTime();
-      }
-
-      return new Date(a.visit.created_at).getTime() - new Date(b.visit.created_at).getTime();
-    });
-
-    return { success: true, items };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to fetch queue.", "queue.get_queue_for_date.failed"),
-    };
+  visitId: string,
+  clientRequestId: string
+): Promise<Result<CompleteVisitValue>> {
+  const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
+  if (!input.success) {
+    return { ok: false, error: appError("VALIDATION_FAILED", { message: COMPLETE_VISIT_MESSAGES.VALIDATION_FAILED }) };
   }
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: COMPLETE_VISIT_MESSAGES.FORBIDDEN }) };
+  }
+  const outcome = await callCommand(
+    ctx,
+    "complete_visit",
+    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    completeVisitResultSchema,
+    COMPLETE_VISIT_MESSAGES,
+    { event: "queue.complete_visit.failed" }
+  );
+  if (!outcome.ok) return outcome;
+  const v = outcome.value;
+  return { ok: true, value: { visitId: v.visit_id, alreadyCompleted: v.already_completed, replayed: v.replayed } };
 }
 
 /**
@@ -446,6 +346,17 @@ export async function getQueueForDate(
  * today's visits in the caller's clinic (clinic date in its zone) whose token number, patient name or mobile number
  * matches `query`, projected to four fields. Cancelled visits are left out. The tenant comes from the session context.
  */
+interface PaletteVisitRow {
+  id: string;
+  status: string;
+  patients: { full_name: string; phone: string | null } | { full_name: string; phone: string | null }[] | null;
+  queue_tokens: { token_number: number } | { token_number: number }[] | null;
+}
+
+interface PaletteVisitsQuery {
+  select: (columns: string) => { eq: (column: string, value: string) => { or: (filter: string) => PromiseLike<unknown> } };
+}
+
 export interface PaletteQueueMatch {
   visitId: string;
   token: number | null;
@@ -460,26 +371,42 @@ export async function searchTodayQueueForPalette(ctx: ServiceContext, query: str
   assertPerm(ctx.role, "appointments:view");
   const q = typeof query === "string" ? query.trim().slice(0, 100) : "";
   if (!q) return [];
+  // Today's visits, three columns of the patient and the token only (V2-08 08-03b: the v1 `select *` day list is gone). The
+  // window is the board's: a booking belongs to the day of its appointment time, a walk-in to the day it was created.
   const { today } = await getTenantToday(ctx.db, ctx.tenantId);
-  const result = await getQueueForDate(ctx, today);
-  if (!result.success) return [];
+  const { startIso, endIsoExclusive } = dayWindowUtc(today, await getTenantTimeZone(ctx.db, ctx.tenantId));
+  const { data, error } = (await (ctx.db.from("visits") as unknown as PaletteVisitsQuery)
+    .select("id, status, patients(full_name, phone), queue_tokens(token_number)")
+    .eq("tenant_id", ctx.tenantId)
+    .or(
+      `and(scheduled_at.gte.${startIso},scheduled_at.lt.${endIsoExclusive}),` +
+        `and(scheduled_at.is.null,created_at.gte.${startIso},created_at.lt.${endIsoExclusive})`
+    )) as { data: PaletteVisitRow[] | null; error: { message: string } | null };
+  if (error || !data) {
+    log.error({ event: "queue.palette_list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return [];
+  }
+  const items = data.map((row) => {
+    const patient = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+    const token = Array.isArray(row.queue_tokens) ? row.queue_tokens[0] : row.queue_tokens;
+    return { visitId: row.id, status: row.status, name: patient?.full_name ?? "", phone: patient?.phone ?? "", token: token?.token_number ?? null };
+  });
 
   const lower = q.toLowerCase();
   // "14", "#14", "T14", "token 14" → token 14; a longer digit run is a mobile number fragment.
   const tokenQuery = /^(?:#|t|token\s*)?(\d{1,4})$/i.exec(q)?.[1];
   const digits = q.replace(/\D/g, "");
   const matches: PaletteQueueMatch[] = [];
-  for (const item of result.items) {
-    if (item.visit.status === "cancelled") continue;
-    const name = item.patient?.full_name ?? "";
-    const token = item.queueToken?.token_number ?? null;
-    const phone = (item.patient?.phone ?? "").replace(/\D/g, "");
+  for (const item of items) {
+    if (item.status === "cancelled") continue;
+    const { name, token } = item;
+    const phone = item.phone.replace(/\D/g, "");
     const hit =
       (tokenQuery !== undefined && token !== null && token === Number(tokenQuery)) ||
       (name !== "" && name.toLowerCase().includes(lower)) ||
       (digits.length >= 4 && digits.length === q.replace(/[\s+()-]/g, "").length && phone.includes(digits.slice(-10)));
     if (!hit) continue;
-    matches.push({ visitId: item.visit.id, token, name, status: item.visit.status });
+    matches.push({ visitId: item.visitId, token, name, status: item.status });
     if (matches.length >= PALETTE_QUEUE_LIMIT) break;
   }
   return matches;

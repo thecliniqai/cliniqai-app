@@ -2,7 +2,7 @@
  * P0-01 forged-override regressions at the server-action layer (plan 01-01d; SECURITY_VERIFICATION_PLAN §6.2;
  * ADR-0005 Verification 1 and 2). Each action is called exactly as a browser can call it, with the old override
  * seams forged as trailing arguments: a service-role client and a "session" that claims tenant B's owner.
- *   - TC-SA-01..06 (SEC-01): searchPatients, getPatient, getPatients, updateClinicSettings, updateStatutorySettings,
+ *   - TC-SA-01..06 (SEC-01): getPatient, getPatients, updateClinicSettings, updateStatutorySettings,
  *     toggleGlobalConsent: (a) unauthenticated → auth error, tenant B untouched; (b) receptionist A → A-scoped or
  *     denied, tenant B untouched.
  *   - TC-SA-10.. (SEC-02): receptionist and nurse → completeAndSignConsultation, addPrescriptionItem,
@@ -23,7 +23,7 @@ import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
-import { createVisit } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -31,7 +31,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => mockState.client,
 }));
 
-import { searchPatients, getPatient, getPatients, createPatient } from "@/features/patients/actions";
+import { getPatient, getPatients, registerPatient } from "@/features/patients/actions";
 import { toggleGlobalConsent } from "@/features/patients/consent";
 import { findPotentialDuplicates } from "@/features/patients/dedup";
 import { updateClinicSettings, updateStatutorySettings } from "@/features/settings/actions";
@@ -129,10 +129,9 @@ describe("P0-01 forged overrides at the action layer", () => {
   });
 
   describe("TC-SA-01..06 (a): unauthenticated with forged overrides", () => {
-    it("the three patient reads throw an authentication error and return no rows", async () => {
+    it("the patient reads throw an authentication error and return no rows", async () => {
       actAs(null);
       for (const [fn, args] of [
-        [searchPatients, ["Synthetic Forged Target"]],
         [getPatient, [patientB, true]],
         [getPatients, []],
       ] as const) {
@@ -162,15 +161,6 @@ describe("P0-01 forged overrides at the action layer", () => {
   });
 
   describe("TC-SA-01..06 (b): receptionist in tenant A with forged tenant-B overrides", () => {
-    it("searchPatients returns only tenant A's match", async () => {
-      actAs(receptionistA);
-      const rows = await call(searchPatients, "Synthetic Forged Target", forgedClient, forgedSession);
-      const ids = rows.map((p: { id: string }) => p.id);
-      expect(ids).toContain(patientA);
-      expect(ids).not.toContain(patientB);
-      expect(rows.every((p: { tenant_id: string }) => p.tenant_id === ownerA.tenantId)).toBe(true);
-    });
-
     it("getPatient returns null for tenant B's patient and the record for tenant A's", async () => {
       actAs(receptionistA);
       expect(await call(getPatient, patientB, true, forgedClient, forgedSession)).toBeNull();
@@ -273,10 +263,10 @@ describe("P0-01 forged overrides at the action layer", () => {
   });
 
   describe("TC-SA-30: the recorded actor is always the session user", () => {
-    it("createPatient: created_by and the audit actor are the nurse, not the forged actor", async () => {
+    it("registerPatient: created_by and the audit actor are the nurse, not the forged actor", async () => {
       actAs(nurseA);
       const res = await call(
-        createPatient,
+        registerPatient,
         {
           full_name: "Synthetic Attribution Patient",
           phone: "9800000312",
@@ -287,18 +277,20 @@ describe("P0-01 forged overrides at the action layer", () => {
           created_by: ownerA.userId,
           tenant_id: ownerB.tenantId,
         },
+        randomUUID(),
         forgedClient,
         { userId: ownerA.userId, tenantId: ownerB.tenantId, role: "owner" }
       );
-      expect(res.success).toBe(true);
+      expect(res.ok).toBe(true);
+      const patientId = res.value.patientId as string;
 
-      const { data: row } = await admin.from("patients").select("tenant_id, created_by").eq("id", res.patientId).single();
+      const { data: row } = await admin.from("patients").select("tenant_id, created_by").eq("id", patientId).single();
       expect(row).toEqual({ tenant_id: ownerA.tenantId, created_by: nurseA.userId });
 
       const { data: audit } = await admin
         .from("audit_logs")
         .select("tenant_id, actor_id")
-        .eq("entity_id", res.patientId)
+        .eq("entity_id", patientId)
         .eq("action", "patient.create");
       expect(audit).toEqual([{ tenant_id: ownerA.tenantId, actor_id: nurseA.userId }]);
     });
@@ -362,12 +354,9 @@ describe("P0-01 forged overrides at the action layer", () => {
         forgedClient,
         ownerB.tenantId
       );
-      const ids = matches.map((m: { patient: { id: string } }) => m.patient.id);
+      const ids = matches.map((m: { id: string }) => m.id);
       expect(ids).toContain(patientA);
       expect(ids).not.toContain(patientB);
-      expect(matches.every((m: { patient: { tenant_id: string } }) => m.patient.tenant_id === ownerA.tenantId)).toBe(
-        true
-      );
     });
   });
 });

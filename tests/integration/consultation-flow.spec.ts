@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/service";
-import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { createVisit } from "../helpers/seed-visit";
+import { checkInVisit, startConsultation, completeVisit } from "@/features/queue/service";
 import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/service";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
@@ -10,6 +10,7 @@ import {
   getVisitPrescription,
 } from "@/features/prescriptions/service";
 import { ctxFor } from "../helpers/context";
+import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -30,7 +31,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
     sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // 2. Create test patient for Tenant A
-    const { data: patient, error: pErr } = await tenantA.client
+    const { data: patient, error: pErr } = await getAdminClient()
       .from("patients")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -131,9 +132,9 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("4. Doctor calls patient into consultation room: transitions status to 'in_consultation'", async () => {
-    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
+    const transitionRes = await startConsultation(ctxFor(tenantA), visitAId, randomUUID());
 
-    expect(transitionRes.success).toBe(true);
+    expect(transitionRes.ok).toBe(true);
 
     const { data: visitRow } = await tenantA.client
       .from("visits")
@@ -355,8 +356,11 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("9. Complete consultation: transitions status directly to 'completed' and verifies history retrieval", async () => {
-    const compRes = await transitionQueueState(ctxFor(tenantA), visitAId, "completed");
-    expect(compRes.success).toBe(true);
+    // V2-08 08-06a (S-4): an open consultation is completed by the doctor's sign-off, not at the desk; the desk refuses it. The
+    // sign-off's effect is applied with the service role here (the sign-off command has its own specs).
+    const compRes = await completeVisit(ctxFor(tenantA), visitAId, randomUUID());
+    expect(compRes).toMatchObject({ ok: false, error: { reason: "VISIT_NOT_COMPLETABLE" } });
+    expect((await getAdminClient().from("visits").update({ status: "completed" }).eq("id", visitAId)).error).toBeNull();
 
     const { data: visitRow } = await tenantA.client
       .from("visits")

@@ -43,6 +43,8 @@ const LLM_FEATURE_FILES = new Set([
   "components/clinical/ai-preview-chip.tsx",
   "components/clinical/ai-coming-soon-row.tsx",
   "components/clinical/smart-assist-label.tsx",
+  // V2-08 08-02 (R-12): the registration form's AI-objection checkbox and its interim notice (AI-17 finalises the wording).
+  "components/clinical/ai-objection-field.tsx",
   // The /dev/ui gallery's AI-02 section (V2-06 06-02a step 5): renders the labels above, no price copy.
   "app/dev/ui/sections/ai.tsx",
 ]);

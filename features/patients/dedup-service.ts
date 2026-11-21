@@ -1,117 +1,18 @@
 import "server-only";
 
-import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
-import { toE164 } from "@/lib/utils/phone";
-import { Patient } from "@/lib/db/types";
+import { findDuplicates, type DuplicateCandidate, type FindDuplicatesParams } from "./service";
 
-export interface DuplicateMatch {
-  patient: Patient;
-  confidence: "high" | "medium";
-  matchReason: string;
-}
-
-export interface FindDuplicatesParams {
-  phone?: string;
-  fullName?: string;
-  age?: number | null;
-  dob?: string | null;
-}
+export type { DuplicateCandidate as DuplicateMatch, FindDuplicatesParams } from "./service";
 
 /**
- * Searches for potential duplicate patient records within the acting tenant (from `ctx`, never caller input).
- * RLS enforces tenant isolation, and logic scores matches:
- * - High: exact phone match
- * - Medium: matching name + age within 2 years or matching DOB
+ * Advisory duplicate candidates for a patient being registered, in the acting clinic (from `ctx`, never caller input)
+ * (V2-08 08-02, R-11): the database function `find_patient_duplicates` under RLS answers the minimal projection (id, name,
+ * age and sex, last four digits of the mobile, last visit) with the reasons and a strength. With the clinic's `assist.duplicates`
+ * entitlement (Smart Assist, AI-14, 000105) a similar name (case, punctuation, short forms, word order) with the same date of
+ * birth or an age within two years also counts, and the same mobile with a similar name is `strong`; without it the 08-02 rules
+ * apply and every row is `possible`. It never blocks a registration; the receptionist confirms.
  */
-export async function findPotentialDuplicates(
-  ctx: ServiceContext,
-  params: FindDuplicatesParams
-): Promise<DuplicateMatch[]> {
-  assertPerm(ctx.role, "patients:view");
-  const supabase = ctx.db;
-  const tenantId = ctx.tenantId;
-
-  const matches: DuplicateMatch[] = [];
-  const seenPatientIds = new Set<string>();
-
-  // 1. High confidence: Normalized phone match
-  if (params.phone && params.phone.trim().length >= 8) {
-    const normalized = toE164(params.phone);
-    const { data: phoneMatches, error: phoneErr } = await (
-      supabase.from("patients") as unknown as {
-        select: (cols: string) => {
-          eq: (
-            col: string,
-            val: string
-          ) => {
-            eq: (col: string, val: string) => Promise<{ data: Patient[] | null; error: unknown }>;
-          };
-        };
-      }
-    )
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("phone", normalized);
-
-    if (!phoneErr && phoneMatches) {
-      for (const p of phoneMatches) {
-        if (!seenPatientIds.has(p.id)) {
-          seenPatientIds.add(p.id);
-          matches.push({
-            patient: p,
-            confidence: "high",
-            matchReason: `Exact phone number match (${p.phone})`,
-          });
-        }
-      }
-    }
-  }
-
-  // 2. Medium confidence: Case-insensitive name + approximate age / DOB match
-  const trimmedName = params.fullName?.trim();
-  if (trimmedName && trimmedName.length >= 3) {
-    const { data: nameCandidates, error: nameErr } = await (
-      supabase.from("patients") as unknown as {
-        select: (cols: string) => {
-          eq: (
-            col: string,
-            val: string
-          ) => {
-            ilike: (col: string, val: string) => Promise<{ data: Patient[] | null; error: unknown }>;
-          };
-        };
-      }
-    )
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .ilike("full_name", trimmedName);
-
-    if (!nameErr && nameCandidates) {
-      for (const p of nameCandidates) {
-        if (seenPatientIds.has(p.id)) continue;
-
-        let ageMatches = false;
-        if (params.age != null && p.age != null) {
-          ageMatches = Math.abs(p.age - params.age) <= 2;
-        }
-
-        let dobMatches = false;
-        if (params.dob && p.date_of_birth) {
-          dobMatches = p.date_of_birth === params.dob;
-        }
-
-        if (ageMatches || dobMatches) {
-          seenPatientIds.add(p.id);
-          matches.push({
-            patient: p,
-            confidence: "medium",
-            matchReason: `Matching name and similar age (${p.age ?? "N/A"} yrs)`,
-          });
-        }
-      }
-    }
-  }
-
-  return matches;
+export async function findPotentialDuplicates(ctx: ServiceContext, params: FindDuplicatesParams): Promise<DuplicateCandidate[]> {
+  return findDuplicates(ctx, params);
 }

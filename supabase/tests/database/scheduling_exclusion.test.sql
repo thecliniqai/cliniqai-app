@@ -12,6 +12,10 @@
 --      books a free slot (the EXECUTE grant the index expression needs).
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.visits is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the slot constraint through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.visits to authenticated;
 select plan(26);
 
 insert into auth.users (id, email) values
@@ -109,8 +113,9 @@ select lives_ok(pg_temp.book('14', null), 'a second one without a time is allowe
 -- 4. Updates ------------------------------------------------------------------------------------------------------------
 select throws_ok($$update public.visits set scheduled_at = '2030-01-07 10:10+05:30' where id = 'c0800000-0000-4000-8000-000000003006'$$,
   '23P01', null, 'rescheduling the 10:15 visit into the taken slot (10:10) is refused');
-select throws_ok($$update public.visits set status = 'booked' where id = 'c0800000-0000-4000-8000-000000003008'$$,
-  '23P01', null, 'restoring the cancelled overlap to booked is refused');
+-- V2-08 08-01b: nothing leaves `cancelled` (the state machine), so the slot check on a restore is shown with the no-show rebook.
+select throws_ok($$update public.visits set status = 'booked' where id = 'c0800000-0000-4000-8000-000000003009'$$,
+  '23P01', null, 'rebooking the no-show overlap into the taken slot is refused');
 select throws_ok($$update public.visits set is_overbooked = false where id = 'c0800000-0000-4000-8000-000000003005'$$,
   '23P01', null, 'clearing the overbook flag of the overlapping visit is refused');
 select lives_ok($$update public.visits set estimated_duration_minutes = 15, reason_for_visit = 'Synthetic' where id = 'c0800000-0000-4000-8000-000000003001'$$,

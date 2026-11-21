@@ -3,8 +3,9 @@
  *
  * - ⌘K / Ctrl+K opens it; typing a seeded patient's 10-digit mobile number shows that patient (masked phone) first,
  *   and Enter opens their record within 3 key presses after typing (UX counter).
- * - The server action's answer carries exactly four fields per patient: id, name, age/sex, last four digits (read from
- *   the Server Action response the page received; the full number never reaches the browser).
+ * - The search route's answer (`GET /api/patients/search`, V2-08 08-02) carries exactly the projection keys per patient: id,
+ *   name, age/sex, last four digits, last visit (read from the response on its way to the page; the full number never
+ *   reaches the browser).
  * - Groups: Patients · Today queue · Actions · Navigate, no Assist/AI group; an empty query shows Actions and Navigate
  *   only; a receptionist gets no settings action or destination; a queue token match opens the queue.
  * - Escape closes it and focus returns to the opener; nothing is stored on the device; full screen below 768 px;
@@ -28,16 +29,6 @@ const groupHeadings = (page: Page) =>
     .locator("[cmdk-group-heading]")
     .evaluateAll((els) => els.filter((e) => (e as HTMLElement).offsetParent !== null).map((e) => (e.textContent ?? "").trim()));
 
-/** The JSON value a Server Action answered with (the RSC flight row that carries `"ok"`), or null for another action. */
-function actionResult(text: string): unknown {
-  for (const line of text.split("\n")) {
-    const at = line.indexOf(":");
-    const body = line.slice(at + 1);
-    if (body.startsWith("{") && body.includes('"ok"')) return JSON.parse(body);
-  }
-  return null;
-}
-
 async function openWithShortcut(page: Page): Promise<void> {
   await page.keyboard.press("ControlOrMeta+k");
   await expect(dialog(page)).toBeVisible();
@@ -55,22 +46,16 @@ test.describe("owner", () => {
     const digits = patient.phone.slice(-10);
 
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.getByRole("main")).toBeVisible();
-    // Server Action answers, taken on the way through (route.fetch): reading them from the page's responses is not
-    // reliable, because Chrome does not always keep the body of a streamed (RSC) response for CDP.
+    // The search route's answers, taken on the way through (route.fetch).
     const bodies: string[] = [];
-    await page.route(
-      (url) => url.origin === new URL(page.url()).origin,
-      async (route) => {
-        const req = route.request();
-        if (req.method() !== "POST" || !req.headers()["next-action"]) return route.fallback();
-        const response = await route.fetch();
-        const body = await response.text();
-        bodies.push(body);
-        await route.fulfill({ response, body });
-      },
-    );
+    await page.route("**/api/patients/search**", async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      bodies.push(body);
+      await route.fulfill({ response, body });
+    });
 
     await ux.press(page.locator("body"), "ControlOrMeta+k", "Open the palette");
     await expect(input(page)).toBeFocused();
@@ -89,16 +74,13 @@ test.describe("owner", () => {
     expect((ux.counts()?.presses ?? 0) - before, "key presses after typing").toBeLessThanOrEqual(3);
     await expect(dialog(page)).toHaveCount(0);
 
-    // The patient search's own answer: exactly id, name, ageSex, phoneLast4 per patient; no full number anywhere.
-    const results = bodies.map(actionResult);
-    const withPatients = results.filter((r): r is { ok: true; patients: Record<string, unknown>[] } =>
-      Boolean(r && typeof r === "object" && "patients" in (r as object)),
-    );
+    // The patient search's own answer: exactly id, name, ageSex, phoneLast4, lastVisit per patient; no full number anywhere.
+    const withPatients = bodies.map((b) => JSON.parse(b) as { patients: Record<string, unknown>[] });
     expect(withPatients.length).toBeGreaterThan(0);
     const mine = withPatients.flatMap((r) => r.patients).filter((p) => p.id === patient.id);
     expect(mine.length).toBeGreaterThan(0);
-    for (const p of withPatients.flatMap((r) => r.patients)) expect(Object.keys(p).sort()).toEqual(["ageSex", "id", "name", "phoneLast4"]);
-    expect(mine[0]).toEqual({ id: patient.id, name, ageSex: { age: "40 y", sex: "O" }, phoneLast4: digits.slice(-4) });
+    for (const p of withPatients.flatMap((r) => r.patients)) expect(Object.keys(p)).toEqual(["id", "name", "ageSex", "phoneLast4", "lastVisit"]);
+    expect(mine[0]).toEqual({ id: patient.id, name, ageSex: { age: "40 y", sex: "O" }, phoneLast4: digits.slice(-4), lastVisit: null });
     for (const body of bodies) expect(body).not.toContain(digits);
   });
 
@@ -130,7 +112,7 @@ test.describe("owner", () => {
     expect(await groupHeadings(page)).toEqual(["Actions", "Navigate"]);
   });
 
-  test("a token in today's queue is found by its number and opens the Live Queue", async ({ page }) => {
+  test("a token in today's queue is found by its number and opens Today", async ({ page }) => {
     const { tenantA } = readRunData();
     const p = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Queue Palette ${testTag()}`);
     const visitId = await seedVisit({
@@ -150,33 +132,28 @@ test.describe("owner", () => {
     await expect(row).toBeVisible();
     expect(await groupHeadings(page)).toContain("Today queue");
     await row.click();
-    await page.waitForURL((url) => url.pathname === "/queue");
+    await page.waitForURL((url) => url.pathname === "/today");
   });
 
   // 06-09c (IND L-3): before, "re" + Enter typed fast (meant for a patient called Rekha) opened "Register patient": the
   // first matching action was the default selection while the patient search ran.
   test("Enter before the answer to what is typed opens nothing; after the answer it acts", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.getByRole("main")).toBeVisible();
-    // Hold the search's Server Action answer, so the search is still running when Enter is pressed.
+    // Hold the patient search's answer, so the search is still running when Enter is pressed.
     let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route(
-      (url) => url.origin === new URL(page.url()).origin,
-      async (route) => {
-        const req = route.request();
-        if (req.method() !== "POST" || !req.headers()["next-action"]) return route.fallback();
-        await held;
-        await route.fallback();
-      },
-    );
+    await page.route("**/api/patients/search**", async (route) => {
+      await held;
+      await route.fallback();
+    });
     await openWithShortcut(page);
     await input(page).pressSequentially("re");
     await expect(dialog(page).getByRole("progressbar")).toBeVisible();
     await page.keyboard.press("Enter");
     await page.waitForTimeout(300);
-    expect(new URL(page.url()).pathname).toBe("/");
+    expect(new URL(page.url()).pathname).toBe("/today");
     await expect(dialog(page)).toBeVisible();
     release();
     await expect(dialog(page).getByRole("progressbar")).toHaveCount(0);
@@ -188,7 +165,7 @@ test.describe("owner", () => {
 
   test("below 768 px the palette is full screen with a Close button (opened from the Search button)", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 360, height: 780 });
-    await page.goto("/");
+    await page.goto("/today");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(dialog(page)).toBeVisible();
     await settleAnimations(page);
@@ -206,16 +183,15 @@ test.describe("receptionist", () => {
 
   test("a receptionist sees no settings action and no settings destination", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/today");
     await openWithShortcut(page);
     const options = await dialog(page).getByRole("option").allTextContents();
     expect(options.map((o) => o.trim())).toEqual([
       "Register patient",
       "Add walk-in",
       "Book appointment",
-      "Dashboard",
-      "Live Queue",
-      "Calendar",
+      "Today",
+      "Schedule",
       "Patients",
       "Visits",
       "Referrals",

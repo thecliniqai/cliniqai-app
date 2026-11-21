@@ -12,7 +12,7 @@ import { generateRescheduleToken } from "@/features/appointments/system";
 import * as enqueueModule from "@/lib/jobs/enqueue";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
-import { transitionQueueState } from "@/features/queue/service";
+import { completeVisit, startConsultation } from "@/features/queue/service";
 import { deleteLabDocument } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, SIGN_AND_BILL_ALREADY_DONE_MESSAGE } from "@/features/billing/service";
@@ -332,6 +332,8 @@ describe("01-09 review round 2 fixes (000022)", () => {
       const visitId = await freshVisit(A, "booked");
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, visitId);
       const token = url.split("/reschedule/")[1];
+      // The visit state machine (000100) moves a booked visit to waiting first, then to in_consultation.
+      if (status === "in_consultation") await admin.from("visits").update({ status: "waiting" }).eq("id", visitId);
       await admin.from("visits").update({ status }).eq("id", visitId);
       const before = await visitRow(visitId);
 
@@ -372,39 +374,45 @@ describe("01-09 review round 2 fixes (000022)", () => {
   });
 
   describe("AR2-L2: the queue cannot move a signed or closed visit", () => {
-    it("a completed, signed visit is not moved back to in_consultation (any role with appointments:edit)", async () => {
+    it("a completed, signed visit is not started again (owner, doctor) and the desk completion does not touch it", async () => {
       const signedAt = new Date().toISOString();
       const visitId = await freshVisit(A, "completed", { signed_at: signedAt, signed_by: A.doctor.userId });
       for (const actor of [A.receptionist, A.doctor, A.owner]) {
-        const res = await transitionQueueState(ctxFor(actor), visitId, "in_consultation");
-        expect(res.success, actor.role).toBe(false);
+        const res = await startConsultation(ctxFor(actor), visitId, randomUUID());
+        expect(res.ok, actor.role).toBe(false);
       }
+      // The desk's completion of a visit that is already completed is a no-op (the checkout after a sign-off).
+      expect(await completeVisit(ctxFor(A.receptionist), visitId, randomUUID())).toMatchObject({ ok: true, value: { alreadyCompleted: true } });
       const after = await visitRow(visitId);
       expect(after.status).toBe("completed");
     });
 
-    it("a visit reopened for amendment (signed, in_consultation) is not completed by the queue", async () => {
+    it("a visit reopened for amendment (signed, in_consultation) is not completed at the desk", async () => {
       const visitId = await freshVisit(A, "in_consultation", {
         signed_at: new Date().toISOString(),
         signed_by: A.doctor.userId,
       });
-      const res = await transitionQueueState(ctxFor(A.receptionist), visitId, "completed");
-      expect(res.success).toBe(false);
+      const res = await completeVisit(ctxFor(A.receptionist), visitId, randomUUID());
+      expect(res).toMatchObject({ ok: false, error: { code: "CONFLICT", reason: "VISIT_NOT_COMPLETABLE" } });
       expect((await visitRow(visitId)).status).toBe("in_consultation");
     });
 
     it("cancelled visits stay cancelled; open visits still move forward; completing a completed visit is a no-op", async () => {
       const cancelled = await freshVisit(A, "cancelled");
-      expect((await transitionQueueState(ctxFor(A.receptionist), cancelled, "in_consultation")).success).toBe(false);
+      expect((await startConsultation(ctxFor(A.doctor), cancelled, randomUUID())).ok).toBe(false);
+      expect((await completeVisit(ctxFor(A.receptionist), cancelled, randomUUID())).ok).toBe(false);
       expect((await visitRow(cancelled)).status).toBe("cancelled");
 
       const open = await freshVisit(A, "waiting");
-      expect((await transitionQueueState(ctxFor(A.receptionist), open, "in_consultation")).success).toBe(true);
+      expect((await startConsultation(ctxFor(A.doctor), open, randomUUID())).ok).toBe(true);
       expect((await visitRow(open)).status).toBe("in_consultation");
-      expect((await transitionQueueState(ctxFor(A.receptionist), open, "completed")).success).toBe(true);
+      // V2-08 08-06a (S-4): the desk does not complete an open consultation (it would stay unsigned for good); a waiting visit it does.
+      expect(await completeVisit(ctxFor(A.receptionist), open, randomUUID())).toMatchObject({ ok: false, error: { reason: "VISIT_NOT_COMPLETABLE" } });
+      expect((await visitRow(open)).status).toBe("in_consultation");
+      await admin.from("visits").update({ status: "completed" }).eq("id", open);
       expect((await visitRow(open)).status).toBe("completed");
-      expect((await transitionQueueState(ctxFor(A.receptionist), open, "completed")).success).toBe(true);
-      expect((await transitionQueueState(ctxFor(A.receptionist), open, "in_consultation")).success).toBe(false);
+      expect(await completeVisit(ctxFor(A.receptionist), open, randomUUID())).toMatchObject({ ok: true, value: { alreadyCompleted: true } });
+      expect((await startConsultation(ctxFor(A.doctor), open, randomUUID())).ok).toBe(false);
       expect((await visitRow(open)).status).toBe("completed");
     });
   });

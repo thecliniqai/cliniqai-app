@@ -15,13 +15,13 @@ export const RUN_PASSWORD_VAR = "E2E_RUN_PASSWORD";
 export const ROLES = ["owner", "admin", "doctor", "nurse", "receptionist"] as const satisfies readonly UserRole[];
 export type E2eRole = (typeof ROLES)[number];
 
-/** Where each role lands after sign-in (the dashboard sends doctors to their cabin). */
+/** Where each role lands after sign-in: Today (V2-08 R-14; its mode follows the role). */
 export const LANDING: Record<E2eRole, string> = {
-  owner: "/",
-  admin: "/",
-  doctor: "/cabin",
-  nurse: "/",
-  receptionist: "/",
+  owner: "/today",
+  admin: "/today",
+  doctor: "/today",
+  nurse: "/today",
+  receptionist: "/today",
 };
 
 export interface RunUser {

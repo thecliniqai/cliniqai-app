@@ -69,7 +69,7 @@ for (const width of [360, 1280]) {
 
 test("Check for updates (More sheet, 360 px) with no new version: 'You're on the latest version'", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
-  await openAndSettle(page, "/");
+  await openAndSettle(page, "/today");
   await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
   const sheet = page.getByRole("dialog", { name: "More" });
   const check = sheet.getByRole("button", { name: /Check for updates/ });
@@ -89,13 +89,13 @@ for (const [label, fail] of [
 ] as const) {
   test(`Check for updates when the check fails (${label}): 'Couldn't check for updates', never 'latest version'`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
-    await openAndSettle(page, "/");
+    await openAndSettle(page, "/today");
     await page.route("**/api/session-status", fail);
     await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
     const sheet = page.getByRole("dialog", { name: "More" });
     await sheet.getByRole("button", { name: /Check for updates/ }).click();
     await expect(region(page).getByRole("status").filter({ hasText: "Couldn't check for updates. Try again when you're online." })).toBeVisible();
     await expect(region(page).getByText("You're on the latest version")).toHaveCount(0);
-    expect(new URL(page.url()).pathname, "no sign-out on a failed check").toBe("/");
+    expect(new URL(page.url()).pathname, "no sign-out on a failed check").toBe("/today");
   });
 }

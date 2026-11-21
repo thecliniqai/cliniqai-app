@@ -18,7 +18,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BlockTimeModal } from "@/components/calendar/block-time-modal";
+import { BlockTimeDialog } from "@/components/schedule/block-time-dialog";
 import {
   Clock,
   Calendar,
@@ -552,11 +552,10 @@ export function DoctorAvailabilityCard({
       </CardContent>
 
       {/* Block Time Modal */}
-      <BlockTimeModal
-        isOpen={isBlockModalOpen}
-        onClose={() => setIsBlockModalOpen(false)}
+      <BlockTimeDialog
+        open={isBlockModalOpen}
+        onOpenChange={setIsBlockModalOpen}
         doctorId={membership.user_id}
-        doctorName={membership.full_name || undefined}
         onSuccess={(newBlock) => {
           setBlocks((prev) => [...prev, newBlock]);
         }}

@@ -62,7 +62,7 @@ async function expectStyledOffline(context: BrowserContext, page: Page, stamp: s
   await expect(page.getByRole("heading", { name: "You're offline" })).toBeVisible();
   const view = await page.evaluate(() => {
     const main = document.querySelector("main")!;
-    const retry = document.querySelector('a[href="/"]')!;
+    const retry = document.querySelector('a[href="/today"]')!;
     return {
       build: document.documentElement.dataset.swBuild ?? null,
       scripts: document.scripts.length,

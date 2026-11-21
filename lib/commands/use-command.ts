@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { appError, type AppError, type Result } from "@/lib/errors/app-error";
 import { registerBusy } from "@/lib/pwa/dirty-guard";
 import { onAppErrorCode } from "@/lib/pwa/lock";
+import { clockOf } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
+import { saveStateOf } from "@/lib/commands/save-state";
+import type { SaveState } from "@/components/clinical/save-status";
 
 /**
  * Client side of an atomic server command (V2-07 R-10, PWA-06a; TARGET_ARCHITECTURE §7.1).
@@ -27,6 +31,19 @@ import { onAppErrorCode } from "@/lib/pwa/lock";
  * double click cannot send two commands. A thrown error (network, aborted request) is a failed Result with
  * `DEPENDENCY_FAILED` and keeps the id: the command may have committed, and the retry must find out.
  *
+ * Timeout and retry (V2-08 08-01a, F-9, PWA §3.8, R-20): an attempt that has not settled after
+ * {@link COMMAND_TIMEOUT_MS} becomes a failed Result (`DEPENDENCY_FAILED`, reason `TIMEOUT`, outcome unknown, id kept).
+ * A thrown error, a timeout or `DEPENDENCY_FAILED` is sent once more with the same id after
+ * {@link COMMAND_RETRY_DELAY_MS}; every other code is a definite answer and is never retried automatically. The answer of
+ * an attempt that already timed out is ignored (the retry's answer is the one the form sees; the server replays by id).
+ * Offline at submit (`navigator.onLine === false`) sends nothing and reports reason `OFFLINE`. The busy registration
+ * covers the whole span, retry included.
+ *
+ * Limit of the Next client: server actions run through one queue, one at a time (`runRemainingActions` in
+ * `next/dist/client/components/app-router-instance.js`). Our timeout frees the UI, but a retry sent while the first
+ * request is still stalled only runs when that request ends. The idempotent id makes every ordering safe. Typeahead
+ * must therefore not use server actions (R-11).
+ *
  * {@link createCommandRunner} holds all the rules and has no React in it (`tests/commands/use-command.spec.ts`);
  * {@link useCommand} binds one runner to a component.
  */
@@ -41,10 +58,21 @@ export function newClientRequestId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
+/** An attempt that has not settled after this long is a failed Result with reason `TIMEOUT` (R-20). */
+export const COMMAND_TIMEOUT_MS = 15_000;
+/** Pause before the single automatic retry (same id). */
+export const COMMAND_RETRY_DELAY_MS = 1_000;
+
 export interface CommandRunnerDeps {
   newId: () => string;
   registerBusy: () => () => void;
   onAppErrorCode: (code: string) => unknown;
+  /** Defaults to `navigator.onLine !== false`. */
+  isOnline?: () => boolean;
+  /** Runs `fn` after `ms`; returns a function that cancels it. Defaults to `setTimeout`. */
+  schedule?: (fn: () => void, ms: number) => () => void;
+  /** Pause between the attempt and its retry. Defaults to a `setTimeout` promise. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const browserDeps: CommandRunnerDeps = {
@@ -52,6 +80,13 @@ const browserDeps: CommandRunnerDeps = {
   registerBusy,
   onAppErrorCode: (code) => onAppErrorCode(code),
 };
+
+const defaultIsOnline = () => typeof navigator === "undefined" || navigator.onLine !== false;
+const defaultSchedule = (fn: () => void, ms: number) => {
+  const t = setTimeout(fn, ms);
+  return () => clearTimeout(t);
+};
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface CommandRunner {
   /**
@@ -88,20 +123,46 @@ export function isOutcomeUnknownCode(code: string): boolean {
 }
 
 export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): CommandRunner {
+  const isOnline = deps.isOnline ?? defaultIsOnline;
+  const schedule = deps.schedule ?? defaultSchedule;
+  const sleep = deps.sleep ?? defaultSleep;
   let id: string | null = null;
   let unresolved = false;
   let pending: Promise<Result<unknown>> | null = null;
+
+  /**
+   * One request. Settles once: with the call's result, with a failed Result when the call threw (the response was lost
+   * or the request never completed), or with `TIMEOUT`. Whatever the call answers after that is ignored.
+   */
+  const once = <T>(call: (clientRequestId: string) => Promise<Result<T>>, sent: string): Promise<Result<T>> =>
+    new Promise((resolve) => {
+      let settled = false;
+      const finish = (r: Result<T>) => {
+        if (settled) return;
+        settled = true;
+        cancel();
+        resolve(r);
+      };
+      const cancel = schedule(
+        () => finish({ ok: false, error: appError("DEPENDENCY_FAILED", { reason: "TIMEOUT" }) }),
+        COMMAND_TIMEOUT_MS,
+      );
+      try {
+        call(sent).then(finish, () => finish({ ok: false, error: appError("DEPENDENCY_FAILED") }));
+      } catch {
+        finish({ ok: false, error: appError("DEPENDENCY_FAILED") });
+      }
+    });
 
   const attempt = async <T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>> => {
     const sent = (id ??= deps.newId());
     const done = deps.registerBusy();
     try {
-      let result: Result<T>;
-      try {
-        result = await call(sent);
-      } catch {
-        // The response was lost or the request never completed: keep the id, the retry replays or runs fresh.
-        result = { ok: false, error: appError("DEPENDENCY_FAILED") };
+      // The id is kept after a lost response: the retry replays the first result or runs fresh.
+      let result = await once(call, sent);
+      if (!result.ok && result.error.code === "DEPENDENCY_FAILED") {
+        await sleep(COMMAND_RETRY_DELAY_MS);
+        result = await once(call, sent);
       }
       if (result.ok) {
         id = null;
@@ -128,6 +189,8 @@ export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): Comm
   return {
     run<T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>> {
       if (pending) return pending as Promise<Result<T>>;
+      // Offline: nothing is sent, no id is spent, nothing may have been committed.
+      if (!isOnline()) return Promise.resolve({ ok: false, error: appError("DEPENDENCY_FAILED", { reason: "OFFLINE" }) });
       const p = attempt(call).finally(() => {
         pending = null;
       });
@@ -158,6 +221,11 @@ export function createCommandRunner(deps: CommandRunnerDeps = browserDeps): Comm
 
 export interface UseCommand {
   run<T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>>;
+  /**
+   * Runs the last call again with the same id (the "Retry" of `SaveStatus`). A failed Result with `INTERNAL` when no
+   * call has been made yet.
+   */
+  retry(): Promise<Result<unknown>>;
   reset(): void;
   /** See {@link CommandRunner.settle}: the form reloaded the state after an unknown outcome. */
   settle(): void;
@@ -165,10 +233,14 @@ export interface UseCommand {
   startOver(): void;
   /** True after a failure whose outcome is unknown, until `settle()`, `startOver()` or a success (see {@link CommandRunner}). */
   unresolved: boolean;
-  /** True while a call is in flight (disable the submit button). */
+  /** True while a call is in flight, retry included (disable the submit button). */
   pending: boolean;
   /** The last failure of the current submit, cleared by the next attempt, a success or `reset()`. */
   error: AppError | null;
+  /** For `<SaveStatus>` (`lib/commands/save-state.ts`). */
+  saveState: SaveState;
+  /** Clinic wall-clock `HH:mm` of the last success. */
+  savedAt: string | null;
 }
 
 /** One command runner per component instance. */
@@ -176,9 +248,13 @@ export function useCommand(): UseCommand {
   const runner = useRef<CommandRunner | null>(null);
   runner.current ??= createCommandRunner();
   const mounted = useRef(true);
+  const lastCall = useRef<((clientRequestId: string) => Promise<Result<unknown>>) | null>(null);
+  const timeZone = useClinicTimeZone();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [unresolved, setUnresolved] = useState(false);
+  const [last, setLast] = useState<Result<unknown> | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -187,27 +263,45 @@ export function useCommand(): UseCommand {
     };
   }, []);
 
-  const run = useCallback(async <T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>> => {
-    const r = runner.current as CommandRunner;
-    setPending(true);
-    setError(null);
-    try {
-      const result = await r.run(call);
-      if (mounted.current) {
-        setError(result.ok ? null : result.error);
-        setUnresolved(r.unresolved);
+  const run = useCallback(
+    async <T>(call: (clientRequestId: string) => Promise<Result<T>>): Promise<Result<T>> => {
+      const r = runner.current as CommandRunner;
+      lastCall.current = call;
+      setPending(true);
+      setError(null);
+      try {
+        const result = await r.run(call);
+        if (mounted.current) {
+          setError(result.ok ? null : result.error);
+          setUnresolved(r.unresolved);
+          setLast(result);
+          if (result.ok) {
+            const { hour, minute } = clockOf(new Date(), timeZone);
+            setSavedAt(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+          }
+        }
+        return result;
+      } finally {
+        if (mounted.current) setPending(false);
       }
-      return result;
-    } finally {
-      if (mounted.current) setPending(false);
-    }
-  }, []);
+    },
+    [timeZone],
+  );
+
+  const retry = useCallback((): Promise<Result<unknown>> => {
+    const call = lastCall.current;
+    if (!call) return Promise.resolve({ ok: false, error: appError("INTERNAL") });
+    return run(call);
+  }, [run]);
 
   // An edit after an unknown outcome keeps the id (and the error text: the user still has to find out what happened).
   const reset = useCallback(() => {
     const r = runner.current;
     r?.reset();
-    if (!r?.unresolved) setError(null);
+    if (!r?.unresolved) {
+      setError(null);
+      setLast((prev) => (prev && !prev.ok ? null : prev));
+    }
   }, []);
 
   const settle = useCallback(() => {
@@ -219,7 +313,10 @@ export function useCommand(): UseCommand {
     runner.current?.startOver();
     setUnresolved(runner.current?.unresolved ?? false);
     setError(null);
+    setLast((prev) => (prev && !prev.ok ? null : prev));
   }, []);
 
-  return { run, reset, settle, startOver, unresolved, pending, error };
+  const saveState = saveStateOf({ pending, last });
+
+  return { run, retry, reset, settle, startOver, unresolved, pending, error, saveState, savedAt };
 }

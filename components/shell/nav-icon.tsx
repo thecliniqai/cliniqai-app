@@ -2,13 +2,11 @@ import {
   Building2,
   Calendar,
   ClipboardList,
-  Clock,
   CreditCard,
   KeyRound,
   LayoutDashboard,
   Receipt,
   Share2,
-  Stethoscope,
   UserCheck,
   Users,
   type LucideIcon,
@@ -17,9 +15,7 @@ import type { NavIconKey } from "@/lib/nav/nav-for-role";
 
 /** The lucide icon per destination (06-UI-SPEC: stroke 1.75, `currentColor`; v1 glyphs kept where v1 had one). */
 const ICONS: Record<NavIconKey, LucideIcon> = {
-  dashboard: LayoutDashboard,
-  queue: Clock,
-  cabin: Stethoscope,
+  today: LayoutDashboard,
   calendar: Calendar,
   patients: Users,
   billing: CreditCard,

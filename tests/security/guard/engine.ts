@@ -29,6 +29,7 @@ import { mintRunnerToken } from "@/lib/jobs/auth";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
+import { getAdminClient } from "../../helpers/supabase-admin";
 import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
@@ -690,7 +691,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1079,6 +1080,70 @@ export async function sessionStatusRouteLegs(
   const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
   out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
   if (forged.body !== member.body) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
+/**
+ * `session-search` route (08-02, T-08-02): the least-privileged holder of the permission searches tenant B's synthetic
+ * patient by name and by mobile number and gets 200 with an empty list and nothing of B; searching tenant A's own patient
+ * answers 200 with `no-store` and a list whose rows have exactly the projection keys and no full mobile number. The
+ * denial legs (401, 403, no membership) are `sessionRouteDenialLegs`.
+ */
+export async function sessionSearchRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-search" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  const admin = getAdminClient();
+  const patientOf = async (id: string) => {
+    const { data } = await admin.from("patients").select("full_name, phone").eq("id", id).single();
+    return data as { full_name: string; phone: string };
+  };
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const listOf = (leg: string, r: RouteResult): Array<Record<string, unknown>> => {
+    try {
+      const body = JSON.parse(r.body) as { patients?: Array<Record<string, unknown>> };
+      if (Array.isArray(body.patients)) return body.patients;
+    } catch {
+      // falls through
+    }
+    out.push(routeV(c, leg, `body is not { patients: [...] }: ${brief(r.body)}`));
+    return [];
+  };
+
+  const b = await patientOf(world.b.patient);
+  for (const [leg, q] of [
+    ["tenant B's patient by name", b.full_name],
+    ["tenant B's patient by mobile number", b.phone.replace(/\D/g, "").slice(-10)],
+  ] as const) {
+    const r = await callRoute(slot, client, c, { query: { q } });
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    noStore(leg, r);
+    if (listOf(leg, r).length > 0) out.push(routeV(c, leg, "tenant B's patient was listed"));
+  }
+
+  const own = await world.aRows({ userId: world.roles[role].userId, role });
+  const a = await patientOf(own.patient);
+  const r = await callRoute(slot, client, c, { query: { q: a.full_name } });
+  out.push(...expectStatus(c, "tenant A's own patient", r, [200]), ...expectNoB(c, "tenant A's own patient", r, world));
+  noStore("tenant A's own patient", r);
+  const rows = listOf("tenant A's own patient", r);
+  const mine = rows.find((row) => row.id === own.patient);
+  if (!mine) out.push(routeV(c, "tenant A's own patient", "the patient was not listed"));
+  for (const row of rows) {
+    const keys = Object.keys(row);
+    if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+      out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+    }
+  }
+  const digits = a.phone.replace(/\D/g, "").slice(-10);
+  if (r.body.includes(digits)) out.push(routeV(c, "projection", "the full mobile number is in the response"));
   return out;
 }
 

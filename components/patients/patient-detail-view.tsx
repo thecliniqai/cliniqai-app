@@ -146,7 +146,7 @@ export function PatientDetailView({
               Edit Details
             </Button>
 
-            <Link href={`/calendar?patientId=${patient.id}`}>
+            <Link href={`/schedule?book=1&patient=${patient.id}`}>
               <Button
                 variant="secondary"
                 size="sm"
@@ -167,7 +167,7 @@ export function PatientDetailView({
               Refer Patient
             </Button>
 
-            <Link href="/queue">
+            <Link href="/today?walkin=1">
               <Button
                 variant="primary"
                 size="sm"
@@ -379,7 +379,7 @@ export function PatientDetailView({
                 </p>
               </div>
 
-              <Link href={`/calendar?patientId=${patient.id}`}>
+              <Link href={`/schedule?book=1&patient=${patient.id}`}>
                 <Button variant="outline" size="sm" startIcon={<Calendar className="w-3.5 h-3.5" />}>
                   Schedule Visit
                 </Button>

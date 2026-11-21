@@ -7,10 +7,10 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { isDateOnly } from "@/lib/utils/filter-values";
-import { dayWindowUtc, ymdOf } from "@/lib/datetime";
+import { dayWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
-import { Visit, VisitStatus } from "@/lib/db/types";
-import { clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { Visit } from "@/lib/db/types";
+import { clinicalNotesEmbed, readStoredVitals, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   visitsFilterSchema,
   VisitsFilterInput,
@@ -30,18 +30,6 @@ import type { AppErrorCode } from "@/lib/errors/app-error";
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
 
-const createVisitSchema = z.object({
-  patient_id: z.string().uuid("Invalid patient ID"),
-  doctor_id: z.string().uuid("Invalid doctor ID"),
-  origin_type: z.enum(["scheduled", "walk_in"]),
-  scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
-  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
-  reason_for_visit: z.string().max(500).nullable().optional(),
-  is_overbooked: z.boolean().default(false),
-});
-
-export type CreateVisitInput = z.infer<typeof createVisitSchema>;
-
 /**
  * The reason a visit insert carries when the doctor's slot was taken between the slot check and the insert: the
  * `visits_no_double_booking` exclusion constraint (V2-05 05-08, DB-08) refuses a second overlapping, non-overbooked
@@ -58,106 +46,6 @@ export const SLOT_TAKEN_MESSAGE =
  */
 export function isSlotTakenError(err: DbErrorLike | null | undefined): boolean {
   return isDeadlock(err) || mapDbError(err).reason === SLOT_TAKEN_REASON;
-}
-
-export type CreateVisitResult =
-  | { success: true; visitId: string }
-  | {
-      success: false;
-      error: string;
-      fieldErrors?: Record<string, string[]>;
-      /** Set when the slot was taken (CONFLICT, reason {@link SLOT_TAKEN_REASON}). */
-      conflict?: true;
-      code?: AppErrorCode;
-      reason?: string;
-    };
-
-export async function createVisit(ctx: ServiceContext, input: CreateVisitInput): Promise<CreateVisitResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    const parseResult = createVisitSchema.safeParse(input);
-    if (!parseResult.success) {
-      const fieldErrors: Record<string, string[]> = {};
-      for (const issue of parseResult.error.issues) {
-        const field = issue.path[0]?.toString() || "form";
-        fieldErrors[field] = fieldErrors[field] || [];
-        fieldErrors[field].push(issue.message);
-      }
-      return {
-        success: false,
-        error: "Please correct the highlighted errors.",
-        fieldErrors,
-      };
-    }
-    const data = parseResult.data;
-
-    // The patient and the doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not check this).
-    if (!(await patientInTenant(ctx, data.patient_id))) {
-      return { success: false, error: "Patient not found or access denied." };
-    }
-    if (!(await memberOfTenant(ctx, data.doctor_id))) {
-      return { success: false, error: "Doctor not found in this clinic." };
-    }
-
-    // Insert visit under RLS. Two concurrent inserts of conflicting slots can both find the other's not-yet-committed
-    // row while checking `visits_no_double_booking`; PostgreSQL then aborts one of them as a deadlock (40P01) instead
-    // of 23P01. The other transaction goes on and commits, so one retry answers definitively: 23P01 (the slot is
-    // taken) or, if the other failed, the booking itself (V2-05 05-08; the shared helper since 05-11c).
-    const insertVisit = () => (
-      supabase.from("visits") as unknown as {
-        insert: (row: Record<string, unknown>) => {
-          select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { code?: string; message: string } | null }>;
-          };
-        };
-      }
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        patient_id: data.patient_id,
-        doctor_id: data.doctor_id,
-        origin_type: data.origin_type,
-        status: data.origin_type === "walk_in" ? "waiting" : "booked",
-        scheduled_at: data.scheduled_at || null,
-        estimated_duration_minutes: data.estimated_duration_minutes,
-        reason_for_visit: data.reason_for_visit || null,
-        is_overbooked: data.is_overbooked,
-        created_by: session.userId,
-      })
-      .select("id")
-      .single();
-    const { data: newVisit, error: insertError } = await retryOnDeadlock(insertVisit);
-
-    if (insertError || !newVisit) {
-      if (isSlotTakenError(insertError)) {
-        // Expected under concurrency (two desks booking one slot): not an error to alert on.
-        return { success: false, error: SLOT_TAKEN_MESSAGE, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON };
-      }
-      log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to schedule visit in database." };
-    }
-
-    await recordAudit(ctx, {
-      action: "visit.create",
-      entityType: "visit",
-      entityId: newVisit.id,
-      metadata: {
-        origin_type: data.origin_type,
-        fields_changed: ["created"],
-      },
-    });
-
-    return { success: true, visitId: newVisit.id };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to create visit.", "visits.create_visit.failed"),
-    };
-  }
 }
 
 export type GetVisitsResult =
@@ -219,312 +107,6 @@ export async function getVisitsForDate(
   }
 }
 
-export type UpdateVisitStatusResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export async function updateVisitStatus(
-  ctx: ServiceContext,
-  visitId: string,
-  newStatus: VisitStatus
-): Promise<UpdateVisitStatusResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-
-    // Fetch existing visit
-    // By id AND the active clinic: RLS admits every clinic the user belongs to (AR-M2b).
-    const { data: existing, error: readError } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("visits") as any
-    )
-      .select("*")
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single()) as { data: Visit | null; error: { message: string } | null };
-
-    if (readError || !existing) {
-      return { success: false, error: "Visit not found or inaccessible." };
-    }
-
-    const oldStatus = existing.status;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase.from("visits") as any)
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    if (updateError) {
-      log.error({ event: "visits.status_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to update visit status." };
-    }
-
-    await recordAudit(ctx, {
-      action: "visit.status_update",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        old_status: oldStatus,
-        new_status: newStatus,
-        fields_changed: ["status"],
-      },
-    });
-
-    return { success: true };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to update visit status.", "visits.update_visit_status.failed"),
-    };
-  }
-}
-
-export type ConfirmAppointmentResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export async function confirmAppointment(ctx: ServiceContext, visitId: string): Promise<ConfirmAppointmentResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    // Fetch existing visit
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing, error: readError } = await (supabase.from("visits") as any)
-      .select("id, status, metadata")
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (readError || !existing) {
-      log.error({ event: "visits.confirm_read.failed", code: errorTag(readError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Appointment not found or inaccessible." };
-    }
-
-    if (existing.status === "cancelled") {
-      return { success: false, error: "Cannot confirm a cancelled appointment." };
-    }
-
-    if (existing.status === "confirmed") {
-      return { success: true };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase.from("visits") as any)
-      .update({
-        status: "confirmed",
-        metadata: {
-          ...(existing.metadata || {}),
-          clinic_confirmed: true,
-          confirmed_at: new Date().toISOString(),
-          confirmed_by: session.userId,
-          confirmed_via: "staff_calendar",
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
-
-    if (updateError) {
-      log.error({ event: "visits.confirm_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to confirm appointment." };
-    }
-
-    await recordAudit(ctx, {
-      action: "visit.confirm",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        old_status: existing.status,
-        new_status: "confirmed",
-        confirmed_via: "staff_calendar",
-      },
-    });
-
-    return { success: true };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to confirm appointment.", "visits.confirm_appointment.failed"),
-    };
-  }
-}
-
-export type CancelVisitResult =
-  | { success: true; autoPromoted: boolean; replacementVisitId?: string; promotedPatientId?: string }
-  | { success: false; error: string };
-
-export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise<CancelVisitResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-
-    // 1. Fetch existing visit
-    // By id AND the active clinic: RLS admits every clinic the user belongs to (AR-M2b).
-    const { data: existing, error: readError } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("visits") as any
-    )
-      .select("*")
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single()) as { data: Visit | null; error: { message: string } | null };
-
-    if (readError || !existing) {
-      return { success: false, error: "Visit not found." };
-    }
-
-    if (existing.status === "cancelled") {
-      return { success: false, error: "Visit is already cancelled." };
-    }
-
-    // A signed consultation is never cancelled (V2-05 05-11a, H-VISIT: the database refuses it too).
-    if (existing.signed_at) {
-      return { success: false, error: "A signed consultation cannot be cancelled." };
-    }
-
-    // 2. Mark visit cancelled. A refused or failed write stops here: no audit row and no waitlist promotion for a
-    // visit that is still booked.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: cancelError } = await (supabase.from("visits") as any)
-      .update({
-        status: "cancelled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
-
-    if (cancelError) {
-      log.error({ event: "visits.cancel.failed", code: errorTag(cancelError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to cancel visit." };
-    }
-
-    // 3. Audit cancellation
-    await recordAudit(ctx, {
-      action: "visit.cancel",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        old_status: existing.status,
-        new_status: "cancelled",
-      },
-    });
-
-    // 4. Auto-promotion from waitlist (D-08)
-    let autoPromoted = false;
-    let replacementVisitId: string | undefined;
-    let promotedPatientId: string | undefined;
-
-    if (existing.scheduled_at) {
-      const targetDate = ymdOf(existing.scheduled_at, await getTenantTimeZone(supabase, session.tenantId));
-
-      // Query eligible waitlist entries for this tenant, target_date, status='waiting', and matching doctor
-      interface WaitlistRow {
-        id: string;
-        patient_id: string;
-        doctor_id: string | null;
-        priority: number;
-        created_at: string;
-      }
-
-      // existing.doctor_id is a uuid read from the visit row (not caller input).
-      const { data: candidates, error: candidateErr } = await (
-        supabase.from("waitlist_entries") as unknown as {
-          select: (cols: string) => {
-            eq: (col: string, val: string) => {
-              eq: (col: string, val: string) => {
-                eq: (col: string, val: string) => {
-                  or: (filter: string) => {
-                    order: (c1: string, o1: Record<string, unknown>) => {
-                      order: (c2: string, o2: Record<string, unknown>) => {
-                        limit: (n: number) => Promise<{ data: WaitlistRow[] | null; error: unknown }>;
-                      };
-                    };
-                  };
-                };
-              };
-            };
-          };
-        }
-      )
-        .select("id, patient_id, doctor_id, priority, created_at")
-        .eq("tenant_id", session.tenantId)
-        .eq("target_date", targetDate)
-        .eq("status", "waiting")
-        .or(`doctor_id.is.null,doctor_id.eq.${existing.doctor_id}`)
-        .order("priority", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(1);
-
-      if (candidateErr) {
-        log.error({ event: "visits.cancel_candidates.failed", code: errorTag(candidateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      }
-
-      if (candidates && candidates.length > 0) {
-        const topCandidate = candidates[0];
-
-        // Create replacement visit (same context, so createVisit's own permission check applies)
-        const newVisitRes = await createVisit(ctx, {
-          patient_id: topCandidate.patient_id,
-          doctor_id: existing.doctor_id,
-          origin_type: "scheduled",
-          scheduled_at: new Date(existing.scheduled_at).toISOString(),
-          estimated_duration_minutes: existing.estimated_duration_minutes || 15,
-          reason_for_visit: "Booked from waitlist",
-          is_overbooked: false,
-        });
-
-        if (newVisitRes.success) {
-          autoPromoted = true;
-          replacementVisitId = newVisitRes.visitId;
-          promotedPatientId = topCandidate.patient_id;
-
-          // Mark candidate waitlist entry as promoted
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase.from("waitlist_entries") as any)
-            .update({
-              status: "promoted",
-              promoted_visit_id: replacementVisitId,
-            })
-            .eq("id", topCandidate.id)
-            .eq("tenant_id", session.tenantId);
-
-          await recordAudit(ctx, {
-            action: "visit.auto_promoted_from_waitlist",
-            entityType: "visit",
-            entityId: replacementVisitId,
-            metadata: {
-              promoted_from_waitlist_id: topCandidate.id,
-              promoted_visit_id: replacementVisitId,
-            },
-          });
-        }
-      }
-    }
-
-    return {
-      success: true,
-      autoPromoted,
-      replacementVisitId,
-      promotedPatientId,
-    };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to cancel visit.", "visits.cancel_visit.failed"),
-    };
-  }
-}
-
 /**
  * Retrieves the list of active doctors in the clinic for filter dropdowns.
  */
@@ -535,18 +117,28 @@ export async function getActiveClinicDoctors(ctx: ServiceContext): Promise<Activ
     assertPerm(ctx.role, "appointments:view");
     const session = ctx;
 
+    // V2-08 R-2: a doctor, or the owner when the owner practises. An admin is never offered, credentials or not.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows, error } = await (supabase.from("memberships") as any)
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("owner_is_practicing_doctor")
+      .eq("id", session.tenantId)
+      .single();
+    const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allRows, error } = await (supabase.from("memberships") as any)
       .select("id, user_id, full_name, qualifications, default_specialty, role")
       .eq("tenant_id", session.tenantId)
       .eq("status", "active")
-      .in("role", ["doctor", "owner", "admin"])
+      .in("role", ["doctor", "owner"])
       .order("created_at", { ascending: true });
 
-    if (error || !rows) {
+    if (error || !allRows) {
       log.error({ event: "visits.doctors_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = allRows.filter((r: any) => r.role === "doctor" || ownerPracticing);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows.map((r: any) => ({
@@ -979,9 +571,17 @@ export async function recordVisitVitals(
       };
     }
 
-    const validated = { ...parseResult.data };
+    // V2-08 08-06a (A-1): what the caller sent is merged into the record already stored, so recording one more reading
+    // (pulse after the BP) never drops the earlier ones. A field the caller left empty keeps its stored value.
+    const sent = Object.fromEntries(Object.entries(parseResult.data).filter(([, value]) => value !== null && value !== undefined));
+    const stored = await readStoredVitals(supabase, session.tenantId, visitId);
+    if (stored.error) {
+      log.error({ event: "visits.vitals_read.failed", code: errorTag(stored.raw), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to record patient vitals." };
+    }
+    const validated = { ...stored.vitals, ...sent } as Vitals;
 
-    // Auto-calculate BMI if height and weight are provided
+    // Auto-calculate BMI if height and weight are provided (from the merged record: a new weight re-computes it)
     if (validated.weight && validated.height && validated.height > 0) {
       const hm = validated.height / 100;
       validated.bmi = Number((validated.weight / (hm * hm)).toFixed(1));
@@ -990,7 +590,7 @@ export async function recordVisitVitals(
     const nowIso = new Date().toISOString();
     const vitalsToSave: Vitals = {
       ...validated,
-      recorded_at: validated.recorded_at || nowIso,
+      recorded_at: (sent.recorded_at as string | undefined) || nowIso,
       recorded_by: session.userId,
     };
 

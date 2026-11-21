@@ -697,7 +697,17 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 
 ## V2-07 Atomic server commands
 
-- [ ] **07-P1 · Gate approval (G4)** — PR #11. Evidence: `.planning/phases/07-atomic-server-commands/07-VERIFICATION.md`
+- [x] **07-P1 · Gate approval (G4)** — decisions given 2026-11-21 (VERIFICATION_LOG); merge delegated to Claude. — PR #11. Evidence: `.planning/phases/07-atomic-server-commands/07-VERIFICATION.md`
   (CI 44760574035 at 9b79e91, 0 retried). Decide the four items under "Pending PO decisions": definer commands
   (TARGET §7.1 erratum), sign only after check-in, visit doctor = owner/doctor, invoice line cap ₹10,00,000.
 - [ ] **07-P2 · Staging migrate** — after merge, apply 000095–000099 on staging (after the 05/06 migrate runs).
+
+## V2-08 Front desk
+
+- [ ] **08-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation; PO reviews. — PR #14.
+  Evidence: `.planning/phases/08-front-desk/08-VERIFICATION.md`. Confirm the A-10 reading (late no-show in Booked, then
+  Waiting after check-in) and the Q-1…Q-10 defaults in `08-PLAN.md`.
+- [ ] **08-P2 · Device run** — `.planning/phases/08-front-desk/08-DEVICE-CHECKLIST.md` on a real phone and tablet (PWA-10 early run).
+- [ ] **08-P3 · Walkthrough** — `.planning/phases/08-front-desk/08-PO-WALKTHROUGH.md`.
+- [ ] **08-P4 · Staging** — after 07-P2, apply 000100–000106 on staging; in the hosted project turn Realtime
+  "Allow public access" off (the Today topic is private; S-10 test follows in V2-14).

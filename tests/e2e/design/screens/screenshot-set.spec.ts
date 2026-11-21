@@ -89,15 +89,14 @@ const CAPTURES: Record<string, Capture> = {
   "gallery-ai": gallery("ai"),
   "gallery-shell": gallery("shell"),
 
-  "owner-today": route(() => "/"),
-  "owner-queue": route(() => "/queue"),
-  "owner-calendar": route(() => "/calendar"),
+  "owner-today": route(() => "/today"),
+  "owner-schedule": route(() => "/schedule"),
   "owner-patients": route(() => "/patients"),
   "owner-patient": route(() => `/patients/${readRunData().tenantA.patientId}`),
   "owner-billing": route(() => "/billing/reports"),
   "owner-settings": route(() => "/settings/clinic"),
   "owner-palette": async (page) => {
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await page.keyboard.press("ControlOrMeta+k");
     const dialog = page.getByRole("dialog", { name: "Search" });
     await expect(dialog).toBeVisible();
@@ -106,24 +105,23 @@ const CAPTURES: Record<string, Capture> = {
     return { shot: "viewport" };
   },
   "owner-account-menu": async (page) => {
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await page.getByRole("button", { name: /^Account menu/ }).click();
     await expect(page.getByRole("menu")).toBeVisible();
     return { shot: "viewport" };
   },
   "owner-more-sheet": async (page) => {
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
     await expect(page.locator("[data-more-sheet]")).toBeVisible();
     return { shot: "viewport" };
   },
 
-  "receptionist-today": route(() => "/"),
-  "receptionist-queue": route(() => "/queue"),
-  "receptionist-calendar": route(() => "/calendar"),
+  "receptionist-today": route(() => "/today"),
+  "receptionist-schedule": route(() => "/schedule"),
   "receptionist-patients": route(() => "/patients"),
 
-  "doctor-cabin": route(() => "/cabin"),
+  "doctor-today": route(() => "/today"),
   "doctor-consult": route(() => `/consultation/${readRunData().tenantA.visitId}`),
 
   login: async (page) => {
@@ -139,7 +137,7 @@ const CAPTURES: Record<string, Capture> = {
 
   "install-card": async (page) => {
     await iosDevice(page);
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     const card = page.locator("[data-install-card]");
     await expect(card).toBeVisible();
     await card.scrollIntoViewIfNeeded();
@@ -147,7 +145,7 @@ const CAPTURES: Record<string, Capture> = {
   },
   "install-sheet": async (page) => {
     await iosDevice(page);
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await page.locator("[data-install-card]").getByRole("button", { name: "Install app" }).click();
     await expect(page.getByRole("dialog", { name: "Install CliniQ AI on this device" })).toBeVisible();
     return { shot: "viewport" };
@@ -158,7 +156,7 @@ const CAPTURES: Record<string, Capture> = {
       const body = (await response.json()) as Record<string, unknown>;
       await r.fulfill({ response, json: { ...body, deploymentId: "e2e-next-deployment" } });
     });
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await expect(page.locator("[data-update-toast]").getByText("A new version is ready")).toBeVisible();
     return { shot: "viewport" };
   },
@@ -176,7 +174,7 @@ const CAPTURES: Record<string, Capture> = {
   },
   "state-dashboard-loading": async (page) => {
     const nav = await holdNavigation(page, "/visits");
-    await openRoute(page, "/");
+    await openRoute(page, "/today");
     await clickNavLink(page, "Visits", nav);
     await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
     // Below 768 px "Visits" is in the More sheet, which closes on navigation: capture the skeleton after it has gone.

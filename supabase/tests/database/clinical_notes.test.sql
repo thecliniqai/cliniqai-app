@@ -13,6 +13,10 @@
 --    cascades.
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.visits is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the clinical_notes row of a visit a receptionist books through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.visits to authenticated;
 select plan(53);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------

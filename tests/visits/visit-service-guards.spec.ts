@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { recordVisitVitals, getVisitsForDate } from "@/features/visits/service";
 import { getScheduleBlocksForDate } from "@/features/visits/scheduling-service";
-import { getQueueForDate } from "@/features/queue/service";
 import { mockCtx } from "../helpers/context";
 
 const NURSE_ID = "5b0c1d2e-3f40-4a51-8b62-7c83d94ea0b1";
@@ -31,6 +30,8 @@ function recordingClient(notesRows: Array<Record<string, unknown>> = [{ visit_id
       inserts.push({ table, row });
       return Promise.resolve({ error: null });
     };
+    // The vitals write first reads the stored vitals (V2-08 08-06a, A-1: the new reading is merged into them).
+    chain.maybeSingle = () => Promise.resolve({ data: table === "clinical_notes" ? { vitals: {} } : null, error: null });
     chain.then = (resolve: (v: unknown) => unknown) => resolve(result);
     return chain;
   });
@@ -110,13 +111,6 @@ describe("date and doctor values never reach PostgREST filter syntax unvalidated
     // The clinic day in the tenant zone (the mock has no tenants row, so the default Asia/Kolkata), half-open.
     expect(db.orFilters[0]).toContain("scheduled_at.gte.2026-10-14T18:30:00.000Z");
     expect(db.orFilters[0]).toContain("scheduled_at.lt.2026-10-15T18:30:00.000Z");
-  });
-
-  it("getQueueForDate rejects a date that is not YYYY-MM-DD", async () => {
-    const db = recordingClient();
-    const res = await getQueueForDate(mockCtx(db.client), "2026-10-15T00:00:00Z,tenant_id.neq.x");
-    expect(res.success).toBe(false);
-    expect(db.orFilters).toEqual([]);
   });
 
   it("getScheduleBlocksForDate returns nothing for a doctor id that is not a uuid", async () => {

@@ -84,6 +84,14 @@ export type RouteGuard =
    * `no-store` on every answer; a forged `?tenant=` (tenant B's id) changes nothing and nothing of B comes back.
    */
   | { kind: "session-status"; keys: readonly string[] }
+  /**
+   * V2-08 08-02 (T-08-02): the patient typeahead `GET /api/patients/search?q=`. No session 401, a role lacking `permission`
+   * 403 and a signed-in user with no membership refused, all before any data access beyond the membership lookup; a member
+   * with the permission searching tenant B's synthetic patient by name and by mobile number gets 200 with an empty list and
+   * nothing of B; searching tenant A's own patient answers 200 with `no-store`, the patient listed with exactly `keys` and
+   * neither the full mobile number nor any field outside the projection.
+   */
+  | { kind: "session-search"; permission: Permission; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -120,6 +128,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/billing/subscription.ts#getSubscriptionOverview": "clinic:manage",
   "features/clinics/actions.ts#createClinic":
     { authenticated: "Onboarding: a signed-in user without a clinic creates one; create_clinic_with_owner binds the owner membership to auth.uid()." },
+  "features/clinics/actions.ts#switchClinic":
+    { authenticated: "The clinic switcher (V2-08 08-05, R-17): a signed-in user picks one of their own clinics; the cookie is written only for an active membership read under RLS, so a forged or foreign id writes nothing." },
   "features/clinics/profile.ts#getClinicProfile": "clinic:view",
   "features/clinics/profile.ts#getClinicProfileWithMembership": "clinic:view",
   "features/clinics/profile.ts#updateClinicProfile": "clinic:manage",
@@ -145,13 +155,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks one of their own notifications read." },
   "features/observability/actions.ts#reportClientRenderError":
     { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
-  "features/patients/actions.ts#createPatient": "patients:edit",
+  "features/patients/actions.ts#registerPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",
   "features/patients/actions.ts#getPatientVisitHistory": "patients:view",
-  "features/patients/actions.ts#searchPatients": "patients:view",
-  // V2-06 06-04b (T-06-17): the command palette's patient search; four fields per patient, nothing stored.
-  "features/patients/actions.ts#searchPatientsForPalette": "patients:view",
   "features/patients/actions.ts#updatePatient": "patients:edit",
   "features/patients/consent.ts#getCurrentConsent": "patients:view",
   "features/patients/consent.ts#grantConsent": "patients:edit",
@@ -169,10 +176,11 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#enqueueWalkIn": "appointments:edit",
-  "features/queue/actions.ts#getQueueForDate": "appointments:view",
   // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
   "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
-  "features/queue/actions.ts#transitionQueueState": "appointments:edit",
+  // V2-08 08-01b: the visit state machine's two desk commands replace the open status setter.
+  "features/queue/actions.ts#startConsultation": "consultations:edit",
+  "features/queue/actions.ts#completeVisit": "appointments:edit",
   "features/referrals/actions.ts#acknowledgeReferral": "consultations:edit",
   "features/referrals/actions.ts#closeReferralLoop": "consultations:edit",
   "features/referrals/actions.ts#createReferral": "consultations:edit",
@@ -216,15 +224,18 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/terminology/actions.ts#removeConsultationDiagnosis": "consultations:edit",
   "features/terminology/actions.ts#searchDiagnoses": "consultations:view",
   "features/terminology/actions.ts#updateDiagnosisNote": "consultations:edit",
-  "features/visits/actions.ts#cancelVisit": "appointments:edit",
-  "features/visits/actions.ts#confirmAppointment": "appointments:edit",
   "features/visits/actions.ts#getActiveClinicDoctors": "appointments:view",
   "features/visits/actions.ts#getClinicVisitsRegister": "appointments:view",
   "features/visits/actions.ts#getVisitsForDate": "appointments:view",
   "features/visits/actions.ts#recordVisitVitals": "vitals:edit",
-  "features/visits/actions.ts#updateVisitStatus": "appointments:edit",
   "features/visits/scheduling.ts#registerAndBook": "appointments:edit",
-  "features/visits/scheduling.ts#checkSlotAvailability": "appointments:view",
+  "features/visits/scheduling.ts#rescheduleVisit": "appointments:edit",
+  "features/visits/scheduling.ts#cancelVisit": "appointments:edit",
+  "features/visits/scheduling.ts#markNoShow": "appointments:edit",
+  "features/visits/scheduling.ts#confirmAppointment": "appointments:edit",
+  "features/visits/scheduling.ts#getAvailableSlots": "appointments:view",
+  "features/visits/scheduling.ts#getSlotAssist": "appointments:view",
+  "features/visits/scheduling.ts#getRescheduleTarget": "appointments:view",
   "features/visits/scheduling.ts#createScheduleBlock": "appointments:edit",
   "features/visits/scheduling.ts#deleteScheduleBlock": "appointments:edit",
   "features/visits/scheduling.ts#getScheduleBlocksForDate": "appointments:view",
@@ -256,6 +267,8 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
+  "features/clinics/actions.ts#switchClinic":
+    "V2-08 08-05 ({ authenticated }): the leg's caller is the shared outsider, who has no membership of tenant A and so correctly cannot switch to it; the success path, the cookie attributes and the refusals (forged, foreign, removed) are covered by tests/clinics/switch-clinic-db.spec.ts. The forged-id variants still run (B's id: refused, nothing written).",
   "features/staff/actions.ts#removeStaff":
     "V2-05 05-05: the world's tenant-A membership is the caller's own, which remove_member refuses (SELF_REMOVAL), and removing any other member of the shared world would change the later legs; the successful path is covered by supabase/tests/database/remove_member.test.sql and tests/integration/auth/remove-member.spec.ts. The forged-id variants still run (B's membership: not found).",
 };
@@ -296,6 +309,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,
   "app/api/patients/[id]/export/route.ts#GET": { kind: "session", permission: "exports:create", resource: "patient" },
+  "app/api/patients/search/route.ts#GET": {
+    kind: "session-search",
+    permission: "patients:view",
+    keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {
     kind: "session",
     permission: "prescriptions:view",

@@ -910,5 +910,23 @@ subscriptions can. A clinic that starts with one branch and grows needs a differ
 
 | Item | Proposal | Status |
 |---|---|---|
-| Command security mode | The P1-05 atomic commands are `SECURITY DEFINER` with the `record_payment` guard block (actor rule, active-clinic tenant check, `has_permission`, every row filtered by tenant, `search_path = ''`, EXECUTE for `authenticated` only), not `SECURITY INVOKER` as TARGET §7.1 and §2.3 say. Reason: the in-transaction audit and outbox writers and the RPC-only tables are not writable by `authenticated`. Read-only queries stay INVOKER. Text: TARGET §7.1 erratum 2026-11-20 | **Pending PO** (V2-07 gate); the adversarial review checks every definer command |
+| Command security mode | The P1-05 atomic commands are `SECURITY DEFINER` with the `record_payment` guard block (actor rule, active-clinic tenant check, `has_permission`, every row filtered by tenant, `search_path = ''`, EXECUTE for `authenticated` only), not `SECURITY INVOKER` as TARGET §7.1 and §2.3 say. Reason: the in-transaction audit and outbox writers and the RPC-only tables are not writable by `authenticated`. Read-only queries stay INVOKER. Text: TARGET §7.1 erratum 2026-11-20 | **Approved by PO 2026-11-21** on condition it does not slow the app (definer bodies skip per-row RLS evaluation, so they do no more work than INVOKER; V2-08 records command p95 latency to confirm) |
 | Timeouts | Per-function `lock_timeout = '2s'`, not per-function `statement_timeout` (D1 spike finding 3). TARGET §7.5 erratum 2026-11-20 | Applied (measured fact) |
+
+### PO rulings at the V2-07 gate and delegation (2026-11-21)
+
+| Item | Ruling |
+|---|---|
+| Definer commands (TARGET §7.1 erratum) | Approved, on condition it does not slow the app (see above) |
+| Sign only after check-in (F-6) | Keep the rule. In V2-08 "Start Consultation" on a booked visit checks the patient in first, as one action |
+| Visit doctor = owner or doctor (G-9) | Keep. V2-08 drops credentialed admins from the staff doctor picker |
+| Invoice line cap ₹10,00,000 (F-8) | Unchanged (PO did not ask to raise it) |
+| Delegation | The PO delegated gate approval and merging into `feature/v2` to Claude, as CTO delegate, for V2-07 through V2-11 while away (2026-11-21 overnight). Each such gate records "approved by delegation" with its CI run. Not delegated: `main`, hosted Supabase, staging migrates, anything in PO-ACTIONS that needs the PO's accounts |
+
+### V2-08 CTO rulings (delegated, 2026-11-21)
+
+| Item | Ruling |
+|---|---|
+| Definer commands latency (PO condition) | Met: local p95 of every V2-07/V2-08 command under 10 ms (`.planning/phases/08-front-desk/evidence/command-latency.json`, tool output) |
+| Definer read functions | `find_patient_duplicates` and `available_slots` are `SECURITY DEFINER` with the command guard block (active full clinic, permission check, every row filtered by tenant, `search_path=''`). Reason: under RLS the planner cannot use the trigram index (about 380 ms at 10,000 patients vs 2–4 ms). Adversarial review found no cross-tenant path (08-REVIEW-SEC). Other reads stay INVOKER |
+| V2-08 review triage | `.planning/phases/08-front-desk/08-REVIEW-TRIAGE.md` |

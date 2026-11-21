@@ -81,7 +81,7 @@ for (const size of DESIGN_WIDTHS) {
 
     test(`dashboard loading at ${size.width}px`, async ({ page }) => {
       const nav = await holdNavigation(page, "/visits");
-      await page.goto("/");
+      await page.goto("/today");
       await expect(page.getByRole("main")).toBeVisible();
       await clickNavLink(page, "Visits", nav);
       await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();

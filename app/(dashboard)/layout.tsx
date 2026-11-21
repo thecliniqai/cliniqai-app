@@ -7,12 +7,18 @@ import {
   getTenantAccessLevel,
   isClinicId,
   isDefinitiveAuthRejection,
+  MultipleClinicsSelectionRequiredError,
   NoClinicMembershipError,
   readActiveClinicCookie,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
+import { redirectIfUnauthenticated } from "@/lib/auth/page";
 import { AppShell } from "@/components/shell/app-shell";
+import { FrontDeskSheets } from "@/components/front-desk/front-desk-sheets";
+import { hasPerm } from "@/lib/permissions";
 import { MembershipEnded } from "@/components/shell/membership-ended";
+import { ClinicPicker } from "@/components/shell/clinic-picker";
+import { listUserClinics } from "@/features/clinics/switch";
 import { navForRole } from "@/lib/nav/nav-for-role";
 import { resolveTimeZone } from "@/lib/datetime";
 import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
@@ -64,6 +70,13 @@ export default async function DashboardLayout({
     if (error instanceof ActiveClinicMembershipEndedError) {
       return <MembershipEnded />;
     }
+    // V2-08 08-05 (P1-12, R-17): two or more clinics and none chosen on this device: pick one (the switcher's cookie), no error page.
+    if (error instanceof MultipleClinicsSelectionRequiredError) {
+      return <ClinicPicker clinics={await listUserClinics()} />;
+    }
+    // V2-08 08-06a: the session ended between the check above and this one (a sign-out in flight on this device, e.g. the
+    // shell's session-status watch): sign-in, as the wrapped pages do, never the error page.
+    redirectIfUnauthenticated(error);
     throw error;
   }
 
@@ -78,14 +91,15 @@ export default async function DashboardLayout({
     redirect(destination);
   }
 
-  // Fetch tenant name and zone
-  const { data: tenant } = await (
+  // Fetch tenant name and zone, and the user's clinics for the switcher (V2-08 08-05).
+  const [{ data: tenant }, clinics] = await Promise.all([
     (supabase
       .from("tenants")
       .select("name, timezone")
       .eq("id", membership.tenantId)
-      .single() as unknown) as Promise<{ data: { name: string; timezone: string | null } | null; error: unknown }>
-  );
+      .single() as unknown) as Promise<{ data: { name: string; timezone: string | null } | null; error: unknown }>,
+    listUserClinics(),
+  ]);
 
   // 06-09d (M-REMOVED-R1): no clinic pinned on this device yet: the shell's first status check pins this one.
   const shellClinic = isClinicId(await readActiveClinicCookie()) ? null : membership.tenantId;
@@ -103,8 +117,15 @@ export default async function DashboardLayout({
         user={{ email: user.email || "", role: membership.role }}
         swEnabled={serviceWorkerEnabled()}
         shellClinic={shellClinic}
+        clinics={clinics.map((c) => ({ id: c.id, name: c.name }))}
+        activeClinicId={membership.tenantId}
       >
         {children}
+        <FrontDeskSheets
+          canRegister={hasPerm(membership.role, "patients:edit")}
+          canWalkIn={hasPerm(membership.role, "appointments:edit")}
+          canBook={hasPerm(membership.role, "appointments:edit")}
+        />
       </AppShell>
     </ClinicTimeZoneProvider>
   );

@@ -89,7 +89,7 @@ describe("register_and_book: catalog", () => {
   it("the shared steps have no API grant", () => {
     for (const fn of [
       "private.step_create_patient(uuid, jsonb)",
-      "private.slot_conflicts(uuid, uuid, timestamptz, integer, text)",
+      "private.slot_conflicts(uuid, uuid, timestamptz, integer, text, uuid)",
       "private.command_request_hash(jsonb)",
       "private.step_enqueue_booking_message(uuid, uuid, uuid, uuid, timestamptz, text)",
     ]) {
@@ -332,11 +332,16 @@ describe("register_and_book: the slot", () => {
     expect(late.error).toMatchObject({ message: "SLOT_OFF_DUTY" });
   });
 
-  it("a doctor without a stored schedule has no shift restriction", async () => {
+  it("a doctor without a stored schedule is read as the default hours (R-9, G-3), not as no restriction", async () => {
     const free = await addMemberToTenant(tenantA.tenantId, "doctor");
     await setSchedule(tenantA.tenantId, free.userId, null);
-    const res = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(3, 0, 3, 0), { p_patient_id: await seedPatient(tenantA), p_doctor_id: free.userId }));
-    expect(res.error).toBeNull();
+    const night = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(3, 0, 3, 0), { p_patient_id: await seedPatient(tenantA), p_doctor_id: free.userId }));
+    expect(night.error).toMatchObject({ message: "SLOT_OFF_DUTY" });
+    const sunday = await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(3, 6, 11, 0), { p_patient_id: await seedPatient(tenantA), p_doctor_id: free.userId }));
+    expect(sunday.error).toMatchObject({ message: "SLOT_OFF_DUTY" });
+    // 20:45 is inside the default evening shift (ends 21:00) and 11:00 inside the morning one.
+    expect((await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(3, 0, 11, 0), { p_patient_id: await seedPatient(tenantA), p_doctor_id: free.userId }))).error).toBeNull();
+    expect((await callRegisterAndBook(tenantA.client, registerAndBookArgs(tenantA, ist(3, 0, 20, 45), { p_patient_id: await seedPatient(tenantA), p_doctor_id: free.userId }))).error).toBeNull();
     // ...and a shift-less day is a day off.
     const off = await addMemberToTenant(tenantA.tenantId, "doctor");
     await setSchedule(tenantA.tenantId, off.userId, weekSchedule([]));

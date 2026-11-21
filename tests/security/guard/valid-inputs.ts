@@ -38,14 +38,6 @@ const SLOT_BASE_MINUTE = Math.floor(Math.random() * 600);
 let slotCounter = 0;
 const futureIso = (days: number) =>
   new Date(Date.now() + days * day + (SLOT_BASE_MINUTE + 60 * slotCounter++) * 60_000).toISOString();
-/** 90+ days out, 10:00-17:00 IST (04:30-11:30 UTC), at a random day and minute. */
-const inShiftIso = (minDays: number) => {
-  const now = new Date();
-  const dayOffset = minDays + Math.floor(Math.random() * 60);
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dayOffset, 4, 30 + Math.floor(Math.random() * 420))
-  ).toISOString();
-};
 const dateAhead = (days: number) => new Date(Date.now() + days * day).toISOString().slice(0, 10);
 const syntheticEmail = () => `guard-invite-${randomUUID().slice(0, 12)}@example.com`;
 const syntheticPhone = () => `+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
@@ -166,9 +158,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/notifications/actions.ts#markAllNotificationsRead": { args: () => ["system"] },
   // 06-04a: membership-only; the acting fields are forged one at a time and must be ignored (the schema strips them).
   "features/observability/actions.ts#reportClientRenderError": {
-    args: (a) => [{ name: "GuardSpecRenderError", route: "/queue", ...acting(a) }],
+    args: (a) => [{ name: "GuardSpecRenderError", route: "/today", ...acting(a) }],
   },
-  "features/patients/actions.ts#createPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }] },
+  "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
   "features/prescriptions/actions.ts#addPrescriptionItem": {
@@ -177,7 +169,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
-  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal", randomUUID()] },
+  // V2-08 08-01b: a booking checks in only on its own day (R-8), so the controls use queued walk-ins.
+  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.waitingVisit, "normal", randomUUID()] },
+  "features/queue/actions.ts#startConsultation": { args: (a) => [a.startableVisit, randomUUID()] },
+  "features/queue/actions.ts#completeVisit": { args: (a) => [a.completableVisit, randomUUID()] },
   "features/queue/actions.ts#enqueueWalkIn": {
     args: (a) => [{
       patient_id: a.patient,
@@ -257,7 +252,16 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       ...acting(a),
     }],
   },
-  "features/visits/actions.ts#updateVisitStatus": { args: (a) => [a.visit, "confirmed"] },
+  // Each of the four staff scheduling commands gets a fresh booked visit from the world (a control may change it); the move is
+  // an overbooking (no slot to collide with) and the cancel is "other" without a message (V2-08 08-04a).
+  "features/visits/scheduling.ts#rescheduleVisit": {
+    args: (a) => [{ visit_id: a.visit, new_scheduled_at: futureIso(40), is_overbooked: true, ...acting(a) }, randomUUID()],
+  },
+  "features/visits/scheduling.ts#cancelVisit": {
+    args: (a) => [{ visit_id: a.visit, reason_code: "other", reason_note: "Synthetic note", ...acting(a) }, randomUUID()],
+  },
+  "features/visits/scheduling.ts#markNoShow": { args: (a) => [a.noShowableVisit, randomUUID()] },
+  "features/visits/scheduling.ts#confirmAppointment": { args: (a) => [a.visit, randomUUID()] },
   "features/visits/scheduling.ts#registerAndBook": {
     args: (a) => [{
       patient_id: a.patient,
@@ -286,13 +290,16 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     },
   },
   "features/visits/scheduling.ts#getScheduleBlocksForDate": { args: (a) => [dateAhead(5), a.callerUser] },
-  // A random far-future slot inside the A doctor's seeded shift (world.ts GUARD_DOCTOR_SHIFT, 08:00-20:00 IST every
-  // day): a fixed instant would collide with visits the other controls book for the same doctor.
-  "features/visits/scheduling.ts#checkSlotAvailability": { args: (a) => [a.ownerUser, inShiftIso(90), 15] },
+  // The slot list (V2-08 08-04b): a clinic doctor, a date ahead and a visit whose own slot is listed again.
+  "features/visits/scheduling.ts#getAvailableSlots": { args: (a) => [a.ownerUser, dateAhead(6), a.visit] },
+  "features/visits/scheduling.ts#getSlotAssist": { args: (a) => [a.ownerUser, a.patient] },
+  "features/visits/scheduling.ts#getRescheduleTarget": { args: (a) => [a.visit] },
   "features/settings/actions.ts#getDoctorScheduleBlocks": { args: (a) => [a.callerUser] },
-  "features/waitlist/actions.ts#promoteWaitlistEntry": { args: (a) => [a.waitlist, futureIso(50)] },
+  "features/waitlist/actions.ts#promoteWaitlistEntry": {
+    args: (a) => [{ entry_id: a.waitlist, scheduled_at: futureIso(50), is_overbooked: true, ...acting(a) }, randomUUID()],
+  },
   "features/waitlist/actions.ts#addToWaitlist": {
-    args: (a) => [{ patient_id: a.patient, doctor_id: a.ownerUser, target_date: dateAhead(4), priority: 0, notes: "Synthetic note", ...acting(a) }],
+    args: (a) => [{ patient_id: a.patient, doctor_id: a.ownerUser, target_date: dateAhead(4), priority: 0, notes: "Synthetic note", ...acting(a) }, randomUUID()],
   },
   "features/webhooks/actions.ts#createWebhookSubscription": {
     // No acting fields: the endpoint check resolves the host, which the test lane's network guard refuses, so this

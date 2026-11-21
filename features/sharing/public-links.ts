@@ -120,7 +120,8 @@ export async function resolveShareToken(
 }
 
 export interface RescheduleContext {
-  clinic: { name: string | null; phone: string | null; address: string | null } | null;
+  /** `timezone` is the clinic's zone (V2-08 08-04a, R-16): the page names dates and times in it. */
+  clinic: { name: string | null; phone: string | null; address: string | null; timezone?: string | null } | null;
   doctor: {
     full_name?: string | null;
     default_specialty?: string | null;
@@ -173,16 +174,73 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
   }
 }
 
+export interface RescheduleSlot {
+  /** ISO instants of the half-open slot [start, end). */
+  start: string;
+  end: string;
+}
+
+export type RescheduleSlotsResult =
+  | { status: "ok"; timezone: string; slots: RescheduleSlot[] }
+  | { status: "closed"; visitStatus: string }
+  | { status: "revoked" | "expired" | "not_found" | "unavailable" | "clinic_unavailable" };
+
+/**
+ * The slots the patient may move the visit to on a clinic-local date (V2-08 08-04a, R-16): computed in the database by the
+ * same function staff use (`get_reschedule_slots`: the doctor's shifts, blocks and booked visits in the clinic's zone, for
+ * the visit's own duration; the visit itself never blocks its own slot).
+ */
+export async function getRescheduleSlots(token: string, date: string): Promise<RescheduleSlotsResult> {
+  if (!isPlausibleToken(token)) return { status: "not_found" };
+
+  const { data, error } = await publicRpc("get_reschedule_slots", { p_token: token, p_date: date });
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+    if (error) log.error({ event: "sharing.reschedule_slots.failed", code: errorTag(error), requestId: await getRequestId() });
+    return { status: "not_found" };
+  }
+
+  const res = data as Record<string, unknown>;
+  switch (res.status) {
+    case "ok": {
+      const slots = Array.isArray(res.slots)
+        ? (res.slots as Array<{ start?: unknown; end?: unknown }>)
+            .filter((s) => typeof s.start === "string" && typeof s.end === "string")
+            .map((s) => ({ start: new Date(s.start as string).toISOString(), end: new Date(s.end as string).toISOString() }))
+        : [];
+      return { status: "ok", timezone: typeof res.timezone === "string" ? res.timezone : "", slots };
+    }
+    case "closed":
+      return { status: "closed", visitStatus: String(res.visit_status ?? "closed") };
+    case "revoked":
+    case "expired":
+    case "unavailable":
+    case "clinic_unavailable":
+      return { status: res.status };
+    default:
+      return { status: "not_found" };
+  }
+}
+
 export type ConsumeRescheduleResult =
   | { status: "ok"; newScheduledAt: string }
   | { status: "closed"; visitStatus: string }
   | {
-      status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" | "unavailable" | "clinic_unavailable";
+      status:
+        | "revoked"
+        | "expired"
+        | "not_found"
+        | "invalid_time"
+        | "too_far"
+        | "slot_taken"
+        | "slot_unavailable"
+        | "unavailable"
+        | "clinic_unavailable";
     };
 
 /**
  * Single use: the token is revoked in the same transaction as the visit update (000020). The new time must be within
- * 90 days and must not overlap another active visit of the doctor (000021).
+ * 90 days, inside the doctor's shifts and outside blocks (`slot_unavailable`), and must not overlap another active visit of
+ * the doctor for the visit's own duration (`slot_taken`; 000103).
  */
 export async function consumeRescheduleToken(token: string, newScheduledAt: string): Promise<ConsumeRescheduleResult> {
   if (!isPlausibleToken(token)) return { status: "not_found" };
@@ -195,10 +253,9 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
       p_new_at: newScheduledAt,
     })
   );
-  // The function's own overlap check uses the doctor's default slot length; a visit longer than that can still overlap,
-  // and the visits_no_double_booking constraint (V2-05 05-08) then refuses the update (23P01). The transaction rolls
-  // back, so the token stays usable: report it as the taken slot it is. A deadlock that survived the retry is the same
-  // race (an overlapping write won it).
+  // The function checks the visit's own duration (000103) and answers slot_taken itself; a race that still reaches the
+  // visits_no_double_booking constraint (V2-05 05-08) is refused with 23P01 (or, a deadlock that survived the retry, the
+  // same race): the transaction rolls back, so the token stays usable, and it is reported as the taken slot it is.
   const code = (error as { code?: string } | null)?.code;
   if (code === "23P01" || isDeadlock(error)) return { status: "slot_taken" };
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
@@ -217,6 +274,7 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     case "invalid_time":
     case "too_far":
     case "slot_taken":
+    case "slot_unavailable":
     case "unavailable":
     case "clinic_unavailable":
       return { status: res.status };

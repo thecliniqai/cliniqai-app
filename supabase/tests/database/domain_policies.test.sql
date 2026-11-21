@@ -12,6 +12,10 @@
 --    can no longer rewrite the referral (the guard's originating-clinic exemption is bound to the active clinic).
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
 begin;
+-- 000106 (08-06a, S-1/S-8): INSERT on public.patients is revoked from authenticated (the definer commands and the service role insert). This file's
+-- cases build fixtures and prove the patient insert rules (R-8) through the API role, so the grant is widened for this transaction only; the revoke is
+-- proven in front_desk_review_fixes.test.sql.
+grant insert on table public.patients to authenticated;
 select plan(42);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------

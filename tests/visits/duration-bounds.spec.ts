@@ -2,7 +2,7 @@
  * Visit duration bounds (V2-05 05a review M-DURATION: INT M-1, IND L1; plan 05-11c app side). The database refuses an
  * `estimated_duration_minutes` outside 5–480 (`visits_duration_range`, 05-11a). Every writer validates the same bounds
  * first (`features/visits/duration.ts`), so a caller gets a validation answer rather than a database error:
- *   - the app schemas (`createVisit`, `registerAndBookSchema`) accept 5–480 (before: 5–180, so a legitimate 4-hour
+ *   - the app schemas (`registerAndBookSchema`, the booking command) accept 5–480 (before: 5–180, so a legitimate 4-hour
  *     procedure slot was refused in the app while the database allows it);
  *   - `POST /api/v1/visits` and `POST /api/v1/appointments` answer 422 for a zero, negative, fractional, oversized or
  *     non-number duration and store nothing (before: 0/negative/non-number silently became 15, a 10^6-minute booking
@@ -13,11 +13,10 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as postVisit } from "@/app/api/v1/visits/route";
 import { POST as postAppointment } from "@/app/api/v1/appointments/route";
-import { createVisit } from "@/features/visits/service";
 import { registerAndBookSchema } from "@/features/visits/schema";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { enableApiV1ForFile } from "../helpers/api-v1";
-import { ctxFor } from "../helpers/context";
+import { callRegisterAndBook, registerAndBookArgs } from "../helpers/front-desk-commands";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 
@@ -109,30 +108,22 @@ describe("visit duration bounds 5–480 on every writer (05-11c, M-DURATION)", (
       for (const bad of [4, 481, 7.5]) expect(registerAndBookSchema.safeParse({ ...base, estimated_duration_minutes: bad }).success).toBe(false);
     });
 
-    it("createVisit books a 480-minute visit (before: refused above 180) and refuses 481 with a field error", async () => {
+    // V2-08 08-06a (S-1): the app's booking writer is `register_and_book` (the retired `createVisit` is gone with the INSERT grant).
+    it("register_and_book books a 480-minute visit (before: refused above 180) and refuses 481", async () => {
       const at = istAt(41, 9, 0);
-      const ok = await createVisit(ctxFor(desk), {
-        patient_id: patientId,
-        doctor_id: doctor.userId,
-        origin_type: "scheduled",
-        scheduled_at: at,
-        estimated_duration_minutes: 480,
-        is_overbooked: false,
-      });
-      expect(ok).toMatchObject({ success: true });
+      const ok = await callRegisterAndBook(
+        desk.client,
+        registerAndBookArgs(desk, at, { p_patient_id: patientId, p_doctor_id: doctor.userId, p_duration_minutes: 480 })
+      );
+      expect(ok.error).toBeNull();
       expect(await visitsAt(at)).toEqual([480]);
 
       const at2 = istAt(42, 9, 0);
-      const bad = await createVisit(ctxFor(desk), {
-        patient_id: patientId,
-        doctor_id: doctor.userId,
-        origin_type: "scheduled",
-        scheduled_at: at2,
-        estimated_duration_minutes: 481,
-        is_overbooked: false,
-      });
-      expect(bad).toMatchObject({ success: false });
-      expect((bad as { fieldErrors?: Record<string, string[]> }).fieldErrors?.estimated_duration_minutes).toBeDefined();
+      const bad = await callRegisterAndBook(
+        desk.client,
+        registerAndBookArgs(desk, at2, { p_patient_id: patientId, p_doctor_id: doctor.userId, p_duration_minutes: 481 })
+      );
+      expect(bad.error).toMatchObject({ message: "INPUT_INVALID" });
       expect(await visitsAt(at2)).toEqual([]);
     });
   });

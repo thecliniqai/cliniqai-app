@@ -7,7 +7,7 @@
  * - M2: below 1280 px a queue row keeps its actions in a right-hand column beside the content (rows of about 80 px;
  *   44 px targets below 1024 px); at 1280 px the actions sit on a line under the content (the lane board).
  * - M3: at 360 px every BottomBar caption is one line and every icon sits on the same line; the links keep their v1
- *   accessible names ("Doctor's Cabin" shows "Cabin").
+ *   accessible names (and the long "My Schedule" shows "Schedule").
  * - M4: no monospace face on Login, a patient's record or the consult; numbers, IDs and phones are Inter with tabular
  *   figures.
  * - M5: `/offline` (named mark, WifiOff glyph, Manrope 800 heading, Retry with its icon), the install card (Manrope 700
@@ -122,7 +122,7 @@ test.describe("M1: one Back control on a patient's record and on the consult", (
     await expect(back).toBeVisible();
     await back.focus();
     await page.keyboard.press("Enter");
-    await page.waitForURL((url) => url.pathname === "/");
+    await page.waitForURL((url) => url.pathname === "/today");
   });
 });
 
@@ -221,7 +221,7 @@ test.describe("M3: BottomBar captions stay on one line with their icons aligned"
       test(`at 360px (${role})`, async ({ page }, testInfo) => {
         desktopOnly(testInfo.project.name);
         await page.setViewportSize({ width: 360, height: 780 });
-        await page.goto(role === "doctor" ? "/cabin" : "/patients");
+        await page.goto(role === "doctor" ? "/today" : "/patients");
         const cells = await bar(page);
         expect(cells.length).toBeGreaterThanOrEqual(3);
         for (const cell of cells) {
@@ -240,21 +240,21 @@ test.describe("M3: BottomBar captions stay on one line with their icons aligned"
   test.describe("names", () => {
     test.use({ storageState: storageStatePath("owner") });
 
-    test("the owner's bar shows Cabin and Queue captions under their v1 accessible names", async ({ page }, testInfo) => {
+    test("the owner's bar shows the Today caption and keeps one baseline", async ({ page }, testInfo) => {
       test.skip(!["desktop-chrome", "pixel-7"].includes(testInfo.project.name), "desktop and touch only");
       if (testInfo.project.name === "desktop-chrome") await page.setViewportSize({ width: 360, height: 780 });
       await page.goto("/patients");
       const nav = page.locator("[data-shell-nav=bottom-bar]");
-      const cabin = nav.getByRole("link", { name: "Doctor's Cabin", exact: true });
-      await expect(cabin).toBeVisible();
-      await expect(cabin).toHaveText("Cabin");
+      const today = nav.getByRole("link", { name: "Today", exact: true });
+      await expect(today).toBeVisible();
+      await expect(today).toHaveText("Today");
       // The cells keep one baseline on the real touch device too.
       const cells = await bar(page);
       for (const cell of cells) expect(cell.lines, cell.caption).toBe(1);
       const tops = cells.map((c) => c.iconTop);
       expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(0.5);
-      await cabin.click();
-      await page.waitForURL((url) => url.pathname === "/cabin");
+      await today.click();
+      await page.waitForURL((url) => url.pathname === "/today");
     });
   });
 });
@@ -386,7 +386,7 @@ test.describe("M5: display headings and glyphs on /offline, the install card and
             localStorage.removeItem("clinicos.pref.installDismissedUntil");
           });
           await page.setViewportSize({ width, height: 800 });
-          await page.goto("/");
+          await page.goto("/today");
           const card = page.locator("[data-install-card]");
           await expect(card).toBeVisible();
           await settle(page);
@@ -412,7 +412,7 @@ test.describe("L12: one h1 per shell route", () => {
   test.use({ storageState: storageStatePath("owner") });
   test.beforeEach(({}, testInfo) => desktopOnly(testInfo.project.name));
 
-  for (const path of ["/", "/queue", "/cabin", "/billing/reports", "/settings/clinic", "/patients"]) {
+  for (const path of ["/today", "/billing/reports", "/settings/clinic", "/patients"]) {
     test(path, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto(path);

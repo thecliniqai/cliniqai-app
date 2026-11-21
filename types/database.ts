@@ -3131,6 +3131,19 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      add_to_waitlist: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id?: string;
+          p_notes?: string;
+          p_patient_id: string;
+          p_priority?: number;
+          p_target_date: string;
+          p_tenant_id: string;
+          p_time_window?: string;
+        };
+        Returns: Json;
+      };
       ai_commit: { Args: { p_reservation: string }; Returns: number };
       ai_preflight: {
         Args: { p_feature: string; p_visit_id: string };
@@ -3142,11 +3155,27 @@ export type Database = {
         Returns: string;
       };
       available_slots: {
-        Args: { p_date: string; p_doctor_id: string };
+        Args: {
+          p_date: string;
+          p_doctor_id: string;
+          p_exclude_visit_id?: string;
+        };
         Returns: {
           slot_end: string;
           slot_start: string;
         }[];
+      };
+      cancel_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_notify?: boolean;
+          p_promote_waitlist?: boolean;
+          p_reason_code: string;
+          p_reason_note?: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
@@ -3295,6 +3324,22 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      complete_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      confirm_appointment: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_invitation_for: {
         Args: { p_token_hash: string; p_user_id: string };
@@ -3431,12 +3476,30 @@ export type Database = {
         };
         Returns: Json;
       };
+      find_patient_duplicates: {
+        Args: { p_age: number; p_dob: string; p_name: string; p_phone: string };
+        Returns: {
+          age: number;
+          date_of_birth: string;
+          full_name: string;
+          id: string;
+          last_visit_at: string;
+          phone_last4: string;
+          reasons: string[];
+          sex: string;
+          strength: string;
+        }[];
+      };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };
         Returns: string;
       };
       get_reschedule_context: {
         Args: { p_from: string; p_to: string; p_token: string };
+        Returns: Json;
+      };
+      get_reschedule_slots: {
+        Args: { p_date: string; p_token: string };
         Returns: Json;
       };
       get_tenant_table_rls_policies: {
@@ -3516,6 +3579,14 @@ export type Database = {
         };
         Returns: number;
       };
+      mark_no_show: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       my_entitlements: {
         Args: { p_tenant: string };
         Returns: {
@@ -3549,6 +3620,18 @@ export type Database = {
           perm: string;
           role: string;
         }[];
+      };
+      promote_waitlist_entry: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id?: string;
+          p_duration_minutes?: number;
+          p_entry_id: string;
+          p_overbook?: boolean;
+          p_scheduled_at: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
       };
       readiness_probe: {
         Args: { p_expected_migration?: string };
@@ -3598,6 +3681,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      register_patient: {
+        Args: {
+          p_client_request_id: string;
+          p_patient: Json;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       release_job: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
@@ -3616,6 +3707,21 @@ export type Database = {
         Returns: Json;
       };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
+      reschedule_visit: {
+        Args: {
+          p_client_request_id: string;
+          p_doctor_id?: string;
+          p_duration_minutes?: number;
+          p_new_scheduled_at: string;
+          p_notify?: boolean;
+          p_overbook?: boolean;
+          p_override_block?: boolean;
+          p_override_off_duty?: boolean;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
@@ -3640,6 +3746,19 @@ export type Database = {
           is_custom: boolean;
           is_favorite: boolean;
           medicine_name: string;
+        }[];
+      };
+      search_patients: {
+        Args: { p_limit?: number; p_query: string };
+        Returns: {
+          age: number;
+          date_of_birth: string;
+          full_name: string;
+          id: string;
+          last_visit_at: string;
+          phone_last4: string;
+          rank: number;
+          sex: string;
         }[];
       };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
@@ -3686,6 +3805,22 @@ export type Database = {
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       sign_consultation: {
+        Args: {
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      slot_suggestion_context: {
+        Args: { p_doctor_id: string; p_patient_id: string };
+        Returns: {
+          avg_consult_minutes: number;
+          consult_samples: number;
+          preferred_band: string;
+        }[];
+      };
+      start_consultation: {
         Args: {
           p_client_request_id: string;
           p_tenant_id: string;

@@ -1264,6 +1264,7 @@ function authz.member_tenant_ids() returns SETOF uuid lang=sql security_definer=
 function authz.permission_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=f9032f0e1089e1445e3a742918005918
 function authz.role_has_permission(p_role text, p_perm text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=52690dd0cb8049b6adc57d0444ea83da
 function authz.tenant_ids_with(p_perm text) returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=d0919a591f797246d43823d0fb648e12
+function authz.today_topic_allowed(p_topic text) returns boolean lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=48a7549e9d88c039772ce857ff631bf7
 function billing_internal.entitlement_limit(p_tenant uuid, p_key text, p_now timestamp with time zone) returns bigint lang=sql security_definer=f volatility=s config=search_path="" body_md5=4d7e98bc38ee2e0935456a7d71fce744
 function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=950af52dbeabf38b996b4e397eb100a8
 function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=ed44fb47cdda32fe78dfd8ea4e175628
@@ -1322,14 +1323,18 @@ function private.ai_period(p_tenant uuid, p_at timestamp with time zone) returns
 function private.ai_reservation_tenant() returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=effc06c6cd28ba36c16b89336fcdc518
 function private.ai_system_caller() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=b33a53bc52b6bb3f80f5beee8890ad3c
 function private.api_keys_scope_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=634bd80665ad8b47dbb4e2fa0a1aa78c
-function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=f331c8f3b101061f0c2c2a35765691d3
+function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=42de17476f9f2b6951541a5669963cde
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
-function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=eaa923de229821ba8f13c1dde459513a
+function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=cd35f0db0233651329ee083418fb71bf
+function private.available_slots_core(p_tenant_id uuid, p_doctor_id uuid, p_date date, p_exclude_visit_id uuid) returns TABLE(slot_start timestamp with time zone, slot_end timestamp with time zone) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fc001d98757af3ce8f34857804fff6f5
 function private.command_claim(p_tenant_id uuid, p_client_request_id uuid, p_command text, p_request_hash text, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=0878fa043910b81ac20b7e2993173f12
 function private.command_complete(p_tenant_id uuid, p_client_request_id uuid, p_result jsonb) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=707e89686aebb7b944cbd5a1ab9be4d1
 function private.command_request_hash(p_payload jsonb) returns text lang=sql security_definer=t volatility=s config=search_path="" body_md5=93e7e89121f5ba6123d566e487f56b2a
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
 function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=c353346d6ed1c9ef1952dc689e48e1c8
+function private.default_weekly_schedule() returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=1e1240645f56cb3091aeafdd680c52c3
+function private.doctor_display_name(p_tenant_id uuid, p_doctor_id uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cb933c897f6a7f3a6e6258f40392cf04
+function private.effective_schedule(p_schedule jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=b61b2a8b9d004b729c25fe86ee05c197
 function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text, p_created_by uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f13ae355890d673b3b7a7fa235e0a32d
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.fill_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=89bcaefee5c73b6c7b8abec9b6d7f6a3
@@ -1346,13 +1351,14 @@ function private.invoice_items_normalize(p_items jsonb) returns jsonb lang=plpgs
 function private.invoice_items_sync_invoice() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b82d3d630d44c615bd5dcf0368ba1bf8
 function private.invoices_insert_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9e99b683ef5df552abc6ed4429d5f956
 function private.is_iana_timezone(p_name text) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=3ba7184e1f8a6435ac0ff493cb7773b2
-function private.log_command_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=19f4f68a33b38333a6ba835a0353c181
+function private.log_command_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=f6869709cb3635177c4922b77b9b4236
 function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=43454c84b959bca41bce09ae79e83f95
 function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integer) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=e10f676cdbfd121d4e73600b2347b949
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
+function private.name_normalize(p_name text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=de785a8b62ae4a72dcdc064d4fd01614
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=29638eca9aa442b931281faa2bc30a63
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
-function private.patient_input_normalize(p_patient jsonb) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=653cd593066bc640f5fb269863d822f7
+function private.patient_input_normalize(p_patient jsonb) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9f974942a4d22f065d001ad5b45827fa
 function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
 function private.patients_ai_objection_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4ed3a98541304fda8a6ce40d6e165a79
 function private.patients_ai_objection_stamp() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=3dd8d3fb67f0ab62bec30e9ce3dbf9f5
@@ -1369,27 +1375,36 @@ function private.session_age_fresh_seconds() returns integer lang=sql security_d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
 function private.share_invoice_allowed(p_tenant uuid, p_invoice uuid) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=0d7decea17a88bcad93da79e0b7cea6b
-function private.slot_conflicts(p_tenant_id uuid, p_doctor_id uuid, p_start timestamp with time zone, p_duration_minutes integer, p_timezone text) returns text[] lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=923a25314116ef66c02c53a32134a7de
-function private.step_check_in(p_tenant_id uuid, p_visit_id uuid, p_priority text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a9a7fc99aed1006b3e0f87606b8e37bd
+function private.slot_conflicts(p_tenant_id uuid, p_doctor_id uuid, p_start timestamp with time zone, p_duration_minutes integer, p_timezone text, p_exclude_visit_id uuid) returns text[] lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=8cf5a282838c28bc57c79c1e93c5ed9e
+function private.step_check_in(p_tenant_id uuid, p_visit_id uuid, p_priority text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6dfe0fdc8491f2970c9e3d15c3b277c2
 function private.step_create_invoice(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f19c83ede00ca9bc6389a3a66bbf18c3
-function private.step_create_patient(p_tenant_id uuid, p_patient jsonb) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=2e17a1adbf8188090f7a194d0f2b109d
-function private.step_create_visit(p_tenant_id uuid, p_patient_id uuid, p_doctor_id uuid, p_origin text, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_reason text, p_overbooked boolean) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=793b43d83b22bf362af95d1958f9111c
+function private.step_create_patient(p_tenant_id uuid, p_patient jsonb) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fd4eab044e5ac4526f9f55be2638e647
+function private.step_create_visit(p_tenant_id uuid, p_patient_id uuid, p_doctor_id uuid, p_origin text, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_reason text, p_overbooked boolean) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=daeed12b12eda6f80ae12c7baff4b430
 function private.step_enqueue_booking_message(p_tenant_id uuid, p_visit_id uuid, p_patient_id uuid, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_timezone text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=258249a9509dddf25269247f45cb7f52
+function private.step_enqueue_visit_message(p_tenant_id uuid, p_visit_id uuid, p_patient_id uuid, p_template_id text, p_params jsonb, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a146c78c40d7279b81e30ff7de970691
+function private.step_promote_waitlist(p_tenant_id uuid, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_timezone text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f5d798829680de0461e39f388319654b
 function private.step_record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_notes text, p_command_id uuid, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6017701be758fe938bf6d5f0a466a9d7
 function private.step_sign_consultation(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f2c69d82f2ac5da77dd4e5614bf6fd43
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
+function private.today_signal() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b973db9c775436906b509d1c4634c5e
+function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=0411ba64557b426e48555d5d84e2f82e
 function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0f99f95ea14e2873713e5c943fb21baf
+function private.visit_transition_allowed(p_from text, p_to text, p_signed boolean) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=d2449a1356e9fe1add6a813ad21c580a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5f412f3f98bad97d593ada1d990f1fc4
+function private.visits_metadata_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=11d84ccf7ee3b5c34d054d2018c6e865
+function private.visits_status_transition_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a92dd0b6e1cd57eddbdba30793fb59eb
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
+function public.add_to_waitlist(p_tenant_id uuid, p_patient_id uuid, p_target_date date, p_client_request_id uuid, p_doctor_id uuid, p_time_window text, p_priority integer, p_notes text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9745d44e4c5ff10ccfcc9d0a734b1d26
 function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=85196dc29136273b2163ed253f8a8ea4
 function public.ai_preflight(p_feature text, p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=733216a51eb88c1b8c39ba7a0b47af28
 function public.ai_release(p_reservation uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=199e81dc685bba11e2f1b67e94851ac7
 function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=e2c219dfea379facf0f1091dceef692e
-function public.available_slots(p_doctor_id uuid, p_date date) returns TABLE(slot_start timestamp with time zone, slot_end timestamp with time zone) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3b1c0b517517f0e6fee0dd40dc90f02c
+function public.available_slots(p_doctor_id uuid, p_date date, p_exclude_visit_id uuid) returns TABLE(slot_start timestamp with time zone, slot_end timestamp with time zone) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=da1b9d21955d44090b8dd67eda53af1c
+function public.cancel_visit(p_tenant_id uuid, p_visit_id uuid, p_reason_code text, p_client_request_id uuid, p_reason_note text, p_notify boolean, p_promote_waitlist boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=09f7c462fd9827a49e31ac6d540e36f5
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=56513894c378b055578a75ff0c5cf811
 function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4cf513f36a0468ab94b9b39c898789e0
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a989ea795a0a4f28ec1b54a5850537b9
@@ -1404,9 +1419,11 @@ function public.communication_queue_finish(p_id uuid, p_success boolean, p_exter
 function public.communication_queue_scrub_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fb0edb07f8fe206c580ea92f55c0dda2
 function public.complete_and_bill(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric, p_payment jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=8f70458c244269804cd569770e4ea73f
 function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5b1d8a829ebe6feb6dfdba9f9add9361
+function public.complete_visit(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b501d39b6c98517cede459f7b51886f0
+function public.confirm_appointment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3daa696985ba2cad55513c66be6339c9
 function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=baa83f696258d0742c6451fea44320fb
 function public.consume_invitation_for(p_user_id uuid, p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=63bf8dac3bbc99f14db4278598f9a98e
-function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a72b71fa5965e1a4ffcce92a07d95244
+function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=d964f83c0dd94fe31021225f3406ce98
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
 function public.create_invoice(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_client_request_id uuid, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6359cf2591a0b99c58150e0c1ef704cf
 function public.create_reschedule_token(p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e1b7a0d65ed910109d7ac2f27d5ed901
@@ -1421,8 +1438,10 @@ function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_sub
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
 function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3606d51c52a6472315884fc3a4019880
+function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[], strength text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=baf9b6d697032e8e360c4ad6d780f075
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
-function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=e9664f3ad32e0f637f11878c0c0d3a22
+function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ea535332cb3bf025dba7d6d92c04eebb
+function public.get_reschedule_slots(p_token text, p_date date) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=1b21dadb51d048cefb7cd0a52bdd23b6
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=ef59d2e5f5d66d16af6acd6bd1d2d539
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
@@ -1437,6 +1456,7 @@ function public.issue_queue_token(p_visit_id uuid, p_priority text) returns TABL
 function public.jobs_runner_begin(p_worker text, p_source text) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=de6a32d34452a6867bf2e9fe1b2a39ba
 function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=7555a20bdb505e6274917ef194da5e12
 function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3fadacafab6447a1128d99ff61f3ba4b
+function public.mark_no_show(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9c265b2fe182d768b608123b883edf28
 function public.memberships_profile_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=51a190e31251f3d6b271c6761b80e297
 function public.my_entitlements(p_tenant uuid) returns TABLE(key text, enabled boolean, limit_value bigint) lang=sql security_definer=t volatility=s config=search_path="" body_md5=b47c81184d11c8adf99f09f76520ff32
 function public.my_tenant_access(p_tenant uuid) returns text lang=sql security_definer=t volatility=s config=search_path="" body_md5=a31ab21d762791e16d6784402fbb25a9
@@ -1448,21 +1468,25 @@ function public.patients_clinical_fields_guard() returns trigger lang=plpgsql se
 function public.peek_invitation(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=eb3e0439d1e55230792a241f80ba9030
 function public.permission_matrix() returns TABLE(role text, perm text) lang=sql security_definer=f volatility=i config=search_path="" body_md5=39ee865d6f01342a333f400391c113a5
 function public.prescription_items_fill_tenant() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8d8857c616ef2a290542986d2df34fee
+function public.promote_waitlist_entry(p_tenant_id uuid, p_entry_id uuid, p_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=71edf37ba51f0829a036af847023e446
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
 function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9928b14fa2b11fe225a3c2271a6d7d61
 function public.referral_directory_search(p_query text) returns TABLE(id uuid, name text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=783421be63887859903f9dba77ee449f
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=09808d6285a2365415daca842756abd2
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
 function public.register_and_book(p_tenant_id uuid, p_patient_id uuid, p_new_patient jsonb, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_overbook boolean, p_client_request_id uuid, p_reason text, p_override_off_duty boolean, p_override_block boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=da81fe7d6fd015374f3b5da0ec8d5497
+function public.register_patient(p_tenant_id uuid, p_patient jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d1e89c32d47e2c66e4903102e640625e
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=a433c27c9b1bd65985e013540a174237
 function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1c127c087b65bd1013c53d9516bfadc8
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
+function public.reschedule_visit(p_tenant_id uuid, p_visit_id uuid, p_new_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean, p_override_off_duty boolean, p_override_block boolean, p_notify boolean) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a4c6a72452ed994c42bd62f1ea3a1f01
 function public.resend_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7a640654f8320e8d78f49d73d52cd671
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=8218bd99a29a3a267eb8bdd527a52b16
 function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=bc0d165d6ce1fc022c1e6c5fb621e15c
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ca7ce0b4227190877841fdaf065edb2b
 function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
+function public.search_patients(p_query text, p_limit integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=127c66d8a5f6775348e6d73e968f0087
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
 function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) returns tenant_ai_settings lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7c009b0d799d21424ac6d1ab43007484
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
@@ -1472,6 +1496,8 @@ function public.share_token_object(p_token text, p_kinds text[]) returns jsonb l
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
 function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=36dd0dd595ba73ddddeb5a78b1e1c06f
+function public.slot_suggestion_context(p_doctor_id uuid, p_patient_id uuid) returns TABLE(avg_consult_minutes integer, consult_samples integer, preferred_band text) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=bf958ef39132b22474750d87dbce88a2
+function public.start_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ce6b4ccaa33617f1aee0dc45c56f4eda
 function public.start_job(p_id uuid, p_lease_token uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=643c9082f0a2c4993b6a14af853fcffe
 function public.tenant_access_for_system(p_tenant uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=21b8e3014c3091e4804cf3c71e11f875
 function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) returns date lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=37da67f026e0f7eb758481de0c10f21a
@@ -1521,6 +1547,9 @@ grant column public.memberships.qualifications UPDATE to authenticated
 grant column public.queue_tokens.called_at UPDATE to authenticated
 grant column public.queue_tokens.completed_at UPDATE to authenticated
 grant column public.queue_tokens.priority UPDATE to authenticated
+grant column public.visits.metadata UPDATE to authenticated
+grant column public.visits.specialty UPDATE to authenticated
+grant column public.visits.updated_at UPDATE to authenticated
 grant function authz.active_tenant_id() EXECUTE to authenticated
 grant function authz.billing_tenant_ids() EXECUTE to authenticated
 grant function authz.full_tenant_ids() EXECUTE to authenticated
@@ -1530,6 +1559,7 @@ grant function authz.permission_keys() EXECUTE to service_role
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to authenticated
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to service_role
 grant function authz.tenant_ids_with(p_perm text) EXECUTE to authenticated
+grant function authz.today_topic_allowed(p_topic text) EXECUTE to authenticated
 grant function billing_internal.entitlement_limit(p_tenant uuid, p_key text, p_now timestamp with time zone) EXECUTE to service_role
 grant function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone) EXECUTE to service_role
 grant function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) EXECUTE to service_role
@@ -1548,15 +1578,19 @@ grant function platform.set_product_availability(p_plan_code text, p_purchasable
 grant function private.is_iana_timezone(p_name text) EXECUTE to authenticated
 grant function private.is_iana_timezone(p_name text) EXECUTE to service_role
 grant function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to service_role
+grant function private.name_normalize(p_name text) EXECUTE to authenticated
+grant function private.name_normalize(p_name text) EXECUTE to service_role
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to authenticated
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to service_role
+grant function public.add_to_waitlist(p_tenant_id uuid, p_patient_id uuid, p_target_date date, p_client_request_id uuid, p_doctor_id uuid, p_time_window text, p_priority integer, p_notes text) EXECUTE to authenticated
 grant function public.ai_commit(p_reservation uuid) EXECUTE to authenticated
 grant function public.ai_commit(p_reservation uuid) EXECUTE to service_role
 grant function public.ai_preflight(p_feature text, p_visit_id uuid) EXECUTE to authenticated
 grant function public.ai_release(p_reservation uuid) EXECUTE to authenticated
 grant function public.ai_release(p_reservation uuid) EXECUTE to service_role
 grant function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) EXECUTE to authenticated
-grant function public.available_slots(p_doctor_id uuid, p_date date) EXECUTE to authenticated
+grant function public.available_slots(p_doctor_id uuid, p_date date, p_exclude_visit_id uuid) EXECUTE to authenticated
+grant function public.cancel_visit(p_tenant_id uuid, p_visit_id uuid, p_reason_code text, p_client_request_id uuid, p_reason_note text, p_notify boolean, p_promote_waitlist boolean) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to service_role
 grant function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) EXECUTE to authenticated
@@ -1572,6 +1606,8 @@ grant function public.communication_queue_finish(p_id uuid, p_success boolean, p
 grant function public.communication_queue_scrub_payload() EXECUTE to service_role
 grant function public.complete_and_bill(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric, p_payment jsonb, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.complete_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
+grant function public.complete_visit(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
+grant function public.confirm_appointment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.consume_invitation(p_token_hash text) EXECUTE to authenticated
 grant function public.consume_invitation_for(p_user_id uuid, p_token_hash text) EXECUTE to service_role
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to anon
@@ -1594,11 +1630,15 @@ grant function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text,
 grant function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) EXECUTE to service_role
 grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
 grant function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
+grant function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) EXECUTE to authenticated
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to authenticated
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to service_role
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to anon
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to authenticated
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to service_role
+grant function public.get_reschedule_slots(p_token text, p_date date) EXECUTE to anon
+grant function public.get_reschedule_slots(p_token text, p_date date) EXECUTE to authenticated
+grant function public.get_reschedule_slots(p_token text, p_date date) EXECUTE to service_role
 grant function public.get_tenant_table_rls_policies() EXECUTE to service_role
 grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to authenticated
 grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to service_role
@@ -1618,6 +1658,7 @@ grant function public.issue_queue_token(p_visit_id uuid, p_priority text) EXECUT
 grant function public.jobs_runner_begin(p_worker text, p_source text) EXECUTE to service_role
 grant function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) EXECUTE to service_role
 grant function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to authenticated
+grant function public.mark_no_show(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.memberships_profile_update_guard() EXECUTE to service_role
 grant function public.my_entitlements(p_tenant uuid) EXECUTE to authenticated
 grant function public.my_tenant_access(p_tenant uuid) EXECUTE to authenticated
@@ -1635,6 +1676,7 @@ grant function public.peek_invitation(p_token_hash text) EXECUTE to authenticate
 grant function public.permission_matrix() EXECUTE to authenticated
 grant function public.permission_matrix() EXECUTE to service_role
 grant function public.prescription_items_fill_tenant() EXECUTE to service_role
+grant function public.promote_waitlist_entry(p_tenant_id uuid, p_entry_id uuid, p_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean) EXECUTE to authenticated
 grant function public.readiness_probe(p_expected_migration text) EXECUTE to anon
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to authenticated
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to service_role
@@ -1642,10 +1684,12 @@ grant function public.referral_directory_search(p_query text) EXECUTE to authent
 grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authenticated
 grant function public.referrals_target_update_guard() EXECUTE to service_role
 grant function public.register_and_book(p_tenant_id uuid, p_patient_id uuid, p_new_patient jsonb, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_overbook boolean, p_client_request_id uuid, p_reason text, p_override_off_duty boolean, p_override_block boolean) EXECUTE to authenticated
+grant function public.register_patient(p_tenant_id uuid, p_patient jsonb, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.remove_member(p_membership_id uuid, p_reason text) EXECUTE to authenticated
 grant function public.reopen_visit_for_amendment(p_tenant_id uuid, p_visit_id uuid, p_reason text, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.reschedule_token_visit(p_token text) EXECUTE to service_role
+grant function public.reschedule_visit(p_tenant_id uuid, p_visit_id uuid, p_new_scheduled_at timestamp with time zone, p_client_request_id uuid, p_doctor_id uuid, p_duration_minutes integer, p_overbook boolean, p_override_off_duty boolean, p_override_block boolean, p_notify boolean) EXECUTE to authenticated
 grant function public.resend_invitation(p_invitation_id uuid) EXECUTE to authenticated
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to anon
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to authenticated
@@ -1655,6 +1699,7 @@ grant function public.revoke_share_token(p_token_id uuid) EXECUTE to authenticat
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_role
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to service_role
+grant function public.search_patients(p_query text, p_limit integer) EXECUTE to authenticated
 grant function public.session_is_live() EXECUTE to authenticated
 grant function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to authenticated
@@ -1665,6 +1710,8 @@ grant function public.share_token_object(p_token text, p_kinds text[]) EXECUTE t
 grant function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) EXECUTE to service_role
 grant function public.share_type_roles(p_type text) EXECUTE to service_role
 grant function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
+grant function public.slot_suggestion_context(p_doctor_id uuid, p_patient_id uuid) EXECUTE to authenticated
+grant function public.start_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.start_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.tenant_access_for_system(p_tenant uuid) EXECUTE to service_role
 grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to authenticated
@@ -2002,7 +2049,6 @@ grant table public.patient_documents TRUNCATE to service_role
 grant table public.patient_documents UPDATE to authenticated
 grant table public.patient_documents UPDATE to service_role
 grant table public.patients DELETE to service_role
-grant table public.patients INSERT to authenticated
 grant table public.patients INSERT to service_role
 grant table public.patients MAINTAIN to service_role
 grant table public.patients REFERENCES to service_role
@@ -2185,7 +2231,6 @@ grant table public.visit_revisions TRIGGER to service_role
 grant table public.visit_revisions TRUNCATE to service_role
 grant table public.visit_revisions UPDATE to service_role
 grant table public.visits DELETE to service_role
-grant table public.visits INSERT to authenticated
 grant table public.visits INSERT to service_role
 grant table public.visits MAINTAIN to service_role
 grant table public.visits REFERENCES to service_role
@@ -2193,10 +2238,8 @@ grant table public.visits SELECT to authenticated
 grant table public.visits SELECT to service_role
 grant table public.visits TRIGGER to service_role
 grant table public.visits TRUNCATE to service_role
-grant table public.visits UPDATE to authenticated
 grant table public.visits UPDATE to service_role
 grant table public.waitlist_entries DELETE to service_role
-grant table public.waitlist_entries INSERT to authenticated
 grant table public.waitlist_entries INSERT to service_role
 grant table public.waitlist_entries MAINTAIN to service_role
 grant table public.waitlist_entries REFERENCES to service_role
@@ -2204,7 +2247,6 @@ grant table public.waitlist_entries SELECT to authenticated
 grant table public.waitlist_entries SELECT to service_role
 grant table public.waitlist_entries TRIGGER to service_role
 grant table public.waitlist_entries TRUNCATE to service_role
-grant table public.waitlist_entries UPDATE to authenticated
 grant table public.waitlist_entries UPDATE to service_role
 grant table public.webhook_delivery_queue DELETE to service_role
 grant table public.webhook_delivery_queue INSERT to service_role
@@ -2369,8 +2411,12 @@ index public.idx_patient_documents_tenant_patient_date CREATE INDEX idx_patient_
 index public.idx_patient_documents_tenant_visit CREATE INDEX idx_patient_documents_tenant_visit ON public.patient_documents USING btree (tenant_id, visit_id)
 index public.idx_patient_documents_uploaded_by CREATE INDEX idx_patient_documents_uploaded_by ON public.patient_documents USING btree (uploaded_by)
 index public.idx_patient_documents_visit CREATE INDEX idx_patient_documents_visit ON public.patient_documents USING btree (visit_id)
+index public.idx_patients_abha_id_trgm CREATE INDEX idx_patients_abha_id_trgm ON public.patients USING gin (abha_id gin_trgm_ops)
 index public.idx_patients_created_by CREATE INDEX idx_patients_created_by ON public.patients USING btree (created_by)
+index public.idx_patients_full_name_trgm CREATE INDEX idx_patients_full_name_trgm ON public.patients USING gin (full_name gin_trgm_ops)
+index public.idx_patients_name_normalized_trgm CREATE INDEX idx_patients_name_normalized_trgm ON public.patients USING gin (private.name_normalize(full_name) gin_trgm_ops)
 index public.idx_patients_objection_recorded_by CREATE INDEX idx_patients_objection_recorded_by ON public.patients USING btree (objection_recorded_by)
+index public.idx_patients_phone_trgm CREATE INDEX idx_patients_phone_trgm ON public.patients USING gin (phone gin_trgm_ops)
 index public.idx_patients_tenant_active CREATE INDEX idx_patients_tenant_active ON public.patients USING btree (tenant_id, is_deleted)
 index public.idx_patients_tenant_created_at CREATE INDEX idx_patients_tenant_created_at ON public.patients USING btree (tenant_id, created_at)
 index public.idx_patients_tenant_id CREATE INDEX idx_patients_tenant_id ON public.patients USING btree (tenant_id)
@@ -2710,6 +2756,7 @@ trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE
 trigger public.api_keys.api_keys_scope_guard CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
 trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
+trigger public.clinical_notes.clinical_notes_today_signal CREATE TRIGGER clinical_notes_today_signal AFTER UPDATE OF vitals ON public.clinical_notes FOR EACH ROW WHEN ((old.vitals IS DISTINCT FROM new.vitals)) EXECUTE FUNCTION private.today_signal()
 trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TRIGGER communication_queue_apply_early_dlr AFTER UPDATE OF external_message_id ON public.communication_queue FOR EACH ROW WHEN (((new.external_message_id IS NOT NULL) AND (old.external_message_id IS DISTINCT FROM new.external_message_id))) EXECUTE FUNCTION ops.communication_queue_apply_early_dlr()
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
@@ -2720,6 +2767,8 @@ trigger public.invoice_items.invoice_items_integrity_guard CREATE TRIGGER invoic
 trigger public.invoice_items.invoice_items_sync_invoice CREATE TRIGGER invoice_items_sync_invoice AFTER INSERT OR DELETE OR UPDATE ON public.invoice_items FOR EACH ROW EXECUTE FUNCTION private.invoice_items_sync_invoice()
 trigger public.invoices.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.invoices.invoices_insert_guard CREATE TRIGGER invoices_insert_guard BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.invoices_insert_guard()
+trigger public.invoices.invoices_today_signal_insert CREATE TRIGGER invoices_today_signal_insert AFTER INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.today_signal()
+trigger public.invoices.invoices_today_signal_update CREATE TRIGGER invoices_today_signal_update AFTER UPDATE OF total_amount, status ON public.invoices FOR EACH ROW WHEN (((old.total_amount IS DISTINCT FROM new.total_amount) OR (old.status IS DISTINCT FROM new.status))) EXECUTE FUNCTION private.today_signal()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
 trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_actor_guard()
@@ -2727,12 +2776,14 @@ trigger public.patients.patients_ai_objection_audit CREATE TRIGGER patients_ai_o
 trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_objection_stamp BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_stamp()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
+trigger public.payments.payments_today_signal CREATE TRIGGER payments_today_signal AFTER INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_admins_audit AFTER INSERT OR DELETE OR UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION private.platform_admins_audit()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
 trigger public.queue_tokens.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
+trigger public.queue_tokens.queue_tokens_today_signal CREATE TRIGGER queue_tokens_today_signal AFTER INSERT OR UPDATE ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
 trigger public.tenants.tenants_create_default_location CREATE TRIGGER tenants_create_default_location AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.tenants_create_default_location()
@@ -2742,4 +2793,8 @@ trigger public.visit_revisions.visit_revisions_actor_guard CREATE TRIGGER visit_
 trigger public.visits.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.visits.visits_integrity_guard CREATE TRIGGER visits_integrity_guard BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_integrity_guard()
+trigger public.visits.visits_metadata_guard CREATE TRIGGER visits_metadata_guard BEFORE UPDATE OF metadata ON public.visits FOR EACH ROW WHEN ((old.metadata IS DISTINCT FROM new.metadata)) EXECUTE FUNCTION private.visits_metadata_guard()
+trigger public.visits.visits_status_transition_guard CREATE TRIGGER visits_status_transition_guard BEFORE UPDATE OF status ON public.visits FOR EACH ROW WHEN ((old.status IS DISTINCT FROM new.status)) EXECUTE FUNCTION private.visits_status_transition_guard()
+trigger public.visits.visits_today_signal_insert CREATE TRIGGER visits_today_signal_insert AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.today_signal()
+trigger public.visits.visits_today_signal_update CREATE TRIGGER visits_today_signal_update AFTER UPDATE OF status, scheduled_at, doctor_id ON public.visits FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) OR (old.scheduled_at IS DISTINCT FROM new.scheduled_at) OR (old.doctor_id IS DISTINCT FROM new.doctor_id))) EXECUTE FUNCTION private.today_signal()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()

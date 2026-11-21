@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(89);
+select plan(109);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -185,6 +185,17 @@ insert into c2c_definer values
   ('public.reopen_visit_for_amendment', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
   ('public.finalize_visit_amendment', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
   ('public.check_in_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000097, 07-01, R-1)'),
+  ('public.start_consultation', 'bound', 'p_tenant_id = active clinic with consultations:edit and appointments:edit; the visit is looked up in that clinic only (000100, 08-01b, R-1)'),
+  ('public.complete_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000100, 08-01b)'),
+  ('public.reschedule_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit and the doctor are looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.cancel_visit', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.mark_no_show', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.confirm_appointment', 'bound', 'p_tenant_id = active clinic with appointments:edit; the visit is looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.add_to_waitlist', 'bound', 'p_tenant_id = active clinic with appointments:edit; patient and doctor are looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.promote_waitlist_entry', 'bound', 'p_tenant_id = active clinic with appointments:edit; the entry and the doctor are looked up in that clinic only (000103, 08-04a, R-15)'),
+  ('public.available_slots', 'bound', 'the session''s active full clinic with appointments:view; the doctor is looked up in that clinic only (000103, 08-04a, R-9)'),
+  ('public.register_patient', 'bound', 'p_tenant_id = active clinic with patients:edit; the patient is inserted in that clinic only (000101, 08-02, R-12)'),
+  ('public.find_patient_duplicates', 'bound', 'the session''s active full clinic with patients:view; patients and visits are read for that clinic only, the minimal projection (000105, 08-05, AI-14)'),
   ('public.enqueue_walk_in', 'bound', 'p_tenant_id = active clinic with appointments:edit (+ patients:edit for a new patient); patient and doctor are looked up in that clinic only (000098, 07-03, R-1)'),
   ('public.register_and_book', 'bound', 'p_tenant_id = active clinic with appointments:edit (+ patients:edit for a new patient); patient and doctor are looked up in that clinic only (000098, 07-03, R-1)'),
   ('public.complete_and_bill', 'bound', 'p_tenant_id = active clinic with consultations:edit (+ billing:collect with a payment); the visit is looked up in that clinic only (000098, 07-03, R-1, R-7)'),
@@ -213,6 +224,7 @@ insert into c2c_definer values
   ('public.create_clinic_with_owner', 'exempt', 'onboarding: creates the clinic and the caller''s first membership'),
   ('public.consume_reschedule_token', 'exempt', 'anon, patient reschedule token'),
   ('public.get_reschedule_context', 'exempt', 'anon, patient reschedule token'),
+  ('public.get_reschedule_slots', 'exempt', 'anon, patient reschedule token (000103, 08-04a, R-16)'),
   ('public.resolve_share_token', 'exempt', 'anon, share-link token'),
   ('public.readiness_probe', 'exempt', 'anon readiness probe: booleans only'),
   ('public.ops_ingest_error', 'exempt', 'error ingest: ingest key, no tenant data returned'),
@@ -260,6 +272,11 @@ insert into c2c_definer values
   ('private.step_create_invoice', 'internal', 'step: the visit''s live invoice or a new one; called by create_invoice and collect_payment after their guard block, no API grant (000096, 07-02)'),
   ('private.step_sign_consultation', 'internal', 'step: the sign-off body (visit, prescriptions, audit, outbox); called by sign_consultation after its guard block, no API grant (000097, 07-01)'),
   ('private.step_check_in', 'internal', 'step: the check-in body (token, waiting status, audit); called by check_in_visit after its guard block, no API grant (000097, 07-01)'),
+  ('private.visits_status_transition_guard', 'internal', 'trigger: refuses a visits.status change the state machine does not list; definer because it calls the private transition function (000100, 08-01b, R-7)'),
+  ('private.today_signal', 'internal', 'trigger: sends the PHI-free Today signal {kind, visit_id} after a visits, queue_tokens, payments or clinical_notes (vitals) write; swallows every Realtime error (000102, 08-03a, R-10)'),
+  ('private.today_signal_send', 'internal', 'step: the one caller of realtime.send for the Today signals; called by private.today_signal, no API grant (000102, 08-03a, R-10)'),
+  ('private.step_enqueue_visit_message', 'internal', 'step: the appointment_rescheduled / appointment_cancelled message in the command''s transaction, through private.enqueue_message_internal; called by reschedule_visit and cancel_visit after their guard block, no API grant (000103, 08-04a)'),
+  ('private.step_promote_waitlist', 'internal', 'step: the waitlist promotion into a vacated slot (FOR UPDATE SKIP LOCKED); called by cancel_visit after its guard block, no API grant (000103, 08-04a)'),
   ('private.step_create_patient', 'internal', 'step: the patient insert (validated input, created_by = the session user, audit); called by enqueue_walk_in and register_and_book after their guard block, no API grant (000098, 07-03)'),
   ('private.step_create_visit', 'internal', 'step: the visit insert (patient and doctor in the clinic, audit); called by enqueue_walk_in and register_and_book after their guard block, no API grant (000098, 07-03)'),
   ('private.step_enqueue_booking_message', 'internal', 'step: the appointment_booked message in the booking transaction, with the validation public.enqueue_message applies; called by register_and_book after its guard block, no API grant (000098, 07-03)'),
@@ -332,6 +349,11 @@ select set_eq(
     'private.command_claim:', 'private.command_complete:', 'private.command_request_hash:', 'private.log_command_audit:',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',
+    'public.reschedule_visit:authenticated', 'public.cancel_visit:authenticated', 'public.mark_no_show:authenticated',
+    'public.confirm_appointment:authenticated', 'public.add_to_waitlist:authenticated', 'public.promote_waitlist_entry:authenticated',
+    'public.available_slots:authenticated', 'public.find_patient_duplicates:authenticated', 'public.get_reschedule_slots:service_role,anon,authenticated',
+    'private.step_enqueue_visit_message:', 'private.step_promote_waitlist:',
+    'public.start_consultation:authenticated', 'public.complete_visit:authenticated', 'public.register_patient:authenticated', 'private.visits_status_transition_guard:', 'private.today_signal:', 'private.today_signal_send:',
     'public.sign_consultation:authenticated', 'public.reopen_visit_for_amendment:authenticated',
     'public.finalize_visit_amendment:authenticated', 'public.check_in_visit:authenticated',
     'private.step_sign_consultation:', 'private.step_check_in:',
@@ -440,6 +462,24 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000
   'error:P0002:VISIT_NOT_FOUND', 'finalize_visit_amendment: acting in A, naming clinic B, is not found (000097, 07-01)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.check_in_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'normal', 'c2c00000-0000-4000-8000-0000000c0024')$$),
   'error:P0002:VISIT_NOT_FOUND', 'check_in_visit: acting in A, naming clinic B, is not found (000097, 07-01)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.start_consultation('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0028')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'start_consultation: acting in A, naming clinic B, is not found (000100, 08-01b)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.complete_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0029')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'complete_visit: acting in A, naming clinic B, is not found (000100, 08-01b)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.register_patient('c2c00000-0000-4000-8000-00000000000b', '{"full_name":"Synthetic Elsewhere","phone":"9000000707","age":30}'::jsonb, 'c2c00000-0000-4000-8000-0000000c0040')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'register_patient: acting in A, naming clinic B, is not found (000101, 08-02)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.reschedule_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', now() + interval '3 days', 'c2c00000-0000-4000-8000-0000000c0050')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'reschedule_visit: acting in A, naming clinic B, is not found (000103, 08-04a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.cancel_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'other', 'c2c00000-0000-4000-8000-0000000c0051')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'cancel_visit: acting in A, naming clinic B, is not found (000103, 08-04a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.mark_no_show('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0052')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'mark_no_show: acting in A, naming clinic B, is not found (000103, 08-04a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.confirm_appointment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0053')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'confirm_appointment: acting in A, naming clinic B, is not found (000103, 08-04a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.add_to_waitlist('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', current_date + 3, 'c2c00000-0000-4000-8000-0000000c0054')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'add_to_waitlist: acting in A, naming clinic B, is not found (000103, 08-04a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.promote_waitlist_entry('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', now() + interval '3 days', 'c2c00000-0000-4000-8000-0000000c0055')$$),
+  'error:P0002:WAITLIST_ENTRY_NOT_FOUND', 'promote_waitlist_entry: acting in A, naming clinic B, is not found (000103, 08-04a)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.enqueue_walk_in('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', 'normal', 'c2c00000-0000-4000-8000-0000000c0025')$$),
   'error:P0002:PATIENT_NOT_FOUND', 'enqueue_walk_in: acting in A, naming clinic B, is not found (000098, 07-03)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.register_and_book('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', now() + interval '3 days', 15, false, 'c2c00000-0000-4000-8000-0000000c0026')$$),
@@ -495,6 +535,10 @@ insert into c2c_access values
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
   ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
   ('public.finalize_visit_amendment', 'refuses'), ('public.check_in_visit', 'refuses'),
+  ('public.reschedule_visit', 'refuses'), ('public.cancel_visit', 'refuses'), ('public.mark_no_show', 'refuses'),
+  ('public.confirm_appointment', 'refuses'), ('public.add_to_waitlist', 'refuses'), ('public.promote_waitlist_entry', 'refuses'),
+  ('public.available_slots', 'refuses'), ('public.find_patient_duplicates', 'refuses'),
+  ('public.start_consultation', 'refuses'), ('public.complete_visit', 'refuses'), ('public.register_patient', 'refuses'),
   ('public.enqueue_walk_in', 'refuses'), ('public.register_and_book', 'refuses'), ('public.complete_and_bill', 'refuses'),
   ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
@@ -508,7 +552,7 @@ insert into c2c_access values
   ('public.my_entitlements', 'neutral'), ('public.consume_invitation', 'neutral'), ('public.peek_invitation', 'neutral'),
   ('public.create_clinic_with_owner', 'neutral'), ('public.readiness_probe', 'neutral'), ('public.ops_ingest_error', 'neutral'),
   ('public.is_platform_admin', 'neutral'), ('public.session_is_live', 'neutral'),
-  ('public.consume_reschedule_token', 'token'), ('public.get_reschedule_context', 'token'), ('public.resolve_share_token', 'token'),
+  ('public.consume_reschedule_token', 'token'), ('public.get_reschedule_context', 'token'), ('public.get_reschedule_slots', 'token'), ('public.resolve_share_token', 'token'),
   ('public.share_token_object', 'token'),
   ('public.claim_jobs', 'claim'), ('public.complete_job', 'claim'), ('public.defer_job', 'claim'), ('public.fail_job', 'claim'),
   ('public.release_job', 'claim'), ('public.start_job', 'claim'), ('public.jobs_runner_begin', 'claim'), ('public.jobs_runner_end', 'claim'),
@@ -596,6 +640,24 @@ select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-00
   'error:P0002:VISIT_NOT_FOUND', 'locked B: finalize_visit_amendment is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.check_in_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'normal', 'c2c00000-0000-4000-8000-0000000c0034')$$),
   'error:P0002:VISIT_NOT_FOUND', 'locked B: check_in_visit is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.start_consultation('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0038')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: start_consultation is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.complete_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0039')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: complete_visit is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.register_patient('c2c00000-0000-4000-8000-00000000000b', '{"full_name":"Synthetic Locked","phone":"9000000707","age":30}'::jsonb, 'c2c00000-0000-4000-8000-0000000c0041')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'locked B: register_patient is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.reschedule_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', now() + interval '3 days', 'c2c00000-0000-4000-8000-0000000c0060')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: reschedule_visit is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.cancel_visit('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'other', 'c2c00000-0000-4000-8000-0000000c0061')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: cancel_visit is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.mark_no_show('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0062')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: mark_no_show is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.confirm_appointment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', 'c2c00000-0000-4000-8000-0000000c0063')$$),
+  'error:P0002:VISIT_NOT_FOUND', 'locked B: confirm_appointment is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.add_to_waitlist('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', current_date + 3, 'c2c00000-0000-4000-8000-0000000c0064')$$),
+  'error:P0002:PATIENT_NOT_FOUND', 'locked B: add_to_waitlist is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.promote_waitlist_entry('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', now() + interval '3 days', 'c2c00000-0000-4000-8000-0000000c0065')$$),
+  'error:P0002:WAITLIST_ENTRY_NOT_FOUND', 'locked B: promote_waitlist_entry is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.enqueue_walk_in('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', 'normal', 'c2c00000-0000-4000-8000-0000000c0035')$$),
   'error:P0002:PATIENT_NOT_FOUND', 'locked B: enqueue_walk_in is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.register_and_book('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009002', null, 'c2c00000-0000-4000-8000-000000000301', now() + interval '3 days', 15, false, 'c2c00000-0000-4000-8000-0000000c0036')$$),
@@ -637,6 +699,12 @@ select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
 select is(pg_temp.val_as(null, null,
   $$select (public.get_reschedule_context('c2c-synthetic-reschedule-token-for-clinic-b-0001', now(), now() + interval '1 day') ->> 'status')$$),
   'ok', 'full B: get_reschedule_context answers ok');
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
+  $$select (public.get_reschedule_slots('c2c-synthetic-reschedule-token-for-clinic-b-0001', current_date + 2) ->> 'status')$$),
+  'clinic_unavailable', 'locked B: get_reschedule_slots answers clinic_unavailable (control below: ok when full)');
+select is(pg_temp.val_as(null, null,
+  $$select (public.get_reschedule_slots('c2c-synthetic-reschedule-token-for-clinic-b-0001', current_date + 2) ->> 'status')$$),
+  'ok', 'full B: get_reschedule_slots answers ok');
 select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
   $$select (public.consume_reschedule_token('c2c-synthetic-reschedule-token-for-clinic-b-0001', now() + interval '2 days') ->> 'status')$$),
   'clinic_unavailable', 'locked B: consume_reschedule_token answers clinic_unavailable and moves nothing');

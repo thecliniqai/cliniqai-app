@@ -66,8 +66,8 @@ test.describe("H-AUTHOUT: no answer from the status route is never a sign-out", 
   }) => {
     const owner = await seedTenantWithOwner(`PWA Outage ${readRunData().runTag} ${Date.now()}`);
     await uiSignIn(page, { email: owner.userEmail, password: seededUserPassword() });
-    await page.goto("/patients/new");
-    const name = page.getByLabel(/^Patient Full Name/);
+    await page.goto("/patients?new=1");
+    const name = page.getByLabel(/^Full name/);
     await expect(name).toBeVisible();
     // On WebKit the load event can come before the form hydrates, and hydration drops text typed into the server HTML
     // (iPhone 15, first PR-lane run: the field read "" before any status answer). Type once the page is idle and the
@@ -93,7 +93,7 @@ test.describe("H-AUTHOUT: no answer from the status route is never a sign-out", 
         expect(answered, `${label}: the poll ran`).toBeGreaterThan(before);
       }).toPass({ timeout: 10_000 });
       await page.waitForTimeout(500);
-      expect(new URL(page.url()).pathname, label).toBe("/patients/new");
+      expect(new URL(page.url()).pathname, label).toBe("/patients");
       await expect(name, label).toHaveValue("Synthetic Unsaved Name");
       expect(await page.evaluate(() => document.documentElement.style.visibility), `${label}: not concealed`).not.toBe("hidden");
       expect(await authCookies(context), `${label}: still signed in`).not.toEqual([]);
@@ -122,7 +122,7 @@ test.describe("M-REMOVED: removed from the active clinic with another clinic lef
     // 06-09d (PR-lane run 1 root cause): the shell's first status check must have answered before the removal, or its
     // 403 signs the page out while the test's own `goto` is loading (net::ERR_ABORTED). See the 06-06 wave note.
     const firstCheck = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/session-status" && r.status() === 200, { timeout: 30_000 });
-    await page.goto("/");
+    await page.goto("/today");
     await firstCheck;
     // The clinic name is in the shell (in the sidebar at desktop widths, out of view on phones).
     await expect(page.getByText(a.tenantName).first()).toBeAttached();

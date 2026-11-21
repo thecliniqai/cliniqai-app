@@ -12,7 +12,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
-import { AUDIT_ACTIONS, AUDIT_METADATA_KEYS, COMMAND_ONLY_AUDIT_ACTIONS, recordAudit } from "@/lib/audit/audit";
+import { API_KEY_ONLY_AUDIT_ACTIONS, AUDIT_ACTIONS, AUDIT_METADATA_KEYS, COMMAND_ONLY_AUDIT_ACTIONS, recordAudit } from "@/lib/audit/audit";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
@@ -98,6 +98,26 @@ describe("log_audit through PostgREST (INT L-5)", () => {
     const asOwner = await call(owner, action, entityId, null);
     expect(asOwner.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
     expect(await rowsFor(entityId)).toEqual([]);
+  });
+
+  // V2-08 08-06a (S-5): the actions the API-key path writes (the service client inserts audit_logs directly and does not consult
+  // the list) and the ones only a command writes are refused to every member: a forged "appointment.cancel" or "visit.create" row
+  // is an event that never happened.
+  it.each([...API_KEY_ONLY_AUDIT_ACTIONS, "queue.transition"])("S-5: a receptionist and the owner cannot forge %s and nothing is written", async (action) => {
+    const entityId = randomUUID();
+    for (const who of [receptionist, owner]) {
+      const { error } = await call(who, action, entityId, { reason: "patient_request" });
+      expect(error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    }
+    expect(await rowsFor(entityId)).toEqual([]);
+  });
+
+  it("S-5: the API-key-only actions are in neither SQL list nor AUDIT_ACTIONS, and recordAudit's type still accepts them (the API routes use them)", () => {
+    for (const action of API_KEY_ONLY_AUDIT_ACTIONS) {
+      expect(AUDIT_ACTIONS as readonly string[]).not.toContain(action);
+      expect(psql("select unnest(private.audit_client_actions())")).not.toContain(action);
+    }
+    expect(AUDIT_ACTIONS as readonly string[]).not.toContain("queue.transition");
   });
 
   it("the command-only actions are in neither allow-list, and the SQL writer for them has no API grant", () => {

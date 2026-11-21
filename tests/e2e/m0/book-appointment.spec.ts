@@ -1,16 +1,17 @@
 /**
- * M0 characterisation flow 3 — book an appointment, including the overbook path (V2-02 plan 02-03b; FMP M0).
+ * M0 characterisation flow 3 — book an appointment, including the overbook path (V2-02 plan 02-03b; FMP M0), on the
+ * Schedule's booking sheet (V2-08 08-04b: the v1 calendar and its booking drawer are gone; the outcomes asserted are the same).
  *
  * 1. Booking a free, on-duty slot (default availability Mon–Sat 10:00–13:00, 17:00–21:00) creates one `visits` row
- *    `booked` at that instant for that doctor, not overbooked, shown on the calendar for that day.
+ *    `booked` at that instant for that doctor, not overbooked, shown on the Schedule for that day.
  * 2. Overbook path: booking a slot the doctor already has asks for confirmation ("Slot Already Booked"); confirming
  *    creates the booking flagged `is_overbooked`.
  * 3. Overbook path with a NEW patient: one patient row for that person, however many attempts the booking took. This was
  *    known v1 bug F-04 (the drawer called `createPatient` again on confirm, creating a duplicate); since V2-07 07-03 the
  *    patient is registered by the same command as the booking (`register_and_book`), so a refused slot registers nobody.
  *
- * The browser runs in Asia/Kolkata so the drawer's local date/time match the clinic's day (the calendar renders in
- * browser-local time).
+ * The sheet's times are the clinic's (IST) whatever zone the browser runs in; this file runs in Asia/Kolkata,
+ * `shell/clinic-zone-hydration.spec.ts` in other zones. `ux` records the interaction counts of flow 1 and 2.
  */
 import { expect, test } from "../fixtures";
 import {
@@ -25,27 +26,27 @@ import {
   visitsOf,
 } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
-import { appointmentCard, chooseExistingPatient, openBookingDrawer, setSlot } from "./support/calendar";
+import { appointmentOf, chooseExistingPatient, conflictDialog, openBookingSheet, setSlot } from "../support/schedule-page";
 
 test.use({ storageState: storageStatePath("receptionist"), timezoneId: "Asia/Kolkata" });
 
-test("book a free slot → booked visit at that time, visible on the calendar", async ({ page, ux }) => {
-  ux.flow("book-appointment", "Front desk books an existing patient into a free slot from the calendar");
+test("book a free slot → booked visit at that time, visible on the Schedule", async ({ page, ux }) => {
+  ux.flow("book-appointment", "Front desk books an existing patient into a free slot from the Schedule");
   const { tenantA } = run();
   const doctorId = tenantA.users.doctor.id;
   const patientName = `E2E Synthetic Booked ${testTag()}`;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
   const date = await freeBookingDate(tenantA.id, doctorId);
 
-  const drawer = await openBookingDrawer(page, ux, date);
-  await setSlot(drawer, ux, "10:00", doctorId);
-  await chooseExistingPatient(drawer, ux, patientName);
-  await ux.click(drawer.getByRole("button", { name: "Confirm Booking" }), "Confirm Booking");
+  const sheet = await openBookingSheet(page, ux, date);
+  await chooseExistingPatient(sheet, ux, patientName);
+  await setSlot(sheet, ux, "10:00", doctorId);
+  await ux.click(sheet.getByRole("button", { name: "Book", exact: true }), "Book");
 
-  // No overbook question for a free slot; the drawer closes and the appointment is on the calendar.
-  await expect(drawer).toHaveCount(0);
-  await expect(page.getByRole("dialog", { name: "Slot Already Booked" })).toHaveCount(0);
-  await expect(appointmentCard(page, patientName)).toBeVisible();
+  // No overbook question for a free slot; the sheet closes and the appointment is on the Schedule.
+  await expect(sheet).toHaveCount(0);
+  await expect(conflictDialog(page, "Slot Already Booked")).toHaveCount(0);
+  await expect(appointmentOf(page, patientName)).toBeVisible();
   ux.done();
 
   const visits = await visitsOf(tenantA.id, patient.id);
@@ -74,19 +75,19 @@ test("overbook path: a taken slot asks for confirmation; confirming books it fla
   const patientName = `E2E Synthetic Overbooked ${tag}`;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
 
-  const drawer = await openBookingDrawer(page, ux, date);
-  await setSlot(drawer, ux, "11:00", doctorId);
-  await chooseExistingPatient(drawer, ux, patientName);
-  await ux.click(drawer.getByRole("button", { name: "Confirm Booking" }), "Confirm Booking");
+  const sheet = await openBookingSheet(page, ux, date);
+  await chooseExistingPatient(sheet, ux, patientName);
+  await setSlot(sheet, ux, "11:00", doctorId);
+  await ux.click(sheet.getByRole("button", { name: "Book", exact: true }), "Book");
 
-  const confirm = page.getByRole("dialog", { name: "Slot Already Booked" });
+  const confirm = conflictDialog(page, "Slot Already Booked");
   await expect(confirm).toBeVisible();
   // Nothing is booked until the conflict is confirmed.
   expect(await visitsOf(tenantA.id, patient.id)).toHaveLength(0);
 
-  await ux.click(confirm.getByRole("button", { name: "Confirm Overbooking" }), "Confirm Overbooking");
+  await ux.click(confirm.getByRole("button", { name: "Confirm overbooking" }), "Confirm overbooking");
   await expect(confirm).toHaveCount(0);
-  await expect(appointmentCard(page, patientName)).toBeVisible();
+  await expect(appointmentOf(page, patientName)).toBeVisible();
 
   const visits = await visitsOf(tenantA.id, patient.id);
   expect(visits).toHaveLength(1);
@@ -117,18 +118,21 @@ test.describe("owner", () => {
     const newName = `E2E Synthetic New Overbook ${tag}`;
     const phoneDigits = syntheticPhoneDigits();
 
-    const drawer = await openBookingDrawer(page, ux, date);
-    await setSlot(drawer, ux, "12:00", doctorId);
-    await ux.click(drawer.getByRole("button", { name: "New Patient" }), "New Patient tab");
-    await ux.fill(drawer.getByLabel(/^Full Name/), newName, "Full Name");
-    await ux.fill(drawer.getByLabel(/^Mobile Phone/), phoneDigits, "Mobile Phone");
-    await ux.click(drawer.getByRole("button", { name: "Confirm Booking" }), "Confirm Booking");
+    const sheet = await openBookingSheet(page, ux, date);
+    // New patient inside the booking: type the name, "Register as new patient", the slot, the mobile number, age and sex.
+    await ux.fill(sheet.getByRole("combobox", { name: "Patient" }), newName, "Patient search");
+    await ux.click(sheet.getByRole("option", { name: /Register as new patient/ }), "Register as new patient");
+    await setSlot(sheet, ux, "12:00", doctorId);
+    await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
+    await ux.fill(sheet.getByRole("textbox", { name: "Age" }), "41", "Age");
+    await ux.click(sheet.getByRole("radio", { name: "Male", exact: true }), "Sex");
+    await ux.click(sheet.getByRole("button", { name: "Register and book" }), "Register and book");
 
-    const confirm = page.getByRole("dialog", { name: "Slot Already Booked" });
+    const confirm = conflictDialog(page, "Slot Already Booked");
     await expect(confirm).toBeVisible();
-    await ux.click(confirm.getByRole("button", { name: "Confirm Overbooking" }), "Confirm Overbooking");
+    await ux.click(confirm.getByRole("button", { name: "Confirm overbooking" }), "Confirm overbooking");
     await expect(confirm).toHaveCount(0);
-    await expect(appointmentCard(page, newName)).toBeVisible();
+    await expect(appointmentOf(page, newName)).toBeVisible();
 
     // One patient row for this person, booked once, flagged overbooked.
     const patients = await patientsByName(tenantA.id, newName);

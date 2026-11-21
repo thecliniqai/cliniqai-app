@@ -22,7 +22,7 @@ import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { psql } from "../helpers/sql";
 import { auditRows, commandResultRows, seedVisit, expectDataOnlyStoredResult } from "../helpers/billing-commands";
-import { callCheckIn, checkInArgs, tokensOfVisit, visitRow } from "../helpers/clinical-commands";
+import { callCheckIn, checkInArgs, tokensOfVisit, visitFlags, visitRow } from "../helpers/clinical-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 
@@ -43,10 +43,9 @@ afterAll(() => {
   expect(leftoverFaults()).toBe(0);
 });
 
-async function setStatus(visitId: string, status: string, extra: Record<string, unknown> = {}) {
-  const { error } = await getAdminClient().from("visits").update({ status, ...extra }).eq("id", visitId);
-  if (error) throw new Error(`seed status failed: ${error.message}`);
-}
+const HOUR = 3_600_000;
+/** A scheduled visit `offsetMs` from now: today in the clinic's zone for 0, another clinic-local day for +-36 h. */
+const at = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
 
 describe("check_in_visit: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
@@ -142,8 +141,8 @@ describe("check_in_visit: one transaction", () => {
   });
 
   it("a visit already in consultation gets its token without a status change", async () => {
-    const { visitId } = await seedVisit(tenantA);
-    await setStatus(visitId, "in_consultation");
+    // Inserted in that state: the visit state machine (000100) refuses booked -> in_consultation.
+    const { visitId } = await seedVisit(tenantA, undefined, { status: "in_consultation" });
     const { data, error } = await callCheckIn(tenantA.client, checkInArgs(tenantA, visitId));
     expect(error).toBeNull();
     expect(data).toMatchObject({ reused: false });
@@ -151,9 +150,8 @@ describe("check_in_visit: one transaction", () => {
     expect(await tokensOfVisit(visitId)).toHaveLength(1);
   });
 
-  it.each(["completed", "cancelled", "no_show"])("a %s visit is VISIT_NOT_CHECKABLE and gets no token", async (status) => {
-    const { visitId } = await seedVisit(tenantA);
-    await setStatus(visitId, status);
+  it.each(["completed", "cancelled"] as const)("a %s visit is VISIT_NOT_CHECKABLE and gets no token", async (status) => {
+    const { visitId } = await seedVisit(tenantA, undefined, { status });
     const args = checkInArgs(tenantA, visitId);
     const res = await callCheckIn(tenantA.client, args);
     expect(res.error).toMatchObject({ code: "P0001", message: "VISIT_NOT_CHECKABLE" });
@@ -161,6 +159,78 @@ describe("check_in_visit: one transaction", () => {
     expect((await visitRow(visitId)).status).toBe(status);
     expect(await tokensOfVisit(visitId)).toEqual([]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+  });
+});
+
+describe("check_in_visit: the booking's own day (R-8) and the late arrival", () => {
+  it("a booking of another clinic-local day is VISIT_NOT_TODAY (tomorrow and yesterday): no token, status unchanged", async () => {
+    for (const [status, when] of [["booked", at(36 * HOUR)], ["confirmed", at(-36 * HOUR)], ["no_show", at(36 * HOUR)]] as const) {
+      const { visitId } = await seedVisit(tenantA, undefined, { status, scheduledAt: when, overbooked: true });
+      const args = checkInArgs(tenantA, visitId);
+      const res = await callCheckIn(tenantA.client, args);
+      expect(res.error, status).toMatchObject({ code: "P0001", message: "VISIT_NOT_TODAY" });
+      expect(mapDbError(res.error), status).toMatchObject({ code: "CONFLICT", reason: "VISIT_NOT_TODAY" });
+      expect((await visitRow(visitId)).status).toBe(status);
+      expect(await tokensOfVisit(visitId)).toEqual([]);
+      expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
+    }
+  });
+
+  it("a booking of today is checked in, confirmed or not", async () => {
+    for (const status of ["booked", "confirmed"] as const) {
+      const { visitId } = await seedVisit(tenantA, undefined, { status, scheduledAt: at(0), overbooked: true });
+      const { data, error } = await callCheckIn(tenantA.client, checkInArgs(tenantA, visitId));
+      expect(error, status).toBeNull();
+      expect(data).toMatchObject({ reused: false, replayed: false });
+      expect((await visitRow(visitId)).status).toBe("waiting");
+    }
+  });
+
+  it("a no-show that arrives late is checked in: waiting, a token, and one audit row marked late_arrival", async () => {
+    const { visitId } = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: at(-HOUR / 4), overbooked: true });
+    const { data, error } = await callCheckIn(members.receptionist.client, checkInArgs(tenantA, visitId));
+    expect(error).toBeNull();
+    const result = data as { queue_token_id: string; token_number: number };
+    expect((await visitRow(visitId)).status).toBe("waiting");
+    expect(await auditRows(tenantA.tenantId, "queue.check_in", result.queue_token_id)).toEqual([
+      expect.objectContaining({ metadata: { token_number: result.token_number, priority: "normal", late_arrival: true } }),
+    ]);
+  });
+
+  // V2-08 08-06a (A-3): a no-show frees its slot (visits_no_double_booking skips no_show rows), the desk rebooks it, and the patient
+  // then arrives. Before, the move back to waiting re-entered the constraint and the check-in failed with a generic CONFLICT (23P01).
+  it("A-3: a late no-show whose slot was rebooked is checked in as an overbooked visit; the audit row says so; the slot's holder is untouched", async () => {
+    const slot = at(-HOUR / 4);
+    const late = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: slot });
+    const holder = await seedVisit(tenantA, undefined, { status: "booked", scheduledAt: slot });
+    const { data, error } = await callCheckIn(members.receptionist.client, checkInArgs(tenantA, late.visitId));
+    expect(error).toBeNull();
+    const result = data as { queue_token_id: string; token_number: number };
+    expect(await visitFlags(late.visitId)).toEqual({ status: "waiting", is_overbooked: true });
+    expect(await visitFlags(holder.visitId)).toEqual({ status: "booked", is_overbooked: false });
+    expect(await tokensOfVisit(late.visitId)).toHaveLength(1);
+    expect(await auditRows(tenantA.tenantId, "queue.check_in", result.queue_token_id)).toEqual([
+      expect.objectContaining({ metadata: { token_number: result.token_number, priority: "normal", late_arrival: true, is_overbooked: true } }),
+    ]);
+  });
+
+  it("A-3 control: a late no-show whose slot is still free is not marked overbooked (and says nothing about it)", async () => {
+    // Another doctor than the A-3 case above, so that case's holder (the same moment, a few milliseconds apart) is not this slot's.
+    const late = await seedVisit(tenantA, members.doctor.userId, { status: "no_show", scheduledAt: at(-HOUR / 2) });
+    const { data, error } = await callCheckIn(tenantA.client, checkInArgs(tenantA, late.visitId));
+    expect(error).toBeNull();
+    expect(await visitFlags(late.visitId)).toEqual({ status: "waiting", is_overbooked: false });
+    const [row] = await auditRows(tenantA.tenantId, "queue.check_in", (data as { queue_token_id: string }).queue_token_id);
+    expect(row.metadata).toHaveProperty("late_arrival", true);
+    expect(row.metadata).not.toHaveProperty("is_overbooked");
+  });
+
+  it("an ordinary check-in carries no late_arrival, and a walk-in (no appointment time) is never refused for its day", async () => {
+    const { visitId } = await seedVisit(tenantA);
+    const { data } = await callCheckIn(tenantA.client, checkInArgs(tenantA, visitId));
+    const tokenId = (data as { queue_token_id: string }).queue_token_id;
+    const [row] = await auditRows(tenantA.tenantId, "queue.check_in", tokenId);
+    expect(row.metadata).not.toHaveProperty("late_arrival");
   });
 });
 
@@ -308,8 +378,7 @@ describe("checkInVisit (service)", () => {
     expect(await checkInVisit(ctxFor(members.nurse), visitId, "normal", id)).toEqual({ ...(first as object), replayed: true });
     expect(await checkInVisit(ctxFor(tenantA), visitId, "normal", "not-a-uuid")).toMatchObject({ success: false, code: "VALIDATION_FAILED" });
 
-    const closed = await seedVisit(tenantA);
-    await setStatus(closed.visitId, "cancelled");
+    const closed = await seedVisit(tenantA, undefined, { status: "cancelled" });
     expect(await checkInVisit(ctxFor(tenantA), closed.visitId, "normal", randomUUID())).toMatchObject({
       success: false,
       error: "This visit can no longer be checked in.",

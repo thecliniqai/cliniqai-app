@@ -6,6 +6,8 @@
  * own required guard assertion:
  *   - session(P): no session 401 (or 404) with no ids; every role lacking P 403 (or 404) before any data access; a
  *     signed-in user with no membership refused; the least-privileged holder of P asking for tenant B's row 404;
+ *   - session-search (V2-08 08-02, T-08-02): the denial legs of session(P); tenant B's patient found by name or mobile number
+ *     gives an empty list; tenant A's own patient is listed with exactly the projection keys, `no-store`, no full number;
  *   - public-token (P0-04): malformed token 400, random and wrong-type tokens 404; no ids in the body;
  *   - webhook-secret (P0-03): missing or wrong `x-webhook-secret` 401, unknown provider 404, other methods 404;
  *   - cron-secret: CRON_SECRET unset 401, wrong or missing bearer 401 (fail-closed only; the compare is V2-04's, RL-23);
@@ -50,6 +52,7 @@ import {
   routeCases,
   sessionRouteCrossTenantLeg,
   sessionRouteDenialLegs,
+  sessionSearchRouteLegs,
   tenantSnapshot,
   webhookRouteLegs,
   type RequestSlot,
@@ -123,6 +126,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("session"))("session: %s", async (_k, c, guard) => {
         const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b[guard.resource]);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("session-search"))("session-search denial: %s", async (_k, c, guard) => {
+        const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b.patient);
         expect(violations, report(violations)).toEqual([]);
       });
 
@@ -239,6 +247,12 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("session"))("%s", async (_k, c: RouteCase, guard) => {
         const violations = await sessionRouteCrossTenantLeg(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      // A search route has no id to forge: tenant B's patient is searched by name and by number (the control seeds tenant A rows).
+      it.each(ofKind("session-search"))("session-search: %s", async (_k, c: RouteCase, guard) => {
+        const violations = await sessionSearchRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

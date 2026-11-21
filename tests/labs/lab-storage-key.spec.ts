@@ -52,7 +52,10 @@ describe("lab storage keys hold ids only (R-45)", () => {
     const key = res.document.storage_path;
     expect(key).toMatch(KEY_SHAPE);
     expect(key).toBe(`tenants/${owner.tenantId}/patients/${patientId}/labs/${res.document.id}.pdf`);
-    expect(key).not.toMatch(/asha|testpatient|cbc/i);
+    // The ids are random hex, so a name fragment such as "cbc" can occur inside one by chance: look at what is left
+    // once the three ids are taken out of the key.
+    const rest = key.replace(owner.tenantId, "").replace(patientId, "").replace(res.document.id, "");
+    expect(rest).not.toMatch(/asha|testpatient|cbc/i);
     const { data } = await admin.storage.from("clinic-records").download(key);
     expect(data).not.toBeNull();
     // The key also satisfies the 000022 shape rule (the row was accepted by the CHECK) and the stored audit row

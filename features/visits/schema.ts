@@ -173,6 +173,35 @@ export const registerAndBookSchema = z
 
 export type RegisterAndBookInput = z.input<typeof registerAndBookSchema>;
 
+/** Why a visit is cancelled (V2-08 08-04a, R-15): the closed set `cancel_visit` accepts. The code is stored on the visit and read by the webhook payload. */
+export const CANCEL_REASON_CODES = ["patient_request", "doctor_unavailable", "clinic_closed", "duplicate", "other"] as const;
+export type CancelReasonCode = (typeof CANCEL_REASON_CODES)[number];
+
+/** What a staff member sends to `reschedule_visit` (the tenant and the actor come from the session, never from here). */
+export const rescheduleVisitSchema = z.object({
+  visit_id: z.string().uuid("Invalid visit ID"),
+  new_scheduled_at: z.string().datetime({ offset: true }),
+  doctor_id: z.string().uuid("Invalid doctor ID").nullable().optional(),
+  estimated_duration_minutes: visitDurationSchema.nullable().optional(),
+  is_overbooked: z.boolean().default(false),
+  override_off_duty: z.boolean().default(false),
+  override_block: z.boolean().default(false),
+  notify: z.boolean().default(false),
+});
+
+export type RescheduleVisitInput = z.input<typeof rescheduleVisitSchema>;
+
+/** What a staff member sends to `cancel_visit`. The note is free text that stays on the visit (never in a message or a result). */
+export const cancelVisitSchema = z.object({
+  visit_id: z.string().uuid("Invalid visit ID"),
+  reason_code: z.enum(CANCEL_REASON_CODES),
+  reason_note: z.string().max(500).nullable().optional(),
+  notify: z.boolean().default(false),
+  promote_waitlist: z.boolean().default(true),
+});
+
+export type CancelVisitInput = z.input<typeof cancelVisitSchema>;
+
 export const createScheduleBlockSchema = z.object({
   doctor_id: z.string().uuid("Invalid doctor ID").nullable().optional(),
   start_time: z.string().datetime({ offset: true }),

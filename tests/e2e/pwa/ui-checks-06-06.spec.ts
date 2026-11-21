@@ -69,7 +69,7 @@ test.describe("update toast and skew notice", () => {
         const body = (await response.json()) as Record<string, unknown>;
         await route.fulfill({ response, json: { ...body, deploymentId: "e2e-next-deployment" } });
       });
-      await page.goto("/");
+      await page.goto("/today");
       const toast = page.locator("[data-update-toast]");
       await expect(toast.getByText("A new version is ready")).toBeVisible();
       await expect(toast.getByRole("button", { name: "Reload" })).toBeInViewport();
@@ -98,7 +98,7 @@ test.describe("install surfaces (iOS path)", () => {
     test(`Today card and the install sheet at ${w.width}px: axe clean, no horizontal scroll`, async ({ page }, testInfo) => {
       await iosDevice(page);
       await page.setViewportSize({ width: w.width, height: w.height });
-      await page.goto("/");
+      await page.goto("/today");
       const card = page.locator("[data-install-card]");
       await expect(card).toBeVisible();
       expect(await noHorizontalScroll(page)).toBe(true);
@@ -115,12 +115,12 @@ test.describe("install surfaces (iOS path)", () => {
     });
   }
 
-  test("the card never renders on /clinic/new, a consult or the queue (checkout drawer page)", async ({ page }) => {
+  test("the card never renders on /clinic/new, a consult or the Schedule", async ({ page }) => {
     await iosDevice(page);
-    await page.goto("/");
+    await page.goto("/today");
     await expect(page.locator("[data-install-card]")).toBeVisible();
     const { visitId } = readRunData().tenantA;
-    for (const p of ["/clinic/new", `/consultation/${visitId}`, "/queue"]) {
+    for (const p of ["/clinic/new", `/consultation/${visitId}`, "/schedule"]) {
       await page.goto(p);
       await page.waitForLoadState("networkidle");
       await expect(page.locator("[data-install-card]"), p).toHaveCount(0);
@@ -146,7 +146,7 @@ test.describe("in-app browser guidance", () => {
     test(`Open in Safari guidance at ${w.width}px: axe clean`, async ({ page }, testInfo) => {
       await iosDevice(page);
       await page.setViewportSize({ width: w.width, height: w.height });
-      await page.goto("/");
+      await page.goto("/today");
       await page.getByRole("button", { name: /^Account menu/ }).click();
       await page.getByRole("menuitem", { name: "Open in Safari" }).click();
       const sheet = page.getByRole("dialog", { name: "Open in Safari to install" });

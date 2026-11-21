@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
-import { createVisit, getVisitsForDate } from "@/features/visits/service";
-import { checkInVisit, getQueueForDate } from "@/features/queue/service";
+import { getVisitsForDate } from "@/features/visits/service";
+import { createVisit } from "../helpers/seed-visit";
+import { checkInVisit } from "@/features/queue/service";
+import { getTodayBoard } from "@/features/today/queries";
 import { uploadLabDocument } from "@/features/labs/service";
 import { formatAmendedFilename } from "@/features/labs/utils";
 import { getTenantToday } from "@/lib/datetime/server";
@@ -28,7 +30,7 @@ function useClinicClock(instant: Date): void {
 }
 
 async function seedPatient(t: SeededTenant, fullName: string, phone: string): Promise<string> {
-  const { data, error } = await t.client
+  const { data, error } = await getAdminClient()
     .from("patients")
     .insert({ tenant_id: t.tenantId, full_name: fullName, phone, age: 40, created_by: t.userId })
     .select("id")
@@ -123,7 +125,7 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
   });
 
   it("a visit at 02:00 IST on 13 Nov is in the 13 Nov list and not in the 12 Nov list", async () => {
-    const { data: visit, error } = await ist.client
+    const { data: visit, error } = await getAdminClient()
       .from("visits")
       .insert({
         tenant_id: ist.tenantId,
@@ -141,17 +143,17 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
     useClinicClock(AT_0030_IST_13_NOV);
     const on13 = await getVisitsForDate(ctxFor(ist), "2026-11-13");
     const on12 = await getVisitsForDate(ctxFor(ist), "2026-11-12");
-    const queue13 = await getQueueForDate(ctxFor(ist), "2026-11-13");
-    const queue12 = await getQueueForDate(ctxFor(ist), "2026-11-12");
+    const board13 = await getTodayBoard(ctxFor(ist), { date: "2026-11-13" });
+    const board12 = await getTodayBoard(ctxFor(ist), { date: "2026-11-12" });
     vi.useRealTimers();
 
     if (!on13.success || !on12.success) throw new Error("getVisitsForDate failed");
     expect(on13.visits.map((v) => v.id)).toContain(visit.id);
     expect(on12.visits.map((v) => v.id)).not.toContain(visit.id);
 
-    if (!queue13.success || !queue12.success) throw new Error("getQueueForDate failed");
-    expect(queue13.items.map((i) => i.visit.id)).toContain(visit.id);
-    expect(queue12.items.map((i) => i.visit.id)).not.toContain(visit.id);
+    if (!board13.ok || !board12.ok) throw new Error("getTodayBoard failed");
+    expect(board13.board.rows.map((r) => r.visitId)).toContain(visit.id);
+    expect(board12.board.rows.map((r) => r.visitId)).not.toContain(visit.id);
   });
 
   it("a lab document uploaded at 00:30 IST without a report date is dated 13 Nov", async () => {

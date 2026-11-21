@@ -14,7 +14,7 @@ test.use({ storageState: storageStatePath("owner") });
 
 test("Chrome reports the signed-in app installable (Page.getInstallabilityErrors is empty)", async ({ page, browserName }, testInfo) => {
   test.skip(browserName !== "chromium", "CDP installability check is Chromium only");
-  await page.goto("/");
+  await page.goto("/today");
   await waitForServiceWorker(page);
   const cdp = await page.context().newCDPSession(page);
   const result = (await cdp.send("Page.getInstallabilityErrors")) as { installabilityErrors: Array<{ errorId: string }> };

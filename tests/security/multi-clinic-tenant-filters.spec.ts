@@ -16,8 +16,8 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ServiceContext } from "@/lib/auth/context";
-import { checkInVisit, transitionQueueState } from "@/features/queue/service";
-import { cancelVisit, confirmAppointment, updateVisitStatus } from "@/features/visits/service";
+import { checkInVisit, startConsultation } from "@/features/queue/service";
+import { cancelVisit, confirmAppointment, markNoShow, rescheduleVisit } from "@/features/visits/scheduling-service";
 import { promoteWaitlistEntry } from "@/features/waitlist/service";
 import { acknowledgeReferral } from "@/features/referrals/service";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -131,14 +131,23 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
     expect(await rowOf("visits", C.visit)).toEqual(before);
     const { data: tokens } = await admin.from("queue_tokens").select("id").eq("visit_id", C.visit);
     expect(tokens ?? []).toEqual([]);
-    expect((await checkInVisit(ctxA, A.visit, "normal", randomUUID())).success).toBe(true);
+    // Control: a walk-in of A (A.visit is booked days ahead, which a check-in refuses since 000100, R-8).
+    const walkIn = await insertRow("visits", {
+      tenant_id: ownerA.tenantId,
+      patient_id: A.patient,
+      doctor_id: ownerA.userId,
+      origin_type: "walk_in",
+      created_by: ownerA.userId,
+    });
+    expect((await checkInVisit(ctxA, walkIn, "normal", randomUUID())).success).toBe(true);
   });
 
-  it("updateVisitStatus, confirmAppointment, cancelVisit: C's visit refused and unchanged", async () => {
+  it("confirmAppointment, rescheduleVisit, markNoShow, cancelVisit: C's visit refused and unchanged", async () => {
     const before = await rowOf("visits", C.visit);
-    expect((await updateVisitStatus(ctxA, C.visit, "confirmed")).success).toBe(false);
-    expect((await confirmAppointment(ctxA, C.visit)).success).toBe(false);
-    expect((await cancelVisit(ctxA, C.visit)).success).toBe(false);
+    expect((await confirmAppointment(ctxA, C.visit, randomUUID())).ok).toBe(false);
+    expect((await rescheduleVisit(ctxA, { visit_id: C.visit, new_scheduled_at: new Date(Date.now() + 12 * 86_400_000).toISOString(), is_overbooked: true }, randomUUID())).ok).toBe(false);
+    expect((await markNoShow(ctxA, C.visit, randomUUID())).ok).toBe(false);
+    expect((await cancelVisit(ctxA, { visit_id: C.visit, reason_code: "other" }, randomUUID())).ok).toBe(false);
     expect(await rowOf("visits", C.visit)).toEqual(before);
 
     const control = await insertRow("visits", {
@@ -152,23 +161,25 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
       scheduled_at: new Date(Date.now() + 8 * 86_400_000).toISOString(),
       created_by: ownerA.userId,
     });
-    expect((await updateVisitStatus(ctxA, control, "booked")).success).toBe(true);
-    expect((await confirmAppointment(ctxA, control)).success).toBe(true);
-    expect((await cancelVisit(ctxA, control)).success).toBe(true);
+    expect((await confirmAppointment(ctxA, control, randomUUID())).ok).toBe(true);
+    expect((await cancelVisit(ctxA, { visit_id: control, reason_code: "other" }, randomUUID())).ok).toBe(true);
   });
 
-  it("transitionQueueState: C's visit refused and unchanged", async () => {
+  it("startConsultation: C's visit refused and unchanged, no A queue token points at it", async () => {
     const before = await rowOf("visits", C.visit);
-    expect((await transitionQueueState(ctxA, C.visit, "in_consultation")).success).toBe(false);
+    const res = await startConsultation(ctxA, C.visit, randomUUID());
+    expect(res).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
     expect(await rowOf("visits", C.visit)).toEqual(before);
+    const { data: tokens } = await admin.from("queue_tokens").select("id").eq("visit_id", C.visit);
+    expect(tokens ?? []).toEqual([]);
   });
 
   it("promoteWaitlistEntry: C's entry refused and unchanged, no A visit for C's patient", async () => {
     const before = await rowOf("waitlist_entries", C.waitlist);
     const at = new Date(Date.now() + 6 * 86_400_000).toISOString();
-    expect((await promoteWaitlistEntry(ctxA, C.waitlist, at)).success).toBe(false);
+    expect((await promoteWaitlistEntry(ctxA, { entry_id: C.waitlist, scheduled_at: at, is_overbooked: true }, randomUUID())).ok).toBe(false);
     expect(await rowOf("waitlist_entries", C.waitlist)).toEqual(before);
-    expect((await promoteWaitlistEntry(ctxA, A.waitlist, at)).success).toBe(true);
+    expect((await promoteWaitlistEntry(ctxA, { entry_id: A.waitlist, scheduled_at: at, is_overbooked: true }, randomUUID())).ok).toBe(true);
   });
 
   it("acknowledgeReferral: an inbound referral of C is not acknowledged from A", async () => {

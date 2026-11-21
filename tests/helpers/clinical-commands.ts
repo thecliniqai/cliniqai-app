@@ -15,6 +15,8 @@ export type SignArgs = Fns["sign_consultation"]["Args"];
 export type ReopenArgs = Fns["reopen_visit_for_amendment"]["Args"];
 export type FinalizeArgs = Fns["finalize_visit_amendment"]["Args"];
 export type CheckInArgs = Fns["check_in_visit"]["Args"];
+export type StartConsultationArgs = Fns["start_consultation"]["Args"];
+export type CompleteVisitArgs = Fns["complete_visit"]["Args"];
 
 export interface ClinicalVisitOptions {
   /** The visit's doctor (default: the clinic owner). */
@@ -39,12 +41,9 @@ export interface ClinicalVisit extends SeededVisit {
 export async function seedClinicalVisit(t: Pick<SeededTenant, "tenantId" | "userId">, opts: ClinicalVisitOptions = {}): Promise<ClinicalVisit> {
   const admin = getAdminClient();
   const doctorId = opts.doctorId ?? t.userId;
-  const base = await seedVisit(t, doctorId);
-  // A sign-off needs a visit that is in the queue or in consultation (07-04a F-6); the seed default is `booked`.
-  {
-    const { error } = await admin.from("visits").update({ status: opts.status ?? "waiting" }).eq("id", base.visitId);
-    if (error) throw new Error(`seed visit status failed: ${error.message}`);
-  }
+  // A sign-off needs a visit that is in the queue or in consultation (07-04a F-6); the seed default is `waiting`. The status is
+  // inserted, not updated: the visit state machine (000100) refuses booked -> in_consultation.
+  const base = await seedVisit(t, doctorId, { status: opts.status ?? "waiting" });
   const notes = opts.notes === undefined ? "Synthetic clinical note." : opts.notes;
   if (notes !== null) {
     const { error } = await admin.from("clinical_notes").update({ clinical_notes: notes }).eq("visit_id", base.visitId);
@@ -101,10 +100,24 @@ export function checkInArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, 
   return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_priority: "normal", p_client_request_id: randomUUID(), ...over };
 }
 
+export function startConsultationArgs(
+  t: Pick<SeededTenant, "tenantId">,
+  visitId: string,
+  over: Partial<StartConsultationArgs> = {}
+): StartConsultationArgs {
+  return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_client_request_id: randomUUID(), ...over };
+}
+
+export function completeVisitArgs(t: Pick<SeededTenant, "tenantId">, visitId: string, over: Partial<CompleteVisitArgs> = {}): CompleteVisitArgs {
+  return { p_tenant_id: t.tenantId, p_visit_id: visitId, p_client_request_id: randomUUID(), ...over };
+}
+
 export const callSign = (db: TestDb, args: SignArgs) => db.rpc("sign_consultation", args);
 export const callReopen = (db: TestDb, args: ReopenArgs) => db.rpc("reopen_visit_for_amendment", args);
 export const callFinalize = (db: TestDb, args: FinalizeArgs) => db.rpc("finalize_visit_amendment", args);
 export const callCheckIn = (db: TestDb, args: CheckInArgs) => db.rpc("check_in_visit", args);
+export const callStartConsultation = (db: TestDb, args: StartConsultationArgs) => db.rpc("start_consultation", args);
+export const callCompleteVisit = (db: TestDb, args: CompleteVisitArgs) => db.rpc("complete_visit", args);
 
 /** The visit as the commands change it. */
 export async function visitRow(visitId: string) {
@@ -113,6 +126,13 @@ export async function visitRow(visitId: string) {
     .select("status, signed_at, signed_by, current_revision, updated_at")
     .eq("id", visitId)
     .single();
+  if (error || !data) throw new Error(`visit read failed: ${error?.message}`);
+  return data;
+}
+
+/** The status and the overbooked flag of a visit (V2-08 08-06a, A-3), read with the service-role client. */
+export async function visitFlags(visitId: string) {
+  const { data, error } = await getAdminClient().from("visits").select("status, is_overbooked").eq("id", visitId).single();
   if (error || !data) throw new Error(`visit read failed: ${error?.message}`);
   return data;
 }
@@ -140,7 +160,7 @@ export async function revisionsOfVisit(visitId: string) {
 export async function tokensOfVisit(visitId: string) {
   const { data, error } = await getAdminClient()
     .from("queue_tokens")
-    .select("id, token_number, priority, date, location_id, tenant_id")
+    .select("id, token_number, priority, date, location_id, tenant_id, called_at, completed_at")
     .eq("visit_id", visitId);
   if (error) throw new Error(error.message);
   return data ?? [];
