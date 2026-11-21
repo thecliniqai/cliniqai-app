@@ -778,3 +778,55 @@ The plan's deferred row "Magic-byte type check on uploads" (V2-14) is done here 
   Not investigated further; recorded for the close.
 - Tracked evidence PNGs rewritten by `tablet-captures.spec.ts` were restored with `git checkout` after each lane; `.planning/dev-messages.txt` was not recreated.
 
+
+## CI 44924479177 root causes (PR #16, head 199c0db2)
+
+The PR lane (desktop-chrome, pixel-7, iphone-15 and pwa-ipados in one run against one database) failed 3 tests, retried 4 to green, and was cut by its
+2400 s global timeout while iphone-15 ran (5 of its 92 golden tests run, 87 not). Evidence: the CI log, the `playwright-pr` artifact (`results.json`,
+traces), a local baseline that reproduced the CI pattern (`npm run e2e:build`, then `npm run e2e:pr -- --retries=2` on 199c0db2: the same 3 hard failures,
+the unload guard and the learned order retried to green on the same projects; only the killed tab passed locally), and three temporary experiment specs
+(deleted). Debug session: `.planning/debug/ci-44924479177-09b-e2e.md`.
+
+| # | Test (project) | Root cause | Wrong | Fix (commit) |
+|---|---|---|---|---|
+| 1 | `shell/nav-per-role` :126 (desktop, hard) | Waited for `section#vitals`, the v1 workspace's vitals section; 09B-02a (8efcb69e) hosts the vitals in `div#vitals` inside Examination, so the "workspace has rendered" signal never came. The landmark itself is right (one `main`). | test | Waits for `[data-consult-workspace]`, the workspace root the hydration helper uses (26bf5ff) |
+| 2 | `consult/smart-assist` :199 (pixel-7, hard) | Today's Next card is the doctor's first urgent token of the day. The run's doctor is shared by every project; desktop-chrome's run of the same test left its urgent visit waiting (token 7, "Snapshot Today 7ba67140"), which stayed Next on all three pixel-7 attempts. | test (isolation) | Own doctor for the test (`tests/e2e/support/own-doctor.ts`): seeded, signed in, retired after (c725c5f) |
+| 3 | `m0/consult-rx-finish` :43 (pixel-7, hard) | desktop-chrome's run signed "Viral Fever", so on pixel-7 the doctor's "Your recent" tiles offered Viral Fever MG26 and the Quick OPD chips offered it again: two buttons for one diagnosis (strict-mode violation). `rankDiagnoses` already keeps a likely diagnosis out of "recent"; the fixed chips were deduped against neither. | product | `quickChipsBesideLearned` leaves out of the chips what the learned tiles offer (case-insensitive); once added, the tile leaves and the chip shows it as chosen. The M0 spec is unchanged: its one `/Viral Fever/` button is the chip (no history) or the tile (history), with the same stored row (385bb2d) |
+| 4 | `consult/draft-persistence` :46 (desktop and pixel-7, passed on attempt 3) | The test "killed" the tab with `page.close({ runBeforeUnload: false })`, which is a close: Chromium runs `visibilitychange` and `pagehide`, where the consult saves on purpose (R-4, `use-consult-draft.ts` since 2e27820b). A probe (init-script beacons) saw that close send a draft save carrying the unsaved tail in 8 of 10 closes; locally it never reached the server before the renderer went (20 of 20), on the CI runner it did in 4 of 6 attempts (the reopened page's server render held "first line second"; the closed page is the only writer). | test | The renderer is killed (CDP `Page.crash`; Chromium only, where the PR lane runs it), so no handler runs; the assertions (the note, one audit row) are unchanged (27b8dac) |
+| 5 | `consult/draft-persistence` :255 (pixel-7, passed on attempt 2; locally desktop and pixel-7 attempt 1 failed) | The `beforeunload` guard was added by an effect on React state that the saver's `onState` sets from inside a passive effect, so it arrived at least one render after the keystroke; in CI `Page.close` came 5 ms after `fill`, with no listener yet. Renderer throttled 6x, a close right after an edit asked in 11 of 24 tries. | product | The guard follows the saver's state in `onState` itself (the same call that makes the draft dirty); the released saver's cleanup removes it. Same experiment after: 24 of 24 asked (faad9d9) |
+| 6 | `consult/tap-entry` :229 (pixel-7, passed on attempt 2) | The learned order counts the doctor's signed visits. The group seeded 6 Knee pain visits "more often than any other spec's history gives Fever", but the run's doctor is shared across projects and retries: on pixel-7, desktop's history plus smart-assist's `beforeAll` (3 Fever visits, run three times because that serial file failed three times) put Fever first; the retry re-ran this group's `beforeAll` (+6 Knee pain) and passed. | test (isolation) | Own doctor for the group, 3 Knee pain visits (an own complaint is a tile from 2) (c725c5f) |
+| 7 | `consult/tablet-captures` :111 amending at 820 (iphone-15) | Not a test failure: "Timed out waiting 2400s for the test suite to run" ended it while it waited for the banner ("Test ended"). The lane has 1261 tests (09A: 1011); locally 29 to 30 min, and that runner took 1.54x the local time on desktop-chrome (26.4 against 17.1 min), so a green lane needs about 45 min against a 40-minute limit. | CI budget | Lane global timeout 65 min, e2e job 75 min (98a09dc, comment 7757c9f). **PO decision**: more CI minutes per run; the alternative is splitting the lane |
+| 8 | `consult/keyboard-golden` :29 (desktop; found by the repeat run, not in CI) | The diagnosis search lists the calling doctor's own custom diagnoses first (LIKE or trigram similarity 0.3); with the shared run doctor, smart-assist's "Zzz e2e own diagnosis …" was the highlighted first row on repeats 2 and 3 and Enter added it instead of the typed name. CI's single pass hid it (desktop runs this file before smart-assist; the other projects skip it); a retry after its own diagnosis was stored would match that one too. | test (isolation) | Own doctor for the test; Enter adding the highlighted row is the documented behaviour (879e485) |
+| 9 | `schedule/schedule` :277 reschedule page (desktop, pixel-7; found by the proof run after midnight IST) | The page opens on tomorrow's slots (clinic zone), and the negative check `/12:30 am\|11:30 pm\|1:30 am/` matched the "11:30 am" slot button ("1:30 am" is a substring). The spec (V2-08) had only run on an IST Saturday, when tomorrow is the closed Sunday; from Sunday to Friday it fails every run. | test | Word-bounded times; a wrong-zone "11:30 pm" still fails (572977b) |
+| 10 | `shell/clinic-zone-hydration` :37 New York (desktop, passed on retry; found by the proof run) | `openSchedule`'s strict `locator('[data-schedule]').waitFor()` resolved to 2 elements: the hydrated day view in `#main` and a hidden agenda copy at `BODY > DIV[hidden id="S:0"]` (React's streamed segment awaiting reveal, per the trace's DOM snapshot); no page or console error. | test | The helper waits for `#main [data-schedule]` (748dfd7). Not proven by repetition (it passed 6 of 6 before and after); `openToday` waits for `[data-today-board]` the same way and has not failed |
+
+Own doctor (2, 6, 8): created through the admin API with the run's password (so `signSeededVisit` signs their history), member of clinic A while the
+test runs, signed in through the login UI, then marked `removed` so later specs see the usual doctor list; the run's teardown deletes the user. The other
+tests in those files keep the run's doctor (their assertions do not depend on the doctor's accumulated data).
+
+Observation, not changed: the close-time save (`hidden()` on `pagehide`) is best effort. A server action cannot be `keepalive`, so a save sent while the
+tab closes is often cut (always, locally). The 5 s bound is what the product guarantees and what the killed-tab test asserts. The Vitest `test` job of
+this CI run took 35 of its 45 minutes: the next limit to watch.
+
+### Stability (tool output of the runs named)
+
+Every e2e run on the local stack after `npx supabase db reset --local` (a killed experiment had left its run data), with the PNGs that
+`tablet-captures` rewrites restored after each run; `.planning/dev-messages.txt` was not recreated.
+
+- Baseline, head 199c0db2, build b6wK28skzj3aXOI5sAacQ, `npm run e2e:pr -- --retries=2` (before the reset): **1001 passed, 3 failed, 3 flaky, 246
+  skipped, 8 did not run (30.0 min)**: rows 1, 2, 3 failed; 5 (desktop and pixel-7) and 6 retried to green; 4 passed.
+- Experiment (temporary spec): renderer throttled 6x, `fill` then `page.close({ runBeforeUnload: true })`, 12 per project: the guard asked in 11 of 24
+  on build b6wK28skzj3aXOI5sAacQ, 24 of 24 on viFxsp4SCeinSVMDPeeQ- (faad9d9). Close probe: a draft save carrying the tail sent during 8 of 10 closes.
+- Build viFxsp4SCeinSVMDPeeQ- (both product fixes), `--retries=0 --repeat-each=3`, desktop-chrome, pixel-7, iphone-15:
+  - `tests/e2e/consult`, `shell/nav-per-role`, `m0/consult-rx-finish`, `journeys/journey-06-consult`: **708 passed, 2 failed, 54 skipped** (30.0 min).
+    The 2 failures are row 8 (keyboard golden, repeats 2 and 3). Rows 1-7's tests passed every repeat on every project that runs them (3 of 3 each).
+  - After 879e485, `consult/keyboard-golden` and `consult/smart-assist`: **92 passed, 0 failed, 9 skipped** (keyboard golden 3 of 3 after smart-assist).
+  - After 572977b and 748dfd7, `schedule/schedule` and `shell/clinic-zone-hydration`: **116 passed, 0 failed, 18 skipped**.
+- Proof run 1, 879e485, `CI=true npm run e2e:pr` (retries 2, as CI): **1011 passed, 2 failed, 1 flaky, 247 skipped (29.7 min)**: rows 9 and 10, both
+  outside this phase's code, found because the run crossed midnight IST. Every test of rows 1-8 passed on its first attempt on every project.
+- Proof run 2, 748dfd7, `CI=true npm run e2e:pr`: **1014 passed, 0 failed, 0 flaky (0 retried), 247 skipped (29.2 min)**; desktop-chrome 629,
+  pixel-7 279, iphone-15 91 (1 skipped), pwa-ipados 7, setup 8; the two network-block cases failed with their KNOWN-BUG assertion as declared. Test time per
+  project: desktop-chrome 16.8, pixel-7 8.8, iphone-15 3.0 min (x1.54 on the CI runner: about 45 min, inside the new 65).
+- Vitest `tests/consultation/assist-ranking.spec.ts` 39 passed (a no-op and a case-sensitive mutant of `quickChipsBesideLearned` fail 3 each).
+- Vitest `tests/consultation tests/terminology`: 21 files, 494 tests, all passed.
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (unchanged); `npm run inventory` exit 0, 0 flagged; `ci:ui-policy` and `ci:ai-l1` PASS.
