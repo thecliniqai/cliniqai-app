@@ -104,11 +104,7 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
       dosage: "1-0-1",
       duration: "5 days",
     });
-    // V2-09a (000109): the PDF path is written only for a signed header of a sealed visit (R-15: signed the way production does), so the export can
-    // be shown to leave the stored path out.
-    await signVisitAs(owner, visitId);
-    // V2-09a 09A-06a (R-A): the pair is the signer's (upload and pair with the signer's own client).
-    if (!(await archiveRxAs(owner, visitId))) throw new Error("seed pdf archive failed");
+    // V2-09b 09B-06a (000116, S-2): a document is attached before sign-off; a sealed visit refuses new documents.
     storagePath = `tenants/${owner.tenantId}/patients/${patientId}/labs/${randomUUID()}.pdf`;
     await insertId("patient_documents", {
       tenant_id: owner.tenantId,
@@ -122,6 +118,11 @@ describe("DPDP export: minimal DTOs on the local stack (05-06)", () => {
       mime_type: "application/pdf",
       uploaded_by: doctorId,
     });
+    // V2-09a (000109): the PDF path is written only for a signed header of a sealed visit (R-15: signed the way production does), so the export can
+    // be shown to leave the stored path out.
+    await signVisitAs(owner, visitId);
+    // V2-09a 09A-06a (R-A): the pair is the signer's (upload and pair with the signer's own client).
+    if (!(await archiveRxAs(owner, visitId))) throw new Error("seed pdf archive failed");
     const invoiceId = await insertId("invoices", {
       tenant_id: owner.tenantId,
       patient_id: patientId,
