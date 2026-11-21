@@ -83,6 +83,9 @@
  *          locked-clinic leg each; get_reschedule_slots: 1 locked and 1 full leg) + staff_scheduling 49 (new file, every one
  *          required; the authz and integrity files keep their counts, they widen the visits UPDATE grant inside their own
  *          transaction) = 8237 (53 files).
+ *   8267 — V2-08 08-05 (000105 smart_assist): 8237 + smart_assist 30 (new file, every one required); patient_search keeps its 40
+ *          (two assertions changed: the definer read and the strength column) and definer_functions its 109 (find_patient_duplicates
+ *          is a row in three exact sets, no test) = 8267 (54 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -94,7 +97,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8237;
+export const FLOOR = 8267;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -180,6 +183,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/today_signals.test.sql",
   // V2-08 08-04a
   "supabase/tests/database/staff_scheduling.test.sql",
+  // V2-08 08-05
+  "supabase/tests/database/smart_assist.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

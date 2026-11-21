@@ -3487,6 +3487,7 @@ export type Database = {
           phone_last4: string;
           reasons: string[];
           sex: string;
+          strength: string;
         }[];
       };
       generate_tenant_invoice_number: {
@@ -3810,6 +3811,14 @@ export type Database = {
           p_visit_id: string;
         };
         Returns: Json;
+      };
+      slot_suggestion_context: {
+        Args: { p_doctor_id: string; p_patient_id: string };
+        Returns: {
+          avg_consult_minutes: number;
+          consult_samples: number;
+          preferred_band: string;
+        }[];
       };
       start_consultation: {
         Args: {

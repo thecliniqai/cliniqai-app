@@ -106,8 +106,8 @@ reset enable_seqscan;
 -- 2. catalog: invoker reads, definer command, grants --------------------------------------------------------------------
 select is((select prosecdef from pg_proc where oid = 'public.search_patients(text,integer)'::regprocedure), false,
   'search_patients is SECURITY INVOKER (RLS applies)');
-select is((select prosecdef from pg_proc where oid = 'public.find_patient_duplicates(text,text,date,integer)'::regprocedure), false,
-  'find_patient_duplicates is SECURITY INVOKER (RLS applies)');
+select is((select prosecdef from pg_proc where oid = 'public.find_patient_duplicates(text,text,date,integer)'::regprocedure), true,
+  'find_patient_duplicates is a SECURITY DEFINER read since 000105 (guard: the session''s active full clinic and patients:view; see smart_assist.test.sql)');
 select is((select prosecdef from pg_proc where oid = 'public.register_patient(uuid,jsonb,uuid)'::regprocedure), true,
   'register_patient is SECURITY DEFINER (the V2-07 command pattern)');
 select is((select count(*)::int from pg_proc p
@@ -132,8 +132,8 @@ select is(pg_get_function_result('public.search_patients(text,integer)'::regproc
   'TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer)',
   'search_patients returns the minimal columns only (no address, allergies, ABHA or full number)');
 select is(pg_get_function_result('public.find_patient_duplicates(text,text,date,integer)'::regprocedure),
-  'TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[])',
-  'find_patient_duplicates returns the minimal columns and the reasons only');
+  'TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[], strength text)',
+  'find_patient_duplicates returns the minimal columns, the reasons and the strength only (000105)');
 
 -- 3. search_patients ----------------------------------------------------------------------------------------------------
 select is(pg_temp.as_user('c1010000-0000-4000-8000-000000000106', 'c1010000-0000-4000-8000-00000000000a',
