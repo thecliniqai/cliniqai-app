@@ -798,8 +798,12 @@ export const TARGETS: readonly Target[] = [
       uploaded_by: U.ownerA,
     },
     update: "title",
-    rules: permSiu("labs:view", "labs:edit", perm("labs:edit")),
-    note: "05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class",
+    // V2-09a 000110 (R-14): lab documents are append-only: no DELETE policy, DELETE revoked from authenticated, and a BEFORE DELETE trigger refuses the
+    // service role and postgres too (lab_documents_append_only.test.sql, tests/labs/lab-documents-append-only.spec.ts).
+    rules: permSiu("labs:view", "labs:edit", rpcOnly),
+    note:
+      "05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 " +
+      "(append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's)",
   },
   {
     kind: "table",
@@ -1293,10 +1297,11 @@ export const TARGETS: readonly Target[] = [
     pathClass: "lab",
     object: `tenants/${FX.tenantA}/patients/${FX.patient}/labs/report.pdf`,
     insertObject: `tenants/${FX.tenantA}/patients/${FX.patient}/labs/${FX.row(62)}.pdf`,
-    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: perm("labs:edit"), delete: perm("labs:edit") },
+    // V2-09a 000110 (R-13): append-only objects: uploads use `upsert: false` and a document-id key, so no UPDATE and no DELETE policy exists.
+    rules: { select: perm("labs:view"), insert: perm("labs:edit"), update: none, delete: none },
     note:
       "`tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture " +
-      "is a legacy synthetic name, the INSERT cell the id-only shape)",
+      "is a legacy synthetic name, the INSERT cell the id-only shape); append-only since V2-09a 000110: no UPDATE, no DELETE",
   },
   {
     kind: "storage",

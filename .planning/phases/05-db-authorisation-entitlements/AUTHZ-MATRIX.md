@@ -131,7 +131,7 @@ Principals:
 | `public.patient_documents` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.patient_documents` | I | perm(labs:edit) | Y | X | Y | Y | Y | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patient_documents` | U | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.patient_documents` | D | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.patient_documents` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.document_share_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -294,8 +294,8 @@ Principals:
 | `storage:prescriptions/malformed` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/lab` | S | perm(labs:view) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/lab` | I | perm(labs:edit) | Y | X | Y | Y | Y | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `storage:clinic-records/lab` | U | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `storage:clinic-records/lab` | D | perm(labs:edit) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:clinic-records/lab` | U | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `storage:clinic-records/lab` | D | none | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/referral_letter` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `storage:clinic-records/referral_letter` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `storage:clinic-records/referral_letter` | U | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | - | - | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
@@ -331,7 +331,7 @@ Notes:
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.follow_ups`: 05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit
 - `public.consent_records`: recorded_by is the caller (05-11b M-ACTOR, consent_records_actor_guard)
-- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class
+- `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class; DELETE is revoked since V2-09a 000110 (append-only: a BEFORE DELETE trigger refuses every writer except a tenant purge; a void is V2-11's)
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
@@ -366,7 +366,7 @@ Notes:
 - `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE
 - `storage:prescriptions/receipt`: `<tenant>/receipts/inv_<invoice>.pdf` (features/billing/pdf/generator.ts); a doctor archives the receipt of their own visit's invoice (Sign & Bill, R-7); the INSERT cell names an invoice that does not exist
 - `storage:prescriptions/malformed`: no class matches: denied without an error (before 05-02c: 22P02 from the key cast, BACKEND C9)
-- `storage:clinic-records/lab`: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture is a legacy synthetic name, the INSERT cell the id-only shape)
+- `storage:clinic-records/lab`: `tenants/<tenant>/patients/<patient>/labs/<document id>.<ext>` (features/labs/service.ts, R-45; the fixture is a legacy synthetic name, the INSERT cell the id-only shape); append-only since V2-09a 000110: no UPDATE, no DELETE
 - `storage:clinic-records/referral_letter`: lib/storage/tenant-path.ts referralLetterPath; UPDATE kept: the archive upserts (R-23)
 - `storage:clinic-records/legacy_root`: `<tenant>/...` keys: no builder writes them, no class matches, denied (05-02c)
 - `storage:clinic-records/malformed`: a non-UUID tenant segment: denied without an error (before 05-02c: 22P02 for a non-member, BACKEND C9)

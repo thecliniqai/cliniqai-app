@@ -156,12 +156,11 @@ select set_eq(
   array[
     'prescriptions_rx_select:SELECT', 'prescriptions_rx_insert:INSERT',
     'prescriptions_receipt_select:SELECT', 'prescriptions_receipt_insert:INSERT', 'prescriptions_receipt_update:UPDATE',
-    'clinic_records_lab_select:SELECT', 'clinic_records_lab_insert:INSERT', 'clinic_records_lab_update:UPDATE',
-    'clinic_records_lab_delete:DELETE',
+    'clinic_records_lab_select:SELECT', 'clinic_records_lab_insert:INSERT',
     'clinic_records_referral_letter_select:SELECT', 'clinic_records_referral_letter_insert:INSERT',
     'clinic_records_referral_letter_update:UPDATE'
   ]::text[],
-  'storage.objects has exactly the per-class policies of 000058, minus the Rx UPDATE policy that 000109 dropped (rx, receipt, lab, referral letter)'
+  'storage.objects has exactly the per-class policies of 000058, minus the Rx UPDATE policy 000109 dropped and the lab UPDATE and DELETE policies 000110 dropped (rx, receipt, lab, referral letter)'
 );
 select is_empty(
   $$ select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects'
@@ -308,7 +307,7 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000105', null, $$insert
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000102', null, $$insert into storage.objects (bucket_id, name) values ('clinic-records', 'tenants/c2c00000-0000-4000-8000-00000000000a/patients/c2c00000-0000-4000-8000-000000001001/labs/c2c00000-0000-4000-8000-000000003002.png')$$),
   'denied:new row violates row-level security policy for table "objects"', 'admin cannot upload a lab report');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$delete from storage.objects where bucket_id = 'clinic-records' and name = 'tenants/c2c00000-0000-4000-8000-00000000000a/patients/c2c00000-0000-4000-8000-000000001001/labs/c2c00000-0000-4000-8000-000000003001.pdf'$$),
-  '1', 'doctor deletes a lab report (labs:edit)');
+  '0', 'nobody deletes a lab report, not even a doctor with labs:edit (000110: no DELETE policy; lab objects are append-only)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000106', null, $$delete from storage.objects where bucket_id = 'clinic-records' and name = 'tenants/c2c00000-0000-4000-8000-00000000000a/patients/c2c00000-0000-4000-8000-000000001001/labs/c2c00000-0000-4000-8000-000000003001.pdf'$$),
   '0', 'receptionist cannot delete a lab report');
 

@@ -105,6 +105,10 @@
  *          no visit, no DELETE; the two old Rx cases change their expectation and the catalogue loses the Rx UPDATE policy) = 8430 (58 files). prescription_seal
  *          and grants keep their counts (the column list and two expectations change); authz_matrix keeps its cell count (the rx INSERT and UPDATE cells become
  *          `none`).
+ *   8454 — V2-09a 09A-04 (000110 lab_documents_append_only): 8430 + lab_documents_append_only 24 (new file, every one required); delete_rules and
+ *          storage_policies keep their counts (the DELETE catalogue loses patient_documents_delete, the lab storage catalogue loses its UPDATE and DELETE
+ *          policies, and the doctor's lab delete now affects 0 rows); authz_matrix keeps its cell count (patient_documents DELETE becomes `rpc_only`, the lab
+ *          UPDATE and DELETE storage cells become `none`) = 8454 (59 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -116,7 +120,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8430;
+export const FLOOR = 8454;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -212,6 +216,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/prescription_seal.test.sql",
   // V2-09a 09A-03
   "supabase/tests/database/rx_pdf_write_once.test.sql",
+  // V2-09a 09A-04
+  "supabase/tests/database/lab_documents_append_only.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

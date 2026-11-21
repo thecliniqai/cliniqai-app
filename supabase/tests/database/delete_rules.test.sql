@@ -188,10 +188,10 @@ select set_eq(
            ('doctor_custom_medicines', 'doctor_custom_medicines_delete'),
            ('doctor_prescription_templates', 'doctor_prescription_templates_delete'),
            ('follow_ups', 'follow_ups_delete'), ('in_app_notifications', 'in_app_notifications_delete'),
-           ('invoice_items', 'invoice_items_delete'), ('patient_documents', 'patient_documents_delete'),
+           ('invoice_items', 'invoice_items_delete'),
            ('prescription_items', 'prescription_items_delete'), ('schedule_blocks', 'schedule_blocks_delete'),
            ('webhook_subscriptions', 'webhook_subscriptions_delete')$$,
-  'the DELETE policies are exactly the 05-04 set (no visits, prescriptions, queue_tokens, waitlist_entries, referrals, ...)');
+  'the DELETE policies are exactly the 05-04 set minus patient_documents (000110: lab documents are append-only; no visits, prescriptions, queue_tokens, waitlist_entries, referrals, ...)');
 select is_empty(
   $$select tablename from pg_policies where schemaname = 'public' and cmd = 'ALL'$$,
   'no FOR ALL policy is left on a public table (it would also grant DELETE)');
