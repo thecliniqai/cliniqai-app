@@ -524,3 +524,105 @@ Recorded as an approved removal of a duplicate entry point.
 - `SaveStatus` Retry of a `useCommand` form must go through the form's own submit (see the Retry fix); `command.retry()` alone does not run what follows a success.
 - Tests that need a visible row below 1280 px must use the Waiting lane (the default) or `showLane`; Done is a collapsed column at 1280 and up (`showLane(page, "Done")` expands it); `openBill(page, name, ux?)` opens the checkout from Today.
 - `tests/e2e/support/run-data.ts` `LANDING` is `/today` for every role; `/` redirects there.
+
+## 08-04a Staff scheduling commands, slot rules, patient self-reschedule
+
+Commits (branch `v2/phase-08-front-desk`, base 96067db): 9abfa02 (migration 000103, registries, pgTAP), 4adb006 (app: commands, route, page), 0c738e0 (specs); the notes commit follows them.
+
+### What changed
+
+1. Migration `000103_staff_scheduling_commands.sql` (`EXPECTED_MIGRATION` is 000103, bumped in the same commit).
+   - **R-9 / G-3.** `private.default_weekly_schedule()` (a pgTAP check proves it equals the column default of `memberships.availability_schedule`; Mon-Sat
+     10:00-13:00 and 17:00-21:00, Sunday off) and `private.effective_schedule(jsonb)` (NULL reads as the default). `private.slot_conflicts` (booking, staff
+     reschedule) and the slot list read the schedule through it; `slot_conflicts` gained `p_exclude_visit_id` (the 5-argument signature is dropped; the
+     argument defaults to NULL, so `register_and_book` is unchanged). `private.available_slots_core(tenant, doctor, date, exclude_visit)` holds the grid;
+     `public.available_slots(doctor, date, exclude_visit default null)` is its wrapper (the 2-argument signature is dropped).
+   - **R-15 commands**, V2-07 pattern (definer, guard block, claim, lock, invariants, in-transaction audit through `log_command_audit`, `command_complete`):
+     `reschedule_visit`, `cancel_visit`, `mark_no_show`, `confirm_appointment`, `add_to_waitlist`, `promote_waitlist_entry`. Reschedule: booked, confirmed
+     and no-show only, the booking's slot rules with the visit excluded (`SLOT_TAKEN`/`SLOT_OFF_DUTY`/`SLOT_BLOCKED`, the two overrides and `p_overbook` as in
+     `register_and_book`), `SLOT_IN_PAST`, status back to `booked`, confirmation metadata cleared, `visit.reschedule` audit (old and new times), optional
+     `appointment_rescheduled` message, `appointment.rescheduled` webhook. Cancel: booked, confirmed, waiting; closed reason set; code in
+     `metadata.cancellation_reason` (the webhook payload reads it), note in `metadata.cancellation_note` only; promotion through
+     `private.step_promote_waitlist` (D-08: same clinic-local date, this doctor or any, priority then age, `FOR UPDATE SKIP LOCKED`, an entry that cannot take
+     a visit is skipped); optional `appointment_cancelled` message; `appointment.cancelled` webhook. No-show only once the appointment time has passed;
+     confirm answers `already_confirmed` without a second audit row; promote checks the slot like a booking.
+   - **R-16.** `get_reschedule_context` adds `clinic.timezone`; new anon-callable, token-scoped `get_reschedule_slots(token, date)`; `consume_reschedule_token`
+     validates shifts, blocks, the visit's own duration and the exclusion constraint (`slot_unavailable`, `slot_taken`; a refused move leaves the link usable)
+     and clears `is_overbooked` on a successful move.
+   - **Audit.** `visit.reschedule`, `visit.no_show` (new) and `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`,
+     `waitlist.promote` are command-only now (out of `private.audit_client_actions()`, into `log_command_audit`); metadata keys `old_scheduled_at`,
+     `new_scheduled_at`.
+   - **Contract.** `REVOKE UPDATE ON public.visits FROM authenticated; GRANT UPDATE (specialty, metadata, updated_at)`.
+2. Writer inventory of `visits` (status, scheduled_at, doctor_id, is_overbooked, estimated_duration_minutes, location_id). Request paths (user client) before: `updateVisitStatus`
+   (status), `confirmAppointment` (status, metadata), `cancelVisit` (status), `saveConsultationDraft` (status waiting to in_consultation, specialty, metadata),
+   `consume_reschedule_token` (definer: scheduled_at). Definer commands (unaffected by the grant): `check_in_visit`, `start_consultation`, `complete_visit`, the
+   sign-off and amendment commands, `enqueue_walk_in`, `register_and_book`, the six new ones. `service_role` (keeps UPDATE): `/api/v1/appointments`, `/api/v1/visits`,
+   `features/appointments/system.ts` (cancel, webhook bot confirm), the messaging webhook. After: no authenticated path writes a revoked column.
+3. App. `updateVisitStatus`, the multi-statement `cancelVisit` and `confirmAppointment` (service and actions) are deleted. New in `features/visits/scheduling-service.ts` and
+   `scheduling.ts`: `rescheduleVisit(input, id)`, `cancelVisit(input, id)`, `markNoShow(visitId, id)`, `confirmAppointment(visitId, id)`; in `features/waitlist`:
+   `addToWaitlist(input, id)`, `promoteWaitlistEntry(input, id)` (all `Result<...>` over `callCommand`, fixed texts in `SCHEDULING_COMMAND_MESSAGES` and
+   `WAITLIST_COMMAND_MESSAGES`). `getAvailableSlots(ctx, doctor, date, excludeVisitId?)`. `saveConsultationDraft` no longer writes `status`: a waiting visit is started through
+   `start_consultation` after the draft is saved (best effort, a fresh id). The calendar's cancel and confirm and the waitlist drawer call the new actions through `useCommand`
+   (a calendar cancel is reason `other`, no message, until 08-04b's dialog). Patient link: `app/api/reschedule/[token]/route.ts` no longer builds slots (the UTC loop and
+   `DEFAULT_SCHEDULE` are gone): it reads the context, then `getRescheduleSlots`; it answers `timezone`, the page names dates and times in it.
+4. Registries: `RPC_REASON_CODES` (+7), `AUDIT_ACTIONS` / `COMMAND_ONLY_AUDIT_ACTIONS` / `AUDIT_METADATA_KEYS`, guard manifest and valid inputs (four scheduling actions, the two waitlist actions
+   with request ids), guard world (`noShowableVisit`), pgTAP definer registry (8 rows, grantees, access classes, legs), schema snapshot, `types/database.ts`, FLOOR and REQUIRED_FILES of both
+   report gates.
+
+### Deviations
+
+- **Parameter order.** PostgreSQL allows no required parameter after a default, so the plan's `(…, p_notify, p_client_request_id)` orders are `(required…, p_client_request_id, optional…)`, as in
+  `register_and_book`. `p_notify` defaults to false in SQL (the UI box that is on by default is 08-04b's).
+- **`public.available_slots` is a SECURITY DEFINER wrapper, not INVOKER.** An invoker wrapper cannot call the private core (`authenticated` has no EXECUTE on `private`). Its guard is the session's
+  active full clinic plus `appointments:view`; registered in the definer registry (bound, refuses a locked clinic).
+- **Template `request_roles` are not widened** (the plan allowed adding the receptionist). `private.step_enqueue_visit_message` goes through `private.enqueue_message_internal`, which already enforces
+  the template row and the parameter allow-list and the patient's own number; the two templates stay system-only for `public.enqueue_message`. Nothing to flag for the adversarial review there; the
+  step itself is the surface (definer, no grant, fixed template ids, the actor's own dedupe namespace).
+- **Waitlist promotion only for a slot that lies ahead** (`scheduled_at > now()`) and only from a booked or confirmed visit; the old service promoted into past slots too. The spec that used a fixed
+  past date (`tests/scheduling/calendar-waitlist.spec.ts`) now uses a relative one.
+- **`consume_reschedule_token` keeps the visit's status** (a confirmed visit stays confirmed when the patient moves it) and resets `is_overbooked`. The context still returns `booked` and
+  `availability_schedule` (now the effective schedule) although the route no longer reads them: dropping the two fields is a cleanup for 08-05 (anon-visible data that nothing uses).
+- **Legacy pgTAP files that prove guards by updating `visits` as `authenticated`** (`amendment_snapshot`, `reverify_integrity`, `signed_visit_fields`, `visit_integrity`, `visit_state_machine`,
+  `command_review_fixes`) widen the UPDATE grant inside their own transaction (documented at the top of each): they test the triggers and policies, not the grant. `authz_matrix` instead updates
+  `updated_at` (`tests/authz/table-matrix.ts`, regenerated), so its grant rows stay meaningful. The narrowing is proven in the new `staff_scheduling.test.sql`.
+- `checkSlotAvailability` (the booking drawer's client pre-check) still reads a NULL schedule as "no restriction"; the commands decide, and 08-04b replaces the pre-check with `available_slots`.
+- `visit.status_update` stays in the client allow-list (`/api/v1/visits/[id]` writes it), `queue.transition` likewise (stale, as noted in 08-01b).
+
+### Tests
+
+- pgTAP: new `staff_scheduling.test.sql` (49: default equals the column default, NULL schedule in booking and in the list, 21:00 evening end, 28 slots, IST date line (00:30 IST slot), exclusion of the visit
+  itself, wrapper guard, column privileges both ways incl. refused updates per revoked column and kept columns working, grants, audit lists, `get_reschedule_slots` and `consume_reschedule_token` outcomes);
+  `definer_functions` +14 (six commands x acting-in-A and locked, `get_reschedule_slots` locked and full). Full pgTAP: 8237 in 53 files, PASS; gate PASS (floor 8237).
+- Vitest DB: `tests/visits/{reschedule-visit-rpc (36), cancel-visit-rpc (29), no-show-confirm-rpc (25)}.spec.ts`, `tests/waitlist/waitlist-commands-rpc.spec.ts` (17),
+  `tests/scheduling/patient-reschedule.spec.ts` (11): catalog, happy path with audit, outbox and message rows, fault injection (nothing persists, the same id then succeeds), replay,
+  `IDEMPOTENCY_MISMATCH` per hashed input, role matrix, anon, cross-tenant, dual membership, concurrency (two reschedules into one slot give one winner and `SLOT_TAKEN`; two cancels with one entry give
+  one promotion; two promotes give `WAITLIST_ENTRY_CLOSED`; two patients on one slot), slot rules (blocks, off duty, overbooking, NULL schedule, the visit's own time), service texts.
+  Changed: `available-slots` (definer signature, NULL schedule, IST date line, exclude argument, service), `register-and-book-rpc` (NULL schedule is the default hours, 6-argument `slot_conflicts`),
+  `share-tokens` (the concurrent POSTs use two free default-hour slots), `integration/visits` (status through `check_in_visit`, a refused direct write), `signed-visit-integrity`,
+  `multi-clinic-tenant-filters`, `cross-tenant-refs`, `calendar-waitlist`, `no-client-command-chains` (the three names now belong to commands), `readiness-probe-db` (anon allow-list),
+  `calendar-scheduling-ux` and `no-raw-error-responses` (the mock-based confirm and the two raw-error cases went with the deleted services; the commands are proven against the real database).
+  Affected set (`tests/security auth subscriptions observability notifications integration api visits queue ci patients commands pwa today nav design staff appointments consultation scheduling waitlist
+  audit db billing jobs messaging realtime labs referrals prescriptions`): 288 files, 6035 tests; 6 failed on the first run (anon allow-list of the new token function, authz generator drift, two
+  direct status writes in `integration/visits`, the no-show guard control at a past time that the growing seed offset had overtaken), all fixed, the files re-run green.
+- E2E (after `npm run e2e:build`): `tests/e2e/m0 tests/e2e/journeys` on desktop-chrome 32 passed (the P1-03 known-bug case is the expected failure); `m0 journeys today` on pixel-7 45 passed, 11 skipped;
+  `shell today` on desktop-chrome 119 passed, 1 skipped. No retry.
+
+### Commands run (counts)
+
+- `npx supabase db reset --local`, `npm run db:types`; `npm run test:pgtap` (8237, 53 files, PASS), `node scripts/ci/assert-pgtap-report.mjs pgtap-report.tap`: PASS; `node scripts/ci/local-drift.mjs`: PASS;
+  `node scripts/drift/schema-snapshot.mjs --local --write` then `--check`: PASS (2793 lines); `npx supabase db diff --local`: empty; `npm run authz:gen`.
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (418 warnings, unchanged). `npm run inventory`: exit 0, 0 flagged. `npm run ci:ui-policy`: PASS. `npm run ci:ai-l1`: PASS.
+
+### What 08-04b must know
+
+- Actions (all take a request id; use `useCommand`): `rescheduleVisit({ visit_id, new_scheduled_at, doctor_id?, estimated_duration_minutes?, is_overbooked, override_off_duty, override_block, notify }, id)`,
+  `cancelVisit({ visit_id, reason_code, reason_note?, notify, promote_waitlist }, id)` (`CANCEL_REASON_CODES` in `features/visits/schema.ts`), `markNoShow(visitId, id)`, `confirmAppointment(visitId, id)` in
+  `features/visits/scheduling.ts`; `addToWaitlist(input, id)` and `promoteWaitlistEntry({ entry_id, scheduled_at, doctor_id?, estimated_duration_minutes, is_overbooked }, id)` in `features/waitlist/actions.ts`.
+  Refusals are `CONFLICT` with the reasons `SLOT_TAKEN`, `SLOT_OFF_DUTY`, `SLOT_BLOCKED` (offer the overbook or override confirmation, as the booking drawer does), `SLOT_IN_PAST`,
+  `VISIT_NOT_RESCHEDULABLE`, `VISIT_NOT_CANCELLABLE`, `VISIT_NOT_MARKABLE`, `NO_SHOW_TOO_EARLY`, `VISIT_NOT_CONFIRMABLE`, `WAITLIST_ENTRY_CLOSED`.
+- `rowActions` lists `reschedule`, `no_show`, `cancel`; `rowButtons` (`features/today/schema.ts`) still renders only check in, start, vitals and collect: add the three kinds. `getAvailableSlots(ctx, doctorId, date, excludeVisitId?)`
+  is the slot list for the sheets (the visit being moved is passed as `excludeVisitId`).
+- `components/calendar/calendar-view.tsx` cancels with reason `other` and no message (placeholder until the cancel dialog), confirms with `confirmAppointment`; the waitlist drawer still registers then adds (two commands,
+  its own rewrite is 08-04b). `doctor-timeline.tsx`'s booked "Start Consultation" link and `checkSlotAvailability` are still the v1 pieces.
+- The guard world has `noShowableVisit`; `tests/helpers/scheduling-commands.ts` has the arg builders and `ist(week, dow, h, mm)` for March 2031 slots (the patient link, unlike staff, takes nothing beyond 90 days).
+- pgTAP floor is 8237 (53 files); Vitest REQUIRED_FILES 257; `EXPECTED_MIGRATION` is 000103 (000104 next, Smart Assist).
