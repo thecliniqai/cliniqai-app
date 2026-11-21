@@ -8,6 +8,7 @@ import {
   type ServerDraft,
 } from "./draft";
 import { rebaseDraft } from "./draft-rebase";
+import { vitalsSchema } from "./schema";
 
 /**
  * The consult draft saver (V2-09b R-4, R-5; PWA_STRATEGY §3.8, D3). No React and no clock of its own: time, transport and ids are injected, so
@@ -27,6 +28,10 @@ import { rebaseDraft } from "./draft-rebase";
  * Conflicts (R-5): `DRAFT_CONFLICT` makes the saver read the server copy (`readServer`) and rebase field by field (`rebaseDraft`). Without an
  * overlap the merged draft is re-sent at the new version at once; with an overlap the saver stops and exposes `conflict` until
  * `resolveConflict("theirs" | "mine")`. "Keep mine" re-sends with the audit flag `conflict_overwrite`. Nothing is overwritten silently.
+ *
+ * Held back (09B-06a, review A-7): a dirty field the server would refuse (`isSendable` false: a vital out of range or half typed, a follow-up date outside
+ * the range the command takes) is not sent. It stays unsaved (the unload guard stays on, `invalidFields` names it so the screen can mark it) and the other
+ * dirty fields are saved as usual; `flush()` answers `invalid` while only held-back fields are left, so Sign and Finalize stop until it is corrected.
  */
 
 export type DraftSaveState = "idle" | "saving" | "saved" | "offline" | "error";
@@ -62,11 +67,13 @@ export interface DraftSaverState {
   /** The server refuses drafts for this visit (signed, completed or cancelled). */
   locked: boolean;
   error: AppError | null;
+  /** Dirty fields held back because the server would refuse them (A-7); they are sent once corrected. */
+  invalidFields: DraftFieldKey[];
 }
 
 export type FlushResult =
   | { ok: true }
-  | { ok: false; reason: "conflict" | "locked" | "offline" | "error"; error?: AppError };
+  | { ok: false; reason: "conflict" | "locked" | "offline" | "error" | "invalid"; error?: AppError };
 
 export interface DraftSaverDeps {
   visitId: string;
@@ -86,6 +93,14 @@ export interface DraftSaverDeps {
   onRebased?: (fields: Partial<DraftFields>) => void;
   onState?: (state: DraftSaverState) => void;
   maxWaitMs?: number;
+  /** May this field's on-screen value be sent (09B-06a, A-7)? Default `draftFieldSendable`: vitals that pass `vitalsSchema`. */
+  isSendable?: (key: DraftFieldKey, fields: DraftFields) => boolean;
+}
+
+/** The default `isSendable` (A-7): the vitals are sent only when `vitalsSchema` accepts them (ranges, integers, systolic above diastolic). */
+export function draftFieldSendable(key: DraftFieldKey, fields: DraftFields): boolean {
+  if (key !== "vitals" || fields.vitals === null) return true;
+  return vitalsSchema.safeParse(fields.vitals).success;
 }
 
 export interface DraftSaver {
@@ -100,6 +115,11 @@ export interface DraftSaver {
   getState(): DraftSaverState;
   /** The in-memory draft (what is on screen). */
   getDraft(): DraftFields;
+  /**
+   * The screen goes away (an in-app navigation, Back, a record-state change; 09B-06a, review A-1): what is unsent is saved now (a flush, without waiting
+   * for the 5 s timer), and the saver stops reporting state at once and is disposed when that save settles. Resolves with the flush's result.
+   */
+  release(): Promise<FlushResult>;
   dispose(): void;
 }
 
@@ -130,6 +150,7 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
   const isOnline = deps.isOnline ?? (() => true);
   const maxWait = deps.maxWaitMs ?? DRAFT_MAX_WAIT_MS;
   const registerBusy = deps.registerBusy ?? (() => () => undefined);
+  const isSendable = deps.isSendable ?? draftFieldSendable;
 
   let base: DraftFields = { ...deps.initial.fields };
   let current: DraftFields = { ...deps.initial.fields };
@@ -145,8 +166,13 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
   let cancelTimer: (() => void) | null = null;
   let inFlight: Promise<FlushResult> | null = null;
   let disposed = false;
+  /** Released (A-1): no more state to the screen; the last save still runs. */
+  let released = false;
 
   const dirtyKeys = () => changedDraftKeys(base, current);
+  /** The dirty fields that may be sent now; the rest are held back until corrected (A-7). */
+  const sendableKeys = () => dirtyKeys().filter((key) => isSendable(key, current));
+  const heldKeys = () => dirtyKeys().filter((key) => !isSendable(key, current));
 
   function snapshot(): DraftSaverState {
     const dirtyFields = dirtyKeys();
@@ -159,11 +185,12 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
       conflict,
       locked,
       error,
+      invalidFields: heldKeys(),
     };
   }
 
   function emit() {
-    if (!disposed) deps.onState?.(snapshot());
+    if (!disposed && !released) deps.onState?.(snapshot());
   }
 
   function disarm() {
@@ -174,7 +201,7 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
   /** Arms the maximum-wait timer from the first unsaved change; a running timer is never pushed back. */
   function arm() {
     if (disposed || conflict || locked || inFlight || cancelTimer) return;
-    if (dirtyKeys().length === 0 && !pending) {
+    if (sendableKeys().length === 0 && !pending) {
       dirtySince = null;
       return;
     }
@@ -226,7 +253,7 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
   }
 
   function buildAttempt(): Attempt | null {
-    const keys = dirtyKeys();
+    const keys = sendableKeys();
     if (keys.length === 0) return null;
     const patch: DraftSaveRequest["patch"] = {};
     const sent: Partial<DraftFields> = {};
@@ -265,7 +292,7 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
       savedAt = new Date(deps.now()).toISOString();
       saveState = "saved";
       error = null;
-      if (dirtyKeys().length > 0) dirtySince ??= deps.now();
+      if (sendableKeys().length > 0) dirtySince ??= deps.now();
       emit();
       arm();
       return { ok: true };
@@ -353,7 +380,7 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
       if (inFlight) await inFlight;
       if (conflict) return { ok: false, reason: "conflict" };
       if (locked) return { ok: false, reason: "locked", error: error ?? undefined };
-      if (!pending && dirtyKeys().length === 0) return { ok: true };
+      if (!pending && sendableKeys().length === 0) return heldKeys().length > 0 ? { ok: false, reason: "invalid" } : { ok: true };
       const result = await startSave();
       if (!result.ok) return result;
     }
@@ -383,9 +410,10 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
       if (disposed) return;
       current = { ...current, ...fields };
       const dirty = dirtyKeys().length > 0;
-      if (dirty) dirtySince ??= deps.now();
+      const sendable = sendableKeys().length > 0;
+      if (sendable) dirtySince ??= deps.now();
       if (dirty && saveState === "saved") saveState = "idle";
-      if (!dirty && !pending) {
+      if (!sendable && !pending) {
         disarm();
         dirtySince = null;
       } else {
@@ -395,20 +423,30 @@ export function createDraftSaver(deps: DraftSaverDeps): DraftSaver {
     },
     blur() {
       if (disposed || conflict || locked) return;
-      if (dirtyKeys().length > 0 || pending) void startSave();
+      if (sendableKeys().length > 0 || pending) void startSave();
     },
     hidden() {
       if (disposed || conflict || locked) return;
-      if (dirtyKeys().length > 0 || pending) void startSave();
+      if (sendableKeys().length > 0 || pending) void startSave();
     },
     online() {
       if (disposed || conflict || locked) return;
-      if (saveState === "offline" || pending || dirtyKeys().length > 0) void startSave();
+      if (saveState === "offline" || pending || sendableKeys().length > 0) void startSave();
     },
     flush,
     resolveConflict,
     getState: snapshot,
     getDraft: () => ({ ...current }),
+    release() {
+      if (disposed || released) return Promise.resolve({ ok: true } as FlushResult);
+      released = true;
+      disarm();
+      const last: Promise<FlushResult> = conflict || locked ? Promise.resolve({ ok: false, reason: conflict ? "conflict" : "locked" }) : flush();
+      return last.finally(() => {
+        disposed = true;
+        disarm();
+      });
+    },
     dispose() {
       disposed = true;
       disarm();

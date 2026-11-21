@@ -473,3 +473,67 @@ describe("draft saver: flush", () => {
     expect(h.states.some((s) => s.saveState === "saving")).toBe(true);
   });
 });
+
+describe("draft saver: 09B-06a review fixes", () => {
+  it("A-1: release() saves what is unsent at once (no wait for the timer), reports nothing more to the screen, then stops", async () => {
+    const h = harness();
+    h.saver.update({ chief_complaints: [{ symptom: "Fever" }] });
+    h.saver.update({ chief_complaints: [{ symptom: "Fever" }, { symptom: "Cough" }] });
+    expect(h.requests).toHaveLength(0);
+    const statesBefore = h.states.length;
+    const done = h.saver.release();
+    await h.advance(1);
+    expect(await done).toEqual({ ok: true });
+    expect(h.requests).toHaveLength(1);
+    expect(h.server.fields.chief_complaints).toEqual([{ symptom: "Fever" }, { symptom: "Cough" }]);
+    expect(h.states.length).toBe(statesBefore);
+    // Released: a later edit is ignored and no timer runs.
+    h.saver.update({ clinical_notes: "after leaving" });
+    await h.advance(DRAFT_MAX_WAIT_MS * 2);
+    expect(h.requests).toHaveLength(1);
+  });
+
+  it("A-1: release() with nothing unsent sends nothing", async () => {
+    const h = harness();
+    expect(await h.saver.release()).toEqual({ ok: true });
+    await h.advance(DRAFT_MAX_WAIT_MS);
+    expect(h.requests).toHaveLength(0);
+  });
+
+  it("A-7: an out-of-range vital is held back and the other dirty fields are saved; flush says invalid; corrected, it is sent", async () => {
+    const h = harness();
+    h.saver.update({ vitals: { spo2: 9 }, clinical_notes: "typed while the SpO2 is half entered" });
+    await h.advance(DRAFT_MAX_WAIT_MS);
+    expect(h.requests).toHaveLength(1);
+    expect(Object.keys(h.requests[0].patch)).toEqual(["clinical_notes"]);
+    expect(h.server.fields.clinical_notes).toBe("typed while the SpO2 is half entered");
+    expect(h.server.fields.vitals).toBeNull();
+    const state = h.saver.getState();
+    expect(state.saveState).toBe("saved");
+    expect(state.invalidFields).toEqual(["vitals"]);
+    expect(state.unsaved).toBe(true);
+    expect(await h.saver.flush()).toEqual({ ok: false, reason: "invalid" });
+    // Nothing loops: no request is made while only the held-back field is dirty.
+    await h.advance(DRAFT_MAX_WAIT_MS * 3);
+    expect(h.requests).toHaveLength(1);
+
+    h.saver.update({ vitals: { spo2: 98 } });
+    await h.advance(DRAFT_MAX_WAIT_MS);
+    expect(h.requests).toHaveLength(2);
+    expect(h.requests[1].patch).toEqual({ vitals: { spo2: 98 } });
+    expect(h.saver.getState().invalidFields).toEqual([]);
+    expect(await h.saver.flush()).toEqual({ ok: true });
+  });
+
+  it("A-7: systolic not above diastolic and a fractional pulse are held back too", async () => {
+    const h = harness();
+    h.saver.update({ vitals: { systolic: 80, diastolic: 90 } });
+    h.saver.blur();
+    await h.advance(DRAFT_MAX_WAIT_MS);
+    expect(h.requests).toHaveLength(0);
+    h.saver.update({ vitals: { pulse: 72.5 } });
+    await h.advance(DRAFT_MAX_WAIT_MS);
+    expect(h.requests).toHaveLength(0);
+    expect(h.saver.getState().invalidFields).toEqual(["vitals"]);
+  });
+});

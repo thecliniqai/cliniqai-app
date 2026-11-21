@@ -253,7 +253,8 @@ test("@golden 1280 px: the Summary toggle opens a 272 px pane that shows the dra
   // What the doctor taps appears at once, from the in-memory draft.
   await page.getByRole("button", { name: "Steam inhalation twice daily", exact: true }).click();
   await expect(pane.getByRole("region", { name: "Advice" })).toContainText("Steam inhalation twice daily");
-  // The follow-up date (5 days preselected) is shown in the clinic zone with its weekday.
+  // The follow-up date (nothing is preselected since 09B-06a, A-3: one tap on 5 days) is shown in the clinic zone with its weekday.
+  await page.getByRole("radiogroup", { name: "Follow-up" }).getByRole("radio", { name: /5 days/ }).click();
   await expect(pane.getByRole("region", { name: "Follow-up" })).toContainText(/^Follow-up\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} \w{3} \d{4}$/);
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "false");

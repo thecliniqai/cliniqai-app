@@ -51,12 +51,18 @@ export interface PlanSectionProps {
   onInvestigationsChange: (next: string[]) => void;
   advice: string[];
   onAdviceChange: (next: string[]) => void;
-  followUpInterval: FollowUpIntervalChoice;
+  /** The chosen interval; null: none chosen yet (09B-06a, A-3: nothing is preselected, so nothing is stored until the doctor taps a tile). */
+  followUpInterval: FollowUpIntervalChoice | null;
   followUpDate: string;
   followUpNotes: string;
   onFollowUpInterval: (interval: FollowUpIntervalChoice) => void;
   onFollowUpDate: (date: string) => void;
   onFollowUpNotes: (notes: string) => void;
+  /** The range the draft command takes (09B-06a, S-4): the clinic's today to today + 366. */
+  followUpMinDate?: string;
+  followUpMaxDate?: string;
+  /** The date is outside that range: it is held back from the save and marked here (A-7). */
+  followUpInvalid?: boolean;
   activeReferral: Referral | null;
   isOpeningReferralPdf: boolean;
   onOpenReferral: () => void;
@@ -77,6 +83,8 @@ export function PlanSection(props: PlanSectionProps) {
   const { readOnly, investigations, advice, followUpInterval, activeReferral } = props;
   const usual = usualPlanFor(props.context ?? null, props.diagnosisNames ?? []);
   const usualInterval = usualFollowUp(usual);
+  // 09B-06a (A-3): with no follow-up chosen, 5 days (or the doctor's usual for the diagnosis) is marked as a suggestion; a tap chooses it.
+  const suggestedInterval: FollowUpIntervalChoice | null = followUpInterval === null ? (usualInterval ?? "5_days") : null;
   const investigationTiles = orderPlanTiles(INVESTIGATIONS, usual?.investigations ?? []);
   const adviceTiles = orderPlanTiles(ADVICE, usual?.advice ?? []);
   const [customInvestigation, setCustomInvestigation] = useState("");
@@ -209,17 +217,26 @@ export function PlanSection(props: PlanSectionProps) {
           aria-label="Follow-up"
           className="mb-3"
           disabled={readOnly}
-          value={followUpInterval}
+          value={followUpInterval ?? ""}
           onValueChange={(next) => props.onFollowUpInterval(next as FollowUpIntervalChoice)}
-          items={FOLLOW_UP_INTERVALS.map((i) => ({ value: i.id, label: i.label, meta: i.id === usualInterval ? "your usual" : undefined }))}
+          items={FOLLOW_UP_INTERVALS.map((i) => ({
+            value: i.id,
+            label: i.label,
+            meta: i.id === usualInterval ? "your usual" : i.id === suggestedInterval ? "suggested" : undefined,
+          }))}
         />
-        {followUpInterval !== "none" && props.followUpDate && (
+        {followUpInterval === null && !readOnly && (
+          <p data-follow-up-unset="" className="mb-3 text-body-sm text-fg-muted">
+            No follow-up chosen. Tap an interval to set one.
+          </p>
+        )}
+        {followUpInterval !== null && followUpInterval !== "none" && props.followUpDate && (
           <p data-follow-up-hint="" className="mb-3 text-body-sm text-fg-secondary">
             {formatClinicDateWithWeekday(props.followUpDate)} · the front desk books it when you finish
           </p>
         )}
-        {followUpInterval !== "none" && props.followUpDate && props.bookFollowUp}
-        {followUpInterval === "none" ? (
+        {followUpInterval !== null && followUpInterval !== "none" && props.followUpDate && props.bookFollowUp}
+        {followUpInterval === null ? null : followUpInterval === "none" ? (
           <p className="flex items-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-soft p-3 text-body-sm text-fg-secondary">
             <Check aria-hidden="true" className="size-4 shrink-0 text-success-fg" />
             No follow-up required. Follow-up recommendation will be omitted from the printed prescription.
@@ -235,8 +252,17 @@ export function PlanSection(props: PlanSectionProps) {
                 type="date"
                 disabled={readOnly}
                 value={props.followUpDate}
+                min={props.followUpMinDate}
+                max={props.followUpMaxDate}
+                aria-invalid={props.followUpInvalid ? true : undefined}
+                aria-describedby={props.followUpInvalid ? "follow-up-date-invalid" : undefined}
                 onChange={(e) => props.onFollowUpDate(e.target.value)}
               />
+              {props.followUpInvalid && (
+                <p id="follow-up-date-invalid" data-follow-up-invalid="" className="mt-1 text-label font-medium text-danger-fg">
+                  Choose a date from today to a year ahead. Not saved until corrected.
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="follow-up-notes-input" className="mb-1 block text-label font-semibold text-fg-secondary">

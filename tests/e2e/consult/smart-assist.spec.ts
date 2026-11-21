@@ -415,8 +415,8 @@ test.describe("shorthand and follow-up (09B-04b)", () => {
     const chip = page.locator("[data-follow-up-suggestion]");
     await expect(chip).toContainText("Smart Assist");
     await expect(chip.getByRole("button")).toContainText(/^Set follow-up: 3 days \(\w{3}, \d{1,2} \w{3}\)$/);
-    // Nothing is set until the tap: the screen still has the preselected default and the database has no follow-up.
-    await expect(page.getByRole("radiogroup", { name: "Follow-up" }).getByRole("radio", { name: /5 days/ })).toBeChecked();
+    // Nothing is set until the tap: no interval is chosen on screen (09B-06a, A-3: nothing is preselected) and the database has no follow-up.
+    await expect(page.getByRole("radiogroup", { name: "Follow-up" }).getByRole("radio", { checked: true })).toHaveCount(0);
     expect(await followUpOf(visitId)).toBeNull();
 
     await chip.getByRole("button").click();

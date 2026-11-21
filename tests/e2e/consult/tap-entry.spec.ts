@@ -116,10 +116,10 @@ test("@golden an exam template with one abnormal finding in 3 taps and no typing
   expect(counts?.actions).toBeLessThanOrEqual(3);
   expect(counts?.keystrokes).toBe(0);
 
-  // The side and the follow-up (the 5-day default is already set; one tap picks a week) are one tap each.
+  // The side and the follow-up (nothing is preselected since 09B-06a, A-3; one tap picks a week) are one tap each.
   await rs.getByRole("radiogroup", { name: "RS side" }).getByRole("radio", { name: "Right" }).click();
   const followUp = page.getByRole("radiogroup", { name: "Follow-up" });
-  await expect(followUp.getByRole("radio", { name: "5 days" })).toBeChecked();
+  await expect(followUp.getByRole("radio", { checked: true })).toHaveCount(0);
   await followUp.getByRole("radio", { name: "1 week" }).click();
 
   await expect(saved(page)).toBeVisible({ timeout: 9_000 });

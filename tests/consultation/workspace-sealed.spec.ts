@@ -101,10 +101,12 @@ describe("sealed: a signed consultation is read-only", () => {
       ["button", 'aria-label="Remove medication"'],
       ["input", 'placeholder="Type custom test name'],
       ["input", 'placeholder="Add custom advice'],
-      ["input", 'id="follow-up-date-input"'],
     ] as const) {
       expect(isDisabled(openTag(html, tag, needle)), `${tag} ${needle}`).toBe(true);
     }
+    // 09B-06a (A-3): this sealed visit has no follow-up, and none is preselected any more, so there is no date field at all (before: a 5-day date
+    // that was never stored was drawn on the signed record).
+    expect(html).not.toContain('id="follow-up-date-input"');
     // 09B-03: the specialty is chosen with the exam template tiles (the header select is gone); every one is disabled on a sealed record.
     const tileButtons = [...html.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/g)];
     for (const name of ["Fever workup", "GP general", "Respiratory", "Abdomen", "Dental", "Child"]) {

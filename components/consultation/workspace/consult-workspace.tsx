@@ -251,11 +251,13 @@ export function ConsultWorkspace({
   const [investigations, setInvestigations] = useState<string[]>(visit.investigations_advised ?? []);
   const [adviceList, setAdviceList] = useState<string[]>(visit.advice ?? []);
 
-  // Follow-up state
-  const [followUpInterval, setFollowUpInterval] = useState<FollowUpIntervalChoice>(
-    (visit.follow_up?.interval as FollowUpIntervalChoice | undefined) ?? (visit.follow_up?.follow_up_date ? "custom" : "5_days"),
+  // Follow-up state. 09B-06a (A-3): nothing is preselected. With no stored follow-up the interval is null (none chosen) and nothing is stored until the
+  // doctor taps a tile; the Plan section marks 5 days (or the doctor's usual) as a suggestion. Before, "5 days" was preselected and stored with the
+  // first unrelated edit, so every visit got a follow-up the doctor never chose.
+  const [followUpInterval, setFollowUpInterval] = useState<FollowUpIntervalChoice | null>(
+    (visit.follow_up?.interval as FollowUpIntervalChoice | undefined) ?? (visit.follow_up?.follow_up_date ? "custom" : null),
   );
-  const [followUpDate, setFollowUpDate] = useState<string>(visit.follow_up?.follow_up_date ?? addDaysYmd(clinicToday, 5));
+  const [followUpDate, setFollowUpDate] = useState<string>(visit.follow_up?.follow_up_date ?? "");
   const [followUpNotes, setFollowUpNotes] = useState<string>(visit.follow_up?.notes ?? "");
 
   const [isPatientOpen, setIsPatientOpen] = useState(false);
@@ -366,13 +368,21 @@ export function ConsultWorkspace({
     advice: adviceList,
     specialty,
     follow_up:
-      followUpInterval !== "none" && followUpDate ? { interval: followUpInterval, follow_up_date: followUpDate, notes: followUpNotes || null } : null,
+      followUpInterval !== null && followUpInterval !== "none" && followUpDate
+        ? { interval: followUpInterval, follow_up_date: followUpDate, notes: followUpNotes || null }
+        : null,
   };
   const [initialFields] = useState<DraftFields>(currentFields);
-  // The server copy the saver starts from: the same fields, with the visit's own follow-up (the screen preselects a default one that is not saved
-  // until the doctor edits something or saves).
+  // The server copy a saver starts from, read from the page's current props (09B-06a, A-6): after Amend or Finalize the page is refreshed and a new saver
+  // is made from what the server holds now, not from the mount-time snapshot (which made its first save resend every field edited earlier).
   const serverFields: DraftFields = {
-    ...initialFields,
+    vitals: visit.vitals ?? null,
+    chief_complaints: visit.chief_complaints ?? [],
+    clinical_notes: visit.clinical_notes ?? "",
+    specialty_data: visit.specialty_data ?? null,
+    investigations_advised: visit.investigations_advised ?? [],
+    advice: visit.advice ?? [],
+    specialty: visit.specialty ?? "general_physician",
     follow_up: visit.follow_up?.follow_up_date
       ? { follow_up_date: visit.follow_up.follow_up_date, notes: visit.follow_up.notes ?? null }
       : null,
@@ -387,7 +397,7 @@ export function ConsultWorkspace({
     if (arrived.specialty) setSpecialty(arrived.specialty);
     if ("follow_up" in arrived) {
       const fu = arrived.follow_up;
-      setFollowUpInterval(fu?.follow_up_date ? (fu.interval ?? "custom") : "none");
+      setFollowUpInterval(fu?.follow_up_date ? (fu.interval ?? "custom") : null);
       setFollowUpDate(fu?.follow_up_date ?? "");
       setFollowUpNotes(fu?.notes ?? "");
     }
@@ -400,7 +410,7 @@ export function ConsultWorkspace({
     serverVersion: visit.draft_version ?? 0,
     onRebased: applyArrived,
   });
-  // Nothing is sent before the doctor changes something on screen (the preselected follow-up alone is not a change).
+  // Nothing is sent before the doctor changes something on screen.
   const editedRef = useRef(false);
   const { update: updateDraft } = consultDraft;
   useEffect(() => {
@@ -422,6 +432,8 @@ export function ConsultWorkspace({
       conflict: "This consultation was changed in another tab or device. Choose which version to keep, then try again.",
       locked: SIGNED_CONSULTATION_MESSAGE,
       offline: "You are offline. Reconnect to save.",
+      // 09B-06a (A-7): a field held back as invalid (a vital out of range, a follow-up date outside the allowed range); the rest is saved.
+      invalid: "A value is out of range (marked in red). Correct or clear it, then try again.",
     };
     return { success: false, error: text[result.reason] ?? result.error?.message ?? "Failed to save draft. Please try again." };
   };
@@ -886,6 +898,9 @@ export function ConsultWorkspace({
                   setFollowUpInterval("custom");
                 }}
                 onFollowUpNotes={setFollowUpNotes}
+                followUpMinDate={clinicToday}
+                followUpMaxDate={addDaysYmd(clinicToday, 366)}
+                followUpInvalid={consultDraft.state.invalidFields.includes("follow_up")}
                 activeReferral={activeReferral}
                 isOpeningReferralPdf={isOpeningReferralPdf}
                 onOpenReferral={() => setIsReferralModalOpen(true)}

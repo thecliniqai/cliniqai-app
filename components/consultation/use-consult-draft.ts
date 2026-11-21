@@ -5,12 +5,13 @@ import { getConsultationDraft, saveConsultationDraft } from "@/features/consulta
 import type { DraftFields } from "@/features/consultation/draft";
 import {
   createDraftSaver,
+  draftFieldSendable,
   type DraftSaver,
   type DraftSaverState,
   type FlushResult,
 } from "@/features/consultation/draft-saver";
 import { newClientRequestId } from "@/lib/commands/use-command";
-import { clockOf } from "@/lib/datetime";
+import { addDaysYmd, clockOf, todayInTz } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { registerBusy } from "@/lib/pwa/dirty-guard";
 import { onAppErrorCode } from "@/lib/pwa/lock";
@@ -19,7 +20,10 @@ import type { SaveStatusProps } from "@/components/clinical/save-status";
 /**
  * Binds the consult draft saver (features/consultation/draft-saver.ts) to the workspace (V2-09b R-4). The draft lives in memory only: nothing is
  * written to localStorage, sessionStorage, IndexedDB or Cache Storage (PWA §4 D-3). The hook
- *  - creates one saver per record state (`resetKey`): after Amend or Finalize the server copy is the new base;
+ *  - creates one saver per record state (`resetKey`): after Amend or Finalize the server copy is the new base (09B-06a, A-6: the caller passes the
+ *    server's current fields, read from the page's latest props, not the mount-time snapshot);
+ *  - when the workspace goes away (an in-app navigation, Back) or the record state changes, the old saver is released: what is unsent is saved at once,
+ *    then it is disposed (09B-06a, A-1; before, the cleanup only disposed it and up to 5 s of taps were lost);
  *  - saves on blur (focus leaves a field), when the page is hidden (`visibilitychange`, `pagehide`) and when the device comes back online;
  *  - registers `beforeunload` only while something is unsaved or a save is in flight, so an idle or saved consult leaves without a prompt;
  *  - exposes `flush()` for Sign, Amend, Finalize, Finish, "Save draft" and Ctrl/Cmd+S, and the props of `SaveStatus`.
@@ -35,6 +39,7 @@ const IDLE: DraftSaverState = {
   conflict: null,
   locked: false,
   error: null,
+  invalidFields: [],
 };
 
 export interface UseConsultDraft {
@@ -60,10 +65,12 @@ export function useConsultDraft(options: {
   const timeZone = useClinicTimeZone();
   const saverRef = useRef<DraftSaver | null>(null);
   const latest = useRef(options);
+  const zone = useRef(timeZone);
   const [state, setState] = useState<DraftSaverState>(IDLE);
 
   useEffect(() => {
     latest.current = options;
+    zone.current = timeZone;
   });
 
   useEffect(() => {
@@ -94,10 +101,20 @@ export function useConsultDraft(options: {
       onAppErrorCode: (code) => void onAppErrorCode(code),
       onRebased: (fields) => latest.current.onRebased(fields),
       onState: setState,
+      // 09B-06a (A-7, S-4): a vital out of range and a follow-up date the command would refuse (before the clinic's today or after today + 366, unless
+      // it is the date already stored) are held back, so the other fields still save.
+      isSendable: (key, fields) => {
+        if (!draftFieldSendable(key, fields)) return false;
+        if (key !== "follow_up" || !fields.follow_up) return true;
+        const date = fields.follow_up.follow_up_date;
+        const today = todayInTz(zone.current);
+        return (date >= today && date <= addDaysYmd(today, 366)) || date === latest.current.serverFields.follow_up?.follow_up_date;
+      },
     });
     saverRef.current = saver;
     return () => {
-      saver.dispose();
+      // A-1: flush, then dispose. The save is a server action, so it completes on the server even when this screen is gone.
+      void saver.release();
       if (saverRef.current === saver) saverRef.current = null;
     };
   }, [visitId, enabled, resetKey]);
