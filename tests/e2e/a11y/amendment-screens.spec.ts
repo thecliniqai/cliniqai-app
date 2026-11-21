@@ -77,6 +77,16 @@ async function check(page: Page, testInfo: TestInfo, name: string, scopes: strin
 }
 
 async function heightOf(locator: Locator): Promise<number> {
+  // 09A-06a (flake root cause): the dialog opens with a translate transition, and a box measured mid-transition comes back as 35.99997 px for a 36 px
+  // button (float noise of the moving box). Measure after every finite animation on the page has finished.
+  await locator.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
   const box = await locator.boundingBox();
   if (!box) throw new Error("control has no box");
   return box.height;
@@ -232,7 +242,7 @@ test.describe("amendment: in-session transitions", () => {
 
     // Slow every server action down, so the dialog's save and finalize phases are long enough to try to dismiss it.
     await page.route(`**/consultation/${visitId}`, async (route) => {
-      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await new Promise((r) => setTimeout(r, 1_500));
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) await new Promise((r) => setTimeout(r, 2_500));
       await route.continue();
     });
     await page.getByRole("button", { name: "Finalize amendment" }).click();
@@ -240,7 +250,8 @@ test.describe("amendment: in-session transitions", () => {
     await expect(confirm).toBeVisible();
     await confirm.getByRole("button", { name: "Finalize amendment" }).click();
     // Busy: Escape and an outside click do not dismiss it, and its Close button is gone.
-    await expect(confirm.getByRole("button", { name: "Close" })).toHaveCount(0);
+    // (A short timeout: the busy phase lasts several seconds, so a Close button that is still there must fail here, not disappear with the dialog.)
+    await expect(confirm.locator("[data-overlay-close]")).toHaveCount(0, { timeout: 1_000 });
     await page.keyboard.press("Escape");
     await page.mouse.click(5, 5);
     await expect(confirm).toBeVisible();
