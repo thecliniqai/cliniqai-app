@@ -25,6 +25,7 @@ import { Sidebar } from "./sidebar";
 import { ShellToaster } from "./toaster";
 import { TopBar } from "./top-bar";
 import type { ShellUser } from "./shell-user";
+import type { ClinicOption } from "./clinic-switcher";
 
 export const SKIP_LINK_TEXT = "Skip to content";
 
@@ -54,6 +55,8 @@ export function AppShell({
   user,
   swEnabled,
   shellClinic = null,
+  clinics = [],
+  activeClinicId = "",
   children,
 }: {
   model: NavModel;
@@ -62,6 +65,9 @@ export function AppShell({
   swEnabled: boolean;
   /** 06-09d: the clinic the layout resolved while the device had none pinned (for the status route to pin). */
   shellClinic?: string | null;
+  /** Every clinic of the user (V2-08 08-05, R-17); with two or more the shell offers the switcher. */
+  clinics?: readonly ClinicOption[];
+  activeClinicId?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/";
@@ -129,6 +135,8 @@ export function AppShell({
         activeId={active?.id ?? null}
         clinicName={clinicName}
         user={user}
+        clinics={clinics}
+        activeClinicId={activeClinicId}
         className={cn("sticky top-0 h-app", focusMode ? "hidden" : "hidden xl:flex")}
       />
       <Rail
@@ -149,6 +157,8 @@ export function AppShell({
           paletteOpen={paletteOpen}
           clinicName={clinicName}
           user={user}
+          clinics={clinics}
+          activeClinicId={activeClinicId}
         />
         <main
           id="main"
