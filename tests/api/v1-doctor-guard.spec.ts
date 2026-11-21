@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { GET as getVisits, POST as createVisit } from "@/app/api/v1/visits/route";
 import { GET as getVisitById, PATCH as patchVisitById } from "@/app/api/v1/visits/[id]/route";
+import { DELETE as cancelAppointmentById } from "@/app/api/v1/appointments/[id]/route";
+import { seedSlotIso } from "../helpers/seed-slots";
 import { GET as getPrescriptions, POST as createPrescription } from "@/app/api/v1/prescriptions/route";
 import { GET as getPrescriptionById } from "@/app/api/v1/prescriptions/[id]/route";
 import { GET as getLabOrders, POST as createLabOrder } from "@/app/api/v1/lab-orders/route";
@@ -13,7 +15,8 @@ import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../h
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
-import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
+import { clinicalNotesOf } from "../helpers/clinical-notes";
+import { reopenVisitAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
 import { listInReferralDirectory } from "../helpers/referral-directory";
 
 enableApiV1ForFile();
@@ -332,23 +335,11 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
     }
 
     it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged", async () => {
-      // Completed (signed) in the app; an API key cannot complete a visit (05-11c).
-      const { data: done } = await getAdminClient()
-        .from("visits")
-        .insert({
-          tenant_id: clinicA.tenantId,
-          patient_id: patientA.id,
-          doctor_id: doctorA.userId,
-          origin_type: "walk_in",
-          status: "completed",
-          signed_at: "2026-11-02T09:00:00.000Z",
-          signed_by: doctorA.userId,
-          created_by: clinicA.userId,
-        })
-        .select("id")
-        .single();
-      const completedId = done!.id;
-      await seedClinicalNotes(completedId, { clinical_notes: "Signed synthetic note." });
+      // Completed (signed) in the app; an API key cannot complete a visit (05-11c). Seeded the way production makes it (V2-09a R-15):
+      // an unsigned visit with its note, then the doctor's own sign_consultation.
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, notes: "Signed synthetic note.", prescriptions: 0 });
+      await signVisitAs(doctorA, seeded.visitId);
+      const completedId = seeded.visitId;
       const before = await readVisit(completedId);
       expect(before?.status).toBe("completed");
 
@@ -365,24 +356,10 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
     });
 
     it("rejects a PATCH of a signed visit reopened for amendment (signed_at set, in_consultation)", async () => {
-      const admin = getAdminClient();
-      const signedAt = "2026-11-01T09:00:00.000Z";
-      const { data: v } = await admin
-        .from("visits")
-        .insert({
-          tenant_id: clinicA.tenantId,
-          patient_id: patientA.id,
-          doctor_id: doctorA.userId,
-          origin_type: "walk_in",
-          status: "in_consultation",
-          signed_at: signedAt,
-          signed_by: doctorA.userId,
-          created_by: clinicA.userId,
-        })
-        .select("id")
-        .single();
-      const reopenedId = v!.id;
-      await seedClinicalNotes(reopenedId, { clinical_notes: "Signed synthetic note." });
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, notes: "Signed synthetic note.", prescriptions: 0 });
+      await signVisitAs(doctorA, seeded.visitId);
+      await reopenVisitAs(doctorA, seeded.visitId);
+      const reopenedId = seeded.visitId;
       const before = await readVisit(reopenedId);
 
       const res = await patchVisitById(patchReq(reopenedId, { status: "cancelled" }), {
@@ -427,6 +404,49 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       });
       expect(bad.status).toBe(422);
       expect((await readVisit(openId))?.status).toBe("in_consultation");
+    });
+
+    // V2-09a 09A-01 (BACKEND A6, full): the route guards above are defence in depth. The v1 API runs on the service-role client, and the
+    // database now refuses the same writes for that client, so a route that forgot its filter would still not change a signed record.
+    it("with the route's own filter bypassed, the service-role client cannot change, un-sign or delete a signed visit", async () => {
+      const admin = getAdminClient();
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, notes: "Signed synthetic note.", prescriptions: 0 });
+      await signVisitAs(doctorA, seeded.visitId);
+      const before = await readVisit(seeded.visitId);
+
+      const attempts = [
+        admin.from("visits").update({ status: "cancelled" }).eq("id", seeded.visitId),
+        admin.from("visits").update({ status: "in_consultation" }).eq("id", seeded.visitId),
+        admin.from("visits").update({ signed_at: null, signed_by: null }).eq("id", seeded.visitId),
+        admin.from("visits").update({ signed_by: clinicA.userId }).eq("id", seeded.visitId),
+        admin.from("visits").update({ reason_for_visit: "Rewritten by the system" }).eq("id", seeded.visitId),
+        admin.from("visits").update({ specialty: "dental" }).eq("id", seeded.visitId),
+        admin.from("clinical_notes").update({ clinical_notes: "Rewritten by the system" }).eq("visit_id", seeded.visitId),
+        admin.from("visits").delete().eq("id", seeded.visitId),
+      ];
+      for (const attempt of attempts) {
+        const { error } = await attempt;
+        expect(error?.code).toBe("42501");
+      }
+      expect(await readVisit(seeded.visitId)).toEqual(before);
+      const { count } = await admin.from("visits").select("id", { count: "exact", head: true }).eq("id", seeded.visitId);
+      expect(count).toBe(1);
+    });
+
+    it("DELETE /api/v1/appointments/[id] of a signed appointment is 409 VISIT_LOCKED and the visit is unchanged", async () => {
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, notes: "Signed synthetic note.", prescriptions: 0, scheduledAt: seedSlotIso() });
+      await signVisitAs(doctorA, seeded.visitId);
+      const before = await readVisit(seeded.visitId);
+
+      const res = await cancelAppointmentById(
+        new NextRequest(`http://localhost/api/v1/appointments/${seeded.visitId}`, { method: "DELETE", headers: { authorization: `Bearer ${keyA.rawToken}` } }),
+        { params: Promise.resolve({ id: seeded.visitId }) },
+      );
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error.code).toBe("VISIT_LOCKED");
+      expect(await readVisit(seeded.visitId)).toEqual(before);
+      expect(before?.status).toBe("completed");
     });
 
     it("Key B cannot read or patch Clinic A visit (returns 404)", async () => {
@@ -581,27 +601,15 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
     // header would replace the signed medicines in the record and the PDF, which read the latest version).
     it("refuses a prescription on a signed visit with 409 VISIT_LOCKED and writes no header", async () => {
       const admin = getAdminClient();
-      const { data: v } = await admin
-        .from("visits")
-        .insert({
-          tenant_id: clinicA.tenantId,
-          patient_id: patientA.id,
-          doctor_id: doctorA.userId,
-          origin_type: "walk_in",
-          status: "completed",
-          signed_at: "2026-11-03T09:00:00.000Z",
-          signed_by: doctorA.userId,
-          created_by: clinicA.userId,
-        })
-        .select("id")
-        .single();
-      const signedId = v!.id;
+      const seeded = await seedClinicalVisit(clinicA, { doctorId: doctorA.userId, prescriptions: 0 });
+      await signVisitAs(doctorA, seeded.visitId);
+      const signedId = seeded.visitId;
       const body = (visitId: string) =>
         new NextRequest("http://localhost/api/v1/prescriptions", {
           method: "POST",
           headers: { authorization: `Bearer ${keyA.rawToken}`, "content-type": "application/json" },
           body: JSON.stringify({
-            patient_id: patientA.id,
+            patient_id: seeded.patientId,
             doctor_id: doctorA.userId,
             visit_id: visitId,
             items: [{ medicine_name: "Synthetic decoy", dosage: "1 tablet", timing: "sos", duration: "1 day" }],
@@ -619,7 +627,7 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(count).toBe(0);
 
       // Reopened for amendment: a new prescription is accepted, as for a signed-in doctor.
-      await admin.from("visits").update({ status: "in_consultation" }).eq("id", signedId);
+      await reopenVisitAs(doctorA, signedId);
       const reopened = await createPrescription(body(signedId));
       expect(reopened.status).toBe(201);
     });

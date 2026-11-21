@@ -227,12 +227,17 @@ describe("closed event set, subject state and idempotency", () => {
       message: "EVENT_NOT_ALLOWED",
     });
 
-    psql(`update public.visits set status = 'completed', signed_at = '2026-11-13T05:06:07.089Z' where id = '${p.visitId}'`);
-    const done = await enqueue(doctorA.client, doctorA.tenantId, "visit.completed", p.visitId);
+    // A completed, signed visit with a known signature time. A system path can no longer sign an existing visit (V2-09a 000107, R-5), so the
+    // fixture inserts the visit already signed (R-4c): the one write that carries a signature.
+    const [doneVisit] = psql(
+      `insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, status, signed_at, signed_by, created_by) ` +
+        `values ('${ownerA.tenantId}', '${p.patientId}', '${doctorA.userId}', 'walk_in', 'completed', '2026-11-13T05:06:07.089Z', '${doctorA.userId}', '${ownerA.userId}') returning id`
+    );
+    const done = await enqueue(doctorA.client, doctorA.tenantId, "visit.completed", doneVisit);
     expect(done.error).toBeNull();
-    const [row] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `visit.completed:${p.visitId}`);
+    const [row] = deliveriesFor(subVisits.id).filter((r) => r.eventKey === `visit.completed:${doneVisit}`);
     expect(JSON.parse(deliveryPayload(row.id)).data).toEqual({
-      visit_id: p.visitId,
+      visit_id: doneVisit,
       patient_id: p.patientId,
       doctor_id: doctorA.userId,
       completed_at: "2026-11-13T05:06:07.089Z",

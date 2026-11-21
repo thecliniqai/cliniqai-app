@@ -246,7 +246,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { data: existing, error: fetchErr } = await (admin.from("visits") as any)
-      .select("id, status")
+      .select("id, status, signed_at")
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .eq("origin_type", "scheduled")
@@ -257,6 +257,11 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
     if (!existing) {
       return apiError("NOT_FOUND", "Appointment not found.", 404, undefined, rateHeaders);
+    }
+    // A signed or completed consultation is never cancelled (V2-09a 09A-01, A6): the database refuses it for every writer (this client
+    // included), so this answer is the same fixed 409 as PATCH /api/v1/visits/[id], not a 403 from the guard.
+    if (existing.status === "completed" || existing.signed_at) {
+      return apiError("VISIT_LOCKED", "Signed visits cannot be modified.", 409, undefined, rateHeaders);
     }
 
     const { data: cancelled, error: cancelErr } = await (admin.from("visits") as any)
@@ -269,6 +274,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       .select()
       .single();
 
+    if (cancelErr?.code === "42501") {
+      // Signed between the read above and this write: the seal refused it (VISIT_SIGNED_STATUS_FORBIDDEN).
+      return apiError("VISIT_LOCKED", "Signed visits cannot be modified.", 409, undefined, rateHeaders);
+    }
     if (cancelErr || !cancelled) {
       return apiDbError(cancelErr, rateHeaders);
     }

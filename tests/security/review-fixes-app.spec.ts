@@ -15,6 +15,7 @@ import { getInAppNotifications, markAllNotificationsRead } from "@/features/noti
 import { updateClinicSettings } from "@/features/settings/service";
 import { GET as receiptPdfRoute } from "@/app/api/invoices/[id]/receipt-pdf/route";
 import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
+import { signVisitAs } from "../helpers/clinical-commands";
 
 // V2-01 plan 01-08, checkpoint 2 (app-only review fixes). DB-backed cases use the local stack; the error-text cases
 // stub the client so a database error whose text carries row data can be produced deterministically.
@@ -123,7 +124,7 @@ describe("01-08 review fixes, app-only items", () => {
   });
 
   describe("signed consultation overwrite: saveConsultationDraft refuses a completed or signed visit", () => {
-    async function visit(fields: Record<string, unknown>): Promise<string> {
+    async function visit(fields: Record<string, unknown>, opts: { seedNote: boolean }): Promise<string> {
       const id = await insertRow("visits", {
         tenant_id: owner.tenantId,
         patient_id: patientId,
@@ -133,8 +134,9 @@ describe("01-08 review fixes, app-only items", () => {
         created_by: owner.userId,
         ...fields,
       });
-      // The note lives in the visit's clinical_notes row (V2-05 05-02a).
-      await seedClinicalNotes(id, { clinical_notes: "Signed synthetic note." });
+      // The note lives in the visit's clinical_notes row (V2-05 05-02a). A signed visit's note cannot be written any more (V2-09a 000107),
+      // so a record that must carry a note is seeded as a draft and signed through the command (R-15).
+      if (opts.seedNote) await seedClinicalNotes(id, { clinical_notes: "Signed synthetic note." });
       return id;
     }
     async function notesOf(id: string) {
@@ -144,14 +146,21 @@ describe("01-08 review fixes, app-only items", () => {
     }
 
     it.each([
-      ["completed and signed", { status: "completed", signed: true }],
-      ["completed", { status: "completed", signed: false }],
-      ["signed but not reopened (waiting)", { status: "waiting", signed: true }],
-    ])("%s: refused and nothing changes", async (_label, { status, signed }) => {
-      const id = await visit({
-        status,
-        ...(signed ? { signed_at: new Date().toISOString(), signed_by: doctor.userId } : {}),
-      });
+      ["completed and signed", { status: "waiting", signed: "command" }],
+      ["completed", { status: "completed", signed: "none" }],
+      ["signed but not reopened (waiting)", { status: "waiting", signed: "insert" }],
+    ] as const)("%s: refused and nothing changes", async (_label, { status, signed }) => {
+      // "completed and signed" is signed by the command; "signed but not reopened" is a signed visit inserted by the system path (R-4c,
+      // a state no command produces), whose note therefore stays empty.
+      const id = await visit(
+        {
+          status,
+          ...(signed === "insert" ? { signed_at: new Date().toISOString(), signed_by: doctor.userId } : {}),
+        },
+        { seedNote: signed !== "insert" },
+      );
+      if (signed === "command") await signVisitAs(owner, id);
+      const expectedNote = signed === "insert" ? null : "Signed synthetic note.";
       const res = await saveConsultationDraft(ctxFor(doctor), {
         visit_id: id,
         clinical_notes: "Overwritten after sign-off.",
@@ -160,12 +169,12 @@ describe("01-08 review fixes, app-only items", () => {
       expect(res.success).toBe(false);
       if (!res.success) expect(res.error).toMatch(/already signed/i);
       const after = await notesOf(id);
-      expect(after.clinical_notes).toBe("Signed synthetic note.");
+      expect(after.clinical_notes).toBe(expectedNote);
       expect(JSON.stringify(after.metadata ?? {})).not.toContain("injected");
     });
 
     it("a visit reopened for amendment (signed, in_consultation) still saves drafts", async () => {
-      const id = await visit({ status: "in_consultation", signed_at: new Date().toISOString() });
+      const id = await visit({ status: "in_consultation", signed_at: new Date().toISOString() }, { seedNote: true });
       const res = await saveConsultationDraft(ctxFor(doctor), {
         visit_id: id,
         clinical_notes: "Amended synthetic note.",
@@ -175,7 +184,7 @@ describe("01-08 review fixes, app-only items", () => {
     });
 
     it("an unsigned in-progress visit still saves drafts", async () => {
-      const id = await visit({ status: "in_consultation" });
+      const id = await visit({ status: "in_consultation" }, { seedNote: true });
       const res = await saveConsultationDraft(ctxFor(doctor), { visit_id: id, clinical_notes: "Draft." } as never);
       expect(res.success).toBe(true);
     });
