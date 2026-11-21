@@ -205,7 +205,8 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       expect(psql(`select max_retries from public.webhook_delivery_queue where id = '${row.id}'`)).toEqual(["5"]);
       const parsed = JSON.parse(deliveryPayload(row.id));
       expect(parsed.event).toBe("prescription.issued");
-      expect(parsed.data).toMatchObject({ prescription_id: rx });
+      // V2-09a 000108 (R-10): the data carries the prescription's version (1 here); an amended version is issued again with version n.
+      expect(parsed.data).toMatchObject({ prescription_id: rx, version: 1 });
       expect(parsed.id).toBeDefined();
       // Delivery is the runner's: one webhook.deliver job, still pending.
       expect(webhookJobsFor(row.id)).toEqual([expect.objectContaining({ status: "pending" })]);

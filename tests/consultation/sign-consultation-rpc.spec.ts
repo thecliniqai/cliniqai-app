@@ -112,10 +112,14 @@ describe("sign_consultation: one transaction", () => {
     const completed = await outboxRows(tenantA.tenantId, "visit.completed", v.visitId);
     expect(completed).toEqual([expect.objectContaining({ subscription_id: subscriptionA, event_key: `visit.completed:${v.visitId}` })]);
     expect(JSON.parse(completed[0].payload).data).toMatchObject({ visit_id: v.visitId, doctor_id: members.doctor.userId });
-    for (const id of v.prescriptionIds) {
+    // V2-09a 000108 (R-10): the event data carries the header's version, and the key of version n > 1 ends :v<n> (the seed makes versions 1..n).
+    for (const [index, id] of v.prescriptionIds.entries()) {
+      const version = index + 1;
       const issued = await outboxRows(tenantA.tenantId, "prescription.issued", id);
-      expect(issued).toEqual([expect.objectContaining({ subscription_id: subscriptionA, event_key: `prescription.issued:${id}:signed` })]);
-      expect(JSON.parse(issued[0].payload).data).toEqual({ prescription_id: id, patient_id: v.patientId, visit_id: v.visitId });
+      expect(issued).toEqual([
+        expect.objectContaining({ subscription_id: subscriptionA, event_key: `prescription.issued:${id}:signed${version > 1 ? `:v${version}` : ""}` }),
+      ]);
+      expect(JSON.parse(issued[0].payload).data).toEqual({ prescription_id: id, patient_id: v.patientId, visit_id: v.visitId, version });
     }
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.sign_consultation|true"]);
     // F-5 (07-04a): the stored result holds ids, numbers, amounts, statuses and flags only, no free text.

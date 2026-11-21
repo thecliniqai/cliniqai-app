@@ -4,8 +4,9 @@
  *
  * Reopen: the amendment row (number and snapshot filled by the database), the visit back to `in_consultation` and the
  * audit row commit together. Finalize: the latest prescription's next version and new signature, the visit re-signed as
- * `completed` and the audit row commit together. Amendments raise no webhook (R-9). SECURITY DEFINER; consultations:edit
- * only (owner, doctor). Synthetic data only.
+ * `completed` and the audit row commit together. Finalize re-issues `prescription.issued` for the amended header, once per version
+ * (event key `...:signed:v<n>` from version 2; V2-09a 000108, R-10); `visit.completed` is not re-emitted and reopen raises no webhook.
+ * SECURITY DEFINER; consultations:edit only (owner, doctor). Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -173,7 +174,7 @@ describe("reopen_visit_for_amendment: one transaction", () => {
 });
 
 describe("finalize_visit_amendment: one transaction", () => {
-  it("happy path: version 2 with the reason and a new signature, the visit completed again, the audit row; no webhook", async () => {
+  it("happy path: version 2 with the reason and a new signature, the visit completed again, the audit row, one prescription.issued ...:signed:v2", async () => {
     const v = await reopenedVisit(tenantA, { reason: "Corrected the dosage after the review" });
     const rxBefore = (await prescriptionsOfVisit(v.visitId))[0];
     const outboxBefore = await amendmentOutbox(tenantA.tenantId, v);
@@ -194,7 +195,15 @@ describe("finalize_visit_amendment: one transaction", () => {
         metadata: { version: 2, amendment_reason: "Corrected the dosage after the review" },
       }),
     ]);
-    expect(await amendmentOutbox(tenantA.tenantId, v)).toEqual(outboxBefore);
+    // R-10: the amended prescription is issued again, once for version 2; visit.completed is not re-emitted.
+    expect(await amendmentOutbox(tenantA.tenantId, v)).toEqual({ completed: outboxBefore.completed, issued: outboxBefore.issued + 1 });
+    const issued = await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0]);
+    expect(issued.map((r) => r.event_key).sort()).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v2`,
+    ]);
+    const reissued = issued.find((r) => r.event_key?.endsWith(":v2"))!;
+    expect(JSON.parse(reissued.payload).data).toEqual({ prescription_id: v.prescriptionIds[0], patient_id: v.patientId, visit_id: v.visitId, version: 2 });
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual(["public.finalize_visit_amendment|true"]);
   });
 
@@ -205,6 +214,13 @@ describe("finalize_visit_amendment: one transaction", () => {
     const third = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId));
     expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 3, amendment_reason: "Second correction for the audit" });
+    // One prescription.issued per version: the keys of version 1, 2 and 3 differ.
+    const keys = (await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).map((r) => r.event_key).sort();
+    expect(keys).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v2`,
+      `prescription.issued:${v.prescriptionIds[0]}:signed:v3`,
+    ]);
   });
 
   it("rollback: a fault on the prescription update leaves the visit reopened at version 1, no audit row, no claim; the same id then succeeds", async () => {
@@ -221,6 +237,10 @@ describe("finalize_visit_amendment: one transaction", () => {
 
     expect(await visitRow(v.visitId)).toMatchObject({ status: "in_consultation" });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 1, amendment_reason: null });
+    // R-10: nothing is queued for a finalize that faulted after the prescription update (the outbox row shares the transaction).
+    expect((await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).map((r) => r.event_key)).toEqual([
+      `prescription.issued:${v.prescriptionIds[0]}:signed`,
+    ]);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toEqual([]);
     expect(commandResultRows(tenantA.tenantId, args.p_client_request_id)).toEqual([]);
 
@@ -274,6 +294,8 @@ describe("amendment commands: idempotency and races", () => {
     expect(second.data).toEqual({ ...(first.data as object), replayed: true });
     expect((await prescriptionsOfVisit(v.visitId))[0].version).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toHaveLength(1);
+    // The replay queues no second prescription.issued.
+    expect(await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).toHaveLength(2);
   });
 
   it("two concurrent reopens of one visit (different ids): one revision; the other is VISIT_NOT_SIGNED", async () => {
@@ -302,6 +324,8 @@ describe("amendment commands: idempotency and races", () => {
     expect(mapDbError(failed[0].error)).toMatchObject({ code: "CONFLICT", reason: "AMENDMENT_NOT_OPEN" });
     expect((await prescriptionsOfVisit(v.visitId))[0].version).toBe(2);
     expect(await auditRows(tenantA.tenantId, "visit.amend_finalized", v.visitId)).toHaveLength(1);
+    // The replay queues no second prescription.issued.
+    expect(await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).toHaveLength(2);
   });
 });
 

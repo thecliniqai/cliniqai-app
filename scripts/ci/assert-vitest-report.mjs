@@ -97,6 +97,8 @@
  *   6455 — V2-09a 09A-01, unchanged: REQUIRED_FILES + tests/clinical/seal-system-path.spec.ts (3) and
  *          tests/consultation/record-state-parity.spec.ts (3). The suite only grew (two cases in tests/api/v1-doctor-guard.spec.ts); the
  *          floor is re-measured once at the phase close (09A plan, R-18).
+ *   6455 — V2-09a 09A-02, unchanged: REQUIRED_FILES + tests/consultation/rx-seal.spec.ts (10) and
+ *          tests/security/ac6-rewrite-signed-rx.spec.ts (9). The floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -453,6 +455,9 @@ const REQUIRED_FILES = [
   // V2-09a 09A-01 (the clinical seal).
   "tests/clinical/seal-system-path.spec.ts",
   "tests/consultation/record-state-parity.spec.ts",
+  // V2-09a 09A-02 (the prescription seal and the AC-6 abuse spec).
+  "tests/consultation/rx-seal.spec.ts",
+  "tests/security/ac6-rewrite-signed-rx.spec.ts",
 ];
 
 const file = process.argv[2];

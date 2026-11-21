@@ -150,7 +150,7 @@ describe("public.enqueue_webhook_event: every role's events are queued (R-19)", 
     expect(Object.keys(envelope).sort()).toEqual(["created_at", "data", "event", "id"]);
     expect(envelope.event).toBe("prescription.issued");
     const subject = rxSubjects.get(rx)!;
-    expect(envelope.data).toEqual({ prescription_id: rx, patient_id: subject.patientId, visit_id: subject.visitId });
+    expect(envelope.data).toEqual({ prescription_id: rx, patient_id: subject.patientId, visit_id: subject.visitId, version: 1 });
   });
 
   it("lib/jobs/enqueue: enqueueWebhookEvent(ctx, …) queues for ctx.tenantId and returns the delivery ids", async () => {
@@ -464,7 +464,7 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
     expect((await completeAndSignConsultation(doctorCtx, p.visitId, randomUUID())).success).toBe(true);
     const rows = rxRows(rx);
     expect(rows.map((r) => r.eventKey)).toEqual([`prescription.issued:${rx}:signed`]);
-    expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId });
+    expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId, version: 1 });
   });
 
   it("from a request an unsigned prescription is refused (empty draft or with items); the API path queues one with items", async () => {
