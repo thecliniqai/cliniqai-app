@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -95,11 +96,15 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     });
     expect(forgedErr?.code).toBe("42501");
 
-    // 4. Update visit status to waiting
-    const { error: updateErr } = await tenantA.client
-      .from("visits")
-      .update({ status: "waiting" })
-      .eq("id", visitA1Id);
+    // 4. The visit moves to waiting through the check-in command (V2-08 08-04a: no member holds UPDATE on visits.status).
+    const { error: statusErr } = await tenantA.client.from("visits").update({ status: "waiting" }).eq("id", visitA1Id);
+    expect(statusErr?.code).toBe("42501");
+    const { error: updateErr } = await tenantA.client.rpc("check_in_visit", {
+      p_tenant_id: tenantA.tenantId,
+      p_visit_id: visitA1Id,
+      p_priority: "normal",
+      p_client_request_id: randomUUID(),
+    });
 
     expect(updateErr).toBeNull();
 
@@ -205,7 +210,7 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     // Tenant B attempts to update Tenant A visit
     const { data: updateData, error: updateErr } = await tenantB.client
       .from("visits")
-      .update({ reason_for_visit: "Hacked reason" })
+      .update({ specialty: "dental" })
       .eq("id", visitA1Id)
       .select();
 

@@ -9,7 +9,9 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "../..");
 const DIRS = ["components/today", "components/front-desk", "components/schedule"];
-const LEGACY = ["createPatient", "createVisit", "updateVisitStatus", "cancelVisit", "confirmAppointment", "transitionQueueState"];
+// V2-08 08-04a deleted `updateVisitStatus`, the multi-statement `cancelVisit` and `confirmAppointment`: the names now belong to the
+// atomic commands in features/visits/scheduling.ts, which the Schedule screen may import.
+const LEGACY = ["createPatient", "createVisit", "updateVisitStatus", "transitionQueueState"];
 
 function files(dir: string): string[] {
   const full = path.join(ROOT, dir);
@@ -49,8 +51,8 @@ describe("no client command chains (M4 criterion 7)", () => {
   });
 
   it("the scan itself recognises an import of a legacy writer", () => {
-    expect(importedNames('import { cancelVisit, type X } from "@/features/visits/actions";')).toContain("cancelVisit");
+    expect(importedNames('import { updateVisitStatus, type X } from "@/features/visits/actions";')).toContain("updateVisitStatus");
     expect(importedNames('import type { createPatient as make } from "@/x";')).toContain("createPatient");
-    expect(importedNames('import { checkInVisit } from "@/features/queue/actions";')).not.toContain("cancelVisit");
+    expect(importedNames('import { checkInVisit } from "@/features/queue/actions";')).not.toContain("updateVisitStatus");
   });
 });

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
-import { confirmAppointment } from "@/features/visits/service";
 import { mockCtx } from "../helpers/context";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { DoctorWeeklySchedule } from "@/lib/db/types";
@@ -262,47 +261,8 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
   // tests/visits/register-and-book-rpc.spec.ts (SLOT_OFF_DUTY, SLOT_BLOCKED, p_override_off_duty, p_override_block).
 
   describe("5. Soft-Book & Manual Appointment Confirmation (Soft-Book / Confirmed State Transition)", () => {
-    it("transitions booked visit to confirmed with staff metadata and audit trail", async () => {
-      const existingVisits = [
-        {
-          id: "v-soft-book-1",
-          tenant_id: "tenant-100",
-          patient_id: "11111111-1111-4111-8111-111111111111",
-          doctor_id: "22222222-2222-4222-8222-222222222222",
-          status: "booked",
-          scheduled_at: "2026-10-19T04:30:00.000Z",
-          metadata: {} as Record<string, unknown>,
-        },
-      ];
-
-      const mockClient = createMockSupabase({ existingVisits });
-
-      const confirmRes = await confirmAppointment(mockCtx(mockClient, mockSession), "v-soft-book-1");
-
-      expect(confirmRes.success).toBe(true);
-      expect(existingVisits[0].status).toBe("confirmed");
-      expect(existingVisits[0].metadata?.clinic_confirmed).toBe(true);
-      expect(existingVisits[0].metadata?.confirmed_via).toBe("staff_calendar");
-    });
-
-    it("rejects confirmation if visit is already cancelled", async () => {
-      const existingVisits = [
-        {
-          id: "v-cancelled-1",
-          tenant_id: "tenant-100",
-          status: "cancelled",
-        },
-      ];
-
-      const mockClient = createMockSupabase({ existingVisits });
-
-      const confirmRes = await confirmAppointment(mockCtx(mockClient, mockSession), "v-cancelled-1");
-
-      expect(confirmRes.success).toBe(false);
-      if (!confirmRes.success) {
-        expect(confirmRes.error).toContain("Cannot confirm a cancelled appointment");
-      }
-    });
+    // The confirmation is the confirm_appointment command since V2-08 08-04a: its status, metadata, audit row and refusals
+    // are proven against the real database in tests/visits/no-show-confirm-rpc.spec.ts.
 
     it("properly normalizes doctor titles without double 'Dr. Dr.' prefixing", () => {
       expect(formatDoctorDisplayName("Dr. Nupur Goel")).toBe("Dr. Nupur Goel");

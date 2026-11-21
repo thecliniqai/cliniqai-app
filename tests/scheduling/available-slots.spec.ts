@@ -1,9 +1,11 @@
 /**
- * V2-07 07-03 (R-8, PR-7): `public.available_slots(p_doctor_id, p_date)` and its server function `getAvailableSlots`.
+ * V2-07 07-03 (R-8, PR-7), V2-08 08-04a (R-9): `public.available_slots(p_doctor_id, p_date, p_exclude_visit_id)` and its server function
+ * `getAvailableSlots`.
  *
  * The doctor's free slots on a clinic-local date: back-to-back slots of the doctor's slot length inside the weekly shifts,
  * minus schedule blocks (the doctor's and clinic-wide) and booked, non-overbooked scheduled visits, all read in the
- * clinic's time zone (`tenants.timezone`). SECURITY INVOKER (RLS and appointments:view apply). Each test gets its own
+ * clinic's time zone (`tenants.timezone`). A doctor whose schedule is NULL is read as the default hours (R-9, G-3). SECURITY DEFINER
+ * wrapper of the private core, guarded by the active clinic and appointments:view. Each test gets its own
  * doctor, so schedules, blocks and bookings never interfere. Synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -64,9 +66,10 @@ beforeAll(async () => {
 });
 
 describe("available_slots: catalog", () => {
-  it("is STABLE SECURITY INVOKER with a pinned search_path, EXECUTE for authenticated only", () => {
-    const sig = "'public.available_slots(uuid, date)'::regprocedure";
-    expect(psql(`select prosecdef::text || ',' || provolatile::text || ',' || array_to_string(proconfig, ';') from pg_proc where oid = ${sig}`)).toEqual(['false,s,search_path=""']);
+  it("is a STABLE SECURITY DEFINER wrapper with a pinned search_path, EXECUTE for authenticated only; the old 2-argument signature is gone", () => {
+    const sig = "'public.available_slots(uuid, date, uuid)'::regprocedure";
+    expect(psql(`select prosecdef::text || ',' || provolatile::text || ',' || array_to_string(proconfig, ';') from pg_proc where oid = ${sig}`)).toEqual(['true,s,search_path=""']);
+    expect(psql("select count(*) from pg_proc where oid::regprocedure::text = 'available_slots(uuid,date)'")).toEqual(["0"]);
     expect(psql(`select has_function_privilege('anon', ${sig}, 'EXECUTE')::text || ',' || has_function_privilege('authenticated', ${sig}, 'EXECUTE')::text || ',' || has_function_privilege('service_role', ${sig}, 'EXECUTE')::text`)).toEqual([
       "false,true,false",
     ]);
@@ -94,13 +97,40 @@ describe("available_slots: shifts", () => {
     for (const [s, e] of slots) expect(new Date(e).getTime() - new Date(s).getTime()).toBe(30 * 60_000);
   });
 
-  it("a day off, a shift-less day and a doctor without a stored schedule have no slots", async () => {
+  it("a day off and a shift-less day have no slots", async () => {
     const off = await newDoctor(tenantA, weekSchedule([{ start: "10:00", end: "12:00" }], { sunday: false }));
     expect(await slotsOf(tenantA.client, off.userId, "2031-03-09")).toEqual([]); // Sunday
     const empty = await newDoctor(tenantA, weekSchedule([]));
     expect(await slotsOf(tenantA.client, empty.userId)).toEqual([]);
+  });
+
+  it("a doctor without a stored schedule is read as the default hours (R-9, G-3): Mon-Sat 10:00-13:00 and 17:00-21:00, Sunday off", async () => {
     const none = await newDoctor(tenantA, null);
-    expect(await slotsOf(tenantA.client, none.userId)).toEqual([]);
+    const tuesday = await slotsOf(tenantA.client, none.userId);
+    expect(tuesday).toHaveLength(28); // 12 morning + 16 evening 15-minute slots (the evening ends at 21:00, not 20:00)
+    expect(tuesday[0][0]).toBe(at(DAY, 10, 0));
+    expect(tuesday[tuesday.length - 1][1]).toBe(at(DAY, 21, 0));
+    expect(await slotsOf(tenantA.client, none.userId, "2031-03-09")).toEqual([]); // Sunday
+    // The list equals the default column value: a doctor holding the stored default has the same slots.
+    const stored = await newDoctor(tenantA, weekSchedule([{ start: "10:00", end: "13:00" }, { start: "17:00", end: "21:00" }], { sunday: false }));
+    expect(await slotsOf(tenantA.client, stored.userId)).toEqual(tuesday);
+  });
+
+  it("a slot at 00:30 IST belongs to its IST date although its UTC date is the day before", async () => {
+    const night = await newDoctor(tenantA, { ...weekSchedule([]), tuesday: { enabled: true, shifts: [{ start: "00:30", end: "01:00" }] } }, 15);
+    const slots = await slotsOf(tenantA.client, night.userId);
+    expect(starts(slots)).toEqual([at(DAY, 0, 30), at(DAY, 0, 45)]);
+    expect(starts(slots)[0].slice(0, 10)).toBe("2031-03-03"); // the UTC date
+    expect(await slotsOf(tenantA.client, night.userId, "2031-03-03")).toEqual([]);
+  });
+
+  it("p_exclude_visit_id lists the visit's own slot again (the visit being moved never blocks itself)", async () => {
+    const doc = await newDoctor(tenantA, weekSchedule([{ start: "10:00", end: "10:45" }]));
+    const mine = await seedBookedVisit(tenantA, patientA, doc.userId, at(DAY, 10, 15));
+    expect(starts(await slotsOf(tenantA.client, doc.userId))).toEqual([at(DAY, 10, 0), at(DAY, 10, 30)]);
+    const { data, error } = await tenantA.client.rpc("available_slots", { p_doctor_id: doc.userId, p_date: DAY, p_exclude_visit_id: mine });
+    expect(error).toBeNull();
+    expect((data ?? []).map((r) => new Date(r.slot_start).toISOString())).toEqual([at(DAY, 10, 0), at(DAY, 10, 15), at(DAY, 10, 30)]);
   });
 
   it("the weekday is the clinic-local weekday of the date given", async () => {
@@ -262,6 +292,14 @@ describe("getAvailableSlots (service)", () => {
         { start: at(DAY, 10, 15), end: at(DAY, 10, 30) },
       ],
     });
+    // The visit being moved: its own slot is listed again.
+    const mine = await seedBookedVisit(tenantA, patientA, doc.userId, at(DAY, 10, 15));
+    expect(await getAvailableSlots(ctxFor(tenantA), doc.userId, DAY)).toMatchObject({ ok: true, value: [{ start: at(DAY, 10, 0) }] });
+    expect(await getAvailableSlots(ctxFor(tenantA), doc.userId, DAY, mine)).toMatchObject({
+      ok: true,
+      value: [{ start: at(DAY, 10, 0) }, { start: at(DAY, 10, 15) }],
+    });
+    expect(await getAvailableSlots(ctxFor(tenantA), doc.userId, DAY, "nope")).toMatchObject({ ok: false, error: { code: "VALIDATION_FAILED" } });
     for (const [d, date] of [["not-a-uuid", DAY], [doc.userId, "2031-3-4"], [doc.userId, "04/03/2031"]]) {
       expect(await getAvailableSlots(ctxFor(tenantA), d, date)).toMatchObject({
         ok: false,

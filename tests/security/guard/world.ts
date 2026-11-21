@@ -46,6 +46,8 @@ export interface TenantRowIds {
   /** Two more queued (`waiting`) walk-ins, one per desk command, so a positive control of one never changes the other's input (V2-08 08-01b). */
   startableVisit: string;
   completableVisit: string;
+  /** A booked visit whose appointment time has passed: the no-show command (V2-08 08-04a). */
+  noShowableVisit: string;
   invoice: string;
   invoiceItem: string;
   document: string;
@@ -292,6 +294,17 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       })
     )
   );
+  const noShowableVisit = await insertRow(admin, "visits", {
+    tenant_id: t,
+    patient_id: patient,
+    doctor_id: u,
+    origin_type: "scheduled",
+    status: "booked",
+    scheduled_at: daysAhead(-20, offset).toISOString(),
+    // Overbooked: outside visits_no_double_booking, so no seed of any length ever collides with it.
+    is_overbooked: true,
+    created_by: u,
+  });
   await insertRow(admin, "consultation_diagnoses", {
     tenant_id: t,
     visit_id: waitingVisit,
@@ -375,6 +388,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     waitingVisit,
     startableVisit,
     completableVisit,
+    noShowableVisit,
     invoice,
     invoiceItem,
     document,

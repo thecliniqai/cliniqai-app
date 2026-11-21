@@ -80,6 +80,10 @@
  *   6385 — V2-08 08-03b, unchanged: REQUIRED_FILES + the three 08-03b specs (tests/today/{modes,shortcuts}.spec.ts,
  *          tests/ci/no-client-command-chains.spec.ts; 252 in total). The floor is re-measured at the next gate; the suite only
  *          grew (one `getQueueForDate` guard case went with that function).
+ *   6385 — V2-08 08-04a, unchanged: REQUIRED_FILES + the five 08-04a specs (tests/visits/{reschedule-visit-rpc,cancel-visit-rpc,
+ *          no-show-confirm-rpc}.spec.ts, tests/waitlist/waitlist-commands-rpc.spec.ts, tests/scheduling/patient-reschedule.spec.ts;
+ *          257 in total). The floor is re-measured at the next gate; the suite grew (the mock-based confirmAppointment cases and
+ *          two raw-error cases went with the deleted services).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -416,6 +420,12 @@ const REQUIRED_FILES = [
   "tests/ci/no-client-command-chains.spec.ts",
   "tests/pwa/safe-refresh.spec.ts",
   "tests/supabase/realtime-token.spec.ts",
+  // V2-08 08-04a (the staff scheduling commands and the patient's reschedule link).
+  "tests/visits/reschedule-visit-rpc.spec.ts",
+  "tests/visits/cancel-visit-rpc.spec.ts",
+  "tests/visits/no-show-confirm-rpc.spec.ts",
+  "tests/waitlist/waitlist-commands-rpc.spec.ts",
+  "tests/scheduling/patient-reschedule.spec.ts",
 ];
 
 const file = process.argv[2];

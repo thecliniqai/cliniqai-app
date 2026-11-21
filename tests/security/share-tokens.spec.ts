@@ -14,6 +14,7 @@ import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
 import { plantLegacyRow } from "../helpers/sql";
 import { seedSlotIso } from "../helpers/seed-slots";
+import { addDaysYmd, todayInTz, weekdayOfYmd } from "@/lib/datetime";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -508,9 +509,12 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
       const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessageAsSystem").mockResolvedValue({ id: "msg-syn" } as never);
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, A.visitId);
       const token = url.split("/reschedule/")[1];
-      const t1 = new Date(Date.now() + 6 * 86_400_000);
-      t1.setUTCHours(10, 0, 0, 0);
-      const t2 = new Date(t1.getTime() + 30 * 60_000);
+      // Two free slots of the doctor's default hours (11:00 and 11:30 IST), six or seven days ahead and not on a Sunday: the link
+      // refuses a time outside the shifts since V2-08 08-04a (R-16).
+      let day = addDaysYmd(todayInTz("Asia/Kolkata"), 6);
+      if (weekdayOfYmd(day) === "sunday") day = addDaysYmd(day, 1);
+      const t1 = new Date(`${day}T11:00:00+05:30`);
+      const t2 = new Date(`${day}T11:30:00+05:30`);
 
       const [r1, r2] = await Promise.all([reschedulePost(token, t1.toISOString()), reschedulePost(token, t2.toISOString())]);
       const statuses = [r1.status, r2.status].sort();

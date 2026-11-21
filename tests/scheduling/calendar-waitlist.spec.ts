@@ -4,7 +4,8 @@ import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
 import { registerAndBook } from "@/features/visits/scheduling-service";
 import { addToWaitlist, getWaitlistForDate } from "@/features/waitlist/service";
-import { cancelVisit } from "@/features/visits/service";
+import { cancelVisit } from "@/features/visits/scheduling-service";
+import { addDaysYmd, todayInTz, weekdayOfYmd } from "@/lib/datetime";
 
 describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -15,7 +16,12 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   let overbookedVisitId: string;
   let waitlistEntryId: string;
 
-  const testDate = "2026-10-15";
+  // A clinic day ten days ahead that is not a Sunday (the default schedule is off on Sundays): a cancelled booking is promoted
+  // only into a slot that still lies ahead (V2-08 08-04a).
+  const testDate = (() => {
+    const ymd = addDaysYmd(todayInTz("Asia/Kolkata"), 10);
+    return weekdayOfYmd(ymd) === "sunday" ? addDaysYmd(ymd, 1) : ymd;
+  })();
   // 11:00 AM IST is 05:30:00 UTC, within the doctor's standard 10:00-13:00 morning shift
   const testSlotTime = `${testDate}T05:30:00.000Z`;
 
@@ -155,12 +161,13 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         time_window: "Morning (9 AM - 1 PM)",
         priority: 5,
         notes: "Flexible timing",
-      }
+      },
+      randomUUID()
     );
 
-    expect(res.success).toBe(true);
-    if (!res.success) return;
-    waitlistEntryId = res.entryId;
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    waitlistEntryId = res.value.entryId;
 
     // Verify waitlist row in DB
     const { data: entryRow } = await tenant.client
@@ -183,12 +190,13 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
 
   it("5. Cancelling the original appointment automatically promotes the waitlisted patient into the slot", async () => {
     // Cancel original appointment
-    const cancelRes = await cancelVisit(ctxFor(tenant), originalVisitId);
-    expect(cancelRes.success).toBe(true);
-    if (!cancelRes.success) throw new Error(`cancelVisit failed: ${cancelRes.error}`);
-    expect(cancelRes.autoPromoted).toBe(true);
-    expect(cancelRes.promotedPatientId).toBe(patient3Id);
-    expect(cancelRes.replacementVisitId).toBeDefined();
+    const cancelRes = await cancelVisit(ctxFor(tenant), { visit_id: originalVisitId, reason_code: "other" }, randomUUID());
+    expect(cancelRes.ok).toBe(true);
+    if (!cancelRes.ok) throw new Error(`cancelVisit failed: ${cancelRes.error.message}`);
+    const cancelled = cancelRes.value;
+    expect(cancelled.autoPromoted).toBe(true);
+    expect(cancelled.promotedPatientId).toBe(patient3Id);
+    expect(cancelled.replacementVisitId).toBeTruthy();
 
     // Verify original visit is cancelled
     const { data: origVisit } = await tenant.client
@@ -206,13 +214,13 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
       .single();
 
     expect(waitlistRow?.status).toBe("promoted");
-    expect(waitlistRow?.promoted_visit_id).toBe(cancelRes.replacementVisitId);
+    expect(waitlistRow?.promoted_visit_id).toBe(cancelled.replacementVisitId);
 
     // Verify newly created replacement visit
     const { data: replacementVisit } = await tenant.client
       .from("visits")
       .select("patient_id, doctor_id, status, scheduled_at, reason_for_visit")
-      .eq("id", cancelRes.replacementVisitId!)
+      .eq("id", cancelled.replacementVisitId!)
       .single();
 
     expect(replacementVisit?.patient_id).toBe(patient3Id);

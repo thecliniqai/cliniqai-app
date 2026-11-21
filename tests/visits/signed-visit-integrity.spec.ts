@@ -7,7 +7,8 @@
  * the service case through the real `cancelVisit`. Rows are read back with the service-role client. Synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { cancelVisit } from "@/features/visits/service";
+import { randomUUID } from "node:crypto";
+import { cancelVisit } from "@/features/visits/scheduling-service";
 import { ymdOf } from "@/lib/datetime";
 import { ctxFor } from "../helpers/context";
 import { seedSlotIso } from "../helpers/seed-slots";
@@ -122,8 +123,8 @@ describe("signed visits keep their patient, signer and status (05-11a)", () => {
   });
 
   it("cancelVisit refuses a signed consultation: no cancel, no audit row, no waitlist promotion", async () => {
-    const res = await cancelVisit(ctxFor(reception), signedVisit);
-    expect(res).toEqual({ success: false, error: "A signed consultation cannot be cancelled." });
+    const res = await cancelVisit(ctxFor(reception), { visit_id: signedVisit, reason_code: "other" }, randomUUID());
+    expect(res).toMatchObject({ ok: false, error: { code: "CONFLICT", reason: "VISIT_NOT_CANCELLABLE" } });
     expect(await visitRow(signedVisit)).toMatchObject({ status: "completed", signed_by: owner.userId });
 
     const { data: entries, error: wErr } = await admin

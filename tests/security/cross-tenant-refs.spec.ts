@@ -104,9 +104,9 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
   it("addToWaitlist: B patient or B doctor refused", async () => {
     const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const input = (patient_id: string, doctor_id: string | null) => ({ patient_id, doctor_id, target_date: date, priority: 0 });
-    expect((await addToWaitlist(ctxFor(receptionistA), input(B.patient, null))).success).toBe(false);
-    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, ownerB.userId))).success).toBe(false);
-    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, doctorA.userId))).success).toBe(true);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(B.patient, null), randomUUID())).ok).toBe(false);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, ownerB.userId), randomUUID())).ok).toBe(false);
+    expect((await addToWaitlist(ctxFor(receptionistA), input(A.patient, doctorA.userId), randomUUID())).ok).toBe(true);
   });
 
   it("grantConsent, withdrawConsent, toggleGlobalConsent: B patient refused", async () => {
@@ -213,7 +213,7 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     for (const patient of [deleted.patient, erased.patient]) {
       expect((await createVisit(ctxFor(receptionistA), visitInput(patient, doctorA.userId))).success).toBe(false);
-      expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 })).success).toBe(false);
+      expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 }, randomUUID())).ok).toBe(false);
       expect((await grantConsent(ctxFor(nurseA), patient, "data_sharing")).success).toBe(false);
     }
     const { data: rows } = await admin
