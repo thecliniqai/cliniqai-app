@@ -11,7 +11,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { reopenVisitAs, seedClinicalVisit, signVisitAs, type ClinicalVisit } from "../helpers/clinical-commands";
 import { insertReturningId } from "../helpers/db";
 import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
-import { recordFollowUp } from "@/features/consultation/service";
+import { saveDraftAs } from "../helpers/consult-draft";
 import { addConsultationDiagnosis, removeConsultationDiagnosis, updateDiagnosisNote } from "@/features/terminology/service";
 import { addPrescriptionItem, getOrCreateDraftPrescription, removePrescriptionItem } from "@/features/prescriptions/service";
 
@@ -122,8 +122,9 @@ describe("a signed consultation answers every refused write with the fixed text 
   });
 
   it("changing the follow-up date", async () => {
-    const res = await recordFollowUp(ctxFor(doctor), { visitId: sealed.visit.visitId, patientId: sealed.visit.patientId, followUpDate: "2031-04-01" });
-    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
+    const res = await saveDraftAs(ctxFor(doctor), sealed.visit.visitId, { follow_up: { follow_up_date: "2031-04-01" } });
+    // V2-09b: the draft command refuses a sealed visit itself (DRAFT_LOCKED) with the same fixed text.
+    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE, code: "CONFLICT", reason: "DRAFT_LOCKED" });
     expect((await counts(sealed.visit.visitId)).followUps).toEqual(["2031-03-01"]);
   });
 
@@ -159,7 +160,7 @@ describe.each([
     const item = await addPrescriptionItem(ctx, c.visit.visitId, newItem);
     expect(item.success).toBe(true);
     if (item.success) expect((await removePrescriptionItem(ctx, item.itemId)).success).toBe(true);
-    expect((await recordFollowUp(ctx, { visitId: c.visit.visitId, patientId: c.visit.patientId, followUpDate: "2031-05-01" })).success).toBe(true);
+    expect((await saveDraftAs(ctx, c.visit.visitId, { follow_up: { follow_up_date: "2031-05-01" } })).success).toBe(true);
     expect((await counts(c.visit.visitId)).followUps).toEqual(["2031-05-01"]);
   });
 });

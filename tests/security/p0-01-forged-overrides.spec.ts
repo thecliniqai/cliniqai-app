@@ -214,9 +214,10 @@ describe("P0-01 forged overrides at the action layer", () => {
     it("receptionist and nurse cannot sign, amend or prescribe; the visit and prescription are unchanged", async () => {
       const visitId = await newVisitA();
       actAs(doctorA);
-      expect((await call(saveConsultationDraft, { visit_id: visitId, clinical_notes: "Synthetic note." })).success).toBe(
-        true
-      );
+      // V2-09b: the draft command takes the version read, a patch and a request id; it answers a command `Result`.
+      expect(
+        (await call(saveConsultationDraft, { visit_id: visitId, expected_version: 0, patch: { clinical_notes: "Synthetic note." }, client_request_id: randomUUID() })).ok
+      ).toBe(true);
       const ownerASession = { userId: ownerA.userId, tenantId: ownerA.tenantId, role: "owner" };
 
       for (const actor of [receptionistA, nurseA]) {
@@ -315,9 +316,10 @@ describe("P0-01 forged overrides at the action layer", () => {
       const visitId = await newVisitA();
       actAs(doctorA);
       const forgedActor = { userId: ownerA.userId, tenantId: ownerA.tenantId, role: "owner" };
-      expect((await call(saveConsultationDraft, { visit_id: visitId, clinical_notes: "Synthetic note." })).success).toBe(
-        true
-      );
+      // V2-09b: the draft command takes the version read, a patch and a request id; it answers a command `Result`.
+      expect(
+        (await call(saveConsultationDraft, { visit_id: visitId, expected_version: 0, patch: { clinical_notes: "Synthetic note." }, client_request_id: randomUUID() })).ok
+      ).toBe(true);
       const item = await call(
         addPrescriptionItem,
         visitId,

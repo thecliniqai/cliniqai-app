@@ -19,7 +19,7 @@ import {
   createVisitInvoice,
   recordPayment,
 } from "@/features/billing/service";
-import { saveConsultationDraft } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import type { ServiceContext } from "@/lib/auth/context";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";

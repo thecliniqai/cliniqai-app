@@ -14,7 +14,6 @@
  */
 import { randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
-import { consultationDraftInput } from "../../helpers/fixtures";
 import type { TenantRowIds } from "./world";
 
 export interface InputHelpers {
@@ -130,16 +129,17 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/clinics/profile.ts#updateClinicProfile": {
     args: (a) => [{ name: "Synthetic Guard Clinic A", address: null, specialties: ["general_physician"], timezone: "Asia/Kolkata", working_hours: {}, ...acting(a) }],
   },
-  "features/consultation/actions.ts#recordFollowUp": {
-    args: (a) => [{ visitId: a.visit, patientId: a.patient, doctorId: a.ownerUser, followUpDate: dateAhead(7), notes: "Synthetic note", ...acting(a) }],
-  },
   "features/consultation/actions.ts#finalizeVisitAmendment": { args: (a) => [a.reopenedVisit, randomUUID()] },
   "features/consultation/actions.ts#completeAndSignConsultation": { args: (a) => [a.waitingVisit, randomUUID()] },
   "features/consultation/actions.ts#reopenVisitForAmendment": {
     args: (a) => [a.signedVisit, "Synthetic amendment reason for the audit trail", randomUUID()],
   },
+  // V2-09b 09B-01: the draft command takes the visit, the version read and a patch. The tenant, the doctor and the visit's patient come from the session
+  // and the visit, so the acting fields are forged at the top level of the input and must be ignored.
   "features/consultation/actions.ts#saveConsultationDraft": {
-    args: (a) => [{ ...consultationDraftInput({ visit_id: a.visit }), ...acting(a) }],
+    args: (a) => [
+      { visit_id: a.visit, expected_version: 0, patch: { clinical_notes: "Synthetic note" }, client_request_id: randomUUID(), ...acting(a) },
+    ],
   },
   "features/labs/actions.ts#uploadLabDocument": {
     args: (a) => [

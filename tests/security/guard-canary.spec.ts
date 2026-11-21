@@ -126,7 +126,7 @@ describe("P0-13 canary: an unguarded action and route are caught", () => {
 
   describe("(d) leg 3 forging one reference at a time, with a positive control (02-06, IR-F2/AR-M2a)", () => {
     const leg3 = actionCases(buildInventory({ scanDirs: [], extraDirs: [LEG3_DIR] }));
-    const linkCase = leg3.find((c) => c.name === "linkCanaryFollowUp");
+    const linkCase = leg3.find((c) => c.name === "linkCanaryDiagnosis");
     const strictCase = leg3.find((c) => c.name === "strictCanaryWrite");
     let world: GuardWorld;
 

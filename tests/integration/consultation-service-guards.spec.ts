@@ -11,11 +11,11 @@ import { ctxFor } from "../helpers/context";
 import { recordVisitVitals } from "@/features/visits/service";
 import { createVisit } from "../helpers/seed-visit";
 import {
-  saveConsultationDraft,
   completeAndSignConsultation,
   reopenVisitForAmendment,
   finalizeVisitAmendment,
 } from "@/features/consultation/service";
+import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { completeAndBillConsultation } from "@/features/billing/service";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { consultationDraftInput, vitalsWithForgedRecorder } from "../helpers/fixtures";

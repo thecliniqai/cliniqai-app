@@ -6,7 +6,7 @@
  *     that changes nothing on the record;
  *   - B-7: a cancelled visit is read-only with no Save Draft and no Complete & Sign;
  *   - B-2: a consultation with no prescription shows the signed version from `current_revision` (1 by default; one ahead while amending);
- *   - B-5: a failed follow-up write fails the draft save (so Finalize amendment, which saves first, stops).
+ *   - B-5: a failed follow-up write fails the draft save, which is one transaction since V2-09b (so Finalize amendment, which saves first, stops).
  * The in-session transitions (B-1 after a refresh, B-3 focus, B-4 the held dialog) are tests/e2e/a11y/amendment-screens.spec.ts. Synthetic data only.
  */
 import { createElement } from "react";
@@ -20,7 +20,7 @@ import { callFinalize, finalizeArgs, reopenVisitAs, seedClinicalVisit, signVisit
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 import type { Json } from "@/lib/db/types";
 import { recordState, signedVersionOf } from "@/features/consultation/record-state";
-import { FOLLOW_UP_SAVE_FAILED_MESSAGE, saveConsultationDraft } from "@/features/consultation/service";
+import { saveDraftAs } from "../helpers/consult-draft";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined, replace: () => undefined }) }));
 
@@ -243,28 +243,23 @@ describe("B-2: the signed version of a consultation with no prescription comes f
   }, 90_000);
 });
 
-describe("B-5: a failed follow-up write fails the draft save", () => {
-  it("on a reopened visit, a follow-up the database refuses makes saveConsultationDraft fail with the fixed text, so Finalize stops", async () => {
-    const seeded = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 0 });
+describe("B-5: a failed follow-up write fails the draft save, and nothing of it is kept", () => {
+  it("on a reopened visit, a follow-up the database refuses fails the whole save (one transaction), so Finalize stops and the notes are unchanged", async () => {
+    const seeded = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 0, notes: "Synthetic signed note" });
     await signVisitAs(doctor, seeded.visitId);
     await reopenVisitAs(doctor, seeded.visitId);
-    const input = {
-      visit_id: seeded.visitId,
-      chief_complaints: [],
-      clinical_notes: "Synthetic amended note",
-      specialty: "general_physician" as const,
-      investigations_advised: [],
-      advice: [],
-      follow_up: { interval: "1_week" as const, follow_up_date: "2031-06-01", notes: null },
-    };
+    const patch = { clinical_notes: "Synthetic amended note", follow_up: { interval: "1_week" as const, follow_up_date: "2031-06-01", notes: null } };
     await withFault({ table: "public.follow_ups", column: "visit_id", marker: seeded.visitId, event: "insert" }, async () => {
-      const res = await saveConsultationDraft(ctxFor(doctor), input);
-      expect(res).toMatchObject({ success: false, error: FOLLOW_UP_SAVE_FAILED_MESSAGE });
+      const res = await saveDraftAs(ctxFor(doctor), seeded.visitId, patch);
+      expect(res).toMatchObject({ success: false, code: "INTERNAL", error: "Failed to save draft. Please try again." });
     });
     const { data } = await admin.from("follow_ups").select("id").eq("visit_id", seeded.visitId);
     expect(data).toEqual([]);
+    // V2-09b: the note is not saved either (before, the notes were written and only the follow-up failed).
+    const { data: notes } = await admin.from("clinical_notes").select("clinical_notes").eq("visit_id", seeded.visitId).single();
+    expect(notes?.clinical_notes).toBe("Synthetic signed note");
     // Control: without the fault the same save succeeds and writes the follow-up.
-    expect((await saveConsultationDraft(ctxFor(doctor), input)).success).toBe(true);
+    expect((await saveDraftAs(ctxFor(doctor), seeded.visitId, patch)).success).toBe(true);
     const { data: after } = await admin.from("follow_ups").select("follow_up_date").eq("visit_id", seeded.visitId);
     expect(after).toEqual([{ follow_up_date: "2031-06-01" }]);
   }, 90_000);

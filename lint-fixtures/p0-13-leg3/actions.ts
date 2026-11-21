@@ -7,16 +7,16 @@ import { patientInTenant } from "@/lib/auth/tenant-refs";
 /**
  * Checks its FIRST reference (the patient) and stores the second (the visit) unchecked: the OA-4 / IR-F1 defect shape.
  * Forging every id at once is refused at the patient check, so only one-reference-at-a-time forging reaches the write.
+ * (V2-09b 000112: it writes a diagnosis; a member no longer inserts follow-ups directly, the draft command is their writer.)
  */
-export async function linkCanaryFollowUp(input: { patient_id: string; visit_id: string }) {
+export async function linkCanaryDiagnosis(input: { patient_id: string; visit_id: string }) {
   const ctx = await requireServiceContext("patients:edit");
   if (!(await patientInTenant(ctx, input.patient_id))) return { success: false, error: "Not found in this clinic." };
-  const { error } = await ctx.db.from("follow_ups").insert({
+  const { error } = await ctx.db.from("consultation_diagnoses").insert({
     tenant_id: ctx.tenantId,
     patient_id: input.patient_id,
     visit_id: input.visit_id,
-    doctor_id: ctx.userId,
-    follow_up_date: new Date().toISOString().slice(0, 10),
+    diagnosis_name: "Synthetic canary diagnosis",
   });
   return error ? { success: false, error: "Failed." } : { success: true };
 }

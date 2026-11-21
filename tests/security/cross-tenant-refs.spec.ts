@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createScheduleBlock } from "@/features/visits/scheduling-service";
 import { addToWaitlist } from "@/features/waitlist/service";
 import { grantConsent, toggleGlobalConsent, withdrawConsent } from "@/features/patients/consent-service";
-import { recordFollowUp } from "@/features/consultation/service";
+import { saveDraftAs } from "../helpers/consult-draft";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
 import { createReferral } from "@/features/referrals/service";
 import { createVisitInvoice } from "@/features/billing/service";
@@ -113,17 +113,12 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     expect((await grantConsent(ctxFor(nurseA), A.patient, "data_sharing")).success).toBe(true);
   });
 
-  it("recordFollowUp: B visit, B patient on an A visit, or B doctor refused", async () => {
-    const input = (visitId: string, patientId: string, doctorId?: string) => ({
-      visitId,
-      patientId,
-      doctorId,
-      followUpDate: new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10),
-    });
-    expect((await recordFollowUp(ctxFor(doctorA), input(B.visit, B.patient))).success).toBe(false);
-    expect((await recordFollowUp(ctxFor(doctorA), input(A.visit, B.patient))).success).toBe(false);
-    expect((await recordFollowUp(ctxFor(doctorA), input(A.visit, A.patient, ownerB.userId))).success).toBe(false);
-    expect((await recordFollowUp(ctxFor(doctorA), input(A.visit, A.patient))).success).toBe(true);
+  it("saveConsultationDraft (the follow-up's only writer): B visit refused; the patient and the doctor of the follow-up come from the visit and the session", async () => {
+    const followUp = { follow_up_date: new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10) };
+    expect((await saveDraftAs(ctxFor(doctorA), B.visit, { follow_up: followUp }, { expectedVersion: 0 })).success).toBe(false);
+    expect((await saveDraftAs(ctxFor(doctorA), A.visit, { follow_up: followUp })).success).toBe(true);
+    const { data } = await getAdminClient().from("follow_ups").select("patient_id, doctor_id").eq("visit_id", A.visit);
+    expect(data).toEqual([{ patient_id: A.patient, doctor_id: doctorA.userId }]);
   });
 
   it("addConsultationDiagnosis: B patient on an A visit refused", async () => {
