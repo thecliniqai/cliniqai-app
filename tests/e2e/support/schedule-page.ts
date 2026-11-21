@@ -7,12 +7,19 @@ import type { Locator, Page } from "@playwright/test";
 import { expect } from "../fixtures";
 import type { UxCounter } from "./ux-counter";
 
+/**
+ * The Schedule in the page's main region. Not `[data-schedule]` alone: while the page streams, React keeps the server's copy in a hidden
+ * `<div hidden id="S:0">` at the end of the body until it is revealed, and a strict locator matched both (CI 44924479177 follow-up, desktop-chrome:
+ * "resolved to 2 elements", the hidden agenda copy and the hydrated day view).
+ */
+const SCHEDULE = "#main [data-schedule]";
+
 /** Waits until React has hydrated the Schedule (its nodes carry a `__reactFiber$` key). */
 export async function scheduleHydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const el = document.querySelector("[data-schedule]");
+  await page.waitForFunction((selector) => {
+    const el = document.querySelector(selector);
     return Boolean(el && Object.keys(el).some((key) => key.startsWith("__reactFiber$")));
-  });
+  }, SCHEDULE);
 }
 
 /** Opens the Schedule on `date` (setup: reaching a day is not counted) and waits for it to be on screen and hydrated. */
@@ -21,7 +28,7 @@ export async function openSchedule(page: Page, date?: string, query = ""): Promi
   if (date) params.set("date", date);
   const q = params.toString();
   await page.goto(q ? `/schedule?${q}` : "/schedule");
-  await page.locator("[data-schedule]").waitFor();
+  await page.locator(SCHEDULE).waitFor();
   await scheduleHydrated(page);
 }
 
