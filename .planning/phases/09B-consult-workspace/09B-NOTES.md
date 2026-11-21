@@ -538,3 +538,143 @@ which is why the chips are always shown now (see deviation 2).
 - Registries touched and current: `expected-migration.ts` 000114, schema snapshot, `types/database.ts`, pgTAP FLOOR 8632 and REQUIRED_FILES, Vitest REQUIRED_FILES, guard manifest and
   engine (new kind `session-diagnosis-search`), `react-compiler-waivers.json` (the diagnosis entry gone), `ai-l1-greps.mjs`, `inventory-server-actions.ts`. No audit action, reason code or
   `authz:gen` output changed (no table, policy or grant).
+
+## 09B-04b Smart Assist write side: shorthand with doctor macros, follow-up proposal (migration 000115_doctor_text_macros)
+
+`ls supabase/migrations | tail -3` showed 000114 as the newest; 000115 was free.
+
+### What changed
+
+- `supabase/migrations/000115_doctor_text_macros.sql`: `public.doctor_text_macros` (`tenant_id`, `doctor_id`, `shortcut`, `expansion`; shortcut CHECK `^\.[a-z0-9_-]{1,24}$`,
+  expansion 1 to 2,000 characters, unique per `(tenant_id, doctor_id, shortcut)`, composite FK to `memberships (user_id, tenant_id)` ON DELETE RESTRICT), RLS for SELECT, INSERT, UPDATE and
+  DELETE with `consultations:edit` and `doctor_id = auth.uid()`, grants to `authenticated` only. Two INVOKER triggers: BEFORE INSERT sets `doctor_id` to the caller and refuses the 201st macro of a
+  doctor in a clinic (a transaction advisory lock serialises two parallel inserts; SQLSTATE 23514, `MACRO_LIMIT`); BEFORE UPDATE keeps `id`, `tenant_id` and `doctor_id` immutable (`MACRO_IMMUTABLE`) and
+  maintains `updated_at`. No definer command, no read function, no audit action (the expansion text is never logged or audited).
+- `features/consultation/shorthand.ts` (pure, no import): the parser of R-14 (`c/o`, `k/c/o`, `o/e`, `h/o`, `adv`, `f/u`; segments at `;` and new lines; `.name` macros expanded first, one pass; OD, BD, TDS, QID, HS,
+  SOS, stat written out only when typed), `findFollowUpPhrase` (R-15: `f/u 1 wk`, `review after 3 days`, `repeat HbA1c 3 months`), `durationLabel`, `isEmptyShorthand`. `shorthand-apply.ts` (pure) computes the
+  next complaints, notes, advice and follow-up from a parse. `macros.ts` (shared zod shape), `macros-service.ts` and `macros-actions.ts` (list, create, update, delete under RLS, fixed messages),
+  `upcoming-visits.ts` (the booked or confirmed visits behind the "Book follow-up" display rule).
+- `ChiefComplaintItem.duration_val` and `duration_unit` are optional (Q-16). The readers already printed a duration only when present (`prescription-document.tsx`, `history-list.tsx`, `summary-pane.tsx`, `durationIdOf`).
+- `components/consultation/workspace/{command-bar,macro-list,follow-up-suggestion}.tsx`; the consult workspace owns the bar, the macro list and the new state; `ComplaintsSection` has the "Shorthand" button; `PlanSection` takes the
+  suggestion chip and the Book follow-up slot; `/` (behind the per-device switch) opens the bar. The page reads the doctor's macros (`assist.shorthand`, editable record) and the upcoming visits (`assist.followup`).
+- Today: `TodayRow.followUp` (`{date, booked}`; null unless the role holds `appointments:edit` and the visit is completed with a follow-up), read with two queries in `getTodayBoard`; `TodayRowView` offers "Book follow-up"
+  to the front desk (mode front, completed row, not booked).
+
+### Affected-test grep and fixes
+
+`grep -rln "duration_val" tests supabase/tests scripts app features lib components` (27 files; the readers and fixtures that write complaint durations: all unchanged and green, the field was only made optional).
+`grep -rln "TODAY_ROW_KEYS\|TodayRow\b" tests` : `tests/today/{announcer,modes,schema}.spec.ts` fixtures gained `followUp: null`; `get-today-board.spec.ts` projection test picks the new key up and gains a case.
+Table registries (a new tenant table): `tests/authz/table-matrix.{ts,spec.ts}` (target and rule rows), `authz:gen` regenerated `authz_matrix`, `authz_completeness`, `access_lock_rls` and `AUTHZ-MATRIX.md`;
+`composite_fks.test.sql` (fixture row, one case: plan 111 to 113), `delete_rules.test.sql` (the DELETE policy set). `tests/security/guard-manifest.ts` (four rows, two documented control exemptions), `guard/valid-inputs.ts` (create).
+`tests/setup/teardown.ts` needed nothing (the FK is to `memberships`, not `auth.users`).
+
+### Deviations from the plan, with reasons
+
+1. **INSERT in the authz matrix is the permission only, not "own row".** The plan's policy is `consultations:edit AND doctor_id = auth.uid()` for every command and the BEFORE INSERT trigger sets `doctor_id` to the caller. A forged `doctor_id`
+   is therefore replaced, not refused, so an owner or another doctor inserting "for" the fixture doctor stores their own row. The matrix says so (`insert: perm(consultations:edit)`); pgTAP and `macros.spec.ts` prove the forged id
+   lands on the caller. SELECT, UPDATE and DELETE keep the owner-only filter.
+2. **Two files in the plan's list were not created.** `tests/e2e/today/*` (receptionist leg) and the `today-row.tsx`/`use-row-commands.ts` split: the receptionist leg lives in `smart-assist.spec.ts` (a second `describe` with the receptionist's
+   storage state), the action is a plain link in `today-row.tsx` (no command, so nothing in `use-row-commands.ts`). The Today read gets its own database case in `get-today-board.spec.ts`.
+3. **A shorthand line that equals a catalogue entry ignoring case is stored in the catalogue's spelling** ("steam inhalation BD" gives "Steam inhalation twice daily", the advice tile; "cold & congestion" gives "Cold & Congestion").
+   Otherwise the tile would show as unchosen and a tap would add the same words a second time. The plan's example text is lower case; the words are the same and the invariant compares case-insensitively. Any other line stays as typed.
+4. **The first `f/u` with an interval wins; a later one, or an `f/u` with no interval ("f/u next week"), goes to the notes as typed.** No interval is invented (Q-16 reading).
+5. **`doctor_text_macros` has no audit action.** Macros are a doctor's own convenience text written under RLS like `doctor_custom_diagnoses`; the plan says the expansion is never logged, and an audit row would have to omit it anyway.
+6. **The constraint is `char_length(expansion) <= 2000 AND char_length(btrim(expansion)) >= 1`, not `BETWEEN`.** The first version used `BETWEEN 1 AND 2000 AND ...`; `npm run db:drift:local` (and `tests/ci/hosted-dump-diff.spec.ts`) showed
+   drift: the dump restores a flattened AND list that PostgreSQL prints differently. The migration was amended before anything shared saw it (local, unpushed); the flat form is drift-free.
+7. **The "Book follow-up" link is relative (`?book=1&patient=&doctor=&date=`).** It resolves against the current address, so the consult needs no `usePathname` (which would have changed the two 09A unit specs' `next/navigation` mock).
+   The sheet closes with `router.replace(pathname)` as for every sheet; `date` and `doctor` stay in the address, as V2-08 designed (the Schedule uses them).
+8. **No latency script leg.** There is no new definer command or read function. The only new SQL on a request path is two INVOKER triggers on a table capped at 200 rows per doctor.
+
+### Tests added or changed (file: what)
+
+- pgTAP `doctor_text_macros.test.sql` (46): catalog (RLS, four policies, grants, anon, triggers, composite FK), the doctor's own rows (insert, forged `doctor_id` replaced, edit, `updated_at`, no handover, no move, delete), isolation (another doctor, owner, admin, nurse,
+  receptionist, another clinic, foreign edit and delete, insert refusals, anon), the shape rules, the unique shortcut, the non-member refusal, the 200 cap and another doctor unaffected.
+- `tests/consultation/shorthand.spec.ts` (81): 49 table cases with exact outputs (markers, durations, frequency words, unknown segments, macros, empty segments, case, Devanagari, over-long and zero durations), the property tests over 500 generated inputs
+  (every output word accounted for; a duration appears only when the text read had a digit; digit-free inputs give no duration and no follow-up), the follow-up phrases (8 hits, 8 misses), the pure apply.
+- `tests/consultation/macros.spec.ts` (14, database): the service and the table through each caller's own client; `schemas.spec.ts` (+2); `get-today-board.spec.ts` (+1).
+- `tests/e2e/consult/smart-assist.spec.ts` (+7): the plan's shorthand lands in Complaints (Fever 3 days, Cough 2 days), Advice and a 5-day follow-up, nothing else, only on Enter (`ux`: typing plus 1 key, 2 actions); Escape discards;
+  `/` and a macro; the macro list; the follow-up chip (set only on a tap, no message queued), Book follow-up opens the booking sheet with the date and books one visit; the receptionist's Today row and its disappearance; overrides off.
+
+### Fails-without proofs
+
+- **Owner-only SELECT** (the `doctor_id = auth.uid()` term removed from the SELECT policy on the stack, files re-run, policy restored from the migration): pgTAP fails 3 (own list, other doctor, owner); `macros.spec` fails 2 (the direct read of another doctor's rows, the owner's read).
+- **Shorthand never defaults** (parser mutant: a missing duration becomes 3 days): the shorthand spec fails 8 (table cases, the property tests, the apply table). A mutant that lengthens a frequency expansion fails its table row.
+- **The entitlement gate** (`shorthandOn` without `assist.shorthand`, rebuild): the "overridden off" e2e fails (the Shorthand button is present). **The booked rule** (`!row.followUp.booked` removed from the Today row, rebuild): the front-desk e2e fails (the action is still there after booking).
+- The follow-up chip sets nothing before the tap (asserted in the spec: the default 5 days stays checked and no `follow_ups` row exists until the tap).
+
+### Counts and checks
+
+- pgTAP, full (`npm run test:pgtap`, after `npx supabase db reset --local`): **8776 tests, 64 files, all pass** (8632 + doctor_text_macros 46 + authz_matrix 96 + composite_fks 2); `assert-pgtap-report.mjs` PASS at FLOOR 8776, REQUIRED_FILES gains the file.
+- Vitest, affected (`tests/terminology tests/consultation tests/today tests/ai tests/security tests/ci tests/design tests/components tests/authz tests/labs tests/prescriptions tests/audit tests/commands tests/clinical tests/visits tests/setup`,
+  the two consultation integration files, `tests/api/readiness-probe-db`): **155 files, 3763 tests, all pass**. Vitest REQUIRED_FILES gains `shorthand.spec.ts`, `macros.spec.ts` and `file-drop.spec.ts`; FLOOR stays 6455 (re-measured at the close).
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (unchanged); `npm run inventory` exit 0; `ci:ui-policy`, `ci:ai-l1`, schema snapshot `--check` and `db:drift:local` PASS.
+
+## 09B-05 Upload dropzone, consult journey, accessibility pass, PO kit (no migration)
+
+### What changed
+
+- `components/ui/file-drop.tsx` (`FileDrop`): a drop zone and a picker (a visible button forwards to a hidden file input, so keyboard and screen-reader users have one control), multiple files, the client check before any request, one status row per file
+  (queued, uploading, stored, failed with Retry), files sent one at a time, Retry re-sends only that file, dismiss for finished rows, no `capture` attribute, disabled with a reason. `features/labs/utils.ts` exports `LAB_ACCEPTED_MIME_TYPES`,
+  `LAB_MAX_FILE_BYTES`, the two texts and `labFileRefusal` once; `uploadLabDocument` and the control both use them (the server texts are unchanged). `features/labs/consult-documents.ts` is the client-safe document shape.
+- `components/consultation/workspace/attachments.tsx`: the Plan block (this visit's documents with Open through `getDocumentSignedUrl`, the drop zone, no drop zone and a line on a read-only record, disabled with a reason without `labs:edit`);
+  `patient-context.tsx` gains a "Documents" block (five newest) in the column and the Patient sheet. The page reads `getPatientDocuments` for a role with `labs:view`.
+- `next.config.ts`: `experimental.serverActions.bodySizeLimit = "26mb"` (deviation 1).
+- `frequent-rx-chips.tsx`: the inline "(frequency, duration)" text is `gray-600` (deviation 4).
+- Specs: `tests/components/file-drop.spec.ts`, `tests/e2e/consult/{upload,keyboard-golden}.spec.ts`, `tests/e2e/journeys/journey-06-consult.spec.ts`, the new states in `tests/e2e/a11y/consult-screens.spec.ts`; `storageDump` moved to
+  `tests/e2e/support/storage-dump.ts` (shared with `pwa/05-cache-audit.spec.ts`). PO kit: `09B-PO-WALKTHROUGH.md`, `09B-DEVICE-CHECKLIST.md` (written by the executor, not a separate docs agent).
+
+### Deviations from the plan, with reasons
+
+1. **Next's server-action body limit was 1 MB, so no real report uploaded.** A 2 MB PDF failed in the browser ("did not reach the server") before the action ran; the existing patient-record upload has the same defect. Smallest fix: `bodySizeLimit: "26mb"`
+   (25 MB file limit plus the form). Next has no per-action setting, so every action now accepts a body that large; each action still authenticates and checks permission before it reads input, but the body is buffered first.
+   Risk for the adversarial review and V2-14: an unauthenticated request can make the server buffer up to 26 MB (rate limiting is V2-12). The alternative, a route handler for uploads, changes TARGET §3.9 and is the PO's call. Proof: `upload.spec` "a 2 MB report is stored" failed before
+   the config line and passes after it. The 25 MB end of the range was not exercised (a 25 MB upload per run is slow); the local storage bucket's own limit was not checked.
+2. **`tests/components/file-drop.spec.ts` is not a DOM test.** The repository has no DOM environment (no jsdom or testing library) and the plan adds no dependency. The spec covers the rule (`labFileRefusal`: a 26 MB file, an `.exe`, an empty type, exactly 25 MB), the markup (accepted types, `aria-describedby` on the limits, no `capture`,
+   the disabled state) and the key and title helpers. The behaviour the plan lists for it (a refused file sends no request, the status transitions, Retry re-sends only the failed file) is proved in a real browser by `upload.spec.ts`.
+3. **A read-only record shows no drop zone at all** (as `upload.spec` requires), with a line saying why; the plan's other sentence, "disabled with a reason when the record is read-only", applies to the role case (`labs:edit`), where the zone is shown disabled with the reason.
+4. **`frequent-rx-chips.tsx` (a V2-09c waiver file) was touched for one class.** The journey's amending screen showed `color-contrast` (gray-500 on the chip's gray-100, 4.4:1) once the doctor had prescription history for the diagnosis; the whole-page axe rule has no baseline allowance. `text-gray-500` to `text-gray-600` on that one span.
+   The journey's `expectAxeClean` on the amending record failed before the change and passes after it.
+5. **`is_abnormal` is sent as `"false"`.** `uploadLabDocument` parses `formData.get("is_abnormal")` through a zod union that rejects `null`; the patient-record form always sends it. The consult upload sends it too (the service is unchanged).
+6. **Journey 6 and the keyboard spec seed their own signed history** (three signed visits with `Acidity` and `Gastritis E2E J6`) so the likely tile is deterministic whatever other specs left in the doctor's history. The keyboard spec runs on desktop-chrome only (a hardware keyboard on a fine pointer);
+   the a11y specs run on desktop-chrome only by the project configuration (`testIgnore: A11Y` for pixel-7 and iphone-15), journey 6 carries its own axe checks on each screen on all three devices.
+
+### Tests added or changed (file: what)
+
+- `tests/e2e/consult/upload.spec.ts` (7): a PDF and a JPEG are stored (rows with this `visit_id`, objects at their id-only keys with the bytes intact, listed, the list after a refresh, on the patient's record), a 2 MB report, a 26 MB file and an `.exe` refused with the server's own texts and no request sent,
+  the status rows (a held request shows "uploading") and a failed request with Retry sending only that file and storing exactly one row, a sealed consult with its list and no drop zone, nothing of the file in Cache Storage, IndexedDB or the web storages.
+- `tests/e2e/journeys/journey-06-consult.spec.ts` (1, `@golden`), `tests/e2e/consult/keyboard-golden.spec.ts` (1, `@golden`, desktop only), `tests/e2e/a11y/consult-screens.spec.ts` (+16: the shorthand bar, the macro list, the upload states and a sealed record with a document, each at 360, 820, 1180 and 1280).
+
+### Fails-without proofs
+
+- **Client check** (`refuse` replaced by `() => null`, rebuild): "refused before any request" fails (the server answers instead, and the request is sent). **Read-only** (`readOnly ? ... :` forced false): "a sealed consult shows its documents and no drop zone" fails.
+  Both restored byte for byte, rebuilt.
+- **The body limit** (deviation 1) and **the chip contrast** (deviation 4): each spec failed before its fix.
+
+### Counts and checks
+
+- e2e after `npm run e2e:build`, every run with `--retries=0` (one build; each app change in this plan was followed by a rebuild before its spec ran):
+  - desktop-chrome: `npx playwright test tests/e2e/consult tests/e2e/journeys tests/e2e/m0/consult-rx-finish.spec.ts tests/e2e/today tests/e2e/schedule tests/e2e/a11y/{consult-screens,amendment-screens,sign-and-bill-screens,clinical-split-screens}.spec.ts tests/e2e/pwa/05-cache-audit.spec.ts tests/e2e/pwa/13-idempotent-retry.spec.ts --project=desktop-chrome --retries=0`:
+    **226 passed, 0 failed, 0 skipped** (7.3 min; 8 of them are the sign-in setup). This includes the whole `tests/e2e/consult` folder, run once after the last app change (the previous executor had not re-run the lane after its hydration fix).
+  - pixel-7 and iphone-15, the same list: **213 passed, 14 skipped, 0 failed** (7.5 min): pixel-7 144 passed and 13 skipped, iphone-15 61 passed and 1 skipped (its `@golden` filter), 8 setup. Journey 6 passed on desktop-chrome, pixel-7 and iphone-15; `consult-screens` (axe, no baseline allowance) runs on
+    desktop-chrome only by configuration and passed (32 plus the 16 added states).
+  - The skips are the desktop-only specs (`/` key, keyboard-golden) and the viewport-owning specs on phones.
+  - Tracked evidence PNGs rewritten by `tablet-captures.spec.ts` were restored with `git checkout` of that folder; the per-device captures the run added there were removed. `.planning/dev-messages.txt` was not recreated.
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 403 warnings (unchanged: no new warning); `npm run inventory` exit 0 (the four macro actions have manifest rows); `ci:ui-policy`, `ci:ai-l1`, schema snapshot `--check`, `db:drift:local` PASS.
+- Route weight (`npm run ci:route-js`, report-only): `/consultation/[id]` **368.0 kB gz** (route-specific 239.5 kB; the 200 kB budget is exceeded, as in 09B-02b's 353.7 kB: +14.3 kB from 09B-03 to 09B-05: the tiles, the combobox, the command bar, the macro list, `FileDrop` and the attachments). Open risk for the close.
+- Latency: no definer command or read function in this plan, nothing to time (deviation 8 of 09B-04b). The 09B-04a numbers stand.
+
+### Flakes and infra
+
+- No test passed only on retry. Failures during the plan, each root-caused: `hosted-dump-diff` drift from the first form of the expansion CHECK (04b deviation 6); the `authz_matrix` insert cells for the owner and the second doctor (the trigger replaces a forged `doctor_id`, deviation 1 of 04b);
+  `composite_fks` and `delete_rules` set comparisons (the new table); two 09A unit specs failed on a `usePathname` import (the link is relative now); the first e2e runs after an app change ran against the previous build (I had not rebuilt: always `npm run e2e:build` first);
+  `uploadLabDocument` answered "Validation failed" to a form without `is_abnormal` (05 deviation 5); the 1 MB body limit (05 deviation 1); the keyboard spec read the diagnosis row before the add action finished (it polls now); the amending axe contrast (05 deviation 4); the patient-record tab click before hydration
+  (the upload spec repeats the click until the list shows).
+- Vitest and Playwright and pgTAP share one run lock: the lanes were run one after another.
+
+### Hand-offs for the close and for V2-09c
+
+- Reviewers: the body-size limit (05 deviation 1) and the macro RLS plus triggers; the shorthand invariant is `shorthand.spec.ts`. `PO-ACTIONS`: `09B-P2` uses the two kit files; `09B-P3` staging migrate now covers 000112 to 000115; the PO acknowledges Q-3, Q-5, Q-7.
+- Route weight is the open item (368.0 kB against 200 kB). Camera capture and compression (V2-09c) will reduce failed phone uploads further; the 26 MB body limit is the stop-gap.
+- `Today` rows carry `followUp` only for roles that may book; the doctor's Plan uses `upcomingVisits` from the page loader (`getUpcomingVisitInstants`).
+- `FileDrop` is generic (accepts a type list, a refusal function and an upload function); V2-09c's camera capture adds a `capture` input beside it, not inside it.
+
