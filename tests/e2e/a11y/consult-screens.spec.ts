@@ -154,23 +154,27 @@ for (const size of WIDTHS) {
 
     test(`a sealed record with a document, no drop zone: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
       const { tenantA } = run();
-      const sealed = await seedSignedConsultation("Axe Sealed Docs");
-      const id = randomUUID();
-      const inserted = await getAdminClient().from("patient_documents").insert({
-        id,
-        tenant_id: tenantA.id,
-        patient_id: sealed.patientId,
-        visit_id: sealed.visitId,
-        title: "E2E Synthetic sealed report",
-        document_type: "lab_report",
-        original_filename: "sealed.pdf",
-        storage_path: `tenants/${tenantA.id}/patients/${sealed.patientId}/labs/${id}.pdf`,
-        file_size_bytes: 1234,
-        mime_type: "application/pdf",
-        report_date: new Date().toISOString().slice(0, 10),
-        uploaded_by: tenantA.users.doctor.id,
+      // The document is attached while the visit is open, then it is signed (000116, 09B-06a S-2: no document on a signed visit).
+      const sealed = await seedSignedConsultation("Axe Sealed Docs", {
+        beforeSign: async ({ visitId, patientId }) => {
+          const id = randomUUID();
+          const inserted = await getAdminClient().from("patient_documents").insert({
+            id,
+            tenant_id: tenantA.id,
+            patient_id: patientId,
+            visit_id: visitId,
+            title: "E2E Synthetic sealed report",
+            document_type: "lab_report",
+            original_filename: "sealed.pdf",
+            storage_path: `tenants/${tenantA.id}/patients/${patientId}/labs/${id}.pdf`,
+            file_size_bytes: 1234,
+            mime_type: "application/pdf",
+            report_date: new Date().toISOString().slice(0, 10),
+            uploaded_by: tenantA.users.doctor.id,
+          });
+          expect(inserted.error).toBeNull();
+        },
       });
-      expect(inserted.error).toBeNull();
       await page.setViewportSize(size);
       await page.goto(`/consultation/${sealed.visitId}`);
       await awaitHydrated(page);

@@ -168,9 +168,13 @@ export async function signSeededVisit(tenantId: string, visitId: string, doctorE
 /**
  * A signed consultation the way production makes one (V2-09a R-15), for the amendment specs: a waiting visit of the run's doctor with a
  * note and one unsigned prescription item, then the doctor's own `sign_consultation`. Every service-role write is error-checked (an
- * unread error there would seed nothing and let a spec pass for the wrong reason).
+ * unread error there would seed nothing and let a spec pass for the wrong reason). `beforeSign` runs on the open visit just before the sign-off: since
+ * 000116 (09B-06a, S-2) a document can be linked to a visit only while it is open, so a spec that needs a sealed record with a document attaches it there.
  */
-export async function seedSignedConsultation(label: string): Promise<{ visitId: string; patientId: string; patientName: string; medicine: string }> {
+export async function seedSignedConsultation(
+  label: string,
+  opts: { beforeSign?: (seed: { visitId: string; patientId: string }) => Promise<void> } = {},
+): Promise<{ visitId: string; patientId: string; patientName: string; medicine: string }> {
   const { tenantA } = run();
   const doctor = tenantA.users.doctor;
   const tag = testTag();
@@ -187,6 +191,7 @@ export async function seedSignedConsultation(label: string): Promise<{ visitId: 
   const notes = await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", visitId).select("visit_id");
   if (notes.error || notes.data?.length !== 1) throw new Error(`m0 seed: clinical note failed: ${notes.error?.message ?? "no row"}`);
   await seedPrescription({ tenantId: tenantA.id, visitId, patientId: patient.id, doctorId: doctor.id, medicineName: medicine });
+  await opts.beforeSign?.({ visitId, patientId: patient.id });
   await signSeededVisit(tenantA.id, visitId, doctor.email);
   return { visitId, patientId: patient.id, patientName, medicine };
 }

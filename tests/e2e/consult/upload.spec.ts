@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import type { Page, Request } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
-import { run, seedPatient, seedPrescription, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
+import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
 import { storageDump } from "../support/storage-dump";
 import { commitThenAbort } from "../support/commit-then-abort";
 import { getAdminClient } from "../../helpers/supabase-admin";
@@ -209,30 +209,26 @@ test("A-4: an upload whose answer is lost after the server stored it, retried, i
 test("a sealed consult shows its documents and no drop zone", async ({ page }) => {
   const { tenantA } = run();
   // The document is attached while the visit is open, then the visit is signed (since 000116, 09B-06a S-2, no document is linked to a signed visit).
-  const doctor = tenantA.users.doctor;
-  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic UploadSealed ${testTag()}`);
-  const sealedVisitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctor.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
-  const note = await admin.from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", sealedVisitId).select("visit_id");
-  expect(note.error).toBeNull();
-  await seedPrescription({ tenantId: tenantA.id, visitId: sealedVisitId, patientId: patient.id, doctorId: doctor.id, medicineName: `E2E Synthetic Sealed Med ${testTag()}` });
-  const sealed = { visitId: sealedVisitId, patientId: patient.id };
-  const id = randomUUID();
-  const inserted = await admin.from("patient_documents").insert({
-    id,
-    tenant_id: tenantA.id,
-    patient_id: sealed.patientId,
-    visit_id: sealed.visitId,
-    title: "E2E Synthetic sealed report",
-    document_type: "lab_report",
-    original_filename: "sealed.pdf",
-    storage_path: `tenants/${tenantA.id}/patients/${sealed.patientId}/labs/${id}.pdf`,
-    file_size_bytes: 1234,
-    mime_type: "application/pdf",
-    report_date: new Date().toISOString().slice(0, 10),
-    uploaded_by: tenantA.users.doctor.id,
+  const sealed = await seedSignedConsultation("UploadSealed", {
+    beforeSign: async ({ visitId, patientId }) => {
+      const id = randomUUID();
+      const inserted = await admin.from("patient_documents").insert({
+        id,
+        tenant_id: tenantA.id,
+        patient_id: patientId,
+        visit_id: visitId,
+        title: "E2E Synthetic sealed report",
+        document_type: "lab_report",
+        original_filename: "sealed.pdf",
+        storage_path: `tenants/${tenantA.id}/patients/${patientId}/labs/${id}.pdf`,
+        file_size_bytes: 1234,
+        mime_type: "application/pdf",
+        report_date: new Date().toISOString().slice(0, 10),
+        uploaded_by: tenantA.users.doctor.id,
+      });
+      expect(inserted.error).toBeNull();
+    },
   });
-  expect(inserted.error).toBeNull();
-  await signSeededVisit(tenantA.id, sealed.visitId, doctor.email);
   await page.goto(`/consultation/${sealed.visitId}`);
   await awaitHydrated(page);
   await expect(page.getByRole("list", { name: "Attachments" })).toContainText("E2E Synthetic sealed report");
