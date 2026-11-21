@@ -23,6 +23,7 @@ import { z } from "zod";
 import { clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { recordState } from "./record-state";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
@@ -34,10 +35,13 @@ const SIGNED_CONSULTATION_MESSAGE =
 /** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
 const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
 
-/** Completed, cancelled, or signed and not reopened for amendment (reopened = signed_at set, status in_consultation). */
+/**
+ * Completed or cancelled (unsigned: terminal in the app, V2-09a R-11), or sealed: signed and not reopened for amendment
+ * (`recordState`, V2-09a R-2). The database refuses the sealed case for every writer; the unsigned terminal states stay an app rule.
+ */
 function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
   if (visit.status === "completed" || visit.status === "cancelled") return true;
-  return Boolean(visit.signed_at) && visit.status !== "in_consultation";
+  return recordState(visit) === "sealed";
 }
 
 // The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
