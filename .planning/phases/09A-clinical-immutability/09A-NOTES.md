@@ -193,3 +193,175 @@ evidence. Counts are from the runs named beside them.
   and a note must be written to the visit's `clinical_notes` before `sign_consultation` (it refuses a visit with no diagnosis and no note). The doctor's workspace after a sign shows "Re-sign / Bill".
 - `recordState` is not used by the workspace yet; the sealed/amending UI is 09A-05.
 - Webhook consumers see `version` and a `:v<n>` key suffix from version 2 (documented in `docs/runbooks/jobs.md`).
+
+## 09A-03 Write-once, hashed prescription PDFs (migration 000109_rx_pdf_write_once)
+
+### What changed
+
+- `supabase/migrations/000109_rx_pdf_write_once.sql` (`ls supabase/migrations | tail -3` showed 000108 as the newest, so 000109 was free; the bodies replaced start from
+  the latest definitions: `prescriptions_seal_guard` and `prescriptions_actor_guard` and `finalize_visit_amendment` from 000108, `audit_client_actions` from 000106,
+  `audit_metadata_keys` from 000103 (the plan said 000100:152; 000103 is the latest). The line diff of each against its previous body is only what is named here).
+  - `prescriptions.pdf_sha256 text` with `prescriptions_pdf_sha256_shape` and `prescriptions_pdf_hash_needs_path` (valid for every existing row).
+  - `prescriptions_seal_guard` replaced: the 000108 seal rule is kept (letterhead_mode is now frozen with the rest), and the PDF pair has its own rules in EVERY state
+    (the 000108 guard returned early for a draft or amending visit): NULL to a value once, only for a signed header of a sealed visit (`RX_PDF_NOT_SEALED`) at
+    `<tenant>/<visit>/rx_v<version>.pdf` (`RX_PDF_PATH_INVALID`); an existing value never changes (`RX_PDF_WRITE_ONCE`) and is cleared only by a statement that raises
+    `version` and clears both columns.
+  - `prescriptions_actor_guard`: an INSERT carries no pair (`RX_PDF_NOT_SEALED`, every writer).
+  - Grant replaced (REVOKE then GRANT): `UPDATE (pdf_storage_path, pdf_sha256, updated_at)`; `letterhead_mode` is set at INSERT only.
+  - `finalize_visit_amendment`: the header UPDATE also sets `pdf_storage_path = NULL, pdf_sha256 = NULL`. The revision snapshot stores the whole header row
+    (`to_jsonb(p)`), so the signed version's pair survives there without a snapshot change.
+  - Storage: `prescriptions_rx_update` dropped; `prescriptions_rx_insert` replaced: prescriptions:edit AND a header named by the key's (tenant, visit, version) that is
+    signed, has no hash, on a sealed visit. No DELETE policy exists for the class.
+  - `private.audit_client_actions` gains `prescription.pdf_integrity_failed`, `private.audit_metadata_keys` gains `sha256` (TS lists in `lib/audit/audit.ts`).
+- App: `lib/storage/supabase-provider.ts` (default `upsert` false); new `features/prescriptions/pdf/payload.ts` (`loadPrescriptionPdfSource`,
+  `buildPrescriptionPdfPayload`: the one builder; the three private copies are gone); `features/prescriptions/pdf/generator.ts` (`renderPrescriptionPdf`,
+  `archivePrescriptionPdf`, `readArchivedPrescriptionPdf`, `resolvePrescriptionPdf`, `isArchivable`, `prescriptionPdfPath`, `sha256Hex`;
+  `generateAndArchivePrescriptionPdf` is removed); `app/api/visits/[id]/prescription-pdf/route.ts`; `features/prescriptions/service.ts`
+  (`getPrescriptionPdfSignedUrl`); `features/consultation/service.ts` (`archiveSealedPrescriptionPdf` replaces `archiveInitialPrescriptionPdf`, reopen archives first,
+  finalize archives the new version); `features/billing/service.ts` (calls the renamed function).
+- Behaviour: sign-off, Sign & Bill and finalize archive after the commit with the caller's client, `upsert: false`; a duplicate object is adopted only while the header
+  has no hash; a sealed Rx whose archive is missing is archived when it is opened; a draft, an open amendment, a print variant (another letterhead) and a header with no
+  signature are rendered on demand (route `no-store`) and never stored; serving a sealed Rx downloads the object and compares its SHA-256, and on a mismatch (or a missing
+  object) serves a fresh render of the sealed rows, audits `prescription.pdf_integrity_failed` and logs a tag.
+
+### Deviations from the plan, with reasons
+
+1. **Two guard rules the plan did not spell out.** (a) A first set of the pair also needs `NEW.signed_at IS NOT NULL` (a cancelled or never-signed header on a sealed
+   visit cannot be archived either; the storage policy asks the same). (b) A statement that changes `version` must not carry a pair (`RX_PDF_PATH_INVALID`), so the
+   pair is always the canonical key of the row's own version; without it the service role could raise `version` on an amending visit and keep the old path.
+2. **Hash on a legacy path needs the canonical path too.** A legacy header whose path is not `<tenant>/<visit>/rx_v<its version>.pdf` (a v2 header still pointing at
+   `rx_v1.pdf`) cannot be adopted (the pair is write-once and canonical): `isArchivable` is false for it and the Rx is rendered on demand. No v2 database holds real data (PO-15).
+3. **`archivePrescriptionPdf(ctx, payload, buffer?)`**: the buffer is optional so a repeat that finds a recorded hash renders nothing (the plan's signature takes the bytes).
+   `buildPrescriptionPdfPayload` takes `{ prescriptionId?, letterhead?, version? }` (the preview names a header; `version` makes a replay of a superseded command a no-op); the
+   plan's `amendmentReason` option is not needed (the header's own `amendment_reason`, written by the finalize, is what the amended PDF prints). `loadPrescriptionPdfSource`
+   also returns the header and the visit state the policy needs.
+4. **Doctor name.** The route used the signed-in caller's name when the membership had none; the two service copies printed the literal "Doctor". The builder prints the
+   membership's `full_name` for the visit's doctor and falls back to "Doctor", never the caller (the bytes must not depend on who opens the PDF).
+5. **Canonical letterhead = the header's own `letterhead_mode`** (frozen once sealed). A request for the other letterhead, in either direction, is a variant. The route now
+   honours `?letterhead=blank_paper` for a header stored as preprinted (it used to win). The preview (`getPrescriptionPdfSignedUrl`) returns the archive's 5-minute signed URL
+   for the canonical case and `/api/visits/<visit>/prescription-pdf?letterhead=<mode>` (a same-origin relative URL) for the on-demand cases; for a header that is not the
+   visit's latest it still names that header for the archive case, but the route URL always shows the latest one.
+6. **Sealed Rx with a missing object and a recorded hash** is treated as an integrity failure too (audited, fresh render): the object cannot be re-archived because the pair is write-once.
+7. **`archiveInitialPrescriptionPdf` renamed `archiveSealedPrescriptionPdf`**, its `onlyIfMissing` option dropped (the archive is idempotent: a header with a hash is left alone, so a replay and a first call take the same step).
+8. `patient_document.delete` and the lab audit action stay in the audit allow-lists (see 09A-04); only `prescription.pdf_integrity_failed` and `sha256` were added here.
+
+### Affected-test discovery (grep first), with the fix
+
+`grep -rlE "pdf_storage_path|generateAndArchivePrescriptionPdf|buildVisitPdfPayload|prescription-pdf|rx_v" tests supabase/tests scripts` plus the full affected-folder Vitest run found:
+- Callers of the removed `generateAndArchivePrescriptionPdf`: `tests/integration/prescription-versioning.spec.ts` (tests 3 and 4 now assert the sign-off archive, the 5-minute archive URL and the
+  route URL for a variant), `tests/labs/lab-documents.spec.ts` (pure `renderPrescriptionPdf`), `tests/compliance/dpdp-rights.spec.ts` (the payload builder carries the statutory fields; the
+  render is pure).
+- Specs that faked "the first call died after the commit" by UPDATE-ing `pdf_storage_path` to NULL (now refused, a silent no-op that would have left the assertions failing for the wrong
+  reason; this is the hazard 09A-01 warned about): `tests/consultation/sign-consultation-rpc.spec.ts` and `amendment-rpc.spec.ts` (the loss is simulated by calling the command alone, then
+  the service replays), `tests/billing/complete-and-bill-rpc.spec.ts` (the replay leaves the archived Rx alone and re-renders the missing receipt; the Rx loss is covered by the sign spec and
+  `rx-pdf-archive.spec.ts`, which call the same function).
+- Fixtures that wrote a PDF path on an unsigned header: `tests/dpdp/export-dto.spec.ts` (sign through `signVisitAs`, then set the path), `tests/subscriptions/lock-enforcement.spec.ts`
+  (`seedClinicalVisit` + `signVisitAs`), `tests/security/review-fixes-db.spec.ts` (AR-M1) and `review2-fixes-db.spec.ts` (AR2-H1): a signed visit of their own; the foreign or encoded paths
+  are now refused by the seal guard (`RX_PDF_PATH_INVALID`, 42501) before the 000022 CHECK, which stays behind it.
+- `tests/consultation/rx-seal.spec.ts` (letterhead_mode is no longer writable), `tests/observability/no-raw-error-logging.spec.ts` (the route no longer calls `auth.getUser`: the exception is
+  thrown from the visit read), `tests/authz/table-matrix.ts` and `table-matrix.spec.ts` (rx INSERT and UPDATE are `none`),
+  pgTAP `prescription_seal`, `grants`, `storage_policies` (+11), `authz_matrix` (regenerated).
+
+### Tests added or changed (file: name)
+
+- `supabase/tests/database/rx_pdf_write_once.test.sql` (28): 10 operations x 5 states (draft, sealed, sealed and archived, amending with its pair, sealed with a legacy path) x 9 roles
+  (7 aggregate checks, each failing with the offending `operation/state/role => outcome`), the column and both CHECKs (shape, upper case, hash without a path with the guard off), the column
+  grant, INSERT carries no pair, lifecycle through the commands (sign, archive once, a second archiver's `UPDATE ... WHERE pdf_sha256 IS NULL` matches no row, reopen, finalize clears the pair,
+  the snapshot holds the v1 pair, the old key cannot be written back onto version 2, version 2 is archived once, its hash cannot be replaced). Red on 000108 (the file errors on the missing column).
+- `supabase/tests/database/storage_policies.test.sql` section 2b (11): draft and amending refused, sealed unarchived admitted for the doctor and the owner, a future version, an archived header,
+  a nurse, another clinic and a key with no visit refused, no DELETE; the catalogue loses the rx UPDATE policy; the two old rx cases change. Red on 000108 (1, 10, 11 fail and the file errors on the column).
+- `tests/prescriptions/rx-pdf-archive.spec.ts` (15): "stores the PDF at the canonical key, records its SHA-256 (equal to the stored bytes), and audits it"; "a second archive is a no-op"; "a draft
+  visit: a render, no object, no pair; the preview link is the route's"; "a sealed visit at another letterhead: a render, the archive and the header are untouched"; "a sealed Rx whose archive was
+  lost is archived once when it is opened"; "an object that exists with no recorded hash ... is adopted"; "a legacy header ... gets its hash recorded on the first read"; "keeps rx_v1.pdf and
+  its hash, snapshots them, clears the pair on the header until rx_v2.pdf is archived, then records its own hash"; "the service path (reopen, finalize) archives the signed version first and
+  the amended version after"; "upsert, update and remove of an archived object fail"; "a PDF cannot be planted ahead of the seal ..."; "another clinic's member cannot plant"; "the PDF route returns
+  the archived bytes: their SHA-256 equals the stored hash"; "a tampered object ... is never served"; the pure render.
+- `tests/security/ac6-rewrite-signed-rx.spec.ts` storage legs (+7): sealed and amending, as owner and doctor, upsert/update/remove fail and the bytes and hash are unchanged, planting at the next
+  version and at a draft's key fails; the service role cannot move, change or clear the recorded pair (`42501`).
+- `tests/storage/storage-provider.spec.ts` (+1): the provider writes once by default and upserts only when asked. `tests/consultation/sign-consultation-rpc.spec.ts` (+1: a first call signs and
+  archives once, the replay does not repeat it). `tests/e2e/m0/consult-rx-finish.spec.ts` (first test): the stored `pdf_storage_path` is `rx_v1.pdf` and `pdf_sha256` equals the SHA-256 of the bytes
+  the route served and of the stored object (read from the database).
+- Fails without the migration (previous migration set, 000108; the rest of the tree unchanged): pgTAP `rx_pdf_write_once` errors on the missing column; `storage_policies` fails 1, 10, 11 and errors on
+  the column; Vitest `rx-pdf-archive.spec.ts` 13 of 15 fail (the two that pass do not depend on the migration), AC-6 storage legs 7 of 7 fail, the rx class of `storage-policies-jwt.spec.ts` fails.
+  The DRAFT-planting cases of the storage legs do not depend on the new column and fail on the policy alone (an upload under a draft's final key succeeds on 000108).
+
+### Counts
+
+- pgTAP full run: 8430 tests, 58 files, all pass (FLOOR 8391 -> 8430: rx_pdf_write_once 28 + storage_policies 11; the arithmetic is in the gate header).
+- Vitest affected folders (`tests/prescriptions storage consultation security audit api ci integration labs compliance billing dpdp subscriptions pwa observability referrals authz`): 3761 tests in 180
+  files, 8 failed (the specs listed above: 7 behaviour changes and the readiness probe, which only failed because the 000110 file already sat in the tree), all fixed and re-run green; the last
+  full affected run at the final tree is in 09A-04 (163 files, 3514 tests, 0 failed).
+- `npm run typecheck` clean; `npx eslint .` 0 errors (413 warnings; the two warnings this plan introduced, unused imports in `features/consultation/service.ts`, were removed); `npm run inventory` exit 0
+  (0 flagged); schema snapshot `--check` PASS; `npm run db:drift:local` PASS; `db:types` adds `pdf_sha256`; `authz:gen` regenerated.
+- e2e: see 09A-04 (one lane for both plans).
+
+### Notes for 09A-04..05
+
+- 09A-05: `getPrescriptionPdfSignedUrl` returns a relative route URL for a draft, an amending visit or a variant; the PDF preview modal puts it in an iframe and `window.open`, which works because the
+  route is same-origin. While a visit is amending, "Print Rx" renders the current rows on demand (version 1 label, no archive); after finalize it is the archived v2.
+- 09A-05: the `finalizeVisitAmendment` service archives version 2 before it returns, so the e2e can read `rx_v1.pdf` and `rx_v2.pdf` and their hashes from the database right after the UI action; a
+  command-only finalize (RPC) leaves the header with no pair until the next open or archive.
+- 09A-05: the WhatsApp share link for a prescription resolves the stored `pdf_storage_path`; between a finalize and the v2 archive (a few hundred ms in the same request) the link has no object.
+- Residual risks (T-09A-06, recorded): a prescriptions:edit holder can archive a forged PDF in the window between the seal and the archive; the service role bypasses storage RLS and could overwrite an
+  object (it is never used in a request path, and the hash check on read catches it, `rx-pdf-archive.spec.ts`); no digital signature (integrity after archive, not authenticity of origin).
+
+## 09A-04 Lab documents are append-only (migration 000110_lab_documents_append_only)
+
+### What changed
+
+- `supabase/migrations/000110_lab_documents_append_only.sql` (`ls supabase/migrations | tail -3` showed 000109 as the newest, so 000110 was free).
+  - `DROP POLICY patient_documents_delete`; `REVOKE DELETE ON public.patient_documents FROM authenticated`.
+  - `private.patient_documents_no_delete` + trigger `patient_documents_no_delete` (BEFORE DELETE FOR EACH ROW, INVOKER, `search_path ''`, EXECUTE revoked): `LAB_DOCUMENT_DELETE_FORBIDDEN` (42501) for every
+    writer including the service role and postgres; the one exception is R-4a (a writer with no session when the clinic's `tenants` row is gone: the tenant purge and the run teardown). The visit FK's
+    `ON DELETE SET NULL` is an UPDATE and is unaffected (pgTAP case).
+  - `DROP POLICY clinic_records_lab_update` and `clinic_records_lab_delete` on `storage.objects`. SELECT and INSERT, and the receipt, referral letter and Rx classes, are untouched.
+- App: `deleteLabDocument` is gone from `features/labs/service.ts` and `actions.ts`, with `DeleteLabDocumentResult`, its row in `tests/security/guard-manifest.ts`, and in
+  `components/patients/patient-lab-documents.tsx` the Delete button, the confirmation dialog and its state; a note under the list says "Uploaded documents are part of the patient's record and cannot be
+  removed." Uploads and signed links are unchanged.
+- **Q-5 settled with the plan's default**: nobody can delete a lab document, including the owner, until V2-11's documents UI adds a void (reason, `voided_at`, share tokens revoked in the same
+  transaction, hidden by default). A wrong-patient upload therefore stays on that patient's record until then (T-09A-11, accepted); the PO is to confirm at the gate (`09A-P2`).
+
+### Deviations from the plan, with reasons
+
+1. The `patient_document.delete` audit action stays in `AUDIT_ACTIONS` and in `private.audit_client_actions()`: nothing writes it any more, and removing it needs a migration with no benefit
+   (the allow-list parity spec compares the two). Clean it with the next migration that touches the list.
+2. `delete_rules.test.sql` needed the catalogue row removed (`patient_documents_delete`), not the plan's "extend"; the tenant-purge section of that file already covers the cascade of documents.
+3. The "removed member would otherwise be admitted" sanity bound in `tests/authz/table-matrix.spec.ts` went from 100 to 90 (the live cells fell below 100 with the Rx and lab cells that became `none`; the bound only keeps the denial from being vacuous).
+4. `tests/observability/no-raw-error-logging.spec.ts` lost its labs write case with the function; `generateDocumentShareToken` takes its place (same assertions: fixed result, one tagged line, no raw text).
+
+### Affected-test discovery (grep first), with the fix
+
+`grep -rn "deleteLabDocument\|patient_documents.*delete\|Delete document\|Delete Permanently" app components features lib tests scripts docs` found:
+- `tests/labs/lab-documents.spec.ts` ("Tenant B cannot delete Tenant A documents": the row delete by tenant B's JWT is refused 42501 and the row stays), `tests/security/review2-fixes-db.spec.ts` (AR2-L5
+  rewritten: owner and doctor refused 42501, the service role refused by the trigger, row and object remain, no `patient_document.delete` audit row; the foreign-key-never-passed-to-storage case is
+  removed with the function), `tests/security/no-raw-error-responses.spec.ts` (the case is removed), `tests/observability/no-raw-error-logging.spec.ts` (replaced, see above),
+  `tests/security/guard-manifest.ts` (row removed; `npm run inventory` exports 122 -> 121, 0 flagged), `tests/e2e/a11y/lab-reports-screens.spec.ts` (new case at 360, 820 and 1280: an uploaded
+  document is listed with View and Share, the record note is shown, no Delete control and no dialog; axe baseline check as for the other cases).
+- `docs/v2/SECURITY_ASSESSMENT.md` mentions the old action as a finding (history, left as is).
+- "No Delete control or delete code path remains": `grep -rn "deleteLabDocument\|Delete Lab Document\|Delete Permanently\|handleDeleteConfirm" app components features lib tests/security/guard-manifest.ts`
+  returns nothing; `patient_document.delete` appears once, as an allow-listed audit action string (`lib/audit/audit.ts`, deviation 1).
+
+### Tests added or changed (file: name)
+
+- `supabase/tests/database/lab_documents_append_only.test.sql` (24): catalogue (policies, privilege, trigger, function shape, storage class), DELETE as all nine roles (nobody deletes; the request path by
+  privilege, the service role and postgres by `LAB_DOCUMENT_DELETE_FORBIDDEN`; a bulk DELETE too), controls (a nurse inserts, a doctor updates, a receptionist updates nothing), storage (nurse and doctor
+  upload new objects, nobody updates or deletes one, the doctor still reads), R-4a (negative while the clinic exists, purge as postgres and as service_role), the visit FK's SET NULL.
+  All 24 fail on 000109 (catalogue cases and the DELETE matrix).
+- `tests/labs/lab-documents-append-only.spec.ts` (11): a doctor and a nurse still upload (row, object, signed link); owner, doctor, nurse, receptionist and another clinic's owner cannot delete a row
+  (42501, the row stays); owner, doctor and nurse cannot remove, upsert or update an object (bytes unchanged); the service role's DELETE is refused by the trigger; deleting a clinic as the service
+  role cascades through its documents. 9 of 11 fail on 000109 (the upload control and the purge pass, as they should).
+- `tests/authz/table-matrix.ts` / `table-matrix.spec.ts`: patient_documents DELETE is `rpc_only`; the lab storage class has no UPDATE and no DELETE (`none`); `authz:gen` regenerated the pgTAP matrix and AUTHZ-MATRIX.md.
+
+### Counts
+
+- pgTAP full run: 8454 tests, 59 files, all pass (FLOOR 8430 -> 8454: lab_documents_append_only 24).
+- Vitest affected folders at the 000110 tree (`tests/labs security observability storage ci authz dpdp compliance api prescriptions consultation integration billing clinical`): 3514 tests in 163 files, all pass, none retried.
+- e2e (after `npm run e2e:build`): `npx playwright test tests/e2e/m0 tests/e2e/a11y/lab-reports-screens.spec.ts tests/e2e/a11y/sign-and-bill-screens.spec.ts tests/e2e/journeys/journey-09-clinic-isolation.spec.ts
+  --project=desktop-chrome --retries=0`: 36 passed in 50.4 s, 0 retries; the P1-03 known-bug case is the expected failure until 09A-05. Only desktop-chrome was run (instruction: one lane).
+- `npm run typecheck` clean; `npx eslint .` 0 errors (413 warnings, none new); `npm run inventory` exit 0 (0 flagged, 121 exports); schema snapshot `--check` PASS; `npm run db:drift:local` PASS.
+
+### Notes for 09A-05
+
+- Nothing in 09A-04 touches the consultation workspace. The workspace's "Print Rx" and the sign modal's PDF link use the route, which serves the archive for a sealed Rx and a render otherwise.
+- A lab document can no longer be deleted by tests either: a fixture that needs to remove one must delete the clinic (the cascade is allowed) or use a unique patient per case.
+- `tests/e2e/a11y/amendment-screens.spec.ts` (09A-05) can reuse the `check()` pattern of `lab-reports-screens.spec.ts`.
