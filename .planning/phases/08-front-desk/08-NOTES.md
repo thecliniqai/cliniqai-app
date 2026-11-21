@@ -884,3 +884,55 @@ timed `search_patients` with a query that every seeded synthetic patient (about 
 - `switchClinic` writes an auth-adjacent cookie: the membership is read under the caller's RLS with `status = 'active'`, the value written is the database's tenant id (not the raw input), and the request re-checks the
   membership on every call (M-REMOVED). `Secure` follows `x-forwarded-proto` / the origin, not an env switch.
 - `getSlotAssist` is a new read action (`appointments:view`); it returns counts and a band only.
+
+## Flake: 04-offline desktop (CI 44857737802)
+
+CI run 44857737802 at `b07fe40`: `[desktop-chrome] pwa/04-offline.spec.ts:25` ("a navigation shows the /offline page; Today keeps
+its rows ...") failed on attempt 1 and retry 1 (2.2 s each) and passed on retry 2; the run was cancelled, so there is no error text
+or trace. Fix commit `a1309dd` (`tests/e2e/pwa/04-offline.spec.ts` only; the spec was unchanged between `b07fe40` and the
+reproduction at `2967c33`). A product defect was ruled out (below).
+
+- **Root cause: two races in the spec, both reproduced locally with `--retries=0`.** Both are in the step "back online, then offline
+  again", and both come from a comparison or a wait that does not mean what its comment says.
+  - **A. The spec compared `main.innerText()` snapshots.** That text holds the live-status line (`LiveStatus`: "Connecting…" until
+    the Realtime channel answers, then "Live" or "Updating every 20 s"). The Realtime socket opens, or fails when the context goes
+    offline, at an arbitrary moment of a test that lasts about 0.7 s here and about 2.2 s on CI. When the status changed between
+    `onScreen` (line 35) and a later snapshot, `toBe` failed with exactly one differing line, `- Connecting…` `+ Updating every 20 s`.
+    The same text also holds every waiting row's wait ("Waiting 0 min", clock-driven, `waitNow`); that did not fire in 110 repeats
+    (rows aged past a minute), because snapshot 2 is normally taken before the refresh has landed, but it is the same class.
+  - **B. `await refreshed` waited for "an RSC response", and a prefetch satisfies that.** The predicate was
+    `headers()["rsc"] === "1"`. The sidebar's links send RSC requests too (`Next-Router-Prefetch: 1`) as soon as the network is
+    back. With the old predicate logged in 12 passing runs it matched a prefetch in 7 (`/today` 4, `/settings/clinic` 2,
+    `/billing/reports` 1) and the real refresh in 5. In the failing trace (local, `repeat2`): `setOffline(false)` at 11322.6 ms,
+    prefetch answers at about 11331 ms (these satisfied the wait), `setOffline(true)` at 11337.5 ms, and only then the refresh
+    `GET /today?_rsc=…` (no prefetch header) at 11341 ms with `ERR_INTERNET_DISCONNECTED`. Next answers a failed RSC fetch with a
+    full navigation of the current URL (`fetch-server-response.js`): that navigation aborted `page.goto("/patients")` with
+    `net::ERR_ABORTED`, and the page ended on `/offline`. This is the same mechanism as the 2026-11-20 flake (CI 44806259261),
+    whose fix (wait for an RSC answer) did not pin down which answer.
+- **Product defect or test race: test race.** The offline snapshots of the row passed in every run (offline the rows stay, nothing
+  blanks), and the failure needs the test to drop the network while its own refresh is unsent or in flight. One residual, not
+  changed here: a real refresh that is in flight when the connection drops still becomes a full navigation (Next internals);
+  `refreshWhenReachable` (08-03a) narrows that window to the probe-to-fetch gap, which on a loaded main thread was 15 ms in the
+  failing trace. The PO accepted that design in 08-03a; raise it again only if tablets are seen to lose Today on a Wi-Fi drop.
+- **Other hypotheses checked.** The seeded waiting row was visible at 1280 px in every run (it is in the Waiting lane, all lanes are
+  side by side from 1280 px). Cross-test interference needs more than one worker (the config has one and CI runs `e2e:pr`
+  unchanged); with `--workers=2` (unsupported) the spec's own assertions held and the only failure was `seedWaitingToday`'s
+  read-max-then-insert on `queue_tokens` (`uq_tenant_date_token`, test support, not changed).
+- **Fix (`a1309dd`), spec only.**
+  - Realtime is refused for this spec (`page.routeWebSocket(/\/realtime\//)`, as `today-live.spec.ts` does; Realtime is covered
+    there). The board then polls every 20 s, far beyond this test, so no (re)subscription refresh or signal can start a refresh
+    at an arbitrary moment.
+  - "The rows stay" compares the spec's own seeded row whole (token, name, wait, meta; the offline reason text still left out)
+    and that the board has not lost a row (`>=`, so a row arriving from elsewhere does not fail it). Not the board's text.
+  - Back online, a walk-in seeded while the device was offline must appear. Its row is the proof that the resume refresh
+    (`lib/pwa/resume.ts`) was sent, answered and applied, so the next `setOffline(true)` cannot catch it in flight. This also
+    makes the spec fail if the resume refresh ever stops firing. `response.finished()` was tried and cannot be used: Next cancels
+    the RSC stream, Chromium reports `ERR_ABORTED` and `finished()` never resolves.
+  - No retry, no blind wait, and no assertion loosened that guards a behaviour: the row is still compared whole.
+- **Repeat counts** (`--retries=0`, desktop-chrome, one worker, first test only unless stated):
+  - Before (old spec): unloaded 2 failed of 200 runs (1 × `goto` `ERR_ABORTED`, mode B; 1 × status line, mode A);
+    with 10 busy-loop processes on the 10-CPU machine (stand-in for the slower CI runner) 5 failed of 30 (all mode A: 3 at the
+    back-online `toBe`, 2 at the offline one).
+  - After (`a1309dd`): unloaded 70 of 70 (both tests of the file, 35 repeats); 10 busy processes 40 of 40; 24 busy
+    processes 30 of 30; together with `tests/e2e/today` twice, 34 of 34 each; pixel-7, whole file, 20 of 20.
+  - `npm run typecheck` clean, `npx eslint .` 0 errors (407 warnings, unchanged).
