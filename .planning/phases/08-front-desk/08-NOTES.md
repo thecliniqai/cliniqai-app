@@ -626,3 +626,100 @@ Commits (branch `v2/phase-08-front-desk`, base 96067db): 9abfa02 (migration 0001
   its own rewrite is 08-04b). `doctor-timeline.tsx`'s booked "Start Consultation" link and `checkSlotAvailability` are still the v1 pieces.
 - The guard world has `noShowableVisit`; `tests/helpers/scheduling-commands.ts` has the arg builders and `ist(week, dow, h, mm)` for March 2031 slots (the patient link, unlike staff, takes nothing beyond 90 days).
 - pgTAP floor is 8237 (53 files); Vitest REQUIRED_FILES 257; `EXPECTED_MIGRATION` is 000103 (000104 next, Smart Assist).
+
+## 08-04b Schedule and booking UI
+
+Commits (branch `v2/phase-08-front-desk`, base 0dcaccf): listed by the orchestrator report; the notes commit follows them.
+
+### v1 behaviour inventory (M4 criterion 1): the calendar and its drawers, and where each behaviour went
+
+| v1 behaviour (`/calendar`, `components/calendar/*`) | New home |
+|---|---|
+| Doctor filter pills (shift-click for several doctors) | Schedule head: doctor chips, one doctor or "All doctors" (a doctor opens on their own day). **Approved removal:** the multi-select of several doctors |
+| Soft-block override with a free-text "emergency" note (`[EMERGENCY OVERRIDE]` in the reason) | `SlotConflictDialog` (off duty or blocked) with "Book anyway"; the visit is flagged overbooked. **Approved removal:** the emergency note |
+| Overbook dialog with the cause (G-4: taken, off duty, blocked) | `SlotConflictDialog`, the same cause texts (`overbookCauseText`), in the booking and in the move |
+| Waitlist drawer (add; the new-patient tab) and the "N on waitlist" pill and strip | `WaitlistSheet` ("Waitlist (n)" in the head): the day's entries, Add to waitlist (`add_to_waitlist`), Book a slot per entry (`promote_waitlist_entry`). **Approved removal:** registering a new patient inside the waitlist form (a waitlist entry needs a patient; "Register as new patient" opens the register sheet) |
+| Waitlist auto-promotion notice on cancel | Toast "A waitlisted patient was booked into the vacated slot" from `CancelDialog` (the result of `cancel_visit`) |
+| Block time (time window, full day, date range, reason presets) | `BlockTimeDialog` on `Dialog` (Schedule head and the profile's availability card), the same `createScheduleBlock` action |
+| Confirm (soft-booked card) | Confirm button on the appointment card, one command (`confirm_appointment`) |
+| Slot click prefilled the booking drawer (doctor, time) | Free-slot chips on the day view: links `?book=1&doctor&date&time` (R-13) |
+| `?patientId=` on the calendar link (ignored by v1, UX_AUDIT F-07) | `?book=1&patient=<id>` opens the sheet on that patient (patient record, visit history) |
+| Patient context in the drawer (search, selected patient card, New patient tab) | `PatientSearch` or `QuickRegisterForm` inside the sheet; `register_and_book` registers and books in one command |
+| Cancel through `confirm()` / `alert()` | `CancelDialog` (reason, note, "Tell the patient"), ⋯ menu |
+| Date navigator (previous, today, next) | Schedule head (a week at a time in the week view) plus a "Go to date" field |
+| 15-minute timeline with multi-slot spans and an "in progress" marker | Day view: one column per doctor, a chronological list of appointments (start to end), blocks and runs of free slots. **Approved change:** no hour grid |
+| Off-duty cells and "Off Duty / Emergency" hover labels | Absence of free slots (the list is `available_slots`, the one the command checks); "Pick another time" reaches any time and the command asks |
+| Duration select (15 to 90 minutes) | The visit's length is the chosen slot's length (`end - start` of `available_slots`); 15 minutes for a time typed by hand. **Approved removal:** the free duration choice |
+| "Start Consultation" link on a booked card (`/consultation/<id>`, which failed at sign-off for a booked visit, 08-01b) | Removed with the card: a consultation starts from Today (`start_consultation`, R-1) |
+| Horizontal timeline of at least 780 px on a phone | Agenda below 768 px (day view from 768 px) |
+
+### What changed
+
+1. **Slot adapter** `components/front-desk/slot-adapter.ts` (`toPickerSlots`, `slotInstant`, `slotLengths`, `earliestSlot`): the one place that turns `available_slots` instants into clinic `HH:mm` and
+   back, through the clinic zone only.
+2. **Shared slot choice** `SlotSection` (doctor, `DayStrip`, `SlotPicker`, "Pick another time"; free slots through the new `getAvailableSlots` action; slots that have started are not offered) used by the booking
+   sheet, the move sheet and the waitlist promotion. `SlotConflictDialog` is the one overbook / override question.
+3. **Sheets** hosted in `FrontDeskSheets` (dashboard layout, R-13): `BookingSheet` (`?book=1&patient&doctor&date&time`, existing patient or QuickRegister, `register_and_book` through `useCommand`, SaveStatus, Retry through the sheet's own
+   send, the earliest slot preselected) and `RescheduleSheet` (`?reschedule=<visitId>`, `reschedule_visit`, "Tell the patient" on by default, own slot listed again, nothing preselected). B opens the booking sheet
+   (`shortcuts.ts`). `CancelDialog` (`cancel_visit`: reason, optional note, "Tell the patient" on, promotion notice) and `NoShowDialog` (`mark_no_show`) sit behind `RowMenu`, the ⋯ menu of an appointment
+   row: Move appointment, Mark as no-show, Cancel appointment, only what the state machine's `actions` list for the role (`rowMenuItems`). The menu is on Today's rows (not in the doctor's own queue) and on the Schedule's cards.
+4. **Schedule** `/schedule` (`?date&view=day|agenda|week&doctor`): `features/schedule/{schema,queries}.ts` (explicit columns, free slots from `available_slots`, week counts), `components/schedule/{schedule-view,schedule-head,
+   day-grid,agenda,week-overview,appointment-card,waitlist-sheet,block-time-dialog}.tsx`. Agenda below 768 px, day view from 768 px unless `view` says otherwise.
+5. **Cut-over**: nav destination `schedule` (label Schedule, "My Schedule" for a doctor, BottomBar caption "Schedule"), `newActions` + palette Book appointment (`/schedule?book=1`), `LIVE_VIEWS` `/today`, `/schedule`,
+   `/calendar` redirects (308) to `/schedule` from `next.config.ts`, every `revalidatePath("/calendar")`, notification and webhook `link_url`, patient record and visits links, the client-route list (regenerated).
+6. **Deleted**: `app/(dashboard)/calendar/**`, `components/calendar/**` (7 files, 2,511 lines), the two waivers (`booking-drawer`, `waitlist-drawer`; waivers 8 -> 6), the `checkSlotAvailability` server **action** (no caller left; the service stays for
+   `/api/v1/appointments`, see Deviations), the guard-manifest entry of the action.
+7. Two read actions were added for the sheets: `getAvailableSlots(doctorId, date, excludeVisitId?)` and `getRescheduleTarget(visitId)` (patient name, doctor, current slot; explicit columns, `appointments:view`), both in the guard manifest with valid inputs.
+
+### Deviations
+
+- **`getRescheduleTarget` is a new server action** (the plan names none): the sheet is hosted once in the layout (R-13) and needs the visit's name and slot, which only a read can give. It is a plain read on the caller's session (RLS), in the guard manifest.
+- **The patient of `?patient=<id>` is read with the existing `getPatient` action** (`patients:view`), not a new minimal route.
+- **Overbook confirmation is one dialog**: confirming sends `is_overbooked: true` plus the matching override (off duty or blocked), so the visit is flagged overbooked; the command clears all conflicts of an overbooking. v1's two dialogs and
+  the emergency note are gone.
+- **"A doctor with no free slot says why"** says it generically ("off duty, blocked or fully booked"): `available_slots` returns free slots only, and the cause would need a second query per doctor and day.
+- **Day view is a chronological column list per doctor**, not an hour grid, so overbooked visits (two in one slot) never overlap. The 744 px iPad mini portrait gets the agenda (the doctor columns start at 768, as the plan says).
+- **`date` and `doctor` stay in the address when a sheet closes**: the Schedule uses both for its own view. A free-slot link therefore also narrows the Schedule to that doctor.
+- **Cancel always asks for promotion** (`promote_waitlist: true`); there is no switch. The waitlist sheet lists the day shown, not "today" as v1's pill did.
+- **Reschedule's "Tell the patient" is on by default** (the plan says it for the cancel dialog; the same box is on the move).
+- **`checkSlotAvailability` (service) is unchanged**: `/api/v1/appointments` still calls it and still reads a NULL schedule as "no restriction". The rule of R-9 for the public API belongs to V2-12 (it owns `/api/v1`).
+- **Migration 000104 (the plan says "no migration")**: the first full e2e lane failed two walk-in specs on pixel-7 (they passed alone and on desktop-chrome). Root cause: `search_patients` (000101) read every digit of a typed
+  name as a mobile fragment, so "E2E Synthetic Walk-in dcc7a1" (digits 2, 7, 1) also matched any mobile containing "271" at rank 2, above the exact name (rank 3), and "Register as new patient" (offered only
+  when nothing matches) did not appear. The chance grows with the patients in the clinic, so it hit once this plan's specs had added enough. Fix, not a test workaround: digits are a mobile fragment only when the query
+  has no letters (`000104_search_patients_name_queries.sql`, same signature and grants; `EXPECTED_MIGRATION` 000104; case in `tests/patients/search-patients-db.spec.ts`). **08-05's migration is therefore 000105.**
+- **The calendar deletions are in commit 716067e** (the orchestrator's CI commit, made while my deletions were staged); the code that replaced them is in the commits of this plan.
+- **Route JS**: `/schedule` 310.3 kB gz and `/today` 319.2 kB gz (08-03b: 298.0). The booking and move sheets are in the dashboard layout and load on every dashboard route; making them lazy chunks is an option if V2-15's budget needs it.
+
+### Tests
+
+- Vitest (unit, no stack): `tests/schedule/slot-adapter.spec.ts` (11: 04:30Z shows 10:00 and 10:00 sends 04:30Z with the process zone UTC, America/Los_Angeles and Asia/Kolkata, the IST date line, round trips, slot lengths),
+  `tests/schedule/schedule-model.spec.ts` (8: a doctor's day merges appointments, blocks and runs of free slots, the week starts on Monday, addresses, agenda order, the row menu from the real permission matrix).
+  Updated: `tests/nav/nav-for-role` (Schedule, Book in `newActions`), `tests/today/shortcuts` (B), `tests/pwa/shell-runtime`, `tests/design/design-review-09e` (caption "Schedule"), `tests/auth/page-revoked-session` and
+  `tests/subscriptions/locked-redirects` (the Schedule page), the guard manifest and valid inputs (`getAvailableSlots`, `getRescheduleTarget` in, `checkSlotAvailability` out), `tests/patients/search-patients-db` (+1).
+- Affected sets: `tests/visits scheduling waitlist today nav pwa design integration notifications patients staff commands messaging api queue` 136 files, 2310 tests, 1 failed at first (the BottomBar caption of "My Schedule", fixed); `tests/security/guard-actions`
+  668 and `guard-routes`; `tests/ci` and `tests/auth/page-revoked-session`, `tests/subscriptions/locked-redirects` 1231; pgTAP full (8237 in 53 files, PASS, floor unchanged).
+- E2E: new `journeys/journey-04-book-appointment` (@golden: book into a free slot, the patient is on the Schedule, the same slot for another patient asks and writes nothing, another slot books; axe on the sheet, find and plan stages),
+  `schedule/schedule.spec.ts` (16 per device: move with its own slot listed and the `ux` count, a taken slot asks first, cancel with a waitlist promotes and says so, no-show only after the time has passed, Confirm, the Today row's menu, day, agenda and week
+  views and the week counts, free-slot links, axe and no sideways scroll on every view and on the move sheet and cancel dialog, the patient's own reschedule page in the clinic's zone with the browser in New York, a link's doctor, day and time, Book Slot from the
+  patient record, B, keyboard only B-name-Enter-Enter), `pwa/13-idempotent-retry` booking leg (a NEW patient inside the booking sheet: lost once, and lost on every attempt with Retry through the sheet's own send: one patient, one visit),
+  `shell/clinic-zone-hydration` (browser in New York and in UTC), `m0/{book,cancel}-appointment` rewritten on the new UI with the same outcome assertions, `design/screens/schedule` (captures at 360, 744, 820, 1180, 1280 to `evidence/screens/schedule/`).
+  Interaction counts (`test-results/m0/counts`, desktop-chrome): move 4 actions (target 4); booking an existing patient 5 actions in the spec, of which one is choosing the non-default doctor (4 with the default doctor; target 4), and
+  keyboard only (B, name, Enter, Enter) 1 action and 3 key presses; cancel with the dialog 3 actions; Confirm 1.
+- Final `npm run e2e:build` then `npm run e2e:pr`: 725 passed, 243 skipped, 4 failed, 0 retried. The four are the two expected failures on each of desktop-chrome and pixel-7 (known P1-03 `consult-rx-finish`, and the `network-block` self-test): unchanged.
+  The first full lane had two further real failures (the palette's expected options still said "Calendar"; the search ranking above), both fixed before this run. `npm run e2e:nightly -- tests/e2e/schedule`: 22 passed (ipad-mini-744, ipad-gen7 and landscape, galaxy-tab-s4 and landscape,
+  android-tablet-800, iphone-se-3).
+
+### Commands run (counts)
+
+- `npx supabase db reset --local`, `npm run db:types` (no change), `npm run test:pgtap` (8237, 53 files, PASS) and `node scripts/ci/assert-pgtap-report.mjs pgtap-report.tap` PASS, `node scripts/drift/schema-snapshot.mjs --local --write` then `--check` PASS,
+  `node scripts/ci/local-drift.mjs` PASS, `npx supabase db diff --local` empty. `node scripts/observability/client-routes.mjs --write` (`/calendar` -> `/schedule`).
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (407 warnings, 11 fewer than 08-04a). `npm run inventory`: exit 0, 0 flagged. `npm run ci:ui-policy`: PASS. `npm run ci:ai-l1`: PASS. `npm run ci:route-js`: `/schedule` 310.3 kB gz, `/today` 319.2.
+
+### What 08-05 must know
+
+- Its migration is **000105** (000104 is the search fix above); `EXPECTED_MIGRATION` is 000104 now. Registries: `tests/security/guard-manifest.ts` has `getAvailableSlots` and `getRescheduleTarget`; REQUIRED_FILES of the Vitest gate is 259 files; pgTAP floor 8237.
+- `components/front-desk/booking-sheet.tsx` is where AI-13's chips go: it renders `SlotSection` (`components/front-desk/slot-section.tsx`; `preselect` chooses the earliest free slot). `suggestSlots` should feed `SlotSection` an optional `suggestions` list (it does not exist yet)
+  or replace the preselection there; the slot list and the adapter (`slot-adapter.ts`, `earliestSlot`, `slotLengths`) are the one place that converts. QuickRegister in the booking sheet is `QuickRegisterForm` with `findDuplicates` from `use-duplicate-lookup.ts`.
+- `FrontDeskSheets` takes `canBook`; the clinic switcher's hard navigation to `/today` tears down the sheets with the layout. The Schedule's data is `getSchedule` (`features/schedule/queries.ts`); `/schedule`'s waitlist and week read call `getAvailableSlots` (service) once per doctor and day.
+- This plan added no command; the latency script's list is 08-04a's. `getAvailableSlots` (the database's `available_slots`) is already one of its baselines.
+- Data-dependent search flakes are root-caused (000104); any spec that types a synthetic name with digits is safe from the mobile-fragment rule now.
