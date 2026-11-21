@@ -20,6 +20,8 @@ grant insert on table public.visits to authenticated;
 -- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
 -- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
 grant update on table public.visits to authenticated;
+-- 000108 (09A-02): UPDATE on public.prescriptions is narrowed for authenticated to the PDF columns; the key-immutability case below proves the guard itself.
+grant update on table public.prescriptions to authenticated;
 select plan(46);
 
 insert into auth.users (id, email) values

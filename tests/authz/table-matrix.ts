@@ -567,12 +567,18 @@ export const TARGETS: readonly Target[] = [
     table: "prescriptions",
     key: ["id"],
     fixture: { id: q(FX.prescription), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA },
-    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "2" },
-    update: "status",
+    // V2-09a 000108 (I-1): a request path writes version 1 only, and one header per visit (uq_prescriptions_visit_version), so the INSERT cell
+    // first frees the fixture header's slot (as postgres, inside the cell's rolled-back subtransaction).
+    insertSetup: `delete from public.prescriptions where id = ${q(FX.prescription)}`,
+    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "1" },
+    // V2-09a 000108 (R-8): UPDATE is column-granted to (letterhead_mode, pdf_storage_path, updated_at); status, version, signed_at and
+    // amendment_reason change only inside the commands (prescription_seal.test.sql, rx-seal.spec.ts).
+    update: "letterhead_mode",
     rules: permSiu("prescriptions:view", "prescriptions:edit", rpcOnly),
     note:
       "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a " +
-      "header is added only while the visit is unsigned or reopened (05-11e, NF-2). The fixture visit is unsigned",
+      "header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the " +
+      "PDF columns only (000108 R-8). The fixture visit is unsigned",
   },
   {
     kind: "table",

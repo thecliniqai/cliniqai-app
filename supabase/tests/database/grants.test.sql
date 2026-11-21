@@ -7,11 +7,13 @@
 --   3. the default ACLs of role postgres (public, authz, global) grant nothing to anon / authenticated / PUBLIC, and a
 --      table or function created now starts closed (proved by creating them inside this rolled-back transaction);
 --   4. audit_logs: INSERT revoked from the API roles, kept for service_role (system writers);
+--   4b. V2-09a 000108 (R-8): public.prescriptions UPDATE is column-level for authenticated: only the PDF columns (prescription_seal.test.sql
+--       proves the rest);
 --   5. the role-level statement_timeout of anon (3s) and authenticated (8s) as found at branch time (R-47: function-
 --      level timeouts are not enforced for the calling statement, so the role setting is the only bound).
 -- Synthetic data only; the file rolls back.
 begin;
-select plan(15);
+select plan(16);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -222,6 +224,14 @@ select is(
         has_table_privilege('authenticated', 'public.cdci_brands', 'SELECT')],
   array[false, false, false, true],
   'global reference data: read-only for authenticated'
+);
+
+select is(
+  (select array_agg(a.attname::text order by a.attname) from pg_attribute a
+    where a.attrelid = 'public.prescriptions'::regclass and a.attnum > 0 and not a.attisdropped
+      and has_column_privilege('authenticated', 'public.prescriptions', a.attname, 'UPDATE')),
+  array['letterhead_mode', 'pdf_storage_path', 'updated_at'],
+  'prescriptions UPDATE: authenticated holds it on letterhead_mode, pdf_storage_path and updated_at only (000108, R-8)'
 );
 
 -- 5. -------------------------------------------------------------------------------------------------------------------

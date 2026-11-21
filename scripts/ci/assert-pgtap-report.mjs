@@ -95,6 +95,11 @@
  *          two: the system-path UPDATE is refused, the system-path INSERT of a signed visit still meets the FK) + migration_edge_cases_visit_integrity
  *          1 (same split) = 8356 (56 files). The other changed legacy files (amendment_snapshot, reverify_integrity, command_review_fixes,
  *          visit_state_machine) keep their counts: they only seed signed rows the way production does (R-15).
+ *   8391 — V2-09a 09A-02 (000108 prescription_seal): 8356 + prescription_seal 33 (new file, every one required) + grants 1 (the
+ *          prescriptions column grant) + amendment_snapshot 1 (the header version rule: a request path writes version 1 only, and
+ *          the first header of an open visit is admitted) = 8391 (57 files). authz_matrix keeps its cell count (the prescriptions INSERT
+ *          cell frees the fixture header and writes version 1; the UPDATE cell sets letterhead_mode); visit_integrity and
+ *          amendment_snapshot widen the prescriptions UPDATE grant inside their own transaction, like they do for visits.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -106,7 +111,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8356;
+export const FLOOR = 8391;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -198,6 +203,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/front_desk_review_fixes.test.sql",
   // V2-09a 09A-01
   "supabase/tests/database/clinical_seal.test.sql",
+  // V2-09a 09A-02
+  "supabase/tests/database/prescription_seal.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

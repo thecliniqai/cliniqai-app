@@ -16,7 +16,10 @@ begin;
 -- guards, triggers and RLS policies themselves (defence in depth, independent of the column grant), so the grant is widened for
 -- this transaction only; the narrowing itself is proven in staff_scheduling.test.sql.
 grant update on table public.visits to authenticated;
-select plan(60);
+-- 000108 (09A-02): UPDATE on public.prescriptions is narrowed for authenticated to the PDF columns. The amendment flow below bumps the header version
+-- directly (the pre-command steps this file was written for); the guards are what it proves, so the grant is widened for this transaction only.
+grant update on table public.prescriptions to authenticated;
+select plan(61);
 
 insert into auth.users (id, email) values
   ('c11e0000-0000-4000-8000-000000000101', 'c11e-owner-a@example.test'),
@@ -56,6 +59,9 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, st
   ('c11e0000-0000-4000-8000-000000002006', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
    'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', null, null,
    'c11e0000-0000-4000-8000-000000000101');
+insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, created_by) values
+  ('c11e0000-0000-4000-8000-000000002007', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000001001',
+   'c11e0000-0000-4000-8000-000000000102', 'walk_in', 'in_consultation', 'c11e0000-0000-4000-8000-000000000101');
 update public.clinical_notes set clinical_notes = 'Synthetic signed note V1' where visit_id = 'c11e0000-0000-4000-8000-000000002001';
 update public.clinical_notes set clinical_notes = 'Synthetic signed note V2' where visit_id = 'c11e0000-0000-4000-8000-000000002002';
 update public.clinical_notes set clinical_notes = 'Synthetic draft note V4' where visit_id = 'c11e0000-0000-4000-8000-000000002004';
@@ -70,6 +76,10 @@ insert into public.prescriptions (id, tenant_id, visit_id, patient_id, doctor_id
    'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000102', null),
   ('c11e0000-0000-4000-8000-000000003006', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002006',
    'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000102', '2030-01-06 10:00+05:30');
+-- V2-09a 000108: the NF-2 route C decoy is written while visit 2006 is still a draft (R-15): a system-path INSERT on a signed visit is refused now.
+insert into public.prescriptions (id, tenant_id, visit_id, patient_id, doctor_id, version) values
+  ('c11e0000-0000-4000-8000-000000003099', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002006',
+   'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000103', 98);
 insert into public.prescription_items (id, prescription_id, medicine_name, dosage, duration, sort_order) values
   ('c11e0000-0000-4000-8000-000000003101', 'c11e0000-0000-4000-8000-000000003001', 'Synthetic Amoxicillin', '1-0-1', '5 days', 0),
   ('c11e0000-0000-4000-8000-000000003111', 'c11e0000-0000-4000-8000-000000003001', 'Synthetic Paracetamol', '0-0-1', '3 days', 1),
@@ -233,10 +243,8 @@ select is(pg_temp.dr2($$insert into public.prescriptions (tenant_id, visit_id, p
     values ('c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002006',
             'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000103', 99) returning 'ok'$$),
   'denied:PRESCRIPTION_VISIT_SIGNED', 'NF-2 route C repro: no new prescription header on a signed visit');
--- A decoy that exists anyway (system path, or one left from before) no longer steers the snapshot.
-insert into public.prescriptions (id, tenant_id, visit_id, patient_id, doctor_id, version) values
-  ('c11e0000-0000-4000-8000-000000003099', 'c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002006',
-   'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000103', 98);
+-- A decoy header that exists anyway (one left from before sign-off: written while the visit was a draft, see the fixtures; a system-path INSERT
+-- on the signed visit is refused since 000108) no longer steers the snapshot.
 select is(pg_temp.amend('c11e0000-0000-4000-8000-000000000103', 'c11e0000-0000-4000-8000-000000002006'), '1',
   'route C: the other doctor writes an amendment row');
 select is(jsonb_array_length(pg_temp.snap('c11e0000-0000-4000-8000-000000002006', 1) -> 'prescriptions'), 2,
@@ -252,11 +260,15 @@ select is(pg_temp.snaps_with('c11e0000-0000-4000-8000-000000002006', 'Synthetic 
 select is(pg_temp.dr2($$insert into public.prescriptions (tenant_id, visit_id, patient_id, doctor_id, version)
     values ('c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002006',
             'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000103', 100) returning 'ok'$$),
-  'ok', 'a header can be added while the visit is reopened for amendment');
+  'denied:PRESCRIPTION_VERSION_FORBIDDEN', 'I-1 (000108): a request path writes version 1 only, also while the visit is reopened for amendment');
 select is(pg_temp.dr($$insert into public.prescriptions (tenant_id, visit_id, patient_id, doctor_id, version)
     values ('c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002003',
             'c11e0000-0000-4000-8000-000000001002', 'c11e0000-0000-4000-8000-000000000102', 2) returning 'ok'$$),
-  'ok', 'and on an open visit (control)');
+  'denied:PRESCRIPTION_VERSION_FORBIDDEN', 'I-1: nor a second version on an open visit');
+select is(pg_temp.dr($$insert into public.prescriptions (tenant_id, visit_id, patient_id, doctor_id)
+    values ('c11e0000-0000-4000-8000-00000000000a', 'c11e0000-0000-4000-8000-000000002007',
+            'c11e0000-0000-4000-8000-000000001001', 'c11e0000-0000-4000-8000-000000000102') returning 'ok'$$),
+  'ok', 'the first header (version 1) of an open visit is written by the doctor (control)');
 
 -- NF-3: follow-ups ---------------------------------------------------------------------------------------------------------
 select is(pg_temp.dr2($$update public.follow_ups set visit_id = 'c11e0000-0000-4000-8000-000000002003',
