@@ -184,7 +184,11 @@ test("the row moves queued, uploading, stored; a request that fails shows Retry,
   await expect(page.getByRole("list", { name: "Attachments" }).getByRole("listitem")).toHaveCount(2);
 });
 
-test("A-4: an upload whose answer is lost after the server stored it, retried, is one row and one object", async ({ page }) => {
+test("A-4: an upload whose answer is lost after the server stored it, retried, is one row and one object", async ({ page, browserName }) => {
+  // Measured on iphone-15 (09B-06a): under WebKit the request `route.fetch()` replays to the server stores nothing (the multipart file body is not
+  // carried), so the "stored, then the answer lost" precondition cannot be produced there. The server rule is also covered by Vitest
+  // (tests/labs/lab-upload-review-fixes.spec.ts, A-4); Chromium runs this case.
+  test.skip(browserName === "webkit", "route.fetch() does not replay a multipart file body under WebKit");
   const { tenantA } = run();
   const { visitId, patientId } = await openFreshConsult(page, "UploadLost");
   const marker = `E2ELOST${testTag().replace(/\W/g, "")}`;
