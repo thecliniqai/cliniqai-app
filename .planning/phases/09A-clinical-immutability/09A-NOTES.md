@@ -437,7 +437,7 @@ evidence. Counts are from the runs named beside them.
 - Vitest affected folders (`tests/consultation prescriptions terminology components ui design ci security clinical integration`; `terminology` and `ui` do not exist as folders): 2919 tests in 120 files, all pass, none retried. `tests/ci/vitest-report-gate.spec.ts` (9) passes with the new REQUIRED_FILES.
   Before the first full run the two new specs ran alone: 9 and 9 pass.
 - e2e after `npm run e2e:build`: `npx playwright test tests/e2e/m0 tests/e2e/a11y/amendment-screens.spec.ts tests/e2e/a11y/clinical-split-screens.spec.ts tests/e2e/a11y/sign-and-bill-screens.spec.ts --project=desktop-chrome --project=pixel-7
-  --project=iphone-15 --retries=0`: 59 passed in 1.5 min (8 auth setup, 51 specs: desktop-chrome 39, pixel-7 10, iphone-15 2, as each project's testMatch selects), 0 retries, 0 failed. The journey ran on desktop-chrome and pixel-7 (the projects the plan names).
+  --project=iphone-15 --retries=0`: 59 passed in 1.5 min (8 auth setup, 51 specs: desktop-chrome 38, pixel-7 11, iphone-15 2, as each project's testMatch selects), 0 retries, 0 failed. The journey ran on desktop-chrome and pixel-7 (the projects the plan names).
   The same spec file had one failure in my first runs, both mine and both real: the journey's event assertion expected the v1 key although the subscription came after the seed sign, and the sealed-screen axe found the white-on-emerald-600 WhatsApp label.
 - `npm run typecheck` clean; `npx eslint .` 0 errors (413 warnings, unchanged; none new in files this plan created); `npm run inventory` exit 0 (0 flagged, 121 exports); `npm run ci:ui-policy` PASS and `npm run ci:ai-l1` PASS (no delta).
 
