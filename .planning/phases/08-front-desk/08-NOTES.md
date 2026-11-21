@@ -766,3 +766,121 @@ CI run 44851237140 failed once on iphone-15 and passed on retry: `pwa/05-cache-a
   `location.replace`. This follows the 06-09a design rule that no step may hold up the exit. A purge slower than 3 s
   would therefore be cut off by the navigation. Online, `/login` purges again on arrival. Offline, the script-less
   `/offline` page does not purge, so the leftovers stay until the next `/login` visit. Not involved in this flake.
+
+## 08-05 Clinic switcher, Smart Assist, latency record, device kit
+
+Commits (branch `v2/phase-08-front-desk`, base 09a8d73): listed by the report that closes this plan.
+
+### What changed
+
+1. **Migration 000105** (`000105_smart_assist.sql`; `EXPECTED_MIGRATION` 000105, `types/database.ts`, schema snapshot, pgTAP floor 8267 with `smart_assist.test.sql` in REQUIRED_FILES):
+   - `public.slot_suggestion_context(doctor, patient)` (AI-13): STABLE INVOKER, `appointments:view`; the doctor's average consult minutes over 60 days
+     (`queue_tokens.called_at` to `visits.signed_at`, 15 minutes to 4 hours counted, null under 5 samples) and the patient's usual band (morning < 12:00,
+     afternoon < 17:00, evening) over the last 5 attended visits in the clinic zone. Counts and a band only.
+   - `private.name_normalize(text)` (AI-14): IMMUTABLE, lower case, punctuation to spaces, Dr/Mr/Mrs/Ms dropped, Mohd/Md/Mohamad/Mohammad/Muhammad/Mohamed -> mohammed,
+     Kr -> kumar, Smt -> shrimati, `sh` -> `s`, `ee` -> `i`, `oo` -> `u`, doubled letters collapsed, words sorted (word order does not matter);
+     `idx_patients_name_normalized_trgm` (GIN trigram on the expression).
+   - `public.find_patient_duplicates` (same arguments, one more column, `strength`): entitled (`assist.duplicates` through `my_entitlements`): the mobile (any name),
+     or a similar name (trigram similarity of the normalised names >= 0.6) with the same date of birth or an age within two years; strong = same mobile with a similar
+     name, or a similar name with the same date of birth; possible = the rest (a family number, a child on a guardian's mobile, name and age only). Not entitled: the 08-02
+     rules unchanged, every row possible.
+2. **Smart Assist slot suggestions**: `features/visits/suggest-slots.ts` (pure: top three starts whose consecutive free grid slots cover the average consult, preferred band
+   first then earliest; plus "next free"), `getSlotAssist` (server action, `appointments:view`, gated by `requireEntitlement("assist.slots")`, fail closed),
+   `getSlotSuggestionContext` (service), `SlotSection` shows the chips ("Suggested times", labelled Smart Assist, aria-label "Suggested 5:00 pm") and `preselect` chooses the first
+   suggestion (else the earliest free slot, as before); `BookingSheet` reads the assist inputs once per doctor and patient and holds the preselection back until they arrive.
+3. **Smart Assist duplicates in QuickRegister**: `strong` rows are a warning ("This patient is probably already registered", labelled Smart Assist, "Use this patient" as the
+   primary button, focused unless the user is still typing in a field), `possible` rows the information list of 08-02. `use-duplicate-lookup` carries `strength`.
+4. **Clinic switcher** (`features/clinics/switch.ts`, `actions.ts`): `switchClinic(clinicId)` sets `clinic_active_tenant` (HttpOnly, SameSite=Lax, Path=/, 400 days, Secure on
+   https from `x-forwarded-proto` or the origin) only for an active membership read under the caller's RLS; a forged, foreign, removed or suspended clinic, a non-id value
+   and a signed-out caller write nothing and get a fixed text. The `(dashboard)` layout renders `ClinicPicker` ("Choose a clinic") for `MultipleClinicsSelectionRequiredError`
+   (it was the error page) and passes the user's clinics to the shell: the account menu lists "Switch to <clinic>" and, at 1280 px and up, the Sidebar's clinic block is the
+   switcher; a switch is a hard navigation to `/today`. `createClinic` and `/clinic/new` refuse a user who already has an active membership with a fixed text
+   (`app/(onboarding)/clinic/new/page.tsx` is now a server component; the form moved to `new-clinic-form.tsx`).
+5. **Latency record**: `scripts/perf/command-latency.ts` (follows `seed-local-dev.ts`: `.env.test` and the local stack keys only, `assertLocalTestEnv`; one synthetic clinic that it
+   removes at the end; the test helpers' seeds outside the timed region; 100 timed calls plus 5 warm-ups per command, fresh request ids; supabase-js round trip through PostgREST).
+   Output `evidence/command-latency.json` (copied here only as a table; the file is the record).
+6. **PO hand-over**: `08-DEVICE-CHECKLIST.md` (R1-R10 and R13 per device, S1-S6 plus S7 for the clinic switcher; R11, R12, R14, R15 marked "not built yet; final run V2-15") and
+   `08-PO-WALKTHROUGH.md` (10 minutes over journeys 3, 4, 5 with the interaction targets as the pass line). Written by me, not a docs agent (no sub-agent in this lane).
+   `.planning/PO-ACTIONS.md` is the orchestrator's.
+
+### Deviations
+
+- **`find_patient_duplicates` is SECURITY DEFINER now (it was INVOKER in 000101).** Found by measuring, not by design: with 10,000 patients the invoker lookup took about 380 ms. Under RLS the
+  `patients` policy adds a security qual (`tenant_id = ANY(...)`) and Postgres does not push a non-leakproof operator (`%`, LIKE, ILIKE, `similarity`) into an index below it
+  (`proleakproof` is false for all of them), so every plan was a scan of the clinic's patients evaluating `name_normalize` on each row (about 38 microseconds). As a definer
+  wrapper the same query uses the trigram index and answers in 2-4 ms (pgTAP asserts under 50 ms at 10,000 patients; the plan's "uses the trigram index" is asserted on the
+  normalised-name lookup). The function keeps the guard block it already had (the session's active full clinic, `patients:view`) and every table it reads is filtered by that
+  clinic itself, the minimal projection is unchanged, `search_path` is pinned, EXECUTE stays `authenticated` only. This is the `available_slots` pattern (000103). Registries: three rows in
+  `definer_functions.test.sql` (classification, grantees, access handling), `patient_search.test.sql` asserts definer now. **For the adversarial reviewer.** The plan's R-11 says INVOKER; the
+  plan's own acceptance (index use, under 50 ms) cannot be met by an invoker function. `search_patients` (000101, INVOKER) has the same plan shape (a scan under RLS) but its p95 was 4.4 ms in the latency run (a selective name, a few thousand synthetic
+  patients) because its filter is a cheap ILIKE.
+- **The `assist.duplicates` entitlement is checked in the database** (`my_entitlements` inside the function), not by `requireEntitlement` in TypeScript: the rows come from the database, one enforcement
+  point, and a caller cannot ask for the Smart Assist rules by a flag. `assist.slots` is checked in TypeScript (`getSlotAssist`) as the plan says.
+- **Candidate lookup for the mobile uses `phone LIKE '%<ten digits>'`** (index-friendly) in the Smart Assist path; the stored form is `+91` and ten digits (every writer normalises), the final check still
+  compares the last ten digits. A legacy phone stored with spaces would be missed in the entitled path; the not-entitled path still scans by digits.
+- **"Use this patient" is focused only when the user is not typing in a text field** (a space typed into a focused button would press it). The warning follows the name field in the DOM, so Tab reaches the button
+  next either way.
+- **`switchClinic`'s parameter is `clinicId`**: `npm run inventory` flags a parameter named `tenantId` ("acting principal") on a use-server export. The unauthenticated refusal has its own text ("You must be signed in
+  to switch clinic.") because the guard suite requires one for the unauthenticated leg; its leg-3 positive control is in `LEG3_CONTROL_EXEMPT` (the leg's caller is the shared outsider; success is covered by
+  `tests/clinics/switch-clinic-db.spec.ts`).
+- **The layout reads the user's clinics on every dashboard render** (one `memberships` query with the clinic name, in parallel with the clinic profile read).
+- Plan says migration 000104; it is 000105 (000104 is 08-04b's search fix), as the hand-off said.
+
+### Tests
+
+- Vitest: `tests/visits/suggest-slots.spec.ts` (15), `tests/visits/slot-suggestion-context-db.spec.ts` (6), `tests/visits/slot-assist-entitlement-db.spec.ts` (4), `tests/patients/duplicate-rules-db.spec.ts` (28: 24 name/mobile pairs
+  incl. Mohd/Md/Kr/Smt/Dr, swapped order, transliteration, family numbers, a child on a guardian's mobile, dob and age evidence, plus ordering, reasons, scope and the not-entitled rules),
+  `tests/clinics/switch-clinic-db.spec.ts` (11: cookie attributes, https, forged/foreign/garbage/removed/suspended/signed-out, M-REMOVED, the list, the picker and the shell from the layout, `createClinic` refused).
+  Updated: `tests/patients/find-duplicates-db.spec.ts` (the `strength` key), the guard manifest and valid inputs (`switchClinic`, `getSlotAssist`), `tests/ci/vitest-report-gate.spec.ts` (floor 6455).
+- pgTAP: `smart_assist.test.sql` (30); `patient_search.test.sql` (result type and definer, 2 assertions changed); `definer_functions.test.sql` (3 rows). Full pgTAP: 8267 in 54 files, PASS; `assert-pgtap-report` PASS.
+- E2E: `shell/clinic-switcher.spec.ts` (@golden two clinics: the picker (axe), cookie attributes, patient list differs after a switch, the account-menu switch, Realtime follows the switch, A's arrival never shown;
+  a removed membership signs out; the sidebar switcher at 1280 px; `/clinic/new` refusal), `schedule/schedule.spec.ts` (+1: the suggested times follow the patient's usual time of day and the first is chosen),
+  `journeys/journey-03-register-patient.spec.ts` (the strong warning, then the family-number information list, then "Use this patient").
+- Final `npm run e2e:build` then `npm run e2e:pr` (desktop-chrome, pixel-7, iphone-15, pwa-ipados): 979 tests, 735 passed, 244 skipped, 0 failed, 0 flaky, 0 retried (17.7 min). The four `✘` lines are the known expected failures,
+  two on each of desktop-chrome and pixel-7 (`consult-rx-finish` P1-03 and the `network-block` self-test), unchanged. Affected Vitest: `tests/visits patients clinics api ci`, the guard suites and the
+  clinic-removal and locked-redirect specs: 88 files, 2102 tests, PASS.
+
+### Latency record (`evidence/command-latency.json`, copied by the tool; 100 calls per command, local stack, node v24.13.0, 10 CPUs)
+
+| command | p50 ms | p95 ms | p99 ms | p95 / baseline |
+|---|---|---|---|---|
+| create_invoice | 4.2 | 7.3 | 15.5 | 3.8 |
+| collect_payment | 4.6 | 8 | 10.5 | 4.2 |
+| sign_consultation | 3.7 | 6.2 | 10 | 3.3 |
+| reopen_visit_for_amendment | 3.6 | 5.7 | 6.4 | 3 |
+| finalize_visit_amendment | 3.5 | 4.6 | 5.6 | 2.4 |
+| check_in_visit | 3.1 | 5.8 | 7.8 | 3.1 |
+| enqueue_walk_in | 3 | 4.7 | 4.8 | 2.5 |
+| register_and_book | 3.2 | 5.8 | 9.3 | 3.1 |
+| complete_and_bill | 4.4 | 5.9 | 7.3 | 3.1 |
+| start_consultation | 2.6 | 3 | 5.2 | 1.6 |
+| complete_visit | 1.9 | 2.4 | 2.9 | 1.3 |
+| register_patient | 1.8 | 2.2 | 2.6 | 1.2 |
+| reschedule_visit | 2.4 | 3.3 | 3.4 | 1.7 |
+| cancel_visit | 2.3 | 2.9 | 3.4 | 1.5 |
+| mark_no_show | 1.9 | 3.6 | 4.7 | 1.9 |
+| confirm_appointment | 1.9 | 2.3 | 2.4 | 1.2 |
+| add_to_waitlist | 1.7 | 2.1 | 2.6 | 1.1 |
+| promote_waitlist_entry | 2.3 | 3 | 3.2 | 1.6 |
+| baseline: visits select | 1.3 | 1.9 | 2.9 | 1 |
+| baseline: search_patients | 3.3 | 4.4 | 5.1 | 2.3 |
+| baseline: available_slots | 1.6 | 2.8 | 3.5 | 1.5 |
+
+Target: p95 under 150 ms for every command: met by a wide margin (the slowest command p95 is the table's maximum). The baseline is a plain `visits` select (INVOKER, 20 rows). A first run
+timed `search_patients` with a query that every seeded synthetic patient (about 2,000) matched ("Synthetic Billing", p50 213 ms): not a typeahead, so the baseline query is now a selective name (a few rows).
+
+### Commands run (counts)
+
+- `npx supabase db reset --local`, `npm run db:types`, `npm run test:pgtap` (8267 in 54 files, PASS) and `node scripts/ci/assert-pgtap-report.mjs pgtap-report.tap` PASS, `node scripts/drift/schema-snapshot.mjs --local --write` then `--check` PASS,
+  `node scripts/ci/local-drift.mjs` PASS, `npx supabase db diff --local` empty.
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors. `npm run inventory`: exit 0, 0 flagged. `npm run ci:ui-policy`: PASS. `npm run ci:ai-l1`: PASS.
+- `npx tsx scripts/perf/command-latency.ts --out .planning/phases/08-front-desk/evidence/command-latency.json`: PASS.
+
+### Threat flags for the gate review
+
+- `find_patient_duplicates` definer (above): the tenant is derived from the session (`authz.full_tenant_ids()`), the permission is `patients:view`, and every `patients` and `visits` read carries `tenant_id = v_tenant`; check that a
+  header naming another clinic still selects nothing (pgTAP covers the fallback to the caller's own clinic) and that no column beyond the minimal projection leaves.
+- `private.name_normalize` has EXECUTE for `authenticated` and `service_role` (the expression index is evaluated by the inserting role); it is pure and not API-exposed (`private` is not in the PostgREST schemas).
+- `switchClinic` writes an auth-adjacent cookie: the membership is read under the caller's RLS with `status = 'active'`, the value written is the database's tenant id (not the raw input), and the request re-checks the
+  membership on every call (M-REMOVED). `Secure` follows `x-forwarded-proto` / the origin, not an env switch.
+- `getSlotAssist` is a new read action (`appointments:view`); it returns counts and a band only.
