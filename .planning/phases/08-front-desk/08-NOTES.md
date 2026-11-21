@@ -730,3 +730,39 @@ Commit `716067e` ("ci(v2-08): test job limit 45 min") also carries the deletion 
 had staged with `git rm` at that moment; the replacement code is in `412ae60`. History was not rewritten.
 The walk-in flake of CI 44851237140 (`pwa/13-idempotent-retry`, "Register as new patient" never shown) was root-caused by
 08-04b: `search_patients` (000101) read the digits of a run-tagged name as a mobile fragment; fixed in 000104.
+
+## Flake: 05-cache-audit offline sign-out on WebKit (2026-11-21)
+
+CI run 44851237140 failed once on iphone-15 and passed on retry: `pwa/05-cache-audit.spec.ts` "Offline sign-out", at
+`expectPurged` (`cacheNames` was `["rogue-cache"]`). Fix commit `7754407`. Debug session: `.planning/debug/pwa05-offline-signout-webkit.md`.
+
+- **Root cause (the test, not the product).** On WebKit the page stays after an offline sign-out, because Playwright's
+  WebKit refuses the offline navigation under the worker. So the spec polled `deviceState()` while `hardSignOut`'s purge
+  was running. `deviceState` calls `caches.keys()` and then `caches.open()` on each name it got, and `caches.open` creates
+  the cache if it does not exist. One poll listed `rogue-cache` before the purge deleted it, then opened it after the
+  delete, and so re-created it empty. That same poll already saw `sessionStorage` cleared, so the poll passed and
+  `expectPurged` found the re-created cache. This is the mechanism `dbed175` fixed for IND L-6. The poll in spec 5 was
+  older than that fix and was never migrated.
+- **Evidence.**
+  - Trace of the CI failure, and the same signature in a local failing trace: the poll that passed overlapped the purge.
+    `rogue-cache` was still listed, but its seeded `/api/patients` entry was gone, as were `static-v1:/patients`,
+    sessionStorage and IndexedDB. The purge never deletes a non-worker cache's entries one at a time, only the whole
+    cache, so the purge had deleted it.
+  - The whole sign-out took about 650 ms. The purge is awaited before `location.replace`, and its 3 s cap was not reached.
+  - App-free probe (WebKit and Chromium): `keys()` stops listing a cache as soon as it is deleted, and a later `open()`
+    brings it back empty.
+  - Amplified A/B with 60 padding caches: the old probe re-created `rogue-cache` in 4 of 10 runs, the new probe in 0 of 10.
+- **Fix (`7754407`).** `tests/e2e/pwa/fixtures.ts` gains `purgeProgress(page)`, which reads sessionStorage keys and
+  IndexedDB names and never touches Cache Storage. The WebKit branch now polls it until both are empty. IndexedDB is the
+  last purge step, so `expectPurged` then reads a settled device. `expectPurged` is unchanged and still strict: with a
+  purge mutant that keeps non-worker caches, the fixed spec failed 6 of 6 runs on iphone-15 and desktop-chrome. No
+  product code changed.
+- **Repeat counts** (`--repeat-each=20 --retries=0`, whole spec file):
+  - Before: iphone-15 1 failed out of 148 (the offline test failed 1 of 20).
+  - After: iphone-15 148 of 148 (offline 20 of 20) and desktop-chrome 168 of 168 (offline 20 of 20).
+  - Also run: 05 + 06 on iphone-15 and desktop-chrome 31 of 31, `npm run typecheck` clean, `npx eslint .` 0 errors
+    (407 warnings, unchanged).
+- **For the PO (not changed here).** `hardSignOut` limits the purge to `PURGE_TIMEOUT_MS` (3 s) before
+  `location.replace`. This follows the 06-09a design rule that no step may hold up the exit. A purge slower than 3 s
+  would therefore be cut off by the navigation. Online, `/login` purges again on arrival. Offline, the script-less
+  `/offline` page does not purge, so the leftovers stay until the next `/login` visit. Not involved in this flake.
