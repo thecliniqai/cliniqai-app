@@ -102,6 +102,12 @@ export interface TodayRow {
   vitalsPending: boolean;
   /** Money still due on a completed visit, in rupees; null for a role without `billing:view`. */
   balanceDue: number | null;
+  /**
+   * Whether the visit has a live (not cancelled) invoice: `false` on a completed visit nobody has billed yet (the doctor signed
+   * without "sign and bill"), which belongs in To bill as "Not billed" (V2-08 08-06a, A-4). Null for a role without
+   * `billing:view` and for a visit that is not completed.
+   */
+  billed: boolean | null;
   /** The row actions the caller's role may use now (state machine, R-7). */
   actions: RowAction[];
 }
@@ -111,6 +117,7 @@ export const TODAY_ROW_KEYS = [
   "age",
   "arrivedAt",
   "balanceDue",
+  "billed",
   "doctorId",
   "doctorName",
   "hasAllergy",
@@ -140,21 +147,38 @@ export interface TodayBoard {
   timeZone: string;
 }
 
-/** The lane of a visit. No-show and cancelled sit in Done with their own chip (as in the prototype). */
-export function laneOf(row: Pick<TodayRow, "status" | "balanceDue">, mode: TodayMode = "front"): TodayLaneId {
+/** The lane of a visit. Cancelled and (past check-in) no-show visits sit in Done with their own chip (as in the prototype). */
+export function laneOf(
+  row: Pick<TodayRow, "status" | "balanceDue"> & Partial<Pick<TodayRow, "billed" | "actions">>,
+  mode: TodayMode = "front",
+): TodayLaneId {
   switch (row.status) {
     case "booked":
     case "confirmed":
       return "booked";
+    case "no_show":
+      // A late arrival can still be checked in (R-8): while "Check in" is offered the row stays where the desk looks for
+      // arrivals, in Booked, instead of the collapsed Done column (V2-08 08-06a, A-10). Without it (other days, roles that
+      // cannot check in) it is Done as before.
+      return row.actions?.includes("check_in") ? "booked" : "done";
     case "waiting":
       return "waiting";
     case "in_consultation":
       return "with_doctor";
     case "completed":
-      return mode !== "doctor" && row.balanceDue != null && row.balanceDue > 0 ? "to_bill" : "done";
+      // To bill: money still due, or no invoice at all (a completed visit that was signed without "sign and bill", A-4).
+      return mode !== "doctor" && ((row.balanceDue != null && row.balanceDue > 0) || row.billed === false) ? "to_bill" : "done";
     default:
       return "done";
   }
+}
+
+/**
+ * The amount the status chip is given: a completed visit without an invoice reads as "To bill" like one with a balance
+ * (`displayVisitStatus` looks only at the sign of the amount).
+ */
+export function chipBalance(row: Pick<TodayRow, "balanceDue" | "billed">): number | null {
+  return row.billed === false ? 1 : row.balanceDue;
 }
 
 const PRIORITY_RANK: Record<TodayPriority, number> = { urgent: 0, vip: 1, normal: 2 };

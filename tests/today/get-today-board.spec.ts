@@ -10,7 +10,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { getTodayBoard } from "@/features/today/queries";
-import { TODAY_ROW_KEYS, groupIntoLanes, type TodayRow } from "@/features/today/schema";
+import { TODAY_ROW_KEYS, groupIntoLanes, laneOf, type TodayRow } from "@/features/today/schema";
 import { addDaysYmd, todayInTz, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import type { UserRole } from "@/lib/db/types";
 import { ctxFor } from "../helpers/context";
@@ -26,7 +26,7 @@ const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 let tenantA: SeededTenant;
 let tenantB: SeededTenant;
 const members = {} as Record<UserRole, SeededTenant>;
-const ids = {} as Record<"booked" | "waiting" | "withDoctor" | "toBill" | "paid" | "cancelled" | "yesterday" | "other" | "noShow", string>;
+const ids = {} as Record<"booked" | "waiting" | "withDoctor" | "toBill" | "paid" | "cancelled" | "yesterday" | "other" | "noShow" | "unbilled", string>;
 const today = todayInTz(TZ);
 
 // The board is read at a fixed clinic time (12:00 IST today), so the waits and the 'appointment time has passed' rule do not depend on when the suite runs.
@@ -91,6 +91,11 @@ beforeAll(async () => {
   await token(tenantA, paid.visitId, 8, "normal", new Date(NOW.getTime() - 95 * 60_000).toISOString());
   await invoice(tenantA, paid.visitId, paid.patientId, 500, 500);
 
+  // A-4: signed without "sign and bill", so no invoice at all.
+  const unbilled = await seedVisit(tenantA, doctorId, { status: "completed" });
+  ids.unbilled = unbilled.visitId;
+  await token(tenantA, unbilled.visitId, 7, "normal", new Date(NOW.getTime() - 100 * 60_000).toISOString());
+
   const cancelled = await seedVisit(tenantA, doctorId, { status: "cancelled", scheduledAt: zonedDateTimeToUtcIso(today, "11:00", TZ), overbooked: true });
   ids.cancelled = cancelled.visitId;
   const noShow = await seedVisit(tenantA, doctorId, { status: "no_show", scheduledAt: zonedDateTimeToUtcIso(today, "09:00", TZ), overbooked: true });
@@ -135,13 +140,45 @@ describe("getTodayBoard: the day and the projection", () => {
     }
   });
 
-  it("the lanes: booked, waiting (urgent token), with doctor, to bill (money due), done (paid, cancelled, no-show)", async () => {
+  it("the lanes: booked (and the late no-show who can still be checked in, A-10), waiting (urgent token), with doctor, to bill (money due, or no invoice, A-4), done (paid, cancelled)", async () => {
     const lanes = groupIntoLanes(await boardOf("owner"));
-    expect(lanes.booked.map((r) => r.visitId)).toEqual([ids.booked]);
+    expect(lanes.booked.map((r) => r.visitId)).toEqual([ids.noShow, ids.booked]);
     expect(lanes.waiting.map((r) => r.visitId)).toEqual([ids.waiting]);
     expect(lanes.with_doctor.map((r) => r.visitId)).toEqual([ids.withDoctor]);
-    expect(lanes.to_bill.map((r) => r.visitId)).toEqual([ids.toBill]);
-    expect(new Set(lanes.done.map((r) => r.visitId))).toEqual(new Set([ids.paid, ids.cancelled, ids.noShow]));
+    expect(new Set(lanes.to_bill.map((r) => r.visitId))).toEqual(new Set([ids.toBill, ids.unbilled]));
+    expect(new Set(lanes.done.map((r) => r.visitId))).toEqual(new Set([ids.paid, ids.cancelled]));
+  });
+
+  it("A-4: a completed visit with no invoice is Not billed and in To bill; a settled one is Nothing due and Done; roles without billing:view see neither", async () => {
+    for (const role of ["owner", "admin", "receptionist"] as const) {
+      const rows = await boardOf(role);
+      expect(byId(rows, ids.unbilled), role).toMatchObject({ billed: false, balanceDue: 0 });
+      expect(byId(rows, ids.paid), role).toMatchObject({ billed: true, balanceDue: 0 });
+      expect(byId(rows, ids.toBill), role).toMatchObject({ billed: true, balanceDue: 600 });
+      const lanes = groupIntoLanes(rows);
+      expect(lanes.to_bill.map((r) => r.visitId), role).toContain(ids.unbilled);
+      expect(lanes.done.map((r) => r.visitId), role).not.toContain(ids.unbilled);
+      expect(byId(rows, ids.waiting)!.billed, role).toBeNull();
+    }
+    for (const role of ["nurse", "doctor"] as const) {
+      const rows = await boardOf(role);
+      expect(byId(rows, ids.unbilled)!.billed, role).toBeNull();
+      expect(groupIntoLanes(rows).to_bill, role).toEqual([]);
+    }
+  });
+
+  it("A-4: a cancelled invoice does not count as billed", async () => {
+    const extra = await seedVisit(tenantA, members.doctor.userId, { status: "completed" });
+    await invoice(tenantA, extra.visitId, extra.patientId, 300, 0);
+    await getAdminClient().from("invoices").update({ status: "cancelled" }).eq("visit_id", extra.visitId);
+    expect(byId(await boardOf("owner"), extra.visitId)).toMatchObject({ billed: false });
+  });
+
+  it("A-10: a no-show whose time passed today is in Booked for a role that can check it in, Done for one that cannot", async () => {
+    expect(groupIntoLanes(await boardOf("receptionist")).booked.map((r) => r.visitId)).toContain(ids.noShow);
+    const nurse = await boardOf("nurse");
+    const nurseNoShow = byId(nurse, ids.noShow)!;
+    expect(laneOf(nurseNoShow)).toBe(nurseNoShow.actions.includes("check_in") ? "booked" : "done");
   });
 
   it("row facts: token, priority, wait minutes from the token, appointment time in clinic time, age from the date of birth, sex letter", async () => {
@@ -174,7 +211,7 @@ describe("getTodayBoard: what each role sees", () => {
       expect(row.vitals).toBeNull();
       expect(row.vitalsPending).toBe(false);
     }
-    expect(groupIntoLanes(rows).to_bill.map((r) => r.visitId)).toEqual([ids.toBill]);
+    expect(new Set(groupIntoLanes(rows).to_bill.map((r) => r.visitId))).toEqual(new Set([ids.toBill, ids.unbilled]));
   });
 
   it("nurse and doctor: allergy flag, vitals (v1 'temperature' read as °F) and 'Vitals pending'; no balance, so nothing is To bill", async () => {

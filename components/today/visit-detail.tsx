@@ -7,7 +7,7 @@ import { TokenChip } from "@/components/clinical/token-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
 import { displayVisitStatus } from "@/lib/visit-status";
-import { formatRupees, type TodayRow } from "@/features/today/schema";
+import { chipBalance, formatRupees, type TodayRow } from "@/features/today/schema";
 import { AllergyFlag, originText } from "./today-row";
 
 /**
@@ -28,7 +28,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function VisitDetail({ row, headingLevel = 2 }: { row: TodayRow; headingLevel?: 2 | 3 }) {
   const Heading = `h${headingLevel}` as "h2" | "h3";
-  const entry = displayVisitStatus(row.status, row.balanceDue);
+  const entry = displayVisitStatus(row.status, chipBalance(row));
   const origin = originText(row) ?? (row.time ? `Appointment ${formatClinicTime(row.time)}` : null);
   const timeline: { label: string; detail: string }[] = [];
   if (row.time) timeline.push({ label: "Booked", detail: `${formatClinicTime(row.time)} slot` });
@@ -44,7 +44,7 @@ export function VisitDetail({ row, headingLevel = 2 }: { row: TodayRow; headingL
   return (
     <article data-visit-detail={row.visitId} aria-label={`Visit of ${row.name}`} className="flex flex-col">
       <div className="flex items-start gap-3 px-3.5 py-3">
-        <TokenChip token={row.token} time={row.time} status={row.status} balanceDue={row.balanceDue} size="large" />
+        <TokenChip token={row.token} time={row.time} status={row.status} balanceDue={chipBalance(row)} size="large" />
         <div className="min-w-0 flex-1">
           <Heading className="font-display text-title-2 text-fg">{row.name}</Heading>
           <p className="mt-0.5 text-body-sm text-fg-muted">{[row.age, row.sex, row.doctorName].filter(Boolean).join(" · ")}</p>
@@ -111,7 +111,7 @@ export function VisitDetail({ row, headingLevel = 2 }: { row: TodayRow; headingL
       {row.balanceDue != null && (
         <Section title="Bill">
           <p className="text-body-sm text-fg tabular-nums">
-            {row.balanceDue > 0 ? `${formatRupees(row.balanceDue)} due` : "Nothing due"}
+            {row.billed === false ? "Not billed" : row.balanceDue > 0 ? `${formatRupees(row.balanceDue)} due` : "Nothing due"}
           </p>
         </Section>
       )}

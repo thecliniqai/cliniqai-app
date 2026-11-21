@@ -38,6 +38,7 @@ function row(over: Partial<TodayRow>): TodayRow {
     vitals: null,
     vitalsPending: false,
     balanceDue: null,
+    billed: null,
     actions: ["check_in", "start", "reschedule", "no_show", "cancel"],
     ...over,
   };

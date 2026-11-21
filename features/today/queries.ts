@@ -130,6 +130,7 @@ export async function getTodayBoard(
 
   // Money due, for completed visits only (a visit that is not completed cannot be "To bill").
   const balances = new Map<string, number>();
+  const invoiced = new Set<string>();
   const completedIds = data.filter((v) => v.status === "completed").map((v) => v.id);
   if (sees.billing && completedIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,6 +152,7 @@ export async function getTodayBoard(
       }
     }
     for (const inv of list) {
+      invoiced.add(inv.visit_id);
       balances.set(inv.visit_id, Math.max(0, (Number(inv.total_amount) || 0) - (paid.get(inv.id) ?? 0)));
     }
   }
@@ -195,6 +197,7 @@ export async function getTodayBoard(
       vitals,
       vitalsPending: sees.vitals && vitals === null,
       balanceDue: sees.billing && v.status === "completed" ? (balances.get(v.id) ?? 0) : null,
+      billed: sees.billing && v.status === "completed" ? invoiced.has(v.id) : null,
       actions: rowActions(permissions, { status: v.status, scheduledAt: v.scheduled_at, signed: v.signed_at != null }, now, timeZone),
     };
   });

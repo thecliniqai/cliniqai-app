@@ -7,7 +7,7 @@ import { QueueRow } from "@/components/clinical/queue-row";
 import { StatusChip } from "@/components/clinical/status-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
-import { formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
+import { chipBalance, formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
 import { RowMenu, rowMenuItems } from "@/components/front-desk/row-menu";
 import { startLabel, useCheckIn, useStart } from "./use-row-commands";
 
@@ -193,6 +193,7 @@ export function TodayRowView(props: TodayRowViewProps) {
       {row.balanceDue != null && row.balanceDue > 0 && (
         <span className="font-semibold text-fg tabular-nums">{formatRupees(row.balanceDue)} due</span>
       )}
+      {row.billed === false && <span className="font-semibold text-fg">Not billed</span>}
     </>
   );
   const buttons = rowButtons(mode, row, canConsult).filter((b) => !(next && b.kind === "start"));
@@ -206,7 +207,7 @@ export function TodayRowView(props: TodayRowViewProps) {
       token={row.token}
       time={row.time}
       status={row.status}
-      balanceDue={row.balanceDue}
+      balanceDue={chipBalance(row)}
       waitMinutes={wait}
       meta={meta}
       flags={flags}
