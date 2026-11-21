@@ -165,6 +165,32 @@ export async function signSeededVisit(tenantId: string, visitId: string, doctorE
   }
 }
 
+/**
+ * A signed consultation the way production makes one (V2-09a R-15), for the amendment specs: a waiting visit of the run's doctor with a
+ * note and one unsigned prescription item, then the doctor's own `sign_consultation`. Every service-role write is error-checked (an
+ * unread error there would seed nothing and let a spec pass for the wrong reason).
+ */
+export async function seedSignedConsultation(label: string): Promise<{ visitId: string; patientId: string; patientName: string; medicine: string }> {
+  const { tenantA } = run();
+  const doctor = tenantA.users.doctor;
+  const tag = testTag();
+  const patientName = `E2E Synthetic ${label} ${tag}`;
+  const medicine = `E2E Synthetic Sealed Med ${tag}`;
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
+  const visitId = await seedVisit({
+    tenantId: tenantA.id,
+    patientId: patient.id,
+    doctorId: doctor.id,
+    createdBy: tenantA.users.receptionist.id,
+    status: "waiting",
+  });
+  const notes = await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", visitId).select("visit_id");
+  if (notes.error || notes.data?.length !== 1) throw new Error(`m0 seed: clinical note failed: ${notes.error?.message ?? "no row"}`);
+  await seedPrescription({ tenantId: tenantA.id, visitId, patientId: patient.id, doctorId: doctor.id, medicineName: medicine });
+  await signSeededVisit(tenantA.id, visitId, doctor.email);
+  return { visitId, patientId: patient.id, patientName, medicine };
+}
+
 /** Highest token number issued today (app date) in the tenant, 0 if none. */
 export async function maxTokenToday(tenantId: string): Promise<number> {
   const { data, error } = await getAdminClient()

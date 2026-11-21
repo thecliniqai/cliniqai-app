@@ -700,7 +700,7 @@ export function ConsultationWorkspace({
                     "min-h-[44px] px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs border cursor-pointer whitespace-nowrap shrink-0",
                     isWaSent
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent disabled:opacity-50"
+                      : "bg-emerald-700 hover:bg-emerald-800 text-white border-transparent disabled:opacity-50"
                   )}
                   title="Send Prescription & Bill via WhatsApp (1 message)"
                 >
