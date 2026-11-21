@@ -23,35 +23,47 @@ const OFFLINE_REASON = "You're offline. Changes are disabled until you reconnect
 test.use({ storageState: storageStatePath("owner") });
 
 test("offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online", async ({ page, context }) => {
+  // Realtime is not what this spec is about (today-live.spec.ts covers it) and it moves on its own clock: the socket opens
+  // mid-test, the status line goes "Connecting…" -> "Live" or "Updating every 20 s", and the (re)subscription sends a refresh
+  // of its own at that moment. Refused, the board polls (every 20 s, far beyond this test) and nothing else refreshes it.
+  await page.routeWebSocket(/\/realtime\//, (ws) => void ws.close({ code: 1008, reason: "refused by the spec" }));
   const patientName = readRunData().tenantA.patientName;
   const seeded = await seedWaitingToday();
   await page.goto("/today");
   await waitForServiceWorker(page);
   await page.reload(); // a controlled load, so the page's static assets are in static-v1 for the offline render
   const banner = page.getByRole("status").filter({ hasText: "You're offline" });
-  const main = page.getByRole("main");
   // A row on screen: below 1280 px only the Waiting lane is shown, so this spec seeds a waiting patient of its own.
-  await expect(rowOf(page, seeded.name)).toBeVisible();
-  const onScreen = await main.innerText(); // Today's rows (synthetic patients of this run)
+  const row = rowOf(page, seeded.name);
+  const queueRows = page.locator("[data-queue-row]");
+  await expect(row).toBeVisible();
+  // "The rows stay" is about the rows: this spec's own row, whole (token, name, wait, meta), and that no row of the board is
+  // lost. Not the board's whole text: the live-status line follows the socket, and the "N min" wait of every waiting row of
+  // the shared tenant follows the clock (the rows seeded by other specs are all on this board). Offline, every write button
+  // (Check in, Collect, ...) carries its screen-reader reason (Button's offline rule, tested below), so that text is left out.
+  const rowText = async () => (await row.innerText()).split(OFFLINE_REASON).join("").replace(/\n{2,}/g, "\n");
+  const onScreen = await rowText();
+  const rowCount = await queueRows.count();
   await expect(banner).toHaveCount(0);
 
   await context.setOffline(true);
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(/You're offline · showing data from \d{1,2}:\d{2}\s?(am|pm)\. Changes are disabled until you reconnect\./i);
-  // Offline, every write button (Check in, Collect, ...) carries its screen-reader reason (Button's offline rule, tested below);
-  // the rows themselves must be unchanged, so that text is left out of the comparison.
-  const withoutReasons = async () => (await main.innerText()).split(OFFLINE_REASON).join("").replace(/\n{2,}/g, "\n");
-  const rowsOnScreen = onScreen.replace(/\n{2,}/g, "\n");
-  expect(await withoutReasons(), "the rows already on screen stay (held in memory)").toBe(rowsOnScreen);
+  expect(await rowText(), "the row already on screen stays (held in memory)").toBe(onScreen);
+  expect(await queueRows.count(), "and no other row is lost").toBeGreaterThanOrEqual(rowCount);
 
-  // Back online, Today re-fetches once (lib/pwa/resume.ts, router.refresh()). Wait for that RSC answer before going
-  // offline again: if the network drops while it is in flight, Next falls back to a full navigation of the current URL
-  // (fetch-server-response.js), which aborts the goto below (the 2026-11-20 flake, CI 44806259261).
-  const refreshed = page.waitForResponse((r) => r.request().headers()["rsc"] === "1");
+  // Back online, Today re-fetches once (lib/pwa/resume.ts, router.refresh()). A walk-in that arrives while the device is offline
+  // is the proof that this refresh was answered AND applied: wait for its row before going offline again. If the network
+  // drops while the refresh is in flight (or just before it is sent), Next falls back to a full navigation of the current URL
+  // (fetch-server-response.js), which aborts the goto below. The spec used to wait for "an RSC response" instead, and the
+  // sidebar's link prefetches (also RSC requests, sent as the network returns) satisfied that wait before the refresh had
+  // gone out (the flakes of CI 44806259261 and 44857737802).
+  const late = await seedWaitingToday();
   await context.setOffline(false);
   await expect(banner).toHaveCount(0);
-  await refreshed;
-  expect(await main.innerText()).toBe(onScreen);
+  await expect(rowOf(page, late.name), "back online Today refreshes and shows what arrived meanwhile").toBeVisible();
+  expect(await rowText(), "back online the row is the same").toBe(onScreen);
+  expect(await queueRows.count(), "and no other row is lost").toBeGreaterThanOrEqual(rowCount + 1);
 
   await context.setOffline(true);
   await page.goto("/patients");
