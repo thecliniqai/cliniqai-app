@@ -5,7 +5,7 @@
  *   - TC-SA-01..06 (SEC-01): getPatient, getPatients, updateClinicSettings, updateStatutorySettings,
  *     toggleGlobalConsent: (a) unauthenticated → auth error, tenant B untouched; (b) receptionist A → A-scoped or
  *     denied, tenant B untouched.
- *   - TC-SA-10.. (SEC-02): receptionist and nurse → completeAndSignConsultation, addPrescriptionItem,
+ *   - TC-SA-10.. (SEC-02): receptionist and nurse → completeAndSignConsultation, changePrescriptionAction,
  *     reopenVisitForAmendment, finalizeVisitAmendment denied; doctor → clinic:manage actions denied. The services'
  *     own checks are covered by tests/integration/consultation-service-guards.spec.ts and
  *     tests/settings/settings-service-guards.spec.ts; this proves the action layer ignores a role-escalating forged
@@ -41,7 +41,7 @@ import {
   reopenVisitForAmendment,
   finalizeVisitAmendment,
 } from "@/features/consultation/actions";
-import { addPrescriptionItem } from "@/features/prescriptions/actions";
+import { changePrescriptionAction } from "@/features/prescriptions/actions";
 import { recordVisitVitals } from "@/features/visits/actions";
 
 // Server actions are typed without the removed override parameters; the browser can still send extra arguments.
@@ -225,17 +225,15 @@ describe("P0-01 forged overrides at the action layer", () => {
         const results = [
           await call(completeAndSignConsultation, visitId, randomUUID(), forgedClient, ownerASession),
           await call(
-            addPrescriptionItem,
-            visitId,
-            { medicine_name: "Synthetic Paracetamol", dosage: "1-0-1", duration: "3 days" },
+            changePrescriptionAction,
+            { visit_id: visitId, changes: { add: [{ medicine_name: "Synthetic Paracetamol", dosage: "1-0-1", duration: "3 days" }] }, client_request_id: randomUUID() },
             forgedClient,
             ownerASession
           ),
           await call(reopenVisitForAmendment, visitId, "Synthetic amendment reason text", randomUUID(), forgedClient, ownerASession),
           await call(finalizeVisitAmendment, visitId, randomUUID(), forgedClient, ownerASession),
         ];
-        // The three clinical commands answer with a `Result` ({ ok, error: AppError }); addPrescriptionItem with the
-        // legacy shape ({ success, error: string }).
+        // The clinical commands, the draft command and the Rx command all answer with a `Result` ({ ok, error: AppError }).
         for (const res of results) {
           expect(res.success === false || res.ok === false).toBe(true);
           expect(typeof res.error === "string" ? res.error : res.error.message).toMatch(PERMISSION_DENIED);
@@ -321,13 +319,12 @@ describe("P0-01 forged overrides at the action layer", () => {
         (await call(saveConsultationDraft, { visit_id: visitId, expected_version: 0, patch: { clinical_notes: "Synthetic note." }, client_request_id: randomUUID() })).ok
       ).toBe(true);
       const item = await call(
-        addPrescriptionItem,
-        visitId,
-        { medicine_name: "Synthetic Paracetamol", dosage: "1-0-1", duration: "3 days" },
+        changePrescriptionAction,
+        { visit_id: visitId, changes: { add: [{ medicine_name: "Synthetic Paracetamol", dosage: "1-0-1", duration: "3 days" }] }, client_request_id: randomUUID() },
         forgedClient,
         forgedActor
       );
-      expect(item.success).toBe(true);
+      expect(item.ok).toBe(true);
 
       const signed = await call(completeAndSignConsultation, visitId, randomUUID(), forgedClient, forgedActor);
       expect(signed.ok).toBe(true);

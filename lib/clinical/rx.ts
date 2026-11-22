@@ -11,15 +11,25 @@ export interface Medicine {
   form: string;
   /** Generic / salt ("Paracetamol"). */
   generic: string;
-  /** The doctor's usual dose, prefilled when the builder opens. */
-  usual?: { frequency: string; timing: string; days: number };
+  /**
+   * The doctor's own usual dose, prefilled when the builder opens (V2-09c R-4). Each part is optional: a part that is not known stays empty and the
+   * doctor chooses it. Nothing is ever invented, so there is no default dose.
+   */
+  usual?: { frequency?: string; timing?: string; days?: number };
+  /** Where the row came from: the CDCI catalogue or the doctor's own custom list (absent for a medicine typed in the field). */
+  kind?: "cdci" | "custom";
+  /** The CDCI substance ids of the medicine (empty when the catalogue has none loaded: V2-09c 09C-02 checks such a line by name only). */
+  substanceIds?: readonly string[];
 }
 
 export interface RxLine {
   medicine: Medicine;
   frequency: string;
   timing: string;
+  /** Duration in days; 0 = none chosen yet (a new line) or a stored text the days cannot express (see {@link RxLine.durationText}). */
   days: number;
+  /** A stored duration that is not a number of days ("Continue"): shown and kept as it is until the doctor edits it. */
+  durationText?: string;
   instruction?: string;
 }
 
@@ -29,8 +39,6 @@ export const TIMING_PRESETS = ["After food", "Before food", "With food", "Empty 
 export const DURATION_PRESETS = [3, 5, 7, 10, 14, 30] as const;
 export const MIN_DAYS = 1;
 export const MAX_DAYS = 365;
-
-export const DEFAULT_DOSE = { frequency: "1-0-1", timing: "After food", days: 5 } as const;
 
 /**
  * "1-0-1" → "morning 1, afternoon 0, night 1" (screen readers would read "1 minus 0 minus 1"); "1-1-1-1" adds
@@ -50,6 +58,12 @@ export function durationLabel(days: number): string {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
+/** The duration of a line as shown: its stored text when it has one, else the days ("" while none is chosen). */
+export function lineDuration(line: Pick<RxLine, "days" | "durationText">): string {
+  if (line.durationText) return line.durationText;
+  return line.days >= MIN_DAYS ? durationLabel(line.days) : "";
+}
+
 /**
  * Reads the duration shorthand: digits then a unit — `d` days, `w` weeks (×7), `m` months (×30). "5d" → 5, "2w" → 14,
  * "1m" → 30. Returns null for anything else (no unit, zero, unknown unit).
@@ -66,8 +80,8 @@ export function clampDays(days: number): number {
 }
 
 /** One line in words, for the builder's live summary and screen readers: "1-0-1 · After food · 5 days". */
-export function doseSummary(line: Pick<RxLine, "frequency" | "timing" | "days">): string {
-  return [line.frequency, line.timing, durationLabel(line.days)].filter(Boolean).join(" · ");
+export function doseSummary(line: Pick<RxLine, "frequency" | "timing" | "days" | "durationText">): string {
+  return [line.frequency, line.timing, lineDuration(line)].filter(Boolean).join(" · ");
 }
 
 /**

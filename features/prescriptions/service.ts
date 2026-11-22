@@ -7,21 +7,27 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
 import { enqueueMessage } from "@/lib/jobs/enqueue";
+import { z } from "zod";
 import {
-  prescriptionItemSchema,
   PrescriptionItemInput,
   protocolTemplateSchema,
   ProtocolTemplateInput,
   MedicineSearchResult,
+  MEDICINE_QUERY_MAX,
+  MEDICINE_SEARCH_LIMIT,
+  changePrescriptionSchema,
+  type ChangePrescriptionInput,
 } from "./schema";
+import { callCommand } from "@/lib/commands/call-command";
+import type { AppError } from "@/lib/errors/app-error";
 import { isArchivable, resolvePrescriptionPdf } from "./pdf/generator";
 import { loadPrescriptionPdfSource } from "./pdf/payload";
 import { getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { unaffectedRowsError } from "@/lib/db/errors";
+import type { DbErrorMessages } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
+import { SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
@@ -36,305 +42,119 @@ export type SearchMedicinesResult =
   | { success: true; results: MedicineSearchResult[] }
   | { success: false; error: string };
 
-/**
- * Searches the 94,000+ CDCI drug catalog merged with doctor's favorite/custom drugs
- * using the optimized Postgres search_medicines RPC function (<100ms response).
- */
-export async function searchMedicines(ctx: ServiceContext, query: string, limit = 20): Promise<SearchMedicinesResult> {
-  const supabase = ctx.db;
+const searchRowSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["cdci", "custom"]),
+  medicine_name: z.string(),
+  generic_name: z.string().nullable(),
+  dose_form: z.string().nullable(),
+  substance_ids: z.array(z.string()).nullable(),
+  dosage: z.string().nullable(),
+  timing: z.string().nullable(),
+  duration: z.string().nullable(),
+});
 
+/**
+ * The medicine typeahead (V2-09c R-3): `public.search_medicines` on the caller's own client (INVOKER, RLS applies) over the CDCI catalogue and the calling
+ * doctor's own custom medicines (the doctor is `auth.uid()` in the database, never a parameter). The query is trimmed and capped at 60 characters; `%`, `_` and
+ * `\` in it match themselves (the database escapes them). Needs `prescriptions:edit`. A failed read answers a fixed text, never the driver's.
+ */
+export async function searchMedicines(ctx: ServiceContext, query: string, limit = MEDICINE_SEARCH_LIMIT): Promise<SearchMedicinesResult> {
   try {
-    assertPerm(ctx.role, "consultations:view");
-    const cleanQuery = query.trim();
+    assertPerm(ctx.role, "prescriptions:edit");
+    const cleanQuery = query.trim().slice(0, MEDICINE_QUERY_MAX).trim();
+    if (cleanQuery === "") return { success: true, results: [] };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows, error } = await (supabase.rpc as any)("search_medicines", {
-      p_query: cleanQuery,
-      p_doctor_id: ctx.userId,
+    const { data, error } = await (ctx.db as any).rpc("search_medicines", {
       p_tenant_id: ctx.tenantId,
-      p_limit: limit,
+      p_query: cleanQuery,
+      p_limit: Math.min(Math.max(Math.trunc(limit), 1), MEDICINE_SEARCH_LIMIT),
     });
-
-    if (error) {
-      log.error({ event: "prescriptions.medicine_search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to search medicines." };
-    }
-
-    const results: MedicineSearchResult[] = (rows || []).map((r: MedicineSearchResult) => ({
-      id: r.id,
-      medicine_name: r.medicine_name,
-      generic_name: r.generic_name,
-      dose_form: r.dose_form,
-      default_dosage: r.default_dosage,
-      default_timing: r.default_timing,
-      default_duration: r.default_duration,
-      is_custom: r.is_custom,
-      is_favorite: r.is_favorite,
-    }));
-
-    return { success: true, results };
-  } catch (err: unknown) {
+    if (error) throw error;
+    const rows = z.array(searchRowSchema).safeParse(data ?? []);
+    if (!rows.success) throw new Error("search_medicines returned an unexpected shape");
     return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to search medicines.", "prescriptions.search_medicines.failed"),
+      success: true,
+      results: rows.data.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        medicine_name: r.medicine_name,
+        generic_name: r.generic_name,
+        dose_form: r.dose_form,
+        substance_ids: r.substance_ids ?? [],
+        dosage: r.dosage,
+        timing: r.timing,
+        duration: r.duration,
+      })),
     };
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to search medicines.", "prescriptions.medicine_search.failed") };
   }
 }
 
-export type GetOrCreateDraftPrescriptionResult =
-  | { success: true; prescriptionId: string }
-  | { success: false; error: string };
+const changeRpcResultSchema = z.object({
+  prescription_id: z.string().uuid(),
+  added_item_ids: z.array(z.string().uuid()),
+  replayed: z.boolean(),
+});
+
+/** Fixed, data-free texts of the Rx change command (the driver message never reaches the caller). */
+const RX_CHANGE_MESSAGES = {
+  NOT_FOUND: "This medicine is no longer on the prescription.",
+  FORBIDDEN: "You do not have permission to change this prescription.",
+  LOCK_TIMEOUT: "This prescription is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  VALIDATION_FAILED: "Check the medicine details and try again.",
+  DRAFT_LOCKED: SIGNED_CONSULTATION_MESSAGE,
+  INTERNAL: "Failed to update the prescription. Please try again.",
+} as const satisfies DbErrorMessages;
+
+export type ChangePrescriptionResult =
+  | { success: true; prescriptionId: string; addedItemIds: string[]; replayed: boolean }
+  | { success: false; error: string; code?: AppError["code"]; reason?: string; fieldErrors?: Record<string, string[]> };
 
 /**
- * Resolves or initializes an active draft prescription for the visit.
+ * Every Rx change as one atomic command (`public.change_prescription`, V2-09c R-2, ADR-004): the lines to add, the dose fields to update and the items to
+ * remove are applied in one transaction with the audit row, and the same `client_request_id` replays the first result. `prescriptions:edit`. A sealed,
+ * an unsigned completed or a cancelled visit is `DRAFT_LOCKED` (the fixed signed text, V2-09a R-17); an item that is not on the visit's prescription is
+ * `NOT_FOUND`. The tenant is the session's.
  */
-export async function getOrCreateDraftPrescription(
-  ctx: ServiceContext,
-  visitId: string
-): Promise<GetOrCreateDraftPrescriptionResult> {
-  const supabase = ctx.db;
-
+export async function changePrescription(ctx: ServiceContext, input: ChangePrescriptionInput): Promise<ChangePrescriptionResult> {
   try {
-    assertPerm(ctx.role, "consultations:edit");
-
-    // 1. Check if active prescription already exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (supabase.from("prescriptions") as any)
-      .select("id")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (existing) {
-      return { success: true, prescriptionId: existing.id };
-    }
-
-    // 2. Fetch visit to resolve patient_id & doctor_id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, patient_id, doctor_id")
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (visitErr || !visit) {
-      return { success: false, error: "Visit not found or access denied." };
-    }
-
-    // 3. Create initial active draft prescription
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: created, error: createErr } = await (supabase.from("prescriptions") as any)
-      .insert({
-        tenant_id: ctx.tenantId,
-        visit_id: visitId,
-        patient_id: visit.patient_id,
-        doctor_id: ctx.userId,
-        version: 1,
-        status: "active",
-        letterhead_mode: "blank_paper",
-      })
-      .select("id")
-      .single();
-
-    // A signed consultation's prescription is sealed with it (000107, 000108): a fixed text, never the driver's (V2-09a R-17).
-    if (isSealedRefusal(createErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    if (createErr || !created) {
-      return { success: false, error: "Failed to create prescription draft." };
-    }
-
-    // 04-07a M-RXEVENT: the empty draft raises no `prescription.issued`; the event is queued when the consultation is
-    // signed (features/consultation/service.ts), and SQL refuses it from a request before then.
-
-    return { success: true, prescriptionId: created.id };
+    assertPerm(ctx.role, "prescriptions:edit");
   } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to initialize prescription.", "prescriptions.get_or_create_draft_prescription.failed"),
-    };
+    return { success: false, error: clientErrorMessage(err, "Failed to update the prescription.", "prescriptions.change.failed") };
   }
-}
-
-export type AddPrescriptionItemResult =
-  | { success: true; itemId: string; prescriptionId: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-/**
- * Appends a prescribed medication row to the active prescription.
- * If custom medicine, upserts to doctor_custom_medicines for future fast access.
- */
-export async function addPrescriptionItem(
-  ctx: ServiceContext,
-  visitId: string,
-  input: PrescriptionItemInput
-): Promise<AddPrescriptionItemResult> {
-  try {
-    assertPerm(ctx.role, "consultations:edit");
-  } catch (err: unknown) {
-    return { success: false, error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed") };
-  }
-
-  const parseResult = prescriptionItemSchema.safeParse(input);
-  if (!parseResult.success) {
+  const parsed = changePrescriptionSchema.safeParse(input);
+  if (!parsed.success) {
     const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
+    for (const issue of parsed.error.issues) {
+      const field = issue.path.filter((p) => p !== "changes").map(String).join(".") || "form";
       fieldErrors[field] = fieldErrors[field] || [];
       fieldErrors[field].push(issue.message);
     }
-    return {
-      success: false,
-      error: "Validation failed. Please correct medication details.",
-      fieldErrors,
-    };
+    return { success: false, error: RX_CHANGE_MESSAGES.VALIDATION_FAILED, code: "VALIDATION_FAILED", fieldErrors };
   }
 
-  const supabase = ctx.db;
+  const { visit_id: visitId, changes, client_request_id: clientRequestId } = parsed.data;
+  const payload: Record<string, unknown> = {};
+  if (changes.add?.length) payload.add = changes.add;
+  if (changes.update?.length) payload.update = changes.update;
+  if (changes.remove?.length) payload.remove = changes.remove;
 
-  try {
-    const data = parseResult.data;
-
-    // 1. Resolve active prescription (same context, so the callee's own permission check applies)
-    const draftRes = await getOrCreateDraftPrescription(ctx, visitId);
-    if (!draftRes.success) {
-      return { success: false, error: draftRes.error };
-    }
-    const prescriptionId = draftRes.prescriptionId;
-
-    // 2. Determine sort order
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingItems } = await (supabase.from("prescription_items") as any)
-      .select("sort_order")
-      .eq("prescription_id", prescriptionId)
-      .order("sort_order", { ascending: false })
-      .limit(1);
-
-    const nextOrder =
-      existingItems && existingItems.length > 0 ? (existingItems[0].sort_order ?? 0) + 1 : 0;
-
-    // 3. Insert into prescription_items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inserted, error: insertErr } = await (supabase.from("prescription_items") as any)
-      .insert({
-        prescription_id: prescriptionId,
-        medicine_name: data.medicine_name,
-        generic_name: data.generic_name || null,
-        dose_form: data.dose_form || null,
-        dosage: data.dosage,
-        timing: data.timing || null,
-        duration: data.duration,
-        special_instructions: data.special_instructions || null,
-        cdci_brand_id: data.cdci_brand_id || null,
-        cdci_generic_id: data.cdci_generic_id || null,
-        sort_order: nextOrder,
-      })
-      .select("id")
-      .single();
-
-    if (isSealedRefusal(insertErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    if (insertErr || !inserted) {
-      log.error({ event: "prescriptions.item_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to add prescription item." };
-    }
-
-    // 4. If custom medicine, upsert to doctor_custom_medicines
-    if (!data.cdci_brand_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("doctor_custom_medicines") as any).upsert(
-        {
-          tenant_id: ctx.tenantId,
-          doctor_id: ctx.userId,
-          medicine_name: data.medicine_name,
-          generic_name: data.generic_name || null,
-          dose_form: data.dose_form || null,
-          default_dosage: data.dosage,
-          default_timing: data.timing || null,
-          default_duration: data.duration,
-          use_count: 1,
-        },
-        { onConflict: "tenant_id,doctor_id,medicine_name" }
-      );
-    }
-
-    // 5. Record audit trail
-    await recordAudit(ctx, {
-      action: "prescription.item_add",
-      entityType: "prescription",
-      entityId: prescriptionId,
-      metadata: {
-        dose_form: data.dose_form,
-      },
-    });
-
-    return { success: true, itemId: inserted.id, prescriptionId };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed"),
-    };
+  const outcome = await callCommand(
+    ctx,
+    "change_prescription",
+    { p_visit_id: visitId, p_changes: payload, p_client_request_id: clientRequestId },
+    changeRpcResultSchema,
+    RX_CHANGE_MESSAGES,
+    { event: "prescriptions.change.failed" }
+  );
+  if (!outcome.ok) {
+    return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
   }
-}
-
-export type RemovePrescriptionItemResult =
-  | { success: true }
-  | { success: false; error: string };
-
-/**
- * Removes an item from the active prescription.
- */
-export async function removePrescriptionItem(
-  ctx: ServiceContext,
-  itemId: string
-): Promise<RemovePrescriptionItemResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "consultations:edit");
-
-    // Verify item belongs to a prescription owned by the acting tenant
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: itemRow, error: fetchErr } = await (supabase.from("prescription_items") as any)
-      .select("id, prescription_id, prescription:prescriptions!inner(tenant_id)")
-      .eq("id", itemId)
-      .eq("prescription.tenant_id", ctx.tenantId)
-      .single();
-
-    if (fetchErr || !itemRow) {
-      return { success: false, error: "Prescription item not found." };
-    }
-
-    // RLS may filter the delete to 0 rows (V2-05 05-04): ask for the deleted row and refuse a no-op, so no success and
-    // no audit row are reported for an item that is still there.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: deleted, error: deleteErr } = await (supabase.from("prescription_items") as any)
-      .delete()
-      .eq("id", itemId)
-      .eq("tenant_id", ctx.tenantId)
-      .select("id");
-
-    if (isSealedRefusal(deleteErr)) return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
-    if (deleteErr) {
-      return { success: false, error: "Failed to delete prescription item." };
-    }
-    const refused = unaffectedRowsError(deleted);
-    if (refused) {
-      log.warn({ event: "prescriptions.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: refused.message };
-    }
-
-    await recordAudit(ctx, {
-      action: "prescription.item_remove",
-      entityType: "prescription",
-      entityId: itemRow.prescription_id,
-    });
-
-    return { success: true };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to remove medication.", "prescriptions.remove_prescription_item.failed"),
-    };
-  }
+  return { success: true, prescriptionId: outcome.value.prescription_id, addedItemIds: outcome.value.added_item_ids, replayed: outcome.value.replayed };
 }
 
 export type SaveDoctorProtocolTemplateResult =

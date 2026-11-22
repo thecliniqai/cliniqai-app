@@ -1,14 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
-import { PrescriptionItemInput, ProtocolTemplateInput } from "./schema";
+import type { ChangePrescriptionInput, ProtocolTemplateInput } from "./schema";
+import { contextFailureToAppError } from "@/lib/commands/context-error";
+import { appError, type Result as CommandResult } from "@/lib/errors/app-error";
 import * as rxService from "./service";
 import type {
-  SearchMedicinesResult,
-  GetOrCreateDraftPrescriptionResult,
-  AddPrescriptionItemResult,
-  RemovePrescriptionItemResult,
   SaveDoctorProtocolTemplateResult,
   GetDoctorProtocolTemplatesResult,
   GetVisitPrescriptionResult,
@@ -18,9 +15,7 @@ import type {
 
 export type {
   SearchMedicinesResult,
-  GetOrCreateDraftPrescriptionResult,
-  AddPrescriptionItemResult,
-  RemovePrescriptionItemResult,
+  ChangePrescriptionResult,
   SaveDoctorProtocolTemplateResult,
   DoctorProtocolTemplate,
   GetDoctorProtocolTemplatesResult,
@@ -33,43 +28,19 @@ export type {
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
 
-function revalidate(path: string) {
-  try {
-    revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
+/**
+ * Every Rx change as one atomic command (V2-09c R-2): add, edit and remove lines in one transaction. `Result` with the `AppError` code and reason the
+ * builder needs; `client_request_id` is required and the same id replays the first result. `prescriptions:edit`; the tenant is the session's.
+ */
+export async function changePrescriptionAction(input: ChangePrescriptionInput): Promise<CommandResult<{ prescriptionId: string; addedItemIds: string[]; replayed: boolean }>> {
+  const resolved = await resolveServiceContext("prescriptions:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await rxService.changePrescription(resolved.ctx, input);
+  if (!result.success) {
+    return { ok: false, error: appError(result.code ?? "INTERNAL", { message: result.error, reason: result.reason, fieldErrors: result.fieldErrors }) };
   }
-}
-
-export async function searchMedicines(query: string, limit = 20): Promise<SearchMedicinesResult> {
-  const resolved = await resolveServiceContext("consultations:view");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return rxService.searchMedicines(resolved.ctx, query, limit);
-}
-
-export async function getOrCreateDraftPrescription(visitId: string): Promise<GetOrCreateDraftPrescriptionResult> {
-  const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return rxService.getOrCreateDraftPrescription(resolved.ctx, visitId);
-}
-
-export async function addPrescriptionItem(
-  visitId: string,
-  input: PrescriptionItemInput
-): Promise<AddPrescriptionItemResult> {
-  const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await rxService.addPrescriptionItem(resolved.ctx, visitId, input);
-  if (result.success) revalidate(`/consultation/${visitId}`);
-  return result;
-}
-
-export async function removePrescriptionItem(itemId: string, visitId: string): Promise<RemovePrescriptionItemResult> {
-  const resolved = await resolveServiceContext("consultations:edit");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  const result = await rxService.removePrescriptionItem(resolved.ctx, itemId);
-  if (result.success) revalidate(`/consultation/${visitId}`);
-  return result;
+  // The consult page is not revalidated per change: the section holds the lines in memory and the page reads them again on the next load.
+  return { ok: true, value: { prescriptionId: result.prescriptionId, addedItemIds: result.addedItemIds, replayed: result.replayed } };
 }
 
 export async function saveDoctorProtocolTemplate(input: ProtocolTemplateInput): Promise<SaveDoctorProtocolTemplateResult> {

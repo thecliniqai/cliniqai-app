@@ -4,9 +4,12 @@
  * statements and app-side audit are what the V2-07 commands replaced.
  *
  * V2-09b 09B-01: `components/consultation` is covered too. The draft is saved by one command per save (`save_consultation_draft`, through the draft
- * saver), so no consult component imports the removed multi-statement writers (`recordFollowUp`, `updateClinicalNotes`). One chain is left on purpose and
- * named here: the v1 "Repeat Rx" loop in the workspace (one `addPrescriptionItem` per medicine of a past visit), owned by V2-09c ("Same as last visit"
- * as one command). A second importer of `addPrescriptionItem` outside the prescription builder fails this spec until it is named.
+ * saver), so no consult component imports the removed multi-statement writers (`recordFollowUp`, `updateClinicalNotes`).
+ *
+ * V2-09c 09C-01: the last registered chain, the v1 "Repeat Rx" loop (one `addPrescriptionItem` per medicine of a past visit) and the v1 builder's own
+ * `addPrescriptionItem` / `removePrescriptionItem`, are gone: every Rx change (add, edit, remove, a template, a repeat) is one `change_prescription`
+ * command (`changePrescriptionAction`, through `useRxLines`). No consult component imports a removed Rx writer; the exception list names only the command's
+ * own callers.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -39,15 +42,23 @@ function importedNames(source: string): string[] {
 }
 
 /** The multi-statement consult writers 000112 removed (the draft command replaced them). */
-const CONSULT_LEGACY = ["recordFollowUp", "updateClinicalNotes", "saveConsultationDraft"];
+const CONSULT_LEGACY = [
+  "recordFollowUp",
+  "updateClinicalNotes",
+  "saveConsultationDraft",
+  // V2-09c 09C-01: the multi-statement Rx writers the command replaced.
+  "addPrescriptionItem",
+  "removePrescriptionItem",
+  "getOrCreateDraftPrescription",
+  "changePrescriptionAction",
+];
 /**
  * Files in `components/consultation` that may still import a writer, with what they may import and who removes it.
  * `saveConsultationDraft` is the command itself: only the draft hook calls it.
  */
 const CONSULT_EXCEPTIONS: Record<string, { allowed: string[]; owner: string; why: string }> = {
   "components/consultation/use-consult-draft.ts": { allowed: ["saveConsultationDraft"], owner: "V2-09b", why: "the draft hook sends the one command per save" },
-  "components/consultation/workspace/consult-workspace.tsx": { allowed: ["addPrescriptionItem"], owner: "V2-09c", why: "v1 Repeat Rx loop: one addPrescriptionItem per past medicine" },
-  "components/consultation/prescription-builder.tsx": { allowed: ["addPrescriptionItem"], owner: "V2-09c", why: "the builder adds one item per tap (the keyboard builder replaces it)" },
+  "components/consultation/workspace/use-rx-lines.ts": { allowed: ["changePrescriptionAction"], owner: "V2-09c", why: "the Rx hook sends the one command per change" },
 };
 
 describe("no client command chains (M4 criterion 7)", () => {
@@ -67,8 +78,8 @@ describe("no client command chains (M4 criterion 7)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("components/consultation sends one command per save: no removed writer, and addPrescriptionItem only where it is named (the Repeat Rx loop is V2-09c's)", () => {
-    const watched = [...CONSULT_LEGACY, "addPrescriptionItem"];
+  it("components/consultation sends one command per change: no removed writer, and the command itself only where it is named (the Rx hook)", () => {
+    const watched = CONSULT_LEGACY;
     const offenders: string[] = [];
     const seen = new Set<string>();
     for (const file of files("components/consultation")) {
@@ -83,7 +94,7 @@ describe("no client command chains (M4 criterion 7)", () => {
     // The named exceptions are all still real (an entry that no longer matches is removed, not left to hide the next importer).
     const stale = Object.entries(CONSULT_EXCEPTIONS).flatMap(([rel, e]) => e.allowed.filter((n) => !seen.has(`${rel}#${n}`)).map((n) => `${rel}#${n}`));
     expect(stale).toEqual([]);
-    expect(CONSULT_EXCEPTIONS["components/consultation/workspace/consult-workspace.tsx"]).toMatchObject({ owner: "V2-09c" });
+    expect(CONSULT_EXCEPTIONS["components/consultation/workspace/use-rx-lines.ts"]).toMatchObject({ owner: "V2-09c" });
   });
 
   it("the scan itself recognises an import of a legacy writer", () => {

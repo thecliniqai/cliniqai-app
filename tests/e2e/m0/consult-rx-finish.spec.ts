@@ -13,11 +13,11 @@
  * leaves one revision row holding the signed version, Rx version 2 with both items, the two audit rows, the re-issued `prescription.issued`
  * event, `rx_v1.pdf` and `rx_v2.pdf` archived once each with their own SHA-256, and the PDF route serving the archived v2 bytes.
  */
+import { addCustomMedicine, rxField } from "../support/rx-entry";
 import { createHash } from "node:crypto";
 import { expect, test } from "../fixtures";
 import {
   diagnosesOf,
-  escapeRegExp,
   invoicesOf,
   prescriptionsOf,
   prescriptionItemNames,
@@ -38,7 +38,6 @@ import { openToday, rowOf } from "../support/today-page";
 test.use({ storageState: storageStatePath("doctor") });
 
 const NOTES_LABEL = "History of Present Illness & Clinical Notes";
-const MEDICINE_SEARCH_LABEL = "Search CDCI Medicine or Brand Name:";
 
 test("doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF", async ({ page, ux }) => {
   ux.flow("consult-rx-finish", "Doctor opens a waiting patient, notes + diagnosis, 2 medicines, signs (fee to reception)");
@@ -77,12 +76,8 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   // Two medicines (custom names: the local stack's CDCI catalogue content is not part of the contract).
   const rx = page.locator("#prescription");
   for (const [index, med] of meds.entries()) {
-    await ux.fill(rx.getByLabel(MEDICINE_SEARCH_LABEL), med, "Medicine search");
-    await ux.click(
-      rx.getByRole("button", { name: new RegExp(`Add as custom medicine: "${escapeRegExp(med)}"`) }),
-      "Add as custom medicine",
-    );
-    await ux.click(rx.getByRole("button", { name: "Add to Prescription" }), "Add to Prescription");
+    // V2-09c 09C-01: the keyboard builder (name, Enter on the Add row, the key 1 for 1-0-1, 5d, Enter); the outcome is the same two stored lines.
+    await addCustomMedicine(rx, med, { ux });
     await expect.poll(() => prescriptionItemNames(visitId)).toHaveLength(index + 1);
   }
 
@@ -145,8 +140,10 @@ test("a signed consultation is read-only in the workspace; Amend is offered (P1-
   await page.goto(`/consultation/${visitId}`);
   await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
   // Nothing on the signed consultation can be changed from the workspace.
-  await expect(page.getByLabel(MEDICINE_SEARCH_LABEL)).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Remove medication" })).toBeDisabled();
+  // V2-09c 09C-01: a sealed record has no medicine field, no dose pills and no remove control (before: disabled ones); the lines are plain text.
+  await expect(rxField(page.locator("#prescription"))).toHaveCount(0);
+  await expect(page.locator("#prescription").getByRole("button", { name: /^Remove / })).toHaveCount(0);
+  await expect(page.locator("#prescription").getByRole("button", { name: /Edit dose of/ })).toHaveCount(0);
   // V2-09a 09A-06a (review B-6): the signed notes are read-only, not disabled: focusable and scrollable by keyboard, typing changes nothing.
   const notesField = page.getByLabel(NOTES_LABEL);
   await expect(notesField).not.toBeEditable();
@@ -192,10 +189,8 @@ test("journey 6 tail: the doctor amends a signed consultation with a reason and 
     await expect(page.getByRole("status").filter({ hasText: `Amending a signed consultation (v1 to v2): ${reason}` })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /Finish visit/ })).toHaveCount(0);
     const rx = page.locator("#prescription");
-    await expect(rx.getByLabel(MEDICINE_SEARCH_LABEL)).toBeEnabled();
-    await rx.getByLabel(MEDICINE_SEARCH_LABEL).fill(added);
-    await rx.getByRole("button", { name: new RegExp(`Add as custom medicine: "${escapeRegExp(added)}"`) }).click();
-    await rx.getByRole("button", { name: "Add to Prescription" }).click();
+    await expect(rxField(rx)).toBeEnabled();
+    await addCustomMedicine(rx, added);
     await expect.poll(() => prescriptionItemNames(visitId)).toEqual([medicine, added]);
 
     // Finalize: the confirmation, then the consultation is sealed again at version 2.
@@ -204,7 +199,7 @@ test("journey 6 tail: the doctor amends a signed consultation with a reason and 
     await expect(finalize).toBeVisible();
     await finalize.getByRole("button", { name: "Finalize amendment" }).click();
     await expect(page.getByTestId("signed-chip")).toContainText("Rx v2", { timeout: 30_000 });
-    await expect(page.getByLabel(MEDICINE_SEARCH_LABEL)).toBeDisabled();
+    await expect(rxField(page.locator("#prescription"))).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Amend", exact: true })).toBeVisible();
 
     // Database: re-signed and completed; one revision row holding the signed version; the same header at version 2 with both items.

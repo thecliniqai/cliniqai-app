@@ -576,8 +576,10 @@ export const TARGETS: readonly Target[] = [
     // V2-09a 000108/000109 (R-8, R-12): UPDATE is column-granted to (pdf_storage_path, pdf_sha256, updated_at); status, version, signed_at,
     // amendment_reason and letterhead_mode change only inside the commands or at INSERT (prescription_seal.test.sql, rx-seal.spec.ts).
     update: "pdf_storage_path",
-    rules: permSiu("prescriptions:view", "prescriptions:edit", rpcOnly),
+    // V2-09c 000117 (R-2): change_prescription (definer) creates the header; INSERT is revoked from authenticated. UPDATE stays column-granted (the PDF pair).
+    rules: { select: perm("prescriptions:view"), insert: rpcOnly, update: perm("prescriptions:edit"), delete: rpcOnly },
     note:
+      "V2-09c 000117: the header is created only by change_prescription (SECURITY DEFINER, prescriptions:edit). " +
       "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a " +
       "header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the " +
       "PDF columns only (000108 R-8). The fixture visit is unsigned",
@@ -604,8 +606,10 @@ export const TARGETS: readonly Target[] = [
       duration: "'5 days'",
     },
     update: "medicine_name",
-    rules: permSiu("prescriptions:view", "prescriptions:edit", perm("prescriptions:edit")),
+    // V2-09c 000117 (R-2): change_prescription (definer) is the only writer; INSERT, UPDATE and DELETE are revoked from authenticated.
+    rules: { select: perm("prescriptions:view"), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
     note:
+      "V2-09c 000117: written only by change_prescription (SECURITY DEFINER, prescriptions:edit). " +
       "tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). " +
       "05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened " +
       "(prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned",
@@ -873,7 +877,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(35)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine'" },
     insert: { id: q(FX.row(36)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine 2'" },
     update: "medicine_name",
-    rules: { select: perm("consultations:view"), insert: ownConsultationRow, update: ownConsultationRow, delete: ownConsultationRow },
+    // V2-09c 000117 (R-2): change_prescription (definer) upserts the doctor's custom medicine; INSERT and UPDATE are revoked from authenticated.
+    rules: { select: perm("consultations:view"), insert: rpcOnly, update: rpcOnly, delete: ownConsultationRow },
   },
   {
     kind: "table",

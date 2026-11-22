@@ -9,25 +9,27 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "../..");
-const MIGRATION = fs.readFileSync(path.join(ROOT, "supabase/migrations/000021_review_fixes.sql"), "utf8");
+const readMigration = (name: string) => fs.readFileSync(path.join(ROOT, "supabase/migrations", name), "utf8");
 
-function verbatimBlock(file: string): { section: string; block: string } {
+function verbatimBlock(file: string): { migration: string; section: string; block: string } {
   const text = fs.readFileSync(path.join(ROOT, file), "utf8");
-  const m = /^-- >>> verbatim 000021_review_fixes\.sql (§\d) \(lines \d+-\d+\)\n([\s\S]*?)^-- <<< verbatim$/m.exec(text);
+  const m = /^-- >>> verbatim (\d{6}_[a-z_]+\.sql) (§\d) \(lines \d+-\d+\)\n([\s\S]*?)^-- <<< verbatim$/m.exec(text);
   if (!m) throw new Error(`${file}: no verbatim block`);
-  return { section: m[1], block: m[2] };
+  return { migration: m[1], section: m[2], block: m[3] };
 }
 
-describe("pgTAP legacy conversions inline migration 000021 verbatim", () => {
+describe("pgTAP legacy conversions inline their migration's block verbatim", () => {
+  // V2-09c 000117: the search function moved to 000117 (the 000021 function was dropped), so its pg_trgm file inlines that migration's DO block.
   it.each([
-    ["supabase/tests/database/memberships_bounds_cleanup.test.sql", "§4", "-- 4. Scheduling bounds on memberships"],
-    ["supabase/tests/database/search_medicines_extension_schema.test.sql", "§6", "-- 6. search_medicines: pg_trgm in any schema"],
-  ])("%s carries 000021 %s unchanged", (file, section, heading) => {
+    ["supabase/tests/database/memberships_bounds_cleanup.test.sql", "000021_review_fixes.sql", "§4", "-- 4. Scheduling bounds on memberships", 50],
+    ["supabase/tests/database/search_medicines_extension_schema.test.sql", "000117_rx_lines_command.sql", "§2", "DO $migration$", 40],
+  ])("%s carries %s %s unchanged", (file, migration, section, heading, minLines) => {
     const v = verbatimBlock(file);
+    expect(v.migration).toBe(migration);
     expect(v.section).toBe(section);
     expect(v.block.startsWith(heading)).toBe(true);
-    expect(v.block.split("\n").length).toBeGreaterThan(50);
-    expect(MIGRATION.includes(v.block)).toBe(true);
+    expect(v.block.split("\n").length).toBeGreaterThan(minLines);
+    expect(readMigration(migration).includes(v.block)).toBe(true);
   });
 
   it("no legacy psql script is left at the top of supabase/tests other than the restore-drill checks", () => {

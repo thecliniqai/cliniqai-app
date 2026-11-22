@@ -78,8 +78,9 @@ describe("draft: the form is live", () => {
   const html = draft();
   it("the notes, the medicine search and the remove control are enabled; Finish visit is offered, Amend is not", () => {
     expect(isDisabled(openTag(html, "textarea", 'id="clinical-notes"'))).toBe(false);
-    expect(isDisabled(openTag(html, "input", 'id="medicine-search-input"'))).toBe(false);
-    expect(isDisabled(openTag(html, "button", 'aria-label="Remove medication"'))).toBe(false);
+    // V2-09c 09C-01: the medicine field is the Rx entry row's combobox input; the line's pills and remove control are buttons named after the medicine.
+    expect(isDisabled(openTag(html, "input", "data-rx-search"))).toBe(false);
+    expect(isDisabled(openTag(html, "button", 'aria-label="Remove Synthetic Med A"'))).toBe(false);
     expect(hasButton(html, /Finish visit/)).toBe(true);
     expect(hasButton(html, /^Amend$/)).toBe(false);
     expect(text(html)).not.toContain("Amending a signed consultation");
@@ -95,10 +96,13 @@ describe("sealed: a signed consultation is read-only", () => {
     const notes = openTag(html, "textarea", 'id="clinical-notes"');
     expect(isDisabled(notes)).toBe(false);
     expect(notes).toMatch(/\sreadOnly(=""|\s|>)/i);
+    // V2-09c 09C-01: a sealed record has no medicine field, no pills and no remove control: the lines are plain text (the entry row is not rendered).
+    expect(html).not.toContain("data-rx-search");
+    expect(html).not.toContain('aria-label="Remove Synthetic Med A"');
+    expect(html).not.toContain("Edit dose of Synthetic Med A");
+    expect(text(html)).toContain("Synthetic Med A");
     for (const [tag, needle] of [
-      ["input", 'id="medicine-search-input"'],
       ["input", 'placeholder="Search diagnosis name'],
-      ["button", 'aria-label="Remove medication"'],
       ["input", 'placeholder="Type custom test name'],
       ["input", 'placeholder="Add custom advice'],
     ] as const) {
@@ -119,10 +123,8 @@ describe("sealed: a signed consultation is read-only", () => {
     const chips = [...html.matchAll(/<button\b[^>]*data-state="(?:on|off)"[^>]*>/g)].map((m) => m[0]);
     expect(chips.length).toBeGreaterThan(20);
     for (const chip of chips) expect(isDisabled(chip), chip).toBe(true);
-    // The template and AI insertion controls are off or gone.
-    const templates = [...html.matchAll(/(<button\b[^>]*>)([\s\S]*?)<\/button>/g)].find((m) => text(m[2]) === "Protocol Templates");
-    expect(templates, "Protocol Templates button").toBeTruthy();
-    expect(isDisabled(templates![1])).toBe(true);
+    // The template and AI insertion controls are gone (V2-09c: the Templates button is not rendered on a read-only record).
+    expect(hasButton(html, /^Templates$/)).toBe(false);
     expect(text(html)).not.toContain("Generate AI Catch-Up");
     expect(text(html)).not.toContain("Save as Protocol Template");
   });
@@ -156,8 +158,8 @@ describe("amending: signed and reopened, editable until finalized", () => {
     expect(text(html)).toContain("Amending a signed consultation (v1 to v2): Added the missing antibiotic");
     expect(html).toContain('data-banner="past-due"');
     expect(isDisabled(openTag(html, "textarea", 'id="clinical-notes"'))).toBe(false);
-    expect(isDisabled(openTag(html, "input", 'id="medicine-search-input"'))).toBe(false);
-    expect(isDisabled(openTag(html, "button", 'aria-label="Remove medication"'))).toBe(false);
+    expect(isDisabled(openTag(html, "input", "data-rx-search"))).toBe(false);
+    expect(isDisabled(openTag(html, "button", 'aria-label="Remove Synthetic Med A"'))).toBe(false);
   });
 
   it("Save Draft and Finalize amendment are the actions; Finish visit, Amend and Print Rx are not offered", () => {

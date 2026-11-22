@@ -7,6 +7,7 @@
  * the stored one; the doctor amends it with a reason and finalizes (version 2). Every screen is axe-clean (0 serious or critical) at the project's width.
  * The Rx-by-keyboard leg is V2-09c's (Q-1); V2-09a's amendment tail stays in tests/e2e/m0/consult-rx-finish.spec.ts. Synthetic data only.
  */
+import { addCustomMedicine } from "../support/rx-entry";
 import { createHash } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
@@ -14,7 +15,6 @@ import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
 import {
   diagnosesOf,
-  escapeRegExp,
   invoicesOf,
   prescriptionItemNames,
   prescriptionsOf,
@@ -35,7 +35,6 @@ test.use({ storageState: storageStatePath("doctor") });
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const NOTES_LABEL = "History of Present Illness & Clinical Notes";
-const MEDICINE_SEARCH_LABEL = "Search CDCI Medicine or Brand Name:";
 const COMPLAINT = "Acidity";
 const DIAGNOSIS = "Gastritis E2E J6";
 const admin = getAdminClient();
@@ -102,12 +101,10 @@ test("@golden journey 6: Today, tap entry, likely diagnosis, two medicines, a re
   await ux.click(likely.getByRole("button", { name: new RegExp(`^${DIAGNOSIS}`) }), `Likely: ${DIAGNOSIS}`);
   await expect(page.getByRole("list", { name: "Diagnoses" })).toContainText(DIAGNOSIS);
 
-  // 4. Two medicines with the existing builder.
+  // 4. Two medicines with the keyboard builder (V2-09c 09C-01): the name, Enter on the Add row, the key 1 (1-0-1), 5d, Enter.
   const rx = page.locator("#prescription");
   for (const [index, med] of meds.entries()) {
-    await ux.fill(rx.getByLabel(MEDICINE_SEARCH_LABEL), med, "Medicine search");
-    await ux.click(rx.getByRole("button", { name: new RegExp(`Add as custom medicine: "${escapeRegExp(med)}"`) }), "Add as custom medicine");
-    await ux.click(rx.getByRole("button", { name: "Add to Prescription" }), "Add to Prescription");
+    await addCustomMedicine(rx, med, { ux });
     await expect.poll(() => prescriptionItemNames(visitId)).toHaveLength(index + 1);
   }
 
@@ -118,12 +115,25 @@ test("@golden journey 6: Today, tap entry, likely diagnosis, two medicines, a re
   await expect(page.locator("[data-file-drop] [data-file-row]").first()).toHaveAttribute("data-status", "stored", { timeout: 30_000 });
   await expect(page.getByRole("list", { name: "Attachments" }).getByRole("listitem")).toHaveCount(1);
 
-  // 6. Saved: the draft reached the server (complaints, the exam and the report's visit link).
+  // 6. Saved: the draft reached the server (complaints, the exam and the report's visit link). The status can still show an earlier save while the last edit
+  // waits for its autosave (the keyboard builder made steps 4 and 5 faster than the debounce: CI-style race found on pixel-7), so the note is polled, not read once.
   await expect(page.locator("[data-save-status='saved']")).toBeVisible({ timeout: 12_000 });
-  const note = await admin.from("clinical_notes").select("chief_complaints, specialty_data").eq("visit_id", visitId).single();
-  expect(note.error).toBeNull();
-  expect((note.data!.chief_complaints as Array<{ symptom: string }>).map((c) => c.symptom)).toEqual([COMPLAINT, "Vomiting"]);
-  expect(note.data!.specialty_data).toMatchObject({ exam: { template_id: "resp", systems: { rs: { abnormal: true, findings: ["Crepts"] } } } });
+  await expect
+    .poll(
+      async () => {
+        const note = await admin.from("clinical_notes").select("chief_complaints, specialty_data").eq("visit_id", visitId).single();
+        expect(note.error).toBeNull();
+        return {
+          complaints: (note.data!.chief_complaints as Array<{ symptom: string }>).map((c) => c.symptom),
+          exam: (note.data!.specialty_data as { exam?: unknown } | null)?.exam,
+        };
+      },
+      { timeout: 20_000 },
+    )
+    .toMatchObject({
+      complaints: [COMPLAINT, "Vomiting"],
+      exam: { template_id: "resp", systems: { rs: { abnormal: true, findings: ["Crepts"] } } },
+    });
   expect(await diagnosesOf(visitId)).toEqual([DIAGNOSIS]);
   await expectAxeClean(page, "the filled consult");
 

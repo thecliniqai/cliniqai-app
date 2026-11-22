@@ -10,11 +10,8 @@ import {
 } from "@/features/consultation/service";
 import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
-import {
-  addPrescriptionItem,
-  removePrescriptionItem,
-  getPrescriptionPdfSignedUrl,
-} from "@/features/prescriptions/service";
+import { getPrescriptionPdfSignedUrl } from "@/features/prescriptions/service";
+import { changeRxAs } from "../helpers/rx-lines";
 import { renderPrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
@@ -119,10 +116,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(diagRes.success).toBe(true);
 
     // 5. Prescribe 2 medications (Paracetamol 650mg & Cetirizine 10mg)
-    const med1Res = await addPrescriptionItem(
-      ctxFor(tenantA),
-      visitAId,
-      {
+    const med1Res = await changeRxAs(ctxFor(tenantA), visitAId, { add: [{
         medicine_name: "Paracetamol 650mg",
         generic_name: "Paracetamol",
         dose_form: "Tablet",
@@ -130,17 +124,13 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Take SOS if temp > 100°F",
-      }
-    );
+      }] });
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
     prescriptionAId = med1Res.prescriptionId;
-    med1ItemId = med1Res.itemId;
+    med1ItemId = med1Res.addedItemIds[0];
 
-    const med2Res = await addPrescriptionItem(
-      ctxFor(tenantA),
-      visitAId,
-      {
+    const med2Res = await changeRxAs(ctxFor(tenantA), visitAId, { add: [{
         medicine_name: "Cetirizine 10mg",
         generic_name: "Cetirizine Hydrochloride",
         dose_form: "Tablet",
@@ -148,8 +138,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take at bedtime",
-      }
-    );
+      }] });
     expect(med2Res.success).toBe(true);
   });
 
@@ -327,13 +316,10 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(reopenedVisit?.status).toBe("in_consultation");
 
     // 5. Doctor edits medication: Remove 650mg and add 500mg
-    const removeRes = await removePrescriptionItem(ctxFor(tenantA), med1ItemId);
+    const removeRes = await changeRxAs(ctxFor(tenantA), visitAId, { remove: [med1ItemId] });
     expect(removeRes.success).toBe(true);
 
-    const addRes = await addPrescriptionItem(
-      ctxFor(tenantA),
-      visitAId,
-      {
+    const addRes = await changeRxAs(ctxFor(tenantA), visitAId, { add: [{
         medicine_name: "Paracetamol 500mg",
         generic_name: "Paracetamol",
         dose_form: "Tablet",
@@ -341,8 +327,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Reduced dose to 500mg",
-      }
-    );
+      }] });
     expect(addRes.success).toBe(true);
 
     // 6. Doctor finalizes amendment

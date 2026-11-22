@@ -24,7 +24,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { assertLocalTestEnv, loadLocalStackKeys, loadTestEnv } from "../../tests/setup/test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -32,6 +32,12 @@ const TARGET_MS = 150;
 /** V2-09b R-18: the INVOKER Smart Assist reads (consult_assist_context, search_diagnoses, patient_snapshot) on the synthetic seed: p95 under 50 ms. */
 const READ_TARGET_MS = 50;
 const WARMUP = 5;
+
+/** A pseudo-word of `length` letters from an MD5 digest (`translate(md5(n), '0123456789abcdef', 'ghijklmnopqrstuv')`), capitalised: a stand-in brand or generic name. */
+export function latencyWord(n: number, length: number): string {
+  const letters = createHash("md5").update(String(n)).digest("hex").replace(/[0-9a-f]/g, (c) => "ghijklmnopqrstuv"[parseInt(c, 16)]).slice(0, length);
+  return letters.charAt(0).toUpperCase() + letters.slice(1);
+}
 
 function argValue(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -223,6 +229,28 @@ async function main(): Promise<void> {
       };
       return () => owner.client.rpc("save_consultation_draft", args);
     });
+    // V2-09c 09C-01 (R-17): one Rx change on a fresh in-consultation visit: a header created, a catalogue line and two custom lines added (the heaviest a
+    // template apply sends at once, with the custom medicine upserts). The V2-08 condition: p95 under 150 ms.
+    const cdciOne = await admin
+      .from("cdci_medicines_search")
+      .upsert({ id: "test-cdci-09c-lat-000001", brand_name: "Latency Catalogue Tab", generic_name: "Latencyol 1", dose_form: "Tablet", product_name: "Latency product 1", supplier_name: "Synthetic Labs" }, { onConflict: "id" });
+    if (cdciOne.error) throw new Error(`CDCI seed failed: ${cdciOne.error.message}`);
+    await measure("change_prescription", "command", async (i) => {
+      const { visitId } = await seedVisit(t, undefined, { status: "in_consultation" });
+      const args = {
+        p_tenant_id: t.tenantId,
+        p_visit_id: visitId,
+        p_changes: {
+          add: [
+            { medicine_name: "Latency Catalogue Tab", dosage: "1-0-1", duration: "5 days", cdci_brand_id: "test-cdci-09c-lat-000001" },
+            { medicine_name: `Latency Custom A ${i}`, dosage: "1-0-0", timing: "After food", duration: "3 days" },
+            { medicine_name: `Latency Custom B ${i}`, dosage: "0-0-1", duration: "7 days", special_instructions: "Synthetic instruction" },
+          ],
+        },
+        p_client_request_id: randomUUID(),
+      };
+      return () => owner.client.rpc("change_prescription", args);
+    });
     await measure("register_patient", "command", async (i) => {
       const args = {
         p_tenant_id: t.tenantId,
@@ -290,6 +318,23 @@ async function main(): Promise<void> {
       if (error) throw new Error(`catalogue seed failed: ${error.message}`);
       catalogueIds.push(...(data ?? []).map((r) => r.id));
     }
+    // V2-09c 09C-01 (R-17): a catalogue of 20,000 synthetic CDCI rows for the medicine search (the global fixture rows are removed in `finally`). The names are
+    // pseudo-random words (a hash mapped to letters), like a real catalogue's, so a doctor's four or five typed letters match a handful of rows, not all of them.
+    for (let i = 0; i < 20_000; i += 1000) {
+      const chunk = Array.from({ length: 1000 }, (_, j) => {
+        const n = i + j + 1;
+        return {
+          id: `test-cdci-09c-lat-${String(n).padStart(6, "0")}`,
+          brand_name: `${latencyWord(n, 9)} ${(n % 900) + 100}`,
+          generic_name: `${latencyWord(n * 7, 10)}ol`,
+          dose_form: ["Tablet", "Syrup", "Capsule"][n % 3],
+          product_name: `p${n}`,
+          supplier_name: "Synthetic Labs",
+        };
+      });
+      const { error } = await admin.from("cdci_medicines_search").upsert(chunk, { onConflict: "id" });
+      if (error) throw new Error(`CDCI seed failed: ${error.message}`);
+    }
     const hotPatient = await desk.seedPatient(t);
     const pool: string[] = [];
     for (let i = 0; i < 30; i++) pool.push(await desk.seedPatient(t));
@@ -330,6 +375,18 @@ async function main(): Promise<void> {
     await measure("read: search_diagnoses", "read", async (i) => () =>
       owner.client.rpc("search_diagnoses", { p_tenant_id: t.tenantId, p_terms: [`latency diagnosis ${(i * 13) % 2000}`, "latency fever"], p_specialty: "general_physician", p_limit: 12 }),
     );
+    await measure("read: search_medicines", "read", async (i) => () =>
+      // What a doctor types: the first four or five letters of a brand or of a generic, and sometimes a word and its number.
+      owner.client.rpc("search_medicines", {
+        p_tenant_id: t.tenantId,
+        p_query: [
+          latencyWord(((i * 37) % 20_000) + 1, 9).slice(0, 5),
+          latencyWord((((i * 53) % 20_000) + 1) * 7, 10).slice(0, 4),
+          `${latencyWord(((i * 71) % 20_000) + 1, 9).slice(0, 6)} ${(((i * 71) % 20_000) % 900) + 100}`,
+        ][i % 3].toLowerCase(),
+        p_limit: 15,
+      }),
+    );
     await measure("read: patient_snapshot", "read", async () => () =>
       owner.client.rpc("patient_snapshot", { p_tenant_id: t.tenantId, p_patient_id: hotPatient }),
     );
@@ -339,6 +396,8 @@ async function main(): Promise<void> {
       const { error } = await admin.from("opd_diagnoses").delete().in("id", catalogueIds.slice(i, i + 100));
       if (error) console.error(`[latency] cleanup: deleting the synthetic catalogue rows failed: ${error.message}`);
     }
+    const cdci = await admin.from("cdci_medicines_search").delete().like("id", "test-cdci-09c-lat-%");
+    if (cdci.error) console.error(`[latency] cleanup: deleting the synthetic CDCI rows failed: ${cdci.error.message}`);
     const { error: tenantError } = await admin.from("tenants").delete().eq("id", owner.tenantId);
     if (tenantError) console.error(`[latency] cleanup: deleting the synthetic clinic failed: ${tenantError.message}`);
     for (const id of [owner.userId, receptionist.userId]) {

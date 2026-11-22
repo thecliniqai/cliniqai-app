@@ -134,8 +134,9 @@ describe("the expected outcomes", () => {
     const live = (id: string) =>
       TARGETS.flatMap((t) => OPS.map((op) => expectedOutcome(t, op, { ...principal(id), statuses: {} }))).filter(admitted).length;
     // V2-09a (000109, 000110): the Rx and lab storage classes and the lab documents lost their UPDATE / DELETE / conditional INSERT cells, so the live count fell
-    // below 100; the bound is only there so that the denial above is not vacuous.
-    expect(live("removed_a")).toBeGreaterThan(90);
+    // below 100; V2-09c (000117) moved the Rx items, the Rx header INSERT and the custom medicines to change_prescription (rpc_only), so it fell below 90; the bound
+    // is only there so that the denial above is not vacuous.
+    expect(live("removed_a")).toBeGreaterThan(80);
     expect(live("suspended_a")).toBeGreaterThan(50);
   });
 
@@ -162,7 +163,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.consultations": "rpc_only",
   "public.consultation_diagnoses": "perm(consultations:edit)",
   "public.prescriptions": "rpc_only",
-  "public.prescription_items": "perm(prescriptions:edit)",
+  "public.prescription_items": "rpc_only", // V2-09c 000117: change_prescription is the writer
   "public.invoices": "rpc_only",
   "public.invoice_items": "perm(billing:collect)",
   "public.payments": "rpc_only",
@@ -237,14 +238,13 @@ describe("the DELETE column (final since 05-04)", () => {
       if (!t) throw new Error(`no target ${target}`);
       return expectedOutcome(t, "delete", principal(principalId));
     };
-    expect(outcome("public.prescription_items", "doctor_a")).toBe("1");
     expect(outcome("public.consultation_diagnoses", "doctor_a")).toBe("1");
     expect(outcome("public.invoice_items", "receptionist_a")).toBe("1");
-    expect(outcome("public.prescription_items", "receptionist_a")).toBe("0");
     expect(outcome("public.invoice_items", "doctor_a")).toBe("0");
-    expect(outcome("public.prescription_items", "dual_hdr_a")).toBe("1");
-    expect(outcome("public.prescription_items", "dual_hdr_b")).toBe("0");
-    expect(outcome("public.prescription_items", "dual_no_hdr")).toBe("0");
+    // V2-09c 000117: an Rx item is removed only by change_prescription (the DELETE privilege is revoked), so no principal deletes one directly.
+    for (const id of ["doctor_a", "receptionist_a", "dual_hdr_a", "dual_hdr_b", "dual_no_hdr"]) {
+      expect(outcome("public.prescription_items", id)).toBe("denied");
+    }
   });
 });
 
@@ -272,18 +272,16 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.visit_revisions": ["perm(consultations:view)", "rpc_only", "rpc_only"], // V2-09a 000111 (S-7): the commands write amendment rows
-  "public.prescriptions": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
-  "public.prescription_items": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
+  // V2-09c 000117 (R-2): change_prescription (definer) is the only writer of the header (INSERT) and of the items; the header's UPDATE is the PDF pair.
+  "public.prescriptions": ["perm(prescriptions:view)", "rpc_only", "perm(prescriptions:edit)"],
+  "public.prescription_items": ["perm(prescriptions:view)", "rpc_only", "rpc_only"],
   "public.doctor_custom_diagnoses": [
     "perm(consultations:view)",
     "perm(consultations:edit) AND self(doctor_id)",
     "perm(consultations:edit) AND self(doctor_id)",
   ],
-  "public.doctor_custom_medicines": [
-    "perm(consultations:view)",
-    "perm(consultations:edit) AND self(doctor_id)",
-    "perm(consultations:edit) AND self(doctor_id)",
-  ],
+  // V2-09c 000117: change_prescription upserts the doctor's custom medicine; INSERT and UPDATE are revoked from authenticated.
+  "public.doctor_custom_medicines": ["perm(consultations:view)", "rpc_only", "rpc_only"],
   // V2-09b 000115: a doctor's own macros. The BEFORE INSERT trigger sets doctor_id to the caller, so INSERT needs only the permission.
   "public.doctor_text_macros": [
     "perm(consultations:edit) AND self(doctor_id)",

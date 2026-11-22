@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { Minus, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
-import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandGroup, CommandItem, CommandList, CommandLoading } from "@/components/ui/command";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { focusBoxInput } from "@/lib/ui/focus-box";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import {
-  DEFAULT_DOSE,
   DURATION_PRESETS,
   FREQUENCY_PRESETS,
   MAX_DAYS,
@@ -23,6 +22,7 @@ import {
   doseSummary,
   durationLabel,
   frequencyWords,
+  lineDuration,
   parseDuration,
   searchMedicines,
   type Medicine,
@@ -48,27 +48,50 @@ import {
  * confines cmdk's `scrollIntoView`).
  */
 export interface RxEntryRowProps {
-  /** The searchable list (the gallery passes a synthetic in-memory list; V2-09 wires the doctor's formulary). */
-  medicines: readonly Medicine[];
-  onAdd: (line: RxLine) => void;
+  /** A searchable in-memory list (the gallery passes a synthetic one). With `search` the list is only the fallback and is not used. */
+  medicines?: readonly Medicine[];
+  /**
+   * V2-09c R-5: the typeahead of the consult, a GET route (never a server action). It is called after {@link RxEntryRowProps.searchDebounceMs} of
+   * quiet and aborted with the next keystroke; a rejected call shows "Couldn't search medicines".
+   */
+  search?: (query: string, signal: AbortSignal) => Promise<readonly Medicine[]>;
+  searchDebounceMs?: number;
+  /**
+   * Adds the line. A promise answers `{ ok: false, error }` to keep the line in the dose builder with that error (Enter sends it again); `ok: true` or no
+   * answer closes the builder and empties the field for the next medicine.
+   */
+  onAdd: (line: RxLine) => void | Promise<RxAddResult | void>;
+  /** Called with each change of the line being built (the host starts a new request after an error). */
+  onEdit?: () => void;
   /** Accessible name of the combobox. */
   label?: string;
+  /** Marks a medicine whose result row carries the danger "Allergy" chip (09C-02); also shown in the dose builder. */
+  allergyOf?: (medicine: Medicine) => string | null;
   className?: string;
 }
+
+export type RxAddResult = { ok: true } | { ok: false; error: string };
+
+export const RX_CHOOSE_DOSE_TEXT = "Choose a frequency (1 to 5) and a duration such as 5d";
+export const RX_SEARCH_FAILED_TEXT = "Couldn't search medicines. Try again.";
 
 export interface DoseDraft {
   medicine: Medicine;
   frequency: string;
   timing: string;
+  /** 0 = none chosen yet (V2-09c R-4: no dose is invented). */
   days: number;
+  /** A stored duration the days cannot express ("Continue"); dropped as soon as the doctor chooses days. */
+  durationText?: string;
   instruction: string;
 }
 
 const DIGIT_PRESET = /^[1-5]$/;
 
+/** The dose builder's start: the doctor's own usual dose, part by part, and otherwise nothing (V2-09c R-4: no frequency, timing or duration is invented). */
 function pendingFor(medicine: Medicine): DoseDraft {
-  const usual = medicine.usual ?? DEFAULT_DOSE;
-  return { medicine, frequency: usual.frequency, timing: usual.timing, days: usual.days, instruction: "" };
+  const usual = medicine.usual ?? {};
+  return { medicine, frequency: usual.frequency ?? "", timing: usual.timing ?? "", days: usual.days ?? 0, instruction: "" };
 }
 
 function customMedicine(name: string): Medicine {
@@ -91,7 +114,16 @@ interface FrequencyKey {
   before: string;
 }
 
-export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: RxEntryRowProps) {
+export function RxEntryRow({
+  medicines = [],
+  search,
+  searchDebounceMs = 150,
+  onAdd,
+  onEdit,
+  label = "Medicine",
+  allergyOf,
+  className,
+}: RxEntryRowProps) {
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<DoseDraft | null>(null);
   // Keys typed into the field while the builder is open: whether the frequency digit has been typed, the lone
@@ -100,13 +132,69 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
   const [freqKey, setFreqKey] = useState<FrequencyKey | null>(null);
   const [durBuffer, setDurBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  // The remote answer and the query it answers (results are never shown for another query: Enter must not pick a stale top row).
+  const [answer, setAnswer] = useState<{ query: string; hits: readonly Medicine[]; failed: boolean }>({ query: "", hits: [], failed: false });
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hintId = useId();
+  const seq = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inflight = useRef<AbortController | null>(null);
+  // Enter pressed while the answer is on its way picks the top row when it arrives (a fast typist never creates a custom medicine by accident).
+  const pickWhenReady = useRef(false);
+  const mounted = useRef(true);
 
-  const results = useMemo(() => searchMedicines(medicines, query), [medicines, query]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      seq.current += 1;
+      if (timer.current) clearTimeout(timer.current);
+      inflight.current?.abort();
+    };
+  }, []);
+
   const trimmed = query.trim();
+  const staticResults = useMemo(() => (search ? [] : searchMedicines(medicines, query)), [search, medicines, query]);
+  const remoteCurrent = search ? answer.query === trimmed : true;
+  const results: readonly Medicine[] = search ? (remoteCurrent ? answer.hits : []) : staticResults;
   const exact = results.some((m) => m.name.toLowerCase() === trimmed.toLowerCase());
   const listOpen = trimmed !== "" && pending === null;
+  const waiting = Boolean(search) && trimmed !== "" && !remoteCurrent && pending === null;
+
+  function runSearch(next: string) {
+    if (!search) return;
+    const n = ++seq.current;
+    if (timer.current) clearTimeout(timer.current);
+    inflight.current?.abort();
+    const q = next.trim();
+    if (q === "") {
+      setAnswer({ query: "", hits: [], failed: false });
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    timer.current = setTimeout(async () => {
+      const controller = new AbortController();
+      inflight.current = controller;
+      try {
+        const hits = await search(q, controller.signal);
+        if (n !== seq.current || !mounted.current) return;
+        setAnswer({ query: q, hits, failed: false });
+        if (pickWhenReady.current) {
+          pickWhenReady.current = false;
+          if (hits.length > 0) openBuilder(hits[0]);
+        }
+      } catch {
+        if (n !== seq.current || !mounted.current) return;
+        pickWhenReady.current = false;
+        if (!controller.signal.aborted) setAnswer({ query: q, hits: [], failed: true });
+      } finally {
+        if (n === seq.current && mounted.current) setLoading(false);
+      }
+    }, searchDebounceMs);
+  }
 
   function resetTyping() {
     setFreqTyped(false);
@@ -116,6 +204,7 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
   }
 
   function openBuilder(medicine: Medicine) {
+    pickWhenReady.current = false;
     setPending(pendingFor(medicine));
     setQuery(medicine.name);
     resetTyping();
@@ -123,8 +212,14 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
   }
 
   function closeBuilder() {
+    pickWhenReady.current = false;
+    seq.current += 1;
+    if (timer.current) clearTimeout(timer.current);
+    inflight.current?.abort();
+    setLoading(false);
     setPending(null);
     setQuery("");
+    setAnswer({ query: "", hits: [], failed: false });
     resetTyping();
     inputRef.current?.focus();
   }
@@ -133,10 +228,11 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
    * Adds the line exactly as the builder shows it. 06-09c (M-RXKEYS): never with an unfinished typed duration ("1…"
    * has no unit yet: the doctor is told to add one), and from the keyboard never right after a lone frequency digit
    * ("5" then Enter meant "5 days" as often as "SOS": the doctor is told what the digit picked and asked for the
-   * duration). A tap on "Add to prescription" adds what the tiles show.
+   * duration). A tap on "Add to prescription" adds what the tiles show. V2-09c R-4: a line with no frequency or no duration is not added and the doctor
+   * is told what to choose; nothing is prefilled. The host may answer that the line could not be saved: it stays in the builder with that text.
    */
-  function commit(source: "key" | "tap") {
-    if (!pending) return;
+  async function commit(source: "key" | "tap") {
+    if (!pending || sending) return;
     if (durBuffer) {
       setError(`Add the unit to ${durBuffer}: d, w or m (for example ${durBuffer}d)`);
       return;
@@ -145,23 +241,53 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
       setError(`${freqKey.digit} picked ${pending.frequency}. Type the duration, such as 5d, or choose “Add to prescription”.`);
       return;
     }
-    if (!(pending.days >= MIN_DAYS && pending.days <= MAX_DAYS)) {
+    const noFrequency = pending.frequency.trim() === "";
+    const noDuration = !pending.durationText && pending.days < MIN_DAYS;
+    if (noFrequency && noDuration) {
+      setError(RX_CHOOSE_DOSE_TEXT);
+      return;
+    }
+    if (noFrequency) {
+      setError("Choose a frequency (1 to 5)");
+      return;
+    }
+    if (noDuration) {
+      setError("Choose a duration such as 5d");
+      return;
+    }
+    if (!pending.durationText && !(pending.days >= MIN_DAYS && pending.days <= MAX_DAYS)) {
       setError(rangeError());
       return;
     }
-    onAdd({
+    const line: RxLine = {
       medicine: pending.medicine,
       frequency: pending.frequency,
       timing: pending.timing,
       days: pending.days,
+      durationText: pending.durationText,
       instruction: pending.instruction.trim() || undefined,
-    });
+    };
+    setSending(true);
+    setError(null);
+    let answered: RxAddResult | void = undefined;
+    try {
+      answered = await onAdd(line);
+    } finally {
+      if (mounted.current) setSending(false);
+    }
+    if (!mounted.current) return;
+    if (answered && !answered.ok) {
+      setError(answered.error);
+      inputRef.current?.focus();
+      return;
+    }
     closeBuilder();
   }
 
   function patch(next: Partial<DoseDraft>) {
-    setPending((p) => (p ? { ...p, ...next } : p));
+    setPending((p) => (p ? { ...p, ...next, ...(next.days !== undefined ? { durationText: undefined } : {}) } : p));
     setError(null);
+    onEdit?.();
   }
 
   /**
@@ -182,6 +308,11 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
 
   function onFieldKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.nativeEvent.isComposing) return;
+    if (sending) {
+      // The line is on its way: the field keeps focus and takes no key until the answer arrives.
+      if (event.key !== "Tab") event.preventDefault();
+      return;
+    }
     if (event.key === "Escape") {
       if (pending || query) {
         event.preventDefault();
@@ -190,12 +321,20 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
       }
       return;
     }
-    if (!pending) return;
+    if (!pending) {
+      if (event.key === "Enter" && search && waiting && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        // The answer for what was typed is not here yet: wait for it, then pick its top row (cmdk has nothing to pick).
+        event.preventDefault();
+        event.stopPropagation();
+        pickWhenReady.current = true;
+      }
+      return;
+    }
     const key = event.key;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (key === "Enter") {
       event.preventDefault();
-      commit("key");
+      void commit("key");
       return;
     }
     if (key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End") {
@@ -260,7 +399,8 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
     }
   }
 
-  const durationShown = durBuffer ? `${durBuffer}…` : pending ? durationLabel(pending.days) : "";
+  const durationShown = durBuffer ? `${durBuffer}…` : pending ? lineDuration(pending) : "";
+  const pendingAllergy = pending && allergyOf ? allergyOf(pending.medicine) : null;
 
   return (
     <div data-rx-entry="" className={cn("flex flex-col gap-3", className)}>
@@ -287,12 +427,15 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
           <CommandPrimitive.Input
             ref={inputRef}
             value={query}
+            readOnly={sending}
             onValueChange={(next) => {
               setQuery(next);
               if (pending) {
                 setPending(null);
                 resetTyping();
               }
+              pickWhenReady.current = false;
+              runSearch(next);
             }}
             onKeyDown={onFieldKeyDown}
             placeholder="Type a medicine or salt · Enter picks the top match"
@@ -308,19 +451,34 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
           label="Medicines"
           className="absolute inset-x-0 top-full z-20 mt-1 max-h-75 rounded-lg border border-border bg-surface shadow-popover"
         >
+          {search && waiting && loading ? <CommandLoading label="Searching…" /> : null}
+          {search && !waiting && answer.failed && answer.query === trimmed ? (
+            <div role="presentation" className="px-3 py-3 text-body-sm text-danger-fg">
+              {RX_SEARCH_FAILED_TEXT}
+            </div>
+          ) : null}
           {results.length > 0
-            ? results.map((m) => (
-                <CommandItem key={m.id} value={m.id} onSelect={() => openBuilder(m)}>
-                  <span className="flex min-w-0 flex-col py-1 leading-tight">
-                    <span className="truncate font-medium text-fg">{m.name}</span>
-                    <span className="truncate text-label text-fg-muted">
-                      {m.form} · {m.generic}
+            ? results.map((m) => {
+                const allergy = allergyOf ? allergyOf(m) : null;
+                return (
+                  <CommandItem key={m.id} value={m.id} onSelect={() => openBuilder(m)}>
+                    <span className="flex min-w-0 flex-1 flex-col py-1 leading-tight">
+                      <span className="truncate font-medium text-fg">{m.name}</span>
+                      <span className="truncate text-label text-fg-muted">
+                        {[m.form, m.generic].filter(Boolean).join(" · ")}
+                        {m.kind === "custom" ? " · Yours" : ""}
+                      </span>
                     </span>
-                  </span>
-                </CommandItem>
-              ))
+                    {allergy ? (
+                      <span data-allergy-chip="" className="ml-2 inline-flex h-5 shrink-0 items-center rounded-pill bg-danger-bg px-2 text-caption font-semibold text-danger-fg">
+                        Allergy
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                );
+              })
             : null}
-          {trimmed && !exact && (
+          {trimmed && !exact && !waiting && (
             <CommandGroup heading={results.length === 0 ? `No medicine matches “${trimmed}”` : undefined}>
               <CommandItem
                 value={`create:${trimmed}`}
@@ -341,10 +499,12 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
         <DoseBuilder
           value={pending}
           onChange={fromBuilder}
-          onAdd={() => commit("tap")}
+          onAdd={() => void commit("tap")}
           onCancel={closeBuilder}
           durationShown={durationShown}
           error={error}
+          busy={sending}
+          notice={pendingAllergy ? `Matches allergy: ${pendingAllergy}` : null}
           keyHints
         />
       )}
@@ -366,6 +526,10 @@ export interface DoseBuilderProps {
   closable?: boolean;
   /** Show each frequency tile's key (1–5) on ≥ lg screens: only where the search field reads those keys (06-09c). */
   keyHints?: boolean;
+  /** The line is on its way to the server: the submit shows "Adding…" and does nothing. */
+  busy?: boolean;
+  /** A warning above the tiles (V2-09c 09C-02: "Matches allergy: Amoxicillin"). */
+  notice?: string | null;
 }
 
 /**
@@ -383,6 +547,8 @@ export function DoseBuilder({
   submitLabel = "Add to prescription",
   closable = true,
   keyHints = false,
+  busy = false,
+  notice = null,
 }: DoseBuilderProps) {
   const headingId = useId();
   const presetDays = (DURATION_PRESETS as readonly number[]).includes(value.days) ? String(value.days) : "";
@@ -414,6 +580,11 @@ export function DoseBuilder({
         </h4>
         {closable && <IconButton size="sm" label="Close dose builder" icon={<X />} tooltip={false} onClick={onCancel} />}
       </div>
+      {notice && (
+        <p role="alert" data-dose-notice="" className="text-label font-semibold text-danger-fg">
+          {notice}
+        </p>
+      )}
       <DoseRow label="Frequency">
         <ChipGroup
           type="single"
@@ -438,6 +609,22 @@ export function DoseBuilder({
           }))}
         />
       </DoseRow>
+      <Input
+        kind="name"
+        autoCapitalize="none"
+        aria-label="Other frequency"
+        placeholder="Other frequency, e.g. 1-0-2"
+        maxLength={50}
+        value={(FREQUENCY_PRESETS as readonly string[]).includes(value.frequency) ? "" : value.frequency}
+        enterKeyHint="done"
+        onChange={(e) => onChange({ frequency: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onAdd();
+          }
+        }}
+      />
       <DoseRow label="Timing">
         <ChipGroup
           type="single"
@@ -463,7 +650,7 @@ export function DoseBuilder({
               <Minus aria-hidden="true" className="size-3.5" />
             </button>
             <output aria-live="off" className="min-w-16 px-1 text-center text-body-sm font-medium text-fg tabular-nums">
-              {durationShown || durationLabel(value.days)}
+              {durationShown || lineDuration(value) || "Choose"}
             </output>
             <button type="button" aria-label="One day more" disabled={value.days >= MAX_DAYS} onClick={() => onChange({ days: clampDays(value.days + 1) })} className={stepButton}>
               <Plus aria-hidden="true" className="size-3.5" />
@@ -499,8 +686,13 @@ export function DoseBuilder({
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={onAdd} kbd={<Kbd tone="on-accent" className="hidden lg:inline-flex">↵</Kbd>}>
-            {submitLabel}
+          <Button
+            variant="primary"
+            loading={busy}
+            onClick={onAdd}
+            kbd={<Kbd tone="on-accent" className="hidden lg:inline-flex">↵</Kbd>}
+          >
+            {busy ? "Adding…" : submitLabel}
           </Button>
         </div>
       </div>

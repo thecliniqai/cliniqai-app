@@ -9,6 +9,7 @@
  * - Nurse, adding a medicine on a consultation: refused by the server; no prescription item is written.
  * - Doctor, billing reports: the server redirects away (no `billing:view`).
  */
+import { rxField } from "../support/rx-entry";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { prescriptionItemNames, run, seedPatient, seedVisit, tenantName, testTag, visitById } from "../support/m0-data";
@@ -101,11 +102,15 @@ test.describe("nurse", () => {
 
     await page.goto(`/consultation/${visitId}`);
     const rx = page.locator("#prescription");
-    const search = rx.getByLabel("Search CDCI Medicine or Brand Name:");
-    await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to Prescription|Templates/);
+    await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to prescription|Templates/);
+    // V2-09c 09C-01: the keyboard builder. The nurse's search is refused (no prescriptions:edit) and the typed name is still offered as an Add row; the
+    // command is then refused by the server, which is the outcome this journey asserts.
+    const search = rxField(rx);
     await search.fill(med);
-    await rx.getByRole("button", { name: /Add as custom medicine/ }).click();
-    await rx.getByRole("button", { name: "Add to Prescription" }).click();
+    await expect(rx.getByRole("option", { name: /^Add / })).toBeVisible({ timeout: 10_000 });
+    await search.press("Enter");
+    await expect(rx.locator("[data-dose-builder]")).toBeVisible();
+    for (const key of ["1", "5", "d", "Enter"]) await search.press(key);
 
     await expect(rx.getByText(DENIED)).toBeVisible();
     expect(await prescriptionItemNames(visitId)).toEqual([]);

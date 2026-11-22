@@ -163,8 +163,16 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
-  "features/prescriptions/actions.ts#addPrescriptionItem": {
-    args: (a) => [a.visit, { medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", timing: "After food", sort_order: 1, ...acting(a) }],
+  // V2-09c 09C-01: the Rx command takes the visit and the changes; the acting fields are forged at the top level of the input and must be ignored.
+  "features/prescriptions/actions.ts#changePrescriptionAction": {
+    args: (a) => [
+      {
+        visit_id: a.visit,
+        changes: { add: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", timing: "After food" }] },
+        client_request_id: randomUUID(),
+        ...acting(a),
+      },
+    ],
   },
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],

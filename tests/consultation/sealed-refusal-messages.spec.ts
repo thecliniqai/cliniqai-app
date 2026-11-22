@@ -13,7 +13,7 @@ import { insertReturningId } from "../helpers/db";
 import { isSealedRefusal, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 import { saveDraftAs, followUpDay } from "../helpers/consult-draft";
 import { addConsultationDiagnosis, removeConsultationDiagnosis, updateDiagnosisNote } from "@/features/terminology/service";
-import { addPrescriptionItem, getOrCreateDraftPrescription, removePrescriptionItem } from "@/features/prescriptions/service";
+import { changeRxAs, rxLine } from "../helpers/rx-lines";
 
 const admin = getAdminClient();
 let owner: SeededTenant;
@@ -107,17 +107,20 @@ describe("a signed consultation answers every refused write with the fixed text 
     expect(data?.notes).toBeNull();
   });
 
+  // V2-09c 000117: every Rx change is the command, which refuses a sealed visit itself (DRAFT_LOCKED) with the same fixed text.
+  const lockedRefusal = { success: false, error: SIGNED_CONSULTATION_MESSAGE, code: "CONFLICT", reason: "DRAFT_LOCKED" };
+
   it("adding a medication", async () => {
     const before = await counts(sealed.visit.visitId);
-    const res = await addPrescriptionItem(ctxFor(doctor), sealed.visit.visitId, newItem);
-    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
+    const res = await changeRxAs(ctxFor(doctor), sealed.visit.visitId, { add: [newItem] });
+    expect(res).toEqual(lockedRefusal);
     expect(await counts(sealed.visit.visitId)).toEqual(before);
   });
 
   it("removing a medication", async () => {
     const before = await counts(sealed.visit.visitId);
-    const res = await removePrescriptionItem(ctxFor(doctor), sealed.itemId);
-    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
+    const res = await changeRxAs(ctxFor(doctor), sealed.visit.visitId, { remove: [sealed.itemId] });
+    expect(res).toEqual(lockedRefusal);
     expect(await counts(sealed.visit.visitId)).toEqual(before);
   });
 
@@ -128,12 +131,12 @@ describe("a signed consultation answers every refused write with the fixed text 
     expect((await counts(sealed.visit.visitId)).followUps).toEqual([followUpDay(30)]);
   });
 
-  // 09A-06a (review B-7): the header insert of getOrCreateDraftPrescription on a signed consultation with no prescription.
+  // 09A-06a (review B-7): the header insert on a signed consultation with no prescription (now the add of the command).
   it("creating the draft prescription of a signed consultation that has none", async () => {
     const bare = await seedClinicalVisit(owner, { doctorId: doctor.userId, prescriptions: 0 });
     await signVisitAs(doctor, bare.visitId);
-    const res = await getOrCreateDraftPrescription(ctxFor(doctor), bare.visitId);
-    expect(res).toEqual({ success: false, error: SIGNED_CONSULTATION_MESSAGE });
+    const res = await changeRxAs(ctxFor(doctor), bare.visitId, { add: [newItem] });
+    expect(res).toEqual(lockedRefusal);
     const { data } = await admin.from("prescriptions").select("id").eq("visit_id", bare.visitId);
     expect(data).toEqual([]);
   });
@@ -157,9 +160,9 @@ describe.each([
     expect(added.success).toBe(true);
     expect((await updateDiagnosisNote(ctx, c.diagnosisId, c.visit.visitId, "Synthetic note")).success).toBe(true);
     if (added.success) expect((await removeConsultationDiagnosis(ctx, added.diagnosisId, c.visit.visitId)).success).toBe(true);
-    const item = await addPrescriptionItem(ctx, c.visit.visitId, newItem);
+    const item = await changeRxAs(ctx, c.visit.visitId, { add: [newItem] });
     expect(item.success).toBe(true);
-    if (item.success) expect((await removePrescriptionItem(ctx, item.itemId)).success).toBe(true);
+    if (item.success) expect((await changeRxAs(ctx, c.visit.visitId, { remove: item.addedItemIds })).success).toBe(true);
     expect((await saveDraftAs(ctx, c.visit.visitId, { follow_up: { follow_up_date: followUpDay(50) } })).success).toBe(true);
     expect((await counts(c.visit.visitId)).followUps).toEqual([followUpDay(50)]);
   });

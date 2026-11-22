@@ -7,7 +7,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
-import { durationLabel, frequencyWords, type RxLine } from "@/lib/clinical/rx";
+import { frequencyWords, lineDuration, type RxLine } from "@/lib/clinical/rx";
 
 /**
  * RxLineItem (V2-06 06-03b; 06-UI-SPEC RxLineItem, CD-34; DESIGN_SYSTEM §7.6): one prescription line in an `<ol>`.
@@ -29,6 +29,8 @@ export interface RxLineItemProps {
   /** The allergy this drug matches (salt mapping is V2-09); the line stays flagged until overridden with a reason. */
   allergyMatch?: string | null;
   onOverride?: (reason: string) => void;
+  /** A sealed or otherwise read-only record (V2-09c R-5): the dose is plain text, with no pills to edit and no remove button. */
+  readOnly?: boolean;
   className?: string;
 }
 
@@ -38,13 +40,14 @@ const PILL = cn(
   FOCUS_RING,
 );
 
-export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, className }: RxLineItemProps) {
+export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, readOnly = false, className }: RxLineItemProps) {
   const [overriding, setOverriding] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
   const reasonId = useId();
   const name = line.medicine.name;
   const flagged = Boolean(allergyMatch);
+  const duration = lineDuration(line);
 
   return (
     <li
@@ -74,24 +77,35 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
           </p>
         )}
       </div>
-      <div className="col-start-2 row-start-2 flex flex-wrap gap-1 md:col-start-3 md:row-start-1" data-rx-how="">
-        <button type="button" onClick={onEdit} aria-label={`${line.frequency}, ${frequencyWords(line.frequency)}. Edit dose of ${name}`} className={cn(PILL, "font-semibold tracking-[0.04em] text-fg normal-nums")}>
-          {line.frequency}
-        </button>
-        <button type="button" onClick={onEdit} aria-label={`${line.timing}. Edit dose of ${name}`} className={PILL}>
-          {line.timing}
-        </button>
-        <button type="button" onClick={onEdit} aria-label={`${durationLabel(line.days)}. Edit dose of ${name}`} className={cn(PILL, "tabular-nums")}>
-          {durationLabel(line.days)}
-        </button>
-      </div>
-      <IconButton
-        size="sm"
-        label={`Remove ${name}`}
-        icon={<X className="size-3.5" />}
-        onClick={onRemove}
-        className="col-start-3 row-start-1 md:col-start-4"
-      />
+      {readOnly ? (
+        <p className="col-start-2 row-start-2 text-label text-fg-secondary md:col-start-3 md:row-start-1" data-rx-how="">
+          <span className="sr-only">Dose: </span>
+          {[line.frequency, line.timing, duration].filter(Boolean).join(" · ")}
+        </p>
+      ) : (
+        <>
+          <div className="col-start-2 row-start-2 flex flex-wrap gap-1 md:col-start-3 md:row-start-1" data-rx-how="">
+            <button type="button" onClick={onEdit} aria-label={`${line.frequency}, ${frequencyWords(line.frequency)}. Edit dose of ${name}`} className={cn(PILL, "font-semibold tracking-[0.04em] text-fg normal-nums")}>
+              {line.frequency}
+            </button>
+            {line.timing ? (
+              <button type="button" onClick={onEdit} aria-label={`${line.timing}. Edit dose of ${name}`} className={PILL}>
+                {line.timing}
+              </button>
+            ) : null}
+            <button type="button" onClick={onEdit} aria-label={`${duration}. Edit dose of ${name}`} className={cn(PILL, "tabular-nums")}>
+              {duration}
+            </button>
+          </div>
+          <IconButton
+            size="sm"
+            label={`Remove ${name}`}
+            icon={<X className="size-3.5" />}
+            onClick={onRemove}
+            className="col-start-3 row-start-1 md:col-start-4"
+          />
+        </>
+      )}
       {flagged && (
         <div className="col-span-full col-start-2 flex flex-col gap-1.5" data-allergy-match="">
           <p className="flex items-start gap-1.5 text-label text-danger-fg">

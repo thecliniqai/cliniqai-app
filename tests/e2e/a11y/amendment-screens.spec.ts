@@ -14,6 +14,7 @@
  * Screenshots and the axe JSON go to test-results/amendment/ for the evidence. Runs on desktop-chrome only (a11y specs own their
  * viewport). Synthetic data only.
  */
+import { rxField } from "../support/rx-entry";
 import fs from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
@@ -167,7 +168,7 @@ for (const size of WIDTHS) {
       await dialog.getByRole("button", { name: /Confirm & Reopen for Amendment/ }).click();
       const banner = page.getByRole("status").filter({ hasText: `Amending a signed consultation (v1 to v2): ${REASON}` });
       await expect(banner).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByLabel("Search CDCI Medicine or Brand Name:")).toBeEnabled();
+      await expect(rxField(page.locator("#prescription"))).toBeEnabled();
       const save = page.getByRole("button", { name: "Save draft" });
       const finalize = page.getByRole("button", { name: "Finalize amendment" });
       expect(await heightOf(save)).toBeGreaterThanOrEqual(44);
@@ -209,11 +210,13 @@ test.describe("amendment: in-session transitions", () => {
     await page.locator("#vitals").getByRole("button", { name: "Edit vitals" }).click();
     await expect(page.locator("#vitals input:not([disabled])").first()).toBeVisible();
     await page.locator("#vitals").getByPlaceholder("Sys").fill("120");
-    // Stage a drug in the builder and leave it staged.
+    // Stage a drug in the builder (its dose builder open) and leave it staged.
     const staged = `E2E Synthetic Staged ${tag}`;
-    await page.locator("#prescription").getByLabel("Search CDCI Medicine or Brand Name:").fill(staged);
-    await page.locator("#prescription").getByRole("button", { name: /Add as custom medicine/ }).click();
-    await expect(page.getByText("Configure Dosage & Instructions:")).toBeVisible();
+    const rx = page.locator("#prescription");
+    await rxField(rx).fill(staged);
+    await expect(rx.getByRole("option", { name: new RegExp(`^Add .${staged}.$`) })).toBeVisible({ timeout: 10_000 });
+    await rxField(rx).press("Enter");
+    await expect(rx.locator("[data-dose-builder]")).toBeVisible();
 
     await page.getByRole("button", { name: /Finish visit/ }).first().click();
     const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
@@ -224,7 +227,7 @@ test.describe("amendment: in-session transitions", () => {
     await expect(page.getByTestId("signed-chip")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator("#vitals input")).toHaveCount(0);
     await expect(page.locator("#vitals").getByRole("button", { name: "Edit vitals" })).toHaveCount(0);
-    await expect(page.getByText("Configure Dosage & Instructions:")).toHaveCount(0);
+    await expect(page.locator("[data-dose-builder]")).toHaveCount(0);
     await expect(page.locator("#prescription input:not([disabled]), #prescription textarea:not([disabled]):not([readonly])")).toHaveCount(0);
   });
 

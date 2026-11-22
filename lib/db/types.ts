@@ -27,6 +27,9 @@ export interface Tenant {
   drug_license_no?: string | null;
   /** Opt-in to receive in-network referrals (V2-05 05-06; set by clinic:manage, UI in V2-11). */
   referral_directory_listed?: boolean;
+  /** The clinic's default Rx paper size and letterhead mode, frozen on a header at its creation (V2-09c R-12; the settings card is 09C-04). */
+  rx_paper_size?: "A4" | "A5";
+  rx_letterhead_mode?: "blank_paper" | "preprinted_letterhead";
   created_at: string;
   updated_at: string;
 }

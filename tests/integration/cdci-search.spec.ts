@@ -4,7 +4,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { seedCdciTestFixture } from "../../scripts/seed-cdci-test-fixture";
 import type { Database } from "@/lib/db/types";
 
-/** One row of `search_medicines`, from the generated function signature. */
+/** One row of `search_medicines` (V2-09c 000117: INVOKER, the doctor is the session's), from the generated function signature. */
 type MedicineSearchRow = Database["public"]["Functions"]["search_medicines"]["Returns"][number];
 
 describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)", () => {
@@ -21,8 +21,8 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     // 2. Seed test CDCI fixture (~200 essential Indian OPD drugs)
     await seedCdciTestFixture(admin);
 
-    // 3. Add custom medicine for Doctor A in Tenant A
-    const { data: customMed, error: customErr } = await tenantA.client
+    // 3. Add custom medicine for Doctor A in Tenant A (V2-09c 000117: a request path no longer inserts it; change_prescription does, so the fixture is the service role's)
+    const { data: customMed, error: customErr } = await admin
       .from("doctor_custom_medicines")
       .insert({
         tenant_id: tenantA.tenantId,
@@ -44,10 +44,9 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     customMedAId = customMed.id;
   });
 
-  it("1. Custom medicine appears first with is_custom=true and is_favorite=true", async () => {
+  it("1. Custom medicine appears first with kind custom and the doctor's stored dose", async () => {
     const { data, error } = await tenantA.client.rpc("search_medicines", {
       p_query: "Dr A Custom",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 10,
     });
@@ -57,16 +56,16 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     expect(data!.length).toBeGreaterThan(0);
     const first = data![0];
     expect(first.medicine_name).toBe("Dr A Custom Cough Syrup");
-    expect(first.is_custom).toBe(true);
-    expect(first.is_favorite).toBe(true);
-    expect(first.default_dosage).toBe("5ml");
+    expect(first.kind).toBe("custom");
+    expect(first.dosage).toBe("5ml");
+    expect(first.timing).toBe("After food");
+    expect(first.duration).toBe("5 days");
   });
 
   it("2. Fuzzy brand search (Augmentin, Dolo) returns matching CDCI drugs", async () => {
     // Brand search for Dolo
     const { data: doloResults, error: doloErr } = await tenantA.client.rpc("search_medicines", {
       p_query: "Dolo",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 10,
     });
@@ -76,12 +75,13 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     const dolo650 = doloResults!.find((m: MedicineSearchRow) => m.medicine_name.includes("Dolo 650"));
     expect(dolo650).toBeDefined();
     expect(dolo650?.generic_name).toContain("Paracetamol");
-    expect(dolo650?.is_custom).toBe(false);
+    expect(dolo650?.kind).toBe("cdci");
+    // V2-09c R-3: a catalogue row carries no dose at all (the 000061 function invented "After food" and "5 days").
+    expect([dolo650?.dosage, dolo650?.timing, dolo650?.duration]).toEqual([null, null, null]);
 
     // Brand search for Augmentin
     const { data: augResults, error: augErr } = await tenantA.client.rpc("search_medicines", {
       p_query: "Augmentin",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 10,
     });
@@ -96,7 +96,6 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
   it("3. Fuzzy generic search (Amoxicillin, Paracetamol) returns matching formulations", async () => {
     const { data: paraResults, error: paraErr } = await tenantA.client.rpc("search_medicines", {
       p_query: "Paracetamol",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 10,
     });
@@ -111,7 +110,6 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
 
     const { data: amoxResults, error: amoxErr } = await tenantA.client.rpc("search_medicines", {
       p_query: "Amoxicillin",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 10,
     });
@@ -129,7 +127,6 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     const start = performance.now();
     const { data, error } = await tenantA.client.rpc("search_medicines", {
       p_query: "Azithromycin",
-      p_doctor_id: tenantA.userId,
       p_tenant_id: tenantA.tenantId,
       p_limit: 20,
     });
@@ -145,7 +142,6 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     // Doctor B searches for custom cough syrup created by Doctor A
     const { data, error } = await tenantB.client.rpc("search_medicines", {
       p_query: "Dr A Custom",
-      p_doctor_id: tenantB.userId,
       p_tenant_id: tenantB.tenantId,
       p_limit: 10,
     });
@@ -176,7 +172,8 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
         medicine_name: "Malicious Injection Medicine",
       });
 
-    // Rejected by RLS WITH CHECK policy
+    // Refused (V2-09c 000117: INSERT is revoked from authenticated, so by privilege before the RLS WITH CHECK is reached)
     expect(insertErr).not.toBeNull();
+    expect(insertErr?.code).toBe("42501");
   });
 });

@@ -14,14 +14,16 @@ import {
 import type { PastVisitEncounter } from "@/features/consultation/actions";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import type { PrescriptionItem, Referral } from "@/lib/db/types";
-import { addPrescriptionItem } from "@/features/prescriptions/actions";
+import { templateItemToAdd, type ChangeLine } from "@/features/prescriptions/lines";
 import { sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 import { changedDraftKeys, type DraftFields } from "@/features/consultation/draft";
 import type { FlushResult } from "@/features/consultation/draft-saver";
 import { VitalsBlock } from "../vitals-block";
-import { PrescriptionBuilder } from "../prescription-builder";
+import { notify } from "@/components/ui/toast";
+import { PrescriptionSection } from "./sections/prescription-section";
+import { useRxLines } from "./use-rx-lines";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
@@ -276,7 +278,10 @@ export function ConsultWorkspace({
   const [shortcutsOn, setShortcutsOn] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
-  const [rxItems, setRxItems] = useState<PrescriptionItem[]>(visit.prescription_items ?? []);
+  // The Rx lines are the server's answer to one `change_prescription` command per change (V2-09c R-2); the hook holds them for the section, the strip,
+  // the summary pane and Sign & Bill.
+  const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [] });
+  const rxItems = rx.items;
 
   // Referral state
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -330,7 +335,7 @@ export function ConsultWorkspace({
   );
   const focusMedicineSearch = () => {
     goToSection("prescription");
-    document.getElementById("medicine-search-input")?.focus();
+    document.querySelector<HTMLInputElement>("#prescription [data-rx-search]")?.focus();
   };
   const shorthandOn = assist?.["assist.shorthand"] === true && !readOnly;
   const followUpOn = assist?.["assist.followup"] === true && !readOnly;
@@ -473,25 +478,14 @@ export function ConsultWorkspace({
     }
   };
 
-  // Repeat Rx from the history list: the v1 loop, a registered exception owned by V2-09c (no-client-command-chains.spec.ts).
-  const handleRepeatRx = async (medications: PastVisitEncounter["prescriptions"][0]["items"]) => {
+  // Repeat Rx (the history list's "Repeat this Rx" and the section's "Repeat last Rx"): the past lines as ONE `change_prescription` command (V2-09c R-2).
+  // 09C-03 moves the copy into the database (`repeat_visit_plan`), which also skips what is already on this Rx.
+  const handleRepeatRx = async (medications: PastVisitEncounter["prescriptions"][0]["items"]): Promise<{ ok: boolean; error?: string }> => {
     setIsPatientOpen(false);
     goToSection("prescription");
-    for (const med of medications) {
-      try {
-        await addPrescriptionItem(visit.id, {
-          medicine_name: med.medicine_name,
-          generic_name: med.generic_name ?? null,
-          dose_form: med.dose_form ?? null,
-          dosage: med.dosage,
-          timing: med.timing ?? null,
-          duration: med.duration,
-          special_instructions: med.special_instructions ?? null,
-        });
-      } catch (err) {
-        reportClientError("prescriptions.repeat_medication.failed", err);
-      }
-    }
+    const lines = medications.map((med) => templateItemToAdd({ ...med, cdci_brand_id: null })).filter((l): l is ChangeLine => l !== null);
+    if (lines.length === 0) return { ok: true };
+    return rx.add(lines);
   };
 
   const handleCopyNotes = (notes: string) => {
@@ -561,7 +555,13 @@ export function ConsultWorkspace({
     snapshot,
     encounters: pastEncounters,
     timeZone,
-    onRepeatRx: readOnly ? undefined : handleRepeatRx,
+    onRepeatRx: readOnly
+      ? undefined
+      : (items: PastVisitEncounter["prescriptions"][0]["items"]) => {
+          void handleRepeatRx(items).then((sent) => {
+            if (!sent.ok) notify.error(sent.error ?? "Failed to repeat the prescription.");
+          });
+        },
     onCopyNotes: readOnly ? undefined : handleCopyNotes,
     documents: documents ? documents.slice(0, 5) : undefined,
   };
@@ -851,21 +851,15 @@ export function ConsultWorkspace({
               summary={rxItems.length > 0 ? plural(rxItems.length, "medicine", "medicines") : "No medicines yet"}
               flat
             >
-              <PrescriptionBuilder
+              <PrescriptionSection
                 key={editorKey}
-                visitId={visit.id}
-                patientAllergies={patient.allergies ?? []}
-                initialItems={rxItems}
-                onItemsChange={setRxItems}
-                disabled={readOnly}
-                hasPastRx={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
-                activeDiagnosis={diagnoses[0]?.diagnosis_name || null}
-                doctorId={visit.doctor_id}
-                onRepeatLastRx={() => {
+                rx={rx}
+                readOnly={readOnly}
+                canRepeatLast={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
+                onRepeatLast={async () => {
                   const firstWithRx = pastEncounters.find((e) => e.prescriptions && e.prescriptions.length > 0);
-                  if (firstWithRx && firstWithRx.prescriptions[0]?.items) {
-                    void handleRepeatRx(firstWithRx.prescriptions[0].items);
-                  }
+                  if (!firstWithRx || !firstWithRx.prescriptions[0]?.items) return { ok: true };
+                  return handleRepeatRx(firstWithRx.prescriptions[0].items);
                 }}
               />
             </ConsultSection>

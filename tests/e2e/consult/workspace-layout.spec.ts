@@ -301,12 +301,12 @@ test.describe("single-key shortcuts behind the per-device switch (R-7)", () => {
     await openConsult(page, 1280, 800);
     await page.locator("body").click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("m");
-    await expect(page.locator("#medicine-search-input")).toBeFocused();
+    await expect(page.locator("#prescription [data-rx-search]")).toBeFocused();
     // Typing "f" and "?" in the focused search is text, not a shortcut.
     await page.keyboard.type("f?");
-    await expect(page.locator("#medicine-search-input")).toHaveValue("f?");
+    await expect(page.locator("#prescription [data-rx-search]")).toHaveValue("f?");
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await page.locator("#medicine-search-input").fill("");
+    await page.locator("#prescription [data-rx-search]").fill("");
     await page.locator("[data-note-scroll]").evaluate((el) => (el as HTMLElement).blur());
     await page.locator("#complaints-title").focus();
     await page.keyboard.press("Shift+Slash");

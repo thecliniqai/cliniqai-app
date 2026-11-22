@@ -691,7 +691,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" | "session-medicine-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1193,6 +1193,63 @@ export async function sessionDiagnosisSearchRouteLegs(
     }
   } finally {
     await admin.from("opd_diagnoses").delete().eq("id", inserted.data.id);
+  }
+  return out;
+}
+
+/**
+ * `session-medicine-search` route (09C-01, T-09C-03): the least-privileged holder of the permission searches a synthetic catalogue row and gets 200 with
+ * `no-store` and rows with exactly the projection keys; the catalogue row carries no dosage, timing or duration; nothing of tenant B is in the response; a
+ * hostile query is data (200, never a 500). The denial legs (401, 403, no membership) are `sessionRouteDenialLegs`. The catalogue is global, so the row
+ * inserted for the control touches no tenant's rows.
+ */
+export async function sessionMedicineSearchRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-medicine-search" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  const admin = getAdminClient();
+  const id = `test-cdci-09c-guard-${randomBytes(4).toString("hex")}`;
+  const name = `Guardcanary medicine ${randomBytes(4).toString("hex")}`;
+  const inserted = await admin.from("cdci_medicines_search").upsert({ id, brand_name: name, generic_name: "Guardcanarin", dose_form: "Tablet", product_name: name, supplier_name: "Synthetic Labs" }, { onConflict: "id" });
+  if (inserted.error) return [routeV(c, "control", `could not seed the catalogue row: ${inserted.error.message}`)];
+  try {
+    const r = await callRoute(slot, client, c, { query: { q: name } });
+    out.push(...expectStatus(c, "a catalogue row", r, [200]), ...expectNoB(c, "a catalogue row", r, world));
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, "a catalogue row", "no Cache-Control: no-store"));
+    let rows: Array<Record<string, unknown>> = [];
+    try {
+      rows = (JSON.parse(r.body) as { results?: Array<Record<string, unknown>> }).results ?? [];
+    } catch {
+      out.push(routeV(c, "a catalogue row", `body is not { results: [...] }: ${brief(r.body)}`));
+    }
+    const control = rows.find((row) => row.medicine_name === name);
+    if (!control) out.push(routeV(c, "a catalogue row", "the control row was not listed"));
+    for (const row of rows) {
+      const keys = Object.keys(row);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+      if (row.kind === "cdci" && (row.dosage !== null || row.timing !== null || row.duration !== null)) {
+        out.push(routeV(c, "projection", "a catalogue row carries a dosage, timing or duration"));
+      }
+    }
+    for (const [leg, q] of [
+      ["SQL text", "'; drop table cdci_medicines_search; --"],
+      ["array syntax", '"},{"x":"y"}'],
+      ["a NUL character", "\u0000ab"],
+      ["wildcards", "%%"],
+      ["tsquery syntax", "(a & !b) | c:*"],
+    ] as const) {
+      const hostile = await callRoute(slot, client, c, { query: { q } });
+      out.push(...expectStatus(c, `hostile query: ${leg}`, hostile, [200]), ...expectNoB(c, `hostile query: ${leg}`, hostile, world));
+    }
+  } finally {
+    // The row is a global reference fixture with a fixed prefix; it is left in place like the other synthetic catalogue rows (tests/setup/teardown.ts).
   }
   return out;
 }

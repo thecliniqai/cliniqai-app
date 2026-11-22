@@ -81,26 +81,34 @@ describe("a request path cannot write the columns only the commands change (R-8)
 });
 
 describe("one header per visit on a request path (I-1)", () => {
-  it("a doctor's second header (version 2) on a visit that has one is refused PRESCRIPTION_VERSION_FORBIDDEN", async () => {
+  // V2-09c 000117: INSERT on prescriptions is revoked from authenticated, so a request path no longer reaches the actor guard (PRESCRIPTION_VERSION_FORBIDDEN,
+  // still in the database as defence in depth, proven in prescription_seal.test.sql with the grant widened). The only request-path writer is change_prescription,
+  // which creates version 1 once.
+  it("a doctor's second header (version 2) on a visit that has one is refused by privilege, and nothing is written", async () => {
     const { data, error } = await members.doctor.client
       .from("prescriptions")
       .insert({ tenant_id: owner.tenantId, visit_id: draft.visitId, patient_id: draft.patientId, doctor_id: members.doctor.userId, version: 2 })
       .select("id");
     expect(data).toBeNull();
     expect(error?.code).toBe("42501");
-    expect(error?.message).toContain("PRESCRIPTION_VERSION_FORBIDDEN");
     expect(await prescriptionsOfVisit(draft.visitId)).toHaveLength(1);
   });
 
-  it("the first header (version 1) of a visit that has none is admitted", async () => {
+  it("the first header (version 1) of a visit that has none is created by the command, and a second change reuses it", async () => {
     const empty = await seedClinicalVisit(owner, { doctorId: members.doctor.userId, prescriptions: 0 });
-    const { data, error } = await members.doctor.client
-      .from("prescriptions")
-      .insert({ tenant_id: owner.tenantId, visit_id: empty.visitId, patient_id: empty.patientId, doctor_id: members.doctor.userId, version: 1 })
-      .select("id, version");
-    expect(error).toBeNull();
-    expect(data).toHaveLength(1);
-    expect(data![0]).toMatchObject({ version: 1 });
+    const line = { medicine_name: "Synthetic Rx Seal Tablet", dosage: "1-0-0", duration: "3 days" };
+    for (let i = 0; i < 2; i++) {
+      const { error } = await members.doctor.client.rpc("change_prescription", {
+        p_tenant_id: owner.tenantId,
+        p_visit_id: empty.visitId,
+        p_changes: { add: [line] },
+        p_client_request_id: randomUUID(),
+      });
+      expect(error).toBeNull();
+    }
+    const headers = await prescriptionsOfVisit(empty.visitId);
+    expect(headers).toHaveLength(1);
+    expect(headers[0]).toMatchObject({ version: 1 });
   });
 });
 

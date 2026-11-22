@@ -98,6 +98,13 @@ export type RouteGuard =
    * exactly `keys`, nothing of tenant B in the response, and a hostile query (SQL text, array syntax, a NUL, wildcards) is data (200, never a 500).
    */
   | { kind: "session-diagnosis-search"; permission: Permission; keys: readonly string[] }
+  /**
+   * V2-09c 09C-01 (T-09C-03): the Rx medicine typeahead `GET /api/prescriptions/medicines?q=`. The denial legs of session(P) (no session 401, a role lacking
+   * `permission` 403, no membership refused); a member with the permission searching a catalogue row answers 200 with `no-store` and rows with exactly `keys`,
+   * the catalogue row carries no dosage, timing or duration, nothing of tenant B is in the response, and a hostile query (SQL text, array syntax, a NUL,
+   * wildcards, tsquery syntax) is data (200, never a 500).
+   */
+  | { kind: "session-medicine-search"; permission: Permission; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -173,14 +180,11 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/patients/consent.ts#toggleGlobalConsent": "patients:edit",
   "features/patients/consent.ts#withdrawConsent": "patients:edit",
   "features/patients/dedup.ts#findPotentialDuplicates": "patients:view",
-  "features/prescriptions/actions.ts#addPrescriptionItem": "consultations:edit",
+  "features/prescriptions/actions.ts#changePrescriptionAction": "prescriptions:edit",
   "features/prescriptions/actions.ts#getDoctorProtocolTemplates": "consultations:view",
-  "features/prescriptions/actions.ts#getOrCreateDraftPrescription": "consultations:edit",
   "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "prescriptions:view",
   "features/prescriptions/actions.ts#getVisitPrescription": "consultations:view",
-  "features/prescriptions/actions.ts#removePrescriptionItem": "consultations:edit",
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": "consultations:edit",
-  "features/prescriptions/actions.ts#searchMedicines": "consultations:view",
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#enqueueWalkIn": "appointments:edit",
@@ -322,6 +326,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-search",
     permission: "patients:view",
     keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
+  "app/api/prescriptions/medicines/route.ts#GET": {
+    kind: "session-medicine-search",
+    permission: "prescriptions:edit",
+    keys: ["id", "kind", "medicine_name", "generic_name", "dose_form", "substance_ids", "dosage", "timing", "duration"],
   },
   "app/api/terminology/diagnoses/route.ts#GET": {
     kind: "session-diagnosis-search",

@@ -346,29 +346,26 @@ describe("P0-02 membership guard (000019)", () => {
   });
 
   describe("SEC-09: SECURITY DEFINER functions check the tenant", () => {
-    it("a tenant-A owner cannot call the generators or drug search for tenant B", async () => {
-      const calls: Array<[string, Record<string, unknown>]> = [
-        ["generate_tenant_invoice_number", { p_tenant_id: ownerB.tenantId }],
-        [
-          "search_medicines",
-          { p_query: "Dolo", p_doctor_id: ownerB.userId, p_tenant_id: ownerB.tenantId, p_limit: 5 },
-        ],
-      ];
-      for (const [name, args] of calls) {
-        const { data, error } = await rpc(owner.client, name, args);
-        expect(error?.code, name).toBe("42501");
-        expect(data, name).toBeNull();
-      }
+    it("a tenant-A owner cannot call the generator for tenant B, and reads nothing from B's drug search", async () => {
+      const gen = await rpc(owner.client, "generate_tenant_invoice_number", { p_tenant_id: ownerB.tenantId });
+      expect(gen.error?.code).toBe("42501");
+      expect(gen.data).toBeNull();
+      // V2-09c 000117: search_medicines is an INVOKER read keyed on the session (the doctor is auth.uid(), no longer a parameter): another clinic's id reads nothing.
+      const search = await rpc(owner.client, "search_medicines", { p_query: "Dolo", p_tenant_id: ownerB.tenantId, p_limit: 5 });
+      expect(search.error).toBeNull();
+      expect(search.data).toEqual([]);
     });
 
-    it("search_medicines refuses another doctor's formulary in the caller's own tenant", async () => {
+    it("search_medicines takes no doctor id: another doctor's formulary cannot be asked for", async () => {
       const { error } = await rpc(owner.client, "search_medicines", {
         p_query: "Dolo",
         p_doctor_id: doctor.userId,
         p_tenant_id: owner.tenantId,
         p_limit: 5,
       });
-      expect(error?.code).toBe("42501");
+      // The 4-argument DEFINER function that took a doctor id is gone (PGRST202: no function with these arguments).
+      expect(error).not.toBeNull();
+      expect(error?.code).not.toBe("42501");
     });
 
     it("the caller's own tenant still works", async () => {
@@ -378,7 +375,6 @@ describe("P0-02 membership guard (000019)", () => {
 
       const s = await rpc(owner.client, "search_medicines", {
         p_query: "Dolo",
-        p_doctor_id: owner.userId,
         p_tenant_id: owner.tenantId,
         p_limit: 5,
       });
@@ -395,7 +391,7 @@ describe("P0-02 membership guard (000019)", () => {
         // issue_queue_token replaced generate_daily_queue_token (05-11a); 05-b0 dropped the old generator and the
         // legacy current_user_has_role / current_user_is_admin_or_owner helpers (contract_05a.test.sql).
         ["issue_queue_token", { p_visit_id: randomUUID(), p_priority: "normal" }],
-        ["search_medicines", { p_query: "x", p_doctor_id: owner.userId, p_tenant_id: owner.tenantId, p_limit: 1 }],
+        ["search_medicines", { p_query: "x", p_tenant_id: owner.tenantId, p_limit: 1 }],
         ["current_user_tenant_ids", {}],
         ["change_member_role", { p_membership_id: randomUUID(), p_role: "owner" }],
         ["consume_invitation", { p_token_hash: "0".repeat(64) }],

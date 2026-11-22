@@ -284,15 +284,18 @@ export type Database = {
         Row: {
           generic_name: string;
           id: string;
+          substance_ids: string[];
         };
         ComputedFields: never;
         Insert: {
           generic_name: string;
           id: string;
+          substance_ids?: string[];
         };
         Update: {
           generic_name?: string;
           id?: string;
+          substance_ids?: string[];
         };
         Relationships: [];
       };
@@ -2071,6 +2074,7 @@ export type Database = {
           doctor_id: string;
           id: string;
           letterhead_mode: string;
+          paper_size: string;
           patient_id: string;
           pdf_sha256: string | null;
           pdf_storage_path: string | null;
@@ -2088,6 +2092,7 @@ export type Database = {
           doctor_id: string;
           id?: string;
           letterhead_mode?: string;
+          paper_size?: string;
           patient_id: string;
           pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
@@ -2104,6 +2109,7 @@ export type Database = {
           doctor_id?: string;
           id?: string;
           letterhead_mode?: string;
+          paper_size?: string;
           patient_id?: string;
           pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
@@ -2777,6 +2783,8 @@ export type Database = {
           phone: string | null;
           referral_directory_listed: boolean;
           registration_number: string | null;
+          rx_letterhead_mode: string;
+          rx_paper_size: string;
           specialties: string[] | null;
           state_medical_council_reg_no: string | null;
           timezone: string;
@@ -2803,6 +2811,8 @@ export type Database = {
           phone?: string | null;
           referral_directory_listed?: boolean;
           registration_number?: string | null;
+          rx_letterhead_mode?: string;
+          rx_paper_size?: string;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
           timezone?: string;
@@ -2828,6 +2838,8 @@ export type Database = {
           phone?: string | null;
           referral_directory_listed?: boolean;
           registration_number?: string | null;
+          rx_letterhead_mode?: string;
+          rx_paper_size?: string;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
           timezone?: string;
@@ -3258,6 +3270,15 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      change_prescription: {
+        Args: {
+          p_changes: Json;
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       check_in_visit: {
         Args: {
@@ -3820,22 +3841,17 @@ export type Database = {
         }[];
       };
       search_medicines: {
-        Args: {
-          p_doctor_id: string;
-          p_limit?: number;
-          p_query: string;
-          p_tenant_id: string;
-        };
+        Args: { p_limit?: number; p_query: string; p_tenant_id: string };
         Returns: {
-          default_dosage: string;
-          default_duration: string;
-          default_timing: string;
+          dosage: string;
           dose_form: string;
+          duration: string;
           generic_name: string;
           id: string;
-          is_custom: boolean;
-          is_favorite: boolean;
+          kind: string;
           medicine_name: string;
+          substance_ids: string[];
+          timing: string;
         }[];
       };
       search_patients: {

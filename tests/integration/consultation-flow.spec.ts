@@ -6,10 +6,8 @@ import { checkInVisit, startConsultation, completeVisit } from "@/features/queue
 import { getPatientConsultationHistory } from "@/features/consultation/service";
 import { saveDraftAs, saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
-import {
-  addPrescriptionItem,
-  getVisitPrescription,
-} from "@/features/prescriptions/service";
+import { getVisitPrescription } from "@/features/prescriptions/service";
+import { changeRxAs } from "../helpers/rx-lines";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 
@@ -276,10 +274,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
   it("7. Doctor prescribes 2 medications using fast dosage chips (Paracetamol & Amoxicillin)", async () => {
     // 1. Prescribe Paracetamol 650mg
-    const med1Res = await addPrescriptionItem(
-      ctxFor(tenantA),
-      visitAId,
-      {
+    const med1Res = await changeRxAs(ctxFor(tenantA), visitAId, { add: [{
         medicine_name: "Paracetamol 650mg",
         generic_name: "Paracetamol",
         dose_form: "Tablet",
@@ -287,17 +282,13 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take SOS if pain recurs",
-      }
-    );
+      }] });
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
     prescriptionAId = med1Res.prescriptionId;
 
     // 2. Prescribe Amoxicillin 500mg
-    const med2Res = await addPrescriptionItem(
-      ctxFor(tenantA),
-      visitAId,
-      {
+    const med2Res = await changeRxAs(ctxFor(tenantA), visitAId, { add: [{
         medicine_name: "Amoxicillin 500mg",
         generic_name: "Amoxicillin",
         dose_form: "Capsule",
@@ -305,8 +296,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Complete full 5-day course",
-      }
-    );
+      }] });
     expect(med2Res.success).toBe(true);
 
     // 3. Verify prescription and ordered items
