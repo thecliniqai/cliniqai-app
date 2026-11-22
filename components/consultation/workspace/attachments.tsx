@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ExternalLink, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FileDrop, type FileDropResult } from "@/components/ui/file-drop";
+import { FileDrop, type FileDropHandle, type FileDropResult } from "@/components/ui/file-drop";
+import { TakePhotoButton } from "@/components/clinical/take-photo-button";
+import { prepareImageForUpload } from "@/lib/files/compress-image";
 import { getDocumentSignedUrl, uploadLabDocument } from "@/features/labs/actions";
-import { LAB_ACCEPTED_MIME_TYPES, LAB_MAX_FILE_LABEL, labFileRefusal } from "@/features/labs/utils";
+import { LAB_ACCEPTED_MIME_TYPES, LAB_MAX_FILE_LABEL, labClientFileRefusal } from "@/features/labs/utils";
 import { titleFromFilename, toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
 import { reportClientError } from "@/lib/log/client";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
@@ -81,6 +83,7 @@ export function DocumentRow({ doc }: { doc: ConsultDocument }) {
 }
 
 export function Attachments({ visitId, patientId, documents, readOnly, canUpload, onUploaded }: AttachmentsProps) {
+  const drop = useRef<FileDropHandle>(null);
   const upload = async (file: File, requestId: string): Promise<FileDropResult> => {
     const form = new FormData();
     // 09B-06a (A-4): the same id on every Retry of this file, so a retry after a lost response returns the stored row instead of a second copy.
@@ -105,15 +108,21 @@ export function Attachments({ visitId, patientId, documents, readOnly, canUpload
           This record is signed. Reports can no longer be added to it.
         </p>
       ) : (
-        <FileDrop
-          label="Upload lab report or radiograph"
-          accept={LAB_ACCEPTED_MIME_TYPES}
-          limitsText={`PDF, JPEG, PNG or WEBP, up to ${LAB_MAX_FILE_LABEL} each.`}
-          refuse={labFileRefusal}
-          onUpload={upload}
-          disabled={!canUpload}
-          disabledReason="Your role cannot upload reports."
-        />
+        <>
+          <FileDrop
+            label="Upload lab report or radiograph"
+            accept={LAB_ACCEPTED_MIME_TYPES}
+            limitsText={`PDF, JPEG, PNG or WEBP. Photos are made smaller before they are sent; other files up to ${LAB_MAX_FILE_LABEL}.`}
+            refuse={labClientFileRefusal}
+            prepare={prepareImageForUpload}
+            handleRef={drop}
+            onUpload={upload}
+            disabled={!canUpload}
+            disabledReason="Your role cannot upload reports."
+          />
+          {/* Camera capture sits beside the drop zone (09B hand-off), on a phone or tablet only; its picture joins the same queue and the same compression. */}
+          <TakePhotoButton disabled={!canUpload} onTake={(files) => drop.current?.take(files)} />
+        </>
       )}
       {documents.length > 0 ? (
         <ul aria-label="Attachments" className="flex flex-col gap-1.5">

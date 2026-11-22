@@ -95,6 +95,20 @@ export const LAB_CONTENT_MISMATCH_MESSAGE = "The file's content does not match i
 /** A report linked to a visit whose record is signed, completed or cancelled (09B-06a, S-2 / A-8). */
 export const LAB_VISIT_LOCKED_MESSAGE = "This visit's record is signed or closed. Reports can no longer be added to it.";
 
+/**
+ * The most a photo may weigh BEFORE it is compressed in the browser (V2-09c 09C-05, R-15): a phone photo is often 3 to 12 MB and goes up as a JPEG of at most
+ * 1 MB. The server's own limit (4 MB, above) is applied to what is sent, not to what the camera made.
+ */
+export const LAB_MAX_IMAGE_INPUT_BYTES = 40 * 1024 * 1024;
+
+/** The client check of a file the browser will compress when it is a picture: the type, then the size (an image up to `LAB_MAX_IMAGE_INPUT_BYTES`, any other file up to 4 MB). */
+export function labClientFileRefusal(file: { type: string; size: number }): string | null {
+  if (!(LAB_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)) return LAB_INVALID_TYPE_MESSAGE;
+  const limit = file.type.startsWith("image/") ? LAB_MAX_IMAGE_INPUT_BYTES : LAB_MAX_FILE_BYTES;
+  if (file.size > limit) return LAB_TOO_LARGE_MESSAGE;
+  return null;
+}
+
 /** The refusal text for a file the upload would not take, or null when it is acceptable (a type, then the size). */
 export function labFileRefusal(file: { type: string; size: number }): string | null {
   if (!(LAB_ACCEPTED_MIME_TYPES as readonly string[]).includes(file.type)) return LAB_INVALID_TYPE_MESSAGE;
