@@ -637,3 +637,70 @@ lines); A-5 red (`journey-08` A-5: the entry row present); A-10 red (`rx-keyboar
 - **Compression fallbacks are not counted** (deviation 4).
 - **PO actions** (not done here): 09C-P3 now covers 000117 to 000120 on staging; the S-3 and T-09C-13 accepted risks in `09C-SECURITY.md` need the PO's
   confirmation at the gate.
+
+## today-signals flake (gate full run, after 09C-06a; fix 93eae3ca)
+
+**Symptom.** The gate's first full Vitest run (393 files, 05:46 UTC) failed one case: `tests/realtime/today-signals.spec.ts` "clinic A's changes never
+reach clinic B's own subscriber", `the channel joined but never delivered a signal` (`joined`, line 83, from 192). The file passes alone. V2-08's first
+full run failed the first two cases with the same error; its notes put it down to the join being answered before the read authorisation applied.
+
+**Cause: Realtime's event quota, not the join.** Realtime meters every broadcast of the project (all clinics, all topics) against its tenant's
+`max_events_per_second` (100 on the local stack; Supabase's documented Free plan figure) averaged over the last 60 s (realtime v2.140.10: twelve 5 s
+buckets). Each `realtime.send` counts once and each delivery to a subscribed channel counts once more. Over the quota, Realtime drops every database
+broadcast (`UnableToBroadcastChanges: :too_many_requests` in its log) until the average falls, and the subscribed channel gets no message about it.
+The run is one file at a time. The order is failed files first, then the longest cached duration first, so it shifts between runs. In this run
+`tests/security/guard-actions.spec.ts` (05:48:00.9 to 05:48:41.7) ran just before today-signals (05:48:42.7). Its legs create about 5200 visits and
+750 invoices in one guard clinic: 6060 Today signals in 35 s. The window was over the quota when the isolation case began, and all eight probes were
+dropped. Three conditions have to hold together:
+- the burst;
+- the order (the burst lands within the 60 s before the file);
+- the tenant's replication is running during the burst. It runs only after a join in the previous ten minutes. Broadcasts stored while it is down
+  are never read, so on a fresh CI stack, where this file makes the first join, the burst is not counted.
+
+After a failure the file runs first next time, so a rerun passes. That is why V2-08's second run passed.
+
+**Evidence** (local stack, tool output):
+- Realtime log of the gate run: eight `too_many_requests` lines 1.5 s apart, 05:48:44.3 to 05:48:55.1 (the eight probes), and two more at the next
+  cases' sends (05:48:59, 05:49:04). Delivery is back by 05:49:23.
+- `realtime.messages`: 6060 rows in minute 05:48 on one topic (5230 visit, 754 invoice, 22 vitals, 12 payment, 12 queue). The run report's file
+  timings show guard-actions as the only file running then.
+- Quota counter read from the running Realtime (`realtime rpc`): 5000 ms tick, 12 buckets, limit 100 on the average. 50 sends with no subscriber
+  counted 50; with three subscribers they counted 200.
+- The join race is ruled out: 30 fresh joins, each followed at once by one visit, delivered 30 of 30 on the first visit (about 22 ms).
+- A separate, real gap (what the probe loop covers; not this failure). The local tenant shuts down ("rebalancing": no region nodes) ten minutes after
+  each start. The next join restarts the replication and is answered before the stream runs. In one case a visit stored 33 ms before the slot existed
+  was never delivered (1 of 30 joins under DB CPU load). A channel that is already subscribed when the tenant shuts down stays SUBSCRIBED and receives
+  nothing until some new join: 18 of 18 sends were lost over 90 s.
+
+**Fix (test harness only).** `beforeAll` first waits until `realtime.messages` holds at most half the quota for the last 65 s. The quota is
+`max_events_per_second` × 60 / 2, read from `_realtime.tenants`. The wait is bounded at 75 s and fails with a message that names the cause. It is 0 s
+after a quiet file and at most the window after a burst; the hook's bound is 120 s. `joined` keeps its probe loop. Its comment now describes the
+replication gap instead of the authorisation race, and its failure message includes the window's count. No product, migration or case-timeout change,
+and no retry. This departs from V2-08's prescription ("wait for the subscription's own acknowledgement of the policy check"): the evidence shows the
+acknowledgement was never the gap, and the client has no later acknowledgement to wait for.
+
+**Repro counts.** Each row runs `npx vitest run` on the file, the HEAD copy against the fixed spec, with the replication running. "flood" = 6500
+`realtime.send` on a non-today topic, then the file. "guard" = `tests/security/guard-actions.spec.ts`, then the file.
+
+| Sequence | Before (HEAD spec) | After (fixed spec) |
+|---|---|---|
+| flood | 0 of 3 green (6/10 each: the first four cases, 36 drops each) | 3 of 3 green, 0 drops, 101 to 102 s |
+| guard | 0 of 2 green (9/10: case 1, 14 and 12 drops) | 3 of 3 green, 0 drops, 76 to 78 s |
+| quiet | 1 of 1 green | 3 of 3 green, 0 drops, 34.8 to 34.9 s |
+
+One more flood landed while the tenant was down: the HEAD spec passed 10/10 with 0 drops, because the flood was never read. That run confirms the third
+condition and is not counted above.
+
+**Product (for the PO; not changed).**
+- The Today board can miss signals the same way, and the refresh on every subscription does not cover it. During a quota trip the channel stays
+  SUBSCRIBED and gets no status or system event. Measured: after a 6500-send flood, a subscribed channel lost 29 consecutive sends over 58 s, then
+  delivery resumed on its own. `useTodayLive` polls only while the channel is not subscribed.
+- On hosted Supabase the quota is per project, across every clinic (Supabase's limits page: Free 100, Pro 500, Team 2,500 messages per second). Each
+  signal costs 1 plus the number of open boards in its clinic. Normal traffic is far below the quota. A bulk write (an import, a backfill or job that
+  changes visit status, a mass cancel) could trip it for a minute.
+- The local ten-minute shutdown leaves open boards deaf until a new join. Hosted behaviour was not checked.
+- Options, both design decisions: a slow refresh while live (for example every 60 to 120 s while visible); one signal per statement for bulk writes.
+- Residual test risk: if the local tenant's ten-minute shutdown lands inside a delivery assertion (about 5 s of the file's 35 s), that case would fail.
+  This needs a join in the ten minutes before the file, and it was not seen in any run here.
+- Temporary experiment specs were deleted. `.planning/dev-messages.txt` was not recreated. `.planning/debug/`, `docs/live-roadmap.html` and
+  `docs/whatsapp-templates-v2.md` were left alone; the session file `.planning/debug/today-signals-flake.md` is new and uncommitted.
