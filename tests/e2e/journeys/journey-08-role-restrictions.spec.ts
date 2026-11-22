@@ -9,6 +9,7 @@
  * - Nurse, adding a medicine on a consultation: refused by the server; no prescription item is written.
  * - Doctor, billing reports: the server redirects away (no `billing:view`).
  */
+import { awaitHydrated } from "../support/hydrated";
 import { rxField } from "../support/rx-entry";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
@@ -101,6 +102,8 @@ test.describe("nurse", () => {
     const med = `E2E Synthetic Nurse Med ${tag}`;
 
     await page.goto(`/consultation/${visitId}`);
+    // WebKit hydrates late: text typed before the section is hydrated is lost (09B-02b).
+    await awaitHydrated(page);
     const rx = page.locator("#prescription");
     await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to prescription|Templates/);
     // V2-09c 09C-01: the keyboard builder. The nurse's search is refused (no prescriptions:edit) and the typed name is still offered as an Add row; the

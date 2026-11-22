@@ -13,6 +13,7 @@
  * leaves one revision row holding the signed version, Rx version 2 with both items, the two audit rows, the re-issued `prescription.issued`
  * event, `rx_v1.pdf` and `rx_v2.pdf` archived once each with their own SHA-256, and the PDF route serving the archived v2 bytes.
  */
+import { awaitHydrated } from "../support/hydrated";
 import { addCustomMedicine, rxField } from "../support/rx-entry";
 import { createHash } from "node:crypto";
 import { expect, test } from "../fixtures";
@@ -173,6 +174,8 @@ test("journey 6 tail: the doctor amends a signed consultation with a reason and 
     expect(signedRx).toMatchObject({ version: 1, items: 1 });
 
     await page.goto(`/consultation/${visitId}`);
+    // WebKit hydrates late: a click before the workspace is hydrated is lost (09B-02b).
+    await awaitHydrated(page);
     await page.getByRole("button", { name: "Amend", exact: true }).click();
     const reopen = page.getByRole("dialog", { name: "Reopen Visit for Clinical Amendment" });
     await expect(reopen).toBeVisible();

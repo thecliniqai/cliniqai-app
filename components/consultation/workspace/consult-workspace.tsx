@@ -298,6 +298,8 @@ export function ConsultWorkspace({
   const [allergyContext, setAllergyContext] = useState<RxAllergyContext | null>(initialAllergyContext);
   const [isAllergyEditorOpen, setIsAllergyEditorOpen] = useState(false);
   const [allergyVersion, setAllergyVersion] = useState(0);
+  // The entries the editor coded in this session: known at once, before the context is read again.
+  const [localCoded, setLocalCoded] = useState<string[]>([]);
   const firstContext = useRef(true);
   useEffect(() => {
     // The page already read the context for the first render.
@@ -1022,9 +1024,10 @@ export function ConsultWorkspace({
         onOpenChange={setIsAllergyEditorOpen}
         patientId={patient.id}
         initial={allergies}
-        codedTexts={(allergyContext?.allergies ?? []).filter((a) => a.substanceIds.length > 0).map((a) => a.text)}
-        onSaved={(list) => {
+        codedTexts={[...(allergyContext?.allergies ?? []).filter((a) => a.substanceIds.length > 0).map((a) => a.text), ...localCoded]}
+        onSaved={(list, coded) => {
           setAllergies(list);
+          setLocalCoded(coded);
           setAllergyVersion((n) => n + 1);
         }}
       />

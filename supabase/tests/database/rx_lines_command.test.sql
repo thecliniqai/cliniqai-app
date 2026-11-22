@@ -176,8 +176,12 @@ select is(pg_temp.act('authenticated', 'c1170000-0000-4000-8000-000000000102', '
   'ok:0:1', 'a catalogue row carries no dosage, timing or duration (nothing is invented) and its substance ids are empty until the CDCI load');
 select is((select pg_temp.search('c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a', 'qzxpg')), 'ok:Qzxpg Own Mix|custom|1-0-1|After food|3 days;Qzxpg 50% Special|cdci|-|-|-;Qzxpg Alpha 500|cdci|-|-|-;Qzxpg Beta 250|cdci|-|-|-;Qzxpg_Under|cdci|-|-|-;Qzxpgxbeta|cdci|-|-|-',
   'the caller''s own medicine first, then the catalogue by rank and name');
-select is(pg_temp.search('c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a', '50%'), 'ok:Qzxpg 50% Special|cdci|-|-|-', '% in the query matches itself, not everything');
-select is(pg_temp.search('c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a', 'pg_u'), 'ok:Qzxpg_Under|cdci|-|-|-', '_ in the query matches itself, not any character');
+select is(pg_temp.act('authenticated', 'c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a',
+    $$select string_agg(medicine_name, ';' order by medicine_name) from public.search_medicines('c1170000-0000-4000-8000-00000000000a', '50%', 15) where medicine_name like 'Qzxpg%'$$),
+  'ok:Qzxpg 50% Special', '% in the query matches itself, not everything (of this file''s rows: other rows of a shared catalogue may match too)');
+select is(pg_temp.act('authenticated', 'c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a',
+    $$select string_agg(medicine_name, ';' order by medicine_name) from public.search_medicines('c1170000-0000-4000-8000-00000000000a', 'pg_u', 15) where medicine_name like 'Qzxpg%'$$),
+  'ok:Qzxpg_Under', '_ in the query matches itself, not any character (of this file''s rows)');
 select alike(pg_temp.search('c1170000-0000-4000-8000-000000000102', 'c1170000-0000-4000-8000-00000000000a', '(qzxpg & !beta) | x:*'), 'ok:%', 'tsquery syntax is data: no error');
 select is(pg_temp.search('c1170000-0000-4000-8000-000000000104', 'c1170000-0000-4000-8000-00000000000a', 'qzxpg alpha'), 'ok:', 'a role without prescriptions:edit gets nothing');
 select is(pg_temp.search('c1170000-0000-4000-8000-000000000201', 'c1170000-0000-4000-8000-00000000000a', 'qzxpg alpha'), 'ok:', 'a session of another clinic naming this clinic gets nothing');

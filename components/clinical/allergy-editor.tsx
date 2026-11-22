@@ -29,7 +29,8 @@ export interface AllergyEditorProps {
   initial: readonly string[] | null;
   /** The stored strings the database codes to a CDCI substance (`rx_allergy_context`), compared case-insensitively. */
   codedTexts?: readonly string[];
-  onSaved: (allergies: string[]) => void;
+  /** Called after a successful save with the list and the entries the editor knows are coded (substance picks), so a reopened sheet labels them at once. */
+  onSaved: (allergies: string[], coded: string[]) => void;
 }
 
 export const ALLERGY_SEARCH_DEBOUNCE_MS = 150;
@@ -136,7 +137,7 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
       setError(result.error.message);
       return;
     }
-    onSaved(list);
+    onSaved(list, entries.filter((e) => e.coded).map((e) => e.text));
     onOpenChange(false);
   }
 
