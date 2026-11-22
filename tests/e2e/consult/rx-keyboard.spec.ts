@@ -297,6 +297,9 @@ test("09C-06a A-11: Finish waits for an Rx command still queued: a remove sent b
   await page.unroute("**/*", hold);
   // The signed Rx holds exactly what the doctor last saw: the slow medicine, not the removed one.
   await expect.poll(async () => (await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([slow]);
+  // Let the success screen's PDF read finish before the test retires its doctor (09C-05 flake 1: a read cut by the retirement logs a missing archive object).
+  await expect(page.locator('[data-share-pdf="loading"]')).toHaveCount(0, { timeout: 15_000 });
+  await page.waitForLoadState("networkidle");
 });
 
 test("09C-06a A-12: an added and a removed line are announced in a polite live region", async ({ page }, testInfo) => {
