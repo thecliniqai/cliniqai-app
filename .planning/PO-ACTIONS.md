@@ -732,3 +732,20 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   apply 000112–000116.
 - [ ] **09B-P5 · CI budget** — the e2e lane limit is now 85 minutes (job 95); decide whether to shard the lane across
   parallel jobs (changes the required-check names in branch protection unless one aggregate `e2e` check is kept).
+
+## V2-09c Rx builder & PDF
+
+- [ ] **09C-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation (merge `7160fc1`,
+  CI 45009571773, 0 retried; two earlier CI runs root-caused in `09C-NOTES.md`). — PR #17. Evidence:
+  `.planning/phases/09C-rx-builder-pdf/09C-VERIFICATION.md`. Confirm AR-09C-01 (v1 API Rx writer skips the allergy check
+  until V2-12) and AR-09C-02 (no rate limit on the new routes) in `09C-SECURITY.md`. Confirm R-W: WhatsApp at sign is
+  now opt-in (it was automatic for the Rx and receipt links); reverting is one line in `features/billing/service.ts`.
+- [ ] **09C-P2 · Device run** — `.planning/phases/09C-rx-builder-pdf/09C-DEVICE-CHECKLIST.md` (incl. real photos, A5
+  pre-printed print, HEIC from the iOS library).
+- [ ] **09C-P3 · Walkthrough** — `.planning/phases/09C-rx-builder-pdf/09C-PO-WALKTHROUGH.md`.
+- [ ] **09C-P4 · Staging** — after 09B-P4, apply 000117–000120 (Postgres 15+ for the `search_medicines` settings).
+- [ ] **09C-P5 · CDCI reload** — reload CDCI with `substance_ids`; until then CDCI lines are allergy-checked by name only.
+- [ ] **09C-P6 · Rulings** — acknowledge Q-2 (print stylesheet kept), Q-8 (WhatsApp not preselected), Q-9 (product line
+  kept, plus "Rx v{n} · Page x of y").
+- [ ] **09C-P7 · Today staleness** — Today's live board goes silently stale for about a minute if the project's Realtime
+  event quota trips (bulk writes). Decide on a slow refresh while live (V2-14).
