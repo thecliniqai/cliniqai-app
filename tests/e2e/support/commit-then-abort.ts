@@ -19,7 +19,7 @@ export interface CommitThenAbortOptions {
 export interface CommitThenAbort {
   /** Matching requests the server received and whose response was then cut. */
   readonly aborted: number;
-  /** Stops cutting responses; later requests pass through. Pending cuts finish first. */
+  /** Stops cutting responses; later requests pass through (the route stays, falling back). Pending cuts finish first. */
   clear(): Promise<void>;
 }
 
@@ -51,9 +51,12 @@ export async function commitThenAbort(page: Page, options: CommitThenAbortOption
       return aborted;
     },
     async clear() {
+      // The route stays registered and only falls back from now on. `page.unroute` while the page's other requests
+      // are inside the handler (at `route.fallback()`) hands them to the context's loopback route a second time:
+      // `route.continue: Route is already handled!` in fixtures.ts (CI 45001844597, V2-09c; reproduced with an
+      // amplifier that unroutes mid-handler). The page closes with the test, which removes the route.
       active = false;
       await inFlight;
-      await page.unroute("**/*", handler);
     },
   };
 }

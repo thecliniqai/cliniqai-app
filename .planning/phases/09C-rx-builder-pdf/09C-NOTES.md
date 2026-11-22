@@ -704,3 +704,12 @@ condition and is not counted above.
   This needs a join in the ten minutes before the file, and it was not seen in any run here.
 - Temporary experiment specs were deleted. `.planning/dev-messages.txt` was not recreated. `.planning/debug/`, `docs/live-roadmap.html` and
   `docs/whatsapp-templates-v2.md` were left alone; the session file `.planning/debug/today-signals-flake.md` is new and uncommitted.
+
+## CI 44996683003 and 45001844597 (orchestrator)
+
+- **44996683003, red:** `design/keyboard/clinical-b` (desktop-chrome) asserted the pre-09C-02 allergy-reason message. 09C-02 changed it on purpose (Q-4, 5-character minimum). Fixed the assertion in 34bb9eba. The `design` folder passes 120/120 locally (desktop-chrome, `--retries=0`). No executor lane ran `design/`, which is why the local runs missed it.
+- **45001844597, green with 1 retried:** `pwa/13-idempotent-retry` "lost once" (payment, desktop-chrome) failed attempt 1 with `route.continue: Route is already handled!` at `fixtures.ts:69`.
+  - **Cause:** the shared harness `commitThenAbort.clear()` (V2-08) called `page.unroute` while other page requests were inside its handler at `route.fallback()`. Playwright then dispatched them to the context's loopback route a second time. It is the same race 09C-05 met in its own spec (NOTES above).
+  - **Proof:** a temporary amplifier spec held a request inside a page handler. Unrouting mid-handler reproduced the exact error, and switching the handler off instead was clean. The amplifier was deleted after.
+  - **Not reproduced:** 60 serial runs of the case with the old harness did not reproduce it, so the window is narrow.
+  - **Fix:** `clear()` no longer unroutes. It stops cutting, waits for pending cuts, and the route stays and falls back until the page closes. The five specs that use the harness pass 73/73 runnable cases on desktop-chrome and pixel-7, `--retries=0`.
