@@ -13,14 +13,21 @@ import {
   quickChipsBesideLearned,
   rankComplaints,
   rankDiagnoses,
+  rankProtocolTemplates,
   rankTemplates,
+  rxBundlesFor,
+  rxFavouritesFor,
   usualFollowUp,
   usualPlanFor,
+  RX_BUNDLE_LIMIT,
+  RX_FAVOURITE_LIMIT,
   type AssistContext,
+  type RxAssistEntry,
 } from "@/features/consultation/assist-ranking";
+import { rxEntryHasUsual, rxEntryToAdd, rxEntryToMedicine } from "@/features/prescriptions/lines";
 
 function ctx(over: Partial<AssistContext> = {}): AssistContext {
-  return { visits: 40, complaints: [], complaint_pairs: [], pairs: [], diagnoses: [], last_exam_template: null, ...over };
+  return { visits: 40, complaints: [], complaint_pairs: [], pairs: [], diagnoses: [], last_exam_template: null, rx_favourites: [], ...over };
 }
 const names = (g: { tiles: { name: string }[] }) => g.tiles.map((t) => t.name);
 
@@ -287,5 +294,157 @@ describe("quickChipsBesideLearned (CI 44924479177)", () => {
     expect(chipNames(quickChipsBesideLearned(chips, before))).not.toContain("Viral Fever");
     const after = rankDiagnoses({ context: history, complaints: [], added: ["Viral Fever"] });
     expect(chipNames(quickChipsBesideLearned(chips, after))).toContain("Viral Fever");
+  });
+});
+
+// V2-09c 09C-03 (R-9): the doctor's own favourites and "your usual" tiles, and the order of the saved templates. Pure: the names come from the doctor's own
+// signed history (`consult_assist_context`); nothing here chooses a dose, and nothing is applied until the doctor taps.
+function entry(name: string, over: Partial<RxAssistEntry> = {}): RxAssistEntry {
+  return {
+    name,
+    generic_name: null,
+    dose_form: null,
+    cdci_brand_id: null,
+    substance_ids: [],
+    n: 3,
+    usual: { dosage: "1-0-1", timing: "After food", duration: "5 days" },
+    ...over,
+  };
+}
+const dxWithRx = (name: string, rx: RxAssistEntry[]) => ({ name, icd11: null, snomed: null, chronic: null, custom: null, n: 4, investigations: [], advice: [], follow_up_days: null, rx });
+const entryNames = (list: readonly { name: string }[]) => list.map((e) => e.name);
+
+describe("parseAssistContext: the Rx keys (000119)", () => {
+  it("a context of the older shape (no Rx keys) still parses, as no Rx history", () => {
+    const parsed = parseAssistContext({ visits: 1, complaints: [], complaint_pairs: [], pairs: [], diagnoses: [{ name: "Fever", icd11: null, snomed: null, chronic: null, custom: null, n: 1, investigations: [], advice: [], follow_up_days: null }], last_exam_template: null });
+    expect(parsed?.rx_favourites).toEqual([]);
+    expect(parsed?.diagnoses[0].rx).toEqual([]);
+  });
+  it("keeps a stored null timing and a null usual as they are", () => {
+    const parsed = parseAssistContext({
+      visits: 1, complaints: [], complaint_pairs: [], pairs: [], diagnoses: [], last_exam_template: null,
+      rx_favourites: [entry("A", { usual: { dosage: "1-0-0", timing: null, duration: "3 days" } }), entry("B", { usual: null })],
+    });
+    expect(parsed?.rx_favourites[0].usual?.timing).toBeNull();
+    expect(parsed?.rx_favourites[1].usual).toBeNull();
+  });
+  it("refuses a favourite with no name, so a bad shape means no tiles", () => {
+    expect(parseAssistContext({ visits: 1, complaints: [], complaint_pairs: [], pairs: [], diagnoses: [], last_exam_template: null, rx_favourites: [{ n: 1 }] })).toBeNull();
+  });
+});
+
+describe("rxFavouritesFor", () => {
+  it("without the context: no tile", () => {
+    expect(rxFavouritesFor({ context: null, onRx: [] })).toEqual([]);
+  });
+  it("keeps the order the database ranked them in", () => {
+    expect(entryNames(rxFavouritesFor({ context: ctx({ rx_favourites: [entry("Zinc"), entry("Amox")] }), onRx: [] }))).toEqual(["Zinc", "Amox"]);
+  });
+  it("leaves out a medicine already on the Rx, case-insensitively", () => {
+    expect(entryNames(rxFavouritesFor({ context: ctx({ rx_favourites: [entry("Zinc"), entry("Amox")] }), onRx: [" ZINC "] }))).toEqual(["Amox"]);
+  });
+  it(`offers at most ${RX_FAVOURITE_LIMIT}`, () => {
+    const many = Array.from({ length: 12 }, (_, i) => entry(`Med ${i}`));
+    expect(rxFavouritesFor({ context: ctx({ rx_favourites: many }), onRx: [] })).toHaveLength(RX_FAVOURITE_LIMIT);
+  });
+  it("a favourite that was on the Rx and is removed comes back", () => {
+    const c = ctx({ rx_favourites: [entry("Zinc")] });
+    expect(rxFavouritesFor({ context: c, onRx: ["Zinc"] })).toEqual([]);
+    expect(rxFavouritesFor({ context: c, onRx: [] })).toHaveLength(1);
+  });
+});
+
+describe("rxBundlesFor", () => {
+  const history = ctx({ diagnoses: [dxWithRx("Viral fever", [entry("Paracetamol"), entry("Cetirizine")]), dxWithRx("Migraine", [entry("Sumatriptan")]), dxWithRx("Gout", [])] });
+  it("a diagnosis on the visit with a usual offers its medicines", () => {
+    const b = rxBundlesFor({ context: history, diagnoses: ["Viral fever"], onRx: [] });
+    expect(b).toHaveLength(1);
+    expect(b[0].diagnosis).toBe("Viral fever");
+    expect(entryNames(b[0].entries)).toEqual(["Paracetamol", "Cetirizine"]);
+  });
+  it("only the medicines still missing are in the tile", () => {
+    expect(entryNames(rxBundlesFor({ context: history, diagnoses: ["viral FEVER"], onRx: ["paracetamol"] })[0].entries)).toEqual(["Cetirizine"]);
+  });
+  it("nothing missing: no tile", () => {
+    expect(rxBundlesFor({ context: history, diagnoses: ["Viral fever"], onRx: ["Paracetamol", "Cetirizine"] })).toEqual([]);
+  });
+  it("a diagnosis the doctor has no usual for, or one not on the visit, offers nothing", () => {
+    expect(rxBundlesFor({ context: history, diagnoses: ["Gout", "Unknown dx"], onRx: [] })).toEqual([]);
+    expect(rxBundlesFor({ context: history, diagnoses: [], onRx: [] })).toEqual([]);
+  });
+  it(`at most ${RX_BUNDLE_LIMIT} tiles, in the order of the diagnoses on the visit`, () => {
+    const three = ctx({ diagnoses: [dxWithRx("A", [entry("a1")]), dxWithRx("B", [entry("b1")]), dxWithRx("C", [entry("c1")])] });
+    expect(rxBundlesFor({ context: three, diagnoses: ["C", "B", "A"], onRx: [] }).map((b) => b.diagnosis)).toEqual(["C", "B"]);
+  });
+  it("a diagnosis named twice makes one tile; without the context there is none", () => {
+    expect(rxBundlesFor({ context: history, diagnoses: ["Viral fever", "viral fever"], onRx: [] })).toHaveLength(1);
+    expect(rxBundlesFor({ context: null, diagnoses: ["Viral fever"], onRx: [] })).toEqual([]);
+  });
+});
+
+describe("rxEntryToAdd and rxEntryToMedicine: stored values only", () => {
+  it("a complete usual is added exactly as stored, no instruction", () => {
+    expect(rxEntryToAdd(entry("Paracetamol 650", { generic_name: "Paracetamol", dose_form: "Tablet", cdci_brand_id: "b1" }))).toEqual({
+      medicine_name: "Paracetamol 650",
+      generic_name: "Paracetamol",
+      dose_form: "Tablet",
+      dosage: "1-0-1",
+      timing: "After food",
+      duration: "5 days",
+      special_instructions: null,
+      cdci_brand_id: "b1",
+    });
+  });
+  it("a stored null timing stays null (no \"After food\" is invented)", () => {
+    expect(rxEntryToAdd(entry("X", { usual: { dosage: "1-0-0", timing: null, duration: "3 days" } }))?.timing).toBeNull();
+  });
+  it("a duration the days cannot express is added as the stored text", () => {
+    expect(rxEntryToAdd(entry("X", { usual: { dosage: "1-0-0", timing: null, duration: "Continue" } }))?.duration).toBe("Continue");
+  });
+  it("no usual, or one with no dosage or no duration: nothing to add, the dose builder opens instead", () => {
+    expect(rxEntryToAdd(entry("X", { usual: null }))).toBeNull();
+    expect(rxEntryHasUsual(entry("X", { usual: { dosage: " ", timing: null, duration: "3 days" } }))).toBe(false);
+    expect(rxEntryHasUsual(entry("X", { usual: { dosage: "1-0-0", timing: null, duration: "" } }))).toBe(false);
+  });
+  it("the medicine for the dose builder carries the stored parts and nothing else", () => {
+    const m = rxEntryToMedicine(entry("Cat Brand", { cdci_brand_id: "b1", substance_ids: ["s1"], usual: { dosage: "1-0-0", timing: null, duration: "5 days" } }));
+    expect(m.id).toBe("b1");
+    expect(m.kind).toBe("cdci");
+    expect(m.substanceIds).toEqual(["s1"]);
+    expect(m.usual).toEqual({ frequency: "1-0-0", days: 5 });
+  });
+  it("a stored duration in text is kept as text; a medicine with no usual opens with no dose", () => {
+    expect(rxEntryToMedicine(entry("X", { usual: { dosage: "1-0-0", timing: "After food", duration: "Continue" } })).usual).toEqual({ frequency: "1-0-0", timing: "After food", durationText: "Continue" });
+    expect(rxEntryToMedicine(entry("Custom Syrup", { usual: null })).usual).toBeUndefined();
+    expect(rxEntryToMedicine(entry("Custom Syrup", { usual: null })).kind).toBe("custom");
+  });
+});
+
+describe("rankProtocolTemplates", () => {
+  const t = (id: string, name: string, specialty: string | null, at: string) => ({ id, template_name: name, specialty, created_at: at });
+  const list = [
+    t("old-gp", "Old general", "general_physician", "2026-01-01T00:00:00Z"),
+    t("new-gp", "New general", "general_physician", "2026-06-01T00:00:00Z"),
+    t("dental", "Extraction", "dental", "2026-07-01T00:00:00Z"),
+    t("fever", "Viral fever 3 days", null, "2026-02-01T00:00:00Z"),
+    t("none", "Misc", null, "2026-08-01T00:00:00Z"),
+  ];
+  const ids = (x: { id: string }[]) => x.map((e) => e.id);
+  it("the visit's own specialty first, newest first among them", () => {
+    expect(ids(rankProtocolTemplates({ templates: list, specialty: "general_physician", diagnoses: [] })).slice(0, 2)).toEqual(["new-gp", "old-gp"]);
+  });
+  it("then a template named for a diagnosis on the visit, then the newest", () => {
+    expect(ids(rankProtocolTemplates({ templates: list, specialty: "general_physician", diagnoses: ["Viral fever"] }))).toEqual(["new-gp", "old-gp", "fever", "none", "dental"]);
+  });
+  it("with no specialty and no diagnosis: newest first", () => {
+    expect(ids(rankProtocolTemplates({ templates: list, specialty: null, diagnoses: [] }))).toEqual(["none", "dental", "new-gp", "fever", "old-gp"]);
+  });
+  it("a diagnosis match is case-insensitive and a blank diagnosis matches nothing", () => {
+    expect(ids(rankProtocolTemplates({ templates: list, specialty: null, diagnoses: ["VIRAL FEVER", " "] }))[0]).toBe("fever");
+  });
+  it("does not change the input and keeps equal templates in the given order", () => {
+    const same = [t("a", "A", null, "2026-01-01T00:00:00Z"), t("b", "B", null, "2026-01-01T00:00:00Z")];
+    expect(ids(rankProtocolTemplates({ templates: same, specialty: null, diagnoses: [] }))).toEqual(["a", "b"]);
+    expect(ids(same)).toEqual(["a", "b"]);
   });
 });

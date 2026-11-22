@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
+import { sharePrescriptionViaWhatsApp, SHARE_RX_OPTED_OUT_TEXT } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { mockCtx } from "../helpers/context";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/service";
@@ -65,7 +65,8 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
       {
         id: "rx-100",
         patient_id: "patient-1",
-        patient: { id: "patient-1", full_name: "Synthetic Patient", phone: "+919800000001" },
+        signed_at: "2026-11-20T10:00:00.000Z",
+        patient: { id: "patient-1", full_name: "Synthetic Patient", phone: "+919800000001", whatsapp_opt_out: false },
         tenant: { name: "Care Clinic", phone: "+919800000000" },
       },
       calls
@@ -88,6 +89,26 @@ describe("Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11; P0
         recipientPhone: "+919800000001",
       })
     );
+  });
+
+  it.each([["an opted-out patient", { signed_at: "2026-11-20T10:00:00.000Z", optOut: true }, SHARE_RX_OPTED_OUT_TEXT]])(
+    "sharePrescriptionViaWhatsApp queues nothing and mints no token for %s (09C-06a, A-19)", async (_name, row, text) => {
+    const enqueueSpy = vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-rx-x" } as never);
+    const calls: RpcCall[] = [];
+    const db = fakeDb(
+      "prescriptions",
+      {
+        id: "rx-101",
+        patient_id: "patient-1",
+        signed_at: row.signed_at,
+        patient: { id: "patient-1", full_name: "Synthetic Patient", phone: "+919800000001", whatsapp_opt_out: row.optOut },
+        tenant: { name: "Care Clinic", phone: "+919800000000" },
+      },
+      calls
+    );
+    expect(await sharePrescriptionViaWhatsApp(mockCtx(db, session), "rx-101")).toEqual({ success: false, error: text });
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
   });
 
   it("shareLabReportViaWhatsApp mints a patient_document token and enqueues Event #7", async () => {

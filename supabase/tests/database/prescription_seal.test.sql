@@ -11,6 +11,12 @@
 --    `...:signed` and `...:signed:v2`, `version` in the data, nothing on replay, nothing for a visit with no header.
 -- Synthetic data only; the file rolls back.
 begin;
+-- 000117 (09C-01, R-2): INSERT, UPDATE and DELETE on public.prescription_items, INSERT on public.prescriptions and INSERT, UPDATE on public.doctor_custom_medicines
+-- are revoked from authenticated (change_prescription is the writer). This file proves the guards, triggers and policies themselves (defence in depth,
+-- independent of the grants), so the grants are widened for this transaction only; the narrowing is proven in rx_lines_command.test.sql.
+grant insert, update, delete on table public.prescription_items to authenticated;
+grant insert on table public.prescriptions to authenticated;
+grant insert, update on table public.doctor_custom_medicines to authenticated;
 select plan(33);
 
 -- Fixtures ----------------------------------------------------------------------------------------------------------------

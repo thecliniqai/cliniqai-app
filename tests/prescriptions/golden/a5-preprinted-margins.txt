@@ -1,0 +1,38 @@
+Patient: Ravi Synthetic (41y MALE)
+Date: 2026-11-20
+Phone: +91 90000 11111 • UHID: AB12CD34
+Visit ID: 11111111
+CHIEF COMPLAINTS
+• 
+Fever (3 days)
+DIAGNOSES
+• 
+Viral fever [ICD-11: MG26]
+• 
+Acute bronchitis
+Rx
+PRESCRIBED MEDICATIONS
+#
+Medicine & Generic Salt
+Dosage
+Timing
+Duration
+1
+Paracetamol 650 (Tablet)
+Paracetamol
+1-0-1
+After food
+5 
+days
+2
+Cetirizine 10
+Note: May cause drowsiness
+0-0-1
+5 
+days
+FOLLOW-UP
+Review on: 2026-11-27
+Dr. Asha Example
+Reg No: SMC-0001
+Signed on 20 Nov 2026
+Rx v1 · Page 1 of 1

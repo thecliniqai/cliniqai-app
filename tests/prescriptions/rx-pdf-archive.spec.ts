@@ -45,7 +45,6 @@ import {
   finalizeVisitAmendment,
   reopenVisitForAmendment,
 } from "@/features/consultation/service";
-import { getPrescriptionPdfSignedUrl } from "@/features/prescriptions/service";
 
 const admin = getAdminClient();
 const BUCKET = "prescriptions";
@@ -142,8 +141,6 @@ describe("a draft and a print variant are rendered on demand and never stored", 
     expect(served.buffer.subarray(0, 5).toString()).toBe("%PDF-");
     expect(await object(keyOf(visit.visitId))).toBeNull();
     expect(await header(visit.visitId)).toMatchObject({ pdf_storage_path: null, pdf_sha256: null });
-    const link = await getPrescriptionPdfSignedUrl(ctxFor(doctor), visit.prescriptionIds[0], "blank_paper");
-    expect(link).toEqual({ success: true, signedUrl: `/api/visits/${visit.visitId}/prescription-pdf?letterhead=blank_paper`, version: 1 });
   }, 60_000);
 
   it("a sealed visit at another letterhead: a render, the archive and the header are untouched", async () => {
@@ -383,10 +380,6 @@ describe("serving: the archived bytes, checked against the hash", () => {
     expect(audit).toHaveLength(1);
     expect(audit![0].metadata).toMatchObject({ version: 1, sha256: before.pdf_sha256 });
     expect(await header(visit.visitId)).toMatchObject({ pdf_storage_path: key, pdf_sha256: before.pdf_sha256 });
-    // The preview link for the same Rx is the route's, never a signed URL of the tampered object.
-    const link = await getPrescriptionPdfSignedUrl(ctxFor(doctor), visit.prescriptionIds[0], "blank_paper");
-    expect(link).toMatchObject({ success: true });
-    if (link.success) expect(link.signedUrl).toBe(`/api/visits/${visit.visitId}/prescription-pdf?letterhead=blank_paper`);
   }, 60_000);
 });
 

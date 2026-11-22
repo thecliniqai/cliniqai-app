@@ -85,6 +85,19 @@ export function ymdOf(instant: Date | string | number, tz: string): string {
   return formatYmd(zoned.getFullYear(), zoned.getMonth() + 1, zoned.getDate());
 }
 
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+/** "22 Nov 2026" for a calendar date `YYYY-MM-DD`. A fixed table, not ICU: the same text on every runtime (the printed Rx and its golden files depend on it). */
+export function ymdLabel(ymd: string): string {
+  const { y, m, d } = parseYmd(ymd);
+  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+/** "22 Nov 2026" for an instant, read in the clinic's zone `tz` (ADR-016): never the zone of the process. */
+export function clinicDateText(instant: Date | string | number, tz: string): string {
+  return ymdLabel(ymdOf(instant, tz));
+}
+
 /**
  * The wall-clock hour (0-23) and minute of `instant` in zone `tz`: where a visit sits on the clinic's timeline. Never
  * `Date#getHours()`, which reads the zone of the process (server render) or the browser (hydration), so the two

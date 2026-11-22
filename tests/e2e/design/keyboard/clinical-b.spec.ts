@@ -226,7 +226,8 @@ test("Rx lines: edit a dose in the sheet, remove with an 8 s Undo, an allergy ma
   const reason = amox.getByRole("textbox", { name: "Reason to prescribe anyway" });
   await expect(reason).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(amox.getByText("Enter a reason to prescribe despite the allergy")).toBeVisible();
+  // V2-09c 09C-02 (Q-4): the reason has a 5-character minimum; the message names it.
+  await expect(amox.getByText("Give a reason of at least 5 characters to prescribe despite the allergy")).toBeVisible();
   await expect(reason).toHaveAttribute("aria-invalid", "true");
   await reason.fill("Tolerated before, documented");
   await page.keyboard.press("Enter");

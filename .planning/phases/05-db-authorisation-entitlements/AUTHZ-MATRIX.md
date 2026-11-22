@@ -81,13 +81,13 @@ Principals:
 | `public.consultation_diagnoses` | U | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.consultation_diagnoses` | D | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.prescriptions` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.prescriptions` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.prescriptions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.prescriptions` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.prescriptions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.prescription_items` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.prescription_items` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.prescription_items` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.prescription_items` | D | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.prescription_items` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.prescription_items` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.prescription_items` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoices` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.invoices` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoices` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -144,9 +144,9 @@ Principals:
 | `public.doctor_custom_diagnoses` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_diagnoses` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_diagnoses` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.doctor_custom_medicines` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.doctor_custom_medicines` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
-| `public.doctor_custom_medicines` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_custom_medicines` | S | perm(consultations:view) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_custom_medicines` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.doctor_custom_medicines` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_medicines` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_text_macros` | S | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_text_macros` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -324,8 +324,8 @@ Notes:
 - `public.visit_revisions`: append-only amendment history, written by the reopen command only (INSERT revoked since V2-09a 000111); the author is the caller (05-11a guard); the snapshot and the number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
 - `public.consultation_diagnoses`: 05-11d (N-1): keys never change; a signed-in caller records a diagnosis only for its visit's patient and writes diagnoses only while the visit is unsigned or reopened (consultation_diagnoses_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
-- `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the PDF columns only (000108 R-8). The fixture visit is unsigned
-- `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). 05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened (prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
+- `public.prescriptions`: V2-09c 000117: the header is created only by change_prescription (SECURITY DEFINER, prescriptions:edit). the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a header is added only while the visit is unsigned or reopened, as version 1 (05-11e NF-2; 000108 I-1). UPDATE reaches the PDF columns only (000108 R-8). The fixture visit is unsigned
+- `public.prescription_items`: V2-09c 000117: written only by change_prescription (SECURITY DEFINER, prescriptions:edit). tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). 05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened (prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned
 - `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). 05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql). V2-07 07-04a (000099): no INSERT privilege either; headers are written only by private.step_create_invoice (create_invoice, collect_payment, complete_and_bill)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op). 05-11d (N-3): line total = price x quantity (computed), price >= 0, keys never change; no write to a paid or cancelled invoice's items, and an invoice with payments is never lowered to the amount collected (invoice_items_integrity_guard; reverify_integrity.test.sql). The fixture invoice is draft with a zero item
 - `public.payments`: written only by record_payment (SECURITY DEFINER, billing:collect in the active clinic; 05-11b M-INVOICE); doctors and nurses do not collect (PO-3)

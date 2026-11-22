@@ -123,3 +123,57 @@ export function gpDataHasContent(data: GPSpecialty | undefined): boolean {
   if (data.exam) return examHasData(data.exam);
   return Object.values(data.systemic ?? {}).some((t) => (t ?? "").trim() !== "");
 }
+
+/** What the printed prescription says about the examination (V2-09c 09C-04, R-12; 09B R-14): the general signs, the abnormal systems, the normal ones in one line. */
+export interface ExamPrintLines {
+  /** "Pallor, Icterus" when the general signs are marked, else null. */
+  general: string | null;
+  /** One line per abnormal system: "RS: Crepts, Wheeze (Right) · note", or "RS: Abnormal" when nothing was chosen. */
+  abnormal: string[];
+  /** "CVS, PA" - the systems of the template that were examined and are normal, else null. */
+  normal: string | null;
+}
+
+const GENERAL_SIGNS: ReadonlyArray<readonly [keyof NonNullable<GPSpecialty["general_exam"]>, string]> = [
+  ["pallor", "Pallor"],
+  ["icterus", "Icterus"],
+  ["cyanosis", "Cyanosis"],
+  ["clubbing", "Clubbing"],
+  ["lymphadenopathy", "Lymphadenopathy"],
+  ["edema", "Edema"],
+];
+
+/**
+ * The exam of a visit's `specialty_data` as print lines, or null when it holds nothing the doctor entered. Only the general physician's structured exam is
+ * printed (a dental chart or a paediatric growth record has its own tools). Pure; nothing is invented: an unknown template or system is left out, a system
+ * that is normal prints its LABEL in the normal line (not the template's boilerplate text).
+ */
+export function examPrintLines(specialtyData: unknown): ExamPrintLines | null {
+  if (!specialtyData || typeof specialtyData !== "object") return null;
+  const data = specialtyData as Partial<GPSpecialty>;
+  if (data.specialty !== undefined && data.specialty !== "general_physician") return null;
+  const signs = data.general_exam
+    ? GENERAL_SIGNS.filter(([key]) => data.general_exam?.[key] === true).map(([, label]) => label)
+    : [];
+  const exam = data.exam;
+  const template = exam && typeof exam.template_id === "string" ? examTemplateById(exam.template_id) : null;
+  const abnormal: string[] = [];
+  const normal: string[] = [];
+  if (exam && template && exam.systems && typeof exam.systems === "object") {
+    for (const def of template.systems) {
+      const state = exam.systems[def.key];
+      if (!state) continue;
+      if (!state.abnormal) {
+        normal.push(def.label);
+        continue;
+      }
+      const found = (state.findings ?? []).join(", ");
+      const withSide = found && state.side ? `${found} (${state.side})` : found;
+      const note = state.note?.trim() ?? "";
+      const parts = [withSide, note].filter((p) => p.length > 0);
+      abnormal.push(`${def.label}: ${parts.length === 0 ? "Abnormal" : parts.join(" · ")}`);
+    }
+  }
+  if (signs.length === 0 && abnormal.length === 0 && normal.length === 0) return null;
+  return { general: signs.length > 0 ? signs.join(", ") : null, abnormal, normal: normal.length > 0 ? normal.join(", ") : null };
+}

@@ -171,6 +171,9 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     phone: seed.patientPhone,
     sex: "female",
     age: 41,
+    // 09C-06a (S-5): no column default any more; the world's patient keeps the "No known allergies" it always had (the demographics edit of the
+    // positive control sends [] and must not read as a clinical change).
+    allergies: [],
     created_by: u,
   });
   const [visit, signedVisit, reopenedVisit, waitingVisit, document, referral, block, waitlist, notification, webhookSub, apiKey] = await Promise.all([

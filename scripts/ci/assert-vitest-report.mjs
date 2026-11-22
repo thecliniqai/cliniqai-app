@@ -120,6 +120,18 @@
  *   6455 — V2-09b 09B-05 (upload), unchanged: REQUIRED_FILES + tests/components/file-drop.spec.ts (9). The suite only grew; the floor is re-measured once at the phase close.
  *   6455 — V2-09b 09B-06a (review fix round), unchanged: REQUIRED_FILES + tests/labs/lab-upload-review-fixes.spec.ts (8) and tests/api/proxy-body-limit.spec.ts (7).
  *          The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-01 and 09C-02, unchanged: REQUIRED_FILES + the nine new specs (tests/prescriptions/{change-prescription-rpc (40),medicine-search-route (23),
+ *          rx-lines (42),allergy-match (31),allergy-check-rpc (14),cdci-generic-substances (7)}, tests/patients/{record-allergies-rpc (20),allergy-states (7)},
+ *          tests/terminology/substance-search-route (7)). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-03, unchanged: REQUIRED_FILES + tests/prescriptions/rx-favourites-db (6) and repeat-visit-plan-rpc (28); assist-ranking.spec.ts gains 28 cases.
+ *          The deleted retired library's tests/ai/prescription-suggestions.spec.ts (4 cases) left with it. The floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-04, unchanged: REQUIRED_FILES + tests/prescriptions/rx-golden (11), rx-pdf-content (21) and tests/settings/rx-print-settings (16). The suite only grew; the floor
+ *          is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-05, unchanged: REQUIRED_FILES + tests/files/compress-image (16); tests/billing/complete-and-bill-rpc.spec.ts gains 1 case (nothing is queued without the doctor's
+ *          choice). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-06a, unchanged: REQUIRED_FILES + tests/prescriptions/rx-review-fixes-db (S-8 two sessions, S-2/R-AL and A-8 through the services, A-2). Cases were
+ *          added to existing files (allergy-match, record-allergies-rpc, compress-image, rx-pdf-content, pdf-route-guards, tokenized-sharing, v1-crud); the floor is
+ *          re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -507,6 +519,27 @@ const REQUIRED_FILES = [
   // V2-09b 09B-06a
   "tests/labs/lab-upload-review-fixes.spec.ts",
   "tests/api/proxy-body-limit.spec.ts",
+  // V2-09c 09C-01 and 09C-02
+  "tests/prescriptions/change-prescription-rpc.spec.ts",
+  "tests/prescriptions/medicine-search-route.spec.ts",
+  "tests/prescriptions/rx-lines.spec.ts",
+  "tests/prescriptions/allergy-match.spec.ts",
+  "tests/prescriptions/allergy-check-rpc.spec.ts",
+  "tests/prescriptions/cdci-generic-substances.spec.ts",
+  "tests/patients/record-allergies-rpc.spec.ts",
+  "tests/patients/allergy-states.spec.ts",
+  "tests/terminology/substance-search-route.spec.ts",
+  // V2-09c 09C-03
+  "tests/prescriptions/rx-favourites-db.spec.ts",
+  "tests/prescriptions/repeat-visit-plan-rpc.spec.ts",
+  // V2-09c 09C-04
+  "tests/prescriptions/rx-golden.spec.ts",
+  "tests/prescriptions/rx-pdf-content.spec.ts",
+  "tests/settings/rx-print-settings.spec.ts",
+  // V2-09c 09C-05
+  "tests/files/compress-image.spec.ts",
+  // V2-09c 09C-06a
+  "tests/prescriptions/rx-review-fixes-db.spec.ts",
 ];
 
 const file = process.argv[2];

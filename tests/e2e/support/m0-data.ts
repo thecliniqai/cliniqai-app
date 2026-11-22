@@ -65,7 +65,9 @@ export async function seedPatient(tenantId: string, createdBy: string, fullName:
   const row = must(
     await getAdminClient()
       .from("patients")
-      .insert({ tenant_id: tenantId, full_name: fullName, phone, sex: "other", age: 40, created_by: createdBy })
+      // 09C-06a (S-5): the column has no default any more; the fixture names "No known allergies" ([]), the state it always had, so a spec that is not
+      // about allergies sees no "Allergies not recorded" prompt (a spec that is sets the allergies itself).
+      .insert({ tenant_id: tenantId, full_name: fullName, phone, sex: "other", age: 40, allergies: [], created_by: createdBy })
       .select("id")
       .single(),
     "patient insert",

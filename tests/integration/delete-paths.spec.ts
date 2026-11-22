@@ -11,7 +11,7 @@
  * seeded and read back with the service-role client; synthetic data only.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { removePrescriptionItem } from "@/features/prescriptions/service";
+import { changeRxAs } from "../helpers/rx-lines";
 import { removeConsultationDiagnosis } from "@/features/terminology/service";
 import { deleteInvoiceItem } from "@/features/billing/service";
 import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
@@ -134,10 +134,12 @@ describe("delete paths: no silent no-ops (05-04)", () => {
 
   it("a doctor deletes a draft Rx item: the row is gone and one audit row records it (was: success, row kept)", async () => {
     const itemId = await rxItem();
-    const res = await removePrescriptionItem(ctxFor(doctor), itemId);
-    expect(res).toEqual({ success: true });
+    const before = await auditCount("prescription.lines_change", prescriptionId);
+    // V2-09c 000117: the removal is one change_prescription command, which writes its own audit row (counts only).
+    const res = await changeRxAs(ctxFor(doctor), visitId, { remove: [itemId] });
+    expect(res).toMatchObject({ success: true });
     expect(await exists("prescription_items", itemId)).toBe(false);
-    expect(await auditCount("prescription.item_remove", prescriptionId)).toBe(1);
+    expect(await auditCount("prescription.lines_change", prescriptionId)).toBe(before + 1);
   });
 
   it("a doctor removes a diagnosis: the row is gone (was: success, row kept)", async () => {
@@ -177,11 +179,11 @@ describe("delete paths: no silent no-ops (05-04)", () => {
 
   it("a receptionist attempting an Rx item delete gets FORBIDDEN: row kept, no audit row", async () => {
     const itemId = await rxItem();
-    const before = await auditCount("prescription.item_remove", prescriptionId);
-    const res = await removePrescriptionItem(ctxFor(receptionist), itemId);
+    const before = await auditCount("prescription.lines_change", prescriptionId);
+    const res = await changeRxAs(ctxFor(receptionist), visitId, { remove: [itemId] });
     expect(res).toEqual({ success: false, error: FORBIDDEN });
     expect(await exists("prescription_items", itemId)).toBe(true);
-    expect(await auditCount("prescription.item_remove", prescriptionId)).toBe(before);
+    expect(await auditCount("prescription.lines_change", prescriptionId)).toBe(before);
   });
 
   it("a doctor past the service guard but refused by RLS (invoice item, billing:collect) gets FORBIDDEN: row kept, no audit, totals untouched", async () => {
@@ -218,25 +220,25 @@ describe("delete paths: no silent no-ops (05-04)", () => {
 
     it("acting in the same clinic, the dual member (doctor there) deletes an Rx item", async () => {
       const itemId = await rxItem();
-      const res = await removePrescriptionItem(await dualCtx(owner.tenantId), itemId);
-      expect(res).toEqual({ success: true });
+      const res = await changeRxAs(await dualCtx(owner.tenantId), visitId, { remove: [itemId] });
+      expect(res).toMatchObject({ success: true });
       expect(await exists("prescription_items", itemId)).toBe(false);
     });
 
     it("acting in the other clinic, the Rx item and diagnosis deletes are refused, rows kept, no audit row", async () => {
       const itemId = await rxItem();
       const diagnosisId = await diagnosis();
-      const rxAudits = await auditCount("prescription.item_remove", prescriptionId);
+      const rxAudits = await auditCount("prescription.lines_change", prescriptionId);
       const ctx = await dualCtx(otherClinic.tenantId);
 
-      // Since 05-02b the SELECT policies are bound to the active clinic too, so the rows are not even visible from the
-      // other clinic: the services refuse at their first read (before 05-02b: visible, then the DELETE filtered → FORBIDDEN).
-      expect(await removePrescriptionItem(ctx, itemId)).toEqual({ success: false, error: "Prescription item not found." });
+      // The command names the service context's clinic while the session acts in the other one: the visit is not found there (V2-09c 000117; before: the
+      // service's own read found no item, since the SELECT policies are bound to the active clinic too).
+      expect(await changeRxAs(ctx, visitId, { remove: [itemId] })).toMatchObject({ success: false, code: "NOT_FOUND", reason: "VISIT_NOT_FOUND" });
       expect((await removeConsultationDiagnosis(ctx, diagnosisId, visitId)).success).toBe(false);
 
       expect(await exists("prescription_items", itemId)).toBe(true);
       expect(await exists("consultation_diagnoses", diagnosisId)).toBe(true);
-      expect(await auditCount("prescription.item_remove", prescriptionId)).toBe(rxAudits);
+      expect(await auditCount("prescription.lines_change", prescriptionId)).toBe(rxAudits);
       expect(await auditCount("diagnosis.remove", diagnosisId)).toBe(0);
     });
   });

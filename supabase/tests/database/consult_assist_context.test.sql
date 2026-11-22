@@ -10,6 +10,7 @@
 --                  a forged tenant id, a null id and another clinic's owner get nothing of this clinic; no session cannot execute it
 --   shape          the keys are exactly the documented ones and no id appears anywhere in the output
 --   limit          at most 300 visits, newest first
+-- 000119 (09C-03) adds rx_favourites and diagnoses[].rx: their cases are in rx_assist.test.sql; here the shape and the empty result carry them.
 -- Every call runs under the real principal (set local role, JWT claims, the x-clinicos-tenant header). The file rolls back. Synthetic data only.
 begin;
 select plan(29);
@@ -174,7 +175,7 @@ create function pg_temp.as_a(p_user text) returns jsonb language sql as $f$
   select pg_temp.ctx(('c1130000-0000-4000-8000-000000000' || p_user)::uuid, 'c1130000-0000-4000-8000-00000000000a', 'c1130000-0000-4000-8000-00000000000a')
 $f$;
 create function pg_temp.empty(p_out jsonb) returns boolean language sql as $f$
-  select p_out is not null and p_out = '{"visits": 0, "pairs": [], "complaints": [], "diagnoses": [], "complaint_pairs": [], "last_exam_template": null}'::jsonb
+  select p_out is not null and p_out = '{"visits": 0, "pairs": [], "complaints": [], "diagnoses": [], "complaint_pairs": [], "last_exam_template": null, "rx_favourites": []}'::jsonb
 $f$;
 
 -- 1. Catalog ---------------------------------------------------------------------------------------------------------------------
@@ -233,10 +234,10 @@ select is((select string_agg(lower(c ->> 'name'), ',') from jsonb_array_elements
   'clinic b complaint', 'and gets their own clinic''s aggregates in their own clinic');
 
 -- 4. Shape: documented keys, no id anywhere -------------------------------------------------------------------------------------------
-select is((select string_agg(k, ',' order by k) from jsonb_object_keys(pg_temp.as_a('102')) k), 'complaint_pairs,complaints,diagnoses,last_exam_template,pairs,visits',
+select is((select string_agg(k, ',' order by k) from jsonb_object_keys(pg_temp.as_a('102')) k), 'complaint_pairs,complaints,diagnoses,last_exam_template,pairs,rx_favourites,visits',
   'the keys are exactly the documented ones');
 select is((select string_agg(distinct k, ',' order by k) from jsonb_array_elements(pg_temp.as_a('102') -> 'diagnoses') d, jsonb_object_keys(d) k),
-  'advice,chronic,custom,follow_up_days,icd11,investigations,n,name,snomed', 'a diagnosis entry carries names, codes, flags and counts only');
+  'advice,chronic,custom,follow_up_days,icd11,investigations,n,name,rx,snomed', 'a diagnosis entry carries names, codes, flags and counts only (000119 adds rx)');
 select is(pg_temp.as_a('102')::text ~ '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', false,
   'no patient id, visit id or any uuid appears in the output');
 

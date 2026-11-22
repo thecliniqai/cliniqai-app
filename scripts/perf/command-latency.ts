@@ -24,7 +24,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { assertLocalTestEnv, loadLocalStackKeys, loadTestEnv } from "../../tests/setup/test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -32,6 +32,12 @@ const TARGET_MS = 150;
 /** V2-09b R-18: the INVOKER Smart Assist reads (consult_assist_context, search_diagnoses, patient_snapshot) on the synthetic seed: p95 under 50 ms. */
 const READ_TARGET_MS = 50;
 const WARMUP = 5;
+
+/** A pseudo-word of `length` letters from an MD5 digest (`translate(md5(n), '0123456789abcdef', 'ghijklmnopqrstuv')`), capitalised: a stand-in brand or generic name. */
+export function latencyWord(n: number, length: number): string {
+  const letters = createHash("md5").update(String(n)).digest("hex").replace(/[0-9a-f]/g, (c) => "ghijklmnopqrstuv"[parseInt(c, 16)]).slice(0, length);
+  return letters.charAt(0).toUpperCase() + letters.slice(1);
+}
 
 function argValue(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -223,6 +229,37 @@ async function main(): Promise<void> {
       };
       return () => owner.client.rpc("save_consultation_draft", args);
     });
+    // V2-09c 09C-01 (R-17): one Rx change on a fresh in-consultation visit: a header created, a catalogue line and two custom lines added (the heaviest a
+    // template apply sends at once, with the custom medicine upserts). The V2-08 condition: p95 under 150 ms.
+    const cdciOne = await admin
+      .from("cdci_medicines_search")
+      .upsert({ id: "test-cdci-09c-lat-000001", brand_name: "Latency Catalogue Tab", generic_name: "Latencyol 1", dose_form: "Tablet", product_name: "Latency product 1", supplier_name: "Synthetic Labs" }, { onConflict: "id" });
+    if (cdciOne.error) throw new Error(`CDCI seed failed: ${cdciOne.error.message}`);
+    // V2-09c 09C-02 (R-7): the patients carry three recorded allergies, so every add runs the allergy check (none of the lines matches).
+    await measure("change_prescription", "command", async (i) => {
+      const { visitId, patientId } = await seedVisit(t, undefined, { status: "in_consultation" });
+      const withAllergies = await admin.from("patients").update({ allergies: ["Latency allergen", "Latency substance 7", "Penicillin"] }).eq("id", patientId);
+      if (withAllergies.error) throw new Error(`allergy seed failed: ${withAllergies.error.message}`);
+      const args = {
+        p_tenant_id: t.tenantId,
+        p_visit_id: visitId,
+        p_changes: {
+          add: [
+            { medicine_name: "Latency Catalogue Tab", dosage: "1-0-1", duration: "5 days", cdci_brand_id: "test-cdci-09c-lat-000001" },
+            { medicine_name: `Latency Custom A ${i}`, dosage: "1-0-0", timing: "After food", duration: "3 days" },
+            { medicine_name: `Latency Custom B ${i}`, dosage: "0-0-1", duration: "7 days", special_instructions: "Synthetic instruction" },
+          ],
+        },
+        p_client_request_id: randomUUID(),
+      };
+      return () => owner.client.rpc("change_prescription", args);
+    });
+    // V2-09c 09C-02 (R-8): the allergy record, one call per fresh patient (three strings, one of them a substance name).
+    await measure("record_patient_allergies", "command", async () => {
+      const { patientId } = await seedVisit(t, undefined, { status: "waiting" });
+      const args = { p_tenant_id: t.tenantId, p_patient_id: patientId, p_allergies: ["Latency substance 7", "Latency allergen", "Penicillin"], p_expected: null, p_client_request_id: randomUUID() };
+      return () => owner.client.rpc("record_patient_allergies", args);
+    });
     await measure("register_patient", "command", async (i) => {
       const args = {
         p_tenant_id: t.tenantId,
@@ -290,7 +327,32 @@ async function main(): Promise<void> {
       if (error) throw new Error(`catalogue seed failed: ${error.message}`);
       catalogueIds.push(...(data ?? []).map((r) => r.id));
     }
+    // V2-09c 09C-01 (R-17): a catalogue of 20,000 synthetic CDCI rows for the medicine search (the global fixture rows are removed in `finally`). The names are
+    // pseudo-random words (a hash mapped to letters), like a real catalogue's, so a doctor's four or five typed letters match a handful of rows, not all of them.
+    for (let i = 0; i < 20_000; i += 1000) {
+      const chunk = Array.from({ length: 1000 }, (_, j) => {
+        const n = i + j + 1;
+        return {
+          id: `test-cdci-09c-lat-${String(n).padStart(6, "0")}`,
+          brand_name: `${latencyWord(n, 9)} ${(n % 900) + 100}`,
+          generic_name: `${latencyWord(n * 7, 10)}ol`,
+          dose_form: ["Tablet", "Syrup", "Capsule"][n % 3],
+          product_name: `p${n}`,
+          supplier_name: "Synthetic Labs",
+        };
+      });
+      const { error } = await admin.from("cdci_medicines_search").upsert(chunk, { onConflict: "id" });
+      if (error) throw new Error(`CDCI seed failed: ${error.message}`);
+    }
+    // 2,000 synthetic CDCI substances (about a real catalogue's size) for the allergy typeahead; removed in `finally`.
+    for (let i = 0; i < 2000; i += 500) {
+      const chunk = Array.from({ length: 500 }, (_, j) => ({ id: `test-sub-09c-lat-${String(i + j + 1).padStart(5, "0")}`, substance_name: `${latencyWord(i + j + 1, 9)}ine` }));
+      const { error } = await admin.from("cdci_substances").upsert(chunk, { onConflict: "id" });
+      if (error) throw new Error(`substance seed failed: ${error.message}`);
+    }
     const hotPatient = await desk.seedPatient(t);
+    // The first signed visit of the hot patient: the source of "Same as last visit" below (a diagnosis and three lines).
+    let hotSource = "";
     const pool: string[] = [];
     for (let i = 0; i < 30; i++) pool.push(await desk.seedPatient(t));
     const complaints = ["Fever", "Cough", "Headache", "Body ache", "Cold"];
@@ -319,6 +381,26 @@ async function main(): Promise<void> {
         .from("consultation_diagnoses")
         .insert({ tenant_id: t.tenantId, visit_id: visit.id, patient_id: patientId, diagnosis_name: `Latency history diagnosis ${i % 14}`, icd11_code: "ZZ00" });
       if (dx.error) throw new Error(`signed-history seed failed: ${dx.error.message}`);
+      // V2-09c 09C-03 (R-17): three prescription lines per visit (a pool of 25 medicines, so the favourites rank real counts), written on the draft and sealed by the sign-off.
+      const header = await admin
+        .from("prescriptions")
+        .insert({ tenant_id: t.tenantId, visit_id: visit.id, patient_id: patientId, doctor_id: t.userId, version: 1, status: "active" })
+        .select("id")
+        .single();
+      if (header.error || !header.data) throw new Error(`signed-history seed failed: ${header.error?.message}`);
+      const lines = await admin.from("prescription_items").insert(
+        [0, 1, 2].map((n) => ({
+          tenant_id: t.tenantId,
+          prescription_id: header.data.id,
+          medicine_name: `Latency Rx Medicine ${(i * 3 + n) % 25}`,
+          dosage: n === 0 ? "1-0-1" : "0-0-1",
+          timing: n === 2 ? null : "After food",
+          duration: `${3 + (n % 3)} days`,
+          sort_order: n,
+        })),
+      );
+      if (lines.error) throw new Error(`signed-history seed failed: ${lines.error.message}`);
+      if (i === 0) hotSource = visit.id;
       const signed = await owner.client.rpc("sign_consultation", clinical.signArgs(t, visit.id));
       if (signed.error) throw new Error(`signed-history seed failed: ${signed.error.message}`);
     }
@@ -326,10 +408,49 @@ async function main(): Promise<void> {
     // ANALYZE runs within its 60 s nap; a clinic's tables have had it for a long time.
     console.log("[latency] waiting 75 s for autovacuum to analyze the seeded tables");
     await new Promise((resolve) => setTimeout(resolve, 75_000));
+    // V2-09c 09C-03 (R-10): "Same as last visit" onto a fresh draft of the same patient: the diagnosis and the three lines copied, with allergies recorded so the check runs.
+    await admin.from("patients").update({ allergies: ["Latency allergen", "Latency substance 7", "Penicillin"] }).eq("id", hotPatient);
+    await measure("repeat_visit_plan", "command", async () => {
+      const { data: target, error: targetError } = await admin
+        .from("visits")
+        .insert({ tenant_id: t.tenantId, patient_id: hotPatient, doctor_id: t.userId, origin_type: "walk_in", status: "in_consultation", created_by: t.userId })
+        .select("id")
+        .single();
+      if (targetError || !target) throw new Error(`repeat target seed failed: ${targetError?.message}`);
+      const args = { p_tenant_id: t.tenantId, p_visit_id: target.id, p_source_visit_id: hotSource, p_parts: ["diagnoses", "prescription"], p_client_request_id: randomUUID() };
+      return () => owner.client.rpc("repeat_visit_plan", args);
+    });
+    // consult_assist_context with the Rx keys: the doctor's 300 signed visits of three lines each (25 distinct medicines).
     await measure("read: consult_assist_context", "read", async () => () => owner.client.rpc("consult_assist_context", { p_tenant_id: t.tenantId }));
     await measure("read: search_diagnoses", "read", async (i) => () =>
       owner.client.rpc("search_diagnoses", { p_tenant_id: t.tenantId, p_terms: [`latency diagnosis ${(i * 13) % 2000}`, "latency fever"], p_specialty: "general_physician", p_limit: 12 }),
     );
+    await measure("read: search_medicines", "read", async (i) => () =>
+      // What a doctor types: the first four or five letters of a brand or of a generic, and sometimes a word and its number.
+      owner.client.rpc("search_medicines", {
+        p_tenant_id: t.tenantId,
+        p_query: [
+          latencyWord(((i * 37) % 20_000) + 1, 9).slice(0, 5),
+          latencyWord((((i * 53) % 20_000) + 1) * 7, 10).slice(0, 4),
+          `${latencyWord(((i * 71) % 20_000) + 1, 9).slice(0, 6)} ${(((i * 71) % 20_000) % 900) + 100}`,
+        ][i % 3].toLowerCase(),
+        p_limit: 15,
+      }),
+    );
+    await measure("read: search_substances", "read", async (i) => () =>
+      owner.client.rpc("search_substances", { p_tenant_id: t.tenantId, p_query: latencyWord(((i * 41) % 2000) + 1, 9).slice(0, 4).toLowerCase(), p_limit: 12 }),
+    );
+    // The context of one visit with an allergic patient and three prescription lines.
+    const ctxVisit = await seedVisit(t, undefined, { status: "in_consultation" });
+    await admin.from("patients").update({ allergies: ["Latency substance 7", "Latency allergen", "Penicillin"] }).eq("id", ctxVisit.patientId);
+    const ctxAdd = await owner.client.rpc("change_prescription", {
+      p_tenant_id: t.tenantId,
+      p_visit_id: ctxVisit.visitId,
+      p_changes: { add: [1, 2, 3].map((n) => ({ medicine_name: `Latency context line ${n}`, dosage: "1-0-1", duration: "5 days" })) },
+      p_client_request_id: randomUUID(),
+    });
+    if (ctxAdd.error) throw new Error(`context seed failed: ${ctxAdd.error.message}`);
+    await measure("read: rx_allergy_context", "read", async () => () => owner.client.rpc("rx_allergy_context", { p_tenant_id: t.tenantId, p_visit_id: ctxVisit.visitId }));
     await measure("read: patient_snapshot", "read", async () => () =>
       owner.client.rpc("patient_snapshot", { p_tenant_id: t.tenantId, p_patient_id: hotPatient }),
     );
@@ -339,6 +460,10 @@ async function main(): Promise<void> {
       const { error } = await admin.from("opd_diagnoses").delete().in("id", catalogueIds.slice(i, i + 100));
       if (error) console.error(`[latency] cleanup: deleting the synthetic catalogue rows failed: ${error.message}`);
     }
+    const subs = await admin.from("cdci_substances").delete().like("id", "test-sub-09c-lat-%");
+    if (subs.error) console.error(`[latency] cleanup: deleting the synthetic substances failed: ${subs.error.message}`);
+    const cdci = await admin.from("cdci_medicines_search").delete().like("id", "test-cdci-09c-lat-%");
+    if (cdci.error) console.error(`[latency] cleanup: deleting the synthetic CDCI rows failed: ${cdci.error.message}`);
     const { error: tenantError } = await admin.from("tenants").delete().eq("id", owner.tenantId);
     if (tenantError) console.error(`[latency] cleanup: deleting the synthetic clinic failed: ${tenantError.message}`);
     for (const id of [owner.userId, receptionist.userId]) {

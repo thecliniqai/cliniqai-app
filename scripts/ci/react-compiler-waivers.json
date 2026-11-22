@@ -2,24 +2,6 @@
   "$comment": "React Compiler rule waivers (V2-06 06-08, R-30). Each entry downgrades one react-hooks rule to warn for one file. `sites` is the exact finding count at error (a ratchet), `expires` at most 90 days after `added`; tests/ci/react-compiler-waivers.spec.ts fails on an expired, stale (no longer matching), miscounted or over-90-day entry, and eslint.config.mjs stops applying an expired entry. Renew only with a new reason and owner; prefer fixing.",
   "waivers": [
     {
-      "file": "components/consultation/frequent-rx-chips.tsx",
-      "rule": "set-state-in-effect",
-      "sites": 1,
-      "owner": "V2-09b",
-      "added": "2026-11-15",
-      "expires": "2027-02-13",
-      "reason": "Suggestion fetch clears synchronously for a short diagnosis; the Smart Assist suggestions are rebuilt with the consult workspace in V2-09b."
-    },
-    {
-      "file": "components/consultation/prescription-builder.tsx",
-      "rule": "set-state-in-effect",
-      "sites": 2,
-      "owner": "V2-09c",
-      "added": "2026-11-15",
-      "expires": "2027-02-13",
-      "reason": "Prop-to-state sync of Rx items and a debounced CDCI drug search with synchronous clearing; V2-09c rebuilds the Rx builder on RxEntryRow/RxLineItem (06-03b)."
-    },
-    {
       "file": "components/queue/checkout-drawer.tsx",
       "rule": "set-state-in-effect",
       "sites": 2,

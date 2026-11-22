@@ -5,12 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { Membership, ScheduleBlock } from "@/lib/db/types";
-import { ClinicSettingsInput, StatutorySettingsInput, UserProfileInput, StaffEditInput } from "./schema";
+import { ClinicSettingsInput, StatutorySettingsInput, RxPrintSettingsInput, UserProfileInput, StaffEditInput } from "./schema";
 import * as settingsService from "./service";
 import * as schedulingService from "@/features/visits/scheduling-service";
 import type {
   UpdateClinicSettingsResult,
   UpdateStatutorySettingsResult,
+  UpdateRxPrintSettingsResult,
   UpdateUserProfileResult,
   UpdateStaffMemberResult,
   UpdateDoctorAvailabilityInput,
@@ -22,6 +23,7 @@ import type {
 export type {
   UpdateClinicSettingsResult,
   UpdateStatutorySettingsResult,
+  UpdateRxPrintSettingsResult,
   UpdateUserProfileResult,
   UpdateStaffMemberResult,
   UpdateDoctorAvailabilityInput,
@@ -57,6 +59,18 @@ export async function updateStatutorySettings(input: StatutorySettingsInput): Pr
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStatutorySettings(resolved.ctx, input);
+  if (result.success) revalidate("/settings/clinic");
+  return result;
+}
+
+/**
+ * "Prescription printing" (V2-09c 09C-04, R-12): the clinic's default paper size and letterhead mode and the margins of its pre-printed stationery.
+ * `clinic:manage`; the tenant is the session's.
+ */
+export async function updateRxPrintSettings(input: RxPrintSettingsInput): Promise<UpdateRxPrintSettingsResult> {
+  const resolved = await resolveServiceContext("clinic:manage");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateRxPrintSettings(resolved.ctx, input);
   if (result.success) revalidate("/settings/clinic");
   return result;
 }

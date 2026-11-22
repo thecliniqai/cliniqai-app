@@ -28,6 +28,7 @@ import type { UserRole } from "@/lib/db/types";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { newClientRequestId } from "@/lib/commands/use-command";
 import { LAB_MAX_FILE_LABEL } from "@/features/labs/utils";
+import { prepareImageForUpload } from "@/lib/files/compress-image";
 
 interface PatientLabDocumentsProps {
   patientId: string;
@@ -151,6 +152,12 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
     setUploadError(null);
 
     try {
+      // V2-09c 09C-05 (R-15): a photo is re-encoded within the budget (and loses its Exif) before it is sent; a PDF goes as it is.
+      const prepared = await prepareImageForUpload(selectedFile);
+      if (!prepared.ok) {
+        setUploadError(prepared.error);
+        return;
+      }
       const formData = new FormData();
       let requestId = requestIds.current.get(selectedFile);
       if (!requestId) {
@@ -158,7 +165,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
         requestIds.current.set(selectedFile, requestId);
       }
       formData.set("client_request_id", requestId);
-      formData.set("file", selectedFile);
+      formData.set("file", prepared.file);
       formData.set("patient_id", patientId);
       formData.set("title", title.trim());
       formData.set("document_type", documentType);
@@ -450,7 +457,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
                       Drag & drop document or <span className="text-accent">browse</span>
                     </p>
                     <p className="text-xs text-fg-subtle mt-1">
-                      Supports PDF, JPEG, PNG, WEBP (Max {LAB_MAX_FILE_LABEL})
+                      Supports PDF, JPEG, PNG, WEBP (photos are made smaller before they are sent; PDFs up to {LAB_MAX_FILE_LABEL})
                     </p>
                   </div>
                 )}

@@ -15,6 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
 import type { TenantRowIds } from "./world";
+import { psql } from "../../helpers/sql";
 
 export interface InputHelpers {
   caller: { userId: string; role: UserRole };
@@ -49,6 +50,13 @@ const week = () => {
   const d = { enabled: true, shifts: [{ start: "09:00", end: "13:00" }] };
   return { monday: d, tuesday: d, wednesday: d, thursday: d, friday: d, saturday: d, sunday: { enabled: false, shifts: [] } };
 };
+
+/** The patient's stored allergy list right now (superuser read of the local stack; the id is a uuid the world created). */
+function storedAllergies(patientId: string): string[] | null {
+  if (!/^[0-9a-f-]{36}$/.test(patientId)) throw new Error("not a uuid");
+  const [row] = psql(`select coalesce(to_jsonb(allergies)::text, 'null') from public.patients where id = '${patientId}'`);
+  return row === undefined ? null : (JSON.parse(row) as string[] | null);
+}
 
 const patientInput = () => ({
   full_name: `Synthetic Guard Patient ${randomUUID().slice(0, 6)}`,
@@ -160,11 +168,32 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/observability/actions.ts#reportClientRenderError": {
     args: (a) => [{ name: "GuardSpecRenderError", route: "/today", ...acting(a) }],
   },
+  // V2-09c 09C-02: the allergy record command takes the patient, the list and a request id; the acting fields are forged at the top level and ignored.
+  // 09C-06a (A-8): and the list the editor started from, read at call time (other legs change the shared patient's list), so the control is not stale.
+  "features/patients/actions.ts#recordPatientAllergies": {
+    args: (a) => [{ patient_id: a.patient, allergies: ["Synthetic allergy"], expected_allergies: storedAllergies(a.patient), client_request_id: randomUUID(), ...acting(a) }],
+  },
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
+  // V2-09c 09C-04: the printing settings; the values are the defaults (A4, blank paper, margins of 110 and 60 points) so the shared world's later legs are unchanged.
+  "features/settings/actions.ts#updateRxPrintSettings": {
+    args: (a) => [{ rx_paper_size: "A4", rx_letterhead_mode: "blank_paper", letterhead_top_margin_mm: 38.8, letterhead_bottom_margin_mm: 21.2, ...acting(a) }],
+  },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
-  "features/prescriptions/actions.ts#addPrescriptionItem": {
-    args: (a) => [a.visit, { medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", timing: "After food", sort_order: 1, ...acting(a) }],
+  // V2-09c 09C-01: the Rx command takes the visit and the changes; the acting fields are forged at the top level of the input and must be ignored.
+  // V2-09c 09C-03: "Same as last visit" takes the visit being written, the signed visit of the same patient to copy from and the parts; only ids travel.
+  "features/prescriptions/actions.ts#repeatVisitPlanAction": {
+    args: (a) => [{ visit_id: a.visit, source_visit_id: a.signedVisit, parts: ["diagnoses", "prescription"], client_request_id: randomUUID(), ...acting(a) }],
+  },
+  "features/prescriptions/actions.ts#changePrescriptionAction": {
+    args: (a) => [
+      {
+        visit_id: a.visit,
+        changes: { add: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", timing: "After food" }] },
+        client_request_id: randomUUID(),
+        ...acting(a),
+      },
+    ],
   },
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],

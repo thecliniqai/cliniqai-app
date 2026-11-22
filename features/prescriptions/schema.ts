@@ -121,16 +121,93 @@ export const protocolTemplateSchema = z.object({
 export type ProtocolTemplateInput = z.infer<typeof protocolTemplateSchema>;
 
 /**
- * Drug search result item structure returned by search_medicines RPC.
+ * One row of the medicine search (`GET /api/prescriptions/medicines`, V2-09c R-3): a CDCI brand or the calling doctor's own custom medicine. A custom row
+ * carries the doctor's stored dosage, timing and duration (null when they stored none); a CDCI row carries none, never a default.
  */
 export interface MedicineSearchResult {
   id: string;
+  kind: "cdci" | "custom";
   medicine_name: string;
   generic_name: string | null;
   dose_form: string | null;
-  default_dosage: string | null;
-  default_timing: string | null;
-  default_duration: string | null;
-  is_custom: boolean;
-  is_favorite: boolean;
+  substance_ids: string[];
+  dosage: string | null;
+  timing: string | null;
+  duration: string | null;
 }
+
+/** The exact keys of a search row, in order (the route's projection; `tests/security/guard-manifest.ts` pins the same list). */
+export const MEDICINE_SEARCH_KEYS = ["id", "kind", "medicine_name", "generic_name", "dose_form", "substance_ids", "dosage", "timing", "duration"] as const;
+
+export const MEDICINE_SEARCH_LIMIT = 15;
+export const MEDICINE_QUERY_MAX = 60;
+
+/** An optional text that may be empty or null; the command stores an empty one as NULL. */
+const optionalText = (max: number) => z.string().max(max).nullable().optional();
+
+/** One medicine line of the `change_prescription` command (the rules of {@link prescriptionItemSchema}, closed key set). */
+export const changeLineSchema = z
+  .object({
+    medicine_name: z.string().trim().min(1, "Medicine name is required").max(250),
+    generic_name: optionalText(250),
+    dose_form: optionalText(50),
+    dosage: z.string().trim().min(1, "Dosage is required").max(50),
+    timing: optionalText(100),
+    duration: z.string().trim().min(1, "Duration is required").max(50),
+    special_instructions: optionalText(500),
+    cdci_brand_id: optionalText(100),
+  })
+  .strict();
+
+export const changeUpdateSchema = z
+  .object({
+    id: z.string().uuid(),
+    dosage: z.string().trim().min(1).max(50).optional(),
+    timing: optionalText(100),
+    duration: z.string().trim().min(1).max(50).optional(),
+    special_instructions: optionalText(500),
+  })
+  .strict();
+
+/** The input of the Rx change command: at least one operation, at most 30 of each kind, each item named once. */
+export const changePrescriptionSchema = z
+  .object({
+    visit_id: z.string().uuid(),
+    changes: z
+      .object({
+        add: z.array(changeLineSchema).max(30).optional(),
+        update: z.array(changeUpdateSchema).max(30).optional(),
+        remove: z.array(z.string().uuid()).max(30).optional(),
+        // V2-09c 09C-02 (R-7, Q-4): the reason to prescribe a medicine that matches a recorded allergy, 5 to 300 characters.
+        allergy_override_reason: z.string().trim().min(5, "Give a reason of at least 5 characters.").max(300).optional(),
+      })
+      .strict(),
+    client_request_id: z.string().uuid(),
+  })
+  // Top level: unknown keys (a forged tenant_id or created_by) are dropped, never read; the tenant and the actor are the session's (ADR-0005 D1).
+  .superRefine((value, ctx) => {
+    const { add = [], update = [], remove = [] } = value.changes;
+    if (add.length + update.length + remove.length === 0) ctx.addIssue({ code: "custom", message: "Nothing to change." });
+    const named = [...update.map((u) => u.id), ...remove];
+    if (new Set(named).size !== named.length) ctx.addIssue({ code: "custom", message: "An item is named twice." });
+    update.forEach((u, i) => {
+      if (u.dosage === undefined && u.duration === undefined && u.timing === undefined && u.special_instructions === undefined) {
+        ctx.addIssue({ code: "custom", path: ["changes", "update", i], message: "Nothing to change on this item." });
+      }
+    });
+  });
+
+export type ChangePrescriptionInput = z.input<typeof changePrescriptionSchema>;
+
+/**
+ * The input of "Same as last visit" (`public.repeat_visit_plan`, V2-09c 09C-03, R-10): the visit being written, the signed visit to copy from and what to copy.
+ * Only ids and the parts travel: the lines and diagnoses are read by the database, never taken from the caller.
+ */
+export const repeatVisitPlanSchema = z.object({
+  visit_id: z.string().uuid(),
+  source_visit_id: z.string().uuid(),
+  parts: z.array(z.enum(["diagnoses", "prescription"])).min(1).max(2),
+  client_request_id: z.string().uuid(),
+});
+
+export type RepeatVisitPlanInput = z.input<typeof repeatVisitPlanSchema>;

@@ -113,7 +113,7 @@ export function commandResultRows(tenantId: string, clientRequestId: string): st
  * that the request hash is a keyed 64-hex digest (G-8).
  * Reads the stored `command_results.result` (superuser) and fails when a string value is anything but a token: a uuid, a
  * timestamp, a number such as an invoice number, or a status word, i.e. no whitespace and at most 64 characters. Returns the
- * parsed result so a spec can go on to compare it.
+ * parsed result so a spec can go on to compare it. A list is allowed when every element is such a token (V2-09c: `added_item_ids`).
  */
 export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: string): Record<string, unknown> {
   const [line] = psql(
@@ -124,12 +124,17 @@ export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: st
   // G-8 (000099): the request hash is a keyed HMAC-SHA256 digest (64 hex characters), not an md5 of the payload.
   if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`request hash of ${clientRequestId} is not a 64-hex keyed digest`);
   const result = JSON.parse(raw) as Record<string, unknown>;
-  for (const [key, value] of Object.entries(result)) {
+  const token = (key: string, value: unknown) => {
     if (typeof value === "string") {
       if (!/^[A-Za-z0-9_.:+\-]{1,64}$/.test(value)) throw new Error(`stored result key ${key} holds free text (${value.length} characters)`);
     } else if (value !== null && typeof value !== "number" && typeof value !== "boolean") {
       throw new Error(`stored result key ${key} holds a ${typeof value}, not a scalar`);
     }
+  };
+  for (const [key, value] of Object.entries(result)) {
+    // V2-09c: a list of ids (added_item_ids) is allowed; every element must be a token like any other value.
+    if (Array.isArray(value)) for (const element of value) token(key, element);
+    else token(key, value);
   }
   return result;
 }

@@ -51,6 +51,8 @@ async function seedPatientAndVisit(owner: SeededTenant, doctorId: string, patien
       full_name: patientName,
       phone: syntheticPhone(),
       sex: "other",
+      // 09C-06a (S-5): no column default any more; the run's patient keeps the "No known allergies" it always had.
+      allergies: [],
       created_by: owner.userId,
     })
     .select("id")

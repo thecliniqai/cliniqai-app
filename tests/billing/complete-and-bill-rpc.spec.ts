@@ -497,7 +497,7 @@ describe("completeAndBillConsultation (service)", () => {
 
     it("the first call archives the prescription PDF and the receipt and queues one consolidated message; an untouched replay does none of it again", async () => {
       const v = await messageableVisit();
-      const req = input(v);
+      const req = input(v, { send_whatsapp: true });
       const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string };
       expect(first.success).toBe(true);
       expect(await rxPath(v.visitId)).toMatch(/rx_v1\.pdf$/);
@@ -516,7 +516,7 @@ describe("completeAndBillConsultation (service)", () => {
     // tests/prescriptions/rx-pdf-archive.spec.ts (self-heal on open); here the archive step is the same function.
     it("a replay after a lost post-commit renders the missing receipt, leaves the archived prescription PDF alone, and still queues one message", async () => {
       const v = await messageableVisit();
-      const req = input(v);
+      const req = input(v, { send_whatsapp: true });
       const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string };
       expect(first.success).toBe(true);
       // Simulate the first call dying right after the commit: no receipt (the queued message stays: it may or may not
@@ -537,6 +537,19 @@ describe("completeAndBillConsultation (service)", () => {
       expect(await consolidated(v.visitId)).toHaveLength(1);
       // The command itself wrote nothing new.
       expect(await writes(tenantA, v.visitId, v.prescriptionIds)).toMatchObject({ signAudit: 1, invoices: 1, payments: 1 });
+    });
+
+    // V2-09c 09C-05 (CTO ruling Q-8): the prescription's delivery by WhatsApp is the doctor's choice on the finish review, never a default.
+    it("without the doctor's choice (send_whatsapp) no message is queued, whatever the retries do; the receipt is still archived", async () => {
+      const v = await messageableVisit();
+      const req = input(v);
+      const first = (await completeAndBillConsultation(ctxFor(tenantA), req)) as { success: true; invoiceId: string; whatsAppSent?: boolean };
+      expect(first.success).toBe(true);
+      expect(first.whatsAppSent).toBe(false);
+      expect(await consolidated(v.visitId)).toHaveLength(0);
+      await completeAndBillConsultation(ctxFor(tenantA), req);
+      expect(await consolidated(v.visitId)).toHaveLength(0);
+      expect(await receiptExists(first.invoiceId)).toBe(true);
     });
 
     it("a replay of an already-billed result (the desk made the invoice first) runs no receipt or message step", async () => {

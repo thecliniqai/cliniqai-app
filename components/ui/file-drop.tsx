@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useId, useRef, useState } from "react";
+import React, { useId, useImperativeHandle, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, FileText, Loader2, RotateCw, UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { newClientRequestId } from "@/lib/commands/use-command";
+import { COMPRESS_FAILED_MESSAGE, isCompressibleImage } from "@/lib/files/compress-image";
 
 /**
  * FileDrop (V2-09b 09B-05; DESIGN_SYSTEM §6.2, R-16): a drop zone and a file picker in one control, one status row per file.
@@ -17,9 +18,17 @@ import { newClientRequestId } from "@/lib/commands/use-command";
  *   failed, not a percentage). A failed upload has Retry, which re-sends only that file. A stored row stays until dismissed.
  * - Each file gets one request id when it is taken (V2-09b 09B-06a, A-4); Retry sends the same id, so a retry after a lost response is answered with the
  *   row the first attempt stored instead of a second copy.
- * - Not a no-op: with `disabled` the control says why (`disabledReason`) and takes nothing. No `capture` attribute (camera capture is V2-09c).
+ * - `prepare` (V2-09c 09C-05, R-15) turns the chosen file into the one that is sent (a photo re-encoded within the budget) after the client check and before
+ *   `onUpload`; a refusal there is a failed row with its text. `handleRef.take(files)` feeds the same queue from a control beside this one (the camera button:
+ *   `capture` belongs on that button's own input, not here).
+ * - Not a no-op: with `disabled` the control says why (`disabledReason`) and takes nothing.
  */
 export type FileDropResult = { ok: true } | { ok: false; error: string };
+
+export interface FileDropHandle {
+  /** Adds files to the queue exactly as if they had been chosen with the picker. */
+  take: (files: FileList | File[]) => void;
+}
 
 export interface FileDropProps {
   /** Accessible name of the picker button and the zone ("Upload report"). */
@@ -32,6 +41,10 @@ export interface FileDropProps {
   refuse: (file: { type: string; size: number }) => string | null;
   /** Sends one file with its request id (the same id on every Retry of that file); resolves with the outcome (a thrown error is a failed row too). */
   onUpload: (file: File, requestId: string) => Promise<FileDropResult>;
+  /** Makes the file ready to send (the compression of a photo); resolves with the file to send or a refusal. A thrown error sends the original. */
+  prepare?: (file: File) => Promise<{ ok: true; file: File } | { ok: false; error: string }>;
+  /** Lets a control beside this one add files to the queue. */
+  handleRef?: React.Ref<FileDropHandle>;
   multiple?: boolean;
   disabled?: boolean;
   /** Why the control is disabled; drawn in place of the zone's prompt. */
@@ -50,6 +63,8 @@ interface Row {
   error?: string;
   /** A failure that sending again cannot fix (the client check): no Retry. */
   final?: boolean;
+  /** The file `prepare` made from `file`; sent in its place. */
+  prepared?: File;
 }
 
 const STATUS_TEXT: Record<RowStatus, string> = {
@@ -64,7 +79,7 @@ function sizeText(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple = true, disabled = false, disabledReason, className }: FileDropProps) {
+export function FileDrop({ label, accept, limitsText, refuse, onUpload, prepare, handleRef, multiple = true, disabled = false, disabledReason, className }: FileDropProps) {
   const inputId = useId();
   const limitsId = `${inputId}-limits`;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +95,21 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple
     chain.current = chain.current.then(async () => {
       patch(row.id, { status: "uploading", error: undefined });
       try {
-        const result = await onUpload(row.file, row.requestId);
+        let file = row.prepared ?? row.file;
+        if (prepare && !row.prepared) {
+          // Prepared once per row: a Retry sends the prepared file again (the bytes the first attempt would have stored).
+          // 09C-06a (A-6, S-4): a preparation that throws never sends the original of a picture (it may carry its location); anything else goes as it is.
+          const made = await prepare(row.file).catch(() =>
+            isCompressibleImage(row.file.type) ? { ok: false as const, error: COMPRESS_FAILED_MESSAGE } : { ok: true as const, file: row.file },
+          );
+          if (!made.ok) {
+            patch(row.id, { status: "failed", error: made.error, final: true });
+            return;
+          }
+          file = made.file;
+          patch(row.id, { prepared: made.file });
+        }
+        const result = await onUpload(file, row.requestId);
         if (result.ok) patch(row.id, { status: "stored" });
         else patch(row.id, { status: "failed", error: result.error });
       } catch {
@@ -110,6 +139,8 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple
     setRows((current) => [...current, ...added]);
     for (const row of accepted) send(row);
   };
+
+  useImperativeHandle(handleRef, () => ({ take }));
 
   const retry = (row: Row) => {
     patch(row.id, { status: "queued", error: undefined });
@@ -192,7 +223,7 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, multiple
                   <span>
                     {STATUS_TEXT[row.status]}
                     {row.status === "failed" && row.error ? `: ${row.error}` : ""}
-                    {row.status !== "failed" ? ` · ${sizeText(row.file.size)}` : ""}
+                    {row.status !== "failed" ? ` · ${sizeText((row.prepared ?? row.file).size)}` : ""}
                   </span>
                 </p>
               </div>

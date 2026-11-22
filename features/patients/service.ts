@@ -13,6 +13,8 @@ import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { isYmd, ymdOf } from "@/lib/datetime";
 import { formatAgeToday } from "@/lib/ui/age";
+import { recordPatientAllergies } from "./allergies";
+import { randomUUID } from "node:crypto";
 import { DUPLICATE_REASONS, DUPLICATE_STRENGTHS, PATIENT_SEARCH_LIMIT, type DuplicateReason, type DuplicateStrength, type PatientHit, type PatientSex } from "./search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,6 +30,17 @@ export const PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE =
 function sameList(a: unknown, b: string[]): boolean {
   const left = Array.isArray(a) ? (a as unknown[]) : [];
   return left.length === b.length && left.every((v, i) => v === b[i]);
+}
+
+/**
+ * V2-09c 09C-02 (R-8): allergies are compared with "not recorded" (NULL) and "none" ([]) kept apart. A form that sent no `allergies` leaves them alone; a
+ * list that equals the stored one is not written (a demographics edit by a doctor used to write [] over NULL, which showed "No known allergies" for
+ * patients nobody had asked).
+ */
+function allergiesChanged(existing: unknown, sent: string[] | undefined): boolean {
+  if (sent === undefined) return false;
+  if (existing == null) return true;
+  return !sameList(existing, sent);
 }
 
 export type UpdatePatientResult =
@@ -75,13 +88,29 @@ export async function updatePatient(
     // R-8 (V2-05 05-02b): front desk and admins update demographics only. A caller without consultations:view who
     // changes allergies or chronic conditions is refused before the write; unchanged values are not sent, so the
     // patients_clinical_fields_guard trigger (000055, the control) never sees them.
-    const allergies = data.allergies || [];
+    const allergies = data.allergies;
     const chronicConditions = data.chronic_conditions || [];
-    const clinicalFieldsChanged =
-      !sameList(existing.allergies, allergies) || !sameList(existing.chronic_conditions, chronicConditions);
+    const allergiesAreChanged = allergiesChanged(existing.allergies, allergies);
+    const clinicalFieldsChanged = allergiesAreChanged || !sameList(existing.chronic_conditions, chronicConditions);
     const mayEditClinicalFields = hasPerm(ctx.role, "consultations:view");
     if (clinicalFieldsChanged && !mayEditClinicalFields) {
       return { success: false, error: PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE };
+    }
+    // 09C-06a (S-2): the audit row names the clinical fields that changed too (names only, never the values).
+    if (allergiesAreChanged) changedFields.push("allergies");
+    if (!sameList(existing.chronic_conditions, chronicConditions)) changedFields.push("chronic_conditions");
+
+    // 09C-06a (ruling R-AL, A-8): an allergy change is the allergy command, never a column write here: the list is validated, the write is audited by
+    // the command, and a list that changed since the form was opened (`allergies_expected`, else the row just read) is refused (ALLERGIES_CHANGED).
+    // It runs first, so a refused allergy change leaves the demographics untouched as well.
+    if (mayEditClinicalFields && allergiesAreChanged) {
+      const recorded = await recordPatientAllergies(ctx, {
+        patient_id: patientId,
+        allergies: allergies ?? [],
+        expected_allergies: data.allergies_expected !== undefined ? data.allergies_expected : ((existing.allergies as string[] | null) ?? null),
+        client_request_id: randomUUID(),
+      });
+      if (!recorded.ok) return { success: false, error: recorded.error.message };
     }
 
     // 2. Update under RLS
@@ -93,7 +122,7 @@ export async function updatePatient(
         age: data.age ?? null,
         sex: data.sex || null,
         address: data.address || null,
-        ...(mayEditClinicalFields ? { allergies, chronic_conditions: chronicConditions } : {}),
+        ...(mayEditClinicalFields ? { chronic_conditions: chronicConditions } : {}),
         emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         updated_at: new Date().toISOString(),

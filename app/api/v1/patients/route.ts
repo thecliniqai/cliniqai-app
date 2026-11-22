@@ -138,7 +138,8 @@ export async function POST(req: NextRequest) {
         age: input.age ?? null,
         sex: input.sex ?? null,
         address: input.address ? (input.address as Record<string, unknown>) : null,
-        allergies: input.allergies || [],
+        // 09C-06a (A-7, S-5): no allergies sent is "not recorded" (null), never "No known allergies" ([]).
+        allergies: input.allergies ?? null,
         chronic_conditions: input.chronic_conditions || [],
         emergency_contact: input.emergency_contact
           ? (input.emergency_contact as Record<string, unknown>)

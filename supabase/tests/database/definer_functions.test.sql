@@ -176,7 +176,6 @@ insert into c2c_definer values
   ('public.referral_source_clinics', 'bound', 'consultations:view in the active clinic (000061)'),
   ('public.issue_queue_token', 'bound', 'visit''s clinic = active clinic with appointments:edit (000068, 05-11a; replaced next_queue_token)'),
   ('public.generate_tenant_invoice_number', 'bound', 'billing:collect or consultations:edit, active clinic (000056)'),
-  ('public.search_medicines', 'bound', 'the active clinic (000061)'),
   ('public.log_audit', 'bound', 'p_tenant = active clinic (000060); action and metadata allow-lists (000074, 05-11b)'),
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.create_invoice', 'bound', 'p_tenant_id = active clinic; billing:collect, or consultations:edit on the visit''s own doctor; the visit is looked up in that clinic only (000096, 07-02, R-1)'),
@@ -272,6 +271,9 @@ insert into c2c_definer values
   ('private.step_create_invoice', 'internal', 'step: the visit''s live invoice or a new one; called by create_invoice and collect_payment after their guard block, no API grant (000096, 07-02)'),
   ('private.step_sign_consultation', 'internal', 'step: the sign-off body (visit, prescriptions, audit, outbox); called by sign_consultation after its guard block, no API grant (000097, 07-01)'),
   ('public.save_consultation_draft', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit and its notes row are locked in that clinic only; a sealed, completed or cancelled visit is DRAFT_LOCKED and a stale expected version DRAFT_CONFLICT (000112, 09B-01, R-3)'),
+  ('public.change_prescription', 'bound', 'p_tenant_id = active clinic with prescriptions:edit; the visit is locked in that clinic only; every updated or removed item is an item of the visit''s latest header; a sealed, completed or cancelled visit is DRAFT_LOCKED (000117, 09C-01, R-2)'),
+  ('public.record_patient_allergies', 'bound', 'p_tenant_id = active clinic with patients:edit AND consultations:view (the front desk cannot); the patient is locked in that clinic only (an erased or deleted one is not found); the list is validated and de-duplicated; a stored list other than p_expected is refused (000118, 09C-02, R-8; 000120, A-8, S-6)'),
+  ('public.repeat_visit_plan', 'bound', 'p_tenant_id = active clinic with prescriptions:edit AND consultations:edit; the target visit is locked in that clinic only and refused when sealed, completed or cancelled; the source must be a completed signed visit of the same patient in that clinic; every read and write filters on the tenant (000119, 09C-03, R-10)'),
   ('private.step_start_consultation', 'internal', 'step: the start-consultation body (check-in, in_consultation, audit); called by start_consultation and save_consultation_draft after their guard block, no API grant (000112, 09B-01)'),
   ('private.step_check_in', 'internal', 'step: the check-in body (token, waiting status, audit); called by check_in_visit after its guard block, no API grant (000097, 07-01)'),
   ('private.visits_status_transition_guard', 'internal', 'trigger: refuses a visits.status change the state machine does not list; definer because it calls the private transition function (000100, 08-01b, R-7)'),
@@ -287,7 +289,8 @@ insert into c2c_definer values
   ('private.fill_default_location', 'internal', 'trigger: visits, queue_tokens and invoices get the clinic''s default location when none is given (000095, 07-00, R-5)'),
   ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)'),
   ('private.tenants_timezone_audit', 'internal', 'trigger: every tenants.timezone change is audited (000092, 05-12, H-AITZ)'),
-  ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)');
+  ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)'),
+  ('private.patients_allergies_audit', 'internal', 'trigger: every change of patients.allergies, by any writer, leaves a counts-only patient.allergies_change row (000120, 09C-06a, S-2, R-AL)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -311,7 +314,7 @@ select set_eq(
     'public.enqueue_webhook_event:authenticated', 'private.outbox_payment_recorded:authenticated,service_role',
     'public.referral_source_clinics:authenticated',
     'public.issue_queue_token:authenticated',
-    'public.generate_tenant_invoice_number:authenticated,service_role', 'public.search_medicines:authenticated,service_role',
+    'public.generate_tenant_invoice_number:authenticated,service_role',
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
     'public.current_user_tenant_ids:authenticated,service_role',
     'public.my_tenant_access:authenticated', 'public.my_entitlements:authenticated',
@@ -347,7 +350,7 @@ select set_eq(
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
     'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
-    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:',
+    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:', 'private.patients_allergies_audit:',
     'private.command_claim:', 'private.command_complete:', 'private.command_request_hash:', 'private.log_command_audit:',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',
@@ -358,7 +361,7 @@ select set_eq(
     'public.start_consultation:authenticated', 'public.complete_visit:authenticated', 'public.register_patient:authenticated', 'private.visits_status_transition_guard:', 'private.today_signal:', 'private.today_signal_send:',
     'public.sign_consultation:authenticated', 'public.reopen_visit_for_amendment:authenticated',
     'public.finalize_visit_amendment:authenticated', 'public.check_in_visit:authenticated',
-    'private.step_sign_consultation:', 'private.step_check_in:', 'public.save_consultation_draft:authenticated', 'private.step_start_consultation:',
+    'private.step_sign_consultation:', 'private.step_check_in:', 'public.save_consultation_draft:authenticated', 'public.change_prescription:authenticated', 'public.record_patient_allergies:authenticated', 'public.repeat_visit_plan:authenticated', 'private.step_start_consultation:',
     'public.enqueue_walk_in:authenticated', 'public.register_and_book:authenticated', 'public.complete_and_bill:authenticated',
     'private.step_create_patient:', 'private.step_create_visit:', 'private.step_enqueue_booking_message:',
     'private.tenants_create_default_location:', 'private.fill_default_location:'
@@ -436,9 +439,9 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000
   'denied:forbidden', 'issue_queue_token: acting in A on clinic B''s visit is refused (05-08, 05-11a)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
   '1', 'issue_queue_token: acting in B a token is issued (05-08, 05-11a)');
-select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),
-  'denied:forbidden', 'search_medicines: acting in A in B''s catalogue is refused');
-select matches(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.search_medicines('c2c00000-0000-4000-8000-00000000000b', 'para', 1)$$),
+  '0', 'search_medicines (INVOKER since 000117): acting in A, B''s clinic id reads nothing');
+select matches(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('c2c00000-0000-4000-8000-00000000000b', 'para', 1)$$),
   '^[0-9]+$', 'search_medicines: acting in B it answers');
 select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
   'denied:%', 'generate_tenant_invoice_number: acting in A for B is refused');
@@ -534,13 +537,13 @@ insert into c2c_access values
   ('public.change_member_role', 'refuses'), ('public.create_share_token', 'refuses'), ('public.revoke_share_token', 'refuses'),
   ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
   ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
-  ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
+  ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
   ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
   ('public.finalize_visit_amendment', 'refuses'), ('public.check_in_visit', 'refuses'),
   ('public.reschedule_visit', 'refuses'), ('public.cancel_visit', 'refuses'), ('public.mark_no_show', 'refuses'),
   ('public.confirm_appointment', 'refuses'), ('public.add_to_waitlist', 'refuses'), ('public.promote_waitlist_entry', 'refuses'),
   ('public.available_slots', 'refuses'), ('public.find_patient_duplicates', 'refuses'),
-  ('public.start_consultation', 'refuses'), ('public.save_consultation_draft', 'refuses'), ('public.complete_visit', 'refuses'), ('public.register_patient', 'refuses'),
+  ('public.start_consultation', 'refuses'), ('public.save_consultation_draft', 'refuses'), ('public.change_prescription', 'refuses'), ('public.record_patient_allergies', 'refuses'), ('public.repeat_visit_plan', 'refuses'), ('public.complete_visit', 'refuses'), ('public.register_patient', 'refuses'),
   ('public.enqueue_walk_in', 'refuses'), ('public.register_and_book', 'refuses'), ('public.complete_and_bill', 'refuses'),
   ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
@@ -624,8 +627,8 @@ select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-00
   '0', 'locked B: referral_source_clinics lists nothing');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
   'denied:forbidden', 'locked B: issue_queue_token is refused');
-select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),
-  'denied:forbidden', 'locked B: search_medicines is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('c2c00000-0000-4000-8000-00000000000b', 'para', 1)$$),
+  '0', 'locked B: search_medicines reads nothing');
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
   'denied:%', 'locked B: generate_tenant_invoice_number is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.record_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 1, 'cash', '', null)$$),

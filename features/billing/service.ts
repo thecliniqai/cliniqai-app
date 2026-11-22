@@ -941,30 +941,32 @@ export async function completeAndBillConsultation(
       .limit(1);
     const rxRow = rxRows && rxRows.length > 0 ? rxRows[0] : null;
 
-    // 4. Automated Single Consolidated WhatsApp Dispatch:
-    // Sends both prescription and invoice links together in a single WhatsApp message to avoid double message costs.
+    // 4. One consolidated WhatsApp message, ONLY when the doctor chose it on the finish review (V2-09c 09C-05, CTO ruling Q-8: PO-23(h) accepts WhatsApp for
+    // reminders and billing notices, so the prescription's delivery is never a default). It carries both links in a single message to avoid double message costs.
     let whatsAppSent = false;
     let whatsAppError: string | null = null;
     let rxShareUrl: string | undefined;
     let invoiceShareUrl: string | undefined;
 
-    try {
-      const waRes = await sendConsolidatedConsultationWhatsApp(ctx, {
-        visitId: data.visit_id,
-        invoiceId: done.invoice_id,
-        patientId: data.patient_id,
-        // One automatic consolidated message per visit, whatever the retries do (V2-07 07-04a F-7, G-2). A manual resend
-        // from the visit register carries no key and is never deduplicated.
-        dedupeKey: `consultation_documents:${data.visit_id}`,
-      });
-      whatsAppSent = waRes.success;
-      whatsAppError = waRes.error || null;
-      rxShareUrl = waRes.rxShareUrl;
-      invoiceShareUrl = waRes.invoiceShareUrl;
-    } catch (waErr) {
-      log.warn({ event: "billing.checkout_whatsapp.failed", code: errorTag(waErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      // 03-13c (M-ERRMSG): the dispatch error can carry the recipient's phone; the client gets fixed text only.
-      whatsAppError = "Failed to dispatch automated WhatsApp";
+    if (data.send_whatsapp === true) {
+      try {
+        const waRes = await sendConsolidatedConsultationWhatsApp(ctx, {
+          visitId: data.visit_id,
+          invoiceId: done.invoice_id,
+          patientId: data.patient_id,
+          // One consolidated message per visit, whatever the retries do (V2-07 07-04a F-7, G-2). A manual resend
+          // from the visit register carries no key and is never deduplicated.
+          dedupeKey: `consultation_documents:${data.visit_id}`,
+        });
+        whatsAppSent = waRes.success;
+        whatsAppError = waRes.error || null;
+        rxShareUrl = waRes.rxShareUrl;
+        invoiceShareUrl = waRes.invoiceShareUrl;
+      } catch (waErr) {
+        log.warn({ event: "billing.checkout_whatsapp.failed", code: errorTag(waErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        // 03-13c (M-ERRMSG): the dispatch error can carry the recipient's phone; the client gets fixed text only.
+        whatsAppError = "Failed to dispatch automated WhatsApp";
+      }
     }
 
     return {

@@ -9,6 +9,8 @@ import {
 } from "@/features/consultation/actions";
 import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { getVisitPrescription } from "@/features/prescriptions/actions";
+import { getRxAllergyContext } from "@/features/prescriptions/service";
+import type { RxAllergyContext } from "@/features/prescriptions/allergy";
 import { ConsultWorkspace } from "@/components/consultation/workspace/consult-workspace";
 import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
@@ -30,6 +32,8 @@ import { getPatientDocuments } from "@/features/labs/service";
 import { toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
 import type { DoctorMacro } from "@/features/consultation/macros";
 import { resolveServiceContext } from "@/lib/auth/context";
+import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload";
+import type { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/types";
 
 interface ConsultationPageProps {
   params: Promise<{
@@ -69,6 +73,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
         id,
         full_name,
         phone,
+        whatsapp_opt_out,
         sex,
         date_of_birth,
         age,
@@ -156,15 +161,35 @@ async function ConsultationPage(props: ConsultationPageProps) {
   // only, the visit on screen excluded) only with `assist.snapshot`. A failed or refused read is "no assist": the catalogue order and the plain last-visit
   // block apply.
   let assistContext: AssistContext | null = null;
+  // The same read serves the Prescription section's favourites and "your usual" (V2-09c R-9) when the clinic is entitled to `assist.frequent_rx`.
+  let rxAssistContext: AssistContext | null = null;
   let snapshot: PatientSnapshot | null = null;
   const editable = recordState(visitRow) === "amending" || (recordState(visitRow) !== "sealed" && visitRow.status !== "completed" && visitRow.status !== "cancelled");
-  const wantsContext = editable && assist["assist.terminology"] === true && hasPerm(membership.role, "consultations:edit");
+  const mayAssist = editable && hasPerm(membership.role, "consultations:edit");
+  const wantsTerminology = mayAssist && assist["assist.terminology"] === true;
+  const wantsRxAssist = mayAssist && assist["assist.frequent_rx"] === true;
+  const wantsContext = wantsTerminology || wantsRxAssist;
   const wantsSnapshot = assist["assist.snapshot"] === true;
   if (wantsContext || wantsSnapshot) {
     const resolved = await resolveServiceContext("consultations:view");
     if (resolved.ok) {
-      if (wantsContext) assistContext = await getConsultAssistContext(resolved.ctx);
+      if (wantsContext) {
+        const read = await getConsultAssistContext(resolved.ctx);
+        if (wantsTerminology) assistContext = read;
+        if (wantsRxAssist) rxAssistContext = read;
+      }
       if (wantsSnapshot) snapshot = await getPatientSnapshot(resolved.ctx, patientId, id);
+    }
+  }
+
+  // 9b. The signed prescription as the browser prints it (V2-09c 09C-04, R-12; CTO ruling Q-2): the PDF's own payload (the same words, paper and margins), only for a
+  // sealed record and a role that may read prescriptions. A failed or refused read is "no print view": the PDF link stays.
+  let printPayload: PrescriptionPdfPayload | null = null;
+  if (recordState(visitRow) === "sealed" && hasPerm(membership.role, "prescriptions:view")) {
+    const resolved = await resolveServiceContext("prescriptions:view");
+    if (resolved.ok) {
+      const source = await loadPrescriptionPdfSource(resolved.ctx, id);
+      if (source?.header?.signed_at && source.payload.medications.length > 0) printPayload = source.payload;
     }
   }
 
@@ -196,6 +221,17 @@ async function ConsultationPage(props: ConsultationPageProps) {
     }
   }
 
+  // 12. The allergy picture of the visit (V2-09c 09C-02, R-7): the state, the coded allergies and what each current line matches. A failed or refused read is
+  // "none": the screen then draws the allergy strip only and the database still checks every add.
+  let allergyContext: RxAllergyContext | null = null;
+  {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) {
+      const loaded = await getRxAllergyContext(resolved.ctx, id);
+      if (loaded.success) allergyContext = loaded.context;
+    }
+  }
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -206,6 +242,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
     id: patientRaw.id,
     full_name: patientRaw.full_name,
     phone: patientRaw.phone,
+    whatsapp_opt_out: patientRaw.whatsapp_opt_out === true,
     gender: (patientRaw.sex === "male" || patientRaw.sex === "female" || patientRaw.sex === "other"
       ? patientRaw.sex
       : null) as "male" | "female" | "other" | null,
@@ -258,12 +295,18 @@ async function ConsultationPage(props: ConsultationPageProps) {
       pastEncounters={pastEncounters}
       assist={assist}
       assistContext={assistContext}
+      rxAssistContext={rxAssistContext}
+      printPayload={printPayload}
+      allergyContext={allergyContext}
       snapshot={snapshot}
       macros={macros}
       upcomingVisits={upcomingVisits}
       canBook={hasPerm(membership.role, "appointments:edit")}
       documents={documents}
       canUpload={hasPerm(membership.role, "labs:edit")}
+      canRecordAllergies={hasPerm(membership.role, "patients:edit") && hasPerm(membership.role, "consultations:view")}
+      canEditRx={hasPerm(membership.role, "prescriptions:edit")}
+      canViewRx={hasPerm(membership.role, "prescriptions:view")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

@@ -719,3 +719,16 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   `.planning/phases/09A-clinical-immutability/09A-VERIFICATION.md`. Decide: R-A residual (signer-only Rx archive vs a
   trusted archive job in V2-14), Q-5 (no lab-document delete until V2-11), ADR-015 erratum.
 - [ ] **09A-P2 · Staging** — after 08-P4, apply 000107–000111 on staging.
+
+## V2-09b Consult workspace
+
+- [ ] **09B-P1 · Gate review (G4)** — approved and merged by Claude under the 2026-11-21 delegation (merge `02b2f49`,
+  CI 44953316569, 0 retried; two earlier red runs root-caused in `09B-NOTES.md`). — PR #16. Evidence:
+  `.planning/phases/09B-consult-workspace/09B-VERIFICATION.md`. Decide R-U: uploads are 4 MB (Vercel body cap); 25 MB
+  needs a direct-to-Storage upload (architecture change). Confirm the Q-1…Q-17 defaults in `09B-PLAN.md`.
+- [ ] **09B-P2 · Device run** — `.planning/phases/09B-consult-workspace/09B-DEVICE-CHECKLIST.md`.
+- [ ] **09B-P3 · Walkthrough** — `.planning/phases/09B-consult-workspace/09B-PO-WALKTHROUGH.md`.
+- [ ] **09B-P4 · Staging** — after 09A-P2, check for duplicate follow-ups per visit (query in `09B-NOTES.md`), then
+  apply 000112–000116.
+- [ ] **09B-P5 · CI budget** — the e2e lane limit is now 85 minutes (job 95); decide whether to shard the lane across
+  parallel jobs (changes the required-check names in branch protection unless one aggregate `e2e` check is kept).

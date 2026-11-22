@@ -284,15 +284,18 @@ export type Database = {
         Row: {
           generic_name: string;
           id: string;
+          substance_ids: string[];
         };
         ComputedFields: never;
         Insert: {
           generic_name: string;
           id: string;
+          substance_ids?: string[];
         };
         Update: {
           generic_name?: string;
           id?: string;
+          substance_ids?: string[];
         };
         Relationships: [];
       };
@@ -1999,6 +2002,7 @@ export type Database = {
       };
       prescription_items: {
         Row: {
+          allergy_override: Json | null;
           cdci_brand_id: string | null;
           cdci_generic_id: string | null;
           created_at: string;
@@ -2016,6 +2020,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          allergy_override?: Json | null;
           cdci_brand_id?: string | null;
           cdci_generic_id?: string | null;
           created_at?: string;
@@ -2032,6 +2037,7 @@ export type Database = {
           timing?: string | null;
         };
         Update: {
+          allergy_override?: Json | null;
           cdci_brand_id?: string | null;
           cdci_generic_id?: string | null;
           created_at?: string;
@@ -2071,6 +2077,7 @@ export type Database = {
           doctor_id: string;
           id: string;
           letterhead_mode: string;
+          paper_size: string;
           patient_id: string;
           pdf_sha256: string | null;
           pdf_storage_path: string | null;
@@ -2088,6 +2095,7 @@ export type Database = {
           doctor_id: string;
           id?: string;
           letterhead_mode?: string;
+          paper_size?: string;
           patient_id: string;
           pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
@@ -2104,6 +2112,7 @@ export type Database = {
           doctor_id?: string;
           id?: string;
           letterhead_mode?: string;
+          paper_size?: string;
           patient_id?: string;
           pdf_sha256?: string | null;
           pdf_storage_path?: string | null;
@@ -2777,6 +2786,8 @@ export type Database = {
           phone: string | null;
           referral_directory_listed: boolean;
           registration_number: string | null;
+          rx_letterhead_mode: string;
+          rx_paper_size: string;
           specialties: string[] | null;
           state_medical_council_reg_no: string | null;
           timezone: string;
@@ -2803,6 +2814,8 @@ export type Database = {
           phone?: string | null;
           referral_directory_listed?: boolean;
           registration_number?: string | null;
+          rx_letterhead_mode?: string;
+          rx_paper_size?: string;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
           timezone?: string;
@@ -2828,6 +2841,8 @@ export type Database = {
           phone?: string | null;
           referral_directory_listed?: boolean;
           registration_number?: string | null;
+          rx_letterhead_mode?: string;
+          rx_paper_size?: string;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
           timezone?: string;
@@ -3258,6 +3273,15 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      change_prescription: {
+        Args: {
+          p_changes: Json;
+          p_client_request_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       check_in_visit: {
         Args: {
@@ -3701,6 +3725,16 @@ export type Database = {
         Args: { p_expected_migration?: string };
         Returns: Json;
       };
+      record_patient_allergies: {
+        Args: {
+          p_allergies: Json;
+          p_client_request_id: string;
+          p_expected: Json;
+          p_patient_id: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       record_payment: {
         Args: {
           p_amount: number;
@@ -3770,6 +3804,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      repeat_visit_plan: {
+        Args: {
+          p_client_request_id: string;
+          p_parts: string[];
+          p_source_visit_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       reschedule_visit: {
         Args: {
@@ -3793,6 +3837,10 @@ export type Database = {
       };
       revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
+      rx_allergy_context: {
+        Args: { p_tenant_id: string; p_visit_id: string };
+        Returns: Json;
+      };
       save_consultation_draft: {
         Args: {
           p_client_request_id: string;
@@ -3820,22 +3868,17 @@ export type Database = {
         }[];
       };
       search_medicines: {
-        Args: {
-          p_doctor_id: string;
-          p_limit?: number;
-          p_query: string;
-          p_tenant_id: string;
-        };
+        Args: { p_limit?: number; p_query: string; p_tenant_id: string };
         Returns: {
-          default_dosage: string;
-          default_duration: string;
-          default_timing: string;
+          dosage: string;
           dose_form: string;
+          duration: string;
           generic_name: string;
           id: string;
-          is_custom: boolean;
-          is_favorite: boolean;
+          kind: string;
           medicine_name: string;
+          substance_ids: string[];
+          timing: string;
         }[];
       };
       search_patients: {
@@ -3849,6 +3892,13 @@ export type Database = {
           phone_last4: string;
           rank: number;
           sex: string;
+        }[];
+      };
+      search_substances: {
+        Args: { p_limit?: number; p_query: string; p_tenant_id: string };
+        Returns: {
+          id: string;
+          substance_name: string;
         }[];
       };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };

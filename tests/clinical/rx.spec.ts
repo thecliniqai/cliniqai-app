@@ -9,6 +9,7 @@ import {
   doseSummary,
   durationLabel,
   frequencyWords,
+  lineDuration,
   parseDuration,
   searchMedicines,
   type Medicine,
@@ -68,5 +69,21 @@ describe("searchMedicines", () => {
   it("empty query gives nothing; limit applies", () => {
     expect(searchMedicines(list, "  ")).toEqual([]);
     expect(searchMedicines(list, "i", 2)).toHaveLength(2);
+  });
+});
+
+describe("no invented dose (V2-09c R-4, AI §1.1 A4)", () => {
+  it("the module exports no default dose: the builder opens with the doctor's own usual dose or with nothing", async () => {
+    const mod = (await import("@/lib/clinical/rx")) as Record<string, unknown>;
+    expect(Object.keys(mod)).not.toContain("DEFAULT_DOSE");
+  });
+  it("a summary and a duration of a line with no duration chosen are empty, never '0 days'", () => {
+    expect(doseSummary({ frequency: "1-0-0", timing: "", days: 0 })).toBe("1-0-0");
+    expect(lineDuration({ days: 0 })).toBe("");
+    expect(lineDuration({ days: 5 })).toBe("5 days");
+  });
+  it("a stored duration text that days cannot express is kept as it is", () => {
+    expect(lineDuration({ days: 0, durationText: "Continue" })).toBe("Continue");
+    expect(doseSummary({ frequency: "1-0-1", timing: "After food", days: 0, durationText: "Till review" })).toBe("1-0-1 · After food · Till review");
   });
 });

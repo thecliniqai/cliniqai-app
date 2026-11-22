@@ -608,9 +608,9 @@ describe("01-08 review fixes (000021)", () => {
   describe("IR-L4: search_medicines", () => {
     it("a doctor's own search runs (pg_trgm resolved at migration time, search_path '')", async () => {
       const doctor = A.members.doctor;
+      // V2-09c 000117: the INVOKER search (the doctor is the session's, the 4-argument DEFINER function is gone); it resolves pg_trgm the same way.
       const { error } = await rpc(doctor.client, "search_medicines", {
         p_query: "paracetamol",
-        p_doctor_id: doctor.userId,
         p_tenant_id: doctor.tenantId,
         p_limit: 5,
       });

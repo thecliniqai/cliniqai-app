@@ -14,17 +14,23 @@ import {
 import type { PastVisitEncounter } from "@/features/consultation/actions";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import type { PrescriptionItem, Referral } from "@/lib/db/types";
-import { addPrescriptionItem } from "@/features/prescriptions/actions";
+import { pastItemToMedicine } from "@/features/prescriptions/lines";
 import { sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
 import { changedDraftKeys, type DraftFields } from "@/features/consultation/draft";
 import type { FlushResult } from "@/features/consultation/draft-saver";
 import { VitalsBlock } from "../vitals-block";
-import { PrescriptionBuilder } from "../prescription-builder";
+import { notify } from "@/components/ui/toast";
+import { PrescriptionSection, type RxLastVisit, type RxLeftOut } from "./sections/prescription-section";
+import type { RxEntryHandle } from "@/components/clinical/rx-entry-row";
+import { useRxLines, type RepeatPart } from "./use-rx-lines";
+import { RxPrintPortal } from "@/components/prescriptions/rx-print-view";
+import type { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/types";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
+import { SharePdfButton } from "@/components/clinical/share-pdf-button";
 import { AmendmentModal } from "../amendment-modal";
 import { FinalizeAmendmentDialog } from "../finalize-amendment-dialog";
 import { useConsultDraft } from "../use-consult-draft";
@@ -37,9 +43,12 @@ import { formatAge } from "@/lib/ui/age";
 import { reportClientError } from "@/lib/log/client";
 import { addDaysYmd, daysBetweenYmd, todayInTz, ymdOf } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
-import { Check, CheckCircle2, FilePenLine, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
+import { Check, CheckCircle2, FilePenLine, FileText, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
 import { ConsultTopBar } from "./consult-top-bar";
 import { AllergyStrip } from "./allergy-strip";
+import { AllergyEditor } from "@/components/clinical/allergy-editor";
+import { getRxAllergyContextAction } from "@/features/prescriptions/actions";
+import type { RxAllergyContext } from "@/features/prescriptions/allergy";
 import { AmendingBanner } from "./amending-banner";
 import { ConsultSection, sectionTitleId } from "./consult-section";
 import { SectionStrip, type StripSection } from "./section-strip";
@@ -106,6 +115,8 @@ export interface ConsultWorkspaceProps {
     id: string;
     full_name: string;
     phone: string;
+    /** The patient asked not to be messaged on WhatsApp (`patients.whatsapp_opt_out`): the finish review offers no WhatsApp send. */
+    whatsapp_opt_out?: boolean;
     gender: "male" | "female" | "other" | null;
     date_of_birth: string | null;
     age?: number | null;
@@ -122,6 +133,14 @@ export interface ConsultWorkspaceProps {
    * (the two commands check all three, so owner and doctor). The database refuses anyone else; this only shapes the screen.
    */
   canAmend?: boolean;
+  /** The signed-in user may record allergies: patients:edit and consultations:view (the 000055 rule: the front desk cannot). Shapes the screen only. */
+  canRecordAllergies?: boolean;
+  /**
+   * 09C-06a (A-5): the role holds `prescriptions:edit` (the Rx entry row, tiles and Templates are offered) and `prescriptions:view` (RLS shows it the lines).
+   * The database refuses the others; these only shape the screen. Default true, the doctor's case.
+   */
+  canEditRx?: boolean;
+  canViewRx?: boolean;
   /**
    * The active clinic's `assist.*` entitlements by key, resolved on the server (V2-09b R-10); the Smart Assist features of 09B-03 to 09B-04b read it.
    * Not used by the frame yet.
@@ -132,6 +151,18 @@ export interface ConsultWorkspaceProps {
    * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
    */
   assistContext?: AssistContext | null;
+  /**
+   * The same read, for the Prescription section's favourites and "your usual" (V2-09c R-9): only when the clinic is entitled to `assist.frequent_rx` and the
+   * record is editable; null otherwise ("Same as last visit" stays).
+   */
+  rxAssistContext?: AssistContext | null;
+  /**
+   * The signed prescription's print payload (V2-09c 09C-04, R-12; CTO ruling Q-2), read on the server for a sealed record and a role that may read prescriptions;
+   * null otherwise. "Print Rx" prints it with the browser's print dialog, on the clinic's paper and margins; the PDF link stays beside it.
+   */
+  printPayload?: PrescriptionPdfPayload | null;
+  /** The allergy picture of the visit the page read (V2-09c 09C-02, R-7): the three states, the coded allergies, what each line matches. */
+  allergyContext?: RxAllergyContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
   snapshot?: PatientSnapshot | null;
   /** The signed-in doctor's own text macros (V2-09b 09B-04b, R-14), read on the server only with `assist.shorthand` and an editable record. */
@@ -206,8 +237,14 @@ export function ConsultWorkspace({
   pastEncounters = [],
   canCollectPayment = false,
   canAmend = false,
+  canRecordAllergies: mayRecordAllergies = false,
+  canEditRx = true,
+  canViewRx = true,
   assist,
   assistContext = null,
+  rxAssistContext = null,
+  printPayload = null,
+  allergyContext: initialAllergyContext = null,
   snapshot = null,
   macros = [],
   upcomingVisits = [],
@@ -276,7 +313,39 @@ export function ConsultWorkspace({
   const [shortcutsOn, setShortcutsOn] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
-  const [rxItems, setRxItems] = useState<PrescriptionItem[]>(visit.prescription_items ?? []);
+  // The Rx lines are the server's answer to one `change_prescription` command per change (V2-09c R-2); the hook holds them for the section, the strip,
+  // the summary pane and Sign & Bill.
+  const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [] });
+  const rxItems = rx.items;
+  // The medicines "Same as last visit" or a tile left to the doctor (an allergy match), and the entry row's handle that opens the dose builder for one.
+  const rxEntryRef = useRef<RxEntryHandle | null>(null);
+  const [rxLeftOut, setRxLeftOut] = useState<readonly RxLeftOut[]>([]);
+
+  // The allergies and what each line matches (V2-09c 09C-02, R-7, R-8). The strip draws the stored list; the editor saves it through one command and the
+  // context is read again (after a save and after every change of the lines) so the chips, the notices and the line states follow the database's rule.
+  const [allergies, setAllergies] = useState<string[] | null>(patient.allergies ?? null);
+  const [allergyContext, setAllergyContext] = useState<RxAllergyContext | null>(initialAllergyContext);
+  const [isAllergyEditorOpen, setIsAllergyEditorOpen] = useState(false);
+  const [allergyVersion, setAllergyVersion] = useState(0);
+  // The entries the editor coded in this session: known at once, before the context is read again.
+  const [localCoded, setLocalCoded] = useState<string[]>([]);
+  const firstContext = useRef(true);
+  useEffect(() => {
+    // The page already read the context for the first render.
+    if (firstContext.current) {
+      firstContext.current = false;
+      return;
+    }
+    let alive = true;
+    void getRxAllergyContextAction(visit.id)
+      .then((res) => {
+        if (alive && res.success && res.context) setAllergyContext(res.context);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [visit.id, rxItems, allergyVersion]);
 
   // Referral state
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -330,10 +399,13 @@ export function ConsultWorkspace({
   );
   const focusMedicineSearch = () => {
     goToSection("prescription");
-    document.getElementById("medicine-search-input")?.focus();
+    document.querySelector<HTMLInputElement>("#prescription [data-rx-search]")?.focus();
   };
   const shorthandOn = assist?.["assist.shorthand"] === true && !readOnly;
   const followUpOn = assist?.["assist.followup"] === true && !readOnly;
+  // The allergy editor is offered while the record is editable and the role may record allergies (consultations:edit stands for the clinical roles here; the
+  // command itself needs patients:edit and consultations:view and the database refuses anyone else).
+  const canRecordAllergies = !readOnly && mayRecordAllergies;
   const finishAvailable = state !== "sealed" && state !== "amending" && !readOnly && visit.status !== "cancelled";
   useConsultShortcuts({
     onSection: (n) => goToSection(SECTION_IDS[n - 1]),
@@ -344,7 +416,7 @@ export function ConsultWorkspace({
       } else if (action === "medicine" && !readOnly) {
         focusMedicineSearch();
       } else if (action === "finish" && finishAvailable) {
-        handleFinish();
+        void handleFinish();
       } else if (action === "command" && shorthandOn) {
         setIsCommandBarOpen(true);
       }
@@ -457,9 +529,20 @@ export function ConsultWorkspace({
    * "Finish visit" (R-8): the draft flush starts at once and the Sign & Bill sheet opens; the sheet flushes again, and waits for the first, before the
    * sign-off command, and shows a refusal (a conflict, a role that may not save) in the sheet as the v1 flow did.
    */
-  const handleFinish = () => {
-    setIsSignModalOpen(true);
+  const [finishing, setFinishing] = useState(false);
+  const handleFinish = async () => {
+    if (finishing) return;
     void handleSaveDraft();
+    // A-11, A-1: an Rx command still queued or in flight answers first, then the lines are read again, so the review shows exactly what the database
+    // holds (a line committed behind a lost response is on it). A failed read leaves the lines on screen; the sign-off reads the database anyway.
+    setFinishing(true);
+    try {
+      await rx.whenIdle();
+      await rx.reconcile();
+    } finally {
+      setFinishing(false);
+    }
+    setIsSignModalOpen(true);
   };
 
   const handleIntervalChange = (interval: FollowUpIntervalChoice) => {
@@ -473,26 +556,35 @@ export function ConsultWorkspace({
     }
   };
 
-  // Repeat Rx from the history list: the v1 loop, a registered exception owned by V2-09c (no-client-command-chains.spec.ts).
-  const handleRepeatRx = async (medications: PastVisitEncounter["prescriptions"][0]["items"]) => {
+  // "Same as last visit" and "Repeat this Rx": ONE `repeat_visit_plan` command (V2-09c R-10). The database copies the signed source's diagnoses and lines, skips
+  // what is already here and leaves out a line that matches a recorded allergy; the screen takes its answer and opens the left-out line in the dose builder.
+  const runRepeat = async (sourceVisitId: string, parts: readonly RepeatPart[]): Promise<{ ok: boolean; error?: string }> => {
     setIsPatientOpen(false);
     goToSection("prescription");
-    for (const med of medications) {
-      try {
-        await addPrescriptionItem(visit.id, {
-          medicine_name: med.medicine_name,
-          generic_name: med.generic_name ?? null,
-          dose_form: med.dose_form ?? null,
-          dosage: med.dosage,
-          timing: med.timing ?? null,
-          duration: med.duration,
-          special_instructions: med.special_instructions ?? null,
-        });
-      } catch (err) {
-        reportClientError("prescriptions.repeat_medication.failed", err);
-      }
-    }
+    const sent = await rx.repeat(sourceVisitId, parts);
+    if (!sent.ok) return { ok: false, error: sent.error };
+    rx.markRepeated((sent.added ?? []).map((i) => i.id));
+    // A-2: the diagnoses are replaced only by a read that succeeded (null or absent keeps the ones on screen).
+    if (sent.diagnoses) setDiagnoses(sent.diagnoses);
+    const left: RxLeftOut[] = (sent.skipped ?? []).map((item) => ({ key: `item:${item.id}`, medicine: pastItemToMedicine(item), allergy: "a recorded allergy (see the allergy strip)" }));
+    const [first, ...rest] = left;
+    setRxLeftOut(rest);
+    if (first) rxEntryRef.current?.prefill(first.medicine, { allergy: first.allergy });
+    return { ok: true };
   };
+
+  // The patient's last signed visit and what copying it would still add (a diagnosis or medicine already on this visit is not offered again).
+  const lastSigned = pastEncounters.find((e) => e.status === "completed" && Boolean(e.signedAt));
+  const norm = (value: string) => value.trim().toLowerCase();
+  const lastVisit: RxLastVisit | null = (() => {
+    if (!lastSigned || readOnly) return null;
+    const have = new Set(diagnoses.map((d) => norm(d.diagnosis_name)));
+    const onRx = new Set(rxItems.map((i) => norm(i.medicine_name)));
+    const parts: RepeatPart[] = [];
+    if (lastSigned.diagnoses.some((d) => !have.has(norm(d.diagnosis_name)))) parts.push("diagnoses");
+    if ((lastSigned.prescriptions[0]?.items ?? []).some((i) => !onRx.has(norm(i.medicine_name)))) parts.push("prescription");
+    return parts.length > 0 ? { visitId: lastSigned.visitId, dateLabel: clinicDateLabel(lastSigned.date, timeZone), parts } : null;
+  })();
 
   const handleCopyNotes = (notes: string) => {
     setClinicalNotes((prev) => (prev ? `${prev}\n\n[Prior Note]: ${notes}` : notes));
@@ -561,7 +653,14 @@ export function ConsultWorkspace({
     snapshot,
     encounters: pastEncounters,
     timeZone,
-    onRepeatRx: readOnly ? undefined : handleRepeatRx,
+    // A-5: "Repeat this Rx" only for a role that may write prescriptions.
+    onRepeatRx: readOnly || !canEditRx
+      ? undefined
+      : (sourceVisitId: string) => {
+          void runRepeat(sourceVisitId, ["prescription"]).then((sent) => {
+            if (!sent.ok) notify.error(sent.error ?? "Failed to repeat the prescription.");
+          });
+        },
     onCopyNotes: readOnly ? undefined : handleCopyNotes,
     documents: documents ? documents.slice(0, 5) : undefined,
   };
@@ -573,6 +672,32 @@ export function ConsultWorkspace({
     investigations,
     advice: adviceList,
     followUpDate: followUpInterval !== "none" && followUpDate ? followUpDate : null,
+  };
+
+  // The finish review (V2-09c 09C-05, R-13): the medicines that match a recorded allergy and have no reason block the sign-off until each is confirmed or removed.
+  const allergyChecking = Boolean(allergyContext?.entitled) && assist?.["assist.allergy_check"] !== false;
+  const unresolvedAllergies = allergyChecking
+    ? (allergyContext?.items ?? [])
+        .filter((info) => info.matches.length > 0 && !info.overridden)
+        .flatMap((info) => {
+          const item = rxItems.find((i) => i.id === info.id);
+          return item ? [{ id: info.id, medicine: item.medicine_name, matches: info.matches.join(", ") }] : [];
+        })
+    : [];
+  const whatsappOffer = patient.whatsapp_opt_out
+    ? { available: false, unavailableReason: "This patient has asked not to be messaged on WhatsApp." }
+    : !patient.phone
+      ? { available: false, unavailableReason: "This patient has no phone number on file." }
+      : { available: true };
+  // "Go to {medicine}": closes the sheet, opens the Prescription section and puts the focus on the line's own action once the sheet has let go of the focus.
+  const goToRxLine = (itemId: string) => {
+    setIsSignModalOpen(false);
+    goToSection("prescription");
+    window.setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(`[data-rx-line-id="${CSS.escape(itemId)}"]`);
+      row?.scrollIntoView({ block: "center" });
+      (row?.querySelector<HTMLElement>("[data-rx-override]") ?? row?.querySelector<HTMLElement>("button"))?.focus({ preventScroll: true });
+    }, 250);
   };
 
   const followUpCount = followUpInterval !== "none" && followUpDate ? 1 : 0;
@@ -621,7 +746,7 @@ export function ConsultWorkspace({
     </Button>
   );
   const finishButton = (
-    <Button type="button" size="lg" onClick={handleFinish} startIcon={<Check />} className="shrink-0">
+    <Button type="button" size="lg" onClick={() => void handleFinish()} loading={finishing} startIcon={<Check />} className="shrink-0">
       Finish visit
     </Button>
   );
@@ -680,6 +805,7 @@ export function ConsultWorkspace({
       data-record-state={state}
       className="flex w-full flex-1 flex-col bg-canvas md:h-[calc(100dvh-var(--spacing-bar)-env(safe-area-inset-top,0px))] md:flex-none md:overflow-clip"
     >
+      {printPayload && state === "sealed" && <RxPrintPortal payload={printPayload} />}
       {/* The sticky header: top bar, allergy strip (always on screen, sealed records included) and, on a phone, the section strip. */}
       <header className="sticky top-0 z-30 shrink-0 md:static">
         <ConsultTopBar
@@ -705,7 +831,12 @@ export function ConsultWorkspace({
             </>
           }
         />
-        <AllergyStrip allergies={patient.allergies} conditions={patient.chronic_conditions} />
+        <AllergyStrip
+          allergies={allergies}
+          conditions={patient.chronic_conditions}
+          onRecord={canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined}
+          onEdit={canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined}
+        />
         <SectionStrip sections={stripSections} active={activeSection} onSelect={(id) => goToSection(id as SectionId)} onSummary={() => setIsSummaryOpen(true)} />
       </header>
 
@@ -741,16 +872,33 @@ export function ConsultWorkspace({
                 >
                   {isWaSent ? "Rx & Bill Sent ✓" : "WhatsApp Rx & Bill"}
                 </Button>
+                {printPayload && (
+                  <Button type="button" variant="soft" title="Print the prescription on the clinic's paper" startIcon={<Printer />} onClick={() => window.print()}>
+                    Print Rx
+                  </Button>
+                )}
                 <a
                   href={`/api/visits/${visit.id}/prescription-pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  title="Print / View PDF Prescription"
-                  className={buttonClassName({ variant: "soft" })}
+                  title="Open the prescription as a PDF"
+                  className={buttonClassName({ variant: printPayload ? "secondary" : "soft" })}
                 >
-                  <Printer aria-hidden="true" className="size-4" />
-                  <span>Print Rx</span>
+                  <FileText aria-hidden="true" className="size-4" />
+                  <span>{printPayload ? "Rx PDF" : "Print Rx"}</span>
                 </a>
+                {printPayload && (
+                  <a
+                    href={`/api/visits/${visit.id}/prescription-pdf?letterhead=${printPayload.letterhead_mode === "preprinted_letterhead" ? "blank_paper" : "preprinted_letterhead"}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Render the PDF on the other kind of paper (not stored)"
+                    className={buttonClassName({ variant: "ghost" })}
+                  >
+                    <span>{printPayload.letterhead_mode === "preprinted_letterhead" ? "PDF on blank paper" : "PDF on pre-printed paper"}</span>
+                  </a>
+                )}
+                {printPayload && <SharePdfButton visitId={visit.id} />}
                 <a
                   href={`/api/invoices/${visit.id}/receipt-pdf`}
                   target="_blank"
@@ -851,22 +999,31 @@ export function ConsultWorkspace({
               summary={rxItems.length > 0 ? plural(rxItems.length, "medicine", "medicines") : "No medicines yet"}
               flat
             >
-              <PrescriptionBuilder
+              <PrescriptionSection
                 key={editorKey}
-                visitId={visit.id}
-                patientAllergies={patient.allergies ?? []}
-                initialItems={rxItems}
-                onItemsChange={setRxItems}
-                disabled={readOnly}
-                hasPastRx={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
-                activeDiagnosis={diagnoses[0]?.diagnosis_name || null}
-                doctorId={visit.doctor_id}
-                onRepeatLastRx={() => {
-                  const firstWithRx = pastEncounters.find((e) => e.prescriptions && e.prescriptions.length > 0);
-                  if (firstWithRx && firstWithRx.prescriptions[0]?.items) {
-                    void handleRepeatRx(firstWithRx.prescriptions[0].items);
-                  }
-                }}
+                rx={rx}
+                allergy={
+                  allergyContext
+                    ? {
+                        state: allergyContext.state,
+                        entitled: allergyContext.entitled && assist?.["assist.allergy_check"] !== false,
+                        entries: allergyContext.allergies,
+                        items: Object.fromEntries(allergyContext.items.map((i) => [i.id, i])),
+                        onRecord: canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined,
+                      }
+                    : null
+                }
+                readOnly={readOnly}
+                canEdit={canEditRx}
+                canView={canViewRx}
+                assistContext={rxAssistContext}
+                diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
+                specialty={specialty}
+                lastVisit={lastVisit}
+                onRepeat={runRepeat}
+                entryRef={rxEntryRef}
+                leftOut={rxLeftOut}
+                onLeftOut={setRxLeftOut}
               />
             </ConsultSection>
 
@@ -970,16 +1127,45 @@ export function ConsultWorkspace({
         onKeepMine={() => void consultDraft.resolveConflict("mine")}
       />
 
+      {/* 09C-06a (A-12): adds and removes of Rx lines, announced politely (outside the Prescription section so its own text stays the lines'). */}
+      <p role="status" aria-live="polite" data-rx-announce="" className="sr-only">
+        {rx.announcement}
+      </p>
       {/* Finish: the draft is flushed before the sheet opens and again before the sign-off command (R-8). */}
+      <AllergyEditor
+        open={isAllergyEditorOpen}
+        onOpenChange={setIsAllergyEditorOpen}
+        patientId={patient.id}
+        initial={allergies}
+        codedTexts={[...(allergyContext?.allergies ?? []).filter((a) => a.substanceIds.length > 0).map((a) => a.text), ...localCoded]}
+        onSaved={(list, coded) => {
+          setAllergies(list);
+          setLocalCoded(coded);
+          setAllergyVersion((n) => n + 1);
+        }}
+        reload={async () => {
+          // 09C-06a (A-8): the save was refused because the list changed meanwhile; the strip and the editor take the stored list.
+          const res = await getRxAllergyContextAction(visit.id).catch(() => null);
+          if (!res?.success || !res.context) return undefined;
+          const list = res.context.state === "not_recorded" ? null : res.context.allergies.map((a) => a.text);
+          setAllergyContext(res.context);
+          setAllergies(list);
+          return list;
+        }}
+      />
       <SignAndBillModal
         isOpen={isSignModalOpen}
         onClose={() => setIsSignModalOpen(false)}
         visitId={visit.id}
         patientId={patient.id}
         patientName={patient.full_name}
-        diagnosesCount={diagnoses.length || 1}
-        medicinesCount={rxItems.length}
-        followUpDate={followUpInterval === "none" ? null : followUpDate || null}
+        summary={summaryContent}
+        unresolvedAllergies={unresolvedAllergies}
+        onGoToLine={goToRxLine}
+        whatsapp={whatsappOffer}
+        printState={printPayload && state === "sealed" ? "view" : state === "sealed" ? "pdf" : "preparing"}
+        onPrint={() => window.print()}
+        onSigned={() => router.refresh()}
         canCollect={canCollectPayment}
         onSaveDraftBeforeSign={() => handleSaveDraft()}
       />

@@ -110,6 +110,11 @@ export const completeAndBillSchema = z.object({
   payment_collected: z.boolean().default(true),
   payment_method: z.enum(["cash", "upi", "card"]).default("cash"),
   reference_number: z.string().max(100).nullable().optional(),
+  /**
+   * V2-09c 09C-05 (CTO ruling Q-8): the doctor's choice, made on the finish review, to queue the one consolidated WhatsApp message (prescription and receipt
+   * links) once the sign-off has committed. Never on by default (absent means no): without it nothing is sent, and the success screen offers the manual send.
+   */
+  send_whatsapp: z.boolean().optional(),
   /** One id per logical submit (V2-07 07-03, PWA-06a): the same id replays the first result and writes nothing new. */
   client_request_id: z.string().uuid("Invalid request ID"),
 });

@@ -30,7 +30,7 @@ import {
 } from "../helpers/tenants";
 import { plantLegacyRow, psql } from "../helpers/sql";
 import { consultationDraftInput } from "../helpers/fixtures";
-import { getOrCreateDraftPrescription } from "@/features/prescriptions/service";
+import { changeRxAs, rxLine } from "../helpers/rx-lines";
 import { completeAndSignConsultation } from "@/features/consultation/service";
 import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { anonClient, letters } from "./helpers";
@@ -51,7 +51,7 @@ let subVisits: Subscription;
 let subB: Subscription;
 
 /**
- * A prescription row on a fresh visit of `owner`'s clinic (as `getOrCreateDraftPrescription` writes it), signed as
+ * A prescription row on a fresh visit of `owner`'s clinic (as `change_prescription` creates the header), signed as
  * `completeAndSignConsultation` leaves it unless `signed: false` (04-07a M-RXEVENT: a request raises
  * `prescription.issued` only for a signed prescription; its event key is `prescription.issued:<id>:signed`).
  */
@@ -452,12 +452,12 @@ describe("contract: members cannot write the delivery table (M-XTENANT-WH, T-04-
 describe("04-07a: prescription.issued at signing; lab_result.ready for a consistent document", () => {
   const rxRows = (rx: string) => deliveriesFor(subRx.id).filter((r) => (r.eventKey ?? "").startsWith(`prescription.issued:${rx}`));
 
-  it("the app flow: the empty draft queues nothing; signing the consultation queues the one event", async () => {
+  it("the app flow: the draft prescription queues nothing; signing the consultation queues the one event", async () => {
     const p = await seedPatient(ownerA.tenantId, ownerA.userId, doctorA.userId);
     const doctorCtx = ctxFor(doctorA);
     const saved = await saveConsultationDraft(doctorCtx, consultationDraftInput({ visit_id: p.visitId, clinical_notes: "Synthetic note." }));
     expect(saved.success).toBe(true);
-    const draft = await getOrCreateDraftPrescription(doctorCtx, p.visitId);
+    const draft = await changeRxAs(doctorCtx, p.visitId, { add: [rxLine()] });
     if (!draft.success) throw new Error("draft prescription failed");
     const rx = draft.prescriptionId;
     expect(rxRows(rx)).toEqual([]);

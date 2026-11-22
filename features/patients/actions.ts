@@ -6,6 +6,7 @@ import { contextFailureToAppError } from "@/lib/commands/context-error";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
 import * as patientsService from "./service";
 import { registerPatient as registerPatientService, type RegisterPatientValue } from "./register";
+import { recordPatientAllergies as recordPatientAllergiesService, type RecordAllergiesInput, type RecordAllergiesValue } from "./allergies";
 import type { UpdatePatientResult } from "./service";
 import type { NewPatientInput, PatientInput, PatientVisitHistoryItem } from "./schema";
 import type { Patient } from "@/lib/db/types";
@@ -35,6 +36,19 @@ export async function registerPatient(
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await registerPatientService(resolved.ctx, input, clientRequestId);
   if (result.ok) revalidate("/patients");
+  return result;
+}
+
+/**
+ * Records a patient's allergies as one atomic command (V2-09c 09C-02, R-8): `[]` is "No known allergies"; `client_request_id` is required and the same id
+ * replays the first result. `patients:edit` and `consultations:view` (the front desk cannot); the tenant is the session's.
+ */
+export async function recordPatientAllergies(input: RecordAllergiesInput): Promise<CommandResult<RecordAllergiesValue>> {
+  // The gate here is consultations:view (the roles that read allergies); the service and the command also require patients:edit (the 000055 rule).
+  const resolved = await resolveServiceContext("consultations:view");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await recordPatientAllergiesService(resolved.ctx, input);
+  if (result.ok) revalidate(`/patients/${input.patient_id}`);
   return result;
 }
 

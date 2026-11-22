@@ -29,7 +29,11 @@ function pdf(marker: string) {
   return Buffer.from(`%PDF-1.4\n% ${marker}\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n`);
 }
 function jpeg(marker: string) {
-  return Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]), Buffer.from(marker), Buffer.from([0xff, 0xd9])]);
+  // A JPEG the browser cannot decode (no frame header) but whose segments can be walked to the scan: since 09C-06a (A-6, S-4) such a picture goes up only
+  // with its metadata cut (it has none, so the bytes are kept), and one whose segments cannot be walked is refused (the old fixture was such a file).
+  const app0 = Buffer.from([0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
+  const sos = Buffer.from([0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00]);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), app0, sos, Buffer.from(marker), Buffer.from([0xff, 0xd9])]);
 }
 
 async function openFreshConsult(page: Page, label: string) {

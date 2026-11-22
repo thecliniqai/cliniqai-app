@@ -9,7 +9,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
-import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
+import { seedTenantWithOwner, addMemberToTenant, seedAccessFixtureClinic, signInSeededUser, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
@@ -59,6 +59,23 @@ describe("PDF route guards (F1, F3)", () => {
   it("lets a role with prescriptions:view past the gate (doctor → 404 for a missing visit, not 403)", async () => {
     mockState.client = doctor.client;
     expect((await call(getPrescriptionPdf, MISSING_ID)).status).toBe(404);
+  });
+
+  it("09C-06a (S-9): every refusal of the prescription PDF is private and no-store, and a locked clinic is 403 SUBSCRIPTION_LOCKED (not a 500)", async () => {
+    const noStore = (res: Response) => (res.headers.get("cache-control") ?? "").split(",").map((d) => d.trim());
+    mockState.client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const anonymous = await call(getPrescriptionPdf, MISSING_ID);
+    mockState.client = nurse.client;
+    const forbidden = await call(getPrescriptionPdf, MISSING_ID);
+    mockState.client = doctor.client;
+    const missing = await call(getPrescriptionPdf, MISSING_ID);
+    mockState.client = await signInSeededUser((await seedAccessFixtureClinic("locked", "PDF Route Locked", ["doctor"])).users[0].email);
+    const locked = await call(getPrescriptionPdf, MISSING_ID);
+    expect([anonymous.status, forbidden.status, missing.status, locked.status]).toEqual([401, 403, 404, 403]);
+    expect(await locked.json()).toMatchObject({ code: "SUBSCRIPTION_LOCKED" });
+    for (const res of [anonymous, forbidden, missing, locked]) expect(noStore(res)).toEqual(expect.arrayContaining(["private", "no-store"]));
   });
 
   it("lets every clinic role with appointments:view reach the receipt lookup (receptionist → 404 for a missing invoice)", async () => {

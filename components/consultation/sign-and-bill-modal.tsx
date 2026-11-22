@@ -8,6 +8,9 @@ import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcom
 import { useCommand } from "@/lib/commands/use-command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SharePdfButton } from "@/components/clinical/share-pdf-button";
+import { FinishReview, type UnresolvedAllergy } from "./workspace/finish-review";
+import type { SummaryContent } from "./workspace/summary-pane";
 import { Field } from "@/components/ui/field";
 import { ResponsiveSheet, ResponsiveSheetContent } from "@/components/ui/responsive-sheet";
 import { SheetBody, SheetFooter, SheetHeader } from "@/components/ui/sheet";
@@ -32,9 +35,22 @@ interface SignAndBillModalProps {
   visitId: string;
   patientId: string;
   patientName: string;
-  diagnosesCount: number;
-  medicinesCount: number;
-  followUpDate?: string | null;
+  /** The review's content (V2-09c 09C-05, R-13): the draft as the patient will receive it. */
+  summary: SummaryContent;
+  /** Medicines that match a recorded allergy and have no reason yet: Sign is disabled while there are any. */
+  unresolvedAllergies?: readonly UnresolvedAllergy[];
+  /** Closes the sheet and takes the doctor to a line of the prescription. */
+  onGoToLine?: (itemId: string) => void;
+  /** The WhatsApp message is offered when the patient has a phone number and has not opted out (CTO ruling Q-8: never ticked for the doctor). */
+  whatsapp?: { available: boolean; unavailableReason?: string };
+  /**
+   * How "Print Rx" works on the success screen: `view` prints the sealed record's print view (the same settings as the PDF), `preparing` waits for the page
+   * to read the signed record, `pdf` opens the PDF (a role or a record with no print view).
+   */
+  printState?: "view" | "preparing" | "pdf";
+  onPrint?: () => void;
+  /** The sign-off has committed: the page reads the sealed record (so the print view exists). */
+  onSigned?: () => void;
   defaultFee?: number;
   /**
    * PO-3 (V2-05 05-02b): the signed-in user holds `billing:collect` (the owner of a solo clinic). Without it the
@@ -51,9 +67,13 @@ export function SignAndBillModal({
   visitId,
   patientId,
   patientName,
-  diagnosesCount,
-  medicinesCount,
-  followUpDate,
+  summary,
+  unresolvedAllergies = [],
+  onGoToLine,
+  whatsapp = { available: false },
+  printState: printStateProp = "pdf",
+  onPrint,
+  onSigned,
   defaultFee = 500,
   canCollect = false,
   onSaveDraftBeforeSign,
@@ -71,6 +91,10 @@ export function SignAndBillModal({
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
   const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  // The doctor's choice, never ticked for them (CTO ruling Q-8).
+  const [sendWhatsapp, setSendWhatsapp] = useState(false);
+  const [printGaveUp, setPrintGaveUp] = useState(false);
+  const blocked = unresolvedAllergies.length > 0;
   const [completedResult, setCompletedResult] = useState<{
     visitId: string;
     invoiceId: string;
@@ -97,6 +121,8 @@ export function SignAndBillModal({
     setResetFor({ isOpen, canCollect });
     if (isOpen) {
       setPaymentCollected(canCollect);
+      setSendWhatsapp(false);
+      setPrintGaveUp(false);
       setCompletedResult(null);
       setError(null);
       setRxWaStatus("idle");
@@ -105,6 +131,15 @@ export function SignAndBillModal({
       setInvWaError(null);
     }
   }
+
+  // "Print Rx" waits for the page to read the sealed record; if that never arrives (the refresh failed) the PDF link takes over after a few seconds.
+  const waitingForPrint = Boolean(completedResult) && printStateProp === "preparing";
+  useEffect(() => {
+    if (!waitingForPrint) return;
+    const timer = window.setTimeout(() => setPrintGaveUp(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [waitingForPrint]);
+  const printState = printStateProp === "preparing" && printGaveUp ? "pdf" : printStateProp;
 
   // A changed fee or payment after an error is a new request, not a retry of the failed one.
   useEffect(() => {
@@ -156,6 +191,7 @@ export function SignAndBillModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (blocked) return;
 
     startTransition(async () => {
       try {
@@ -177,6 +213,7 @@ export function SignAndBillModal({
             payment_collected: collecting,
             payment_method: paymentMethod,
             reference_number: referenceNumber.trim() || undefined,
+            send_whatsapp: whatsapp.available && sendWhatsapp,
             client_request_id: clientRequestId,
           })
         );
@@ -204,6 +241,8 @@ export function SignAndBillModal({
           setRxWaError(res.whatsAppError);
           setInvWaError(res.whatsAppError);
         }
+        // The page reads the sealed record now, so the print view and the record bar are ready when the doctor taps Print.
+        onSigned?.();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       }
@@ -296,8 +335,11 @@ export function SignAndBillModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {rxWaStatus === "success" ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-center">
+                    {!whatsapp.available ? (
+                      // A-19: an opted-out patient or one with no number is offered no WhatsApp send here either (the review says why).
+                      <WhatsAppUnavailable reason={whatsapp.unavailableReason} />
+                    ) : rxWaStatus === "success" ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>WhatsApp Sent</span>
@@ -319,15 +361,26 @@ export function SignAndBillModal({
                       </button>
                     )}
 
-                    <a
-                      href={`/api/visits/${completedResult.visitId}/prescription-pdf`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 px-3.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Print Rx</span>
-                    </a>
+                    {/* The signed PDF through the device's share sheet, or a download where it cannot (R-14). */}
+                    <SharePdfButton visitId={completedResult.visitId} />
+
+                    {printState === "pdf" ? (
+                      <a
+                        href={`/api/visits/${completedResult.visitId}/prescription-pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-print-rx="pdf"
+                        className="h-9 px-3.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print Rx</span>
+                      </a>
+                    ) : (
+                      // The print view of the sealed record: the browser's print dialog, on the clinic's paper and margins (the same settings as the PDF).
+                      <Button type="button" data-print-rx={printState} loading={printState === "preparing"} startIcon={<Printer />} onClick={onPrint}>
+                        Print Rx
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -369,7 +422,9 @@ export function SignAndBillModal({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {invWaStatus === "success" ? (
+                    {!whatsapp.available ? (
+                      <WhatsAppUnavailable reason={whatsapp.unavailableReason} />
+                    ) : invWaStatus === "success" ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>WhatsApp Sent</span>
@@ -448,28 +503,13 @@ export function SignAndBillModal({
                 </div>
               )}
 
-              {/* Clinical Encounter Summary */}
-              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-100">
-                <div className="text-xs font-semibold text-gray-900 mb-2">
-                  Clinical Summary &middot; <span className="font-bold text-accent">{patientName}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Diagnoses</span>
-                    <span className="font-bold text-gray-800 text-sm">{diagnosesCount}</span>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Medicines (Rx)</span>
-                    <span className="font-bold text-gray-800 text-sm">{medicinesCount}</span>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Follow-Up</span>
-                    <span className="font-bold text-gray-800 text-xs truncate">
-                      {followUpDate ? new Date(followUpDate).toLocaleDateString([], { month: "short", day: "numeric" }) : "None"}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {/* The review (V2-09c 09C-05, R-13): what the patient receives, open allergy matches, the WhatsApp choice, the lock note. */}
+              <FinishReview
+                summary={summary}
+                unresolved={unresolvedAllergies}
+                onGoToLine={(id) => onGoToLine?.(id)}
+                whatsapp={{ available: whatsapp.available, unavailableReason: whatsapp.unavailableReason, checked: sendWhatsapp, onChange: setSendWhatsapp }}
+              />
 
               {/* Billing & Fee Collection */}
               <div className="space-y-4 pt-1">
@@ -637,14 +677,38 @@ export function SignAndBillModal({
                   Back to Editing
                 </Button>
 
-                <Button type="submit" disabled={isPending} startIcon={<ShieldCheck />} endIcon={<ArrowRight />}>
+                <Button type="submit" disabled={isPending || blocked} aria-describedby={blocked ? "finish-sign-blocked" : undefined} startIcon={<ShieldCheck />} endIcon={<ArrowRight />}>
                   {isPending ? "Finalizing..." : collecting ? `Sign & Collect ₹${totalPayable}` : "Sign & Route to Reception"}
                 </Button>
+                {blocked && (
+                  <span id="finish-sign-blocked" className="sr-only">
+                    Signing is blocked until every medicine that matches an allergy has a reason or is removed.
+                  </span>
+                )}
               </SheetFooter>
             </form>
           </>
         )}
       </ResponsiveSheetContent>
     </ResponsiveSheet>
+  );
+}
+
+/** A-19: the WhatsApp send of the success screen when the patient cannot receive it: a disabled control with the reason, never "Sent". */
+function WhatsAppUnavailable({ reason }: { reason?: string }) {
+  const text = reason ?? "WhatsApp is not available for this patient.";
+  return (
+    <span data-whatsapp-unavailable="" className="inline-flex max-w-56 items-center gap-1.5 text-xs text-gray-600">
+      <button
+        type="button"
+        disabled
+        title={text}
+        className="h-9 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-gray-300 bg-gray-50 text-gray-500 cursor-not-allowed"
+      >
+        <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>WhatsApp</span>
+      </button>
+      <span>{text}</span>
+    </span>
   );
 }

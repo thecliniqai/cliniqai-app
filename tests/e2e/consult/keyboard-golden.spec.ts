@@ -3,8 +3,10 @@
  *   - Alt+1 to Alt+5 move focus to the section headings;
  *   - the shorthand bar opens with `/` (the per-device single-key switch is on), takes "c/o fever 3d, cough 2d", Enter inserts it;
  *   - Tab reaches the examination template group and Space chooses a template; Tab reaches the diagnosis search, the typed name is added with Enter;
+ *   - V2-09c 09C-05 (Q-1, M4.4): Alt+4 and M reach the medicine field, a medicine is added with the keyboard (the Add row, the key 1, 5d, Enter) and is
+ *     stored: the Rx line by keyboard, in the same pointer-free run;
  *   - Ctrl+S flushes the draft ("Saved").
- * The Rx line by keyboard is V2-09c's (Q-1). Desktop only: a hardware keyboard on a fine pointer. Synthetic data only.
+ * Desktop only: a hardware keyboard on a fine pointer. Synthetic data only.
  */
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
@@ -13,6 +15,8 @@ import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { storageStatePath, type RunUser } from "../support/run-data";
 import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
+import { addCustomMedicine } from "../support/rx-entry";
+import { rxItemsOf } from "../support/cdci-fixtures";
 
 test.use({ storageState: storageStatePath("doctor") });
 
@@ -94,6 +98,15 @@ test("@golden the consult with the keyboard only: sections, the shorthand bar, a
   await expect(page.getByRole("option", { name: new RegExp(`Add .${name.slice(0, 18)}`) })).toBeVisible({ timeout: 8_000 });
   await page.keyboard.press("Enter");
   await expect(page.getByRole("list", { name: "Diagnoses" })).toContainText(name);
+
+  // The Rx line by keyboard (V2-09c 09C-05): Alt+4 puts the focus on the section, M on the medicine field; the Add row, the key 1 (1-0-1), 5d, Enter.
+  await page.keyboard.press("Alt+Digit4");
+  await expect(page.locator("#prescription-title")).toBeFocused();
+  await page.keyboard.press("m");
+  await expect(page.locator("#prescription [data-rx-search]")).toBeFocused();
+  const medicine = `Zzz keyboard medicine ${testTag().replace(/\W/g, "")}`;
+  await addCustomMedicine(page.locator("#prescription"), medicine);
+  await expect.poll(async () => (await rxItemsOf(visitId)).map((i) => [i.medicine_name, i.dosage, i.duration]), { timeout: 12_000 }).toEqual([[medicine, "1-0-1", "5 days"]]);
 
   // Ctrl+S flushes the draft.
   await page.keyboard.press("Control+KeyS");

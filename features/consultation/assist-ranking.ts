@@ -11,6 +11,22 @@ import type { ExamTemplate } from "./exam-templates";
 
 const nameCount = z.object({ name: z.string(), n: z.number().int().min(0) });
 
+/**
+ * One medicine of the doctor's own signed prescriptions (V2-09c 09C-03, R-9, SA-02): its name, the catalogue ids the screen pre-checks allergies with, how many
+ * signed visits it appears in, and `usual` = the most frequent exact (dosage, timing, duration) of this doctor's own lines, STORED VALUES ONLY (a stored null
+ * timing stays null; `usual` is null when that triple has no dosage or no duration). No patient, visit or item id.
+ */
+export const rxAssistEntrySchema = z.object({
+  name: z.string(),
+  generic_name: z.string().nullable(),
+  dose_form: z.string().nullable(),
+  cdci_brand_id: z.string().nullable(),
+  substance_ids: z.array(z.string()),
+  n: z.number().int().min(0),
+  usual: z.object({ dosage: z.string(), timing: z.string().nullable(), duration: z.string() }).nullable(),
+});
+export type RxAssistEntry = z.infer<typeof rxAssistEntrySchema>;
+
 export const assistContextSchema = z.object({
   visits: z.number().int().min(0),
   complaints: z.array(nameCount),
@@ -27,15 +43,22 @@ export const assistContextSchema = z.object({
       investigations: z.array(nameCount),
       advice: z.array(nameCount),
       follow_up_days: z.number().int().nullable(),
+      /** The medicines this doctor prescribes in at least 40 % of their signed visits with this diagnosis (000119); absent in a context of an older shape. */
+      rx: z.array(rxAssistEntrySchema).default([]),
     }),
   ),
   last_exam_template: z.string().nullable(),
+  /** The doctor's most prescribed medicines, recent use weighted (000119); absent in a context of an older shape. */
+  rx_favourites: z.array(rxAssistEntrySchema).default([]),
 });
 
-export type AssistContext = z.infer<typeof assistContextSchema>;
+/** The parsed context. The two Rx keys (000119) may be absent: a context of an older shape, or one built by a caller that has none, reads as no Rx history. */
+export type AssistContext = z.input<typeof assistContextSchema>;
+/** What {@link parseAssistContext} returns: the two Rx keys are always present (an empty list when the database sent none). */
+export type ParsedAssistContext = z.output<typeof assistContextSchema>;
 
 /** The function's result as the app uses it: parsed, or null when it is not the documented shape (the tiles then use the catalogue order). */
-export function parseAssistContext(raw: unknown): AssistContext | null {
+export function parseAssistContext(raw: unknown): ParsedAssistContext | null {
   const parsed = assistContextSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
@@ -245,4 +268,71 @@ export function rankDiagnoses(args: { context: AssistContext | null; complaints:
 export function quickChipsBesideLearned<T extends { name: string }>(chips: readonly T[], ranked: RankedDiagnoses): T[] {
   const offered = new Set([...ranked.likely, ...ranked.recent].map((d) => norm(d.name)));
   return chips.filter((chip) => !offered.has(norm(chip.name)));
+}
+
+/** The medicines tiles offered at most this many times (favourites) and the bundles at most this many (one per current diagnosis, the first ones). */
+export const RX_FAVOURITE_LIMIT = 6;
+export const RX_BUNDLE_LIMIT = 2;
+
+export interface RxBundle {
+  /** The diagnosis (as this doctor named it) the bundle belongs to. */
+  diagnosis: string;
+  /** The usual medicines of that diagnosis that are not on the prescription yet, in the doctor's own order. */
+  entries: RxAssistEntry[];
+}
+
+/**
+ * "Your usual for {diagnosis}" (V2-09c R-9, V2-DX D1): for each diagnosis on the visit that this doctor has a usual prescription for, the medicines of that
+ * usual that are not on the Rx yet; a diagnosis with nothing missing offers no tile; at most {@link RX_BUNDLE_LIMIT} tiles. The doctor's own history only:
+ * nothing is authored here and nothing is applied until the doctor taps.
+ */
+export function rxBundlesFor(args: { context: AssistContext | null; diagnoses: readonly string[]; onRx: readonly string[] }): RxBundle[] {
+  const { context } = args;
+  if (!context) return [];
+  const onRx = new Set(args.onRx.map(norm));
+  const out: RxBundle[] = [];
+  const seen = new Set<string>();
+  for (const name of args.diagnoses) {
+    const key = norm(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hit = context.diagnoses.find((d) => norm(d.name) === key);
+    if (!hit || (hit.rx ?? []).length === 0) continue;
+    const entries = (hit.rx ?? []).filter((e) => !onRx.has(norm(e.name)));
+    if (entries.length > 0) out.push({ diagnosis: hit.name, entries });
+    if (out.length >= RX_BUNDLE_LIMIT) break;
+  }
+  return out;
+}
+
+/** The doctor's favourite medicines that are not on the Rx yet (at most {@link RX_FAVOURITE_LIMIT}), in the order the database ranked them. */
+export function rxFavouritesFor(args: { context: AssistContext | null; onRx: readonly string[]; limit?: number }): RxAssistEntry[] {
+  if (!args.context) return [];
+  const onRx = new Set(args.onRx.map(norm));
+  return (args.context.rx_favourites ?? []).filter((e) => !onRx.has(norm(e.name))).slice(0, args.limit ?? RX_FAVOURITE_LIMIT);
+}
+
+export interface RankableTemplate {
+  id: string;
+  template_name: string;
+  specialty: string | null;
+  created_at: string;
+}
+
+/**
+ * The saved protocol templates in the order the Templates sheet lists them (V2-09c R-9): the visit's own specialty first, then a template whose name holds
+ * a diagnosis already on the visit (case-insensitive), then the newest. The three keys are combined in that order of importance; ties keep the given order.
+ */
+export function rankProtocolTemplates<T extends RankableTemplate>(args: { templates: readonly T[]; specialty: string | null; diagnoses: readonly string[] }): T[] {
+  const wanted = args.specialty ? norm(args.specialty) : null;
+  const names = args.diagnoses.map(norm).filter((n) => n !== "");
+  const scored = args.templates.map((template, index) => ({
+    template,
+    index,
+    specialty: wanted !== null && template.specialty !== null && norm(template.specialty) === wanted ? 1 : 0,
+    named: names.some((n) => norm(template.template_name).includes(n)) ? 1 : 0,
+    at: Date.parse(template.created_at) || 0,
+  }));
+  scored.sort((x, y) => y.specialty - x.specialty || y.named - x.named || y.at - x.at || x.index - y.index);
+  return scored.map((s) => s.template);
 }

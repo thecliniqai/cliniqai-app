@@ -9,6 +9,8 @@
  * - Nurse, adding a medicine on a consultation: refused by the server; no prescription item is written.
  * - Doctor, billing reports: the server redirects away (no `billing:view`).
  */
+import { awaitHydrated } from "../support/hydrated";
+import { rxField } from "../support/rx-entry";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { prescriptionItemNames, run, seedPatient, seedVisit, tenantName, testTag, visitById } from "../support/m0-data";
@@ -94,20 +96,20 @@ test.describe("nurse", () => {
     expect(visit).toMatchObject({ status: "in_consultation", signed_at: null });
   });
 
-  test("adding a medicine is refused by the server; no prescription item is written", async ({ page }, testInfo) => {
+  test("09C-06a A-5: the nurse gets no Rx builder (no entry row, no tiles, no Templates) and is told the prescription is the doctor's; nothing is written", async ({ page }, testInfo) => {
     const tag = testTag();
     const visitId = await inConsultationVisit(tag);
-    const med = `E2E Synthetic Nurse Med ${tag}`;
 
     await page.goto(`/consultation/${visitId}`);
+    // WebKit hydrates late (09B-02b): the section is read once the page is interactive.
+    await awaitHydrated(page);
     const rx = page.locator("#prescription");
-    const search = rx.getByLabel("Search CDCI Medicine or Brand Name:");
-    await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to Prescription|Templates/);
-    await search.fill(med);
-    await rx.getByRole("button", { name: /Add as custom medicine/ }).click();
-    await rx.getByRole("button", { name: "Add to Prescription" }).click();
-
-    await expect(rx.getByText(DENIED)).toBeVisible();
+    await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to prescription|Templates/);
+    // No control that the server would refuse (the role has no prescriptions:edit): the lines are text, and RLS hides them from the role (no prescriptions:view).
+    await expect(rxField(rx)).toHaveCount(0);
+    await expect(rx.getByRole("button", { name: "Templates" })).toHaveCount(0);
+    await expect(rx.locator("[data-rx-assist]")).toHaveCount(0);
+    await expect(rx.locator("[data-rx-empty]")).toHaveText("The prescription is written by the doctor. It is not shown to your role.");
     expect(await prescriptionItemNames(visitId)).toEqual([]);
   });
 });

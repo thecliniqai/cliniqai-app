@@ -1,115 +1,24 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { buildRxContent } from "./content";
+import { effectiveMargins, PAPER } from "./layout";
+import type { PrescriptionPdfPayload } from "./types";
 
-export interface PrescriptionPdfPayload {
-  tenant_id: string;
-  visit_id: string;
-  prescription_id: string;
-  version: number;
-  letterhead_mode: "blank_paper" | "preprinted_letterhead";
-  amended_at?: string | null;
-  amendment_reason?: string | null;
-  signed_at?: string | null;
-  /**
-   * V2-09a 09A-06a (review S-8): set only on an on-demand render served in place of a missing or failed archive; printed as a visible line so the copy
-   * is never mistaken for the archived signed original. Never set on an archived rendering.
-   */
-  regenerated_notice?: string | null;
+export type { PrescriptionPdfPayload } from "./types";
 
-  clinic: {
-    name: string;
-    address?: string | null;
-    phone?: string | null;
-    registration_number?: string | null;
-    logo_url?: string | null;
-    clinical_establishment_reg_no?: string | null;
-    state_medical_council_reg_no?: string | null;
-    gstin?: string | null;
-    drug_license_no?: string | null;
-  };
+/**
+ * The prescription as a PDF (V2-09a 09A-03; V2-09c 09C-04, R-12). The words come from `buildRxContent` (shared with the print view); this file is the layout.
+ *
+ * - Paper: A4 or A5 from the version's own `paper_size`; every length is scaled for A5 (0.9: the text stays readable on the smaller sheet).
+ * - Letterhead: on blank paper the clinic and doctor block is printed at the top; on pre-printed stationery it is not, and NOTHING is printed inside the
+ *   clinic's own top and bottom margins (`letterhead_margins`, points; defaults 110 and 60): the page padding, the continuation line of page 2 onward and the
+ *   footer all sit outside them.
+ * - Determinism: the document's creation and modification date are the version's signature (a signed version renders to the same bytes every time); an
+ *   unsigned rendering carries the render time and is never stored.
+ * - Fonts are the standard Helvetica set (no embedded font): a character outside it is a known limit (Hindi printing is P3), and must not fail a render.
+ */
 
-  doctor: {
-    name: string;
-    qualifications?: string | null;
-    medical_council_reg_no?: string | null;
-    signature_url?: string | null;
-  };
-
-  patient: {
-    full_name: string;
-    age?: number | null;
-    sex?: "male" | "female" | "other" | null;
-    phone?: string | null;
-    address?: string | null;
-    abha_id?: string | null;
-    uhid?: string | null;
-  };
-
-  visit: {
-    visit_date: string;
-    vitals?: {
-      systolic?: number | null;
-      diastolic?: number | null;
-      pulse?: number | null;
-      temperature?: number | null;
-      spo2?: number | null;
-      weight?: number | null;
-      height?: number | null;
-      bmi?: number | null;
-    } | null;
-    chief_complaints?: {
-      symptom: string;
-      duration_val?: number;
-      duration_unit?: string;
-    }[];
-    clinical_notes?: string | null;
-    specialty?: string;
-    specialty_notes?: string | null;
-  };
-
-  diagnoses: {
-    diagnosis_name: string;
-    icd11_code?: string | null;
-    snomed_concept_id?: string | null;
-  }[];
-
-  medications: {
-    medicine_name: string;
-    generic_name?: string | null;
-    dose_form?: string | null;
-    dosage: string;
-    timing?: string | null;
-    duration: string;
-    special_instructions?: string | null;
-    quantity?: number | string | null;
-  }[];
-
-  investigations_advised?: string[];
-  advice?: string[];
-  follow_up_date?: string | null;
-}
-
-const styles = StyleSheet.create({
-  pageBlankPaper: {
-    paddingTop: 36,
-    paddingBottom: 40,
-    paddingLeft: 36,
-    paddingRight: 36,
-    fontFamily: "Helvetica",
-    fontSize: 9,
-    color: "#1E293B",
-    backgroundColor: "#FFFFFF",
-  },
-  pagePreprinted: {
-    paddingTop: 110, // ~39mm letterhead pad margin
-    paddingBottom: 60, // ~21mm footer pad margin
-    paddingLeft: 36,
-    paddingRight: 36,
-    fontFamily: "Helvetica",
-    fontSize: 9,
-    color: "#1E293B",
-    backgroundColor: "#FFFFFF",
-  },
+const RAW_STYLES = {
   // Multi-page continuation header
   continuationHeader: {
     position: "absolute",
@@ -358,107 +267,95 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: "#94A3B8",
   },
-});
+} as const;
+
+const SCALED_KEYS = new Set([
+  "fontSize", "padding", "paddingTop", "paddingBottom", "paddingLeft", "paddingRight", "margin", "marginTop", "marginBottom", "marginLeft", "marginRight",
+  "top", "bottom", "left", "right", "borderRadius", "letterSpacing", "width",
+]);
+
+/** The design styles with every length scaled (percent widths, unitless line heights and border widths are kept). */
+function scaleStyles(scale: number): ReturnType<typeof StyleSheet.create> {
+  if (scale === 1) return StyleSheet.create(RAW_STYLES as never);
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [name, style] of Object.entries(RAW_STYLES)) {
+    const scaled: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(style)) scaled[key] = typeof value === "number" && SCALED_KEYS.has(key) ? Math.round(value * scale * 100) / 100 : value;
+    out[name] = scaled;
+  }
+  return StyleSheet.create(out as never);
+}
 
 export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayload }) {
-  const isPreprinted = payload.letterhead_mode === "preprinted_letterhead";
-  const isAmended = payload.version > 1 || Boolean(payload.amendment_reason);
+  const content = buildRxContent(payload);
+  const { scale } = PAPER[content.paper];
+  const styles = scaleStyles(scale) as Record<keyof typeof RAW_STYLES, never>;
+  const s = (n: number) => Math.round(n * scale * 100) / 100;
+  const { top: marginTop, bottom: marginBottom } = effectiveMargins(payload);
 
-  const vitals = payload.visit.vitals;
-  const hasVitals =
-    vitals &&
-    (vitals.systolic != null ||
-      vitals.pulse != null ||
-      vitals.temperature != null ||
-      vitals.spo2 != null ||
-      vitals.weight != null);
+  // Page geometry. Blank paper: the design margins. Pre-printed: the page starts below the clinic's top margin (with room for the continuation line of page
+  // 2 onward) and ends above its bottom margin (with room for the footer), so nothing is printed over the stationery.
+  const page = content.preprinted
+    ? {
+        paddingTop: marginTop + s(16),
+        paddingBottom: marginBottom + s(22),
+        paddingLeft: s(36),
+        paddingRight: s(36),
+        fontFamily: "Helvetica",
+        fontSize: s(9),
+        color: "#1E293B",
+        backgroundColor: "#FFFFFF",
+      }
+    : {
+        paddingTop: s(36),
+        paddingBottom: s(40),
+        paddingLeft: s(36),
+        paddingRight: s(36),
+        fontFamily: "Helvetica",
+        fontSize: s(9),
+        color: "#1E293B",
+        backgroundColor: "#FFFFFF",
+      };
+  const continuationTop = content.preprinted ? marginTop : s(14);
+  const footerBottom = content.preprinted ? marginBottom + s(3) : s(14);
 
-  const bmiFormatted =
-    vitals?.bmi != null
-      ? vitals.bmi.toFixed(1)
-      : vitals?.weight && vitals?.height
-        ? (vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1)
-        : null;
+  const signedAt = payload.signed_at ? new Date(payload.signed_at) : null;
+  const stamp = signedAt && !Number.isNaN(signedAt.getTime()) ? signedAt : new Date();
 
   return (
-    <Document title={`Prescription-${payload.patient.full_name}-v${payload.version}`}>
-      <Page size="A4" style={isPreprinted ? styles.pagePreprinted : styles.pageBlankPaper}>
-        {/* Multi-page Continuation Header (Page 2+) */}
-        <View style={styles.continuationHeader} fixed>
-          <Text
-            style={styles.continuationText}
-            render={({ pageNumber, totalPages }) =>
-              pageNumber > 1
-                ? `${payload.clinic.name}  •  Rx Continuation  •  Patient: ${payload.patient.full_name}${payload.patient.age ? ` (${payload.patient.age}y` : ""}${payload.patient.sex ? ` ${payload.patient.sex.toUpperCase()})` : payload.patient.age ? ")" : ""}  •  Date: ${payload.visit.visit_date}  •  Page ${pageNumber} of ${totalPages}`
-                : ""
-            }
-          />
+    <Document title={content.title} creationDate={stamp} modificationDate={stamp}>
+      <Page size={content.paper} style={page}>
+        {/* Multi-page continuation line (page 2 and later) */}
+        <View style={[styles.continuationHeader, { top: continuationTop }]} fixed>
+          <Text style={styles.continuationText} render={({ pageNumber, totalPages }) => content.continuation(pageNumber, totalPages)} />
         </View>
 
         {/* 0. Regenerated copy (V2-09a review S-8): this is not the archived signed original */}
-        {payload.regenerated_notice ? (
+        {content.regenerated ? (
           <View style={styles.regeneratedBanner}>
-            <Text style={styles.regeneratedText}>{payload.regenerated_notice}</Text>
+            <Text style={styles.regeneratedText}>{content.regenerated}</Text>
           </View>
         ) : null}
 
         {/* 1. Version / Amendment Banner */}
-        {isAmended && (
+        {content.amendment && (
           <View style={styles.amendmentBanner}>
-            <Text style={styles.amendmentTitle}>
-              AMENDED PRESCRIPTION (v{payload.version})
-              {payload.amended_at ? ` • ${new Date(payload.amended_at).toLocaleDateString()}` : ""}
-            </Text>
-            {payload.amendment_reason && (
-              <Text style={styles.amendmentText}>Reason: {payload.amendment_reason}</Text>
-            )}
+            <Text style={styles.amendmentTitle}>{content.amendment.title}</Text>
+            {content.amendment.reason && <Text style={styles.amendmentText}>{content.amendment.reason}</Text>}
           </View>
         )}
 
-        {/* 2. Clinic & Doctor Branding Header (Blank Paper Mode only) */}
-        {!isPreprinted && (
+        {/* 2. Clinic & Doctor Branding Header (blank paper only) */}
+        {content.letterhead && (
           <View style={styles.headerContainer}>
-            <Text style={styles.clinicName}>{payload.clinic.name}</Text>
-            {payload.clinic.address && <Text style={styles.clinicMeta}>{payload.clinic.address}</Text>}
-            <Text style={styles.clinicMeta}>
-              {payload.clinic.phone ? `Phone: ${payload.clinic.phone}` : ""}
-              {payload.clinic.registration_number
-                ? ` • Reg No: ${payload.clinic.registration_number}`
-                : ""}
-            </Text>
-            {Boolean(
-              payload.clinic.clinical_establishment_reg_no ||
-              payload.clinic.state_medical_council_reg_no ||
-              payload.clinic.gstin ||
-              payload.clinic.drug_license_no
-            ) ? (
-              <Text style={styles.clinicMeta}>
-                {[
-                  payload.clinic.clinical_establishment_reg_no
-                    ? `CEA: ${payload.clinic.clinical_establishment_reg_no}`
-                    : null,
-                  payload.clinic.state_medical_council_reg_no
-                    ? `SMC: ${payload.clinic.state_medical_council_reg_no}`
-                    : null,
-                  payload.clinic.gstin ? `GSTIN: ${payload.clinic.gstin}` : null,
-                  payload.clinic.drug_license_no
-                    ? `DL: ${payload.clinic.drug_license_no}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" | ")}
-              </Text>
-            ) : null}
-
+            <Text style={styles.clinicName}>{content.letterhead.clinicName}</Text>
+            {content.letterhead.address && <Text style={styles.clinicMeta}>{content.letterhead.address}</Text>}
+            <Text style={styles.clinicMeta}>{content.letterhead.contact}</Text>
+            {content.letterhead.statutory ? <Text style={styles.clinicMeta}>{content.letterhead.statutory}</Text> : null}
             <View style={styles.doctorContainer}>
               <View>
-                <Text style={styles.doctorName}>Dr. {payload.doctor.name}</Text>
-                <Text style={styles.doctorMeta}>
-                  {payload.doctor.qualifications || "Consultant"}
-                  {payload.doctor.medical_council_reg_no
-                    ? ` • Reg No: ${payload.doctor.medical_council_reg_no}`
-                    : ""}
-                </Text>
+                <Text style={styles.doctorName}>{content.letterhead.doctorName}</Text>
+                <Text style={styles.doctorMeta}>{content.letterhead.doctorMeta}</Text>
               </View>
             </View>
           </View>
@@ -467,80 +364,57 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
         {/* 3. Patient Demographics & Vitals Banner */}
         <View style={styles.patientBox}>
           <View style={styles.patientRow}>
-            <Text style={styles.patientValue}>
-              Patient: {payload.patient.full_name}{" "}
-              {payload.patient.age ? `(${payload.patient.age}y` : "("}
-              {payload.patient.sex ? ` ${payload.patient.sex.toUpperCase()})` : ")"}
-            </Text>
-            <Text style={styles.patientValue}>Date: {payload.visit.visit_date}</Text>
+            <Text style={styles.patientValue}>{content.patient.line}</Text>
+            <Text style={styles.patientValue}>{content.patient.date}</Text>
           </View>
-
           <View style={styles.patientRow}>
-            <Text style={styles.patientLabel}>
-              Phone: {payload.patient.phone || "N/A"}
-              {payload.patient.uhid ? ` • UHID: ${payload.patient.uhid}` : ""}
-              {payload.patient.abha_id ? ` • ABHA: ${payload.patient.abha_id}` : ""}
-            </Text>
-            <Text style={styles.patientLabel}>
-              Visit ID: {payload.visit_id.slice(0, 8).toUpperCase()}
-            </Text>
+            <Text style={styles.patientLabel}>{content.patient.contact}</Text>
+            <Text style={styles.patientLabel}>{content.patient.visitId}</Text>
           </View>
-
-          {hasVitals && (
+          {content.vitals.length > 0 && (
             <View style={styles.vitalsRow}>
-              {vitals?.systolic != null && vitals?.diastolic != null && (
-                <Text style={styles.vitalItem}>
-                  BP: <Text style={styles.vitalBold}>{vitals.systolic}/{vitals.diastolic} mmHg</Text>
+              {content.vitals.map((v) => (
+                <Text key={v.label} style={styles.vitalItem}>
+                  {v.label}: <Text style={styles.vitalBold}>{v.value}</Text>
                 </Text>
-              )}
-              {vitals?.pulse != null && (
-                <Text style={styles.vitalItem}>
-                  Pulse: <Text style={styles.vitalBold}>{vitals.pulse} bpm</Text>
-                </Text>
-              )}
-              {vitals?.temperature != null && (
-                <Text style={styles.vitalItem}>
-                  Temp: <Text style={styles.vitalBold}>{vitals.temperature}°F</Text>
-                </Text>
-              )}
-              {vitals?.spo2 != null && (
-                <Text style={styles.vitalItem}>
-                  SpO2: <Text style={styles.vitalBold}>{vitals.spo2}%</Text>
-                </Text>
-              )}
-              {vitals?.weight != null && (
-                <Text style={styles.vitalItem}>
-                  Weight: <Text style={styles.vitalBold}>{vitals.weight} kg</Text>
-                </Text>
-              )}
-              {bmiFormatted && (
-                <Text style={styles.vitalItem}>
-                  BMI: <Text style={styles.vitalBold}>{bmiFormatted}</Text>
-                </Text>
-              )}
+              ))}
             </View>
           )}
         </View>
 
-        {/* 4. Clinical Findings / Chief Complaints */}
-        {payload.visit.chief_complaints && payload.visit.chief_complaints.length > 0 && (
+        {/* 4. Chief Complaints */}
+        {content.complaints.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Chief Complaints</Text>
-            {payload.visit.chief_complaints.map((c, idx) => (
+            {content.complaints.map((c, idx) => (
               <Text key={idx} style={styles.clinicalItem}>
-                • {c.symptom} {c.duration_val ? `(${c.duration_val} ${c.duration_unit || "days"})` : ""}
+                • {c}
               </Text>
             ))}
           </View>
         )}
 
+        {/* 4b. Examination (the structured exam: general signs, abnormal systems, the normal ones in one line) */}
+        {content.exam && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Examination</Text>
+            {content.exam.general && <Text style={styles.clinicalItem}>General signs: {content.exam.general}</Text>}
+            {content.exam.abnormal.map((line, idx) => (
+              <Text key={idx} style={styles.clinicalItem}>
+                • {line}
+              </Text>
+            ))}
+            {content.exam.normal && <Text style={styles.clinicalItem}>Normal: {content.exam.normal}</Text>}
+          </View>
+        )}
+
         {/* 5. Diagnoses */}
-        {payload.diagnoses && payload.diagnoses.length > 0 && (
+        {content.diagnoses.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Diagnoses</Text>
-            {payload.diagnoses.map((d, idx) => (
+            {content.diagnoses.map((d, idx) => (
               <Text key={idx} style={styles.clinicalItem}>
-                • {d.diagnosis_name} {d.icd11_code ? `[ICD-11: ${d.icd11_code}]` : ""}
+                • {d}
               </Text>
             ))}
           </View>
@@ -549,11 +423,9 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
         {/* 6. Rx Medications Table */}
         <View style={styles.sectionContainer}>
           <View style={styles.rxHeader}>
-            <Text style={styles.rxSymbol}>℞</Text>
+            <Text style={styles.rxSymbol}>Rx</Text>
             <Text style={styles.sectionTitle}>Prescribed Medications</Text>
           </View>
-
-          {/* Table Header */}
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
             <Text style={[styles.tableHeaderCell, styles.colName]}>Medicine & Generic Salt</Text>
@@ -561,34 +433,26 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
             <Text style={[styles.tableHeaderCell, styles.colTiming]}>Timing</Text>
             <Text style={[styles.tableHeaderCell, styles.colDuration]}>Duration</Text>
           </View>
-
-          {/* Table Rows */}
-          {payload.medications.map((item, idx) => (
-            <View key={idx} style={styles.tableRow} wrap={false}>
-              <Text style={[styles.cellText, styles.colNum]}>{idx + 1}</Text>
+          {content.medications.map((m) => (
+            <View key={m.n} style={styles.tableRow} wrap={false}>
+              <Text style={[styles.cellText, styles.colNum]}>{m.n}</Text>
               <View style={styles.colName}>
-                <Text style={styles.medName}>
-                  {item.medicine_name} {item.dose_form ? `(${item.dose_form})` : ""}
-                </Text>
-                {item.generic_name && (
-                  <Text style={styles.medGeneric}>{item.generic_name}</Text>
-                )}
-                {item.special_instructions && (
-                  <Text style={styles.medInstructions}>Note: {item.special_instructions}</Text>
-                )}
+                <Text style={styles.medName}>{m.name}</Text>
+                {m.generic && <Text style={styles.medGeneric}>{m.generic}</Text>}
+                {m.note && <Text style={styles.medInstructions}>{m.note}</Text>}
               </View>
-              <Text style={[styles.cellText, styles.colDosage]}>{item.dosage}</Text>
-              <Text style={[styles.cellText, styles.colTiming]}>{item.timing || "After food"}</Text>
-              <Text style={[styles.cellText, styles.colDuration]}>{item.duration}</Text>
+              <Text style={[styles.cellText, styles.colDosage]}>{m.dosage}</Text>
+              <Text style={[styles.cellText, styles.colTiming]}>{m.timing}</Text>
+              <Text style={[styles.cellText, styles.colDuration]}>{m.duration}</Text>
             </View>
           ))}
         </View>
 
         {/* 7. Investigations Advised */}
-        {payload.investigations_advised && payload.investigations_advised.length > 0 && (
+        {content.investigations.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Advised Investigations</Text>
-            {payload.investigations_advised.map((test, idx) => (
+            {content.investigations.map((test, idx) => (
               <View key={idx} style={styles.bulletRow} wrap={false}>
                 <Text style={styles.bulletSymbol}>•</Text>
                 <Text style={styles.bulletText}>{test}</Text>
@@ -598,10 +462,10 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
         )}
 
         {/* 8. Advice & Lifestyle */}
-        {payload.advice && payload.advice.length > 0 && (
+        {content.advice.length > 0 && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Advice & Lifestyle Instructions</Text>
-            {payload.advice.map((adv, idx) => (
+            {content.advice.map((adv, idx) => (
               <View key={idx} style={styles.bulletRow} wrap={false}>
                 <Text style={styles.bulletSymbol}>•</Text>
                 <Text style={styles.bulletText}>{adv}</Text>
@@ -611,37 +475,26 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
         )}
 
         {/* 9. Follow-Up */}
-        {payload.follow_up_date && (
+        {content.followUp && (
           <View style={styles.sectionContainer} wrap={false}>
             <Text style={styles.sectionTitle}>Follow-Up</Text>
-            <Text style={styles.clinicalItem}>Review on: {payload.follow_up_date}</Text>
+            <Text style={styles.clinicalItem}>{content.followUp}</Text>
           </View>
         )}
 
-        {/* 10. Doctor Signature Block (Atomic: never split across pages) */}
+        {/* 10. Doctor Signature Block (atomic: never split across pages) */}
         <View style={styles.signatureBlock} wrap={false}>
           <View style={styles.signatureBox}>
-            <Text style={styles.signDocName}>Dr. {payload.doctor.name}</Text>
-            {payload.doctor.medical_council_reg_no && (
-              <Text style={styles.signDocMeta}>
-                Reg No: {payload.doctor.medical_council_reg_no}
-              </Text>
-            )}
-            <Text style={styles.signDocMeta}>
-              Signed on {payload.signed_at ? new Date(payload.signed_at).toLocaleDateString() : payload.visit.visit_date}
-            </Text>
+            <Text style={styles.signDocName}>{content.signature.doctor}</Text>
+            {content.signature.reg && <Text style={styles.signDocMeta}>{content.signature.reg}</Text>}
+            <Text style={styles.signDocMeta}>{content.signature.signedOn}</Text>
           </View>
         </View>
 
-        {/* 11. Footer (Rendered on all pages with page numbering) */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            {!isPreprinted ? "Generated by ClinicOS • Confidential Medical Record • " : ""}Rx v{payload.version}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
+        {/* 11. Footer (every page): the product line as before (blank paper only) and "Rx v{n} · Page x of y" (Q-9 ruling) */}
+        <View style={[styles.footer, { bottom: footerBottom }]} fixed>
+          <Text style={styles.footerText}>{content.footerLeft}</Text>
+          <Text style={styles.footerText} render={({ pageNumber, totalPages }) => content.pageLine(pageNumber, totalPages)} />
         </View>
       </Page>
     </Document>

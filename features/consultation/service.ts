@@ -21,7 +21,7 @@ import { clinicalNotesEmbed, embeddedClinicalNotes, withClinicalNotes } from "@/
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { SIGNED_CONSULTATION_MESSAGE } from "./record-state";
 import type { DraftFields, ServerDraft } from "./draft";
-import { parseAssistContext, type AssistContext } from "./assist-ranking";
+import { parseAssistContext, type ParsedAssistContext } from "./assist-ranking";
 import { parsePatientSnapshot, type PatientSnapshot } from "./snapshot";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
@@ -181,7 +181,7 @@ export async function getConsultationDraft(ctx: ServiceContext, visitId: string)
  * signed visits in the active clinic. `consultations:edit`. Smart Assist only, so a refused or failed read answers `null`, never an error: the tiles then
  * keep the catalogue order. The tenant is the session's; the function filters on it again and applies RLS.
  */
-export async function getConsultAssistContext(ctx: ServiceContext): Promise<AssistContext | null> {
+export async function getConsultAssistContext(ctx: ServiceContext): Promise<ParsedAssistContext | null> {
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch {
@@ -225,6 +225,8 @@ export interface PastVisitEncounter {
   visitId: string;
   date: string;
   status: string;
+  /** When the visit was signed (null: not signed): only a signed visit can be repeated (V2-09c R-10). */
+  signedAt?: string | null;
   specialty: string;
   vitals?: Vitals | null;
   chiefComplaints: ChiefComplaintItem[];
@@ -274,7 +276,7 @@ export async function getPatientConsultationHistory(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let visitQuery = (supabase as any)
       .from("visits")
-      .select(`id, scheduled_at, created_at, status, specialty, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`)
+      .select(`id, scheduled_at, created_at, status, signed_at, specialty, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`)
       .eq("tenant_id", ctx.tenantId)
       .eq("patient_id", patientId)
       .in("status", ["completed", "in_consultation"])
@@ -342,6 +344,7 @@ export async function getPatientConsultationHistory(
       created_at: string;
       scheduled_at?: string;
       status: string;
+      signed_at?: string | null;
       specialty: string;
       vitals?: Vitals;
       chief_complaints?: ChiefComplaintItem[];
@@ -361,6 +364,7 @@ export async function getPatientConsultationHistory(
         visitId: v.id,
         date: v.scheduled_at || v.created_at,
         status: v.status,
+        signedAt: v.signed_at ?? null,
         specialty: v.specialty,
         vitals: v.vitals || null,
         chiefComplaints: v.chief_complaints || [],

@@ -125,6 +125,20 @@ describe("External REST API CRUD & Schema Verification (REQ-api-access, D-03, D-
       expect(auditLogs[0].api_key_id).toBe(keyA.id);
     });
 
+    it("POST /api/v1/patients without allergies stores them as not recorded (null), never 'No known allergies' (09C-06a, A-7, S-5)", async () => {
+      const req = new NextRequest("http://localhost:3000/api/v1/patients", {
+        method: "POST",
+        headers: { authorization: `Bearer ${keyA.rawToken}`, "content-type": "application/json" },
+        body: JSON.stringify({ full_name: "Synthetic NoAllergy Api", phone: "9876543299", sex: "female", age: 41 }),
+      });
+      const res = await createPatient(req);
+      expect(res.status).toBe(201);
+      const { data } = await res.json();
+      expect(data.allergies).toBeNull();
+      const stored = await getAdminClient().from("patients").select("allergies").eq("id", data.id).single();
+      expect(stored.data?.allergies).toBeNull();
+    });
+
     it("GET /api/v1/patients returns uniform { data, meta } envelope and excludes is_deleted patients", async () => {
       const admin = getAdminClient();
 
