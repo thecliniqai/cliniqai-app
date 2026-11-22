@@ -15,6 +15,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { insertReturningId } from "../helpers/db";
 import { seedVisit } from "../helpers/billing-commands";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
+import { psql } from "../helpers/sql";
 
 interface Signal {
   kind: string;
@@ -68,10 +69,48 @@ async function until(predicate: () => boolean, ms: number): Promise<boolean> {
 }
 
 /**
- * Waits until the channel is joined AND has delivered a signal. Realtime acknowledges the join (SUBSCRIBED) before the
- * read authorization of a private channel has necessarily taken effect for broadcasts, so a change committed in the
- * first few milliseconds can be missed (seen once under load; the board closes that gap by refreshing on every
- * subscription). The probes are real visits of the clinic, so the check is of the delivery path itself, not a pause.
+ * Realtime meters every broadcast of the project (every clinic, every topic) against one quota: its tenant's
+ * `max_events_per_second` (100 on the local stack, the hosted Free plan's figure) averaged over the last 60 s (realtime
+ * v2.140: twelve 5 s buckets). A `realtime.send` counts once and each delivery to a subscribed channel once more. Over
+ * the quota, Realtime refuses every database broadcast ("UnableToBroadcastChanges: :too_many_requests" in its log) until
+ * the average falls, and a subscribed channel is told nothing. The Vitest run is one file at a time, and a file that
+ * writes thousands of visits just before this one (tests/security/guard-actions.spec.ts: about 6000 Today signals in
+ * 35 s in the 09C gate run) leaves the window over the quota for up to a minute: there, every probe of `joined` was
+ * refused, 1.5 s apart.
+ */
+const QUOTA_WINDOW = "65 seconds"; // the 60 s window plus the one 5 s bucket the counter may not have rolled yet
+
+function broadcastsInWindow(): number {
+  return Number(psql(`select count(*) from realtime.messages where inserted_at > now() - interval '${QUOTA_WINDOW}'`)[0]);
+}
+
+/**
+ * Waits until the quota's window holds at most half of it, so this file's own signals (well under 300 events) are never
+ * refused. Counted as the broadcasts stored in realtime.messages: nothing subscribes outside this file, so before it
+ * every broadcast is one event. The wait is 0 after a quiet file and at most the window after a burst.
+ */
+async function realtimeQuotaHeadroom(): Promise<void> {
+  const limits = psql("select max_events_per_second from _realtime.tenants");
+  expect(limits, "one local Realtime tenant").toHaveLength(1);
+  const budget = (Number(limits[0]) * 60) / 2;
+  const end = Date.now() + 75_000;
+  let recent = broadcastsInWindow();
+  while (recent > budget) {
+    if (Date.now() > end) {
+      throw new Error(`Realtime's event quota stayed spent: ${recent} broadcasts in the last ${QUOTA_WINDOW}, budget ${budget}`);
+    }
+    await sleep(1_000);
+    recent = broadcastsInWindow();
+  }
+}
+
+/**
+ * Waits until the channel is joined AND has delivered a signal. The join is answered (SUBSCRIBED) after its read policy
+ * is checked, but the first join after the Realtime tenant was shut down (idle, or the local stack's "rebalancing" ten
+ * minutes after each start) restarts the tenant's replication of realtime.messages and is answered before that stream
+ * runs: a change committed in those few tens of milliseconds is never broadcast (seen: a visit stored 33 ms before the
+ * replication slot was created). The board closes that gap by refreshing on every subscription. The probes are real
+ * visits of the clinic, so the check is of the delivery path itself, not a pause.
  */
 async function joined(listener: Listener, tenant: SeededTenant): Promise<void> {
   expect(await listener.status).toBe("SUBSCRIBED");
@@ -80,7 +119,7 @@ async function joined(listener: Listener, tenant: SeededTenant): Promise<void> {
     await seedVisit(tenant);
     if (await until(() => listener.signals.length > seen, 1_500)) return;
   }
-  throw new Error("the channel joined but never delivered a signal");
+  throw new Error(`the channel joined but never delivered a signal (${broadcastsInWindow()} broadcasts in the last ${QUOTA_WINDOW})`);
 }
 
 let tenantA: SeededTenant;
@@ -91,6 +130,8 @@ let lockedClinic: SeededTenant;
 let lockedMember: SeededTenant;
 
 beforeAll(async () => {
+  // First, so a burst of the file before has drained before any case relies on delivery (bounded by its own 75 s).
+  await realtimeQuotaHeadroom();
   tenantA = await seedTenantWithOwner("CI Realtime Clinic A");
   tenantB = await seedTenantWithOwner("CI Realtime Clinic B");
   receptionistA = await addMemberToTenant(tenantA.tenantId, "receptionist");
@@ -98,7 +139,7 @@ beforeAll(async () => {
   lockedClinic = await seedTenantWithOwner("CI Realtime Locked Clinic");
   lockedMember = await addMemberToTenant(lockedClinic.tenantId, "receptionist");
   await seedTenantSubscription(lockedClinic.tenantId, { status: "expired" });
-});
+}, 120_000);
 
 afterAll(async () => {
   for (const l of live) await l.client.removeChannel(l.channel);
