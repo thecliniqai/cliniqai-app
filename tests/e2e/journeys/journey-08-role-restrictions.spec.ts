@@ -96,26 +96,20 @@ test.describe("nurse", () => {
     expect(visit).toMatchObject({ status: "in_consultation", signed_at: null });
   });
 
-  test("adding a medicine is refused by the server; no prescription item is written", async ({ page }, testInfo) => {
+  test("09C-06a A-5: the nurse gets no Rx builder (no entry row, no tiles, no Templates) and is told the prescription is the doctor's; nothing is written", async ({ page }, testInfo) => {
     const tag = testTag();
     const visitId = await inConsultationVisit(tag);
-    const med = `E2E Synthetic Nurse Med ${tag}`;
 
     await page.goto(`/consultation/${visitId}`);
-    // WebKit hydrates late: text typed before the section is hydrated is lost (09B-02b).
+    // WebKit hydrates late (09B-02b): the section is read once the page is interactive.
     await awaitHydrated(page);
     const rx = page.locator("#prescription");
     await characteriseVisibility(page, testInfo, "Prescription builder for a nurse", /Add to prescription|Templates/);
-    // V2-09c 09C-01: the keyboard builder. The nurse's search is refused (no prescriptions:edit) and the typed name is still offered as an Add row; the
-    // command is then refused by the server, which is the outcome this journey asserts.
-    const search = rxField(rx);
-    await search.fill(med);
-    await expect(rx.getByRole("option", { name: /^Add / })).toBeVisible({ timeout: 10_000 });
-    await search.press("Enter");
-    await expect(rx.locator("[data-dose-builder]")).toBeVisible();
-    for (const key of ["1", "5", "d", "Enter"]) await search.press(key);
-
-    await expect(rx.getByText(DENIED)).toBeVisible();
+    // No control that the server would refuse (the role has no prescriptions:edit): the lines are text, and RLS hides them from the role (no prescriptions:view).
+    await expect(rxField(rx)).toHaveCount(0);
+    await expect(rx.getByRole("button", { name: "Templates" })).toHaveCount(0);
+    await expect(rx.locator("[data-rx-assist]")).toHaveCount(0);
+    await expect(rx.locator("[data-rx-empty]")).toHaveText("The prescription is written by the doctor. It is not shown to your role.");
     expect(await prescriptionItemNames(visitId)).toEqual([]);
   });
 });

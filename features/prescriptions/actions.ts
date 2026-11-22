@@ -53,8 +53,9 @@ export interface RepeatVisitPlanValue {
   skippedItems: PrescriptionItem[];
   diagnosesAdded: number;
   replayed: boolean;
-  items: PrescriptionItem[];
-  diagnoses: ConsultationDiagnosisItem[];
+  /** 09C-06a (A-2): null when the read after the copy failed (never an empty list standing in for a failed read). */
+  items: PrescriptionItem[] | null;
+  diagnoses: ConsultationDiagnosisItem[] | null;
 }
 
 /**

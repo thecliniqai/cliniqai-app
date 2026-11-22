@@ -215,6 +215,8 @@ test.describe("amendment: in-session transitions", () => {
     const rx = page.locator("#prescription");
     await rxField(rx).fill(staged);
     await expect(rx.getByRole("option", { name: new RegExp(`^Add .${staged}.$`) })).toBeVisible({ timeout: 10_000 });
+    // 09C-06a (A-10): the "Add" row is chosen explicitly (ArrowDown), Enter alone does not create a medicine from the typed text.
+    await rxField(rx).press("ArrowDown");
     await rxField(rx).press("Enter");
     await expect(rx.locator("[data-dose-builder]")).toBeVisible();
 

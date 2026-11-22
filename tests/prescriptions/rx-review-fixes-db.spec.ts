@@ -6,6 +6,7 @@
  *   they answer LOCK_TIMEOUT instead of checking an allergy list that is about to change.
  * - S-2 / R-AL: the patient edit sends an allergy change through `record_patient_allergies` (the command's audit row exists, the trigger's row too) and names
  *   `allergies` and `chronic_conditions` in `patient.update`'s `fields_changed`.
+ * - A-2: when the read-back after "Same as last visit" fails, the service answers null for the lines and the diagnoses, never an empty list.
  * - A-8: a stale list (the edit form or the consult editor opened before someone else recorded an allergy) is refused with ALLERGIES_CHANGED and a fixed
  *   text; nothing is written, the demographics of the same edit included.
  * Synthetic data only.
@@ -15,6 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Json } from "@/lib/db/types";
 import { updatePatient } from "@/features/patients/service";
 import { recordPatientAllergies, RECORD_ALLERGIES_MESSAGES } from "@/features/patients/allergies";
+import { repeatVisitPlan } from "@/features/prescriptions/service";
 import { patientSchema } from "@/features/patients/schema";
 import { mapDbError } from "@/lib/db/errors";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
@@ -159,5 +161,42 @@ describe("S-2 / R-AL and A-8: the patient edit records allergies through the com
     });
     expect(res).toMatchObject({ ok: false, error: { code: "CONFLICT", reason: "ALLERGIES_CHANGED", message: RECORD_ALLERGIES_MESSAGES.ALLERGIES_CHANGED } });
     expect((await stored(v.patientId))?.allergies).toEqual(["Qzxreviewpenicillin"]);
+  });
+});
+
+describe("A-2: a failed read after Same as last visit is null, never an empty list", () => {
+  it("the copy commits; the lines and diagnoses read back are null when those reads fail (the screen keeps what it shows)", async () => {
+    const source = await seedClinicalVisit(clinic, { doctorId: doctor.userId, status: "in_consultation", notes: "Synthetic note", prescriptions: 0, diagnosis: true });
+    await addRxLinesAs(ctxFor(doctor), source.visitId, [rxLine({ medicine_name: "Qzxreview Copy 1" })]);
+    await signVisitAs(doctor, source.visitId);
+    const target = await insertReturningId(admin, "visits", {
+      tenant_id: clinic.tenantId,
+      patient_id: source.patientId,
+      doctor_id: doctor.userId,
+      origin_type: "walk_in",
+      status: "in_consultation",
+      created_by: doctor.userId,
+    });
+    // The doctor's own client, except that the two read-backs fail (as a dropped connection would): the command itself goes through.
+    const ctx = ctxFor(doctor);
+    const failing = () => {
+      const chain: Record<string, unknown> = {};
+      const answer = Promise.resolve({ data: null, error: { code: "08006", message: "connection failure" } });
+      for (const m of ["select", "eq", "in", "order", "limit", "is"]) chain[m] = () => chain;
+      chain.maybeSingle = () => answer;
+      chain.single = () => answer;
+      chain.then = (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => answer.then(ok, ko);
+      return chain;
+    };
+    const db = new Proxy(ctx.db, {
+      get(target, key, receiver) {
+        if (key === "from") return (table: string) => (table === "prescriptions" || table === "consultation_diagnoses" ? failing() : target.from(table as never));
+        const value = Reflect.get(target, key, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const res = await repeatVisitPlan({ ...ctx, db }, { visit_id: target, source_visit_id: source.visitId, parts: ["diagnoses", "prescription"], client_request_id: randomUUID() });
+    expect(res).toMatchObject({ success: true, items: null, diagnoses: null });
+    expect(res.success && res.addedItemIds).toHaveLength(1);
   });
 });

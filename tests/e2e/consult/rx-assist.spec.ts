@@ -374,3 +374,20 @@ test("the favourites, your usual and Same as last visit tiles are axe clean at 3
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `no horizontal scroll at ${size.width}px`).toBe(true);
   }
 });
+
+// 09C-06a (A-4, A-12): a favourite tile is a plain button (not a toggle that never toggles), disabled while its command runs; a double tap adds the line once.
+test("09C-06a A-4: a double tap on a favourite tile adds its line once; the tiles are plain buttons, not toggles", async ({ page }) => {
+  const tag = testTag();
+  const { visitId } = await openConsult(page, "RxDouble", { history: (d) => bundleHistory(d, tag, "Viral fever") });
+  const rx = page.locator("#prescription");
+  const favourites = rx.locator("[data-rx-favourites]");
+  const tile = favourites.getByRole("button", { name: new RegExp(`Alpha Syrup ${tag}`) });
+  await expect(tile).toBeVisible();
+  await expect(favourites.locator("[aria-pressed]")).toHaveCount(0);
+  await expect(rx.locator("[data-rx-bundles], [data-rx-favourites]").locator('[role="group"]')).toHaveCount(0);
+  await tile.dblclick();
+  await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
+  await page.waitForTimeout(1_000);
+  await expect(rxList(page)).toHaveCount(1);
+  expect((await rxItemsOf(visitId)).filter((i) => i.medicine_name === `Alpha Syrup ${tag}`)).toHaveLength(1);
+});

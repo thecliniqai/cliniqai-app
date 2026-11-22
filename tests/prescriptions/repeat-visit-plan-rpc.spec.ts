@@ -209,7 +209,7 @@ describe("repeat_visit_plan: the copy", () => {
       expect(viaService).toMatchObject({ success: true, skippedItemIds: [sourceItemIds["Qzxrepeatol-Drops"]] });
       if (viaService.success) {
         expect(viaService.skippedItems.map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([["Qzxrepeatol-Drops", "1-0-0", null, "7 days"]]);
-        expect(viaService.items.map((i) => i.medicine_name)).toEqual(["Repeat-Tablet-A", "Repeat-Syrup-B"]);
+        expect((viaService.items ?? []).map((i) => i.medicine_name)).toEqual(["Repeat-Tablet-A", "Repeat-Syrup-B"]);
       }
       // The kill switch: with the allergy check off the line is copied (as a line added by hand would be).
       const off = await admin.from("tenant_entitlement_overrides").insert({ tenant_id: tenantA.tenantId, key: "assist.allergy_check", enabled: false, reason: "Synthetic test: allergy check off" });
@@ -231,8 +231,8 @@ describe("repeat_visit_plan: the copy", () => {
     const res = await repeatVisitPlan(ctxFor(members.doctor), { visit_id: t.visitId, source_visit_id: source.visitId, parts: ["diagnoses", "prescription"], client_request_id: randomUUID() });
     expect(res).toMatchObject({ success: true, diagnosesAdded: 1, replayed: false });
     if (res.success) {
-      expect(res.items.map((i) => i.medicine_name)).toEqual(["Repeat-Tablet-A", "Repeat-Syrup-B", "Qzxrepeatol-Drops"]);
-      expect(res.diagnoses.map((d) => d.diagnosis_name)).toEqual(["Viral fever"]);
+      expect(res.items?.map((i) => i.medicine_name)).toEqual(["Repeat-Tablet-A", "Repeat-Syrup-B", "Qzxrepeatol-Drops"]);
+      expect(res.diagnoses?.map((d) => d.diagnosis_name)).toEqual(["Viral fever"]);
       expect(res.addedItemIds).toHaveLength(3);
     }
   });

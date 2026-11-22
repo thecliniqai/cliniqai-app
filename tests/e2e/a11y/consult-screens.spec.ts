@@ -100,7 +100,7 @@ for (const size of WIDTHS) {
       await expect(rx.getByRole("option", { name: new RegExp(`^Add .${name}.$`) })).toBeVisible({ timeout: 10_000 });
       await checkWholePage(page, testInfo, `rx-entry-list-${size.width}`);
       const options = await rx.getByRole("option").count();
-      for (let i = 1; i < options; i++) await rxField(rx).press("ArrowDown");
+      for (let i = 0; i < Math.max(1, options - 1); i++) await rxField(rx).press("ArrowDown");
       await rxField(rx).press("Enter");
       await expect(rx.locator("[data-dose-builder]")).toBeVisible();
       await rxField(rx).press("1");

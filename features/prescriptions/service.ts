@@ -193,8 +193,9 @@ export type RepeatVisitPlanResult =
       diagnosesAdded: number;
       replayed: boolean;
       /** The visit's lines and diagnoses as the database holds them now (the command decides what was copied, so the screen takes its answer). */
-      items: PrescriptionItem[];
-      diagnoses: ConsultationDiagnosisItem[];
+      /** 09C-06a (A-2): null when the read-back failed; the caller keeps what it shows (or reads again). */
+      items: PrescriptionItem[] | null;
+      diagnoses: ConsultationDiagnosisItem[] | null;
     }
   | { success: false; error: string; code?: AppError["code"]; reason?: string; fieldErrors?: Record<string, string[]> };
 
@@ -254,8 +255,9 @@ export async function repeatVisitPlan(ctx: ServiceContext, input: RepeatVisitPla
     skippedItems,
     diagnosesAdded: outcome.value.diagnoses_added,
     replayed: outcome.value.replayed,
-    items: rx.success && rx.prescription ? [...rx.prescription.items].sort((a, b) => a.sort_order - b.sort_order) : [],
-    diagnoses: dx.success ? (dx.diagnoses as ConsultationDiagnosisItem[]) : [],
+    // A-2: a failed read is null, never an empty list (the screen would show no medicines and no diagnoses while the database holds both).
+    items: !rx.success ? null : rx.prescription ? [...rx.prescription.items].sort((a, b) => a.sort_order - b.sort_order) : [],
+    diagnoses: dx.success ? (dx.diagnoses as ConsultationDiagnosisItem[]) : null,
   };
 }
 

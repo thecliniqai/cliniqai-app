@@ -136,6 +136,12 @@ export interface ConsultWorkspaceProps {
   /** The signed-in user may record allergies: patients:edit and consultations:view (the 000055 rule: the front desk cannot). Shapes the screen only. */
   canRecordAllergies?: boolean;
   /**
+   * 09C-06a (A-5): the role holds `prescriptions:edit` (the Rx entry row, tiles and Templates are offered) and `prescriptions:view` (RLS shows it the lines).
+   * The database refuses the others; these only shape the screen. Default true, the doctor's case.
+   */
+  canEditRx?: boolean;
+  canViewRx?: boolean;
+  /**
    * The active clinic's `assist.*` entitlements by key, resolved on the server (V2-09b R-10); the Smart Assist features of 09B-03 to 09B-04b read it.
    * Not used by the frame yet.
    */
@@ -232,6 +238,8 @@ export function ConsultWorkspace({
   canCollectPayment = false,
   canAmend = false,
   canRecordAllergies: mayRecordAllergies = false,
+  canEditRx = true,
+  canViewRx = true,
   assist,
   assistContext = null,
   rxAssistContext = null,
@@ -408,7 +416,7 @@ export function ConsultWorkspace({
       } else if (action === "medicine" && !readOnly) {
         focusMedicineSearch();
       } else if (action === "finish" && finishAvailable) {
-        handleFinish();
+        void handleFinish();
       } else if (action === "command" && shorthandOn) {
         setIsCommandBarOpen(true);
       }
@@ -521,9 +529,20 @@ export function ConsultWorkspace({
    * "Finish visit" (R-8): the draft flush starts at once and the Sign & Bill sheet opens; the sheet flushes again, and waits for the first, before the
    * sign-off command, and shows a refusal (a conflict, a role that may not save) in the sheet as the v1 flow did.
    */
-  const handleFinish = () => {
-    setIsSignModalOpen(true);
+  const [finishing, setFinishing] = useState(false);
+  const handleFinish = async () => {
+    if (finishing) return;
     void handleSaveDraft();
+    // A-11, A-1: an Rx command still queued or in flight answers first, then the lines are read again, so the review shows exactly what the database
+    // holds (a line committed behind a lost response is on it). A failed read leaves the lines on screen; the sign-off reads the database anyway.
+    setFinishing(true);
+    try {
+      await rx.whenIdle();
+      await rx.reconcile();
+    } finally {
+      setFinishing(false);
+    }
+    setIsSignModalOpen(true);
   };
 
   const handleIntervalChange = (interval: FollowUpIntervalChoice) => {
@@ -545,6 +564,7 @@ export function ConsultWorkspace({
     const sent = await rx.repeat(sourceVisitId, parts);
     if (!sent.ok) return { ok: false, error: sent.error };
     rx.markRepeated((sent.added ?? []).map((i) => i.id));
+    // A-2: the diagnoses are replaced only by a read that succeeded (null or absent keeps the ones on screen).
     if (sent.diagnoses) setDiagnoses(sent.diagnoses);
     const left: RxLeftOut[] = (sent.skipped ?? []).map((item) => ({ key: `item:${item.id}`, medicine: pastItemToMedicine(item), allergy: "a recorded allergy (see the allergy strip)" }));
     const [first, ...rest] = left;
@@ -633,7 +653,8 @@ export function ConsultWorkspace({
     snapshot,
     encounters: pastEncounters,
     timeZone,
-    onRepeatRx: readOnly
+    // A-5: "Repeat this Rx" only for a role that may write prescriptions.
+    onRepeatRx: readOnly || !canEditRx
       ? undefined
       : (sourceVisitId: string) => {
           void runRepeat(sourceVisitId, ["prescription"]).then((sent) => {
@@ -725,7 +746,7 @@ export function ConsultWorkspace({
     </Button>
   );
   const finishButton = (
-    <Button type="button" size="lg" onClick={handleFinish} startIcon={<Check />} className="shrink-0">
+    <Button type="button" size="lg" onClick={() => void handleFinish()} loading={finishing} startIcon={<Check />} className="shrink-0">
       Finish visit
     </Button>
   );
@@ -993,6 +1014,8 @@ export function ConsultWorkspace({
                     : null
                 }
                 readOnly={readOnly}
+                canEdit={canEditRx}
+                canView={canViewRx}
                 assistContext={rxAssistContext}
                 diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
                 specialty={specialty}
@@ -1104,6 +1127,10 @@ export function ConsultWorkspace({
         onKeepMine={() => void consultDraft.resolveConflict("mine")}
       />
 
+      {/* 09C-06a (A-12): adds and removes of Rx lines, announced politely (outside the Prescription section so its own text stays the lines'). */}
+      <p role="status" aria-live="polite" data-rx-announce="" className="sr-only">
+        {rx.announcement}
+      </p>
       {/* Finish: the draft is flushed before the sheet opens and again before the sign-off command (R-8). */}
       <AllergyEditor
         open={isAllergyEditorOpen}

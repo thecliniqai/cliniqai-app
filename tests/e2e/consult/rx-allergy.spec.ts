@@ -94,7 +94,7 @@ test("a free-text allergy flags a custom line by name, and a line with no substa
   await rxField(rx).fill(name);
   await expect(rx.getByRole("option", { name: new RegExp(`^Add .${name}.$`) })).toBeVisible({ timeout: 10_000 });
   const options = await rx.getByRole("option").count();
-  for (let i = 1; i < options; i++) await rxField(rx).press("ArrowDown");
+  for (let i = 0; i < Math.max(1, options - 1); i++) await rxField(rx).press("ArrowDown");
   await rxField(rx).press("Enter");
   await expect(rx.locator("[data-dose-notice]")).toHaveText("Matches allergy: Augmentin");
   for (const key of ["1", "5", "d", "Enter"]) await rxField(rx).press(key);
@@ -169,4 +169,61 @@ test("the editor's substance typeahead codes an allergy; free text is kept and l
   // Edit reopens the sheet with the list; the coded entry is still labelled coded.
   await strip.getByRole("button", { name: /Edit/ }).click();
   await expect(sheet.getByRole("list", { name: "Allergies to save" }).getByRole("listitem").first()).toContainText("Checked against medicines");
+});
+
+// 09C-06a (A-3): per-line recovery. A template line the screen's own rule cannot flag (a catalogue brand saved without its generic) and the database refuses
+// with ALLERGY_MATCH no longer blocks the template: the safe line is added and the matched one waits in the dose builder, flagged "Prescribe anyway…".
+test("09C-06a A-3: a template with an allergen line adds the safe line and leaves the matched one in the dose builder, flagged", async ({ page }) => {
+  const { visitId } = await openConsult(page, "AllergyTemplate", [AL_SUBSTANCES.amox.name]);
+  const { tenantA } = run();
+  const safe = `E2E Template Safe ${testTag()}`;
+  const name = `E2E Allergy Template ${testTag()}`;
+  await admin
+    .from("doctor_prescription_templates")
+    .insert({
+      tenant_id: tenantA.id,
+      doctor_id: doctor!.id,
+      template_name: name,
+      items: [
+        { medicine_name: AL_BRANDS.amoxBrand.brand, generic_name: null, dose_form: null, dosage: "1-0-1", timing: null, duration: "5 days", cdci_brand_id: AL_BRANDS.amoxBrand.id, sort_order: 0 },
+        { medicine_name: safe, generic_name: null, dose_form: null, dosage: "0-0-1", timing: null, duration: "3 days", cdci_brand_id: null, sort_order: 1 },
+      ],
+    })
+    .throwOnError();
+  const rx = page.locator("#prescription");
+  await rx.getByRole("button", { name: "Templates" }).click();
+  const sheet = page.getByRole("dialog", { name: "Templates" });
+  await sheet.getByRole("button", { name: `Add ${name} to the prescription` }).click();
+  await expect(sheet).toBeHidden({ timeout: 15_000 });
+  await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
+  await expect(rxList(page).first()).toContainText(safe);
+  const builder = rx.locator("[data-dose-builder]");
+  await expect(builder).toBeVisible();
+  await expect(builder).toContainText(AL_BRANDS.amoxBrand.brand);
+  await expect(rx.locator("[data-dose-notice]")).toHaveText("Matches allergy: a recorded allergy (see the allergy strip)");
+  await expect(builder.getByRole("button", { name: "Prescribe anyway…" })).toBeVisible();
+  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([safe]);
+});
+
+test("09C-06a A-3: Undo of a line prescribed despite an allergy puts it back with its reason (the override is kept)", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "the toast and the pointer are the desktop project's");
+  const { visitId } = await openConsult(page, "AllergyUndo", [AL_SUBSTANCES.amox.name]);
+  const rx = page.locator("#prescription");
+  await rxField(rx).fill("qzxmoxy");
+  await expect(rx.getByRole("option", { name: new RegExp(AL_BRANDS.amoxBrand.brand) })).toBeVisible({ timeout: 10_000 });
+  for (const key of ["Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  await rx.getByLabel("Reason to prescribe anyway").fill("Tolerated before, patient informed");
+  await rx.getByLabel("Reason to prescribe anyway").press("Enter");
+  await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
+  await expect(rx.locator("[data-rx-note]")).toContainText("Prescribed despite allergy");
+  await page.getByRole("button", { name: `Remove ${AL_BRANDS.amoxBrand.brand}` }).click();
+  await expect(rxList(page)).toHaveCount(0);
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
+  const { data } = await admin
+    .from("prescription_items")
+    .select("medicine_name, allergy_override, prescriptions!inner(visit_id)")
+    .eq("prescriptions.visit_id", visitId);
+  expect(data).toHaveLength(1);
+  expect(data![0].allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
 });

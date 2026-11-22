@@ -305,6 +305,8 @@ async function ConsultationPage(props: ConsultationPageProps) {
       documents={documents}
       canUpload={hasPerm(membership.role, "labs:edit")}
       canRecordAllergies={hasPerm(membership.role, "patients:edit") && hasPerm(membership.role, "consultations:view")}
+      canEditRx={hasPerm(membership.role, "prescriptions:edit")}
+      canViewRx={hasPerm(membership.role, "prescriptions:view")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

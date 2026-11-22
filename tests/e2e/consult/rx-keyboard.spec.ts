@@ -224,23 +224,92 @@ test("a lost response after the commit is retried with the same request id and s
   await expect.poll(async () => (await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([marker]);
 });
 
-test("every attempt aborted: the line stays in the dose builder with the error; Enter sends it again and stores exactly one line", async ({ page }, testInfo) => {
+test("09C-06a A-1: every attempt aborted after the commit: the lines are read again, the committed line is on the list, the builder closes, nothing is added twice", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome", "the retry timing is the desktop project's");
   const visitId = await openConsult(page, "RxAbort");
   const marker = `Qzxabort ${testTag().replace(/\W/g, "")}`;
   const rx = page.locator("#prescription");
+  // Only the change command carries the marker; the read that reconciles the list passes through.
   const cut = await commitThenAbort(page, { first: "all", matches: (r) => (r.postData() ?? "").includes(marker) });
   await rxField(rx).fill(marker);
   await expect(rx.getByRole("option", { name: new RegExp(`^Add .${marker}.$`) })).toBeVisible({ timeout: 10_000 });
-  for (const key of ["Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
-  // The command committed on the server each time (the response was cut), the browser saw a failure: the line stays in the builder with the error.
-  await expect(rx.locator("[data-dose-builder]").getByRole("alert")).toBeVisible({ timeout: 30_000 });
+  for (const key of ["ArrowDown", "Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  // The command committed on the server (its response was cut every time); the screen does not guess: it reads the lines and shows the committed one.
+  await expect(rxList(page)).toHaveCount(1, { timeout: 40_000 });
+  await expect(rxList(page).first()).toContainText(marker);
+  await expect(rx.locator("[data-dose-builder]")).toHaveCount(0);
   expect(cut.aborted).toBeGreaterThanOrEqual(1);
   await cut.clear();
-  await expect(rxList(page)).toHaveCount(0);
-  await rxField(rx).press("Enter");
-  await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
+  // Escape and another change do not lose it, and nothing was stored twice.
+  await rxField(rx).press("Escape");
+  await expect(rxList(page)).toHaveCount(1);
   await expect.poll(async () => (await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([marker]);
+});
+
+test("09C-06a A-10: Enter on a search with no listed medicine creates nothing; the Add row is an explicit choice (arrow key or tap)", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "the keyboard is the desktop project's");
+  const visitId = await openConsult(page, "RxNoMatch");
+  const rx = page.locator("#prescription");
+  const typed = `Qzxprefix${testTag().replace(/\W/g, "")}`;
+  await rxField(rx).fill(typed);
+  await expect(rx.getByRole("option", { name: new RegExp(`^Add .${typed}.$`) })).toBeVisible({ timeout: 10_000 });
+  await rxField(rx).press("Enter");
+  // No dose builder for a medicine nobody chose; the list says how to add it.
+  await expect(rx.locator("[data-rx-custom-hint]")).toContainText(`No listed medicine matches “${typed}”`);
+  await expect(rx.locator("[data-dose-builder]")).toHaveCount(0);
+  for (const key of ["1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  await page.waitForTimeout(400);
+  expect(await rxItemsOf(visitId)).toEqual([]);
+  // The explicit choice: down to the Add row, then Enter.
+  await rxField(rx).fill(typed);
+  await expect(rx.getByRole("option", { name: new RegExp(`^Add .${typed}.$`) })).toBeVisible({ timeout: 10_000 });
+  for (const key of ["ArrowDown", "Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
+  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([typed]);
+});
+
+test("09C-06a A-11: Finish waits for an Rx command still queued: a remove sent behind a slow add is on the signed prescription's side, not lost", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "the timing is the desktop project's");
+  const visitId = await openConsult(page, "RxQueued");
+  const rx = page.locator("#prescription");
+  const first = `Qzxqueued One ${testTag().replace(/\W/g, "")}`;
+  const slow = `Qzxqueued Slow ${testTag().replace(/\W/g, "")}`;
+  await addCustomMedicine(rx, first);
+  await page.getByLabel("History of Present Illness & Clinical Notes").fill("E2E synthetic note for the queued Rx case");
+  // The add of the second medicine is held for 3 s on its way to the server; the remove of the first queues behind it in the hook.
+  const hold = async (route: import("@playwright/test").Route, request: import("@playwright/test").Request) => {
+    if (request.method() === "POST" && request.headers()["next-action"] !== undefined && (request.postData() ?? "").includes(slow)) {
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
+    await route.fallback();
+  };
+  await page.route("**/*", hold);
+  await rxField(rx).fill(slow);
+  await expect(rx.getByRole("option", { name: new RegExp(`^Add .${slow}.$`) })).toBeVisible({ timeout: 10_000 });
+  for (const key of ["ArrowDown", "Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  await page.getByRole("button", { name: `Remove ${first}` }).click();
+  await page.getByRole("button", { name: /Finish visit/ }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
+  await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
+  await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
+  await page.unroute("**/*", hold);
+  // The signed Rx holds exactly what the doctor last saw: the slow medicine, not the removed one.
+  await expect.poll(async () => (await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([slow]);
+});
+
+test("09C-06a A-12: an added and a removed line are announced in a polite live region", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "one project covers the announcement");
+  await upsertCdciRows(RX_EDIT_ROWS);
+  await openConsult(page, "RxAnnounce");
+  const rx = page.locator("#prescription");
+  const live = page.locator("[data-rx-announce]");
+  await expect(live).toHaveAttribute("aria-live", "polite");
+  await rxField(rx).fill("qzredit");
+  await expect(rx.getByRole("option", { name: /Qzredit Alpha/ })).toBeVisible({ timeout: 8_000 });
+  for (const key of ["Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
+  await expect(live).toHaveText(/^Qzredit Alpha 100 added, 5 days\s*$/, { timeout: 10_000 });
+  await page.getByRole("button", { name: "Remove Qzredit Alpha 100" }).click();
+  await expect(live).toHaveText(/^Qzredit Alpha 100 removed\s*$/, { timeout: 10_000 });
 });
 
 test("a sealed consult shows the lines with no entry row, no pills and no remove control (the amending record accepts a line: m0/consult-rx-finish)", async ({ page }, testInfo) => {

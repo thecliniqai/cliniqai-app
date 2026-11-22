@@ -33,9 +33,10 @@ export async function addCustomMedicine(rx: Locator, name: string, opts: AddMedi
   else await field.fill(name);
   const add = rx.getByRole("option", { name: new RegExp(`^Add .${escape(name)}.$`) });
   await expect(add).toBeVisible({ timeout: 10_000 });
-  // The list holds the doctor's own similar medicines first and the "Add" row last: ArrowDown walks to it, Enter picks it.
+  // The list holds the doctor's own similar medicines first and the "Add" row last: ArrowDown walks to it, Enter picks it. 09C-06a (A-10): when the "Add" row
+  // is the only row, Enter alone does not pick it (a reflex Enter must not create a medicine from a typed prefix): one ArrowDown is the explicit choice.
   const options = await rx.getByRole("option").count();
-  for (let i = 1; i < options; i++) await press(field, "ArrowDown", "Down to the Add row", ux);
+  for (let i = 0; i < Math.max(1, options - 1); i++) await press(field, "ArrowDown", "Down to the Add row", ux);
   await expect(add).toHaveAttribute("aria-selected", "true");
   await press(field, "Enter", "Pick the Add row", ux);
   await expect(rx.locator("[data-dose-builder]")).toBeVisible();

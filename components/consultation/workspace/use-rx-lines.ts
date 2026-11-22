@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { changePrescriptionAction, repeatVisitPlanAction } from "@/features/prescriptions/actions";
+import { changePrescriptionAction, getVisitPrescription, repeatVisitPlanAction } from "@/features/prescriptions/actions";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import {
   changesKey,
@@ -24,6 +24,11 @@ import { reportClientError } from "@/lib/log/client";
  * - Sends run one after the other: Next runs server actions through one queue anyway, and `useCommand` hands a second `run` the first one's answer, so a
  *   remove sent while an add is on its way waits for it.
  * - Rx lines are row-level writes outside the draft's `draft_version` (09B R-2): they never conflict with the draft saver.
+ * - 09C-06a (A-1): an outcome-unknown failure (a timeout, a lost response) is reconciled at once: the visit's lines are read again (a server action, so it
+ *   runs after the stalled request in Next's one action queue) and replace the local list, then the request id is settled. If the change is in the list it
+ *   landed and the send answers ok; otherwise it did not, and the doctor sees the stored list with a plain message. A line the database holds is never
+ *   missing from the screen. `reconcile()` and `whenIdle()` let Finish wait for the queue and read the lines before the review (A-11).
+ * - 09C-06a (A-12): `announcement` is a polite live-region text for adds and removes.
  */
 export interface RxSendResult {
   ok: boolean;
@@ -49,8 +54,15 @@ export type RepeatPart = "diagnoses" | "prescription";
 
 export interface UseRxLines {
   items: PrescriptionItem[];
-  /** True while a command is in flight. */
+  /** True while a command is in flight or queued. */
   busy: boolean;
+  /** The last add or remove in words, for a polite live region ("Paracetamol 650 added"). A trailing space alternates so a repeat is announced again. */
+  announcement: string;
+  announce(text: string): void;
+  /** Reads the visit's lines again and shows them (true when the read succeeded). */
+  reconcile(): Promise<boolean>;
+  /** Resolves when every queued or in-flight command has answered. */
+  whenIdle(): Promise<void>;
   /**
    * The ids of lines put in by a tile, a template or a repeat that the doctor has not touched yet: the "Repeated" marker stays until they edit, confirm
    * or remove the line (session state; nothing is stored).
@@ -60,11 +72,43 @@ export interface UseRxLines {
   touch(id: string): void;
   /** "Same as last visit": one `repeat_visit_plan` command; the lines shown become the database's. */
   repeat(sourceVisitId: string, parts: readonly RepeatPart[]): Promise<RepeatSendResult>;
-  add(lines: ChangeLine[], allergyReason?: string): Promise<RxSendResult>;
+  /** `unique`: lines whose medicine is already on the Rx when the command starts are left out (a double tap adds once, A-4). */
+  add(lines: ChangeLine[], allergyReason?: string, opts?: { unique?: boolean }): Promise<RxSendResult>;
   update(updates: ChangeUpdate[]): Promise<RxSendResult>;
   remove(ids: string[]): Promise<RxSendResult>;
   /** Several kinds in one command (a template apply, an Undo). */
-  send(changes: PrescriptionChanges): Promise<RxSendResult>;
+  send(changes: PrescriptionChanges, opts?: { unique?: boolean }): Promise<RxSendResult>;
+}
+
+/** Text of an outcome-unknown failure once the lines were read again and the change is not among them. */
+export const RX_NOT_SAVED_TEXT = "The change was not saved. The list shows what is saved; try again.";
+/** Text when the lines could not be read again after "Same as last visit" or an unknown outcome: the list on screen is kept. */
+export const RX_READ_FAILED_TEXT = "Could not read the prescription again. Reload the page before you finish the visit.";
+
+const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+const nullable = (s: string | null | undefined) => (s ?? "").trim() || null;
+
+/** Whether the lines read back show the change: every add is there (in order, by name), every removed id is gone, every update holds its values. */
+function landed(changes: PrescriptionChanges, before: readonly PrescriptionItem[], read: readonly PrescriptionItem[]): PrescriptionItem[] | null {
+  const had = new Set(before.map((i) => i.id));
+  const fresh = read.filter((i) => !had.has(i.id));
+  const adds = changes.add ?? [];
+  if (fresh.length !== adds.length || adds.some((a, k) => norm(fresh[k]?.medicine_name) !== norm(a.medicine_name))) return null;
+  if ((changes.remove ?? []).some((id) => read.some((i) => i.id === id))) return null;
+  for (const u of changes.update ?? []) {
+    const item = read.find((i) => i.id === u.id);
+    if (!item) return null;
+    if (u.dosage !== undefined && norm(item.dosage) !== norm(u.dosage)) return null;
+    if (u.duration !== undefined && norm(item.duration) !== norm(u.duration)) return null;
+    if (u.timing !== undefined && nullable(item.timing) !== nullable(u.timing)) return null;
+    if (u.special_instructions !== undefined && nullable(item.special_instructions) !== nullable(u.special_instructions)) return null;
+  }
+  return fresh;
+}
+
+function addedText(added: readonly PrescriptionItem[]): string {
+  if (added.length === 1) return `${added[0].medicine_name} added${added[0].duration ? `, ${added[0].duration}` : ""}`;
+  return `${added.length} medicines added`;
 }
 
 export function useRxLines({
@@ -83,6 +127,19 @@ export function useRxLines({
   const lastKey = useRef<string | null>(null);
   const [inFlight, setInFlight] = useState(0);
   const [repeated, setRepeated] = useState<ReadonlySet<string>>(new Set());
+  const [announcement, setAnnouncement] = useState("");
+  const announce = useCallback((text: string) => setAnnouncement((prev) => (prev === text ? `${text} ` : text)), []);
+
+  /** The visit's lines as the database holds them, or null when the read failed. */
+  const readLines = useCallback(async (): Promise<PrescriptionItem[] | null> => {
+    try {
+      const res = await getVisitPrescription(visitId);
+      if (!res.success) return null;
+      return [...(res.prescription?.items ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+    } catch {
+      return null;
+    }
+  }, [visitId]);
 
   const commit = useCallback(
     (next: PrescriptionItem[]) => {
@@ -143,28 +200,50 @@ export function useRxLines({
         const result = await command.run((clientRequestId) =>
           repeatVisitPlanAction({ visit_id: visitId, source_visit_id: sourceVisitId, parts: [...parts], client_request_id: clientRequestId }),
         );
-        if (!result.ok) return failure(result.error, "prescriptions.repeat.failed");
+        if (!result.ok) {
+          const failed = failure(result.error, "prescriptions.repeat.failed");
+          if (!isOutcomeUnknownCode(result.error.code)) return failed;
+          // A-1: the copy may have committed. The lines shown become the database's; the doctor checks the diagnoses after a reload.
+          const read = await readLines();
+          if (!read) return failed;
+          command.settle();
+          lastKey.current = null;
+          commit(read);
+          return { ok: false, error: "Same as last visit may have been copied. The list shows what is saved; check the diagnoses after a reload." };
+        }
         lastKey.current = null;
         const value = result.value;
-        // The database decided what was copied: the lines shown are its answer.
-        commit(value.items);
-        const added = value.items.filter((i) => value.addedItemIds.includes(i.id));
+        // A-2: a failed read after the copy is never taken as an empty list. The lines are read once more; if that fails too, the list on screen stays.
+        const items = value.items ?? (await readLines());
+        if (items) commit(items);
+        const added = (items ?? []).filter((i) => value.addedItemIds.includes(i.id));
+        if (added.length > 0) announce(addedText(added));
         return {
-          ok: true,
+          ok: items !== null,
+          ...(items === null ? { error: RX_READ_FAILED_TEXT } : {}),
           added,
           skipped: value.skippedItems,
-          diagnoses: parts.includes("diagnoses") ? value.diagnoses : undefined,
+          diagnoses: parts.includes("diagnoses") && value.diagnoses ? value.diagnoses : undefined,
           diagnosesAdded: value.diagnosesAdded,
         };
       };
       return queue(run);
     },
-    [command, commit, failure, queue, visitId],
+    [announce, command, commit, failure, queue, readLines, visitId],
   );
 
   const send = useCallback(
-    (changes: PrescriptionChanges): Promise<RxSendResult> => {
+    (requested: PrescriptionChanges, opts?: { unique?: boolean }): Promise<RxSendResult> => {
       const run = async (): Promise<RxSendResult> => {
+        let changes = requested;
+        if (opts?.unique && changes.add?.length) {
+          // A-4: decided when the command starts, against the lines as they are then (a second tap queued behind the first sees its lines).
+          const on = new Set(current.current.map((i) => norm(i.medicine_name)));
+          const add = changes.add.filter((l) => !on.has(norm(l.medicine_name)));
+          if (add.length === 0 && !changes.update?.length && !changes.remove?.length) return { ok: true, added: [] };
+          changes = { ...changes, add };
+        }
+        const before = current.current;
         const key = changesKey(visitId, changes);
         // Other changes than the last failed send's are a new request; the same ones keep their id (an idempotent retry).
         if (lastKey.current !== key) command.reset();
@@ -172,7 +251,22 @@ export function useRxLines({
         const result = await command.run((clientRequestId) =>
           changePrescriptionAction({ visit_id: visitId, changes, client_request_id: clientRequestId }),
         );
-        if (!result.ok) return failure(result.error, "prescriptions.change.failed");
+        if (!result.ok) {
+          const failed = failure(result.error, "prescriptions.change.failed");
+          if (!isOutcomeUnknownCode(result.error.code)) return failed;
+          // A-1: the outcome is unknown. Read the lines (after the stalled request, in the action queue), show them, and settle the request id.
+          const read = await readLines();
+          if (!read) return failed;
+          command.settle();
+          lastKey.current = null;
+          commit(read);
+          const fresh = landed(changes, before, read);
+          if (fresh) {
+            if (fresh.length > 0) announce(addedText(fresh));
+            return { ok: true, added: fresh };
+          }
+          return { ok: false, error: RX_NOT_SAVED_TEXT, code: result.error.code };
+        }
         lastKey.current = null;
         const { prescriptionId, addedItemIds } = result.value;
         let next = current.current;
@@ -201,21 +295,39 @@ export function useRxLines({
           next = [...next, ...added];
         }
         commit(next);
+        if (added.length > 0) announce(addedText(added));
+        else if (changes.remove?.length) {
+          const gone = before.filter((i) => changes.remove!.includes(i.id));
+          announce(gone.length === 1 ? `${gone[0].medicine_name} removed` : `${gone.length} medicines removed`);
+        }
         return { ok: true, added };
       };
       return queue(run);
     },
-    [command, commit, failure, queue, visitId],
+    [announce, command, commit, failure, queue, readLines, visitId],
   );
+
+  const reconcile = useCallback(async (): Promise<boolean> => {
+    const read = await readLines();
+    if (!read) return false;
+    commit(read);
+    return true;
+  }, [commit, readLines]);
+
+  const whenIdle = useCallback(() => chain.current.then(() => undefined), []);
 
   return {
     items,
     busy: inFlight > 0,
+    announcement,
+    announce,
+    reconcile,
+    whenIdle,
     repeated,
     markRepeated,
     touch,
     repeat,
-    add: (lines, allergyReason) => send({ add: lines, ...(allergyReason ? { allergy_override_reason: allergyReason } : {}) }),
+    add: (lines, allergyReason, opts) => send({ add: lines, ...(allergyReason ? { allergy_override_reason: allergyReason } : {}) }, opts),
     update: (updates) => send({ update: updates }),
     remove: (ids) => send({ remove: ids }),
     send,

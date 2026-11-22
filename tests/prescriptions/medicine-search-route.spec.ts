@@ -190,10 +190,17 @@ describe("GET /api/prescriptions/medicines: the answer", () => {
 describe("GET /api/prescriptions/medicines: hostile input is data", () => {
   it("%, _ and \\ in the query match themselves, not everything", async () => {
     mockState.client = doctor.client;
-    expect(await names(await search("50%"))).toEqual(["Qzxroute 50% Special"]);
-    expect(await names(await search("route_u"))).toEqual(["Qzxroute_Under"]);
-    expect(await names(await search("route\\s"))).toEqual(["Qzxroute\\Slash"]);
-    expect(await names(await search("%"))).toEqual(["Qzxroute 50% Special"]);
+    // Only this file's own rows are compared: the catalogue is global, and another file's synthetic rows (the CDCI test fixture's "Galvus 50", left by
+    // tests/integration/cdci-search.spec.ts) may match "50%" by trigram similarity when the files share a database (09C-06a: seen once, order dependent).
+    const own = async (res: Response) => (await names(res)).filter((n) => n.startsWith("Qzxroute"));
+    expect(await own(await search("50%"))).toEqual(["Qzxroute 50% Special"]);
+    expect(await own(await search("route_u"))).toEqual(["Qzxroute_Under"]);
+    expect(await own(await search("route\\s"))).toEqual(["Qzxroute\\Slash"]);
+    // "%" alone matches rows holding a literal "%" (in the name or the generic), never everything; the cap may list other files' rows before this one's.
+    const percent = ((await (await search("%")).json()) as { results: Row[] }).results;
+    expect(percent.length).toBeGreaterThan(0);
+    expect(percent.filter((r) => !`${r.medicine_name} ${r.generic_name ?? ""}`.includes("%"))).toEqual([]);
+    expect(percent.map((r) => r.medicine_name).filter((n) => n.startsWith("Qzxroute") && n !== "Qzxroute 50% Special")).toEqual([]);
   });
 
   it.each([

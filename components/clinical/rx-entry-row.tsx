@@ -171,6 +171,10 @@ export function RxEntryRow({
   const inflight = useRef<AbortController | null>(null);
   // Enter pressed while the answer is on its way picks the top row when it arrives (a fast typist never creates a custom medicine by accident).
   const pickWhenReady = useRef(false);
+  // 09C-06a (A-10): with no catalogue row (a failed or empty search) Enter alone never creates a custom medicine from what was typed; the doctor chooses
+  // the "Add" row with the arrow keys (or a tap). `navigated` records that choice for the current text; `customHint` is the text that says so.
+  const navigated = useRef(false);
+  const [customHint, setCustomHint] = useState<string | null>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -378,11 +382,23 @@ export function RxEntryRow({
       return;
     }
     if (!pending) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+        navigated.current = true;
+        setCustomHint(null);
+        return;
+      }
       if (event.key === "Enter" && search && waiting && !event.metaKey && !event.ctrlKey && !event.altKey) {
         // The answer for what was typed is not here yet: wait for it, then pick its top row (cmdk has nothing to pick).
         event.preventDefault();
         event.stopPropagation();
         pickWhenReady.current = true;
+        return;
+      }
+      if (event.key === "Enter" && search && trimmed !== "" && results.length === 0 && !navigated.current && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        // A-10: the only row is "Add “…”". A reflex Enter on a failed or empty search must not turn a typed prefix into a medicine.
+        event.preventDefault();
+        event.stopPropagation();
+        setCustomHint(`No listed medicine matches “${trimmed}”. To add it as your own medicine, press ↓ then Enter, or tap Add.`);
       }
       return;
     }
@@ -486,6 +502,8 @@ export function RxEntryRow({
             readOnly={sending}
             onValueChange={(next) => {
               setQuery(next);
+              navigated.current = false;
+              setCustomHint(null);
               if (pending) {
                 setPending(null);
                 resetTyping();
@@ -511,6 +529,11 @@ export function RxEntryRow({
           {search && !waiting && answer.failed && answer.query === trimmed ? (
             <div role="presentation" className="px-3 py-3 text-body-sm text-danger-fg">
               {RX_SEARCH_FAILED_TEXT}
+            </div>
+          ) : null}
+          {customHint && listOpen ? (
+            <div role="presentation" data-rx-custom-hint="" className="px-3 py-2 text-label text-fg-secondary">
+              {customHint}
             </div>
           ) : null}
           {results.length > 0
@@ -550,6 +573,9 @@ export function RxEntryRow({
       </Command>
       <p id={hintId} className="sr-only">
         {RX_KEY_HELP}
+      </p>
+      <p role="status" aria-live="polite" className="sr-only">
+        {customHint ?? ""}
       </p>
       {pending && (
         <DoseBuilder
