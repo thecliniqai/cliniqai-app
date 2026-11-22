@@ -227,3 +227,32 @@ test("09C-06a A-3: Undo of a line prescribed despite an allergy puts it back wit
   expect(data).toHaveLength(1);
   expect(data![0].allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
 });
+
+// 09C-06a (A-8): the editor sends the list it opened on; a list recorded meanwhile (another tab, the nurse) is never overwritten by a stale screen.
+test("09C-06a A-8: a save from a stale editor is refused, the editor shows the stored list and says so, and nothing of the stale list is written", async ({ page }) => {
+  const { patientId } = await openConsult(page, "AllergyStale", [AL_SUBSTANCES.amox.name]);
+  const strip = page.locator("[data-allergy-strip]");
+  await strip.getByRole("button", { name: /Edit/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Allergies" });
+  const entries = sheet.getByRole("list", { name: "Allergies to save" }).getByRole("listitem");
+  await expect(entries).toHaveCount(1);
+  // Someone else records an allergy while the editor is open.
+  await admin.from("patients").update({ allergies: [AL_SUBSTANCES.amox.name, "Synthetic Sulfa"] }).eq("id", patientId).throwOnError();
+  const search = sheet.locator("[data-allergy-search]");
+  await search.fill("Latex gloves");
+  await expect(sheet.getByRole("option", { name: /^Add .Latex gloves.$/ })).toBeVisible({ timeout: 10_000 });
+  await search.press("Enter");
+  await sheet.getByRole("button", { name: "Save allergies" }).click();
+  await expect(sheet.getByRole("alert")).toContainText("The allergies were changed by someone else while you were editing.");
+  await expect(entries).toHaveCount(2);
+  await expect(entries.nth(1)).toContainText("Synthetic Sulfa");
+  expect(await storedAllergies(patientId)).toEqual([AL_SUBSTANCES.amox.name, "Synthetic Sulfa"]);
+  await expect(strip).toContainText("Synthetic Sulfa");
+  // The doctor adds their change again on the stored list; that save goes through.
+  await search.fill("Latex gloves");
+  await expect(sheet.getByRole("option", { name: /^Add .Latex gloves.$/ })).toBeVisible({ timeout: 10_000 });
+  await search.press("Enter");
+  await sheet.getByRole("button", { name: "Save allergies" }).click();
+  await expect(sheet).toBeHidden({ timeout: 10_000 });
+  expect(await storedAllergies(patientId)).toEqual([AL_SUBSTANCES.amox.name, "Synthetic Sulfa", "Latex gloves"]);
+});
