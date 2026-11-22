@@ -115,11 +115,80 @@ describe("prepareImageForUpload without a browser", () => {
     const big = new File([new Uint8Array(UPLOAD_LIMIT_BYTES + 1)], "big.pdf", { type: "application/pdf" });
     expect(await prepareImageForUpload(big)).toEqual({ ok: false, error: "File is larger than 4 MB, the upload limit. Please upload a smaller file." });
   });
-  it("sends an undecodable picture as it is when it fits the limit, and refuses it with the fixed text when it does not", async () => {
-    const small = new File([new Uint8Array(2000).fill(0x41)], "broken.jpg", { type: "image/jpeg" });
-    const kept = await prepareImageForUpload(small);
-    expect(kept).toMatchObject({ ok: true, compressed: false });
+  // 09C-06a (A-6, S-4): without a browser nothing decodes, so every picture takes the pass-through path: it goes up only without its metadata, or not at all.
+  it("an undecodable JPEG with an Exif GPS block goes up without the APP1 segment (and nothing else changed); one over the limit is refused", async () => {
+    const withGps = withExifGps(tinyJpeg());
+    expect(jpegInfo(withGps)).toMatchObject({ hasApp1: true, hasExif: true, hasGpsBytes: true });
+    const res = await prepareImageForUpload(new File([new Uint8Array(withGps)], "IMG_0001.jpg", { type: "image/jpeg" }));
+    expect(res).toMatchObject({ ok: true, compressed: false });
+    if (!res.ok) return;
+    const sent = Buffer.from(await res.file.arrayBuffer());
+    expect(jpegInfo(sent)).toMatchObject({ hasApp1: false, hasExif: false, hasGpsBytes: false });
+    expect(sent.equals(tinyJpeg())).toBe(true);
     const big = new File([new Uint8Array(UPLOAD_LIMIT_BYTES + 1).fill(0x41)], "broken.jpg", { type: "image/jpeg" });
     expect(await prepareImageForUpload(big)).toEqual({ ok: false, error: "This photo could not be compressed. Try a smaller photo or a PDF." });
   });
+
+  it("an undecodable PNG goes up without its eXIf, tEXt, iTXt and zTXt chunks; the picture chunks are kept byte for byte", async () => {
+    const clean = Buffer.concat([PNG_SIG, pngChunk("IHDR", Buffer.alloc(13, 1)), pngChunk("IDAT", Buffer.alloc(20, 2)), pngChunk("IEND", Buffer.alloc(0))]);
+    const dirty = Buffer.concat([
+      PNG_SIG,
+      pngChunk("IHDR", Buffer.alloc(13, 1)),
+      pngChunk("eXIf", GPS_MARKER_TEXT),
+      pngChunk("tEXt", Buffer.from("Comment\0Synthetic")),
+      pngChunk("iTXt", Buffer.from("XML:com.adobe.xmp\0\0\0\0\0<x/>")),
+      pngChunk("zTXt", Buffer.from("Raw\0\0xx")),
+      pngChunk("IDAT", Buffer.alloc(20, 2)),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]);
+    const res = await prepareImageForUpload(new File([new Uint8Array(dirty)], "scan.png", { type: "image/png" }));
+    expect(res).toMatchObject({ ok: true, compressed: false });
+    if (!res.ok) return;
+    const sent = Buffer.from(await res.file.arrayBuffer());
+    expect(sent.equals(clean)).toBe(true);
+    expect(sent.includes(GPS_MARKER_TEXT)).toBe(false);
+  });
+
+  it("an undecodable WebP goes up without its EXIF and XMP chunks, the VP8X flags cleared and the RIFF size corrected", async () => {
+    const vp8x = Buffer.alloc(10);
+    vp8x[0] = 0x0c; // the "has Exif" and "has XMP" flags
+    const dirty = webp([webpChunk("VP8X", vp8x), webpChunk("VP8 ", Buffer.alloc(11, 3)), webpChunk("EXIF", GPS_MARKER_TEXT), webpChunk("XMP ", Buffer.from("<x:xmpmeta/>"))]);
+    const res = await prepareImageForUpload(new File([new Uint8Array(dirty)], "photo.webp", { type: "image/webp" }));
+    expect(res).toMatchObject({ ok: true, compressed: false });
+    if (!res.ok) return;
+    const sent = Buffer.from(await res.file.arrayBuffer());
+    expect(sent.includes(GPS_MARKER_TEXT)).toBe(false);
+    expect(sent.includes(Buffer.from("xmpmeta"))).toBe(false);
+    expect(sent.equals(webp([webpChunk("VP8X", Buffer.alloc(10)), webpChunk("VP8 ", Buffer.alloc(11, 3))]))).toBe(true);
+    expect(sent.readUInt32LE(4)).toBe(sent.length - 8);
+  });
+
+  it("a picture whose structure cannot be walked is refused with the fixed text, never sent as it is", async () => {
+    for (const [name, type] of [["broken.jpg", "image/jpeg"], ["broken.png", "image/png"], ["broken.webp", "image/webp"]] as const) {
+      const junk = new File([new Uint8Array(2000).fill(0x41)], name, { type });
+      expect(await prepareImageForUpload(junk)).toEqual({ ok: false, error: "This photo could not be compressed. Try a smaller photo or a PDF." });
+    }
+    // A JPEG cut off before its picture data cannot be walked to the end of its metadata either.
+    const cut = withExifGps(tinyJpeg()).subarray(0, 30);
+    expect(await prepareImageForUpload(new File([new Uint8Array(cut)], "cut.jpg", { type: "image/jpeg" }))).toEqual({ ok: false, error: "This photo could not be compressed. Try a smaller photo or a PDF." });
+  });
 });
+
+const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+/** A PNG chunk: length, type, data, and a CRC (not checked by the stripper; zeros here). */
+function pngChunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  return Buffer.concat([length, Buffer.from(type, "latin1"), data, Buffer.alloc(4)]);
+}
+function webpChunk(type: string, data: Buffer): Buffer {
+  const size = Buffer.alloc(4);
+  size.writeUInt32LE(data.length);
+  return Buffer.concat([Buffer.from(type, "latin1"), size, data, data.length % 2 ? Buffer.alloc(1) : Buffer.alloc(0)]);
+}
+function webp(chunks: Buffer[]): Buffer {
+  const body = Buffer.concat([Buffer.from("WEBP", "latin1"), ...chunks]);
+  const size = Buffer.alloc(4);
+  size.writeUInt32LE(body.length);
+  return Buffer.concat([Buffer.from("RIFF", "latin1"), size, body]);
+}

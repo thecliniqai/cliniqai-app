@@ -6,8 +6,10 @@
  * notes, is not carried over, so a phone photo reaches the server without where it was taken; whatever metadata an engine's own encoder adds (Safari writes an
  * Exif block) is cut from the result (`stripJpegMetadata`). A PDF (or anything that is not an image) passes unchanged.
  *
- * When the picture cannot be decoded the original goes up if it is within the server's 4 MB limit (the server still checks the bytes against the type), and is
- * refused with a fixed text otherwise. The smallest result that fits the server's limit is accepted when the 1 MB target is out of reach in six attempts.
+ * When the picture cannot be re-encoded (no decode, no 2D context, no blob, a result over the limit, any error) the original goes up only if it is within the
+ * server's 4 MB limit AND its metadata could be cut from the raw bytes (09C-06a, A-6, S-4: JPEG APP1, APP13 and COM; PNG eXIf, tEXt, iTXt and zTXt; WebP EXIF and
+ * XMP); a picture whose structure cannot be walked is refused with the fixed text, never sent with its location. The smallest result that fits the server's
+ * limit is accepted when the 1 MB target is out of reach in six attempts.
  * Nothing here reads or reports the file's content: the failure tag is `files.compress.failed` with the error's class only.
  */
 import { reportClientError } from "@/lib/log/client";
@@ -111,11 +113,16 @@ const METADATA_MARKERS = new Set([0xe1, 0xed, 0xfe]);
  * not a JPEG, or whose segments cannot be walked, come back unchanged.
  */
 export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
-  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return bytes;
+  return walkJpeg(bytes) ?? bytes;
+}
+
+/** The JPEG without its metadata segments, or null when the bytes are not a JPEG whose segments can be walked up to the picture data. */
+function walkJpeg(bytes: Uint8Array): Uint8Array | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
   const kept: Uint8Array[] = [bytes.subarray(0, 2)];
   let i = 2;
   while (i + 4 <= bytes.length) {
-    if (bytes[i] !== 0xff) return bytes;
+    if (bytes[i] !== 0xff) return null;
     const marker = bytes[i + 1];
     if (marker === 0xff) {
       i += 1;
@@ -127,11 +134,78 @@ export function stripJpegMetadata(bytes: Uint8Array): Uint8Array {
       return concat(kept);
     }
     const length = (bytes[i + 2] << 8) | bytes[i + 3];
-    if (length < 2 || i + 2 + length > bytes.length) return bytes;
+    if (length < 2 || i + 2 + length > bytes.length) return null;
     if (!METADATA_MARKERS.has(marker)) kept.push(bytes.subarray(i, i + 2 + length));
     i += 2 + length;
   }
-  return bytes;
+  return null;
+}
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** PNG chunks that carry metadata, not picture: Exif (with location), and the three text chunks (comments, XMP, software). */
+const PNG_METADATA_CHUNKS = new Set(["eXIf", "tEXt", "iTXt", "zTXt"]);
+
+const ascii = (bytes: Uint8Array, at: number, n: number) => String.fromCharCode(...bytes.subarray(at, at + n));
+
+/** A PNG without its metadata chunks, or null when the bytes are not a PNG whose chunks run cleanly to IEND (09C-06a, S-4). */
+export function stripPngMetadata(bytes: Uint8Array): Uint8Array | null {
+  if (bytes.length < 8 || PNG_SIGNATURE.some((b, k) => bytes[k] !== b)) return null;
+  const kept: Uint8Array[] = [bytes.subarray(0, 8)];
+  let i = 8;
+  while (i + 12 <= bytes.length) {
+    const length = ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
+    const type = ascii(bytes, i + 4, 4);
+    const end = i + 12 + length;
+    if (!/^[A-Za-z]{4}$/.test(type) || end > bytes.length) return null;
+    if (!PNG_METADATA_CHUNKS.has(type)) kept.push(bytes.subarray(i, end));
+    i = end;
+    if (type === "IEND") return concat(kept);
+  }
+  return null;
+}
+
+/** A WebP without its EXIF and XMP chunks (the RIFF size and the VP8X flags follow), or null when the container cannot be walked (09C-06a, S-4). */
+export function stripWebpMetadata(bytes: Uint8Array): Uint8Array | null {
+  if (bytes.length < 12 || ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") return null;
+  const riffEnd = 8 + (((bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24)) >>> 0));
+  if (riffEnd > bytes.length) return null;
+  const kept: Uint8Array[] = [];
+  let i = 12;
+  while (i < riffEnd) {
+    if (i + 8 > riffEnd) return null;
+    const type = ascii(bytes, i, 4);
+    const size = (bytes[i + 4] | (bytes[i + 5] << 8) | (bytes[i + 6] << 16) | (bytes[i + 7] << 24)) >>> 0;
+    if (i + 8 + size > riffEnd) return null;
+    const end = i + 8 + size + (size % 2);
+    if (type !== "EXIF" && type !== "XMP ") {
+      const chunk = bytes.slice(i, Math.min(end, riffEnd));
+      // VP8X carries "has Exif" (0x08) and "has XMP" (0x04) flags: cleared with the chunks.
+      if (type === "VP8X" && chunk.length > 8) chunk[8] &= ~0x0c;
+      kept.push(chunk);
+    }
+    i = end;
+  }
+  const body = concat(kept);
+  const out = new Uint8Array(12 + body.length);
+  out.set(bytes.subarray(0, 12), 0);
+  const riffSize = 4 + body.length;
+  out[4] = riffSize & 0xff;
+  out[5] = (riffSize >>> 8) & 0xff;
+  out[6] = (riffSize >>> 16) & 0xff;
+  out[7] = (riffSize >>> 24) & 0xff;
+  out.set(body, 12);
+  return out;
+}
+
+/**
+ * The raw bytes of a JPEG, PNG or WebP without their metadata (09C-06a, A-6, S-4), by the bytes' own signature (not the declared type); null when the bytes
+ * are none of the three or cannot be walked (the caller refuses the file).
+ */
+export function stripImageMetadata(bytes: Uint8Array): Uint8Array | null {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return walkJpeg(bytes);
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) return stripPngMetadata(bytes);
+  if (bytes[0] === 0x52 && bytes[1] === 0x49) return stripWebpMetadata(bytes);
+  return null;
 }
 
 function concat(parts: Uint8Array[]): Uint8Array {
@@ -149,10 +223,22 @@ function concat(parts: Uint8Array[]): Uint8Array {
  * `limit` is the server's size limit (the 4 MB of R-U unless a caller knows better).
  */
 export async function prepareImageForUpload(file: File, limit = UPLOAD_LIMIT_BYTES): Promise<PrepareResult> {
-  const passThrough = (): PrepareResult =>
-    file.size <= limit
-      ? { ok: true, file, compressed: false, inputBytes: file.size, outputBytes: file.size }
-      : { ok: false, error: isCompressibleImage(file.type) ? COMPRESS_FAILED_MESSAGE : "File is larger than 4 MB, the upload limit. Please upload a smaller file." };
+  const passThrough = async (): Promise<PrepareResult> => {
+    if (file.size > limit) {
+      return { ok: false, error: isCompressibleImage(file.type) ? COMPRESS_FAILED_MESSAGE : "File is larger than 4 MB, the upload limit. Please upload a smaller file." };
+    }
+    if (!isCompressibleImage(file.type)) return { ok: true, file, compressed: false, inputBytes: file.size, outputBytes: file.size };
+    // A-6, S-4: a picture that could not be re-encoded goes up only without its metadata (a location among it), or not at all.
+    try {
+      const clean = stripImageMetadata(new Uint8Array(await file.arrayBuffer()));
+      if (!clean) return { ok: false, error: COMPRESS_FAILED_MESSAGE };
+      const out = new File([clean as BlobPart], file.name, { type: file.type, lastModified: Date.now() });
+      return { ok: true, file: out, compressed: false, inputBytes: file.size, outputBytes: out.size };
+    } catch (err) {
+      reportClientError("files.compress.failed", err);
+      return { ok: false, error: COMPRESS_FAILED_MESSAGE };
+    }
+  };
 
   if (!isCompressibleImage(file.type)) return passThrough();
 

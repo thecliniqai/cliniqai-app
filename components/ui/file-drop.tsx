@@ -5,6 +5,7 @@ import { CircleAlert, CircleCheck, FileText, Loader2, RotateCw, UploadCloud, X }
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { newClientRequestId } from "@/lib/commands/use-command";
+import { COMPRESS_FAILED_MESSAGE, isCompressibleImage } from "@/lib/files/compress-image";
 
 /**
  * FileDrop (V2-09b 09B-05; DESIGN_SYSTEM §6.2, R-16): a drop zone and a file picker in one control, one status row per file.
@@ -97,7 +98,10 @@ export function FileDrop({ label, accept, limitsText, refuse, onUpload, prepare,
         let file = row.prepared ?? row.file;
         if (prepare && !row.prepared) {
           // Prepared once per row: a Retry sends the prepared file again (the bytes the first attempt would have stored).
-          const made = await prepare(row.file).catch(() => ({ ok: true as const, file: row.file }));
+          // 09C-06a (A-6, S-4): a preparation that throws never sends the original of a picture (it may carry its location); anything else goes as it is.
+          const made = await prepare(row.file).catch(() =>
+            isCompressibleImage(row.file.type) ? { ok: false as const, error: COMPRESS_FAILED_MESSAGE } : { ok: true as const, file: row.file },
+          );
           if (!made.ok) {
             patch(row.id, { status: "failed", error: made.error, final: true });
             return;
