@@ -1,0 +1,29 @@
+/*
+ * The prescription's print stylesheet (V2-09c 09C-04, R-12; DESIGN_SYSTEM §7.10; CTO ruling Q-2): on screen the print view does not exist; when the browser prints,
+ * everything else on the page is hidden and the print view is the document. The paper size and the margins are not here: `RxPrintPortal` writes the `@page`
+ * rule from the same settings as the PDF (A4 or A5, the clinic's stationery margins), so the two cannot disagree.
+ */
+[data-rx-print-root] {
+  display: none;
+}
+
+@media print {
+  body > *:not([data-rx-print-root]) {
+    display: none !important;
+  }
+  html,
+  body {
+    background: white !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-rx-print-root] {
+    display: block !important;
+  }
+  [data-rx-print-root] [data-rx-print-keep] {
+    break-inside: avoid;
+  }
+  [data-rx-print-root] thead {
+    display: table-header-group;
+  }
+}

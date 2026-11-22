@@ -10,12 +10,12 @@ import {
 } from "@/features/consultation/service";
 import { saveLegacyDraft as saveConsultationDraft } from "../helpers/consult-draft";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
-import { getPrescriptionPdfSignedUrl } from "@/features/prescriptions/service";
+import { isArchivable, resolvePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
+import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload";
 import { changeRxAs } from "../helpers/rx-lines";
 import { renderPrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
-import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 import { getAdminClient } from "../helpers/supabase-admin";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
@@ -228,35 +228,27 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(rxRow?.pdf_sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("4. getPrescriptionPdfSignedUrl: the archived Rx at its own letterhead is a 5-minute signed URL of the archive; a print variant is the route's on-demand render (06-09b N-1, V2-09a R-12)", async () => {
-    // 1. Blank paper mode: the signed version's archived object
-    const blankRes = await getPrescriptionPdfSignedUrl(
-      ctxFor(tenantA),
-      prescriptionAId,
-      "blank_paper"
-    );
+  it("4. the archived Rx at its own letterhead is read from the archive; a print variant (another letterhead or paper) is an on-demand render that is never stored (06-09b N-1, V2-09a R-12, V2-09c R-11)", async () => {
+    // 1. Blank paper mode: the signed version's archived object (verified against its hash), no signed URL of the object ever leaves the server
+    const blank = await loadPrescriptionPdfSource(ctxFor(tenantA), visitAId, { prescriptionId: prescriptionAId });
+    expect(blank).not.toBeNull();
+    expect(isArchivable(ctxFor(tenantA), blank!)).toBe(true);
+    const servedBlank = await resolvePrescriptionPdf(ctxFor(tenantA), blank!);
+    expect(servedBlank.storagePath).toBe(`${tenantA.tenantId}/${visitAId}/rx_v1.pdf`);
+    expect(servedBlank.verified).toBe(true);
+    expect(servedBlank.version).toBe(1);
 
-    expect(blankRes.success).toBe(true);
-    if (blankRes.success) {
-      expect(signedUrlLifetimeSeconds(blankRes.signedUrl)).toBe(300);
-      expect(blankRes.signedUrl).toContain(`/rx_v1.pdf`);
-      expect(blankRes.version).toBe(1);
+    // 2. Pre-printed letterhead mode and another paper: variants, never stored, rendered with no-store by the route
+    for (const variant of [{ letterhead: "preprinted_letterhead" as const }, { paper: "A5" as const }]) {
+      const source = await loadPrescriptionPdfSource(ctxFor(tenantA), visitAId, { prescriptionId: prescriptionAId, ...variant });
+      expect(isArchivable(ctxFor(tenantA), source!)).toBe(false);
+      const served = await resolvePrescriptionPdf(ctxFor(tenantA), source!);
+      expect(served.storagePath).toBeNull();
+      expect(served.buffer.subarray(0, 5).toString()).toBe("%PDF-");
+      expect(served.version).toBe(1);
     }
-
-    // 2. Pre-printed letterhead mode: a variant, never stored; the link is the PDF route, which renders it with no-store
-    const preprintedRes = await getPrescriptionPdfSignedUrl(
-      ctxFor(tenantA),
-      prescriptionAId,
-      "preprinted_letterhead"
-    );
-
-    expect(preprintedRes.success).toBe(true);
-    if (preprintedRes.success) {
-      expect(preprintedRes.signedUrl).toBe(`/api/visits/${visitAId}/prescription-pdf?letterhead=preprinted_letterhead`);
-      expect(preprintedRes.version).toBe(1);
-    }
-    const { data: rxRow } = await tenantA.client.from("prescriptions").select("letterhead_mode").eq("id", prescriptionAId).single();
-    expect(rxRow?.letterhead_mode).toBe("blank_paper");
+    const { data: rxRow } = await tenantA.client.from("prescriptions").select("letterhead_mode, paper_size").eq("id", prescriptionAId).single();
+    expect(rxRow).toEqual({ letterhead_mode: "blank_paper", paper_size: "A4" });
   });
 
   it("5. Post-sign-off amendment lifecycle: enforces justification, creates immutable revision snapshot, and increments version to v2", async () => {
@@ -356,16 +348,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     expect(finalizedVisit?.status).toBe("completed");
 
-    // 9. Verify amended PDF signed URL returns v2
-    const v2PdfRes = await getPrescriptionPdfSignedUrl(
-      ctxFor(tenantA),
-      prescriptionAId,
-      "blank_paper"
-    );
-    expect(v2PdfRes.success).toBe(true);
-    if (v2PdfRes.success) {
-      expect(v2PdfRes.version).toBe(2);
-    }
+    // 9. Verify the amended PDF is the v2 rendering
+    const v2 = await loadPrescriptionPdfSource(ctxFor(tenantA), visitAId, { prescriptionId: prescriptionAId });
+    expect(v2?.payload.version).toBe(2);
   });
 
   it("6. Multi-tenant RLS isolation prevents Tenant B from reading revision snapshots or PDFs", async () => {
@@ -386,12 +371,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     );
     expect(maliciousReopen.success).toBe(false);
 
-    // 3. Tenant B cannot generate or access Tenant A's signed prescription PDF URL
-    const maliciousPdf = await getPrescriptionPdfSignedUrl(
-      ctxFor(tenantB),
-      prescriptionAId,
-      "blank_paper"
-    );
-    expect(maliciousPdf.success).toBe(false);
+    // 3. Tenant B cannot load Tenant A's prescription for a PDF
+    expect(await loadPrescriptionPdfSource(ctxFor(tenantB), visitAId, { prescriptionId: prescriptionAId })).toBeNull();
   });
 });

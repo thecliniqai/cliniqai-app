@@ -48,6 +48,41 @@ export const statutorySettingsSchema = z.object({
 
 export type StatutorySettingsInput = z.infer<typeof statutorySettingsSchema>;
 
+/** Millimetres to points (the PDF's unit, and what `tenants.letterhead_*_margin` stores), rounded to a whole point. */
+export function mmToPoints(mm: number): number {
+  return Math.round((mm * 72) / 25.4);
+}
+/** Points to millimetres for the settings card, to one decimal. */
+export function pointsToMm(points: number): number {
+  return Math.round(((points * 25.4) / 72) * 10) / 10;
+}
+
+/** The most one margin can be (the database CHECK: 300 points) and the most both together can be (the PDF keeps 220 points of an A5 sheet for the prescription). */
+export const RX_MARGIN_MAX_POINTS = 300;
+export const RX_MARGIN_TOTAL_MAX_POINTS = 375;
+
+/**
+ * "Prescription printing" (V2-09c 09C-04, R-12): the clinic's default paper and letterhead for the prescriptions it starts from now on (frozen on each
+ * version at its creation) and the margins of its pre-printed stationery in millimetres (stored in points; applied to every print of a pre-printed Rx).
+ */
+export const rxPrintSettingsSchema = z
+  .object({
+    rx_paper_size: z.enum(["A4", "A5"]),
+    rx_letterhead_mode: z.enum(["blank_paper", "preprinted_letterhead"]),
+    letterhead_top_margin_mm: z.coerce.number({ message: "Enter the top margin in millimetres." }).min(0, "The margin cannot be negative.").max(105, "The margin can be at most 105 mm."),
+    letterhead_bottom_margin_mm: z.coerce.number({ message: "Enter the bottom margin in millimetres." }).min(0, "The margin cannot be negative.").max(105, "The margin can be at most 105 mm."),
+  })
+  .refine((v) => mmToPoints(v.letterhead_top_margin_mm) <= RX_MARGIN_MAX_POINTS && mmToPoints(v.letterhead_bottom_margin_mm) <= RX_MARGIN_MAX_POINTS, {
+    message: "Each margin can be at most 105 mm.",
+    path: ["letterhead_top_margin_mm"],
+  })
+  .refine((v) => mmToPoints(v.letterhead_top_margin_mm) + mmToPoints(v.letterhead_bottom_margin_mm) <= RX_MARGIN_TOTAL_MAX_POINTS, {
+    message: "The top and bottom margins together can be at most 132 mm, so the prescription has room on the page.",
+    path: ["letterhead_bottom_margin_mm"],
+  });
+
+export type RxPrintSettingsInput = z.input<typeof rxPrintSettingsSchema>;
+
 export const clinicSettingsSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
   address: z.string().optional().nullable(),

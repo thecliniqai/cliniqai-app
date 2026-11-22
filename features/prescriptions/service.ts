@@ -23,9 +23,6 @@ import {
 import { callCommand } from "@/lib/commands/call-command";
 import { ALLERGY_MATCH_MESSAGE, type RxAllergyContext } from "./allergy";
 import type { AppError } from "@/lib/errors/app-error";
-import { isArchivable, resolvePrescriptionPdf } from "./pdf/generator";
-import { loadPrescriptionPdfSource } from "./pdf/payload";
-import { getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import type { DbErrorMessages } from "@/lib/db/errors";
@@ -454,69 +451,6 @@ export async function getVisitPrescription(ctx: ServiceContext, visitId: string)
     return {
       success: false,
       error: clientErrorMessage(err, "Failed to load prescription.", "prescriptions.get_visit_prescription.failed"),
-    };
-  }
-}
-
-export type GetPrescriptionPdfSignedUrlResult =
-  | { success: true; signedUrl: string; version: number }
-  | { success: false; error: string };
-
-/**
- * Compiles and returns a time-limited signed storage URL (5-minute view link, `VIEW_LINK_TTL_SECONDS`)
- * for previewing and printing a prescription in the browser.
- */
-export async function getPrescriptionPdfSignedUrl(
-  ctx: ServiceContext,
-  prescriptionId: string,
-  letterheadMode: "blank_paper" | "preprinted_letterhead" = "blank_paper"
-): Promise<GetPrescriptionPdfSignedUrlResult> {
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "prescriptions:view");
-
-    // 1. Fetch the prescription record
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
-      .select("id, visit_id, version")
-      .eq("id", prescriptionId)
-      .eq("tenant_id", ctx.tenantId)
-      .single();
-
-    if (rxErr || !rx) {
-      return { success: false, error: "Prescription not found or access denied." };
-    }
-
-    // 2. The payload every reader shares (V2-09a R-12), for this header and the requested letterhead.
-    const source = await loadPrescriptionPdfSource(ctx, rx.visit_id, { prescriptionId: rx.id, letterhead: letterheadMode });
-    if (!source) {
-      return { success: false, error: "Visit encounter record not found." };
-    }
-
-    // 3. A sealed prescription at its own letterhead is read from the write-once archive (archived first when it is missing), its SHA-256 checked, and a
-    // 5-minute signed URL of the archived object returned. A draft, an open amendment, a print variant and an archive that fails its check are rendered
-    // on demand by the PDF route (no-store, never stored): the link is the route's, which the browser opens with the session.
-    if (isArchivable(ctx, source)) {
-      const served = await resolvePrescriptionPdf(ctx, source);
-      if (served.storagePath) {
-        const { signedUrl } = await getSignedUrl(
-          { path: served.storagePath, expiresInSeconds: VIEW_LINK_TTL_SECONDS, bucket: "prescriptions" },
-          getStorageProviderForDb(ctx.db, "prescriptions")
-        );
-        return { success: true, signedUrl, version: served.version };
-      }
-    }
-    return {
-      success: true,
-      signedUrl: `/api/visits/${rx.visit_id}/prescription-pdf?letterhead=${letterheadMode}`,
-      version: Number(rx.version),
-    };
-  } catch (err: unknown) {
-    log.error({ event: "prescriptions.pdf_signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    return {
-      success: false,
-      error: clientErrorMessage(err, "Failed to generate prescription preview."),
     };
   }
 }

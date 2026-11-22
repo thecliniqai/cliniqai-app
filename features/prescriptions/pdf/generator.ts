@@ -9,7 +9,8 @@ import { downloadFile, getStorageProviderForDb, uploadFile } from "@/lib/storage
 import { recordState } from "@/features/consultation/record-state";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { PrescriptionDocument, PrescriptionPdfPayload } from "./prescription-document";
+import { PrescriptionDocument } from "./prescription-document";
+import type { PrescriptionPdfPayload } from "./types";
 import type { PrescriptionPdfSource } from "./payload";
 
 /**
@@ -64,7 +65,7 @@ export function prescriptionPdfPath(tenantId: string, visitId: string, version: 
   return `${tenantId}/${visitId}/rx_v${version}.pdf`;
 }
 
-/** Compiles an electronic prescription into an A4 PDF on the server. Pure: nothing is stored. A payload with `regenerated_notice` prints that line. */
+/** Compiles an electronic prescription into a PDF (A4 or A5, the payload's `paper_size`) on the server. Pure: nothing is stored. A payload with `regenerated_notice` prints that line. */
 export async function renderPrescriptionPdf(payload: PrescriptionPdfPayload): Promise<Buffer> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(PrescriptionDocument, { payload }) as any;
@@ -111,6 +112,7 @@ interface HeaderRow {
   visit_id: string;
   version: number;
   letterhead_mode: string;
+  paper_size: string;
   signed_at: string | null;
   pdf_storage_path: string | null;
   pdf_sha256: string | null;
@@ -119,7 +121,7 @@ interface HeaderRow {
 async function readHeader(ctx: ServiceContext, prescriptionId: string): Promise<HeaderRow | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (ctx.db.from("prescriptions") as any)
-    .select("id, visit_id, version, letterhead_mode, signed_at, pdf_storage_path, pdf_sha256")
+    .select("id, visit_id, version, letterhead_mode, paper_size, signed_at, pdf_storage_path, pdf_sha256")
     .eq("id", prescriptionId)
     .eq("tenant_id", ctx.tenantId)
     .maybeSingle();
@@ -153,8 +155,8 @@ export async function archivePrescriptionPdf(
   if (header.pdf_sha256) {
     return { status: "already_archived", storagePath: header.pdf_storage_path ?? storagePath, sha256: header.pdf_sha256 };
   }
-  // Only the canonical rendering is archived: a print variant (another letterhead) is rendered on demand (Q-7).
-  if (payload.letterhead_mode !== header.letterhead_mode) {
+  // Only the canonical rendering is archived: a print variant (another letterhead or another paper) is rendered on demand (Q-7, V2-09c R-11).
+  if (payload.letterhead_mode !== header.letterhead_mode || (payload.paper_size ?? "A4") !== (header.paper_size ?? "A4")) {
     throw new Error("Only the canonical rendering of a prescription is archived.");
   }
 
@@ -291,7 +293,7 @@ export function isVisitSigner(ctx: ServiceContext, source: PrescriptionPdfSource
  */
 export function isArchivable(ctx: ServiceContext, source: PrescriptionPdfSource): boolean {
   const { payload, header, visit } = source;
-  if (!header || recordState(visit) !== "sealed" || !header.signed_at || payload.letterhead_mode !== header.letterhead_mode) return false;
+  if (!header || recordState(visit) !== "sealed" || !header.signed_at || payload.letterhead_mode !== header.letterhead_mode || (payload.paper_size ?? "A4") !== header.paper_size) return false;
   // A legacy path that is not this version's key cannot be adopted (the pair is write-once and canonical).
   return !header.pdf_storage_path || header.pdf_storage_path === prescriptionPdfPath(ctx.tenantId, payload.visit_id, header.version);
 }

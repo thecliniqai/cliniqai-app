@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { resolvePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload";
+import { rxFileName } from "@/features/prescriptions/pdf/content";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -31,15 +32,18 @@ export async function GET(
     }
     const ctx = resolved.ctx;
 
-    // 3. The letterhead: a print variant is rendered on demand and never archived (V2-09a R-12, Q-7); without it the header's own mode applies.
+    // 3. The letterhead and the paper: a print variant is rendered on demand and never archived (V2-09a R-12, Q-7; V2-09c R-11); without them the header's own
+    // letterhead mode and paper size apply (frozen at its creation).
     const { searchParams } = new URL(request.url);
     const requestedLetterhead = searchParams.get("letterhead");
+    const requestedPaper = searchParams.get("paper");
     const isDownload = searchParams.get("download") === "true";
 
     // 4. Load the visit's prescription under strict tenant isolation (the caller's own client; RLS applies). One builder for every reader.
     const source = await loadPrescriptionPdfSource(ctx, visitId, {
       letterhead:
         requestedLetterhead === "preprinted_letterhead" || requestedLetterhead === "blank_paper" ? requestedLetterhead : undefined,
+      paper: requestedPaper === "A4" || requestedPaper === "A5" ? requestedPaper : undefined,
     });
     if (!source) {
       return new NextResponse("Visit not found or access denied", { status: 404 });
@@ -49,8 +53,8 @@ export async function GET(
     // amendment or a print variant is rendered on demand. A mismatch serves a fresh render, never the stored bytes (R-12).
     const served = await resolvePrescriptionPdf(ctx, source);
 
-    const cleanName = (source.payload.patient.full_name || "Patient").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const filename = `Rx-${cleanName}-${source.payload.visit_id.slice(0, 8)}.pdf`;
+    // The file name carries the visit's date and the version, never the patient's name (it travels in downloads, share sheets and mail; PWA D-7).
+    const filename = rxFileName(source.payload);
     const disposition = isDownload
       ? `attachment; filename="${filename}"`
       : `inline; filename="${filename}"`;

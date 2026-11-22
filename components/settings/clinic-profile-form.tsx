@@ -8,6 +8,7 @@ import { ALLOWED_SPECIALTIES } from "@/features/clinics/constants";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
 import { StatutoryFieldsCard } from "@/components/settings/statutory-fields-card";
+import { RxPrintCard } from "@/components/settings/rx-print-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -516,6 +517,11 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
     {/* Statutory Clinic Registrations & Government Licenses (DPDP / NMC D-16) */}
     <div className="pt-2">
       <StatutoryFieldsCard initialTenant={initialTenant} />
+    </div>
+
+    {/* Prescription printing: paper, letterhead and the margins of the pre-printed stationery (V2-09c 09C-04) */}
+    <div className="pt-2">
+      <RxPrintCard initialTenant={initialTenant} />
     </div>
 
     {/* Practicing Owner Doctor Weekly Availability & Shifts */}

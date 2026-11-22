@@ -130,7 +130,7 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
 
   // After sign-off the workspace offers Print Rx (and Amend), not "Finish visit".
   await page.goto(`/consultation/${visitId}`);
-  await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Print Rx/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Finish visit/ })).toHaveCount(0);
 });
 
@@ -139,7 +139,7 @@ test("a signed consultation is read-only in the workspace; Amend is offered (P1-
   const { visitId } = await seedSignedConsultation("Signed");
 
   await page.goto(`/consultation/${visitId}`);
-  await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Print Rx/ })).toBeVisible();
   // Nothing on the signed consultation can be changed from the workspace.
   // V2-09c 09C-01: a sealed record has no medicine field, no dose pills and no remove control (before: disabled ones); the lines are plain text.
   await expect(rxField(page.locator("#prescription"))).toHaveCount(0);

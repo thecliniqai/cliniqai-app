@@ -32,6 +32,8 @@ import { getPatientDocuments } from "@/features/labs/service";
 import { toConsultDocument, type ConsultDocument } from "@/features/labs/consult-documents";
 import type { DoctorMacro } from "@/features/consultation/macros";
 import { resolveServiceContext } from "@/lib/auth/context";
+import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload";
+import type { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/types";
 
 interface ConsultationPageProps {
   params: Promise<{
@@ -179,6 +181,17 @@ async function ConsultationPage(props: ConsultationPageProps) {
     }
   }
 
+  // 9b. The signed prescription as the browser prints it (V2-09c 09C-04, R-12; CTO ruling Q-2): the PDF's own payload (the same words, paper and margins), only for a
+  // sealed record and a role that may read prescriptions. A failed or refused read is "no print view": the PDF link stays.
+  let printPayload: PrescriptionPdfPayload | null = null;
+  if (recordState(visitRow) === "sealed" && hasPerm(membership.role, "prescriptions:view")) {
+    const resolved = await resolveServiceContext("prescriptions:view");
+    if (resolved.ok) {
+      const source = await loadPrescriptionPdfSource(resolved.ctx, id);
+      if (source?.header?.signed_at && source.payload.medications.length > 0) printPayload = source.payload;
+    }
+  }
+
   // 10. The write side of Smart Assist (V2-09b 09B-04b). The signed-in doctor's own macros (RLS limits the read to them) only with `assist.shorthand` and
   // an editable record; the instants of this patient's booked or confirmed visits with this doctor from three days ago onward only with `assist.followup`
   // (the display rule of "Book follow-up", Q-14: nothing is stored). A failed read is "none".
@@ -281,6 +294,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
       assist={assist}
       assistContext={assistContext}
       rxAssistContext={rxAssistContext}
+      printPayload={printPayload}
       allergyContext={allergyContext}
       snapshot={snapshot}
       macros={macros}

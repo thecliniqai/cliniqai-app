@@ -11,6 +11,9 @@ import {
   ClinicSettingsInput,
   statutorySettingsSchema,
   StatutorySettingsInput,
+  rxPrintSettingsSchema,
+  RxPrintSettingsInput,
+  mmToPoints,
   userProfileSchema,
   UserProfileInput,
   staffEditSchema,
@@ -237,6 +240,56 @@ export async function updateStatutorySettings(
       success: false,
       error: clientErrorMessage(err, "Failed to update statutory settings.", "settings.statutory_update.failed"),
     };
+  }
+}
+
+export type UpdateRxPrintSettingsResult =
+  | { success: true; tenant: Tenant }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * "Prescription printing" (V2-09c 09C-04, R-12): the clinic's default paper size and letterhead mode, and the margins of its pre-printed stationery
+ * (millimetres in, points stored; the database CHECKs 0 to 300). `clinic:manage`. The paper and the letterhead are frozen on each prescription when it is
+ * created, so a change applies to the prescriptions started after it; the margins describe the clinic's paper and apply to every print. Audited by field group.
+ */
+export async function updateRxPrintSettings(ctx: ServiceContext, input: RxPrintSettingsInput): Promise<UpdateRxPrintSettingsResult> {
+  const supabase = ctx.db;
+  try {
+    assertPerm(ctx.role, "clinic:manage");
+    const parseResult = rxPrintSettingsSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message ?? "Invalid prescription printing settings.",
+        fieldErrors: toFieldErrors(parseResult.error.issues),
+      };
+    }
+    const data = parseResult.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
+      .update({
+        rx_paper_size: data.rx_paper_size,
+        rx_letterhead_mode: data.rx_letterhead_mode,
+        letterhead_top_margin: mmToPoints(data.letterhead_top_margin_mm),
+        letterhead_bottom_margin: mmToPoints(data.letterhead_bottom_margin_mm),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ctx.tenantId)
+      .select("*")
+      .single();
+    if (updateError || !updatedTenant) {
+      log.error({ event: "settings.rx_print_update_query.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to save the prescription printing settings." };
+    }
+    await recordAudit(ctx, {
+      action: "clinic.settings.update",
+      entityType: "clinic",
+      entityId: ctx.tenantId,
+      metadata: { fields_changed: ["rx_print_settings"] },
+    });
+    return { success: true, tenant: updatedTenant as Tenant };
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to update the prescription printing settings.", "settings.rx_print_update.failed") };
   }
 }
 

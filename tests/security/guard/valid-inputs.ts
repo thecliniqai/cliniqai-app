@@ -166,6 +166,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   },
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
+  // V2-09c 09C-04: the printing settings; the values are the defaults (A4, blank paper, margins of 110 and 60 points) so the shared world's later legs are unchanged.
+  "features/settings/actions.ts#updateRxPrintSettings": {
+    args: (a) => [{ rx_paper_size: "A4", rx_letterhead_mode: "blank_paper", letterhead_top_margin_mm: 38.8, letterhead_bottom_margin_mm: 21.2, ...acting(a) }],
+  },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
   // V2-09c 09C-01: the Rx command takes the visit and the changes; the acting fields are forged at the top level of the input and must be ignored.
   // V2-09c 09C-03: "Same as last visit" takes the visit being written, the signed visit of the same patient to copy from and the parts; only ids travel.

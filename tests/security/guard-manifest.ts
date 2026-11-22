@@ -189,7 +189,6 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#repeatVisitPlanAction": "prescriptions:edit",
   "features/prescriptions/actions.ts#getRxAllergyContextAction": "consultations:view",
   "features/prescriptions/actions.ts#getDoctorProtocolTemplates": "consultations:view",
-  "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "prescriptions:view",
   "features/prescriptions/actions.ts#getVisitPrescription": "consultations:view",
   "features/prescriptions/actions.ts#saveDoctorProtocolTemplate": "consultations:edit",
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
@@ -220,6 +219,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "A member edits their own slot duration (the service binds it to the session user)." },
   "features/settings/actions.ts#updateStaffMember": "clinic:manage",
   "features/settings/actions.ts#updateStatutorySettings": "clinic:manage",
+  "features/settings/actions.ts#updateRxPrintSettings": "clinic:manage",
   "features/settings/actions.ts#updateUserProfile":
     { member: "A member edits their own profile." },
   "features/staff/actions.ts#acceptInvite":

@@ -3,7 +3,8 @@ import "server-only";
 import type { ServiceContext } from "@/lib/auth/context";
 import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
-import type { PrescriptionPdfPayload } from "./prescription-document";
+import { examPrintLines } from "@/features/consultation/exam-text";
+import type { PrescriptionPdfPayload, RxPaperSize } from "./types";
 
 /**
  * The one builder of a prescription PDF's content (V2-09a 09A-03, R-12): the archive at sign-off and at finalize, the PDF route and the
@@ -25,6 +26,8 @@ export interface PrescriptionPdfHeader {
   status: string;
   signed_at: string | null;
   letterhead_mode: "blank_paper" | "preprinted_letterhead";
+  /** The paper the version was created for (frozen at its creation, 000117). */
+  paper_size: RxPaperSize;
   pdf_storage_path: string | null;
   pdf_sha256: string | null;
 }
@@ -42,6 +45,8 @@ export interface PrescriptionPdfSourceOptions {
   prescriptionId?: string;
   /** Another letterhead than the header's: a print variant, rendered on demand and never archived. */
   letterhead?: "blank_paper" | "preprinted_letterhead";
+  /** Another paper than the header's: a print variant, rendered on demand and never archived (V2-09c R-12). */
+  paper?: RxPaperSize;
   /** When given, the result is null unless the header is at this version (a replayed command whose version has been superseded). */
   version?: number;
 }
@@ -71,7 +76,7 @@ export async function loadPrescriptionPdfSource(
 
   let headerQuery = db
     .from("prescriptions")
-    .select("id, version, status, letterhead_mode, amendment_reason, signed_at, pdf_storage_path, pdf_sha256")
+    .select("id, version, status, letterhead_mode, paper_size, amendment_reason, signed_at, pdf_storage_path, pdf_sha256")
     .eq("visit_id", visitId)
     .eq("tenant_id", tenantId);
   if (options.prescriptionId) headerQuery = headerQuery.eq("id", options.prescriptionId);
@@ -83,7 +88,7 @@ export async function loadPrescriptionPdfSource(
     db
       .from("tenants")
       .select(
-        "name, address, phone, registration_number, logo_url, timezone, clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no"
+        "name, address, phone, registration_number, logo_url, timezone, letterhead_top_margin, letterhead_bottom_margin, clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no"
       )
       .eq("id", tenantId)
       .maybeSingle(),
@@ -122,12 +127,21 @@ export async function loadPrescriptionPdfSource(
   const headerLetterhead: "blank_paper" | "preprinted_letterhead" =
     rx?.letterhead_mode === "preprinted_letterhead" ? "preprinted_letterhead" : "blank_paper";
 
+  const headerPaper: RxPaperSize = rx?.paper_size === "A5" ? "A5" : "A4";
+  const zone = resolveTimeZone(tenant?.timezone);
+
   const payload: PrescriptionPdfPayload = {
     tenant_id: tenantId,
     visit_id: visit.id,
     prescription_id: rx?.id || "",
     version: rx?.version || 1,
     letterhead_mode: options.letterhead ?? headerLetterhead,
+    paper_size: options.paper ?? headerPaper,
+    letterhead_margins:
+      typeof tenant?.letterhead_top_margin === "number" && typeof tenant?.letterhead_bottom_margin === "number"
+        ? { top: tenant.letterhead_top_margin, bottom: tenant.letterhead_bottom_margin }
+        : null,
+    timezone: zone,
     amendment_reason: rx?.amendment_reason || null,
     signed_at: rx?.signed_at || visit.signed_at || null,
     clinic: {
@@ -156,11 +170,12 @@ export async function loadPrescriptionPdfSource(
       uhid: String(visit.patient_id).slice(0, 8).toUpperCase(),
     },
     visit: {
-      visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
+      visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), zone),
       vitals: visit.vitals || null,
       chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
       clinical_notes: visit.clinical_notes || null,
       specialty: visit.specialty || "general_physician",
+      exam: examPrintLines(visit.specialty_data),
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     diagnoses: (diagnoses || []).map((d: any) => ({
@@ -192,6 +207,7 @@ export async function loadPrescriptionPdfSource(
           status: rx.status,
           signed_at: rx.signed_at ?? null,
           letterhead_mode: headerLetterhead,
+          paper_size: headerPaper,
           pdf_storage_path: rx.pdf_storage_path ?? null,
           pdf_sha256: rx.pdf_sha256 ?? null,
         }

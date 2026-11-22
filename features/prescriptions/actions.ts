@@ -10,7 +10,6 @@ import type {
   SaveDoctorProtocolTemplateResult,
   GetDoctorProtocolTemplatesResult,
   GetVisitPrescriptionResult,
-  GetPrescriptionPdfSignedUrlResult,
   SharePrescriptionViaWhatsAppResult,
 } from "./service";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
@@ -25,7 +24,6 @@ export type {
   GetDoctorProtocolTemplatesResult,
   VisitPrescriptionData,
   GetVisitPrescriptionResult,
-  GetPrescriptionPdfSignedUrlResult,
   SharePrescriptionViaWhatsAppResult,
 } from "./service";
 
@@ -98,15 +96,6 @@ export async function getVisitPrescription(visitId: string): Promise<GetVisitPre
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.getVisitPrescription(resolved.ctx, visitId);
-}
-
-export async function getPrescriptionPdfSignedUrl(
-  prescriptionId: string,
-  letterheadMode: "blank_paper" | "preprinted_letterhead" = "blank_paper"
-): Promise<GetPrescriptionPdfSignedUrlResult> {
-  const resolved = await resolveServiceContext("prescriptions:view");
-  if (!resolved.ok) return { success: false, error: resolved.error };
-  return rxService.getPrescriptionPdfSignedUrl(resolved.ctx, prescriptionId, letterheadMode);
 }
 
 export async function sharePrescriptionViaWhatsApp(prescriptionId: string): Promise<SharePrescriptionViaWhatsAppResult> {

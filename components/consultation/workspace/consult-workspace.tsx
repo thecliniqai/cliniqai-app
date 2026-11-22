@@ -25,6 +25,8 @@ import { notify } from "@/components/ui/toast";
 import { PrescriptionSection, type RxLastVisit, type RxLeftOut } from "./sections/prescription-section";
 import type { RxEntryHandle } from "@/components/clinical/rx-entry-row";
 import { useRxLines, type RepeatPart } from "./use-rx-lines";
+import { RxPrintPortal } from "@/components/prescriptions/rx-print-view";
+import type { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/types";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
@@ -40,7 +42,7 @@ import { formatAge } from "@/lib/ui/age";
 import { reportClientError } from "@/lib/log/client";
 import { addDaysYmd, daysBetweenYmd, todayInTz, ymdOf } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
-import { Check, CheckCircle2, FilePenLine, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
+import { Check, CheckCircle2, FilePenLine, FileText, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
 import { ConsultTopBar } from "./consult-top-bar";
 import { AllergyStrip } from "./allergy-strip";
 import { AllergyEditor } from "@/components/clinical/allergy-editor";
@@ -145,6 +147,11 @@ export interface ConsultWorkspaceProps {
    * record is editable; null otherwise ("Same as last visit" stays).
    */
   rxAssistContext?: AssistContext | null;
+  /**
+   * The signed prescription's print payload (V2-09c 09C-04, R-12; CTO ruling Q-2), read on the server for a sealed record and a role that may read prescriptions;
+   * null otherwise. "Print Rx" prints it with the browser's print dialog, on the clinic's paper and margins; the PDF link stays beside it.
+   */
+  printPayload?: PrescriptionPdfPayload | null;
   /** The allergy picture of the visit the page read (V2-09c 09C-02, R-7): the three states, the coded allergies, what each line matches. */
   allergyContext?: RxAllergyContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
@@ -225,6 +232,7 @@ export function ConsultWorkspace({
   assist,
   assistContext = null,
   rxAssistContext = null,
+  printPayload = null,
   allergyContext: initialAllergyContext = null,
   snapshot = null,
   macros = [],
@@ -747,6 +755,7 @@ export function ConsultWorkspace({
       data-record-state={state}
       className="flex w-full flex-1 flex-col bg-canvas md:h-[calc(100dvh-var(--spacing-bar)-env(safe-area-inset-top,0px))] md:flex-none md:overflow-clip"
     >
+      {printPayload && state === "sealed" && <RxPrintPortal payload={printPayload} />}
       {/* The sticky header: top bar, allergy strip (always on screen, sealed records included) and, on a phone, the section strip. */}
       <header className="sticky top-0 z-30 shrink-0 md:static">
         <ConsultTopBar
@@ -813,16 +822,32 @@ export function ConsultWorkspace({
                 >
                   {isWaSent ? "Rx & Bill Sent ✓" : "WhatsApp Rx & Bill"}
                 </Button>
+                {printPayload && (
+                  <Button type="button" variant="soft" title="Print the prescription on the clinic's paper" startIcon={<Printer />} onClick={() => window.print()}>
+                    Print Rx
+                  </Button>
+                )}
                 <a
                   href={`/api/visits/${visit.id}/prescription-pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  title="Print / View PDF Prescription"
-                  className={buttonClassName({ variant: "soft" })}
+                  title="Open the prescription as a PDF"
+                  className={buttonClassName({ variant: printPayload ? "secondary" : "soft" })}
                 >
-                  <Printer aria-hidden="true" className="size-4" />
-                  <span>Print Rx</span>
+                  <FileText aria-hidden="true" className="size-4" />
+                  <span>{printPayload ? "Rx PDF" : "Print Rx"}</span>
                 </a>
+                {printPayload && (
+                  <a
+                    href={`/api/visits/${visit.id}/prescription-pdf?letterhead=${printPayload.letterhead_mode === "preprinted_letterhead" ? "blank_paper" : "preprinted_letterhead"}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Render the PDF on the other kind of paper (not stored)"
+                    className={buttonClassName({ variant: "ghost" })}
+                  >
+                    <span>{printPayload.letterhead_mode === "preprinted_letterhead" ? "PDF on blank paper" : "PDF on pre-printed paper"}</span>
+                  </a>
+                )}
                 <a
                   href={`/api/invoices/${visit.id}/receipt-pdf`}
                   target="_blank"
