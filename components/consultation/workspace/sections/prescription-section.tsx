@@ -366,6 +366,7 @@ export function PrescriptionSection({
             const row = (
               <RxLineItem
                 key={item.id}
+                lineId={item.id}
                 index={index + 1}
                 line={line}
                 readOnly={readOnly}

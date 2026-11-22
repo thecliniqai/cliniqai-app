@@ -34,6 +34,8 @@ export interface RxLineItemProps {
   note?: { text: string; tone: "info" | "danger" } | null;
   /** A sealed or otherwise read-only record (V2-09c R-5): the dose is plain text, with no pills to edit and no remove button. */
   readOnly?: boolean;
+  /** The stored line's id (`data-rx-line-id`): the finish review links back to the line by it. */
+  lineId?: string;
   className?: string;
 }
 
@@ -43,7 +45,7 @@ const PILL = cn(
   FOCUS_RING,
 );
 
-export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, note, readOnly = false, className }: RxLineItemProps) {
+export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, note, readOnly = false, lineId, className }: RxLineItemProps) {
   const [overriding, setOverriding] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
   return (
     <li
       data-rx-line=""
+      data-rx-line-id={lineId}
       data-flagged={flagged || undefined}
       className={cn(
         "grid min-h-10 grid-cols-[1.25rem_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1.5 border-b border-border py-2 last:border-b-0 md:grid-cols-[1.25rem_minmax(0,1fr)_auto_auto] md:items-center",
@@ -123,7 +126,7 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
             </span>
           </p>
           {!overriding ? (
-            <Button size="sm" variant="danger-quiet" className="self-start" onClick={() => setOverriding(true)}>
+            <Button size="sm" variant="danger-quiet" className="self-start" data-rx-override="" onClick={() => setOverriding(true)}>
               Prescribe anyway…
             </Button>
           ) : (

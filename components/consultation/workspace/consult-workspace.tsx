@@ -30,6 +30,7 @@ import type { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/types"
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
+import { SharePdfButton } from "@/components/clinical/share-pdf-button";
 import { AmendmentModal } from "../amendment-modal";
 import { FinalizeAmendmentDialog } from "../finalize-amendment-dialog";
 import { useConsultDraft } from "../use-consult-draft";
@@ -114,6 +115,8 @@ export interface ConsultWorkspaceProps {
     id: string;
     full_name: string;
     phone: string;
+    /** The patient asked not to be messaged on WhatsApp (`patients.whatsapp_opt_out`): the finish review offers no WhatsApp send. */
+    whatsapp_opt_out?: boolean;
     gender: "male" | "female" | "other" | null;
     date_of_birth: string | null;
     age?: number | null;
@@ -650,6 +653,32 @@ export function ConsultWorkspace({
     followUpDate: followUpInterval !== "none" && followUpDate ? followUpDate : null,
   };
 
+  // The finish review (V2-09c 09C-05, R-13): the medicines that match a recorded allergy and have no reason block the sign-off until each is confirmed or removed.
+  const allergyChecking = Boolean(allergyContext?.entitled) && assist?.["assist.allergy_check"] !== false;
+  const unresolvedAllergies = allergyChecking
+    ? (allergyContext?.items ?? [])
+        .filter((info) => info.matches.length > 0 && !info.overridden)
+        .flatMap((info) => {
+          const item = rxItems.find((i) => i.id === info.id);
+          return item ? [{ id: info.id, medicine: item.medicine_name, matches: info.matches.join(", ") }] : [];
+        })
+    : [];
+  const whatsappOffer = patient.whatsapp_opt_out
+    ? { available: false, unavailableReason: "This patient has asked not to be messaged on WhatsApp." }
+    : !patient.phone
+      ? { available: false, unavailableReason: "This patient has no phone number on file." }
+      : { available: true };
+  // "Go to {medicine}": closes the sheet, opens the Prescription section and puts the focus on the line's own action once the sheet has let go of the focus.
+  const goToRxLine = (itemId: string) => {
+    setIsSignModalOpen(false);
+    goToSection("prescription");
+    window.setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(`[data-rx-line-id="${CSS.escape(itemId)}"]`);
+      row?.scrollIntoView({ block: "center" });
+      (row?.querySelector<HTMLElement>("[data-rx-override]") ?? row?.querySelector<HTMLElement>("button"))?.focus({ preventScroll: true });
+    }, 250);
+  };
+
   const followUpCount = followUpInterval !== "none" && followUpDate ? 1 : 0;
   const planCount = investigations.length + adviceList.length + followUpCount;
   const stripSections: StripSection[] = [
@@ -848,6 +877,7 @@ export function ConsultWorkspace({
                     <span>{printPayload.letterhead_mode === "preprinted_letterhead" ? "PDF on blank paper" : "PDF on pre-printed paper"}</span>
                   </a>
                 )}
+                {printPayload && <SharePdfButton visitId={visit.id} />}
                 <a
                   href={`/api/invoices/${visit.id}/receipt-pdf`}
                   target="_blank"
@@ -1093,9 +1123,13 @@ export function ConsultWorkspace({
         visitId={visit.id}
         patientId={patient.id}
         patientName={patient.full_name}
-        diagnosesCount={diagnoses.length || 1}
-        medicinesCount={rxItems.length}
-        followUpDate={followUpInterval === "none" ? null : followUpDate || null}
+        summary={summaryContent}
+        unresolvedAllergies={unresolvedAllergies}
+        onGoToLine={goToRxLine}
+        whatsapp={whatsappOffer}
+        printState={printPayload && state === "sealed" ? "view" : state === "sealed" ? "pdf" : "preparing"}
+        onPrint={() => window.print()}
+        onSigned={() => router.refresh()}
         canCollect={canCollectPayment}
         onSaveDraftBeforeSign={() => handleSaveDraft()}
       />

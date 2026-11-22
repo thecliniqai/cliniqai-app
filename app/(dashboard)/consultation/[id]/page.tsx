@@ -73,6 +73,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
         id,
         full_name,
         phone,
+        whatsapp_opt_out,
         sex,
         date_of_birth,
         age,
@@ -241,6 +242,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
     id: patientRaw.id,
     full_name: patientRaw.full_name,
     phone: patientRaw.phone,
+    whatsapp_opt_out: patientRaw.whatsapp_opt_out === true,
     gender: (patientRaw.sex === "male" || patientRaw.sex === "female" || patientRaw.sex === "other"
       ? patientRaw.sex
       : null) as "male" | "female" | "other" | null,
