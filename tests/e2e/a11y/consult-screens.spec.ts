@@ -13,10 +13,9 @@ import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { randomUUID } from "node:crypto";
-import { run, seedPatient, seedSignedConsultation, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
+import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
 import { awaitHydrated } from "../support/hydrated";
-import { storageStatePath, type RunUser } from "../support/run-data";
-import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
+import { storageStatePath } from "../support/run-data";
 import { settleAnimations } from "../support/settle";
 import { rxField } from "../support/rx-entry";
 
@@ -82,11 +81,8 @@ async function seedLines(visitId: string, names: string[]): Promise<void> {
     .throwOnError();
 }
 
-let ownDoctor: RunUser | null = null;
-test.afterEach(async () => {
-  if (ownDoctor) await retireOwnDoctor(ownDoctor);
-  ownDoctor = null;
-});
+// No test in this file seeds an own doctor: a second doctor with visits today makes Today's doctor picker appear and its header wrap, which the front-desk
+// board spec (a11y/front-desk-screens, 820 x 1180) does not allow for. The Rx tiles' axe case lives in tests/e2e/consult/rx-assist.spec.ts.
 
 for (const size of WIDTHS) {
   test.describe(`consult page axe at ${size.width}px`, () => {
@@ -166,36 +162,6 @@ for (const size of WIDTHS) {
       await expect(done.locator("[data-share-pdf]")).toHaveAttribute("data-share-pdf", /^(share|download)$/, { timeout: 15_000 });
       await settleAnimations(page);
       await checkWholePage(page, testInfo, `finish-success-${size.width}`);
-    });
-
-    test(`the favourites, "your usual" and "Same as last visit" tiles: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
-      test.setTimeout(120_000);
-      const { tenantA } = run();
-      const admin = getAdminClient();
-      const own = await seedOwnDoctor("AxeTiles");
-      ownDoctor = own;
-      const tag = testTag().replace(/\W/g, "");
-      const dx = `Axe Viral fever ${tag}`;
-      const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic AxeTiles ${tag}`);
-      for (let i = 0; i < 3; i++) {
-        const v = await seedVisit({ tenantId: tenantA.id, patientId: i === 2 ? patient.id : (await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic AxeHist ${i} ${tag}`)).id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
-        const pid = (await admin.from("visits").select("patient_id").eq("id", v).single()).data!.patient_id;
-        await admin.from("clinical_notes").update({ clinical_notes: "E2E synthetic history note" }).eq("visit_id", v).throwOnError();
-        await admin.from("consultation_diagnoses").insert({ tenant_id: tenantA.id, visit_id: v, patient_id: pid, diagnosis_name: dx, icd11_code: "MG26" }).throwOnError();
-        await seedLines(v, [`Axe Alpha ${tag}`, `Axe Beta ${tag}`]);
-        await signSeededVisit(tenantA.id, v, own.email);
-      }
-      const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "in_consultation" });
-      await admin.from("consultation_diagnoses").insert({ tenant_id: tenantA.id, visit_id: visitId, patient_id: patient.id, diagnosis_name: dx, icd11_code: "MG26" }).throwOnError();
-      await signInAsOwnDoctor(page, own);
-      await page.setViewportSize(size);
-      await page.goto(`/consultation/${visitId}`);
-      await awaitHydrated(page);
-      await expect(page.locator("#prescription [data-rx-assist]")).toBeVisible();
-      await expect(page.locator("#prescription [data-rx-favourites]")).toBeVisible();
-      await expect(page.locator("#prescription [data-rx-bundles]")).toBeVisible();
-      await page.locator("#prescription").scrollIntoViewIfNeeded();
-      await checkWholePage(page, testInfo, `rx-tiles-${size.width}`);
     });
 
     test(`draft: the whole page (${size.width}px)`, async ({ page }, testInfo) => {

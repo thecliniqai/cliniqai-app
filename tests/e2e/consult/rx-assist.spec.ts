@@ -9,6 +9,7 @@
  *   - another doctor's identical diagnosis never reaches the tiles.
  * Every check runs with AI fully disabled (the platform kill switch is all off for the file; the e2e server has no provider environment). Synthetic data only.
  */
+import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
@@ -334,5 +335,42 @@ test("with assist.frequent_rx overridden off the favourites and the bundle are a
     await expect(rx.getByText("Smart Assist")).toHaveCount(0);
   } finally {
     await admin.from("tenant_entitlement_overrides").delete().eq("tenant_id", tenantA.id).eq("key", "assist.frequent_rx");
+  }
+});
+
+// V2-09c 09C-05 (M4 criterion 3): the tiles on screen, axe clean at 360, 820, 1180 and 1280. This case lives here, not in a11y/consult-screens, because it needs
+// a doctor of its own with visits today: a second doctor with visits makes Today's doctor picker appear and its header wrap, which the front-desk board spec
+// (a11y/front-desk-screens, 820 x 1180, which runs earlier) does not allow for.
+test("the favourites, your usual and Same as last visit tiles are axe clean at 360, 820, 1180 and 1280 px, and fit with no horizontal scroll", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "a11y specs own their viewport (desktop-chrome)");
+  test.setTimeout(120_000);
+  const { tenantA } = run();
+  const tag = testTag();
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic RxAxe ${tag}`);
+  await openConsult(page, "RxAxe", {
+    diagnosis: "Viral fever",
+    patientId: patient.id,
+    history: async (d, patientId) => {
+      await bundleHistory(d, tag, "Viral fever");
+      await seedSigned(d, patientId, "Viral fever", [{ name: `Axe Last Visit Tablet ${tag}`, dosage: "1-0-1", timing: "After food", duration: "5 days" }]);
+    },
+  });
+  const rx = page.locator("#prescription");
+  await expect(rx.locator("[data-rx-assist]")).toBeVisible();
+  await expect(rx.locator("[data-rx-bundles]")).toBeVisible();
+  await expect(rx.locator("[data-rx-favourites]")).toBeVisible();
+  await expect(rx.getByRole("button", { name: /^Same as last visit/ })).toBeVisible();
+  for (const size of [
+    { width: 360, height: 780 },
+    { width: 820, height: 1180 },
+    { width: 1180, height: 820 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(size);
+    await rx.scrollIntoViewIfNeeded();
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+    const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+    expect(blocking.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`), `axe at ${size.width}px`).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `no horizontal scroll at ${size.width}px`).toBe(true);
   }
 });
