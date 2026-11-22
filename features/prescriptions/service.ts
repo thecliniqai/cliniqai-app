@@ -459,6 +459,9 @@ export async function getVisitPrescription(ctx: ServiceContext, visitId: string)
 
 export type SharePrescriptionViaWhatsAppResult = { success: boolean; shareUrl?: string; token?: string; error?: string };
 
+/** 09C-06a (A-19): the fixed text of a share that is not queued because the patient opted out of WhatsApp. */
+export const SHARE_RX_OPTED_OUT_TEXT = "The patient asked not to receive WhatsApp messages. Nothing was sent.";
+
 /**
  * Shares an official prescription via WhatsApp with a 7-day secure tokenized link (/r/[token]).
  * Enqueues Event #6 (prescription_ready) outbox notification.
@@ -475,7 +478,7 @@ export async function sharePrescriptionViaWhatsApp(
     // 1. Fetch prescription record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
-      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .select("*, patient:patients(id, full_name, phone, whatsapp_opt_out), tenant:tenants(name, phone)")
       .eq("id", prescriptionId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -485,7 +488,7 @@ export async function sharePrescriptionViaWhatsApp(
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: rxByVisit } = await (supabase.from("prescriptions") as any)
-          .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+          .select("*, patient:patients(id, full_name, phone, whatsapp_opt_out), tenant:tenants(name, phone)")
           .eq("visit_id", prescriptionId)
           .eq("tenant_id", ctx.tenantId)
           .order("created_at", { ascending: false })
@@ -508,6 +511,10 @@ export async function sharePrescriptionViaWhatsApp(
 
     if (!rx.patient?.phone) {
       return { success: false, error: "Patient does not have a phone number registered." };
+    }
+    // 09C-06a (A-19): nothing is queued that the messaging layer would suppress (the patient opted out), so nothing ever reads "Sent" for it.
+    if (rx.patient.whatsapp_opt_out === true) {
+      return { success: false, error: SHARE_RX_OPTED_OUT_TEXT };
     }
 
     // 2. Secure 64-character token via create_share_token (tenant from the prescription row, P0-04)

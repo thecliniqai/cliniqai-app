@@ -336,7 +336,10 @@ export function SignAndBillModal({
                   </div>
 
                   <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end sm:self-center">
-                    {rxWaStatus === "success" ? (
+                    {!whatsapp.available ? (
+                      // A-19: an opted-out patient or one with no number is offered no WhatsApp send here either (the review says why).
+                      <WhatsAppUnavailable reason={whatsapp.unavailableReason} />
+                    ) : rxWaStatus === "success" ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>WhatsApp Sent</span>
@@ -419,7 +422,9 @@ export function SignAndBillModal({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {invWaStatus === "success" ? (
+                    {!whatsapp.available ? (
+                      <WhatsAppUnavailable reason={whatsapp.unavailableReason} />
+                    ) : invWaStatus === "success" ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>WhatsApp Sent</span>
@@ -686,5 +691,24 @@ export function SignAndBillModal({
         )}
       </ResponsiveSheetContent>
     </ResponsiveSheet>
+  );
+}
+
+/** A-19: the WhatsApp send of the success screen when the patient cannot receive it: a disabled control with the reason, never "Sent". */
+function WhatsAppUnavailable({ reason }: { reason?: string }) {
+  const text = reason ?? "WhatsApp is not available for this patient.";
+  return (
+    <span data-whatsapp-unavailable="" className="inline-flex max-w-56 items-center gap-1.5 text-xs text-gray-600">
+      <button
+        type="button"
+        disabled
+        title={text}
+        className="h-9 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-gray-300 bg-gray-50 text-gray-500 cursor-not-allowed"
+      >
+        <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>WhatsApp</span>
+      </button>
+      <span>{text}</span>
+    </span>
   );
 }

@@ -181,6 +181,15 @@ test("a patient who opted out of WhatsApp, or has no phone number, has the box d
   await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
   await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
   expect(await consolidated(optedOut.visitId)).toHaveLength(0);
+  // 09C-06a (A-19): the success screen offers no WhatsApp send either: both sends are disabled with the reason, and nothing ever says "Sent".
+  const success = page.getByRole("dialog");
+  const unavailable = success.locator("[data-whatsapp-unavailable]");
+  await expect(unavailable).toHaveCount(2);
+  for (const i of [0, 1]) {
+    await expect(unavailable.nth(i).getByRole("button", { name: "WhatsApp" })).toBeDisabled();
+    await expect(unavailable.nth(i)).toContainText("This patient has asked not to be messaged on WhatsApp.");
+  }
+  await expect(success.getByText("WhatsApp Sent")).toHaveCount(0);
   await settleAfterSign(page);
 
   await retireOwnDoctor(doctor!);
