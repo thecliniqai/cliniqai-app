@@ -208,6 +208,8 @@ test("remove, then Undo within the toast: one row with the same values", async (
   await expect.poll(async () => (await rxItemsOf(visitId)).length).toBe(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
+  // 09C-06a: Undo puts back the doctor's own line, not a suggestion: no "Repeated" marker.
+  await expect(rxList(page).first()).not.toContainText("Repeated");
   const after = await rxItemsOf(visitId);
   expect(after).toHaveLength(1);
   expect(after[0]).toMatchObject({ medicine_name: before.medicine_name, dosage: before.dosage, duration: before.duration, timing: before.timing, cdci_brand_id: before.cdci_brand_id });

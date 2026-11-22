@@ -202,9 +202,12 @@ export function PrescriptionSection({
     return { ok: true, added, left };
   };
 
-  /** After a per-line add: the added lines carry the "Repeated" marker, the left ones go to the dose builder, and the live region says what happened. */
-  const settleAdd = (result: { added: PrescriptionItem[]; left: RxLeftOut[] }) => {
-    rx.markRepeated(result.added.map((i) => i.id));
+  /**
+   * After a per-line add: the lines a tile or a template put in carry the "Repeated" marker (`mark`; an Undo puts back the doctor's own line, unmarked), the
+   * left ones go to the dose builder, and the live region says what happened.
+   */
+  const settleAdd = (result: { added: PrescriptionItem[]; left: RxLeftOut[] }, mark = true) => {
+    if (mark) rx.markRepeated(result.added.map((i) => i.id));
     if (result.left.length > 0) {
       const names = result.left.map((l) => l.medicine.name).join(", ");
       rx.announce(`${result.added.length} added, ${names} left for you to decide`);
@@ -289,7 +292,7 @@ export function PrescriptionSection({
       undo: () => {
         void addPerLine([{ key: `undo:${item.id}`, line: itemToAdd(item), medicine: pastItemToMedicine(item), flagged: null }], overrideReason).then((again) => {
           if (!again.ok) notify.error(again.error ?? "Could not put the medicine back.");
-          else settleAdd(again);
+          else settleAdd(again, false);
         });
       },
     });
