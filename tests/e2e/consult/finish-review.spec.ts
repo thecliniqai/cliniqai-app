@@ -158,13 +158,15 @@ test("a ticked WhatsApp box queues exactly one consolidated message; a sign whos
   const cut = await commitThenAbort(page, { first: 1, matches: (r) => (r.postData() ?? "").includes("payment_collected") });
   await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
   await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 40_000 });
+  // The success screen's own reads (the PDF for Share PDF, the page's refresh) are in flight now: the route handler is removed only after they are done,
+  // or Playwright reports "Route is already handled" for the request that was passing through it (seen once in the full lane).
+  await settleAfterSign(page);
   await cut.clear();
   expect(cut.aborted).toBe(1);
   const queued = await consolidated(visitId);
   expect(queued).toHaveLength(1);
   expect(queued[0].dedupe_key).toMatch(new RegExp(`consultation_documents:${visitId}$`));
   expect((await invoicesOf(visitId)).length).toBe(1);
-  await settleAfterSign(page);
 });
 
 test("a patient who opted out of WhatsApp, or has no phone number, has the box disabled with the reason and no message is queued", async ({ page }, testInfo) => {

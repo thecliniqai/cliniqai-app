@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { AlertTriangle, Lock } from "lucide-react";
 import { SummaryBody, type SummaryContent } from "./summary-pane";
 
@@ -36,6 +37,7 @@ export interface FinishReviewProps {
 }
 
 export function FinishReview({ summary, unresolved, onGoToLine, whatsapp }: FinishReviewProps) {
+  const whatsappId = useId();
   return (
     <div data-finish-review="" className="flex flex-col gap-4">
       {unresolved.length > 0 && (
@@ -69,25 +71,27 @@ export function FinishReview({ summary, unresolved, onGoToLine, whatsapp }: Fini
         <SummaryBody content={summary} />
       </section>
 
-      <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-3.5">
-        <label className="flex items-start gap-3 text-body-sm text-fg">
-          <input
-            type="checkbox"
-            data-finish-whatsapp=""
-            checked={whatsapp.available && whatsapp.checked}
-            disabled={!whatsapp.available}
-            onChange={(e) => whatsapp.onChange(e.target.checked)}
-            className="mt-0.5 size-5 shrink-0 accent-accent"
-          />
-          <span>
-            <span className="block font-semibold">Send the prescription and receipt on WhatsApp</span>
-            <span className="block text-label text-fg-muted">
-              {whatsapp.available
-                ? "One message to the number on file, sent when you sign. Left unticked, nothing is sent; you can still print, share the PDF or send it after signing."
-                : (whatsapp.unavailableReason ?? "Not available for this patient.")}
-            </span>
-          </span>
-        </label>
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-surface p-3.5">
+        <input
+          id={whatsappId}
+          type="checkbox"
+          data-finish-whatsapp=""
+          checked={whatsapp.available && whatsapp.checked}
+          disabled={!whatsapp.available}
+          aria-describedby={`${whatsappId}-help`}
+          onChange={(e) => whatsapp.onChange(e.target.checked)}
+          className="mt-0.5 size-5 shrink-0 accent-accent"
+        />
+        <div className="min-w-0 text-body-sm text-fg">
+          <label htmlFor={whatsappId} className="block font-semibold">
+            Send the prescription and receipt on WhatsApp
+          </label>
+          <p id={`${whatsappId}-help`} className="text-label text-fg-muted">
+            {whatsapp.available
+              ? "One message to the number on file, sent when you sign. Left unticked, nothing is sent; you can still print, share the PDF or send it after signing."
+              : (whatsapp.unavailableReason ?? "Not available for this patient.")}
+          </p>
+        </div>
       </div>
 
       <p data-finish-lock-note="" className="flex items-start gap-2 text-label text-fg-secondary">
