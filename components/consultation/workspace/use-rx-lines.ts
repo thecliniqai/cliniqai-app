@@ -28,6 +28,9 @@ export interface RxSendResult {
   ok: boolean;
   /** A fixed, data-free text when `ok` is false. */
   error?: string;
+  /** The `AppError` code and reason of a refusal (the entry row opens the allergy reason on `ALLERGY_MATCH`). */
+  code?: string;
+  reason?: string;
   /** The items the send added, in the order they were sent. */
   added?: PrescriptionItem[];
 }
@@ -36,7 +39,7 @@ export interface UseRxLines {
   items: PrescriptionItem[];
   /** True while a command is in flight. */
   busy: boolean;
-  add(lines: ChangeLine[]): Promise<RxSendResult>;
+  add(lines: ChangeLine[], allergyReason?: string): Promise<RxSendResult>;
   update(updates: ChangeUpdate[]): Promise<RxSendResult>;
   remove(ids: string[]): Promise<RxSendResult>;
   /** Several kinds in one command (a template apply, an Undo). */
@@ -86,7 +89,12 @@ export function useRxLines({
             reportClientError("prescriptions.change.failed", new Error(result.error.code));
           }
           const unknown = isOutcomeUnknownCode(result.error.code);
-          return { ok: false, error: unknown ? `${result.error.message} ${OUTCOME_UNKNOWN_MESSAGE}`.trim() : result.error.message };
+          return {
+            ok: false,
+            error: unknown ? `${result.error.message} ${OUTCOME_UNKNOWN_MESSAGE}`.trim() : result.error.message,
+            code: result.error.code,
+            reason: result.error.reason,
+          };
         }
         lastKey.current = null;
         const { prescriptionId, addedItemIds } = result.value;
@@ -131,7 +139,7 @@ export function useRxLines({
   return {
     items,
     busy: inFlight > 0,
-    add: (lines) => send({ add: lines }),
+    add: (lines, allergyReason) => send({ add: lines, ...(allergyReason ? { allergy_override_reason: allergyReason } : {}) }),
     update: (updates) => send({ update: updates }),
     remove: (ids) => send({ remove: ids }),
     send,

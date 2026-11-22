@@ -9,6 +9,8 @@ import {
 } from "@/features/consultation/actions";
 import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { getVisitPrescription } from "@/features/prescriptions/actions";
+import { getRxAllergyContext } from "@/features/prescriptions/service";
+import type { RxAllergyContext } from "@/features/prescriptions/allergy";
 import { ConsultWorkspace } from "@/components/consultation/workspace/consult-workspace";
 import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
 import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
@@ -196,6 +198,17 @@ async function ConsultationPage(props: ConsultationPageProps) {
     }
   }
 
+  // 12. The allergy picture of the visit (V2-09c 09C-02, R-7): the state, the coded allergies and what each current line matches. A failed or refused read is
+  // "none": the screen then draws the allergy strip only and the database still checks every add.
+  let allergyContext: RxAllergyContext | null = null;
+  {
+    const resolved = await resolveServiceContext("consultations:view");
+    if (resolved.ok) {
+      const loaded = await getRxAllergyContext(resolved.ctx, id);
+      if (loaded.success) allergyContext = loaded.context;
+    }
+  }
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -258,12 +271,14 @@ async function ConsultationPage(props: ConsultationPageProps) {
       pastEncounters={pastEncounters}
       assist={assist}
       assistContext={assistContext}
+      allergyContext={allergyContext}
       snapshot={snapshot}
       macros={macros}
       upcomingVisits={upcomingVisits}
       canBook={hasPerm(membership.role, "appointments:edit")}
       documents={documents}
       canUpload={hasPerm(membership.role, "labs:edit")}
+      canRecordAllergies={hasPerm(membership.role, "patients:edit") && hasPerm(membership.role, "consultations:view")}
       canCollectPayment={hasPerm(membership.role, "billing:collect")}
       // The commands need all three (owner, doctor); the database refuses anyone else, this only shapes the screen.
       canAmend={

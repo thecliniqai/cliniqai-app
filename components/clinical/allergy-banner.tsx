@@ -23,6 +23,8 @@ export interface AllergyBannerProps {
   conditions?: readonly string[];
   /** Not recorded: the "Record now" action. */
   onRecord?: () => void;
+  /** Known or none: the "Edit" action (V2-09c 09C-02). */
+  onEdit?: () => void;
   className?: string;
 }
 
@@ -30,7 +32,12 @@ export function allergyText(allergies: readonly string[]): string {
   return `${allergies.length === 1 ? "Allergy" : "Allergies"}: ${allergies.join(", ")}`;
 }
 
-export function AllergyBanner({ allergies, conditions, onRecord, className }: AllergyBannerProps) {
+const BANNER_ACTION = cn(
+  "ml-auto inline-flex min-h-6 cursor-pointer items-center justify-center rounded-sm px-1 font-semibold underline underline-offset-2 touch:min-h-control touch:min-w-control",
+  FOCUS_RING,
+);
+
+export function AllergyBanner({ allergies, conditions, onRecord, onEdit, className }: AllergyBannerProps) {
   const chronic = conditions && conditions.length > 0 ? conditions.join(", ") : null;
 
   if (allergies && allergies.length > 0) {
@@ -51,6 +58,11 @@ export function AllergyBanner({ allergies, conditions, onRecord, className }: Al
             Chronic: {chronic}
           </span>
         )}
+        {onEdit && (
+          <button type="button" onClick={onEdit} data-allergy-edit="" className={BANNER_ACTION}>
+            Edit<span className="sr-only"> allergies</span>
+          </button>
+        )}
       </div>
     );
   }
@@ -63,6 +75,11 @@ export function AllergyBanner({ allergies, conditions, onRecord, className }: Al
           No known allergies
         </span>
         {chronic && <span>Chronic: {chronic}</span>}
+        {onEdit && (
+          <button type="button" onClick={onEdit} data-allergy-edit="" className={cn(BANNER_ACTION, "text-fg-secondary")}>
+            Edit<span className="sr-only"> allergies</span>
+          </button>
+        )}
       </div>
     );
   }
@@ -84,14 +101,7 @@ export function AllergyBanner({ allergies, conditions, onRecord, className }: Al
         </span>
       )}
       {onRecord && (
-        <button
-          type="button"
-          onClick={onRecord}
-          className={cn(
-            "ml-auto inline-flex min-h-6 cursor-pointer items-center justify-center rounded-sm px-1 font-semibold underline underline-offset-2 touch:min-h-control touch:min-w-control",
-            FOCUS_RING,
-          )}
-        >
+        <button type="button" onClick={onRecord} data-allergy-record="" className={BANNER_ACTION}>
           Record now
         </button>
       )}

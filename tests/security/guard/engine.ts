@@ -691,7 +691,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" | "session-medicine-search" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" | "session-medicine-search" | "session-substance-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1250,6 +1250,48 @@ export async function sessionMedicineSearchRouteLegs(
     }
   } finally {
     // The row is a global reference fixture with a fixed prefix; it is left in place like the other synthetic catalogue rows (tests/setup/teardown.ts).
+  }
+  return out;
+}
+
+/**
+ * `session-substance-search` route (09C-02, T-09C-03): the least-privileged holder of the permission searches a synthetic CDCI substance and gets 200 with
+ * `no-store` and rows with exactly the projection keys; nothing of tenant B is in the response; a hostile query is data (200, never a 500). The substance
+ * table is global reference data, so the row inserted for the control touches no tenant's rows.
+ */
+export async function sessionSubstanceSearchRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-substance-search" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  const admin = getAdminClient();
+  const id = `test-sub-09c-guard-${randomBytes(4).toString("hex")}`;
+  const name = `Guardcanary substance ${randomBytes(4).toString("hex")}`;
+  const inserted = await admin.from("cdci_substances").upsert({ id, substance_name: name }, { onConflict: "id" });
+  if (inserted.error) return [routeV(c, "control", `could not seed the substance: ${inserted.error.message}`)];
+  const r = await callRoute(slot, client, c, { query: { q: name } });
+  out.push(...expectStatus(c, "a substance", r, [200]), ...expectNoB(c, "a substance", r, world));
+  if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, "a substance", "no Cache-Control: no-store"));
+  let rows: Array<Record<string, unknown>> = [];
+  try {
+    rows = (JSON.parse(r.body) as { results?: Array<Record<string, unknown>> }).results ?? [];
+  } catch {
+    out.push(routeV(c, "a substance", `body is not { results: [...] }: ${brief(r.body)}`));
+  }
+  if (!rows.some((row) => row.name === name)) out.push(routeV(c, "a substance", "the control row was not listed"));
+  for (const row of rows) {
+    const keys = Object.keys(row);
+    if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+      out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+    }
+  }
+  for (const [leg, q] of [["SQL text", "'; drop table cdci_substances; --"], ["array syntax", '"},{"x":"y"}'], ["a NUL character", "\u0000ab"], ["wildcards", "%%"]] as const) {
+    const hostile = await callRoute(slot, client, c, { query: { q } });
+    out.push(...expectStatus(c, `hostile query: ${leg}`, hostile, [200]), ...expectNoB(c, `hostile query: ${leg}`, hostile, world));
   }
   return out;
 }

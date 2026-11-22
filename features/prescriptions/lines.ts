@@ -92,6 +92,8 @@ export interface PrescriptionChanges {
   add?: ChangeLine[];
   update?: ChangeUpdate[];
   remove?: string[];
+  /** V2-09c 09C-02 (R-7): the reason to prescribe a medicine that matches a recorded allergy (5 to 300 characters). */
+  allergy_override_reason?: string;
 }
 
 /** Whether a line can be sent: a frequency and a duration (days or a kept text) are required, a timing is not. */
@@ -161,7 +163,7 @@ export function itemFromAdd(line: ChangeLine, id: string, prescriptionId: string
 
 /** The key that tells two sends apart: the same changes keep the same request id after a failure (idempotent retry), other changes start a new one. */
 export function changesKey(visitId: string, changes: PrescriptionChanges): string {
-  return JSON.stringify([visitId, changes.add ?? [], changes.update ?? [], changes.remove ?? []]);
+  return JSON.stringify([visitId, changes.add ?? [], changes.update ?? [], changes.remove ?? [], changes.allergy_override_reason ?? null]);
 }
 
 /**

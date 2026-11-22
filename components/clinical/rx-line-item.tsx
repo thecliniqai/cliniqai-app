@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { frequencyWords, lineDuration, type RxLine } from "@/lib/clinical/rx";
+import { allergyReasonError } from "@/features/prescriptions/allergy";
 
 /**
  * RxLineItem (V2-06 06-03b; 06-UI-SPEC RxLineItem, CD-34; DESIGN_SYSTEM §7.6): one prescription line in an `<ol>`.
@@ -29,6 +30,8 @@ export interface RxLineItemProps {
   /** The allergy this drug matches (salt mapping is V2-09); the line stays flagged until overridden with a reason. */
   allergyMatch?: string | null;
   onOverride?: (reason: string) => void;
+  /** A line under the row: "Prescribed despite allergy: …" or "Checked by name only" (V2-09c 09C-02). */
+  note?: { text: string; tone: "info" | "danger" } | null;
   /** A sealed or otherwise read-only record (V2-09c R-5): the dose is plain text, with no pills to edit and no remove button. */
   readOnly?: boolean;
   className?: string;
@@ -40,7 +43,7 @@ const PILL = cn(
   FOCUS_RING,
 );
 
-export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, readOnly = false, className }: RxLineItemProps) {
+export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, note, readOnly = false, className }: RxLineItemProps) {
   const [overriding, setOverriding] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -106,13 +109,17 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
           />
         </>
       )}
+      {note && (
+        <p data-rx-note="" className={cn("col-span-full col-start-2 text-caption", note.tone === "danger" ? "text-danger-fg" : "text-fg-muted")}>
+          {note.text}
+        </p>
+      )}
       {flagged && (
         <div className="col-span-full col-start-2 flex flex-col gap-1.5" data-allergy-match="">
           <p className="flex items-start gap-1.5 text-label text-danger-fg">
             <OctagonAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
             <span>
-              <span className="font-semibold">Matches allergy: {allergyMatch}</span> · Not on the prescription until you
-              confirm
+              <span className="font-semibold">Matches allergy: {allergyMatch}</span> · Review it, remove it, or confirm with a reason
             </span>
           </p>
           {!overriding ? (
@@ -124,8 +131,9 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
               className="flex flex-wrap items-start gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!reason.trim()) {
-                  setReasonError("Enter a reason to prescribe despite the allergy");
+                const bad = allergyReasonError(reason);
+                if (bad) {
+                  setReasonError(bad);
                   return;
                 }
                 onOverride?.(reason.trim());

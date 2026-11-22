@@ -121,6 +121,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // vitals wrote since): the client rebases and asks (R-5). A sealed, completed or cancelled visit takes no draft.
   DRAFT_CONFLICT: "CONFLICT",
   DRAFT_LOCKED: "CONFLICT",
+  // V2-09c 09C-02 (migration 000118, R-7, AI-11): a medicine that matches a recorded allergy is refused until the doctor gives a reason.
+  ALLERGY_MATCH: "CONFLICT",
   VISIT_NOT_CHECKABLE: "CONFLICT",
   // V2-07 07-03 (migration 000098): the front-desk commands. The doctor's slot is taken / outside the clinic-local shifts /
   // inside a schedule block (register_and_book; the overbook confirmation re-sends with the override); a visit this user

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import { focusBoxInput } from "@/lib/ui/focus-box";
+import { allergyReasonError } from "@/features/prescriptions/allergy";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import {
   DURATION_PRESETS,
@@ -60,17 +61,21 @@ export interface RxEntryRowProps {
    * Adds the line. A promise answers `{ ok: false, error }` to keep the line in the dose builder with that error (Enter sends it again); `ok: true` or no
    * answer closes the builder and empties the field for the next medicine.
    */
-  onAdd: (line: RxLine) => void | Promise<RxAddResult | void>;
+  onAdd: (line: RxLine, opts?: { allergyReason?: string }) => void | Promise<RxAddResult | void>;
   /** Called with each change of the line being built (the host starts a new request after an error). */
   onEdit?: () => void;
   /** Accessible name of the combobox. */
   label?: string;
-  /** Marks a medicine whose result row carries the danger "Allergy" chip (09C-02); also shown in the dose builder. */
+  /**
+   * V2-09c 09C-02 (R-7): the recorded allergies a medicine matches ("Amoxicillin"), or null. A result row then carries the danger "Allergy" chip, the dose
+   * builder says "Matches allergy: …", and the line is added only after "Prescribe anyway" with a reason of 5 to 300 characters.
+   */
   allergyOf?: (medicine: Medicine) => string | null;
   className?: string;
 }
 
-export type RxAddResult = { ok: true } | { ok: false; error: string };
+/** `needsReason`: the database refused the line because it matches a recorded allergy (the dose builder then asks for the reason). */
+export type RxAddResult = { ok: true } | { ok: false; error: string; needsReason?: boolean };
 
 export const RX_CHOOSE_DOSE_TEXT = "Choose a frequency (1 to 5) and a duration such as 5d";
 export const RX_SEARCH_FAILED_TEXT = "Couldn't search medicines. Try again.";
@@ -133,6 +138,8 @@ export function RxEntryRow({
   const [durBuffer, setDurBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [reason, setReason] = useState("");
+  const [reasonOpen, setReasonOpen] = useState(false);
   // The remote answer and the query it answers (results are never shown for another query: Enter must not pick a stale top row).
   const [answer, setAnswer] = useState<{ query: string; hits: readonly Medicine[]; failed: boolean }>({ query: "", hits: [], failed: false });
   const [loading, setLoading] = useState(false);
@@ -201,6 +208,8 @@ export function RxEntryRow({
     setFreqKey(null);
     setDurBuffer("");
     setError(null);
+    setReason("");
+    setReasonOpen(false);
   }
 
   function openBuilder(medicine: Medicine) {
@@ -267,18 +276,34 @@ export function RxEntryRow({
       durationText: pending.durationText,
       instruction: pending.instruction.trim() || undefined,
     };
+    // A medicine that matches a recorded allergy is added only with a reason (R-7): the first Enter or tap opens the reason field, the next sends.
+    const matched = allergyOf ? allergyOf(pending.medicine) : null;
+    const asking = Boolean(matched) || reasonOpen;
+    if (asking) {
+      if (!reasonOpen) {
+        setReasonOpen(true);
+        setError(`Matches allergy: ${matched}. Give a reason to prescribe it.`);
+        return;
+      }
+      const reasonError = allergyReasonError(reason);
+      if (reasonError) {
+        setError(reasonError);
+        return;
+      }
+    }
     setSending(true);
     setError(null);
     let answered: RxAddResult | void = undefined;
     try {
-      answered = await onAdd(line);
+      answered = await onAdd(line, asking ? { allergyReason: reason.trim() } : undefined);
     } finally {
       if (mounted.current) setSending(false);
     }
     if (!mounted.current) return;
     if (answered && !answered.ok) {
       setError(answered.error);
-      inputRef.current?.focus();
+      if (answered.needsReason) setReasonOpen(true);
+      if (!answered.needsReason) inputRef.current?.focus();
       return;
     }
     closeBuilder();
@@ -505,6 +530,32 @@ export function RxEntryRow({
           error={error}
           busy={sending}
           notice={pendingAllergy ? `Matches allergy: ${pendingAllergy}` : null}
+          submitLabel={pendingAllergy || reasonOpen ? (reasonOpen ? "Prescribe anyway" : "Prescribe anyway…") : undefined}
+          extra={
+            reasonOpen ? (
+              <Input
+                kind="name"
+                autoCapitalize="sentences"
+                aria-label="Reason to prescribe anyway"
+                placeholder="Reason to prescribe despite the allergy"
+                maxLength={300}
+                value={reason}
+                // The reason field opens on the doctor's own Enter or tap; focus moves into it.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commit("tap");
+                  }
+                }}
+              />
+            ) : null
+          }
           keyHints
         />
       )}
@@ -530,6 +581,8 @@ export interface DoseBuilderProps {
   busy?: boolean;
   /** A warning above the tiles (V2-09c 09C-02: "Matches allergy: Amoxicillin"). */
   notice?: string | null;
+  /** Extra content above the footer (the allergy reason field). */
+  extra?: React.ReactNode;
 }
 
 /**
@@ -549,6 +602,7 @@ export function DoseBuilder({
   keyHints = false,
   busy = false,
   notice = null,
+  extra = null,
 }: DoseBuilderProps) {
   const headingId = useId();
   const presetDays = (DURATION_PRESETS as readonly number[]).includes(value.days) ? String(value.days) : "";
@@ -673,6 +727,7 @@ export function DoseBuilder({
           }
         }}
       />
+      {extra}
       {error && (
         <p role="alert" className="text-label text-danger-fg">
           {error}

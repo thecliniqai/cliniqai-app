@@ -42,6 +42,9 @@ import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Check, CheckCircle2, FilePenLine, Loader2, Lock, MessageSquare, Printer, Receipt, Save, UserRound } from "lucide-react";
 import { ConsultTopBar } from "./consult-top-bar";
 import { AllergyStrip } from "./allergy-strip";
+import { AllergyEditor } from "@/components/clinical/allergy-editor";
+import { getRxAllergyContextAction } from "@/features/prescriptions/actions";
+import type { RxAllergyContext } from "@/features/prescriptions/allergy";
 import { AmendingBanner } from "./amending-banner";
 import { ConsultSection, sectionTitleId } from "./consult-section";
 import { SectionStrip, type StripSection } from "./section-strip";
@@ -124,6 +127,8 @@ export interface ConsultWorkspaceProps {
    * (the two commands check all three, so owner and doctor). The database refuses anyone else; this only shapes the screen.
    */
   canAmend?: boolean;
+  /** The signed-in user may record allergies: patients:edit and consultations:view (the 000055 rule: the front desk cannot). Shapes the screen only. */
+  canRecordAllergies?: boolean;
   /**
    * The active clinic's `assist.*` entitlements by key, resolved on the server (V2-09b R-10); the Smart Assist features of 09B-03 to 09B-04b read it.
    * Not used by the frame yet.
@@ -134,6 +139,8 @@ export interface ConsultWorkspaceProps {
    * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
    */
   assistContext?: AssistContext | null;
+  /** The allergy picture of the visit the page read (V2-09c 09C-02, R-7): the three states, the coded allergies, what each line matches. */
+  allergyContext?: RxAllergyContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
   snapshot?: PatientSnapshot | null;
   /** The signed-in doctor's own text macros (V2-09b 09B-04b, R-14), read on the server only with `assist.shorthand` and an editable record. */
@@ -208,8 +215,10 @@ export function ConsultWorkspace({
   pastEncounters = [],
   canCollectPayment = false,
   canAmend = false,
+  canRecordAllergies: mayRecordAllergies = false,
   assist,
   assistContext = null,
+  allergyContext: initialAllergyContext = null,
   snapshot = null,
   macros = [],
   upcomingVisits = [],
@@ -283,6 +292,30 @@ export function ConsultWorkspace({
   const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [] });
   const rxItems = rx.items;
 
+  // The allergies and what each line matches (V2-09c 09C-02, R-7, R-8). The strip draws the stored list; the editor saves it through one command and the
+  // context is read again (after a save and after every change of the lines) so the chips, the notices and the line states follow the database's rule.
+  const [allergies, setAllergies] = useState<string[] | null>(patient.allergies ?? null);
+  const [allergyContext, setAllergyContext] = useState<RxAllergyContext | null>(initialAllergyContext);
+  const [isAllergyEditorOpen, setIsAllergyEditorOpen] = useState(false);
+  const [allergyVersion, setAllergyVersion] = useState(0);
+  const firstContext = useRef(true);
+  useEffect(() => {
+    // The page already read the context for the first render.
+    if (firstContext.current) {
+      firstContext.current = false;
+      return;
+    }
+    let alive = true;
+    void getRxAllergyContextAction(visit.id)
+      .then((res) => {
+        if (alive && res.success && res.context) setAllergyContext(res.context);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [visit.id, rxItems, allergyVersion]);
+
   // Referral state
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [activeReferral, setActiveReferral] = useState<Referral | null>(null);
@@ -339,6 +372,9 @@ export function ConsultWorkspace({
   };
   const shorthandOn = assist?.["assist.shorthand"] === true && !readOnly;
   const followUpOn = assist?.["assist.followup"] === true && !readOnly;
+  // The allergy editor is offered while the record is editable and the role may record allergies (consultations:edit stands for the clinical roles here; the
+  // command itself needs patients:edit and consultations:view and the database refuses anyone else).
+  const canRecordAllergies = !readOnly && mayRecordAllergies;
   const finishAvailable = state !== "sealed" && state !== "amending" && !readOnly && visit.status !== "cancelled";
   useConsultShortcuts({
     onSection: (n) => goToSection(SECTION_IDS[n - 1]),
@@ -705,7 +741,12 @@ export function ConsultWorkspace({
             </>
           }
         />
-        <AllergyStrip allergies={patient.allergies} conditions={patient.chronic_conditions} />
+        <AllergyStrip
+          allergies={allergies}
+          conditions={patient.chronic_conditions}
+          onRecord={canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined}
+          onEdit={canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined}
+        />
         <SectionStrip sections={stripSections} active={activeSection} onSelect={(id) => goToSection(id as SectionId)} onSummary={() => setIsSummaryOpen(true)} />
       </header>
 
@@ -854,6 +895,17 @@ export function ConsultWorkspace({
               <PrescriptionSection
                 key={editorKey}
                 rx={rx}
+                allergy={
+                  allergyContext
+                    ? {
+                        state: allergyContext.state,
+                        entitled: allergyContext.entitled && assist?.["assist.allergy_check"] !== false,
+                        entries: allergyContext.allergies,
+                        items: Object.fromEntries(allergyContext.items.map((i) => [i.id, i])),
+                        onRecord: canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined,
+                      }
+                    : null
+                }
                 readOnly={readOnly}
                 canRepeatLast={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
                 onRepeatLast={async () => {
@@ -965,6 +1017,17 @@ export function ConsultWorkspace({
       />
 
       {/* Finish: the draft is flushed before the sheet opens and again before the sign-off command (R-8). */}
+      <AllergyEditor
+        open={isAllergyEditorOpen}
+        onOpenChange={setIsAllergyEditorOpen}
+        patientId={patient.id}
+        initial={allergies}
+        codedTexts={(allergyContext?.allergies ?? []).filter((a) => a.substanceIds.length > 0).map((a) => a.text)}
+        onSaved={(list) => {
+          setAllergies(list);
+          setAllergyVersion((n) => n + 1);
+        }}
+      />
       <SignAndBillModal
         isOpen={isSignModalOpen}
         onClose={() => setIsSignModalOpen(false)}

@@ -1,6 +1,7 @@
 import fs from "fs";
 import readline from "readline";
 import path from "path";
+import { parseGenericSubstanceIds } from "./seed/cdci-parse";
 
 // Ensure environment variables are loaded from .env
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -114,6 +115,8 @@ export async function seedCdci() {
   await ingestTsvFile(path.join(cdciDir, "GenericMaster.txt"), "cdci_generics", (_headers, fields) => ({
     id: fields[0],
     generic_name: fields[1] || "Unknown Generic",
+    // V2-09c 09C-02 (R-6, R-7): column 3 holds the generic's substance ids joined by "+"; the allergy check compares them with the patient's coded allergies.
+    substance_ids: parseGenericSubstanceIds(fields[2]),
   }));
 
   // 7. Brands

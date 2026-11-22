@@ -19,6 +19,7 @@ import {
   type ChangePrescriptionInput,
 } from "./schema";
 import { callCommand } from "@/lib/commands/call-command";
+import { ALLERGY_MATCH_MESSAGE, type RxAllergyContext } from "./allergy";
 import type { AppError } from "@/lib/errors/app-error";
 import { isArchivable, resolvePrescriptionPdf } from "./pdf/generator";
 import { loadPrescriptionPdfSource } from "./pdf/payload";
@@ -107,6 +108,8 @@ const RX_CHANGE_MESSAGES = {
   IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
   VALIDATION_FAILED: "Check the medicine details and try again.",
   DRAFT_LOCKED: SIGNED_CONSULTATION_MESSAGE,
+  // V2-09c 09C-02 (R-7): the database refused a medicine that matches a recorded allergy; the doctor gives a reason.
+  ALLERGY_MATCH: ALLERGY_MATCH_MESSAGE,
   INTERNAL: "Failed to update the prescription. Please try again.",
 } as const satisfies DbErrorMessages;
 
@@ -142,6 +145,7 @@ export async function changePrescription(ctx: ServiceContext, input: ChangePresc
   if (changes.add?.length) payload.add = changes.add;
   if (changes.update?.length) payload.update = changes.update;
   if (changes.remove?.length) payload.remove = changes.remove;
+  if (changes.allergy_override_reason) payload.allergy_override_reason = changes.allergy_override_reason;
 
   const outcome = await callCommand(
     ctx,
@@ -519,5 +523,42 @@ export async function sharePrescriptionViaWhatsApp(
       success: false,
       error: clientErrorMessage(err, "Failed to share prescription."),
     };
+  }
+}
+
+const allergyContextSchema = z.object({
+  state: z.enum(["not_recorded", "none", "known"]),
+  entitled: z.boolean(),
+  allergies: z.array(z.object({ text: z.string(), substance_ids: z.array(z.string()) })),
+  items: z.array(z.object({ id: z.string().uuid(), matches: z.array(z.string()), checked_by: z.enum(["substance", "name"]), overridden: z.boolean(), override_reason: z.string().nullable() })),
+});
+
+export type GetRxAllergyContextResult = { success: true; context: RxAllergyContext | null } | { success: false; error: string };
+
+/**
+ * The allergy picture of a consult (V2-09c 09C-02, R-7): `public.rx_allergy_context` on the caller's own client (INVOKER: RLS applies). `null` when the visit
+ * is not in the session's clinic or the caller may not read it. consultations:view; the tenant is the session's.
+ */
+export async function getRxAllergyContext(ctx: ServiceContext, visitId: string): Promise<GetRxAllergyContextResult> {
+  try {
+    assertPerm(ctx.role, "consultations:view");
+    if (!z.string().uuid().safeParse(visitId).success) return { success: true, context: null };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (ctx.db as any).rpc("rx_allergy_context", { p_tenant_id: ctx.tenantId, p_visit_id: visitId });
+    if (error) throw error;
+    if (data == null) return { success: true, context: null };
+    const parsed = allergyContextSchema.safeParse(data);
+    if (!parsed.success) throw new Error("rx_allergy_context returned an unexpected shape");
+    return {
+      success: true,
+      context: {
+        state: parsed.data.state,
+        entitled: parsed.data.entitled,
+        allergies: parsed.data.allergies.map((a) => ({ text: a.text, substanceIds: a.substance_ids })),
+        items: parsed.data.items.map((i) => ({ id: i.id, matches: i.matches, checkedBy: i.checked_by, overridden: i.overridden, overrideReason: i.override_reason })),
+      },
+    };
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to load the allergy check.", "prescriptions.allergy_context.failed") };
   }
 }

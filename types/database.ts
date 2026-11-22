@@ -2002,6 +2002,7 @@ export type Database = {
       };
       prescription_items: {
         Row: {
+          allergy_override: Json | null;
           cdci_brand_id: string | null;
           cdci_generic_id: string | null;
           created_at: string;
@@ -2019,6 +2020,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          allergy_override?: Json | null;
           cdci_brand_id?: string | null;
           cdci_generic_id?: string | null;
           created_at?: string;
@@ -2035,6 +2037,7 @@ export type Database = {
           timing?: string | null;
         };
         Update: {
+          allergy_override?: Json | null;
           cdci_brand_id?: string | null;
           cdci_generic_id?: string | null;
           created_at?: string;
@@ -3722,6 +3725,15 @@ export type Database = {
         Args: { p_expected_migration?: string };
         Returns: Json;
       };
+      record_patient_allergies: {
+        Args: {
+          p_allergies: Json;
+          p_client_request_id: string;
+          p_patient_id: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       record_payment: {
         Args: {
           p_amount: number;
@@ -3814,6 +3826,10 @@ export type Database = {
       };
       revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
+      rx_allergy_context: {
+        Args: { p_tenant_id: string; p_visit_id: string };
+        Returns: Json;
+      };
       save_consultation_draft: {
         Args: {
           p_client_request_id: string;
@@ -3865,6 +3881,13 @@ export type Database = {
           phone_last4: string;
           rank: number;
           sex: string;
+        }[];
+      };
+      search_substances: {
+        Args: { p_limit?: number; p_query: string; p_tenant_id: string };
+        Returns: {
+          id: string;
+          substance_name: string;
         }[];
       };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };

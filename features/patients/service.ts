@@ -30,6 +30,17 @@ function sameList(a: unknown, b: string[]): boolean {
   return left.length === b.length && left.every((v, i) => v === b[i]);
 }
 
+/**
+ * V2-09c 09C-02 (R-8): allergies are compared with "not recorded" (NULL) and "none" ([]) kept apart. A form that sent no `allergies` leaves them alone; a
+ * list that equals the stored one is not written (a demographics edit by a doctor used to write [] over NULL, which showed "No known allergies" for
+ * patients nobody had asked).
+ */
+function allergiesChanged(existing: unknown, sent: string[] | undefined): boolean {
+  if (sent === undefined) return false;
+  if (existing == null) return true;
+  return !sameList(existing, sent);
+}
+
 export type UpdatePatientResult =
   { success: true; patient: Patient } | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
@@ -75,10 +86,10 @@ export async function updatePatient(
     // R-8 (V2-05 05-02b): front desk and admins update demographics only. A caller without consultations:view who
     // changes allergies or chronic conditions is refused before the write; unchanged values are not sent, so the
     // patients_clinical_fields_guard trigger (000055, the control) never sees them.
-    const allergies = data.allergies || [];
+    const allergies = data.allergies;
     const chronicConditions = data.chronic_conditions || [];
-    const clinicalFieldsChanged =
-      !sameList(existing.allergies, allergies) || !sameList(existing.chronic_conditions, chronicConditions);
+    const allergiesAreChanged = allergiesChanged(existing.allergies, allergies);
+    const clinicalFieldsChanged = allergiesAreChanged || !sameList(existing.chronic_conditions, chronicConditions);
     const mayEditClinicalFields = hasPerm(ctx.role, "consultations:view");
     if (clinicalFieldsChanged && !mayEditClinicalFields) {
       return { success: false, error: PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE };
@@ -93,7 +104,8 @@ export async function updatePatient(
         age: data.age ?? null,
         sex: data.sex || null,
         address: data.address || null,
-        ...(mayEditClinicalFields ? { allergies, chronic_conditions: chronicConditions } : {}),
+        ...(mayEditClinicalFields ? { chronic_conditions: chronicConditions } : {}),
+        ...(mayEditClinicalFields && allergiesAreChanged ? { allergies } : {}),
         emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         updated_at: new Date().toISOString(),

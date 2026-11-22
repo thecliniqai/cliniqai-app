@@ -178,6 +178,8 @@ export const changePrescriptionSchema = z
         add: z.array(changeLineSchema).max(30).optional(),
         update: z.array(changeUpdateSchema).max(30).optional(),
         remove: z.array(z.string().uuid()).max(30).optional(),
+        // V2-09c 09C-02 (R-7, Q-4): the reason to prescribe a medicine that matches a recorded allergy, 5 to 300 characters.
+        allergy_override_reason: z.string().trim().min(5, "Give a reason of at least 5 characters.").max(300).optional(),
       })
       .strict(),
     client_request_id: z.string().uuid(),

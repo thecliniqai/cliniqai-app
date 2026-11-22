@@ -14,6 +14,7 @@ import {
   updateDiagnosisNoteSchema,
   ConsultationDiagnosisItem,
 } from "./schema";
+import type { SubstanceHit } from "./substances";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
@@ -378,5 +379,30 @@ export async function getVisitDiagnoses(ctx: ServiceContext, visitId: string): P
       success: false,
       error: clientErrorMessage(err, "Failed to load diagnoses.", "terminology.get_visit_diagnoses.failed"),
     };
+  }
+}
+
+export type SearchSubstancesResult = { success: true; results: SubstanceHit[] } | { success: false; error: string };
+
+const substanceRowSchema = z.object({ id: z.string(), substance_name: z.string() });
+
+/**
+ * The allergy typeahead (V2-09c 09C-02, R-6): `public.search_substances` on the caller's own client (INVOKER: RLS applies) over the CDCI substances. The
+ * query is trimmed and capped at 60 characters; `%`, `_` and `\` in it match themselves. consultations:view; the tenant is the session's. A failed read
+ * answers a fixed text, never the driver's.
+ */
+export async function searchSubstances(ctx: ServiceContext, query: string, limit = 12): Promise<SearchSubstancesResult> {
+  try {
+    assertPerm(ctx.role, "consultations:view");
+    const clean = cleanQuery(query).slice(0, 60).trim();
+    if (clean === "") return { success: true, results: [] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (ctx.db as any).rpc("search_substances", { p_tenant_id: ctx.tenantId, p_query: clean, p_limit: Math.min(Math.max(Math.trunc(limit), 1), 12) });
+    if (error) throw error;
+    const rows = z.array(substanceRowSchema).safeParse(data ?? []);
+    if (!rows.success) throw new Error("search_substances returned an unexpected shape");
+    return { success: true, results: rows.data.map((r) => ({ id: r.id, name: r.substance_name })) };
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to search substances.", "terminology.search_substances.failed") };
   }
 }

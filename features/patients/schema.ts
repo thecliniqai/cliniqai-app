@@ -125,7 +125,8 @@ export function newPatientPayload(data: PatientInput): Record<string, unknown> {
     age: data.age,
     sex: data.sex ?? null,
     address: data.address ?? null,
-    allergies: data.allergies ?? [],
+    // V2-09c 09C-02 (R-8): nothing entered is "not recorded" (null), never "no known allergies" ([] is only an explicit choice of the allergy editor).
+    allergies: data.allergies ?? null,
     chronic_conditions: data.chronic_conditions ?? [],
     emergency_contact: data.emergency_contact ?? null,
     abha_id: data.abha_id,

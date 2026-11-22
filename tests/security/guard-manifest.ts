@@ -105,6 +105,11 @@ export type RouteGuard =
    * wildcards, tsquery syntax) is data (200, never a 500).
    */
   | { kind: "session-medicine-search"; permission: Permission; keys: readonly string[] }
+  /**
+   * V2-09c 09C-02 (T-09C-03): the allergy editor's substance typeahead `GET /api/terminology/substances?q=`. The denial legs of session(P); a member with the
+   * permission searching a synthetic substance answers 200 with `no-store` and rows with exactly `keys`, nothing of tenant B, and hostile queries are data.
+   */
+  | { kind: "session-substance-search"; permission: Permission; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -170,6 +175,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks one of their own notifications read." },
   "features/observability/actions.ts#reportClientRenderError":
     { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
+  "features/patients/actions.ts#recordPatientAllergies": "consultations:view",
   "features/patients/actions.ts#registerPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",
@@ -181,6 +187,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/patients/consent.ts#withdrawConsent": "patients:edit",
   "features/patients/dedup.ts#findPotentialDuplicates": "patients:view",
   "features/prescriptions/actions.ts#changePrescriptionAction": "prescriptions:edit",
+  "features/prescriptions/actions.ts#getRxAllergyContextAction": "consultations:view",
   "features/prescriptions/actions.ts#getDoctorProtocolTemplates": "consultations:view",
   "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "prescriptions:view",
   "features/prescriptions/actions.ts#getVisitPrescription": "consultations:view",
@@ -331,6 +338,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-medicine-search",
     permission: "prescriptions:edit",
     keys: ["id", "kind", "medicine_name", "generic_name", "dose_form", "substance_ids", "dosage", "timing", "duration"],
+  },
+  "app/api/terminology/substances/route.ts#GET": {
+    kind: "session-substance-search",
+    permission: "consultations:view",
+    keys: ["id", "name"],
   },
   "app/api/terminology/diagnoses/route.ts#GET": {
     kind: "session-diagnosis-search",

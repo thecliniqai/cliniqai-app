@@ -160,6 +160,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/observability/actions.ts#reportClientRenderError": {
     args: (a) => [{ name: "GuardSpecRenderError", route: "/today", ...acting(a) }],
   },
+  // V2-09c 09C-02: the allergy record command takes the patient, the list and a request id; the acting fields are forged at the top level and ignored.
+  "features/patients/actions.ts#recordPatientAllergies": {
+    args: (a) => [{ patient_id: a.patient, allergies: ["Synthetic allergy"], client_request_id: randomUUID(), ...acting(a) }],
+  },
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },

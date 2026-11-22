@@ -6,6 +6,7 @@ import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { appError, type Result as CommandResult } from "@/lib/errors/app-error";
 import * as rxService from "./service";
 import type {
+  GetRxAllergyContextResult,
   SaveDoctorProtocolTemplateResult,
   GetDoctorProtocolTemplatesResult,
   GetVisitPrescriptionResult,
@@ -14,6 +15,7 @@ import type {
 } from "./service";
 
 export type {
+  GetRxAllergyContextResult,
   SearchMedicinesResult,
   ChangePrescriptionResult,
   SaveDoctorProtocolTemplateResult,
@@ -41,6 +43,13 @@ export async function changePrescriptionAction(input: ChangePrescriptionInput): 
   }
   // The consult page is not revalidated per change: the section holds the lines in memory and the page reads them again on the next load.
   return { ok: true, value: { prescriptionId: result.prescriptionId, addedItemIds: result.addedItemIds, replayed: result.replayed } };
+}
+
+/** The allergy picture of a consult (V2-09c 09C-02, R-7), read again after a change. consultations:view; the tenant is the session's. */
+export async function getRxAllergyContextAction(visitId: string): Promise<GetRxAllergyContextResult> {
+  const resolved = await resolveServiceContext("consultations:view");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  return rxService.getRxAllergyContext(resolved.ctx, visitId);
 }
 
 export async function saveDoctorProtocolTemplate(input: ProtocolTemplateInput): Promise<SaveDoctorProtocolTemplateResult> {

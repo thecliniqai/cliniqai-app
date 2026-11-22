@@ -203,7 +203,8 @@ describe("change_prescription: the lines", () => {
       expect.objectContaining({ id, medicine_name: "Synthetic Update Tab", dosage: "1-0-1", timing: null, duration: "10 days", special_instructions: null }),
     ]);
     const rows = await auditRows(tenantA.tenantId, "prescription.lines_change", (up.data as { prescription_id: string }).prescription_id);
-    expect(rows.map((r) => r.metadata)).toEqual([{ added: 1, updated: 0, removed: 0 }, { added: 0, updated: 1, removed: 0 }]);
+    // `auditRows` has no order: the two rows are compared as a set.
+    expect(rows.map((r) => JSON.stringify(r.metadata)).sort()).toEqual([JSON.stringify({ added: 0, removed: 0, updated: 1 }), JSON.stringify({ added: 1, removed: 0, updated: 0 })].sort());
   });
 
   it("a custom line raises use_count by one and keeps its dose as the doctor's stored values; a catalogue line does not join the list", async () => {
