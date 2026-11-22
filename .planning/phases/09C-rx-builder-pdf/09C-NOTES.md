@@ -492,3 +492,148 @@ Compression, 4,000 x 3,000 synthetic photo (blocks of colour: hard to compress):
 - **The review's allergy gate is the screen's, not the database's** (Q-5 default): a direct call of the sign command still signs; the commands enforce the check when a medicine is added.
 - **Today's header wrap with a second doctor** (above), pre-existing and now logged.
 - **Compression numbers are from synthetic pictures**; real phone photos compress better (smooth gradients) or worse (noise): the device checklist includes real photos on an Android phone and an iPad.
+
+## 09C-06a Review fix round (migration 000120_rx_review_fixes)
+
+Executed by Claude Opus 5.5 (trailer `Co-Authored-By: Claude Opus 5.5`). Work list: every "Fix" row of `09C-REVIEW-TRIAGE.md` and the two accepted risks (now in
+`09C-SECURITY.md`). `ls supabase/migrations | tail -3` showed 000119 as the newest, so 000120 was free. 000117 to 000119 were not edited.
+
+### Commits
+
+| Commit | What |
+|---|---|
+| 21da40df | 000120 (S-1, S-2, S-5, S-6, S-7, S-8, A-8 in SQL), the TS rule twin, `ALLERGIES_CHANGED`, the allergy editor's reload, the patient edit through the command (R-AL), the v1 route (A-7), every registry, pgTAP `rx_review_fixes` (39), Vitest `rx-review-fixes-db`, fixtures naming `[]` |
+| 1ddf3960 | The Rx screen: A-1, A-11, A-2, A-3, A-4, A-5, A-10, A-12; the e2e cases; the medicine-search spec compares its own rows |
+| 243c4a2a | A-6 / S-4 compression pass-through |
+| 96b0a258 | A-9 printed age, S-9 PDF route |
+| bdac708a | A-19 success screen and share service |
+| 5dfc69b4 | A-8 editor end to end |
+| c3da1057 | Self-review: a line put back by Undo carries no "Repeated" marker |
+| 76c5d181 | The upload spec's JPEG fixture is walkable (deviation 11) |
+
+### What changed (beyond the triage text)
+
+- **000120**: `private.rx_allergy_matches` (substance OR name); `change_prescription` from the 000118 body (a catalogue line must carry its brand's name, case and
+  spacing aside, and stores the catalogue's name, generic and form; FOR SHARE); `repeat_visit_plan` from the 000119 body (a stored id whose brand name differs is
+  dropped: the line is copied as a medicine outside the catalogue; FOR SHARE); `record_patient_allergies(uuid, uuid, jsonb, jsonb, uuid)` (the 4-argument one
+  dropped; `p_expected` SQL NULL or JSON null = not recorded, else at most 200 strings; the claim answers a replay before the comparison, so a retried committed
+  save replays instead of conflicting; erased or deleted = PATIENT_NOT_FOUND); `private.patients_allergies_audit` (DEFINER, no EXECUTE grant) and its trigger
+  (`AFTER UPDATE OF allergies … WHEN distinct`): `patient.allergies_change` with `allergies_count` (null = not recorded), `added`, `removed` (case-insensitive),
+  actor = session user and membership role, else `system`; `patients.allergies DROP DEFAULT`; `doctor_custom_medicines_select` adds `doctor_id = auth.uid()`.
+- **Registries**: `EXPECTED_MIGRATION` 000120, schema snapshot (2864 lines), `types/database.ts` (`p_expected`), pgTAP FLOOR 9025 and REQUIRED_FILES
+  (`rx_review_fixes`), vitest REQUIRED_FILES (`rx-review-fixes-db`), the definer registry (the trigger, internal), `RPC_REASON_CODES` (`ALLERGIES_CHANGED` →
+  CONFLICT), the authz matrix (`doctor_custom_medicines` select = `perm(consultations:view) AND self(doctor_id)`, `npm run authz:gen`: `authz_matrix`,
+  `access_lock_rls`, `AUTHZ-MATRIX.md`), the guard valid input (`expected_allergies`, read at call time), the latency script (`p_expected: null`).
+  `patient.allergies_change` is a trigger-only action like `patient.ai_objection.*`: not in `AUDIT_ACTIONS` (the app never writes it) and refused by `log_audit`.
+- **Hook** (`use-rx-lines.ts`): `reconcile()`, `whenIdle()`, `announcement`/`announce()`, `add(…, { unique })`. An outcome-unknown failure reads the lines with
+  `getVisitPrescription` (a server action: Next runs actions one at a time, so the read runs after the stalled request ended and sees its outcome), settles the
+  request id and decides whether the change landed (adds by name in order, removes gone, update values present). Landed: ok. Not landed: "The change was not
+  saved. The list shows what is saved; try again." The read failing: the old unknown-outcome text, id kept.
+- **Finish**: `handleFinish` starts the draft flush, waits for `rx.whenIdle()` and `rx.reconcile()` (the button shows its loading state), then opens the review.
+- **Section**: `canEdit`/`canView` props; `addPerLine` + `settleAdd` (templates, tiles, Undo); tiles as `<ul><li><button>` with the tile classes; the live region is
+  rendered by the workspace, outside `#prescription` (inside it, `rx.getByText(name)` matched the announcement too: two specs went red on strict mode).
+- **Entry row**: `navigated` / `customHint`; with no listed row Enter only shows "No listed medicine matches “…”. To add it as your own medicine, press ↓ then
+  Enter, or tap Add." (visible in the list and in a polite status).
+- **Patient edit**: `allergies_expected` on `patientSchema` (never part of a registration payload); `updatePatient` runs the allergy command first, so a refused
+  allergy change leaves the demographics untouched too.
+- **PDF**: `rxAgeText` (exported for the tests); the patient line is `Patient: Name (35y MALE)`, `(MALE)` without an age (it printed `( MALE)` before).
+- **Compression**: `stripPngMetadata`, `stripWebpMetadata`, `stripImageMetadata` (by signature); `stripJpegMetadata` keeps its contract (unchanged bytes when
+  it cannot walk) and the pass-through uses the strict walk.
+
+### Deviations and decisions, with reasons
+
+1. **S-1: name mismatch refused, generic and form taken.** The row allows either; a mismatched name is refused (the screen's local item then never differs
+   from the database's name), the generic and form are the catalogue's (a saved template with a stale generic still applies). `repeat_visit_plan` cannot refuse a
+   stored line, so it drops the id instead.
+2. **S-2: two audit rows on the command path.** The trigger records every writer, the command keeps its own `patient.allergies_record` (with `coded_count`).
+   Skipping the trigger inside the command would need a flag a caller could set; two rows were preferred to a bypass.
+3. **A-19: the opt-out check only.** The review also named an unsigned header; the triage row did not, and the guard world's positive control, review3-fixes and
+   tokenized-sharing all share an unsigned header. Not added; noted for the PO.
+4. **A-6/S-4: fallbacks are not counted on the server.** `reportClientError` is a no-op in production; the only client-to-server path (`reportClientRenderError`) is
+   a render-error capture with an allow-listed class list. The privacy consequence is closed (a pass-through never carries metadata); counting is left as noted.
+5. **A-10: an explicit step costs one key on a lone Add row.** The e2e helper (`addCustomMedicine`) and `a11y/consult-screens`, `a11y/amendment-screens`,
+   `rx-allergy` press ArrowDown once when the Add row is the only row. No asserted `ux` count changed (the asserted flows pick catalogue rows).
+6. **S-5 changes fixtures, not behaviour the specs test**: the e2e `seedPatient`, the e2e global setup and the guard world inserted patients without allergies and
+   relied on `{}`; they now name `[]`. Found by the runs: `rx-keyboard` "three medicines" (Tab landed on "Record now") and the guard's `updatePatient` control
+   (a receptionist's `allergies: []` read as a clinical change against NULL).
+7. **Two pinned allergy cases changed meaning** (`allergy-match.spec.ts`: "by id, not by name" for a coded allergy): that was the S-1 bypass; they now expect the
+   match by printed name.
+8. **`medicine-search-route.spec.ts`** compares only its own rows: the CDCI test fixture (`test-cdci-123` "Galvus 50" and generics holding "%", loaded by
+   `tests/integration/cdci-search.spec.ts`, global, never deleted) matched "50%" and filled the 15-row cap for "%" when both files shared a database. A latent
+   order-dependent failure of 09C-01's spec, not caused by 000120; seen once in this round, root-caused, fixed in the spec.
+9. **A-12 tiles half**: no separate revert proof (the revert is the old ChipGroup); the A-4 case asserts no `aria-pressed` and no toggle group.
+10. **A-2 hook branch**: no unit harness for hooks (Vitest runs in node); the service half has its red; the hook half is by reading.
+11. **The upload spec's JPEG** (`tests/e2e/consult/upload.spec.ts`, 09B-05) was SOI, a truncated APP0, text and EOI: neither decodable nor walkable. A-6 now
+    refuses such a file instead of sending it as it is, so the desktop lane failed that case once (305 passed, 1 failed). The fixture is now walkable to its scan
+    (still not decodable, no metadata) and is stored byte for byte as the spec asserts (commit 76c5d181). A real phone JPEG is walkable; a truncated one is refused,
+    which is the row's rule.
+12. **Two commits beyond the fix groups**: c3da1057 (self-review: Undo lines are not marked "Repeated") and 76c5d181 (the upload fixture above).
+
+### Fails-without proofs (tool output; each change alone reverted, then restored byte for byte with `cmp` and `git diff --quiet`)
+
+SQL (the change removed from 000120, `db reset`, the files run, 000120 restored from a saved copy and compared, the stack reset at the end):
+- S-1 (rule, brand check and repeat id together): pgTAP `rx_review_fixes` failed 1, 3, 4, 5, 7, 9, 10, 11 (8 of 39); `allergy-match.spec.ts` failed 4 (the SQL side).
+- S-2 (trigger removed): pgTAP failed 13, 16, 17, 18, 20; `rx-review-fixes-db` failed the S-2 case.
+- S-5 (DROP DEFAULT removed): pgTAP failed 22, 23 (`v1-crud` stayed green: the route writes null itself, hence A-7's own proof).
+- S-6: pgTAP failed 24, 25, 26. S-7: pgTAP failed 27, 28, 29 and `authz_matrix` failed 2401, 2404, 2405, 2411.
+- S-8 (both FOR SHARE removed): `rx-review-fixes-db` failed both S-8 cases (the commands no longer waited for the held FOR NO KEY UPDATE).
+- A-8 (the comparison removed): pgTAP failed 32, 33, 34, 35; `rx-review-fixes-db` failed the two A-8 cases.
+
+App (the source changed, the spec run, the file restored): S-1 TS twin: `allergy-match` failed 4 (TS side). S-2 service (routing and `changedFields`):
+`rx-review-fixes-db` failed 2. A-7 route: `v1-crud` failed the new case. A-2 service: `rx-review-fixes-db` failed the A-2 case. A-19 service: `tokenized-sharing`
+failed the opt-out case. A-6/S-4: `compress-image` failed 4. A-9: `rx-pdf-content` failed 4. S-9: `pdf-route-guards` failed the S-9 case.
+
+UI (the source changed, `npm run e2e:build`, the spec run on desktop-chrome with `--retries=0`, the file restored, the build redone at the end):
+A-1 red (`rx-keyboard` A-1: the list stayed empty, 30 s); A-11 red (`rx-keyboard` A-11); A-3 red (both `rx-allergy` A-3 cases); A-4 red (`rx-assist` A-4: two
+lines); A-5 red (`journey-08` A-5: the entry row present); A-10 red (`rx-keyboard` A-10: no hint, a builder opened); A-12 red (`rx-keyboard` A-12); A-19 red
+(`finish-review` opt-out case: the sends offered); A-8 red (`rx-allergy` A-8: the stale list kept on screen). In every UI run the other cases of the file passed.
+
+### Counts and checks, 09C-06a (tool output of the runs named; final tree `v2/phase-09c-rx-builder-pdf` at cfc18563 for e2e, the code unchanged since c3da1057)
+
+- **pgTAP** (`npm run test:pgtap`, full, after the last `db reset` with the restored 000120): **69 files, 9025 tests**, all pass; `assert-pgtap-report.mjs` PASS at
+  FLOOR 9025 (8986 + 39 for `rx_review_fixes`; the changed files keep their counts).
+- **Vitest**: `tests/prescriptions tests/patients tests/files tests/messaging tests/security tests/settings tests/consultation tests/api tests/authz tests/audit
+  tests/commands tests/integration tests/terminology tests/billing tests/dpdp tests/jobs tests/clinical`: **195 files, 4176 tests**, all pass. Whole `tests/ci`:
+  **35 files, 441 of 441** (the `hosted dump drift tool` case passed; 10 clean runs of it in the phase). New: `rx-review-fixes-db` (6); cases added to
+  `allergy-match` (+2, 2 changed), `record-allergies-rpc` (helper and signature), `compress-image` (+3, 1 replaced), `rx-pdf-content` (+4), `pdf-route-guards` (+1),
+  `tokenized-sharing` (+1), `v1-crud` (+1).
+- **e2e**, `--retries=0`, local stack, `npm run e2e:build` after the last code change:
+  - desktop-chrome, `tests/e2e/consult tests/e2e/m0 tests/e2e/journeys tests/e2e/a11y tests/e2e/settings tests/e2e/today/review-fixes-08-06a.spec.ts` (there is
+    no `tests/e2e/patients`; the patient pages are opened by m0 `register-patient`, journey 3 and the today spec): **306 passed, 3 skipped, 0 failed** (9.5 min).
+    The lane one commit earlier: 305 passed, 1 failed (the upload fixture, deviation 11).
+  - pixel-7, the touched files (`rx-keyboard rx-allergy rx-assist finish-review journey-08 upload capture-compress consult-rx-finish journey-06-consult`):
+    **38 passed, 19 skipped (desktop-only cases), 0 failed**.
+  - iphone-15 (a temporary config without the `@golden` filter, deleted after), the same files: **37 passed, 20 skipped, 0 failed**.
+- `npm run typecheck` clean; `npx eslint .` **0 errors, 390 warnings** (09C-05: 390); `npm run inventory` exit 0 (0 flagged; 122 `use server` exports);
+  `ci:ui-policy` PASS; `ci:ai-l1` PASS; schema snapshot `--check` PASS (2864 lines); `npm run db:drift:local` PASS.
+- **Latency** (`npx tsx scripts/perf/command-latency.ts --calls 100`, after the 75 s autovacuum wait; synthetic rows removed by the script): `change_prescription`
+  p50 2.8, **p95 4.7**, p99 5.3 ms (09C-04: 4.2); `record_patient_allergies` p50 2.4, **p95 3.6**, p99 5.4 ms (2.4; the comparison and the trigger's row);
+  `repeat_visit_plan` p50 6.4, **p95 9.4**, p99 13.8 ms (6.3; the catalogue name check per line); reads: `rx_allergy_context` p95 9.1, `search_medicines` p95 35.9,
+  `consult_assist_context` p95 16.9, `search_substances` p95 2.5 ms. All under the 150 ms command and 50 ms read conditions.
+- **Route JS** (`npm run ci:route-js`, report-only): `/consultation/[id]` **387.7 kB gz, route-specific 259.2** (09C-05: 385.3 and 256.8): +2.4 kB for the
+  reconcile, the per-line add, the live region and the editor's reload. Budget 200; the V2-14 backlog row stands.
+
+### Flakes and infra, with root causes (no test passed only on retry)
+
+1. `medicine-search-route` "%, _ and \\": failed once in the 09C-06a Vitest set (deviation 8): another file's global catalogue fixture. Fixed in the spec.
+2. The desktop lane's last run logged `prescriptions.pdf_archive_read.failed OBJECT_MISSING` once after the new A-11 case (no test failed): 09C-05's flake 1
+   again (the test retired its doctor while the success screen's PDF read was in flight). The case now settles first (cfc18563); 3 clean runs, 0 warnings.
+3. The two lanes' first runs of my own new cases: `rx-keyboard` "three medicines" (Tab reached "Record now": deviation 6) and the sealed case (strict mode on the
+   announcement: the live region moved out of the section). Both were my changes, fixed before any proof run.
+- Tracked evidence PNGs rewritten by the a11y runs (`.planning/phases/09B-consult-workspace/evidence/screens/*`) were restored with `git checkout`;
+  `.planning/dev-messages.txt` was not recreated; `.planning/debug/`, `docs/live-roadmap.html` and `docs/whatsapp-templates-v2.md` were left alone; the
+  temporary iphone config was deleted; `npm run seed:local` was run last.
+
+### Risks and items for the PO
+
+- **The success-screen WhatsApp gate is client-side for the receipt send**: the Rx share refuses an opted-out patient in the service; the receipt share
+  (`shareReceiptViaWhatsApp`, billing) was not changed (the governance layer still cancels it). A one-line service check like the Rx one if the PO wants it.
+- **No unsigned-header check on the manual Rx share** (deviation 3).
+- **Two audit rows per allergy command** (deviation 2): reports that count `patient.allergies_*` actions must pick one.
+- **Old data**: lines stored before 000120 with a catalogue id whose brand name differs keep their id; the consult now flags them by name (S-1), and a repeat drops
+  the id. Templates saved with such lines are refused line by line (INPUT_INVALID) when applied; none are expected in the pilot (the search sends the brand's
+  exact name since 09C-01).
+- **A-12 tile half and A-2 hook half** have no separate revert proof (deviations 9 and 10).
+- **Compression fallbacks are not counted** (deviation 4).
+- **PO actions** (not done here): 09C-P3 now covers 000117 to 000120 on staging; the S-3 and T-09C-13 accepted risks in `09C-SECURITY.md` need the PO's
+  confirmation at the gate.
