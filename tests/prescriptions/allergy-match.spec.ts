@@ -22,6 +22,9 @@ const CASES: Case[] = [
   { name: "a coded allergy and a line with that substance", allergies: ["Qzxamoxil"], ids: ["amox"], names: ["Qzxmoxy 500", "Qzxamoxil 500 mg"], expected: ["Qzxamoxil"] },
   { name: "a coded allergy and a combination line holding it", allergies: ["Qzxclavulan"], ids: ["amox", "clav"], names: ["Qzxaugment 625", "Qzxamoxil + Qzxclavulan"], expected: ["Qzxclavulan"] },
   { name: "a coded allergy and a line with another substance", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxdolo 650", "Qzxparacet 650 mg"], expected: [] },
+  // 09C-06a (S-1): substance OR name. A line whose catalogue id claims another substance is still checked by its printed name.
+  { name: "a coded allergy and a line named for it whose ids say another substance (a forged catalogue id)", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxamoxil 500", "Qzxamoxil"], expected: ["Qzxamoxil"] },
+  { name: "a coded allergy named only in the generic of a line whose ids say another substance", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxsafe 500", "Qzxamoxil 500 mg"], expected: ["Qzxamoxil"] },
   { name: "case and spaces in a coded allergy", allergies: ["  qzxAMOXIL  "], ids: ["amox"], names: ["Qzxmoxy 500", null as never], expected: ["  qzxAMOXIL  "] },
   { name: "two allergies, one matches", allergies: ["Qzxparacet", "Qzxamoxil"], ids: ["amox"], names: ["Qzxmoxy 500", "Qzxamoxil 500 mg"], expected: ["Qzxamoxil"] },
   { name: "two allergies, both match a combination", allergies: ["Qzxamoxil", "Qzxclavulan"], ids: ["amox", "clav"], names: ["Qzxaugment 625", "x"], expected: ["Qzxamoxil", "Qzxclavulan"] },
@@ -40,8 +43,9 @@ const CASES: Case[] = [
   { name: "blank allergy strings are ignored", allergies: ["", "   "], ids: [], names: ["Anything", "x"], expected: [] },
   { name: "an allergy of only punctuation matches nothing", allergies: ["---"], ids: [], names: ["Anything --- here", "x"], expected: [] },
   { name: "no class relations: a penicillin allergy does not flag amoxicillin", allergies: ["Penicillin"], ids: [], names: ["Amoxicillin 500", "Amoxicillin"], expected: [] },
-  { name: "no salt relations: amoxicillin does not flag amoxicillin trihydrate by id", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxamoxil trihydrate 500", "x"], expected: [] },
-  { name: "an allergy that equals a substance but the line's ids are other: by id, not by name", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxamoxil-sounding brand", "Qzxparacet"], expected: [] },
+  // 09C-06a (S-1): these two pinned "by id, not by name" for a coded allergy, which is exactly the forged-id bypass; the printed name is now always checked.
+  { name: "no salt relations by id, but the allergen's word in the printed name still flags (substance OR name)", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxamoxil trihydrate 500", "x"], expected: ["Qzxamoxil"] },
+  { name: "an allergy that equals a substance and a line whose ids are other: still flagged by its printed name", allergies: ["Qzxamoxil"], ids: ["para"], names: ["Qzxamoxil-sounding brand", "Qzxparacet"], expected: ["Qzxamoxil"] },
   { name: "the order of the allergies is kept", allergies: ["Qzxclavulan", "Qzxamoxil"], ids: ["amox", "clav"], names: ["x", "y"], expected: ["Qzxclavulan", "Qzxamoxil"] },
   { name: "a repeated allergy string is reported as given", allergies: ["Qzxamoxil", "Qzxamoxil"], ids: ["amox"], names: ["x", "y"], expected: ["Qzxamoxil", "Qzxamoxil"] },
   { name: "a name with non-Latin letters matches as whole words", allergies: ["पैरासिटामोल"], ids: [], names: ["पैरासिटामोल 500", null as never], expected: ["पैरासिटामोल"] },

@@ -5,8 +5,8 @@
  *
  * - An allergy is coded when its string equals a CDCI substance name (case-insensitive, trimmed); `AllergyEntry.substanceIds` carries those ids
  *   (the database codes them; `rx_allergy_context` returns them). An empty list means "checked by name only".
- * - A coded allergy matches a line that has substance ids when the ids intersect. Otherwise (the allergy is not coded, or the line has no ids) the
- *   allergy's words must appear, in order, as whole words of the medicine or generic name (case-insensitive; non-alphanumerics split words).
+ * - A coded allergy matches a line that has substance ids when the ids intersect. Every allergy (coded or not) also matches when its words appear, in
+ *   order, as whole words of the medicine or generic name (case-insensitive; non-alphanumerics split words): substance OR name (09C-06a, S-1).
  * - No class table, no salt relations (D-9, v2.1): a penicillin allergy does not flag amoxicillin unless the allergy is written as amoxicillin.
  */
 export interface AllergyEntry {
@@ -35,14 +35,12 @@ export function allergyMatches(allergies: readonly AllergyEntry[], line: Allergy
   for (const a of allergies) {
     if (a.text.trim() === "") continue;
     const coded = a.substanceIds.length > 0;
-    let hit: boolean;
-    if (coded && lineIds.size > 0) {
-      hit = a.substanceIds.some((id) => lineIds.has(id));
-    } else {
-      const words = allergyWords(a.text);
-      hit = words !== "" && nameWords.some((n) => n.includes(` ${words} `));
-    }
-    if (hit) out.push(a.text);
+    // By substance when both sides are coded, and ALWAYS by name (09C-06a, S-1): the printed name is checked even when the line's catalogue id says
+    // something else, so a line cannot pass a coded allergy on its substances alone.
+    const bySubstance = coded && lineIds.size > 0 && a.substanceIds.some((id) => lineIds.has(id));
+    const words = allergyWords(a.text);
+    const byName = words !== "" && nameWords.some((n) => n.includes(` ${words} `));
+    if (bySubstance || byName) out.push(a.text);
   }
   return out;
 }

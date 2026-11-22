@@ -127,7 +127,7 @@ export function EditPatientModal({
       abha_id: abhaId.trim() !== "" ? abhaId.trim() : null,
       address,
       // V2-09c 09C-02 (R-8): a patient whose allergies were never recorded stays "not recorded" until something is typed here (or recorded in the consult).
-      ...(patient.allergies == null && allergies.length === 0 ? {} : { allergies }),
+      ...(patient.allergies == null && allergies.length === 0 ? {} : { allergies, allergies_expected: patient.allergies ?? null }),
       chronic_conditions,
       emergency_contact,
     });

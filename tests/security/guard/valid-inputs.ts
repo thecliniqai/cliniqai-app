@@ -15,6 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
 import type { TenantRowIds } from "./world";
+import { psql } from "../../helpers/sql";
 
 export interface InputHelpers {
   caller: { userId: string; role: UserRole };
@@ -49,6 +50,13 @@ const week = () => {
   const d = { enabled: true, shifts: [{ start: "09:00", end: "13:00" }] };
   return { monday: d, tuesday: d, wednesday: d, thursday: d, friday: d, saturday: d, sunday: { enabled: false, shifts: [] } };
 };
+
+/** The patient's stored allergy list right now (superuser read of the local stack; the id is a uuid the world created). */
+function storedAllergies(patientId: string): string[] | null {
+  if (!/^[0-9a-f-]{36}$/.test(patientId)) throw new Error("not a uuid");
+  const [row] = psql(`select coalesce(to_jsonb(allergies)::text, 'null') from public.patients where id = '${patientId}'`);
+  return row === undefined ? null : (JSON.parse(row) as string[] | null);
+}
 
 const patientInput = () => ({
   full_name: `Synthetic Guard Patient ${randomUUID().slice(0, 6)}`,
@@ -161,8 +169,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: (a) => [{ name: "GuardSpecRenderError", route: "/today", ...acting(a) }],
   },
   // V2-09c 09C-02: the allergy record command takes the patient, the list and a request id; the acting fields are forged at the top level and ignored.
+  // 09C-06a (A-8): and the list the editor started from, read at call time (other legs change the shared patient's list), so the control is not stale.
   "features/patients/actions.ts#recordPatientAllergies": {
-    args: (a) => [{ patient_id: a.patient, allergies: ["Synthetic allergy"], client_request_id: randomUUID(), ...acting(a) }],
+    args: (a) => [{ patient_id: a.patient, allergies: ["Synthetic allergy"], expected_allergies: storedAllergies(a.patient), client_request_id: randomUUID(), ...acting(a) }],
   },
   "features/patients/actions.ts#registerPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }, randomUUID()] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },

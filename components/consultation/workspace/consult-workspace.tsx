@@ -1116,6 +1116,15 @@ export function ConsultWorkspace({
           setLocalCoded(coded);
           setAllergyVersion((n) => n + 1);
         }}
+        reload={async () => {
+          // 09C-06a (A-8): the save was refused because the list changed meanwhile; the strip and the editor take the stored list.
+          const res = await getRxAllergyContextAction(visit.id).catch(() => null);
+          if (!res?.success || !res.context) return undefined;
+          const list = res.context.state === "not_recorded" ? null : res.context.allergies.map((a) => a.text);
+          setAllergyContext(res.context);
+          setAllergies(list);
+          return list;
+        }}
       />
       <SignAndBillModal
         isOpen={isSignModalOpen}

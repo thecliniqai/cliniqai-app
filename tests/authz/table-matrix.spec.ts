@@ -281,7 +281,8 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
     "perm(consultations:edit) AND self(doctor_id)",
   ],
   // V2-09c 000117: change_prescription upserts the doctor's custom medicine; INSERT and UPDATE are revoked from authenticated.
-  "public.doctor_custom_medicines": ["perm(consultations:view)", "rpc_only", "rpc_only"],
+  // V2-09c 000120 (S-7): a member reads only their own custom medicines.
+  "public.doctor_custom_medicines": ["perm(consultations:view) AND self(doctor_id)", "rpc_only", "rpc_only"],
   // V2-09b 000115: a doctor's own macros. The BEFORE INSERT trigger sets doctor_id to the caller, so INSERT needs only the permission.
   "public.doctor_text_macros": [
     "perm(consultations:edit) AND self(doctor_id)",

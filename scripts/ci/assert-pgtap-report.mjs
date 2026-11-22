@@ -141,6 +141,9 @@
  *          their counts: definer_functions (one registry row, record_patient_allergies), authz_matrix and authz_completeness (no table or policy change).
  *   8986 — V2-09c 09C-03 (000119 rx_assist): 8931 + rx_assist 55 (new file, every one required) = 8986 (68 files). consult_assist_context keeps its 29 (its empty
  *          result and its key list name the two new keys), definer_functions (one registry row, repeat_visit_plan) its count; no table, column or policy changed.
+ *   9025 — V2-09c 09C-06a (000120 rx_review_fixes): 8986 + rx_review_fixes 39 (new file, every one required) = 9025 (69 files). The changed files keep their
+ *          counts: rx_allergy_check (record_patient_allergies takes p_expected), definer_functions (one registry row, the allergy audit trigger),
+ *          authz_matrix and access_lock_rls (regenerated: the doctor_custom_medicines select cells follow the caller's own rows, S-7).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -152,7 +155,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 8986;
+export const FLOOR = 9025;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -268,6 +271,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/rx_allergy_check.test.sql",
   // V2-09c 09C-03
   "supabase/tests/database/rx_assist.test.sql",
+  // V2-09c 09C-06a
+  "supabase/tests/database/rx_review_fixes.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

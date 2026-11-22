@@ -65,6 +65,9 @@ export const patientSchema = z
       .optional()
       .nullable(),
     allergies: z.array(z.string()).optional(),
+    // 09C-06a (A-8, S-2): the allergy list the edit form started from (null = not recorded). The edit's allergy change goes through
+    // record_patient_allergies, which refuses it when the stored list differs. Never part of a registration payload.
+    allergies_expected: z.array(z.string()).nullable().optional(),
     chronic_conditions: z.array(z.string()).optional(),
     // The three keys the app writes (edit-patient-modal) and reads (patient detail, DPDP export); the front-desk commands'
     // `private.patient_input_normalize` refuses any other key (V2-07 07-04a G-6).

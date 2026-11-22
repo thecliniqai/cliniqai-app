@@ -31,6 +31,11 @@ export interface AllergyEditorProps {
   codedTexts?: readonly string[];
   /** Called after a successful save with the list and the entries the editor knows are coded (substance picks), so a reopened sheet labels them at once. */
   onSaved: (allergies: string[], coded: string[]) => void;
+  /**
+   * Reads the stored list again (09C-06a, A-8). Called when the save is refused because the list changed since the editor opened (another tab, the nurse,
+   * the patient profile): the editor shows the stored list and says so; nothing of the stale list is written. `undefined` = the read failed.
+   */
+  reload: () => Promise<string[] | null | undefined>;
 }
 
 export const ALLERGY_SEARCH_DEBOUNCE_MS = 150;
@@ -52,8 +57,10 @@ export function AllergyEditor(props: AllergyEditorProps) {
   );
 }
 
-function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved }: AllergyEditorProps) {
+function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved, reload }: AllergyEditorProps) {
   const coded = new Set(codedTexts.map(key));
+  // The stored list this edit starts from (A-8): sent as `expected_allergies`, replaced by the stored one after a refused stale save.
+  const [base, setBase] = useState<readonly string[] | null>(initial);
   const [entries, setEntries] = useState<Entry[]>(() => (initial ?? []).map((text) => ({ text, coded: coded.has(key(text)) })));
   const [none, setNone] = useState(initial !== null && initial.length === 0);
   const [query, setQuery] = useState("");
@@ -126,14 +133,28 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
     command.reset();
   }
 
-  const canSave = entries.length > 0 || none || (initial !== null && initial.length > 0);
+  const canSave = entries.length > 0 || none || (base !== null && base.length > 0);
 
   async function save() {
     setError(null);
     const list = entries.map((e) => e.text);
-    const result = await command.run((clientRequestId) => recordPatientAllergies({ patient_id: patientId, allergies: list, client_request_id: clientRequestId }));
+    const expected = base === null ? null : [...base];
+    const result = await command.run((clientRequestId) =>
+      recordPatientAllergies({ patient_id: patientId, allergies: list, expected_allergies: expected, client_request_id: clientRequestId }),
+    );
     if (!mounted.current) return;
     if (!result.ok) {
+      if (result.error.reason === "ALLERGIES_CHANGED") {
+        // Someone recorded allergies since this editor opened: show what is stored now; the doctor adds their change again (nothing was written).
+        const fresh = await reload();
+        if (!mounted.current) return;
+        if (fresh !== undefined) {
+          setBase(fresh);
+          setEntries((fresh ?? []).map((text) => ({ text, coded: coded.has(key(text)) })));
+          setNone(fresh !== null && fresh.length === 0);
+          command.reset();
+        }
+      }
       setError(result.error.message);
       return;
     }
@@ -203,7 +224,7 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
           </ul>
         ) : (
           <p className="text-body-sm text-fg-muted">
-            {none ? "Saved as: No known allergies." : initial === null ? "Allergies are not recorded yet." : "No allergies listed."}
+            {none ? "Saved as: No known allergies." : base === null ? "Allergies are not recorded yet." : "No allergies listed."}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">

@@ -272,7 +272,7 @@ insert into c2c_definer values
   ('private.step_sign_consultation', 'internal', 'step: the sign-off body (visit, prescriptions, audit, outbox); called by sign_consultation after its guard block, no API grant (000097, 07-01)'),
   ('public.save_consultation_draft', 'bound', 'p_tenant_id = active clinic with consultations:edit; the visit and its notes row are locked in that clinic only; a sealed, completed or cancelled visit is DRAFT_LOCKED and a stale expected version DRAFT_CONFLICT (000112, 09B-01, R-3)'),
   ('public.change_prescription', 'bound', 'p_tenant_id = active clinic with prescriptions:edit; the visit is locked in that clinic only; every updated or removed item is an item of the visit''s latest header; a sealed, completed or cancelled visit is DRAFT_LOCKED (000117, 09C-01, R-2)'),
-  ('public.record_patient_allergies', 'bound', 'p_tenant_id = active clinic with patients:edit AND consultations:view (the front desk cannot); the patient is locked in that clinic only; the list is validated and de-duplicated (000118, 09C-02, R-8)'),
+  ('public.record_patient_allergies', 'bound', 'p_tenant_id = active clinic with patients:edit AND consultations:view (the front desk cannot); the patient is locked in that clinic only (an erased or deleted one is not found); the list is validated and de-duplicated; a stored list other than p_expected is refused (000118, 09C-02, R-8; 000120, A-8, S-6)'),
   ('public.repeat_visit_plan', 'bound', 'p_tenant_id = active clinic with prescriptions:edit AND consultations:edit; the target visit is locked in that clinic only and refused when sealed, completed or cancelled; the source must be a completed signed visit of the same patient in that clinic; every read and write filters on the tenant (000119, 09C-03, R-10)'),
   ('private.step_start_consultation', 'internal', 'step: the start-consultation body (check-in, in_consultation, audit); called by start_consultation and save_consultation_draft after their guard block, no API grant (000112, 09B-01)'),
   ('private.step_check_in', 'internal', 'step: the check-in body (token, waiting status, audit); called by check_in_visit after its guard block, no API grant (000097, 07-01)'),
@@ -289,7 +289,8 @@ insert into c2c_definer values
   ('private.fill_default_location', 'internal', 'trigger: visits, queue_tokens and invoices get the clinic''s default location when none is given (000095, 07-00, R-5)'),
   ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)'),
   ('private.tenants_timezone_audit', 'internal', 'trigger: every tenants.timezone change is audited (000092, 05-12, H-AITZ)'),
-  ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)');
+  ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)'),
+  ('private.patients_allergies_audit', 'internal', 'trigger: every change of patients.allergies, by any writer, leaves a counts-only patient.allergies_change row (000120, 09C-06a, S-2, R-AL)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -349,7 +350,7 @@ select set_eq(
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
     'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
-    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:',
+    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:', 'private.patients_allergies_audit:',
     'private.command_claim:', 'private.command_complete:', 'private.command_request_hash:', 'private.log_command_audit:',
     'public.create_invoice:authenticated', 'public.collect_payment:authenticated',
     'private.step_create_invoice:', 'private.step_record_payment:',

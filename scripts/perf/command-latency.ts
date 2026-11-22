@@ -257,7 +257,7 @@ async function main(): Promise<void> {
     // V2-09c 09C-02 (R-8): the allergy record, one call per fresh patient (three strings, one of them a substance name).
     await measure("record_patient_allergies", "command", async () => {
       const { patientId } = await seedVisit(t, undefined, { status: "waiting" });
-      const args = { p_tenant_id: t.tenantId, p_patient_id: patientId, p_allergies: ["Latency substance 7", "Latency allergen", "Penicillin"], p_client_request_id: randomUUID() };
+      const args = { p_tenant_id: t.tenantId, p_patient_id: patientId, p_allergies: ["Latency substance 7", "Latency allergen", "Penicillin"], p_expected: null, p_client_request_id: randomUUID() };
       return () => owner.client.rpc("record_patient_allergies", args);
     });
     await measure("register_patient", "command", async (i) => {

@@ -221,10 +221,12 @@ delete from public.tenant_entitlement_overrides where tenant_id = 'c1180000-0000
 
 -- 4. record_patient_allergies ----------------------------------------------------------------------------------------------------------------
 select is((select prosecdef::text || ':' || (proconfig @> array['search_path=""'])::text || ':' || (proconfig @> array['lock_timeout=2s'])::text
-             from pg_proc where oid = 'public.record_patient_allergies(uuid, uuid, jsonb, uuid)'::regprocedure), 'true:true:true', 'record_patient_allergies is DEFINER with search_path and lock_timeout pinned');
+             from pg_proc where oid = 'public.record_patient_allergies(uuid, uuid, jsonb, jsonb, uuid)'::regprocedure), 'true:true:true', 'record_patient_allergies is DEFINER with search_path and lock_timeout pinned');
 create function pg_temp.record(p_user uuid, p_patient uuid, p_list jsonb, p_tenant uuid default 'c1180000-0000-4000-8000-00000000000a', p_req uuid default gen_random_uuid()) returns text language sql as $f$
   select pg_temp.act('authenticated', p_user, 'c1180000-0000-4000-8000-00000000000a',
-    format('select public.record_patient_allergies(%L, %L, %L::jsonb, %L)::text', p_tenant, p_patient, p_list, p_req))
+    -- 000120 (A-8): the expected list is the stored one at the moment of the call (these cases are not about a stale editor; rx_review_fixes is).
+    format('select public.record_patient_allergies(%L, %L, %L::jsonb, %L::jsonb, %L)::text', p_tenant, p_patient, p_list,
+           coalesce((select to_jsonb(p.allergies) from public.patients p where p.id = p_patient), 'null'::jsonb), p_req))
 $f$;
 select is((pg_temp.jres(pg_temp.record('c1180000-0000-4000-8000-000000000102', 'c1180000-0000-4000-8000-000000001001', '["Qzxpgamoxil", " qzxpgAMOXIL", "Penicillin"]')) ->> 'allergies_count'), '2', 'a list is recorded with duplicates removed');
 select is((select allergies from public.patients where id = 'c1180000-0000-4000-8000-000000001001'), array['Qzxpgamoxil', 'Penicillin'], 'and stored as given');
@@ -236,7 +238,7 @@ select is((select count(*)::int from (values
     (pg_temp.record('c1180000-0000-4000-8000-000000000105', 'c1180000-0000-4000-8000-000000001001', '["x"]'))) r(o) where o like 'error:42501:FORBIDDEN%'), 2, 'the admin and the receptionist (the front desk) cannot record allergies');
 select alike(pg_temp.record('c1180000-0000-4000-8000-000000000104', 'c1180000-0000-4000-8000-000000001001', '["Sulfa"]'), 'ok:%', 'the nurse (patients:edit and consultations:view) can');
 select alike(pg_temp.act('authenticated', 'c1180000-0000-4000-8000-000000000201', 'c1180000-0000-4000-8000-00000000000b',
-    format('select public.record_patient_allergies(%L, %L, %L::jsonb, gen_random_uuid())::text', 'c1180000-0000-4000-8000-00000000000a', 'c1180000-0000-4000-8000-000000001001', '["x"]')),
+    format('select public.record_patient_allergies(%L, %L, %L::jsonb, null, gen_random_uuid())::text', 'c1180000-0000-4000-8000-00000000000a', 'c1180000-0000-4000-8000-000000001001', '["x"]')),
   'error:P0002:PATIENT_NOT_FOUND%', 'another clinic is PATIENT_NOT_FOUND');
 select alike(pg_temp.record('c1180000-0000-4000-8000-000000000102', 'c1180000-0000-4000-8000-000000001001', (select jsonb_agg('A' || g) from generate_series(1, 51) g)), 'error:P0001:INPUT_INVALID%', '51 strings are INPUT_INVALID');
 

@@ -3729,6 +3729,7 @@ export type Database = {
         Args: {
           p_allergies: Json;
           p_client_request_id: string;
+          p_expected: Json;
           p_patient_id: string;
           p_tenant_id: string;
         };

@@ -129,6 +129,9 @@
  *          is re-measured once at the phase close.
  *   6455 — V2-09c 09C-05, unchanged: REQUIRED_FILES + tests/files/compress-image (16); tests/billing/complete-and-bill-rpc.spec.ts gains 1 case (nothing is queued without the doctor's
  *          choice). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-06a, unchanged: REQUIRED_FILES + tests/prescriptions/rx-review-fixes-db (S-8 two sessions, S-2/R-AL and A-8 through the services, A-2). Cases were
+ *          added to existing files (allergy-match, record-allergies-rpc, compress-image, rx-pdf-content, pdf-route-guards, tokenized-sharing, v1-crud); the floor is
+ *          re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -535,6 +538,8 @@ const REQUIRED_FILES = [
   "tests/settings/rx-print-settings.spec.ts",
   // V2-09c 09C-05
   "tests/files/compress-image.spec.ts",
+  // V2-09c 09C-06a
+  "tests/prescriptions/rx-review-fixes-db.spec.ts",
 ];
 
 const file = process.argv[2];

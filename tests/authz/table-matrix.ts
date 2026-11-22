@@ -878,7 +878,8 @@ export const TARGETS: readonly Target[] = [
     insert: { id: q(FX.row(36)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine 2'" },
     update: "medicine_name",
     // V2-09c 000117 (R-2): change_prescription (definer) upserts the doctor's custom medicine; INSERT and UPDATE are revoked from authenticated.
-    rules: { select: perm("consultations:view"), insert: rpcOnly, update: rpcOnly, delete: ownConsultationRow },
+    // V2-09c 000120 (S-7): a member reads only their own custom medicines (consultations:view AND doctor_id = the caller).
+    rules: { select: all(perm("consultations:view"), self("doctor_id")), insert: rpcOnly, update: rpcOnly, delete: ownConsultationRow },
   },
   {
     kind: "table",

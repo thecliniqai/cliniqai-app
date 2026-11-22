@@ -13,6 +13,8 @@ import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { isYmd, ymdOf } from "@/lib/datetime";
 import { formatAgeToday } from "@/lib/ui/age";
+import { recordPatientAllergies } from "./allergies";
+import { randomUUID } from "node:crypto";
 import { DUPLICATE_REASONS, DUPLICATE_STRENGTHS, PATIENT_SEARCH_LIMIT, type DuplicateReason, type DuplicateStrength, type PatientHit, type PatientSex } from "./search";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -94,6 +96,22 @@ export async function updatePatient(
     if (clinicalFieldsChanged && !mayEditClinicalFields) {
       return { success: false, error: PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE };
     }
+    // 09C-06a (S-2): the audit row names the clinical fields that changed too (names only, never the values).
+    if (allergiesAreChanged) changedFields.push("allergies");
+    if (!sameList(existing.chronic_conditions, chronicConditions)) changedFields.push("chronic_conditions");
+
+    // 09C-06a (ruling R-AL, A-8): an allergy change is the allergy command, never a column write here: the list is validated, the write is audited by
+    // the command, and a list that changed since the form was opened (`allergies_expected`, else the row just read) is refused (ALLERGIES_CHANGED).
+    // It runs first, so a refused allergy change leaves the demographics untouched as well.
+    if (mayEditClinicalFields && allergiesAreChanged) {
+      const recorded = await recordPatientAllergies(ctx, {
+        patient_id: patientId,
+        allergies: allergies ?? [],
+        expected_allergies: data.allergies_expected !== undefined ? data.allergies_expected : ((existing.allergies as string[] | null) ?? null),
+        client_request_id: randomUUID(),
+      });
+      if (!recorded.ok) return { success: false, error: recorded.error.message };
+    }
 
     // 2. Update under RLS
     const { data: updated, error: updateError } = await (supabase.from("patients") as any)
@@ -105,7 +123,6 @@ export async function updatePatient(
         sex: data.sex || null,
         address: data.address || null,
         ...(mayEditClinicalFields ? { chronic_conditions: chronicConditions } : {}),
-        ...(mayEditClinicalFields && allergiesAreChanged ? { allergies } : {}),
         emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         updated_at: new Date().toISOString(),

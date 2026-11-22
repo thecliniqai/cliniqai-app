@@ -144,7 +144,7 @@ Principals:
 | `public.doctor_custom_diagnoses` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_diagnoses` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_diagnoses` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| `public.doctor_custom_medicines` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | - | X | Y | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| `public.doctor_custom_medicines` | S | perm(consultations:view) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_medicines` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_medicines` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.doctor_custom_medicines` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | X | - | - | - | - | - | - | - | - | - | - | - | - | - | - |

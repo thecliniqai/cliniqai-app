@@ -42,12 +42,20 @@ async function newPatient(allergies: string[] | null = null) {
   return patientId;
 }
 const stored = async (patientId: string) => (await admin.from("patients").select("allergies").eq("id", patientId).single()).data?.allergies;
-const call = (client: SeededTenant["client"], patientId: string, allergies: unknown, over: Record<string, unknown> = {}) =>
-  client.rpc("record_patient_allergies", { p_tenant_id: tenantA.tenantId, p_patient_id: patientId, p_allergies: allergies as Json, p_client_request_id: randomUUID(), ...over });
+/** One call; `p_expected` (000120, A-8) is the stored list at the moment of the call unless a case sets it (these cases are not about a stale editor). */
+const call = async (client: SeededTenant["client"], patientId: string, allergies: unknown, over: Record<string, unknown> = {}) =>
+  client.rpc("record_patient_allergies", {
+    p_tenant_id: tenantA.tenantId,
+    p_patient_id: patientId,
+    p_allergies: allergies as Json,
+    p_expected: ((await stored(patientId)) ?? null) as Json,
+    p_client_request_id: randomUUID(),
+    ...over,
+  });
 
 describe("record_patient_allergies", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.record_patient_allergies(uuid, uuid, jsonb, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.record_patient_allergies(uuid, uuid, jsonb, jsonb, uuid)", definer: true });
   });
 
   it("records a list in one transaction with its counts-only audit row and a data-only stored result; Qzxamoxil is coded, Penicillin is not", async () => {
@@ -124,11 +132,12 @@ describe("record_patient_allergies", () => {
   it("replay returns the first result and writes nothing; the same id for another list is IDEMPOTENCY_MISMATCH", async () => {
     const p = await newPatient(null);
     const req = randomUUID();
-    const first = await call(members.doctor.client, p, ["Penicillin"], { p_client_request_id: req });
-    const again = await call(members.doctor.client, p, ["Penicillin"], { p_client_request_id: req });
+    // The same submit sends the same expected list (null: not recorded when the editor opened), as the editor does.
+    const first = await call(members.doctor.client, p, ["Penicillin"], { p_client_request_id: req, p_expected: null });
+    const again = await call(members.doctor.client, p, ["Penicillin"], { p_client_request_id: req, p_expected: null });
     expect(again.data).toEqual({ ...(first.data as object), replayed: true });
     expect(await auditRows(tenantA.tenantId, "patient.allergies_record", p)).toHaveLength(1);
-    const other = await call(members.doctor.client, p, ["Sulfa"], { p_client_request_id: req });
+    const other = await call(members.doctor.client, p, ["Sulfa"], { p_client_request_id: req, p_expected: null });
     expect(mapDbError(other.error)).toMatchObject({ code: "IDEMPOTENCY_MISMATCH" });
     expect(await stored(p)).toEqual(["Penicillin"]);
   });
@@ -148,15 +157,15 @@ describe("record_patient_allergies", () => {
 
   it("the service refuses a role without both permissions with a fixed text, and a malformed list before the database", async () => {
     const p = await newPatient(null);
-    expect(await recordPatientAllergies(ctxFor(members.receptionist), { patient_id: p, allergies: ["Penicillin"], client_request_id: randomUUID() })).toMatchObject({
+    expect(await recordPatientAllergies(ctxFor(members.receptionist), { patient_id: p, allergies: ["Penicillin"], expected_allergies: null, client_request_id: randomUUID() })).toMatchObject({
       ok: false,
       error: { code: "FORBIDDEN", message: "Allergies can only be recorded by clinical staff." },
     });
-    expect(await recordPatientAllergies(ctxFor(members.doctor), { patient_id: p, allergies: ["x".repeat(201)], client_request_id: randomUUID() })).toMatchObject({
+    expect(await recordPatientAllergies(ctxFor(members.doctor), { patient_id: p, allergies: ["x".repeat(201)], expected_allergies: null, client_request_id: randomUUID() })).toMatchObject({
       ok: false,
       error: { code: "VALIDATION_FAILED" },
     });
-    expect(await recordPatientAllergies(ctxFor(members.nurse), { patient_id: p, allergies: ["Penicillin"], client_request_id: randomUUID() })).toMatchObject({ ok: true });
+    expect(await recordPatientAllergies(ctxFor(members.nurse), { patient_id: p, allergies: ["Penicillin"], expected_allergies: null, client_request_id: randomUUID() })).toMatchObject({ ok: true });
     expect(await stored(p)).toEqual(["Penicillin"]);
   });
 });
