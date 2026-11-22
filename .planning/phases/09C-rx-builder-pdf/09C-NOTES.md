@@ -388,3 +388,31 @@ Both plans, at the final tree (`v2/phase-09c-rx-builder-pdf` after the 09C-02 co
   reload with `substance_ids`: until it runs, CDCI lines are checked against allergies by name only, which the line says).
 - **Q-6** is in force in the code: new patients show "Allergies not recorded". The M0 and journey specs that registered patients assert nothing on the allergy state.
 
+## Counts and checks, 09C-03 and 09C-04 (tool output of the runs named; final tree `v2/phase-09c-rx-builder-pdf` after the 09C-04 commit)
+
+- **pgTAP** (`npm run test:pgtap`, full, run after the migration and again on the final tree): 68 files, 8986 tests, all pass; `assert-pgtap-report.mjs` PASS at FLOOR 8986 (8931 + 55 for `rx_assist`; 000119 is the last migration of this phase so far, 09C-04 added none).
+- **Vitest**, affected sets (the stack up, every file passing): `tests/prescriptions tests/clinical tests/consultation tests/ai tests/audit tests/authz tests/commands` 47 files 983 tests (after 09C-03); `tests/security tests/ci` 66 files 1911 tests (after 09C-03) and `tests/security tests/ci tests/audit tests/authz`
+  72 files 1997 tests (after 09C-04); `tests/prescriptions tests/settings tests/consultation tests/integration tests/observability tests/pwa tests/design tests/components` 103 files 2146 tests (after 09C-04, before the exam case was added to `rx-print-settings`: 16 cases pass on their own).
+  The whole `tests/ci` directory twice on the final tree: 35 files, 441 of 441, both runs (logs kept in the scratchpad; `hosted dump drift tool > names a column the dump has and the migrations do not` passed both times, so there is no failure text to keep; the one failure of 09C-02 is still not reproduced: 4 earlier runs, 1 inside the 09C-03 security set, 1 inside the 09C-04 one and these 2 = 8 clean runs).
+- **e2e**, `--retries=0`, local stack, rebuilt (`npm run e2e:build`) before each lane:
+  - desktop-chrome, `tests/e2e/consult tests/e2e/m0 tests/e2e/journeys tests/e2e/a11y`: 258 passed, 2 skipped, 0 failed (7.8 min).
+  - 09C-03 lane (`rx-assist smart-assist rx-keyboard rx-allergy tap-entry`) on desktop-chrome and pixel-7: 83 passed, 11 skipped (desktop-only cases), 0 failed.
+  - 09C-04 lane (`rx-print consult-rx-finish settings-billing-screens`) on desktop-chrome: 14 passed, 1 skipped, 0 failed; `rx-print` and `rx-assist` on pixel-7 and iphone-15 (the temporary config without the `@golden` filter, deleted after): rx-assist 7 + the phone case of rx-print passed on each, the desktop-only cases skipped;
+    `consult-rx-finish journey-06-consult rx-keyboard rx-allergy` on pixel-7 and iphone-15: 30 passed, 16 skipped, 0 failed.
+  - `ux` counts (desktop-chrome, from the runs): `consult-rx-usual` 1 click, 0 fills, 0 keystrokes; `consult-rx-favourites` 3 clicks, 0 keystrokes; `consult-rx-last-visit` 1 click, 0 keystrokes.
+- `npm run typecheck` clean; `npx eslint .` 0 errors, 390 warnings (09C-02: 391); `npm run inventory` exit 0 (0 flagged); `ci:ui-policy` and `ci:ai-l1` PASS; schema snapshot `--check` PASS (2862 lines); `npm run db:drift:local` PASS.
+- **Latency** (09C-03 section): `repeat_visit_plan` p95 6.3 ms, `consult_assist_context` with the Rx keys p95 14.1 ms; no read or command was added after it.
+- **Route JS** (`npm run ci:route-js`, report-only): `/consultation/[id]` 381.7 kB gz, route-specific 253.3 (09C-02: 376.4 and 247.9): +5.3 kB for the suggestion tiles, the left-out list and the print view. Budget 200; the V2-14 backlog row stands.
+- Tracked evidence PNGs (`.planning/phases/09B-consult-workspace/evidence/screens/*`) rewritten by the a11y runs were restored with `git checkout`; `.planning/dev-messages.txt` was not recreated; the three untracked pre-existing paths were left alone; `npm run seed:local` run last.
+
+## Hand-offs for 09C-05
+
+- **`PrescriptionSection` and the workspace**: `rx.repeat`, `rx.repeated`, `rx.markRepeated`; `runRepeat` in the workspace; `rxEntryRef.current.prefill(medicine, { allergy? })` opens the dose builder for any medicine. The Finish review should read unresolved allergy matches from `allergyContext` (lines with `matches` and no `overridden`) and link to the line.
+- **Q-8 (overruled, in force)**: WhatsApp is NOT preselected on the finish review; the channel choice stays one tap (09C-P5 for the PO). Q-9: the product line is unchanged; nothing to do in 05.
+- **Print and share**: the record bar now has "Print Rx" (print view), "Rx PDF" and "PDF on {other} paper"; the success screen of Sign & Bill still has the old Print and WhatsApp buttons (`sign-and-bill-modal.tsx`) and should offer "Print" through the same route or the print view, and "Share PDF" with the file name `rxFileName(payload)` (`Prescription-{date}-v{n}.pdf`, no patient name, from `features/prescriptions/pdf/content.ts`).
+  The print view is mounted only on a SEALED record (`printPayload`); right after a sign the page must reload (or the success screen print the PDF) before the browser print has a prescription to show.
+- **Device checklist additions** (09C-DEVICE-CHECKLIST): print Rx on A5 pre-printed paper from Chrome and Safari (the browser's own header and footer lines print inside the margins unless switched off: the stylesheet cannot remove them), check the page line on blank paper (browser margin box, Chrome 131 and later), a long Rx on two pages, and a Hindi patient name on the PDF (known limit).
+- **Open for the fix round**: the amendment date in the PDF banner (`amended_at` not supplied, deviation 2 of 09C-04); the entry row still shown to a role without `prescriptions:edit` (09C-02 hand-off, unchanged); the entry-row `Matches allergy` notice for a left-out line is generic ("a recorded allergy (see the allergy strip)"; the database returns ids, not strings).
+- **Registries current**: `EXPECTED_MIGRATION` 000119, pgTAP FLOOR 8986, the vitest REQUIRED_FILES list (`rx-favourites-db`, `repeat-visit-plan-rpc`, `rx-golden`, `rx-pdf-content`, `rx-print-settings` added), the guard manifest (`repeatVisitPlanAction`, `updateRxPrintSettings` added; `getFrequentPrescriptionsAction` and `getPrescriptionPdfSignedUrl` removed).
+- **PO actions** (not done here, not delegated): `09C-P3` now covers 000117 to 000119 on staging; `09C-P4` unchanged; `09C-P5` gains Q-2 (print stylesheet built, PDF kept), Q-8 and Q-9 as ruled.
+
