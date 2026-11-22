@@ -5,6 +5,7 @@
 import { durationLabel, MAX_DAYS, MIN_DAYS, type Medicine, type RxLine } from "@/lib/clinical/rx";
 import type { PrescriptionItem } from "@/lib/db/types";
 import type { MedicineSearchResult } from "./schema";
+import type { RxAssistEntry } from "@/features/consultation/assist-ranking";
 
 /**
  * Reads a stored duration as a number of days: "5 days", "1 day", "1 week" (7), "2 weeks" (14), "1 month" (30), and the shorthand "5d", "2w", "1m".
@@ -194,4 +195,69 @@ export function templateItemToAdd(item: {
     special_instructions: item.special_instructions?.trim() || null,
     cdci_brand_id: item.cdci_brand_id?.trim() || null,
   };
+}
+
+/** Whether a favourite or bundle entry has a complete usual dose: a frequency and a duration (the timing may be null). Only then can one tap add it. */
+export function rxEntryHasUsual(entry: Pick<RxAssistEntry, "usual">): boolean {
+  return Boolean(entry.usual && entry.usual.dosage.trim() !== "" && entry.usual.duration.trim() !== "");
+}
+
+/**
+ * A favourite or bundle entry as an `add` line (V2-09c R-9): the doctor's own stored usual dose exactly, nothing added and nothing invented (a null timing
+ * stays null, no instruction). Null when the usual is not complete: the screen then opens the dose builder instead.
+ */
+export function rxEntryToAdd(entry: RxAssistEntry): ChangeLine | null {
+  if (!entry.usual || !rxEntryHasUsual(entry)) return null;
+  return {
+    medicine_name: entry.name,
+    generic_name: entry.generic_name,
+    dose_form: entry.dose_form,
+    dosage: entry.usual.dosage.trim(),
+    timing: entry.usual.timing?.trim() || null,
+    duration: entry.usual.duration.trim(),
+    special_instructions: null,
+    cdci_brand_id: entry.cdci_brand_id,
+  };
+}
+
+/** A favourite or bundle entry as the entry row's medicine, with the usual parts the doctor stored (the dose builder opens with them; the rest stays empty). */
+export function rxEntryToMedicine(entry: RxAssistEntry): Medicine {
+  const usual: NonNullable<Medicine["usual"]> = {};
+  if (entry.usual?.dosage.trim()) usual.frequency = entry.usual.dosage.trim();
+  if (entry.usual?.timing?.trim()) usual.timing = entry.usual.timing.trim();
+  if (entry.usual?.duration.trim()) {
+    const days = durationToDays(entry.usual.duration);
+    if (days !== null) usual.days = days;
+    else usual.durationText = entry.usual.duration.trim();
+  }
+  return {
+    id: entry.cdci_brand_id ?? `custom:${entry.name.toLowerCase()}`,
+    name: entry.name,
+    form: entry.dose_form ?? "",
+    generic: entry.generic_name ?? entry.name,
+    kind: entry.cdci_brand_id ? "cdci" : "custom",
+    substanceIds: entry.substance_ids,
+    usual: Object.keys(usual).length > 0 ? usual : undefined,
+  };
+}
+
+/** A past visit's stored line (the history list) as the entry row's medicine, for the dose builder of a line "Same as last visit" left for the doctor. */
+export function pastItemToMedicine(item: {
+  medicine_name: string;
+  generic_name?: string | null;
+  dose_form?: string | null;
+  dosage: string;
+  timing?: string | null;
+  duration: string;
+  cdci_brand_id?: string | null;
+}): Medicine {
+  return rxEntryToMedicine({
+    name: item.medicine_name,
+    generic_name: item.generic_name ?? null,
+    dose_form: item.dose_form ?? null,
+    cdci_brand_id: item.cdci_brand_id ?? null,
+    substance_ids: [],
+    n: 1,
+    usual: { dosage: item.dosage, timing: item.timing ?? null, duration: item.duration },
+  });
 }

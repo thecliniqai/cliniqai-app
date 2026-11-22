@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { Minus, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,18 @@ export interface RxEntryRowProps {
    * builder says "Matches allergy: …", and the line is added only after "Prescribe anyway" with a reason of 5 to 300 characters.
    */
   allergyOf?: (medicine: Medicine) => string | null;
+  /** V2-09c 09C-03 (R-9, R-10): an imperative handle; a tile or a repeat that must leave a medicine to the doctor opens the dose builder with {@link RxEntryHandle.prefill}. */
+  handleRef?: React.Ref<RxEntryHandle>;
   className?: string;
+}
+
+/** What a host can ask of the entry row. */
+export interface RxEntryHandle {
+  /**
+   * Opens the dose builder for `medicine` with its usual dose (only the parts that are known; nothing is invented) and focuses the field. `allergy` names a
+   * match the host already knows (the database left the line out of a repeat): the builder then says "Matches allergy: …" and adds only with a reason.
+   */
+  prefill(medicine: Medicine, opts?: { allergy?: string }): void;
 }
 
 /** `needsReason`: the database refused the line because it matches a recorded allergy (the dose builder then asks for the reason). */
@@ -96,7 +107,14 @@ const DIGIT_PRESET = /^[1-5]$/;
 /** The dose builder's start: the doctor's own usual dose, part by part, and otherwise nothing (V2-09c R-4: no frequency, timing or duration is invented). */
 function pendingFor(medicine: Medicine): DoseDraft {
   const usual = medicine.usual ?? {};
-  return { medicine, frequency: usual.frequency ?? "", timing: usual.timing ?? "", days: usual.days ?? 0, instruction: "" };
+  return {
+    medicine,
+    frequency: usual.frequency ?? "",
+    timing: usual.timing ?? "",
+    days: usual.days ?? 0,
+    durationText: usual.days === undefined ? usual.durationText : undefined,
+    instruction: "",
+  };
 }
 
 function customMedicine(name: string): Medicine {
@@ -127,6 +145,7 @@ export function RxEntryRow({
   onEdit,
   label = "Medicine",
   allergyOf,
+  handleRef,
   className,
 }: RxEntryRowProps) {
   const [query, setQuery] = useState("");
@@ -140,6 +159,8 @@ export function RxEntryRow({
   const [sending, setSending] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonOpen, setReasonOpen] = useState(false);
+  // A match the host knows about and the screen's own rule may not (a line the repeat command left out): set by `prefill`, dropped when the builder closes.
+  const [forcedAllergy, setForcedAllergy] = useState<string | null>(null);
   // The remote answer and the query it answers (results are never shown for another query: Enter must not pick a stale top row).
   const [answer, setAnswer] = useState<{ query: string; hits: readonly Medicine[]; failed: boolean }>({ query: "", hits: [], failed: false });
   const [loading, setLoading] = useState(false);
@@ -212,13 +233,22 @@ export function RxEntryRow({
     setReasonOpen(false);
   }
 
-  function openBuilder(medicine: Medicine) {
+  function openBuilder(medicine: Medicine, forced: string | null = null) {
     pickWhenReady.current = false;
+    setForcedAllergy(forced);
     setPending(pendingFor(medicine));
     setQuery(medicine.name);
     resetTyping();
     inputRef.current?.focus();
   }
+
+  useImperativeHandle(handleRef, () => ({
+    prefill(medicine, opts) {
+      // The builder opens in view: a tile far from the field must not leave the dose builder off screen.
+      openBuilder(medicine, opts?.allergy ?? null);
+      inputRef.current?.scrollIntoView({ block: "nearest" });
+    },
+  }));
 
   function closeBuilder() {
     pickWhenReady.current = false;
@@ -227,6 +257,7 @@ export function RxEntryRow({
     inflight.current?.abort();
     setLoading(false);
     setPending(null);
+    setForcedAllergy(null);
     setQuery("");
     setAnswer({ query: "", hits: [], failed: false });
     resetTyping();
@@ -277,7 +308,7 @@ export function RxEntryRow({
       instruction: pending.instruction.trim() || undefined,
     };
     // A medicine that matches a recorded allergy is added only with a reason (R-7): the first Enter or tap opens the reason field, the next sends.
-    const matched = allergyOf ? allergyOf(pending.medicine) : null;
+    const matched = (allergyOf ? allergyOf(pending.medicine) : null) ?? forcedAllergy;
     const asking = Boolean(matched) || reasonOpen;
     if (asking) {
       if (!reasonOpen) {
@@ -425,7 +456,7 @@ export function RxEntryRow({
   }
 
   const durationShown = durBuffer ? `${durBuffer}…` : pending ? lineDuration(pending) : "";
-  const pendingAllergy = pending && allergyOf ? allergyOf(pending.medicine) : null;
+  const pendingAllergy = pending ? ((allergyOf ? allergyOf(pending.medicine) : null) ?? forcedAllergy) : null;
 
   return (
     <div data-rx-entry="" className={cn("flex flex-col gap-3", className)}>

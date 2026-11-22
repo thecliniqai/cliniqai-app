@@ -1,7 +1,7 @@
 "use server";
 
 import { resolveServiceContext } from "@/lib/auth/context";
-import type { ChangePrescriptionInput, ProtocolTemplateInput } from "./schema";
+import type { ChangePrescriptionInput, ProtocolTemplateInput, RepeatVisitPlanInput } from "./schema";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { appError, type Result as CommandResult } from "@/lib/errors/app-error";
 import * as rxService from "./service";
@@ -13,6 +13,8 @@ import type {
   GetPrescriptionPdfSignedUrlResult,
   SharePrescriptionViaWhatsAppResult,
 } from "./service";
+import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
+import type { PrescriptionItem } from "@/lib/db/types";
 
 export type {
   GetRxAllergyContextResult,
@@ -43,6 +45,34 @@ export async function changePrescriptionAction(input: ChangePrescriptionInput): 
   }
   // The consult page is not revalidated per change: the section holds the lines in memory and the page reads them again on the next load.
   return { ok: true, value: { prescriptionId: result.prescriptionId, addedItemIds: result.addedItemIds, replayed: result.replayed } };
+}
+
+/** What "Same as last visit" answers: the lines and diagnoses the database holds after the copy, and the source lines left for the doctor (allergy match). */
+export interface RepeatVisitPlanValue {
+  prescriptionId: string | null;
+  addedItemIds: string[];
+  skippedItemIds: string[];
+  skippedItems: PrescriptionItem[];
+  diagnosesAdded: number;
+  replayed: boolean;
+  items: PrescriptionItem[];
+  diagnoses: ConsultationDiagnosisItem[];
+}
+
+/**
+ * "Same as last visit" as one command (V2-09c R-10): copies the signed source visit's diagnoses and/or prescription onto this visit in the database.
+ * `prescriptions:edit` and `consultations:edit`; the tenant is the session's; `client_request_id` is required and the same id replays the first result.
+ */
+export async function repeatVisitPlanAction(input: RepeatVisitPlanInput): Promise<CommandResult<RepeatVisitPlanValue>> {
+  const resolved = await resolveServiceContext("prescriptions:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const result = await rxService.repeatVisitPlan(resolved.ctx, input);
+  if (!result.success) {
+    return { ok: false, error: appError(result.code ?? "INTERNAL", { message: result.error, reason: result.reason, fieldErrors: result.fieldErrors }) };
+  }
+  const { success: _success, ...value } = result;
+  void _success;
+  return { ok: true, value };
 }
 
 /** The allergy picture of a consult (V2-09c 09C-02, R-7), read again after a change. consultations:view; the tenant is the session's. */

@@ -198,3 +198,16 @@ export const changePrescriptionSchema = z
   });
 
 export type ChangePrescriptionInput = z.input<typeof changePrescriptionSchema>;
+
+/**
+ * The input of "Same as last visit" (`public.repeat_visit_plan`, V2-09c 09C-03, R-10): the visit being written, the signed visit to copy from and what to copy.
+ * Only ids and the parts travel: the lines and diagnoses are read by the database, never taken from the caller.
+ */
+export const repeatVisitPlanSchema = z.object({
+  visit_id: z.string().uuid(),
+  source_visit_id: z.string().uuid(),
+  parts: z.array(z.enum(["diagnoses", "prescription"])).min(1).max(2),
+  client_request_id: z.string().uuid(),
+});
+
+export type RepeatVisitPlanInput = z.input<typeof repeatVisitPlanSchema>;

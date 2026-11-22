@@ -158,14 +158,23 @@ async function ConsultationPage(props: ConsultationPageProps) {
   // only, the visit on screen excluded) only with `assist.snapshot`. A failed or refused read is "no assist": the catalogue order and the plain last-visit
   // block apply.
   let assistContext: AssistContext | null = null;
+  // The same read serves the Prescription section's favourites and "your usual" (V2-09c R-9) when the clinic is entitled to `assist.frequent_rx`.
+  let rxAssistContext: AssistContext | null = null;
   let snapshot: PatientSnapshot | null = null;
   const editable = recordState(visitRow) === "amending" || (recordState(visitRow) !== "sealed" && visitRow.status !== "completed" && visitRow.status !== "cancelled");
-  const wantsContext = editable && assist["assist.terminology"] === true && hasPerm(membership.role, "consultations:edit");
+  const mayAssist = editable && hasPerm(membership.role, "consultations:edit");
+  const wantsTerminology = mayAssist && assist["assist.terminology"] === true;
+  const wantsRxAssist = mayAssist && assist["assist.frequent_rx"] === true;
+  const wantsContext = wantsTerminology || wantsRxAssist;
   const wantsSnapshot = assist["assist.snapshot"] === true;
   if (wantsContext || wantsSnapshot) {
     const resolved = await resolveServiceContext("consultations:view");
     if (resolved.ok) {
-      if (wantsContext) assistContext = await getConsultAssistContext(resolved.ctx);
+      if (wantsContext) {
+        const read = await getConsultAssistContext(resolved.ctx);
+        if (wantsTerminology) assistContext = read;
+        if (wantsRxAssist) rxAssistContext = read;
+      }
       if (wantsSnapshot) snapshot = await getPatientSnapshot(resolved.ctx, patientId, id);
     }
   }
@@ -271,6 +280,7 @@ async function ConsultationPage(props: ConsultationPageProps) {
       pastEncounters={pastEncounters}
       assist={assist}
       assistContext={assistContext}
+      rxAssistContext={rxAssistContext}
       allergyContext={allergyContext}
       snapshot={snapshot}
       macros={macros}

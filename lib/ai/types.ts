@@ -52,12 +52,3 @@ export interface CatchUpSummary {
   active_medications: string[];
   bullets: string[];
 }
-
-export interface PrescriptionSuggestion {
-  drug_name: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  instructions: string | null;
-  frequency_count: number;
-}

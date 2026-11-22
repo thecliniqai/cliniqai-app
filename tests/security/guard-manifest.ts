@@ -121,7 +121,6 @@ export type RouteGuard =
 export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "app/(dashboard)/settings/clinic/actions.ts#updateClinicProfileAction": "clinic:manage",
   "features/ai/actions.ts#generateSoapAction": "consultations:edit",
-  "features/ai/actions.ts#getFrequentPrescriptionsAction": "consultations:view",
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
@@ -187,6 +186,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/patients/consent.ts#withdrawConsent": "patients:edit",
   "features/patients/dedup.ts#findPotentialDuplicates": "patients:view",
   "features/prescriptions/actions.ts#changePrescriptionAction": "prescriptions:edit",
+  "features/prescriptions/actions.ts#repeatVisitPlanAction": "prescriptions:edit",
   "features/prescriptions/actions.ts#getRxAllergyContextAction": "consultations:view",
   "features/prescriptions/actions.ts#getDoctorProtocolTemplates": "consultations:view",
   "features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl": "prescriptions:view",

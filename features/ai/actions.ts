@@ -1,20 +1,16 @@
 "use server";
 
 import { requirePermission } from "@/lib/permissions/guards";
-import { requireServiceContext } from "@/lib/auth/context";
 import {
   getAiChatClient,
   AiUnavailableError,
   AiUnavailableReason,
   generateSoapFromShorthand,
-  getDoctorFrequentPrescriptions,
   SoapDraft,
-  PrescriptionSuggestion,
   AnonymizedPatientContext,
 } from "@/lib/ai";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { clientErrorMessage } from "@/lib/errors/client-message";
 
 /** Typed "AI unavailable" result (AI-01): no draft, no reason detail beyond the code. */
 export interface AiUnavailableResult {
@@ -55,35 +51,5 @@ export async function generateSoapAction(input: {
     // Never log the error object: it may carry clinical text.
     log.error({ event: "ai.soap_generate.failed", code: errorTag(err), requestId: await getRequestId() });
     return { success: false, code: "ERROR", error: "Failed to generate clinical notes." };
-  }
-}
-
-export interface GetFrequentPrescriptionsActionResult {
-  success: boolean;
-  suggestions: PrescriptionSuggestion[];
-  error?: string;
-}
-
-export async function getFrequentPrescriptionsAction(input: {
-  diagnosis: string;
-  doctorId?: string;
-  limit?: number;
-}): Promise<GetFrequentPrescriptionsActionResult> {
-  try {
-    const ctx = await requireServiceContext("consultations:view");
-    const doctorId = input.doctorId || ctx.userId;
-    const suggestions = await getDoctorFrequentPrescriptions(ctx, {
-      doctorId,
-      diagnosis: input.diagnosis,
-      limit: input.limit,
-    });
-    return { success: true, suggestions };
-  } catch (err: unknown) {
-    log.error({ event: "ai.frequent_prescriptions.failed", code: errorTag(err), requestId: await getRequestId() });
-    return {
-      success: false,
-      suggestions: [],
-      error: clientErrorMessage(err, "Failed to retrieve frequent prescriptions."),
-    };
   }
 }

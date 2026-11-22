@@ -15,7 +15,7 @@ export interface Medicine {
    * The doctor's own usual dose, prefilled when the builder opens (V2-09c R-4). Each part is optional: a part that is not known stays empty and the
    * doctor chooses it. Nothing is ever invented, so there is no default dose.
    */
-  usual?: { frequency?: string; timing?: string; days?: number };
+  usual?: { frequency?: string; timing?: string; days?: number; /** A stored duration the days cannot express ("Continue"), kept as text. */ durationText?: string };
   /** Where the row came from: the CDCI catalogue or the doctor's own custom list (absent for a medicine typed in the field). */
   kind?: "cdci" | "custom";
   /** The CDCI substance ids of the medicine (empty when the catalogue has none loaded: V2-09c 09C-02 checks such a line by name only). */

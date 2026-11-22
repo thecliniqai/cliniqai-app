@@ -123,6 +123,8 @@
  *   6455 — V2-09c 09C-01 and 09C-02, unchanged: REQUIRED_FILES + the nine new specs (tests/prescriptions/{change-prescription-rpc (40),medicine-search-route (23),
  *          rx-lines (42),allergy-match (31),allergy-check-rpc (14),cdci-generic-substances (7)}, tests/patients/{record-allergies-rpc (20),allergy-states (7)},
  *          tests/terminology/substance-search-route (7)). The suite only grew; the floor is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-03, unchanged: REQUIRED_FILES + tests/prescriptions/rx-favourites-db (6) and repeat-visit-plan-rpc (28); assist-ranking.spec.ts gains 28 cases.
+ *          The deleted retired library's tests/ai/prescription-suggestions.spec.ts (4 cases) left with it. The floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -520,6 +522,9 @@ const REQUIRED_FILES = [
   "tests/patients/record-allergies-rpc.spec.ts",
   "tests/patients/allergy-states.spec.ts",
   "tests/terminology/substance-search-route.spec.ts",
+  // V2-09c 09C-03
+  "tests/prescriptions/rx-favourites-db.spec.ts",
+  "tests/prescriptions/repeat-visit-plan-rpc.spec.ts",
 ];
 
 const file = process.argv[2];

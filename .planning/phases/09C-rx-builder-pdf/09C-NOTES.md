@@ -192,6 +192,90 @@ over the migrations): the sign and amendment commands touch the header only. No 
 - Registries touched and current: `expected-migration.ts` 000118, schema snapshot, `types/database.ts`, pgTAP FLOOR 8931 and REQUIRED_FILES, `RPC_REASON_CODES`, `AUDIT_ACTIONS` /
   `COMMAND_ONLY_AUDIT_ACTIONS` / `AUDIT_METADATA_KEYS` with the SQL lists, the definer registry, the guard manifest (`session-substance-search`, three actions) and valid inputs.
 
+## 09C-03 Rx Smart Assist: favourites, your usual, Same as last visit (migration 000119_rx_assist)
+
+Executed by Claude Sonnet 5.5 (trailer `Co-Authored-By: Claude Opus 5.5` per the launching message). `ls supabase/migrations | tail -3` showed 000118 as the newest, so 000119 was free.
+
+### What changed
+
+- `000119_rx_assist.sql`:
+  - `public.consult_assist_context` replaced from its 000113 body (every old key unchanged) with `rx_favourites` (the calling doctor's 12 most prescribed medicines over their own last 300
+    signed visits, ranked by the sum of 0.5 ^ (age in days / 90), ties to the most recent then the name) and, per diagnosis, `rx` (medicines in at least 40 % of the doctor's signed visits with
+    it, at least 2 such visits, at most 6). Each entry: name, generic, form, catalogue brand id, `substance_ids` (for the screen's allergy pre-check), count and `usual` = the most frequent exact
+    (dosage, timing, duration) of that doctor's own lines (ties to the most recent; a stored null timing stays null; `usual` is null when that triple has no dosage or no duration). "Signed version
+    only" means: the visit is completed and signed (an open amendment is out) and its latest header is signed and active (a header that is not `active` is out). No patient, visit or item id.
+  - `public.repeat_visit_plan(p_tenant_id, p_visit_id, p_source_visit_id, p_parts, p_client_request_id)`: DEFINER, V2-07 pattern, `prescriptions:edit` AND `consultations:edit`. Source = a completed, signed
+    visit of the same patient in the same clinic (else `VISIT_NOT_FOUND`, so another clinic's or patient's visit says nothing); parts a subset of {diagnoses, prescription}, each once; same lock and
+    refusals as `change_prescription` (`DRAFT_LOCKED`); diagnoses copied by name with their codes (a name already on the visit skipped, the source diagnosis note not copied); lines copied with their
+    stored values (a medicine already on the Rx skipped, case-insensitive; a null timing stays null); with `assist.allergy_check` entitled and allergies recorded, a line that matches
+    (`private.rx_allergy_matches` over `private.rx_line_substance_ids`, the rule `change_prescription` uses) is NOT copied and its source item id is returned in `skipped_item_ids`; a custom medicine joins
+    the doctor's own list as a line they add does. Audit `visit.repeat_plan` (command-only; keys `added`, `skipped`, `diagnoses_added`). Result `prescription_id` (null when no header), `added_item_ids`,
+    `skipped_item_ids`, `diagnoses_added`, `replayed`.
+  - Audit lists replaced from the 000118 bodies (`log_command_audit` allows `visit.repeat_plan`; metadata keys `skipped`, `diagnoses_added`).
+- App: `repeatVisitPlan` (service) and `repeatVisitPlanAction` (the service also reads the visit's lines, diagnoses and the skipped source lines back, so the screen shows what the database holds),
+  `useRxLines.repeat` / `repeated` / `markRepeated` / `touch`, `RxEntryRow` `handleRef.prefill(medicine, {allergy?})`, `PrescriptionSection` (suggestion row: "Same as last visit · {date}", "Your usual for
+  {diagnosis}" tiles, favourite tiles, the list of medicines left to the doctor, the "Repeated" marker until a line is touched), `assist-ranking.ts` (`rxBundlesFor`, `rxFavouritesFor`,
+  `rankProtocolTemplates`), `features/prescriptions/lines.ts` (`rxEntryToAdd`, `rxEntryToMedicine`, `pastItemToMedicine`), the Templates sheet ranked (specialty, then a diagnosis in the name, then newest),
+  the history list's "Repeat this Rx" (signed visits only: `PastVisitEncounter.signedAt`), the page reading the context for `assist.terminology` OR `assist.frequent_rx` (each part handed only to what it is
+  entitled to).
+- Deleted as replaced (PO-15): `getFrequentPrescriptionsAction`, `lib/ai/prescription-suggestions.ts`, `PrescriptionSuggestion`, `tests/ai/prescription-suggestions.spec.ts` (4 cases), their guard-manifest
+  row and inventory entry; the 09C-01 client repeat payload (`handleRepeatRx`) and the section's "Repeat last Rx" button (the tile replaces it). Grep after: `grep -rn "getFrequentPrescriptionsAction\|prescription-suggestions\|PrescriptionSuggestion" app features lib components tests scripts` is empty.
+
+### SA-02 baseline (the retired library on the same rows, run once before its deletion)
+
+A temporary spec (not kept) seeded doctor B with one signed and one unsigned Viral fever visit with B-only medicines and called `getDoctorFrequentPrescriptions` as doctor A for "Viral fever". Output (`SA02-BASELINE`):
+`[{"drug_name":"SA02 Doctor B Signed Syrup","dosage":"1-0-0","frequency":"1-0-1","duration":"3 days",...},{"drug_name":"SA02 Doctor B Unsigned Syrup","dosage":"1-0-0","frequency":"1-0-1","duration":"3 days",...}]`:
+another doctor's signed AND unsigned medicines reached A, and the stored null timing came back as an invented "1-0-1". The new specs assert the opposite on the same shape of rows.
+
+### Decisions where the plan left a choice
+
+1. **Favourites are the doctor's own across all their patients** (not per patient); the `Other Patient Medicine` case in pgTAP pins it.
+2. **`usual` null opens the dose builder with nothing filled in** (the blank-dosage case): `RxEntryRow.prefill` takes the stored parts only. A medicine whose usual duration is text ("Continue") keeps it as `durationText`.
+3. **A left-out line is opened with a fixed notice** ("Matches allergy: a recorded allergy (see the allergy strip)") because the database returns ids, not the matching strings; the reason typed there goes to `change_prescription`,
+   which computes and stores the real allergens in `allergy_override`. A bundle or favourite the screen's own rule flags names the allergy itself.
+4. **"Same as last visit" offers only what is still missing** (a part with nothing to add is dropped; no tile when nothing is left), and only for the patient's last signed visit. "Repeat this Rx" appears only for a signed visit.
+5. **Template ranking** is applied in the sheet from the visit's specialty and its diagnoses; the saved templates carry no usage data, so "newest" is `created_at`.
+
+### Deviations from the plan, with reasons
+
+1. **The command also returns nothing about "already present" lines** (the result holds only added and skipped ids, plus counts): the screen re-reads the visit after the command (`items`, `diagnoses`), so a replayed
+   or concurrent run shows the database's state and the tile logic needs no second source of truth.
+2. **The diagnosis note and the chronic-condition sync of the original add are not copied**: the source note is clinical free text of another visit, and a copied chronic diagnosis was already synced to the
+   patient's profile when it was first added (a removed chronic condition is not resurrected).
+3. **`consult_assist_context` is read when either `assist.terminology` or `assist.frequent_rx` is entitled**, and each key is handed only to what it is entitled to (`assistContext` / `rxAssistContext`).
+4. **The existing pgTAP `consult_assist_context.test.sql` changed** (its empty result and key lists name the new keys); its 29 assertions are otherwise the same.
+5. **No index was added**: `consult_assist_context` on the R-17 seed (300 signed visits of three lines, 25 distinct medicines, one doctor) measured p95 14.1 ms.
+6. **The custom-medicine upsert runs for a repeated custom line**, as it does for a line the doctor adds (the doctor prescribed it now); the stored values become the line's.
+
+### Tests added or changed (file: what)
+
+- pgTAP `rx_assist` (55): ranking by recent use, the signed version only (unsigned, header not active, open amendment out), SA-02 (A2 and clinic B never in A1's and the reverse), `usual` (most frequent, tie to the most recent,
+  null timing, null usual), catalogue ids and substance ids, the key set, 12 cap, bundle thresholds (40 % exactly, 33 % out, one visit out), no uuid in the output, the empty result for nurse / receptionist / admin / owner / another clinic;
+  `repeat_visit_plan` catalog and grants, the role matrix, the copy with stored values, replay, a second run copying nothing, the counts-only audit row, the allergy skip reported by source item id, the refused sources and targets.
+- `tests/prescriptions/rx-favourites-db.spec.ts` (6): SA-02 through the service on rows the command wrote. `tests/prescriptions/repeat-visit-plan-rpc.spec.ts` (28): catalog, happy path with audit and data-only stored result, null timing,
+  parts, skipped duplicates, allergy skip with the kill switch, the service's read-back, fault injection (nothing persists), replay, IDEMPOTENCY_MISMATCH with visit, source and parts varied, parts order, two concurrency cases, the role matrix
+  (5), cross-clinic, source of another patient / unsigned, sealed target and an amending one, 5 input cases, the service's refusals.
+- `tests/consultation/assist-ranking.spec.ts` +25 (64 in the file): the Rx keys' parsing, favourites, bundles, the entry-to-line mapping, template ranking.
+- `tests/e2e/consult/rx-assist.spec.ts` (8): your usual in 1 tap with 0 typed (`ux`), three favourites in 3 taps, a favourite with no complete usual, Same as last visit in 1 tap, an allergy-matching line left out of Same as last visit,
+  of a bundle, "Repeat this Rx" (prescription only), `assist.frequent_rx` off. All with AI fully disabled (platform kill switch off for the file).
+- Registries: `EXPECTED_MIGRATION` 000119, schema snapshot, `types/database.ts`, pgTAP FLOOR 8986 and REQUIRED_FILES, vitest REQUIRED_FILES (two files), `AUDIT_ACTIONS`/`COMMAND_ONLY_AUDIT_ACTIONS`/`AUDIT_METADATA_KEYS` with the SQL lists, the definer
+  registry (`definer_functions`), the guard manifest and valid inputs (`repeatVisitPlanAction`), the latency script.
+
+### Fails-without proof (High control: SA-02)
+
+The doctor filter of `consult_assist_context` (`AND v.doctor_id = v_uid` in the `vs` CTE of 000119) removed, `db reset`: pgTAP `rx_assist` failed 9 assertions (1, 4, 5, 9, 10, 12, 17, 23, 25: favourites and bundles hold other doctors'
+medicines) and `rx-favourites-db.spec.ts` failed 3 cases (A's favourites hold B's `Doctor B Only Delta`, and B's hold A's). The migration was restored byte for byte (`cmp` against the saved copy), the stack reset, `rx_assist` 55/55 again.
+
+### Latency (`npx tsx scripts/perf/command-latency.ts --calls 100`, local stack, 75 s autovacuum wait; the script removes its synthetic rows)
+
+`repeat_visit_plan` (a diagnosis and three lines onto a fresh draft, allergies recorded) p50 5.7, p95 6.3, p99 7.1 ms (condition p95 under 150 ms); `consult_assist_context` with the Rx keys (300 signed visits of three lines) p50 13.1, p95 14.1, p99 14.7 ms
+(under 50 ms; 09C-02 had 6.5 ms without the Rx keys); `change_prescription` p95 2.6; `record_patient_allergies` p95 2.4; `search_medicines` p95 35.4; `search_substances` p95 1.8; `rx_allergy_context` p95 8.1 ms.
+
+### Flakes and infra
+
+- Playwright (desktop-chrome and pixel-7, `--retries=0`): the first run of the new spec had one failure, my own assertion (a favourite with a blank stored dosage has `usual` null, so the dose builder opens with nothing, not with the stored duration);
+  fixed in the test. No retry anywhere. After a `db reset` the Vitest run failed once with "Could not query the database for the schema cache": PostgREST was not ready yet (about 15 s); not a product issue.
+
 ## Counts and checks (tool output of the runs named)
 
 Both plans, at the final tree (`v2/phase-09c-rx-builder-pdf` after the 09C-02 commit and its follow-up):

@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
  * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
  *
  * V2-07 07-04a (migration 000099, F-1): the actions only an atomic command writes are NOT in this list: `visit.complete_and_sign`,
- * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote`, and (V2-08 08-06a, migration 000106) `visit.create`, and (V2-09b 09B-01, migration 000112) `consultation.draft_save`, and (V2-09c, migrations 000117 and 000118) `prescription.lines_change` and `patient.allergies_record` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}). The API-key path's own actions are in {@link API_KEY_ONLY_AUDIT_ACTIONS}.
+ * `visit.reopen_for_amendment`, `visit.amend_finalized`, `invoice.create`, `queue.check_in`, and (V2-08 08-01b) `visit.consultation_start`, `visit.complete_at_desk`, and (V2-08 08-04a) `visit.reschedule`, `visit.no_show`, `visit.cancel`, `visit.confirm`, `visit.auto_promoted_from_waitlist`, `waitlist.add`, `waitlist.promote`, and (V2-08 08-06a, migration 000106) `visit.create`, and (V2-09b 09B-01, migration 000112) `consultation.draft_save`, and (V2-09c, migrations 000117 to 000119) `prescription.lines_change`, `patient.allergies_record` and `visit.repeat_plan` (see {@link COMMAND_ONLY_AUDIT_ACTIONS}). The API-key path's own actions are in {@link API_KEY_ONLY_AUDIT_ACTIONS}.
  * The commands write them through `private.log_command_audit`; `log_audit` refuses them, so no member can forge them.
  */
 export const AUDIT_ACTIONS = [
@@ -84,6 +84,8 @@ export const COMMAND_ONLY_AUDIT_ACTIONS = [
   "prescription.lines_change",
   // V2-09c 09C-02 (migration 000118): one row per allergy record, written inside record_patient_allergies (counts only).
   "patient.allergies_record",
+  // V2-09c 09C-03 (migration 000119): one row per "Same as last visit", written inside repeat_visit_plan (counts only).
+  "visit.repeat_plan",
 ] as const;
 
 /**
@@ -143,6 +145,8 @@ export const AUDIT_METADATA_KEYS = [
   "allergies_count",
   "coded_count",
   "allergy_overrides",
+  "skipped",
+  "diagnoses_added",
   "reason",
   "consent_type",
   "view_context",

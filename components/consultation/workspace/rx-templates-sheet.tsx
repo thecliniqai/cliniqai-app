@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
 import { getDoctorProtocolTemplates, saveDoctorProtocolTemplate, type DoctorProtocolTemplate } from "@/features/prescriptions/actions";
 import { templateItemToAdd, type ChangeLine } from "@/features/prescriptions/lines";
+import { rankProtocolTemplates } from "@/features/consultation/assist-ranking";
 import type { PrescriptionItem } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
 
@@ -22,9 +23,12 @@ export interface RxTemplatesSheetProps {
   items: readonly PrescriptionItem[];
   /** Sends the lines as one command; the answer closes the sheet or shows its text. */
   onApply: (lines: ChangeLine[]) => Promise<{ ok: boolean; error?: string }>;
+  /** The visit's specialty and the diagnoses on it: the templates of that specialty come first, then one named for a diagnosis, then the newest (R-9). */
+  specialty?: string | null;
+  diagnoses?: readonly string[];
 }
 
-export function RxTemplatesSheet({ open, onOpenChange, items, onApply }: RxTemplatesSheetProps) {
+export function RxTemplatesSheet({ open, onOpenChange, items, onApply, specialty = null, diagnoses = [] }: RxTemplatesSheetProps) {
   const [templates, setTemplates] = useState<DoctorProtocolTemplate[] | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -114,7 +118,7 @@ export function RxTemplatesSheet({ open, onOpenChange, items, onApply }: RxTempl
             <p className="text-body-sm text-fg-muted">None yet. Save the prescription you have written as a template below.</p>
           ) : (
             <ul aria-label="Your templates" className="flex flex-col gap-1.5">
-              {(templates ?? []).map((t) => (
+              {rankProtocolTemplates({ templates: templates ?? [], specialty, diagnoses }).map((t) => (
                 <li key={t.id} className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-sm font-semibold text-fg">{t.template_name}</p>

@@ -16,7 +16,9 @@ import {
   MEDICINE_QUERY_MAX,
   MEDICINE_SEARCH_LIMIT,
   changePrescriptionSchema,
+  repeatVisitPlanSchema,
   type ChangePrescriptionInput,
+  type RepeatVisitPlanInput,
 } from "./schema";
 import { callCommand } from "@/lib/commands/call-command";
 import { ALLERGY_MATCH_MESSAGE, type RxAllergyContext } from "./allergy";
@@ -29,6 +31,8 @@ import { getRequestId } from "@/lib/log/request-id";
 import type { DbErrorMessages } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
+import { getVisitDiagnoses } from "@/features/terminology/service";
+import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
@@ -159,6 +163,103 @@ export async function changePrescription(ctx: ServiceContext, input: ChangePresc
     return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
   }
   return { success: true, prescriptionId: outcome.value.prescription_id, addedItemIds: outcome.value.added_item_ids, replayed: outcome.value.replayed };
+}
+
+const repeatRpcResultSchema = z.object({
+  prescription_id: z.string().uuid().nullable(),
+  added_item_ids: z.array(z.string().uuid()),
+  skipped_item_ids: z.array(z.string().uuid()),
+  diagnoses_added: z.number().int().min(0),
+  replayed: z.boolean(),
+});
+
+/** Fixed, data-free texts of "Same as last visit" (the driver message never reaches the caller). */
+const REPEAT_MESSAGES = {
+  NOT_FOUND: "The previous visit could not be found. Refresh and try again.",
+  FORBIDDEN: "You do not have permission to repeat the last visit.",
+  LOCK_TIMEOUT: "This visit is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This was already submitted with different details. Refresh and try again.",
+  VALIDATION_FAILED: "Choose what to repeat and try again.",
+  DRAFT_LOCKED: SIGNED_CONSULTATION_MESSAGE,
+  INTERNAL: "Failed to repeat the last visit. Please try again.",
+} as const satisfies DbErrorMessages;
+
+export type RepeatVisitPlanResult =
+  | {
+      success: true;
+      prescriptionId: string | null;
+      addedItemIds: string[];
+      /** Source item ids of the lines NOT copied because they match a recorded allergy (the screen opens them flagged). */
+      skippedItemIds: string[];
+      /** The source lines behind `skippedItemIds` (stored values, read by their ids under RLS), so the screen can open each in the dose builder. */
+      skippedItems: PrescriptionItem[];
+      diagnosesAdded: number;
+      replayed: boolean;
+      /** The visit's lines and diagnoses as the database holds them now (the command decides what was copied, so the screen takes its answer). */
+      items: PrescriptionItem[];
+      diagnoses: ConsultationDiagnosisItem[];
+    }
+  | { success: false; error: string; code?: AppError["code"]; reason?: string; fieldErrors?: Record<string, string[]> };
+
+/** The source lines the repeat left for the doctor (an allergy match), by id, under the caller's RLS; a failed read is an empty list (the ids are still returned). */
+async function readSkippedItems(ctx: ServiceContext, ids: string[]): Promise<PrescriptionItem[]> {
+  if (ids.length === 0) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("prescription_items") as any)
+    .select("id, prescription_id, medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, cdci_brand_id, cdci_generic_id, sort_order, created_at")
+    .eq("tenant_id", ctx.tenantId)
+    .in("id", ids)
+    .order("sort_order", { ascending: true });
+  if (error) {
+    log.error({ event: "prescriptions.repeat_skipped_read.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return [];
+  }
+  return (data ?? []) as PrescriptionItem[];
+}
+
+/**
+ * "Same as last visit" as ONE command (`public.repeat_visit_plan`, V2-09c R-10, ADR-004): the signed source visit's diagnoses and/or prescription lines are
+ * copied by the database onto this visit (a diagnosis or medicine already there is skipped; a line that matches a recorded allergy is not copied and is
+ * reported by its source item id). `prescriptions:edit` and `consultations:edit`. The tenant is the session's; only ids and the parts are sent.
+ */
+export async function repeatVisitPlan(ctx: ServiceContext, input: RepeatVisitPlanInput): Promise<RepeatVisitPlanResult> {
+  try {
+    assertPerm(ctx.role, "prescriptions:edit");
+    assertPerm(ctx.role, "consultations:edit");
+  } catch (err: unknown) {
+    return { success: false, error: clientErrorMessage(err, "Failed to repeat the last visit.", "prescriptions.repeat.failed") };
+  }
+  const parsed = repeatVisitPlanSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: REPEAT_MESSAGES.VALIDATION_FAILED, code: "VALIDATION_FAILED" };
+  const { visit_id: visitId, source_visit_id: sourceVisitId, parts, client_request_id: clientRequestId } = parsed.data;
+
+  const outcome = await callCommand(
+    ctx,
+    "repeat_visit_plan",
+    { p_visit_id: visitId, p_source_visit_id: sourceVisitId, p_parts: [...new Set(parts)], p_client_request_id: clientRequestId },
+    repeatRpcResultSchema,
+    REPEAT_MESSAGES,
+    { event: "prescriptions.repeat.failed" }
+  );
+  if (!outcome.ok) return { success: false, error: outcome.error.message, code: outcome.error.code, reason: outcome.error.reason };
+
+  // The screen takes what the database now holds (it, not the screen, decided what was copied).
+  const [rx, dx, skippedItems] = await Promise.all([
+    getVisitPrescription(ctx, visitId),
+    getVisitDiagnoses(ctx, visitId),
+    readSkippedItems(ctx, outcome.value.skipped_item_ids),
+  ]);
+  return {
+    success: true,
+    prescriptionId: outcome.value.prescription_id,
+    addedItemIds: outcome.value.added_item_ids,
+    skippedItemIds: outcome.value.skipped_item_ids,
+    skippedItems,
+    diagnosesAdded: outcome.value.diagnoses_added,
+    replayed: outcome.value.replayed,
+    items: rx.success && rx.prescription ? [...rx.prescription.items].sort((a, b) => a.sort_order - b.sort_order) : [],
+    diagnoses: dx.success ? (dx.diagnoses as ConsultationDiagnosisItem[]) : [],
+  };
 }
 
 export type SaveDoctorProtocolTemplateResult =

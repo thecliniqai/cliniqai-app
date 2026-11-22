@@ -9,13 +9,14 @@ import { clinicDateLabel } from "./format";
 
 /**
  * The patient's past encounters (V2-09b 09B-02b; replaces the v1 history drawer): date in the clinic zone, vitals, complaints, diagnoses, notes with
- * "Copy" and the signed Rx with "Repeat this Rx". The two actions are passed only while the record is editable. Repeat Rx keeps its v1 behaviour (one
- * add per medicine, a registered exception owned by V2-09c); Copy appends the prior note to the note field.
+ * "Copy" and the signed Rx with "Repeat this Rx". The two actions are passed only while the record is editable. "Repeat this Rx" is offered for a signed visit
+ * and is one `repeat_visit_plan` command (V2-09c R-10: the database copies the signed lines); Copy appends the prior note to the note field.
  */
 export interface HistoryListProps {
   encounters: readonly PastVisitEncounter[];
   timeZone: string;
-  onRepeatRx?: (items: PastVisitEncounter["prescriptions"][0]["items"]) => void;
+  /** Repeats the Rx of the signed visit `sourceVisitId` as one command (V2-09c R-10). */
+  onRepeatRx?: (sourceVisitId: string) => void;
   onCopyNotes?: (notes: string) => void;
 }
 
@@ -104,8 +105,8 @@ export function HistoryList({ encounters, timeZone, onRepeatRx, onCopyNotes }: H
                       Prescription (v{rx.version})
                     </span>
                   </Caption>
-                  {onRepeatRx && rx.items.length > 0 && (
-                    <Button type="button" variant="secondary" size="sm" startIcon={<RotateCcw />} onClick={() => onRepeatRx(rx.items)}>
+                  {onRepeatRx && rx.items.length > 0 && enc.status === "completed" && enc.signedAt && (
+                    <Button type="button" variant="secondary" size="sm" startIcon={<RotateCcw />} onClick={() => onRepeatRx(enc.visitId)}>
                       Repeat this Rx
                     </Button>
                   )}

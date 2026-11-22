@@ -168,6 +168,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
   // V2-09c 09C-01: the Rx command takes the visit and the changes; the acting fields are forged at the top level of the input and must be ignored.
+  // V2-09c 09C-03: "Same as last visit" takes the visit being written, the signed visit of the same patient to copy from and the parts; only ids travel.
+  "features/prescriptions/actions.ts#repeatVisitPlanAction": {
+    args: (a) => [{ visit_id: a.visit, source_visit_id: a.signedVisit, parts: ["diagnoses", "prescription"], client_request_id: randomUUID(), ...acting(a) }],
+  },
   "features/prescriptions/actions.ts#changePrescriptionAction": {
     args: (a) => [
       {

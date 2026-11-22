@@ -14,7 +14,7 @@ import {
 import type { PastVisitEncounter } from "@/features/consultation/actions";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import type { PrescriptionItem, Referral } from "@/lib/db/types";
-import { templateItemToAdd, type ChangeLine } from "@/features/prescriptions/lines";
+import { pastItemToMedicine } from "@/features/prescriptions/lines";
 import { sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import { recordState, signedVersionOf, SIGNED_CONSULTATION_MESSAGE } from "@/features/consultation/record-state";
@@ -22,8 +22,9 @@ import { changedDraftKeys, type DraftFields } from "@/features/consultation/draf
 import type { FlushResult } from "@/features/consultation/draft-saver";
 import { VitalsBlock } from "../vitals-block";
 import { notify } from "@/components/ui/toast";
-import { PrescriptionSection } from "./sections/prescription-section";
-import { useRxLines } from "./use-rx-lines";
+import { PrescriptionSection, type RxLastVisit, type RxLeftOut } from "./sections/prescription-section";
+import type { RxEntryHandle } from "@/components/clinical/rx-entry-row";
+import { useRxLines, type RepeatPart } from "./use-rx-lines";
 import { DentalOdontogram } from "../specialty/dental-odontogram";
 import { PediatricsTools } from "../specialty/pediatrics-tools";
 import { SignAndBillModal } from "../sign-and-bill-modal";
@@ -139,6 +140,11 @@ export interface ConsultWorkspaceProps {
    * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
    */
   assistContext?: AssistContext | null;
+  /**
+   * The same read, for the Prescription section's favourites and "your usual" (V2-09c R-9): only when the clinic is entitled to `assist.frequent_rx` and the
+   * record is editable; null otherwise ("Same as last visit" stays).
+   */
+  rxAssistContext?: AssistContext | null;
   /** The allergy picture of the visit the page read (V2-09c 09C-02, R-7): the three states, the coded allergies, what each line matches. */
   allergyContext?: RxAllergyContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
@@ -218,6 +224,7 @@ export function ConsultWorkspace({
   canRecordAllergies: mayRecordAllergies = false,
   assist,
   assistContext = null,
+  rxAssistContext = null,
   allergyContext: initialAllergyContext = null,
   snapshot = null,
   macros = [],
@@ -291,6 +298,9 @@ export function ConsultWorkspace({
   // the summary pane and Sign & Bill.
   const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [] });
   const rxItems = rx.items;
+  // The medicines "Same as last visit" or a tile left to the doctor (an allergy match), and the entry row's handle that opens the dose builder for one.
+  const rxEntryRef = useRef<RxEntryHandle | null>(null);
+  const [rxLeftOut, setRxLeftOut] = useState<readonly RxLeftOut[]>([]);
 
   // The allergies and what each line matches (V2-09c 09C-02, R-7, R-8). The strip draws the stored list; the editor saves it through one command and the
   // context is read again (after a save and after every change of the lines) so the chips, the notices and the line states follow the database's rule.
@@ -516,15 +526,34 @@ export function ConsultWorkspace({
     }
   };
 
-  // Repeat Rx (the history list's "Repeat this Rx" and the section's "Repeat last Rx"): the past lines as ONE `change_prescription` command (V2-09c R-2).
-  // 09C-03 moves the copy into the database (`repeat_visit_plan`), which also skips what is already on this Rx.
-  const handleRepeatRx = async (medications: PastVisitEncounter["prescriptions"][0]["items"]): Promise<{ ok: boolean; error?: string }> => {
+  // "Same as last visit" and "Repeat this Rx": ONE `repeat_visit_plan` command (V2-09c R-10). The database copies the signed source's diagnoses and lines, skips
+  // what is already here and leaves out a line that matches a recorded allergy; the screen takes its answer and opens the left-out line in the dose builder.
+  const runRepeat = async (sourceVisitId: string, parts: readonly RepeatPart[]): Promise<{ ok: boolean; error?: string }> => {
     setIsPatientOpen(false);
     goToSection("prescription");
-    const lines = medications.map((med) => templateItemToAdd({ ...med, cdci_brand_id: null })).filter((l): l is ChangeLine => l !== null);
-    if (lines.length === 0) return { ok: true };
-    return rx.add(lines);
+    const sent = await rx.repeat(sourceVisitId, parts);
+    if (!sent.ok) return { ok: false, error: sent.error };
+    rx.markRepeated((sent.added ?? []).map((i) => i.id));
+    if (sent.diagnoses) setDiagnoses(sent.diagnoses);
+    const left: RxLeftOut[] = (sent.skipped ?? []).map((item) => ({ key: `item:${item.id}`, medicine: pastItemToMedicine(item), allergy: "a recorded allergy (see the allergy strip)" }));
+    const [first, ...rest] = left;
+    setRxLeftOut(rest);
+    if (first) rxEntryRef.current?.prefill(first.medicine, { allergy: first.allergy });
+    return { ok: true };
   };
+
+  // The patient's last signed visit and what copying it would still add (a diagnosis or medicine already on this visit is not offered again).
+  const lastSigned = pastEncounters.find((e) => e.status === "completed" && Boolean(e.signedAt));
+  const norm = (value: string) => value.trim().toLowerCase();
+  const lastVisit: RxLastVisit | null = (() => {
+    if (!lastSigned || readOnly) return null;
+    const have = new Set(diagnoses.map((d) => norm(d.diagnosis_name)));
+    const onRx = new Set(rxItems.map((i) => norm(i.medicine_name)));
+    const parts: RepeatPart[] = [];
+    if (lastSigned.diagnoses.some((d) => !have.has(norm(d.diagnosis_name)))) parts.push("diagnoses");
+    if ((lastSigned.prescriptions[0]?.items ?? []).some((i) => !onRx.has(norm(i.medicine_name)))) parts.push("prescription");
+    return parts.length > 0 ? { visitId: lastSigned.visitId, dateLabel: clinicDateLabel(lastSigned.date, timeZone), parts } : null;
+  })();
 
   const handleCopyNotes = (notes: string) => {
     setClinicalNotes((prev) => (prev ? `${prev}\n\n[Prior Note]: ${notes}` : notes));
@@ -595,8 +624,8 @@ export function ConsultWorkspace({
     timeZone,
     onRepeatRx: readOnly
       ? undefined
-      : (items: PastVisitEncounter["prescriptions"][0]["items"]) => {
-          void handleRepeatRx(items).then((sent) => {
+      : (sourceVisitId: string) => {
+          void runRepeat(sourceVisitId, ["prescription"]).then((sent) => {
             if (!sent.ok) notify.error(sent.error ?? "Failed to repeat the prescription.");
           });
         },
@@ -909,12 +938,14 @@ export function ConsultWorkspace({
                     : null
                 }
                 readOnly={readOnly}
-                canRepeatLast={!readOnly && pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
-                onRepeatLast={async () => {
-                  const firstWithRx = pastEncounters.find((e) => e.prescriptions && e.prescriptions.length > 0);
-                  if (!firstWithRx || !firstWithRx.prescriptions[0]?.items) return { ok: true };
-                  return handleRepeatRx(firstWithRx.prescriptions[0].items);
-                }}
+                assistContext={rxAssistContext}
+                diagnosisNames={diagnoses.map((d) => d.diagnosis_name)}
+                specialty={specialty}
+                lastVisit={lastVisit}
+                onRepeat={runRepeat}
+                entryRef={rxEntryRef}
+                leftOut={rxLeftOut}
+                onLeftOut={setRxLeftOut}
               />
             </ConsultSection>
 

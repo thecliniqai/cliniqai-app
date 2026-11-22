@@ -3803,6 +3803,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      repeat_visit_plan: {
+        Args: {
+          p_client_request_id: string;
+          p_parts: string[];
+          p_source_visit_id: string;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       reschedule_visit: {
         Args: {

@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { BookOpen, RotateCcw } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { notify } from "@/components/ui/toast";
-import { DoseBuilder, RxEntryRow, type DoseDraft, type RxAddResult } from "@/components/clinical/rx-entry-row";
+import { DoseBuilder, RxEntryRow, type DoseDraft, type RxAddResult, type RxEntryHandle } from "@/components/clinical/rx-entry-row";
 import { RxLineItem } from "@/components/clinical/rx-line-item";
+import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
 import { fetchMedicines } from "@/features/prescriptions/search";
-import { itemToAdd, itemToLine, lineToAdd, lineToUpdate } from "@/features/prescriptions/lines";
+import { itemToAdd, itemToLine, lineToAdd, lineToUpdate, rxEntryToAdd, rxEntryToMedicine } from "@/features/prescriptions/lines";
+import { rxBundlesFor, rxFavouritesFor, type AssistContext, type RxAssistEntry } from "@/features/consultation/assist-ranking";
 import type { PrescriptionItem } from "@/lib/db/types";
 import { lineDuration, MAX_DAYS, MIN_DAYS, type Medicine, type RxLine } from "@/lib/clinical/rx";
 import { RxTemplatesSheet } from "../rx-templates-sheet";
 import { allergyMatches, matchText, type AllergyEntry, type AllergyState } from "@/features/prescriptions/allergy";
-import type { UseRxLines } from "../use-rx-lines";
+import type { RepeatPart, UseRxLines } from "../use-rx-lines";
 
 /**
  * The Prescription section of the consult (V2-09c 09C-01, R-4, R-5; DESIGN_SYSTEM §7.6; M4.4). Replaces the v1 `prescription-builder.tsx` and its React Compiler
@@ -35,14 +38,43 @@ export interface RxAllergyView {
   onRecord?: () => void;
 }
 
+/** A medicine the database or the screen left out of a one-tap add because it matches a recorded allergy: the doctor decides in the dose builder. */
+export interface RxLeftOut {
+  key: string;
+  medicine: Medicine;
+  /** The match the screen could not name itself (the database decided): shown in the builder as "Matches allergy: …". */
+  allergy?: string;
+}
+
+/** "Same as last visit" (V2-09c R-10): the patient's last signed visit and what is still missing from this one. */
+export interface RxLastVisit {
+  visitId: string;
+  /** The visit's date in the clinic's zone, for the tile. */
+  dateLabel: string;
+  /** What copying would add now: parts with nothing missing are not offered. */
+  parts: readonly RepeatPart[];
+}
+
 export interface PrescriptionSectionProps {
   rx: UseRxLines;
   allergy?: RxAllergyView | null;
   readOnly: boolean;
-  /** The patient has a past prescription to repeat (the history list's first one). */
-  canRepeatLast: boolean;
-  /** Repeats it as one command; the answer shows its text on failure. */
-  onRepeatLast: () => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * The calling doctor's own history (`consult_assist_context` rx keys), only when the clinic is entitled to `assist.frequent_rx` (R-9); null: no
+   * favourites and no "your usual" tile, "Same as last visit" stays.
+   */
+  assistContext?: AssistContext | null;
+  /** The diagnoses on the visit, for "your usual for {diagnosis}". */
+  diagnosisNames?: readonly string[];
+  /** The visit's specialty (ranks the templates). */
+  specialty?: string | null;
+  lastVisit?: RxLastVisit | null;
+  /** "Same as last visit" or "Repeat this Rx": one command, answered with its text on failure. */
+  onRepeat: (sourceVisitId: string, parts: readonly RepeatPart[]) => Promise<{ ok: boolean; error?: string }>;
+  /** The entry row's handle: the host opens the dose builder for a medicine left to the doctor. */
+  entryRef: RefObject<RxEntryHandle | null>;
+  leftOut: readonly RxLeftOut[];
+  onLeftOut: (next: readonly RxLeftOut[]) => void;
 }
 
 interface Editing {
@@ -65,7 +97,19 @@ function draftOf(item: PrescriptionItem): DoseDraft {
   };
 }
 
-export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLast, onRepeatLast }: PrescriptionSectionProps) {
+export function PrescriptionSection({
+  rx,
+  allergy = null,
+  readOnly,
+  assistContext = null,
+  diagnosisNames = [],
+  specialty = null,
+  lastVisit = null,
+  onRepeat,
+  entryRef,
+  leftOut,
+  onLeftOut,
+}: PrescriptionSectionProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -81,6 +125,54 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
         }
       : undefined;
 
+  // The recorded allergies a favourite or bundle medicine matches, by its catalogue substance ids or by name (the rule of the commands).
+  const entryAllergy = (entry: RxAssistEntry): string | null => {
+    if (!checking || !allergy || allergy.entries.length === 0) return null;
+    const matched = allergyMatches(allergy.entries, { substanceIds: entry.substance_ids, names: [entry.name, entry.generic_name ?? ""] });
+    return matched.length > 0 ? matchText(matched) : null;
+  };
+
+  const onRxNames = rx.items.map((i) => i.medicine_name);
+  const bundles = rxBundlesFor({ context: assistContext, diagnoses: diagnosisNames, onRx: onRxNames });
+  const favourites = rxFavouritesFor({ context: assistContext, onRx: onRxNames });
+
+  /** Opens the dose builder for the first medicine left to the doctor; the rest wait in the list under the entry row. */
+  const leaveToDoctor = (list: readonly RxLeftOut[]) => {
+    const [first, ...rest] = list;
+    if (!first) return;
+    onLeftOut(rest);
+    entryRef.current?.prefill(first.medicine, first.allergy ? { allergy: first.allergy } : undefined);
+  };
+
+  /**
+   * One tap adds the entries that have a complete usual dose and match no recorded allergy, in ONE command (stored values only); the others (an allergy
+   * match, or no complete usual dose) are left to the dose builder, flagged where they match. Nothing is added without the tap.
+   */
+  const addEntries = async (entries: readonly RxAssistEntry[]) => {
+    setListError(null);
+    const direct: { entry: RxAssistEntry; line: NonNullable<ReturnType<typeof rxEntryToAdd>> }[] = [];
+    const toDoctor: RxLeftOut[] = [];
+    for (const entry of entries) {
+      const line = rxEntryToAdd(entry);
+      const flagged = entryAllergy(entry);
+      if (!line || flagged) toDoctor.push({ key: `entry:${entry.name.toLowerCase()}`, medicine: rxEntryToMedicine(entry) });
+      else direct.push({ entry, line });
+    }
+    if (direct.length > 0) {
+      const sent = await rx.add(direct.map((d) => d.line));
+      if (sent.ok) {
+        rx.markRepeated((sent.added ?? []).map((i) => i.id));
+      } else if (sent.reason === "ALLERGY_MATCH" && direct.length === 1) {
+        // The database found a match the screen's rule did not (a name): the dose builder asks for the reason.
+        toDoctor.push({ key: `entry:${direct[0].entry.name.toLowerCase()}`, medicine: rxEntryToMedicine(direct[0].entry), allergy: "a recorded allergy" });
+      } else {
+        setListError(sent.error ?? "Failed to add the medicines.");
+        return;
+      }
+    }
+    if (toDoctor.length > 0) leaveToDoctor(toDoctor);
+  };
+
   const addLine = async (line: RxLine, opts?: { allergyReason?: string }): Promise<RxAddResult> => {
     setListError(null);
     const sent = await rx.add([lineToAdd(line)], opts?.allergyReason);
@@ -93,6 +185,7 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
     setListError(null);
     const sent = await rx.send({ update: [{ id: item.id, dosage: item.dosage }], allergy_override_reason: reason });
     if (!sent.ok) setListError(sent.error ?? "Failed to confirm the medicine.");
+    else rx.touch(item.id);
   };
 
   const saveEdit = async (item: PrescriptionItem) => {
@@ -110,7 +203,10 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
       return;
     }
     const sent = await rx.update([update]);
-    if (sent.ok) setEditing(null);
+    if (sent.ok) {
+      rx.touch(item.id);
+      setEditing(null);
+    }
     else setEditing({ ...editing, error: sent.error ?? "Failed to update the medicine." });
   };
 
@@ -121,6 +217,7 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
       setListError(sent.error ?? "Failed to remove the medicine.");
       return;
     }
+    rx.touch(item.id);
     if (editing?.id === item.id) setEditing(null);
     notify.info(`${item.medicine_name} removed`, {
       undo: () => {
@@ -132,15 +229,18 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
   };
 
   const repeatLast = async () => {
+    if (!lastVisit) return;
     setRepeating(true);
     setListError(null);
     try {
-      const sent = await onRepeatLast();
-      if (!sent.ok) setListError(sent.error ?? "Failed to repeat the last prescription.");
+      const sent = await onRepeat(lastVisit.visitId, lastVisit.parts);
+      if (!sent.ok) setListError(sent.error ?? "Failed to repeat the last visit.");
     } finally {
       setRepeating(false);
     }
   };
+
+  const showAssist = !readOnly && (Boolean(lastVisit) || bundles.length > 0 || favourites.length > 0);
 
   return (
     <div data-rx-section="" className="flex flex-col gap-3">
@@ -163,15 +263,83 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
           allergyOf={allergyOf}
           search={(query, signal) => fetchMedicines(query, signal)}
           onAdd={addLine}
+          handleRef={entryRef}
         />
+      )}
+      {!readOnly && leftOut.length > 0 && (
+        <ul data-rx-left-out="" aria-label="Medicines left for you to decide" className="flex flex-col gap-1.5">
+          {leftOut.map((l) => (
+            <li key={l.key} className="flex flex-wrap items-center gap-2 rounded-md bg-danger-bg px-3 py-1.5 text-label text-danger-fg">
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold">{l.medicine.name}</span> was not added: it may match a recorded allergy.
+              </span>
+              <Button type="button" size="sm" variant="danger-quiet" onClick={() => leaveToDoctor([l])}>
+                Review {l.medicine.name}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {showAssist && (
+        <div data-rx-assist="" className="flex flex-col gap-3">
+          {lastVisit && (
+            <div>
+              <Button type="button" variant="secondary" size="sm" startIcon={<RotateCcw />} loading={repeating} onClick={() => void repeatLast()}>
+                Same as last visit · {lastVisit.dateLabel}
+              </Button>
+            </div>
+          )}
+          {bundles.length > 0 && (
+            <div data-rx-bundles="">
+              <p className="mb-2 flex flex-wrap items-center gap-x-2 text-label font-semibold text-fg-secondary">
+                Your usual
+                <SmartAssistLabel />
+              </p>
+              <ChipGroup
+                type="multiple"
+                variant="tile"
+                aria-label="Your usual prescriptions"
+                value={[]}
+                onValueChange={(next) => {
+                  const bundle = bundles.find((b) => b.diagnosis === next[next.length - 1]);
+                  if (bundle) void addEntries(bundle.entries);
+                }}
+                items={bundles.map((b) => ({
+                  value: b.diagnosis,
+                  label: `Your usual for ${b.diagnosis}`,
+                  meta: b.entries.length,
+                  "aria-label": `Your usual for ${b.diagnosis}: ${b.entries.map((e) => e.name).join(", ")}`,
+                }))}
+              />
+            </div>
+          )}
+          {favourites.length > 0 && (
+            <div data-rx-favourites="">
+              <p className="mb-2 flex flex-wrap items-center gap-x-2 text-label font-semibold text-fg-secondary">
+                Your favourites
+                {bundles.length === 0 && <SmartAssistLabel />}
+              </p>
+              <ChipGroup
+                type="multiple"
+                variant="tile"
+                aria-label="Your favourite medicines"
+                value={[]}
+                onValueChange={(next) => {
+                  const entry = favourites.find((f) => f.name === next[next.length - 1]);
+                  if (entry) void addEntries([entry]);
+                }}
+                items={favourites.map((f) => ({
+                  value: f.name,
+                  label: f.name,
+                  meta: f.usual ? [f.usual.dosage, f.usual.duration].filter(Boolean).join(" · ") : undefined,
+                }))}
+              />
+            </div>
+          )}
+        </div>
       )}
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          {canRepeatLast && (
-            <Button type="button" variant="secondary" size="sm" startIcon={<RotateCcw />} loading={repeating} onClick={() => void repeatLast()}>
-              Repeat last Rx
-            </Button>
-          )}
           <Button type="button" variant="secondary" size="sm" startIcon={<BookOpen />} onClick={() => setTemplatesOpen(true)}>
             Templates
           </Button>
@@ -202,9 +370,13 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
                 line={line}
                 readOnly={readOnly}
                 note={note}
+                repeated={rx.repeated.has(item.id)}
                 allergyMatch={readOnly ? null : unresolved}
                 onOverride={(reason) => void confirmWithReason(item, reason)}
-                onEdit={() => setEditing({ id: item.id, draft: draftOf(item), error: null })}
+                onEdit={() => {
+                  rx.touch(item.id);
+                  setEditing({ id: item.id, draft: draftOf(item), error: null });
+                }}
                 onRemove={() => void removeItem(item)}
               />
             );
@@ -234,7 +406,18 @@ export function PrescriptionSection({ rx, allergy = null, readOnly, canRepeatLas
         </ol>
       )}
       {!readOnly && (
-        <RxTemplatesSheet open={templatesOpen} onOpenChange={setTemplatesOpen} items={rx.items} onApply={(lines) => rx.add(lines)} />
+        <RxTemplatesSheet
+          open={templatesOpen}
+          onOpenChange={setTemplatesOpen}
+          items={rx.items}
+          specialty={specialty}
+          diagnoses={diagnosisNames}
+          onApply={async (lines) => {
+            const sent = await rx.add(lines);
+            if (sent.ok) rx.markRepeated((sent.added ?? []).map((i) => i.id));
+            return sent;
+          }}
+        />
       )}
     </div>
   );

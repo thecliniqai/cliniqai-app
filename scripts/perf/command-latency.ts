@@ -351,6 +351,8 @@ async function main(): Promise<void> {
       if (error) throw new Error(`substance seed failed: ${error.message}`);
     }
     const hotPatient = await desk.seedPatient(t);
+    // The first signed visit of the hot patient: the source of "Same as last visit" below (a diagnosis and three lines).
+    let hotSource = "";
     const pool: string[] = [];
     for (let i = 0; i < 30; i++) pool.push(await desk.seedPatient(t));
     const complaints = ["Fever", "Cough", "Headache", "Body ache", "Cold"];
@@ -379,6 +381,26 @@ async function main(): Promise<void> {
         .from("consultation_diagnoses")
         .insert({ tenant_id: t.tenantId, visit_id: visit.id, patient_id: patientId, diagnosis_name: `Latency history diagnosis ${i % 14}`, icd11_code: "ZZ00" });
       if (dx.error) throw new Error(`signed-history seed failed: ${dx.error.message}`);
+      // V2-09c 09C-03 (R-17): three prescription lines per visit (a pool of 25 medicines, so the favourites rank real counts), written on the draft and sealed by the sign-off.
+      const header = await admin
+        .from("prescriptions")
+        .insert({ tenant_id: t.tenantId, visit_id: visit.id, patient_id: patientId, doctor_id: t.userId, version: 1, status: "active" })
+        .select("id")
+        .single();
+      if (header.error || !header.data) throw new Error(`signed-history seed failed: ${header.error?.message}`);
+      const lines = await admin.from("prescription_items").insert(
+        [0, 1, 2].map((n) => ({
+          tenant_id: t.tenantId,
+          prescription_id: header.data.id,
+          medicine_name: `Latency Rx Medicine ${(i * 3 + n) % 25}`,
+          dosage: n === 0 ? "1-0-1" : "0-0-1",
+          timing: n === 2 ? null : "After food",
+          duration: `${3 + (n % 3)} days`,
+          sort_order: n,
+        })),
+      );
+      if (lines.error) throw new Error(`signed-history seed failed: ${lines.error.message}`);
+      if (i === 0) hotSource = visit.id;
       const signed = await owner.client.rpc("sign_consultation", clinical.signArgs(t, visit.id));
       if (signed.error) throw new Error(`signed-history seed failed: ${signed.error.message}`);
     }
@@ -386,6 +408,19 @@ async function main(): Promise<void> {
     // ANALYZE runs within its 60 s nap; a clinic's tables have had it for a long time.
     console.log("[latency] waiting 75 s for autovacuum to analyze the seeded tables");
     await new Promise((resolve) => setTimeout(resolve, 75_000));
+    // V2-09c 09C-03 (R-10): "Same as last visit" onto a fresh draft of the same patient: the diagnosis and the three lines copied, with allergies recorded so the check runs.
+    await admin.from("patients").update({ allergies: ["Latency allergen", "Latency substance 7", "Penicillin"] }).eq("id", hotPatient);
+    await measure("repeat_visit_plan", "command", async () => {
+      const { data: target, error: targetError } = await admin
+        .from("visits")
+        .insert({ tenant_id: t.tenantId, patient_id: hotPatient, doctor_id: t.userId, origin_type: "walk_in", status: "in_consultation", created_by: t.userId })
+        .select("id")
+        .single();
+      if (targetError || !target) throw new Error(`repeat target seed failed: ${targetError?.message}`);
+      const args = { p_tenant_id: t.tenantId, p_visit_id: target.id, p_source_visit_id: hotSource, p_parts: ["diagnoses", "prescription"], p_client_request_id: randomUUID() };
+      return () => owner.client.rpc("repeat_visit_plan", args);
+    });
+    // consult_assist_context with the Rx keys: the doctor's 300 signed visits of three lines each (25 distinct medicines).
     await measure("read: consult_assist_context", "read", async () => () => owner.client.rpc("consult_assist_context", { p_tenant_id: t.tenantId }));
     await measure("read: search_diagnoses", "read", async (i) => () =>
       owner.client.rpc("search_diagnoses", { p_tenant_id: t.tenantId, p_terms: [`latency diagnosis ${(i * 13) % 2000}`, "latency fever"], p_specialty: "general_physician", p_limit: 12 }),
