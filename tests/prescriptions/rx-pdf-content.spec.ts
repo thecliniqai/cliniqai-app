@@ -10,10 +10,10 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { renderPrescriptionPdf } from "@/features/prescriptions/pdf/generator";
-import { buildRxContent, rxFileName } from "@/features/prescriptions/pdf/content";
+import { buildRxContent, rxAgeText, rxFileName } from "@/features/prescriptions/pdf/content";
 import { effectiveMargins } from "@/features/prescriptions/pdf/layout";
 import { examPrintLines } from "@/features/consultation/exam-text";
-import { clinicDateText, ymdLabel } from "@/lib/datetime";
+import { clinicDateText, ymdLabel, ymdOf } from "@/lib/datetime";
 import { PAGE_A4, PAGE_A5, pdfInfo, pdfPageSizes, pdfText, pdfTextLines, pdfTextPositions } from "../helpers/pdf-text";
 import { basePayload, longPayload } from "../helpers/rx-pdf-fixtures";
 
@@ -219,5 +219,36 @@ describe("print margins are honoured (pre-printed stationery)", () => {
     const a5 = await renderPrescriptionPdf(basePayload({ paper_size: "A5" }));
     expect(pdfPageSizes(a5).every((s) => s.width === PAGE_A5.width && s.height === PAGE_A5.height)).toBe(true);
     expect(pdfTextLines(a5).join("\n")).toContain("Paracetamol 650");
+  });
+});
+
+describe("the printed age (09C-06a, A-9)", () => {
+  // SIGNED_AT is the fixture's signature; the age is taken at that date in the clinic's zone.
+  const patient = (over: Partial<ReturnType<typeof basePayload>["patient"]>) => ({ ...basePayload().patient, ...over });
+  const line = (over: Partial<ReturnType<typeof basePayload>["patient"]>) => buildRxContent(basePayload({ patient: patient(over) })).patient.line;
+  const signedYmd = () => ymdOf(basePayload().signed_at as string, "Asia/Kolkata");
+
+  it("comes from the date of birth at the Rx date, not the age stored at registration", () => {
+    const [y, m, d] = signedYmd().split("-").map(Number);
+    const dob = `${y - 7}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    expect(line({ age: 3, date_of_birth: dob, sex: "female" })).toBe(`Patient: Ravi Synthetic (7y FEMALE)`);
+  });
+
+  it("prints an infant in months and a newborn in days", () => {
+    const [y, m] = signedYmd().split("-").map(Number);
+    const eightMonths = new Date(Date.UTC(y, m - 1 - 8, 1)).toISOString().slice(0, 10);
+    expect(line({ age: 0, date_of_birth: eightMonths, sex: "male" })).toBe("Patient: Ravi Synthetic (8m MALE)");
+    expect(rxAgeText({ age: 0, date_of_birth: "2026-11-08" }, "2026-11-20")).toBe("12d");
+  });
+
+  it("falls back to the stored age only without a date of birth, and a stored 0 is printed", () => {
+    expect(line({ age: 41, date_of_birth: null })).toBe("Patient: Ravi Synthetic (41y MALE)");
+    expect(line({ age: 0, date_of_birth: null })).toBe("Patient: Ravi Synthetic (under 1y MALE)");
+    expect(line({ age: null, date_of_birth: null })).toBe("Patient: Ravi Synthetic (MALE)");
+  });
+
+  it("the continuation line of page 2 carries the same age", () => {
+    const content = buildRxContent({ ...longPayload(), patient: patient({ age: 2, date_of_birth: "2025-03-15" }) });
+    expect(content.continuation(2, 2)).toContain("Patient: Ravi Synthetic (20m MALE)");
   });
 });

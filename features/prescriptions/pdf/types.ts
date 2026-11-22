@@ -54,7 +54,10 @@ export interface PrescriptionPdfPayload {
 
   patient: {
     full_name: string;
+    /** The age stored at registration: printed only when there is no date of birth (09C-06a, A-9). */
     age?: number | null;
+    /** `YYYY-MM-DD`: the printed age is computed from it at the Rx date in the clinic's zone (09C-06a, A-9). */
+    date_of_birth?: string | null;
     sex?: "male" | "female" | "other" | null;
     phone?: string | null;
     address?: string | null;

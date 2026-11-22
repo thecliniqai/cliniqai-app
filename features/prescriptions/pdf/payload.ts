@@ -94,7 +94,7 @@ export async function loadPrescriptionPdfSource(
       .maybeSingle(),
     db
       .from("patients")
-      .select("full_name, age, sex, phone, address, abha_id")
+      .select("full_name, age, date_of_birth, sex, phone, address, abha_id")
       .eq("id", visit.patient_id)
       .eq("tenant_id", tenantId)
       .maybeSingle(),
@@ -162,7 +162,9 @@ export async function loadPrescriptionPdfSource(
     },
     patient: {
       full_name: patient?.full_name || "Patient",
-      age: patient?.age || null,
+      // A-9: 0 is an age (a baby), not "none"; the date of birth decides the printed age when there is one.
+      age: typeof patient?.age === "number" ? patient.age : null,
+      date_of_birth: patient?.date_of_birth ?? null,
       sex: patient?.sex || null,
       phone: patient?.phone || null,
       address: typeof patient?.address === "string" ? patient.address : null,

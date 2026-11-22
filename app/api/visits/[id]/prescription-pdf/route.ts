@@ -6,6 +6,9 @@ import { rxFileName } from "@/features/prescriptions/pdf/content";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
+/** 09C-06a (S-9): every answer of this route, an error included, is private and never stored by a cache. */
+const NO_STORE = { "Cache-Control": "private, no-store" } as const;
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -19,16 +22,20 @@ export async function GET(
     const resolved = await resolveServiceContext("prescriptions:view");
     if (!resolved.ok) {
       if (resolved.reason === "unauthenticated") {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse("Unauthorized", { status: 401, headers: NO_STORE });
       }
       if (resolved.reason === "forbidden") {
-        return new NextResponse("Forbidden", { status: 403 });
+        return new NextResponse("Forbidden", { status: 403, headers: NO_STORE });
+      }
+      // 09C-06a (S-9): a locked or onboarding clinic is 403 SUBSCRIPTION_LOCKED, as the other session routes answer (it was a 500).
+      if (resolved.reason === "locked") {
+        return NextResponse.json({ error: resolved.error, code: "SUBSCRIPTION_LOCKED" }, { status: 403, headers: NO_STORE });
       }
       // 06-09d: Supabase Auth could not answer: 503, never 401 (no sign-out during an Auth incident).
       if (resolved.reason === "unavailable") {
-        return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+        return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 503, headers: NO_STORE });
       }
-      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
+      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500, headers: NO_STORE });
     }
     const ctx = resolved.ctx;
 
@@ -46,7 +53,7 @@ export async function GET(
       paper: requestedPaper === "A4" || requestedPaper === "A5" ? requestedPaper : undefined,
     });
     if (!source) {
-      return new NextResponse("Visit not found or access denied", { status: 404 });
+      return new NextResponse("Visit not found or access denied", { status: 404, headers: NO_STORE });
     }
 
     // 5. A sealed prescription is served from the write-once archive after its SHA-256 is checked (archived first when it is missing); a draft, an open
@@ -70,6 +77,6 @@ export async function GET(
   } catch (err: unknown) {
     // Fixed body; only the error name is logged (IR-L2).
     log.error({ event: "prescriptions.pdf_route.failed", code: errorTag(err), requestId: await getRequestId() });
-    return new NextResponse("Internal Server Error", { status: 500 });
+    return new NextResponse("Internal Server Error", { status: 500, headers: NO_STORE });
   }
 }
