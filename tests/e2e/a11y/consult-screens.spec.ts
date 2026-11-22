@@ -13,9 +13,12 @@ import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { randomUUID } from "node:crypto";
-import { run, seedPatient, seedSignedConsultation, seedVisit, testTag } from "../support/m0-data";
+import { run, seedPatient, seedSignedConsultation, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
 import { awaitHydrated } from "../support/hydrated";
-import { storageStatePath } from "../support/run-data";
+import { storageStatePath, type RunUser } from "../support/run-data";
+import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
+import { settleAnimations } from "../support/settle";
+import { rxField } from "../support/rx-entry";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
@@ -61,9 +64,139 @@ async function seedDraftVisit(): Promise<string> {
   });
 }
 
+/** Lines on the visit's prescription, written as the service role on an unsigned visit (the plan's fixture rule). */
+async function seedLines(visitId: string, names: string[]): Promise<void> {
+  const { tenantA } = run();
+  const admin = getAdminClient();
+  const visit = await admin.from("visits").select("patient_id, doctor_id").eq("id", visitId).single();
+  if (visit.error || !visit.data) throw new Error(visit.error?.message);
+  const header = await admin
+    .from("prescriptions")
+    .insert({ tenant_id: tenantA.id, visit_id: visitId, patient_id: visit.data.patient_id, doctor_id: visit.data.doctor_id, version: 1, status: "active" })
+    .select("id")
+    .single();
+  if (header.error || !header.data) throw new Error(header.error?.message);
+  await admin
+    .from("prescription_items")
+    .insert(names.map((medicine_name, sort_order) => ({ tenant_id: tenantA.id, prescription_id: header.data.id, medicine_name, dosage: "1-0-1", timing: null, duration: "5 days", sort_order })))
+    .throwOnError();
+}
+
+let ownDoctor: RunUser | null = null;
+test.afterEach(async () => {
+  if (ownDoctor) await retireOwnDoctor(ownDoctor);
+  ownDoctor = null;
+});
+
 for (const size of WIDTHS) {
   test.describe(`consult page axe at ${size.width}px`, () => {
     test.use({ storageState: storageStatePath("doctor") });
+
+    // V2-09c 09C-05 (M4 criterion 3): the Rx section, its sheets, the finish review and the success screen.
+    test(`the Rx section with the entry list open and the dose builder open: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      const rx = page.locator("#prescription");
+      const name = `Axe Tablet ${testTag().replace(/\W/g, "")}`;
+      await rxField(rx).fill(name);
+      await expect(rx.getByRole("option", { name: new RegExp(`^Add .${name}.$`) })).toBeVisible({ timeout: 10_000 });
+      await checkWholePage(page, testInfo, `rx-entry-list-${size.width}`);
+      const options = await rx.getByRole("option").count();
+      for (let i = 1; i < options; i++) await rxField(rx).press("ArrowDown");
+      await rxField(rx).press("Enter");
+      await expect(rx.locator("[data-dose-builder]")).toBeVisible();
+      await rxField(rx).press("1");
+      await checkWholePage(page, testInfo, `rx-dose-builder-${size.width}`);
+    });
+
+    test(`a line that matches an allergy, then the finish review with the match open: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await seedLines(visitId, [`Penicillin V Axe ${testTag().replace(/\W/g, "")}`, "Axe Clear Tablet"]);
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await expect(page.locator("[data-rx-line][data-flagged]")).toHaveCount(1);
+      await page.locator("#prescription").scrollIntoViewIfNeeded();
+      await checkWholePage(page, testInfo, `rx-allergy-line-${size.width}`);
+      await page.getByRole("button", { name: "Finish visit" }).click();
+      const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
+      await expect(dialog.locator("[data-finish-allergy]")).toBeVisible();
+      await checkWholePage(page, testInfo, `finish-review-allergy-${size.width}`);
+    });
+
+    test(`the Templates sheet open: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.locator("#prescription").getByRole("button", { name: "Templates" }).click();
+      await expect(page.getByRole("dialog", { name: "Templates" })).toBeVisible();
+      await checkWholePage(page, testInfo, `rx-templates-${size.width}`);
+    });
+
+    test(`the allergy editor sheet open: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      const visitId = await seedDraftVisit();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.locator("[data-allergy-strip]").getByRole("button", { name: /^Edit/ }).first().click();
+      await expect(page.getByRole("dialog", { name: "Allergies" })).toBeVisible();
+      await checkWholePage(page, testInfo, `allergy-editor-${size.width}`);
+    });
+
+    test(`the finish review ready to sign, and the success screen after it: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      test.setTimeout(120_000);
+      const visitId = await seedDraftVisit();
+      await seedLines(visitId, ["Axe Clear Tablet", "Axe Second Syrup"]);
+      await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note for the axe sign-off" }).eq("visit_id", visitId).throwOnError();
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await page.getByRole("button", { name: "Finish visit" }).click();
+      const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
+      await expect(dialog.locator("[data-finish-summary]")).toBeVisible();
+      await expect(dialog.locator("[data-finish-allergy]")).toHaveCount(0);
+      await checkWholePage(page, testInfo, `finish-review-${size.width}`);
+      await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
+      await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
+      const done = page.getByRole("dialog");
+      await expect(done.locator("[data-print-rx]")).toHaveAttribute("data-print-rx", "view", { timeout: 15_000 });
+      await expect(done.locator("[data-share-pdf]")).toHaveAttribute("data-share-pdf", /^(share|download)$/, { timeout: 15_000 });
+      await settleAnimations(page);
+      await checkWholePage(page, testInfo, `finish-success-${size.width}`);
+    });
+
+    test(`the favourites, "your usual" and "Same as last visit" tiles: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
+      test.setTimeout(120_000);
+      const { tenantA } = run();
+      const admin = getAdminClient();
+      const own = await seedOwnDoctor("AxeTiles");
+      ownDoctor = own;
+      const tag = testTag().replace(/\W/g, "");
+      const dx = `Axe Viral fever ${tag}`;
+      const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic AxeTiles ${tag}`);
+      for (let i = 0; i < 3; i++) {
+        const v = await seedVisit({ tenantId: tenantA.id, patientId: i === 2 ? patient.id : (await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic AxeHist ${i} ${tag}`)).id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "waiting" });
+        const pid = (await admin.from("visits").select("patient_id").eq("id", v).single()).data!.patient_id;
+        await admin.from("clinical_notes").update({ clinical_notes: "E2E synthetic history note" }).eq("visit_id", v).throwOnError();
+        await admin.from("consultation_diagnoses").insert({ tenant_id: tenantA.id, visit_id: v, patient_id: pid, diagnosis_name: dx, icd11_code: "MG26" }).throwOnError();
+        await seedLines(v, [`Axe Alpha ${tag}`, `Axe Beta ${tag}`]);
+        await signSeededVisit(tenantA.id, v, own.email);
+      }
+      const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "in_consultation" });
+      await admin.from("consultation_diagnoses").insert({ tenant_id: tenantA.id, visit_id: visitId, patient_id: patient.id, diagnosis_name: dx, icd11_code: "MG26" }).throwOnError();
+      await signInAsOwnDoctor(page, own);
+      await page.setViewportSize(size);
+      await page.goto(`/consultation/${visitId}`);
+      await awaitHydrated(page);
+      await expect(page.locator("#prescription [data-rx-assist]")).toBeVisible();
+      await expect(page.locator("#prescription [data-rx-favourites]")).toBeVisible();
+      await expect(page.locator("#prescription [data-rx-bundles]")).toBeVisible();
+      await page.locator("#prescription").scrollIntoViewIfNeeded();
+      await checkWholePage(page, testInfo, `rx-tiles-${size.width}`);
+    });
 
     test(`draft: the whole page (${size.width}px)`, async ({ page }, testInfo) => {
       const visitId = await seedDraftVisit();

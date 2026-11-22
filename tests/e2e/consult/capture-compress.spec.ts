@@ -9,6 +9,7 @@
  *   - the "Take photo" input carries capture="environment" and accept="image/*" on a coarse pointer, and does not exist on a fine pointer.
  * The compression numbers (input and output bytes, dimensions) are attached to each run as evidence. Synthetic data only.
  */
+import AxeBuilder from "@axe-core/playwright";
 import type { Page, Request } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
@@ -101,6 +102,11 @@ test("@golden a 4,000 x 3,000 photo over the 4 MB limit with GPS Exif is stored 
     await expect(input).toHaveAttribute("capture", "environment");
     await expect(input).toHaveAttribute("accept", "image/*");
     await expect(page.getByRole("button", { name: "Take photo" })).toBeVisible();
+    // The camera button beside the drop zone passes axe and is a touch-size target.
+    const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).include("[data-attachments]").analyze();
+    expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+    const box = await page.getByRole("button", { name: "Take photo" }).boundingBox();
+    expect(box && box.height >= 44).toBe(true);
   } else {
     await expect(page.locator("[data-take-photo]")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Take photo" })).toHaveCount(0);

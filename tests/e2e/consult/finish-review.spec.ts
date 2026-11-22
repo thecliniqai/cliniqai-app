@@ -229,20 +229,29 @@ test("a medicine that matches a recorded allergy disables Sign until it has a re
   await expect(reviewDialog(page).getByRole("button", { name: /Sign & Route to Reception/ })).toBeEnabled();
 });
 
-test("@golden at 360 px the review fits with no horizontal scroll and is axe clean", async ({ page }, testInfo) => {
-  test.skip(!["pixel-7", "iphone-15"].includes(testInfo.project.name), "the phone projects");
+test("@golden on a phone (360 px) and on the two tablets the review fits with no horizontal scroll and is axe clean", async ({ page }, testInfo) => {
+  const phone = ["pixel-7", "iphone-15"].includes(testInfo.project.name);
+  const tablet = ["ipad-gen7", "android-tablet-800"].includes(testInfo.project.name);
+  test.skip(!phone && !tablet, "the phone and tablet projects");
   test.setTimeout(120_000);
   await openConsult(page, "FinishPhone");
-  await page.setViewportSize({ width: 360, height: 780 });
+  if (phone) await page.setViewportSize({ width: 360, height: 780 });
+  const width = page.viewportSize()!.width;
   await finishButton(page).click();
   const dialog = reviewDialog(page);
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("[data-finish-summary]")).toBeVisible();
+  await settleAnimations(page); // the sheet slides in: its box is read once it has stopped
   const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(scrollWidth).toBeLessThanOrEqual(0);
   const box = await dialog.boundingBox();
-  expect(box && box.x >= 0 && box.x + box.width <= 360).toBe(true);
+  expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
   await settleAnimations(page);
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(results.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => v.id)).toEqual([]);
+  // Sign and finish from the same screen: the success screen offers Print and Share PDF at this width too.
+  await dialog.getByRole("button", { name: /Sign & Route to Reception/ }).click();
+  await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
+  await settleAfterSign(page);
+  await expect(page.getByRole("dialog").locator("[data-print-rx]")).toBeVisible();
 });

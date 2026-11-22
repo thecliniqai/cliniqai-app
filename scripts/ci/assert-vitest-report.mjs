@@ -127,6 +127,8 @@
  *          The deleted retired library's tests/ai/prescription-suggestions.spec.ts (4 cases) left with it. The floor is re-measured once at the phase close.
  *   6455 — V2-09c 09C-04, unchanged: REQUIRED_FILES + tests/prescriptions/rx-golden (11), rx-pdf-content (21) and tests/settings/rx-print-settings (16). The suite only grew; the floor
  *          is re-measured once at the phase close.
+ *   6455 — V2-09c 09C-05, unchanged: REQUIRED_FILES + tests/files/compress-image (16); tests/billing/complete-and-bill-rpc.spec.ts gains 1 case (nothing is queued without the doctor's
+ *          choice). The suite only grew; the floor is re-measured once at the phase close.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -531,6 +533,8 @@ const REQUIRED_FILES = [
   "tests/prescriptions/rx-golden.spec.ts",
   "tests/prescriptions/rx-pdf-content.spec.ts",
   "tests/settings/rx-print-settings.spec.ts",
+  // V2-09c 09C-05
+  "tests/files/compress-image.spec.ts",
 ];
 
 const file = process.argv[2];

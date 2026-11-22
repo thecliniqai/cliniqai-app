@@ -99,7 +99,7 @@ for (const size of WIDTHS) {
       test(`no collection: the bill is routed to reception (${size.width}px)`, async ({ page }, testInfo) => {
         await page.setViewportSize(size);
         const dialog = await openModal(page, run().tenantA.users.doctor.id, testTag());
-        await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+        await expect(dialog.getByRole("checkbox", { name: /Collect fee/ })).toHaveCount(0);
         await expect(dialog.getByRole("note")).toContainText("Payment at reception");
         await expect(dialog.getByRole("button", { name: /Sign & Route to Reception/ })).toBeVisible();
         await expect(dialog.getByRole("button", { name: /Sign & Collect/ })).toHaveCount(0);
@@ -114,7 +114,10 @@ for (const size of WIDTHS) {
       test(`collects at the desk by default, may route to reception (${size.width}px)`, async ({ page }, testInfo) => {
         await page.setViewportSize(size);
         const dialog = await openModal(page, run().tenantA.users.owner.id, testTag());
-        const toggle = dialog.getByRole("checkbox");
+        // V2-09c 09C-05: the finish review adds the WhatsApp choice, a second checkbox that is never ticked for the doctor.
+        const toggle = dialog.getByRole("checkbox", { name: /Collect fee/ });
+        await expect(dialog.getByRole("checkbox")).toHaveCount(2);
+        await expect(dialog.getByRole("checkbox", { name: /WhatsApp/ })).not.toBeChecked();
         await expect(toggle).toHaveCount(1);
         await expect(toggle).toBeChecked();
         await expect(dialog.getByRole("note")).toHaveCount(0);

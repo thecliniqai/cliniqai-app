@@ -88,7 +88,10 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   await expect(dialog).toBeVisible();
   // PO-3 (V2-05 05-02b): a doctor does not collect. The "collect at desk" toggle is not offered; the bill goes to
   // reception (the server refuses a doctor's collection regardless: tests/billing/collect-permission.spec.ts).
-  await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+  await expect(dialog.getByRole("checkbox", { name: /Collect fee/ })).toHaveCount(0);
+  // V2-09c 09C-05 (Q-8): the finish review's one checkbox is the WhatsApp choice, and it is not ticked for the doctor.
+  await expect(dialog.getByRole("checkbox")).toHaveCount(1);
+  await expect(dialog.getByRole("checkbox", { name: /WhatsApp/ })).not.toBeChecked();
   await expect(dialog.getByRole("note")).toContainText("Payment at reception");
   await ux.click(dialog.getByRole("button", { name: /Sign & Route to Reception/ }), "Sign & Route to Reception");
   await expect(page.getByRole("heading", { name: "Consultation Finalized & Signed" })).toBeVisible({ timeout: 30_000 });
