@@ -349,3 +349,277 @@ render counter, the Today filter's hidden duplicate (role locator), the Kong mar
 - **P3:** after P1 and P2, re-check staging by feel (Today, Schedule week, Patients, a patient, a consult): a click should
   cost about 1 round trip per page-data query instead of ~25.
 
+
+
+## 09D-01a: review fix round (2026-11-23)
+
+Inputs: `09D-REVIEW-A.md` (isolated), `09D-REVIEW-SEC.md` (adversarial), `09D-REVIEW-TRIAGE.md` (work list, ruling R-S; the
+Outcome table there is filled per ID). Base `3b086857`; final code and test tree `fd6aa691` (the docs commit follows). No migration, no new dependency.
+
+### Commits
+
+| Commit | ID | What |
+| --- | --- | --- |
+| `d7057bae` | A-6 | reschedule cases no longer depend on the weekday (own commit, date reasoning in the message) |
+| `e5700f67` | A-3 (A-8) | only `/api/session-status` issues the session-context cookie |
+| `2334f532` | R-S (A-1, S-1, A-2, S-2) | sensitive actions get a fresh liveness, membership and access check |
+| `4d6eccec` | S-5 | `__Host-clinic_ctx` on Secure requests |
+| `231a7081` | S-7 | a proxy answer that expires the context cookie is `private, no-store` |
+| `6859e16b` | S-6 | session claims need this project's `iss`, `aud` and `role` `authenticated` |
+| `6235f477` | S-4 | `SESSION_CONTEXT_SECRET` must not reuse another secret's value |
+| `404d1742` | A-4 | revoked-session pages pin their outcome |
+| `67281f76` | A-5 | deterministic request-budget spec |
+| `27ac23ec` | A-7 | the dashboard layout redirects to /login only when the session is missing |
+| `9048fd19` | A-9 | the access pages read the access level fresh |
+| `a04fa3c8` | A-10 | a failed clinic time-zone read is not memoised for the request |
+| `00d92dd8` | A-11 | the schedule's day and week slot calls go out in one round |
+| `2a50a237` | A-14 | cookie-off paths and one shared request scope |
+| `40854795` | R-S | the perf report measures a sensitive action |
+| `fd6aa691` | A-5 | budget spec waits through the shell's first status retry and holds live refreshes; corrects `67281f76`'s stream claim |
+
+Each fix commit typechecks on its own (built stage by stage from the base, `tsc` app + tests at every stage).
+
+### Design as built
+
+**Ruling R-S (`lib/auth/sensitive-actions.ts`, the one place the list lives).** 24 entry points under 23 action keys:
+staff invite / resend / revoke / remove / role edit; API key create / revoke; webhook subscription create / delete (no
+rotate or update action exists); the in-app DPDP export route (`GET /api/patients/[id]/export`); clinic settings, statutory,
+Rx print and profile writes (the profile form action and its service); billing writes (create invoice, add / delete item,
+record payment, collect payment, complete-and-bill); password change and reset completion; the AI SOAP action (the only AI
+gateway entry point). The guards (`requireServiceContext`, `resolveServiceContext`, `requirePermission`) take
+`{ sensitive: <action> }` and then:
+
+1. read the membership and role from the database (`getActiveMembership(…, { fromDatabase: true })`: never the cookie; the
+   request memo holds only database answers);
+2. check the role (a refused role touches nothing but `memberships`, as the guard suite requires);
+3. ask `session_is_live()` (migration 000087) and `my_tenant_access` **together** (one round trip); a revoked session is
+   refused (`UnauthenticatedError` → the existing "Unauthenticated" answers, 401 on the route) before a locked clinic; an
+   RPC error is `AuthUnavailableError` (generic failure / 503, never a sign-out).
+
+The two account actions act on the caller's own Auth account with or without a clinic, so they get check 3's liveness
+only (`lib/auth/session-live.ts`), right after input validation and before the freshness rule, the breached-password check
+and `updateUser`. Everything else keeps the fast path (claims + cookie). Out of the list by design: the `/api/v1` API-key
+routes (DPDP export and erasure there; erasure has no session entry point), whose control is the key.
+
+Cost: a listed action costs exactly **one more call than the database path** (`session_is_live`, in the same round as
+`my_tenant_access`) and at most three more than the cookie path (`memberships`, then `my_tenant_access` ∥ `session_is_live`:
+two rounds). Measured: +2 on Save printing settings, whose membership read is shared with its own re-render (perf table
+below). The `sensitive-actions-db` live control pins one `session_is_live` and one `my_tenant_access` per listed call.
+
+**A-3.** `getTenantAccessLevel` no longer sets `clinic_ctx`; the memo's "resolved from the database" record and the
+`peekRequestMemo` / `setRequestMemo` helpers are gone (so A-8's explicit-clinic/pin mismatch has no code path left).
+`/api/session-status` is the only issuer. `forgetSessionContext` now expires a name only when the device holds it (no
+`Set-Cookie`, so no revalidation, on an action whose device had none). Effect: a device whose cookie has expired reads the
+context from the database (2 calls) on each request until the next status poll (on load, resume, `online`, every 5 min
+while visible); before, the first action re-issued it at the price of a full route re-render.
+
+**S-5.** On a Secure request the cookie is `__Host-clinic_ctx` (Secure, Path=/, no Domain), the only name read there; plain
+http (localhost, the e2e server) keeps `clinic_ctx`. The sign-out route, the proxy and `forgetSessionContext` expire
+whichever name is present (the `__Host-` one with Secure and Path=/, as a browser requires).
+
+**S-6.** `getSessionClaims` refuses a token unless `iss` = `<NEXT_PUBLIC_SUPABASE_URL>/auth/v1` (trailing slash ignored),
+`aud` is or contains `authenticated`, and `role` = `authenticated` (log line `auth.claims.refused` with `reason`
+`claim_iss|claim_aud|claim_role`, never a value). Local Auth's issuer is `http://127.0.0.1:54321/auth/v1` (container env
+`GOTRUE_JWT_ISSUER`), matching the lanes' `NEXT_PUBLIC_SUPABASE_URL`.
+
+**S-4.** The env schema refuses a `SESSION_CONTEXT_SECRET` equal to any other credential-shaped key it knows
+(`SECRET_ENV_NAMES`: `CRON_SECRET`, `JOBS_RUNNER_SECRET`, `SEND_EMAIL_HOOK_SECRET`, `MSG91_WEBHOOK_SECRET`, `ERROR_INGEST_KEY`,
+`SUPABASE_SECRET_KEY`, …), in every tier, naming the other key only.
+
+**S-7.** The status poll's issuing 200 was already `private, no-store, max-age=0` (now pinned); the sign-out route's answers
+are `no-store`; the proxy sets `private, no-store` on any answer that expires the cookie; Server Actions no longer set it.
+
+**Lows.** A-7: only `UnauthenticatedError` redirects the layout to /login (`unstable_rethrow` first; an outage or any other
+failure reaches the error boundary). A-9: the three access pages read the level `fresh`. A-10: `requestMemo(…, { keep })`;
+the zone's fallback is handed to its own callers and dropped, so the next reader in the request asks again. A-11: day and
+week `available_slots` calls all start before either is awaited. A-15 (no code): a one-clinic device's `pin: ""` context
+stays valid for its TTL if the user joins a second clinic elsewhere; harmless (still a valid membership) and the next
+status poll pins the clinic.
+
+### A-4 root cause (found while fixing)
+
+The rewritten 09D spec's revoked-session cases were not revoked-session cases at all: its precondition called
+`owner.client.auth.getUser()`, and auth-js removes the client's local session when GoTrue answers `session_not_found`, so
+every later page ran with **no session** and redirected to /login, which the old `if (err !== null)` branch accepted. The
+precondition now asks GoTrue through the admin client; each page has a pinned outcome (list pages render, the two record
+pages 404 for an id that is no record), plus a sensitive action refused for that session.
+
+### A-5: what made the budget spec non-deterministic (found while fixing)
+
+- **The precondition race (proven).** The zero-call budgets need the device's `clinic_ctx`, which only the shell's
+  on-load `/api/session-status` issues. If that first check fails or is slow (a loaded runner), the shell retries only
+  after 15-22.5 s (`RETRY_DELAYS_MS[0]` with jitter). Scenario run (first status answer forced to 503): without the wait
+  the in-app window counts `memberships` 2 and `my_tenant_access` 2, the reviewer's failure; with the wait (bound 30 s,
+  covering the retry) it passes, twice. Each test also clears a `clinic_ctx` inherited from the setup's sign-in (it could
+  expire inside a window), so the measured requests use this page's own check.
+- **Live refreshes inside a window (found in the scenario's traces).** The Today board's live refresh (a Realtime signal,
+  or its 20 s poll until the channel is SUBSCRIBED) and the shell's resume refresh call `router.refresh()` after an
+  `/api/health` probe. A refresh re-renders the route and re-prefetches the nav links: a second Today render and a patient
+  page prefetch landed in measured windows (`memberships` 3 on Today, 1 on Patients). They are page data with their own
+  timing, so the spec holds them while it measures (the probe is refused; the screen stays as it is, by design).
+- **Correction:** `67281f76` says Kong writes its access lines to both stdout and stderr. That is wrong: it was a zsh
+  MULTIOS artefact in my probe (`2>&1 >/dev/null |` tees stdout into the pipe). Node's `spawnSync` shows the marker on stdout
+  only (1) and an empty stderr (0). Reading stdout only stays, for the reviewer's reason (stderr is the error log; a marker
+  path quoted there would break the window's order). `fd6aa691` fixes the comments. The container name comes from
+  `supabase/config.toml`, a failed `docker logs` is retried within the 10 s bound, and `retries: 0`.
+
+### Proofs: fails-without (one mutation at a time, run, expect red, restore, `cmp`)
+
+Driver: a scratch script applied one mutation, ran the named specs, restored the file from a byte copy and ran `cmp`
+(0 = identical); afterwards `git diff --exit-code HEAD` was clean. Tool output (counts are the failing / total tests of the
+named specs):
+
+| # | ID | Mutation (behaviour removed) | Result of the named specs | Red tests (examples) | `cmp` |
+| --- | --- | --- | --- | --- | --- |
+| 1 | R-S | liveness check skipped in the guards (`lib/auth/context.ts`) | RED: 44 failed, 8 passed (52) (sensitive-actions-db.spec.ts) | control, live session + valid cookie: 'app/(dashboard)/settings/clinic; control, live session + valid cookie: 'app/api/patients/[id]/export/ro | 0 |
+| 2 | R-S | membership and role from the cookie on a listed action (`lib/auth/context.ts`) | RED: 44 failed, 8 passed (52) (sensitive-actions-db.spec.ts) | A-2: a member demoted elsewhere is refused a listed action by the fres; control, live session + valid cookie: 'app/(dashboard)/settings/clinic | 0 |
+| 3 | R-S | access level from the cookie on a listed action (`lib/auth/context.ts`) | RED: 44 failed, 8 passed (52) (sensitive-actions-db.spec.ts) | control, live session + valid cookie: 'app/(dashboard)/settings/clinic; control, live session + valid cookie: 'app/api/patients/[id]/export/ro | 0 |
+| 4 | R-S | createApiKey drops its { sensitive } flag (`features/api-keys/actions.ts`) | RED: 3 failed, 72 passed (75) (sensitive-actions-db.spec.ts) | A-2: a member demoted elsewhere is refused a listed action by the fres; control, live session + valid cookie: 'features/api-keys/actions.ts#cr | 0 |
+| 5 | R-S | the DPDP export route drops its flag (`app/api/patients/[id]/export/route.ts`) | RED: 2 failed, 50 passed (52) (sensitive-actions-db.spec.ts) | control, live session + valid cookie: 'app/api/patients/[id]/export/ro; revoked session + valid cookie: 'app/api/patients/[id]/export/route.ts | 0 |
+| 6 | R-S (S-2) | generateSoapAction drops its flag (`features/ai/actions.ts`) | RED: 5 failed, 62 passed (67) (ai-containment.spec.ts, sensitive-actions-db.spec.ts) | control, live session + valid cookie: 'features/ai/actions.ts#generate; revoked session + valid cookie: 'features/ai/actions.ts#generateSoapAc | 0 |
+| 7 | R-S | changePassword skips the liveness check (`features/auth/service.ts`) | RED: 3 failed, 74 passed (77) (password-service.spec.ts, sensitive-actions-db.spec.ts) | changePassword: session_is_live false → session_not_found; an RPC erro; control, live sessions: the password change and the reset completion g | 0 |
+| 8 | A-3 | getTenantAccessLevel issues the cookie again after a database read (`lib/auth/tenant.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | A-3: a Server Action or route handler that read the context from the d | 0 |
+| 9 | S-5 | the bare name is read on a Secure request (`lib/auth/tenant.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | S-5: on a Secure request the cookie is __Host-clinic_ctx, and only tha | 0 |
+| 10 | S-5 | the status poll issues the bare name on a Secure request (`lib/auth/tenant.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | S-5: on a Secure request the cookie is __Host-clinic_ctx, and only tha | 0 |
+| 11 | S-5 | the sign-out route expires only the bare name (`app/auth/signout/route.ts`) | RED: 1 failed, 27 passed (28) (signout-route.spec.ts) | 09D-01a (S-5): the __Host- name is expired too, with Secure and Path=/ | 0 |
+| 12 | S-5 | the proxy does not expire the __Host- name (`proxy.ts`) | RED: 1 failed, 10 passed (11) (session-auth-close-db.spec.ts) | 09D-01a (S-5, S-7): the __Host- name is expired with Secure and Path=/ | 0 |
+| 13 | S-7 | the proxy's expiring answer is cacheable (`proxy.ts`) | RED: 1 failed, 10 passed (11) (session-auth-close-db.spec.ts) | 09D-01a (S-5, S-7): the __Host- name is expired with Secure and Path=/ | 0 |
+| 14 | S-7 | the status poll's issuing 200 without private, no-store (`app/api/session-status/route.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | the status poll issues the cookie: ids, role and state only, 5 min, Ht | 0 |
+| 15 | S-6 | claims accepted without the iss/aud/role checks (`lib/auth/tenant.ts`) | RED: 9 failed, 3 passed (12) (session-claims.spec.ts) | no session (a definitive answer) → redirect('/login'); an audience list without authenticated → UnauthenticatedError, logged  | 0 |
+| 16 | S-4 | a reused SESSION_CONTEXT_SECRET is accepted (`lib/env.ts`) | RED: 6 failed, 283 passed (289) (env-schema.spec.ts) | SESSION_CONTEXT_SECRET equal to CRON_SECRET throws in every tier, nami; SESSION_CONTEXT_SECRET equal to ERROR_INGEST_KEY throws in every tier, | 0 |
+| 17 | A-4 | every page asks Auth again (revoked pages redirect to /login) (`lib/auth/tenant.ts`) | RED: 10 failed, 13 passed (23) (page-revoked-session.spec.ts) | revoked session: /consultation/[id] answers async function Authenticat; revoked session: /patients answers async function AuthenticatedPage(pr | 0 |
+| 18 | A-6 | review2: the seven-day week is not set (`tests/security/review2-fixes-db.spec.ts`) | RED: 1 failed, 19 passed (20) (review2-fixes-db.spec.ts) | reschedule links: only the hash is stored and the raw link still works | 0 |
+| 19 | A-6 | review-fixes AR-L2: the seven-day week is not set (`tests/security/review-fixes-db.spec.ts`) | green: 19 passed (19) (see note) | - | 0 |
+| 20 | A-7 | the layout sends every non-outage failure to /login (as before) (`app/(dashboard)/layout.tsx`) | RED: 1 failed, 11 passed (12) (session-claims.spec.ts) | an unexpected failure (a bug, a broken client) is rethrown, never a si | 0 |
+| 21 | A-9 | the access pages read the level from the cookie (`lib/auth/access-page.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | A-9: the access pages read the level from the database, never from the | 0 |
+| 22 | A-10 | the zone fallback is memoised (`lib/datetime/server.ts`) | RED: 1 failed, 2 passed (3) (request-memo.spec.ts) | a transient failure: the default zone for that reader, the clinic's re | 0 |
+| 23 | A-11 | the day and week slot calls in two rounds (as before) (`features/schedule/queries.ts`) | RED: 1 failed (1) (schedule-slot-round.spec.ts) | the day grid's and the week strip's calls all start before any answers | 0 |
+| 24 | A-14 | the cookie stays on without a usable secret (`lib/auth/tenant.ts`) | RED: 1 failed, 12 passed (13) (session-context-db.spec.ts) | A-14: with no secret, or an environment the schema refuses, nothing is | 0 |
+| 25 | A-14 | the request memo never memoises (`lib/auth/request-memo.ts`) | RED: 3 failed, 10 passed (13) (session-context-db.spec.ts) | A-14: within one real request scope (one shared headers object), the l; A-3: a Server Action or route handler that read the context from the d | 0 |
+
+A-4 vacuity check: under mutation 17 the 09D version of `page-revoked-session.spec.ts` (from `3b086857`) **passes 22/22**,
+the new one fails 10 of 23: the old spec could not see the regression. A-6: mutation 19 stays green today (Monday: +12 is a
+Saturday); it fires on Tuesdays (+12 = Sunday), as review2's +13 fires today (mutation 18, red) and its +11 on Thursdays.
+A-5: the old two-stream reader put back (stdout + stderr) keeps the spec green (11/11), because stderr carries no access
+lines, so it is no proof. The fails-without proof is the scenario above: with the first status check forced to 503 the spec
+**without** the cookie wait is red (`{"GET /rest/v1/memberships":2,"POST /rest/v1/rpc/my_tenant_access":2,…}`, 2 of 11
+failed), and **with** it green (11/11, twice). Both variants were built from the final spec, run, and the spec restored
+(`cmp` 0).
+
+### Round trips: before (09D final, `3b086857`) vs after (app sources of `40854795` = `fd6aa691`)
+
+`npm run perf:roundtrips` twice: on the final tree, and on a build of the base app sources (`app features lib proxy.ts`
+of `3b086857` checked out over this branch, rebuilt, measured, then `git checkout HEAD --` and `git diff --exit-code` clean;
+the bundle was rebuilt from the final sources afterwards). The same test code (median of 3 per page) measured both. Raw:
+`test-results/perf-roundtrips/summary.{md,json}` of each run (copies kept with the scratch logs).
+
+**Per page: 0 of 28 rows changed** (total server calls and the identity/context calls alike, equal to the 09D "After"
+table above). **Check in** (fast path): 11 → 11, the same calls by path. **Save printing settings** (a listed action,
+`clinic_settings.rx_print`): 5 → 7, i.e. `my_tenant_access` +1 and `session_is_live` +1. The guard's membership read
+is shared, within the same request, with the re-render the action triggers, so `memberships` stays at 2. Against the
+database path (no cookie) a listed action costs exactly one more call (`session_is_live`, in the same round as
+`my_tenant_access`); against the cookie path it costs those two.
+
+| Role | Navigation | Page | 09D final `3b086857` | 09D-01a final | identity/context calls (user / memberships / my_tenant_access / session_is_live), before → after |
+| --- | --- | --- | --- | --- | --- |
+| receptionist | full load | /today | 10 | 10 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | full load | /schedule (day) | 14 | 14 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | full load | /schedule?view=week | 21 | 21 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | full load | /patients | 8 | 8 | 1 / 2 / 1 / 0 → 1 / 2 / 1 / 0 |
+| receptionist | full load | /patients/[id] | 17 | 17 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | full load | /billing/register | 10 | 10 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | full load | /settings/clinic | 9 | 9 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| receptionist | in-app | /today | 4 | 4 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| receptionist | in-app | /schedule (day) | 8 | 8 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| receptionist | in-app | /schedule?view=week | 15 | 15 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| receptionist | in-app | /patients | 2 | 2 | 0 / 0 / 0 / 0 → 0 / 0 / 0 / 0 |
+| receptionist | in-app | /patients/[id] | 11 | 11 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| receptionist | in-app | /settings/clinic | 3 | 3 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| doctor | full load | /today | 13 | 13 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| doctor | full load | /schedule (day) | 13 | 13 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| doctor | full load | /schedule?view=week | 20 | 20 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| doctor | full load | /patients | 8 | 8 | 1 / 2 / 1 / 0 → 1 / 2 / 1 / 0 |
+| doctor | full load | /patients/[id] | 18 | 18 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| doctor | full load | /consultation/[id] | 23 | 23 | 1 / 2 / 1 / 0 → 1 / 2 / 1 / 0 |
+| doctor | full load | /billing/register | 15 | 15 | 1 / 5 / 1 / 0 → 1 / 5 / 1 / 0 |
+| doctor | full load | /settings/clinic | 9 | 9 | 1 / 3 / 1 / 0 → 1 / 3 / 1 / 0 |
+| doctor | in-app | /today | 7 | 7 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| doctor | in-app | /schedule (day) | 7 | 7 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| doctor | in-app | /schedule?view=week | 14 | 14 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| doctor | in-app | /patients | 2 | 2 | 0 / 0 / 0 / 0 → 0 / 0 / 0 / 0 |
+| doctor | in-app | /patients/[id] | 11 | 11 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+| doctor | in-app | /consultation/[id] | 16 | 16 | 0 / 0 / 0 / 0 → 0 / 0 / 0 / 0 |
+| doctor | in-app | /settings/clinic | 3 | 3 | 0 / 1 / 0 / 0 → 0 / 1 / 0 / 0 |
+
+| Role | Server action | 09D final `3b086857` | 09D-01a final | 09D final by path | 09D-01a by path |
+| --- | --- | --- | --- | --- | --- |
+| receptionist | Check in (Today) | 11 | 11 | GET /rest/v1/tenants ×4; GET /rest/v1/memberships ×4; GET /rest/v1/visits ×2; POST /rest/v1/rpc/check_in_visit ×1 | GET /rest/v1/tenants ×4; GET /rest/v1/memberships ×4; GET /rest/v1/visits ×2; POST /rest/v1/rpc/check_in_visit ×1 |
+| owner | Save printing settings (sensitive) | 5 | 7 | GET /rest/v1/memberships ×2; PATCH /rest/v1/tenants ×1; POST /rest/v1/rpc/log_audit ×1; GET /rest/v1/tenants ×1 | GET /rest/v1/memberships ×2; POST /rest/v1/rpc/my_tenant_access ×1; POST /rest/v1/rpc/session_is_live ×1; PATCH /rest/v1/tenants ×1; POST /rest/v1/rpc/log_audit ×1; GET /rest/v1/tenants ×1 |
+
+### Verification on the final tree
+
+All after the second `npm run stack:recycle` (tool output in the scratch logs). Static checks, pgTAP and Vitest ran on `40854795`; `fd6aa691` changed only the budget spec and the Kong reader's comments, which the 10/10 re-run covers.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | exit 0 |
+| `npx eslint .` | exit 0 (0 errors, 390 warnings: 09D's count; the 4 in touched files predate 09D-01a) |
+| `npm run inventory` | exit 0 (27 "use server" modules, 122 exports, 34 route modules, 0 flagged) |
+| `npm run ci:ui-policy` / `npm run ci:ai-l1` | PASS / PASS |
+| `node scripts/ci/env-example.mjs --check` | `.env.example` matches `lib/env.ts` |
+| `npm run test:pgtap` (full) | PASS, 69 files, 9025 tests |
+| Vitest auth, security, api, clinics, billing, today, schedule, ci (whole), config, authz, ai, dpdp, staff | 150 files, 3786 passed, 0 failed |
+| `npm run e2e:build` | exit 0, output scan clean |
+| e2e desktop-chrome `--retries=0`: auth, shell, today, schedule, consult, m0, journeys, a11y, pwa, design, settings | 652 passed, 9 skipped, 0 failed (18.4 min; tree `40854795` + the budget spec of `67281f76`) |
+| e2e pixel-7 + iphone-15 `--retries=0`: shell/request-budget, shell/clinic-switcher, shell/route-states, schedule, settings, m0/checkout-collect, consult/rx-print, today/today-live, auth | 60 passed, 11 skipped (desktop-only cases), 0 failed |
+| `tests/e2e/shell/request-budget.spec.ts`, desktop-chrome `--retries=0`, 10 separate runs in a row | 10/10 green on `67281f76`'s version, and again 10/10 on the final `fd6aa691` version (11 passed each: 8 setup + 3) |
+| `npm run perf:roundtrips` (final, and base build) | exit 0 / exit 0 (14 passed each) |
+
+**Flake root-caused: the host slept.** The first desktop run (22 failures: 30-90 s timeouts, a 5 s wait that took 90 s,
+`Invalid Refresh Token: Already Used`) overlapped repeated macOS idle sleeps on battery (`pmset -g log`: "Entering Sleep
+state due to 'Maintenance Sleep'" from 17:10 to 18:17 IST, during the run). The run was stopped and repeated under
+`caffeinate -dimu` (macOS built-in, keeps the machine awake): 0 failures. No product or test change came from it. Every later
+e2e run used `caffeinate`.
+
+### Deviations
+
+1. **Billing writes include the front-desk payment actions.** R-S lists "billing and subscription writes"; no in-app
+   subscription write exists, so the list takes every billing write the app has: create invoice, add / delete item, record
+   payment, collect payment and complete-and-bill (the doctor's Sign & Bill). These are frequent: each now costs one
+   liveness call plus the database membership and level reads (two rounds) instead of the cookie path. If the PO wants
+   only money-moving or administrative billing writes on the list, it is one line each in `lib/auth/sensitive-actions.ts`.
+2. **Invitation resend and revoke are on the list** as part of "staff management: invite" (a resend issues a new link).
+3. **Account actions get liveness only**, not the membership and access-level reads: password change and reset act on the
+   user's own Auth account with or without a clinic (guard kind `self`), and a locked clinic must not block a password
+   change. Liveness runs right after input validation (before the A00-5 freshness rule), so a plain password session
+   exercises it; minting an emailed-code session in a test is lint-banned (AUTH-01: `admin.generateLink`).
+4. **A-8 fixed by removal** (with A-3): no separate test, the code path no longer exists.
+5. **A-5's "skip locally without docker" not done:** the spec fails with a clear message instead (CI has docker).
+6. **Perf report gains one measured action** (the owner's Save printing settings, a listed action), so the added calls are
+   measured rather than inferred.
+7. **The budget spec holds the live views' background refreshes** while it measures (A-5, `fd6aa691`): a test-side
+   change, so the counts are the navigation's own.
+8. **A commit message is wrong** (`67281f76`, the two-stream claim). It is corrected in `fd6aa691` and here; history was
+   not rewritten.
+9. Lows left (reasons in the triage Outcome and `deferred-items.md`): A-12, A-13.
+
+### Risks
+
+- **S-6 on hosted projects.** If a hosted project's token `iss` is not exactly `<NEXT_PUBLIC_SUPABASE_URL>/auth/v1` (for
+  example a custom Auth domain that differs from the app's Supabase URL), every page would treat the session as signed
+  out. Expected to match on staging (`https://<ref>.supabase.co/auth/v1`); the `auth.claims.refused` log line names the
+  failing claim. PO action P4 checks it on the first staging deploy.
+- **Payment and Sign & Bill latency** (deviation 1): on staging each such click gains about one round trip (~300–450 ms;
+  measured locally: `session_is_live` and `my_tenant_access` in one round, the membership read shared with the re-render)
+  until 09E.
+- **Cookie gaps after A-3:** a device whose cookie expired between polls reads the context from the database (2 calls per
+  request) until the next poll; the 5-min poll and the 300 s TTL line up, so the gap is short, but not zero.
+- The database still accepts a revoked-but-unexpired JWT on raw PostgREST calls (no regression; V2-14 backlog).
+
+### PO actions
+
+- **P4 (new, staging):** after the next staging deploy, sign in and open Today; if it bounces to /login, check the Vercel
+  logs for `auth.claims.refused` (`reason: claim_iss`) and tell Claude the reason code (no token or URL needed).
+- **P5 (new):** confirm or narrow deviation 1 (which billing writes are "sensitive").
+- **P6 (new):** add the database-side liveness check (S-1's stronger option) to the V2-14 backlog (§10), per ruling R-S.
+- P1–P3 above are unchanged.
