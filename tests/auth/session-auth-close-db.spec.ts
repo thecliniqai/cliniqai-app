@@ -49,8 +49,8 @@ vi.mock("next/headers", async (importOriginal) => {
 });
 
 import { GET } from "@/app/api/session-status/route";
-import { PROXY_ACTIVE_TENANT_COOKIE, PROXY_CONTEXT_COOKIE, proxy } from "@/proxy";
-import { CONTEXT_COOKIE } from "@/lib/auth/context-cookie";
+import { PROXY_ACTIVE_TENANT_COOKIE, PROXY_CONTEXT_COOKIE, PROXY_CONTEXT_COOKIE_SECURE, proxy } from "@/proxy";
+import { CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE } from "@/lib/auth/context-cookie";
 import { changePassword } from "@/features/auth/service";
 import { ACTIVE_TENANT_COOKIE } from "@/lib/supabase/server";
 import { AUTH_REQUEST_BUDGET_MS, PROXY_AUTH_DEADLINE_MS, PROXY_AUTH_REQUEST_BUDGET_MS } from "@/lib/supabase/auth-transport";
@@ -303,6 +303,16 @@ describe("L-N4: a definitive sign-out in the proxy expires the active-clinic pin
     const live = await throughProxy({ [COOKIE]: encode(await session(owner.userEmail)), [CONTEXT_COOKIE]: ctx });
     expect(live.res.status).toBe(200);
     expect(live.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE}=`))).toEqual([]);
+  });
+
+  it("09D-01a (S-5): the __Host- name is expired with Secure and Path=/", async () => {
+    expect(PROXY_CONTEXT_COOKIE_SECURE).toBe(CONTEXT_COOKIE_SECURE);
+    const login = await throughProxy({ [CONTEXT_COOKIE_SECURE]: "e30.c2lnbmF0dXJl" }, "/login");
+    const set = login.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE_SECURE}=`));
+    expect(set).toHaveLength(1);
+    expect(set[0]).toMatch(/max-age=0/i);
+    expect(set[0]).toMatch(/;\s*secure/i);
+    expect(set[0]).toMatch(/path=\//i);
   });
 
   it("controls: a signed-in request and an Auth outage (a refresh that never answers) keep the pin", async () => {

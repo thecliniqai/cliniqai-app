@@ -26,6 +26,19 @@ import type { UserRole } from "@/lib/db/types";
  * (the caller falls back to the database; only `/api/session-status` issues a new one, 09D-01a A-3).
  */
 export const CONTEXT_COOKIE = "clinic_ctx";
+/**
+ * 09D-01a (S-5): the name on a Secure request. The `__Host-` prefix makes the browser accept it only with Secure, Path=/
+ * and no Domain, so a sibling subdomain of a future custom domain can neither set nor shadow it. Plain http (localhost,
+ * the e2e server) keeps the bare {@link CONTEXT_COOKIE} (a browser refuses a `__Host-` cookie without Secure).
+ */
+export const CONTEXT_COOKIE_SECURE = "__Host-clinic_ctx";
+/** Both names: the sign-out route, the proxy and `forgetSessionContext` expire whichever the device holds. */
+export const CONTEXT_COOKIE_NAMES = [CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE] as const;
+
+/** The cookie's name for a request: `__Host-clinic_ctx` when the cookie is Secure, else `clinic_ctx`. */
+export function contextCookieName(secure: boolean): string {
+  return secure ? CONTEXT_COOKIE_SECURE : CONTEXT_COOKIE;
+}
 /** 5 minutes: well inside the access token's 900 s, and the session-status poll (every 5 min while visible) renews it. */
 export const CONTEXT_COOKIE_TTL_SECONDS = 300;
 const VERSION = 1;
@@ -146,4 +159,12 @@ export function verifyContext(
 /** Cookie attributes: HttpOnly, SameSite=Lax, Path=/, Max-Age = TTL; `secure` per request (https, or production off loopback). */
 export function contextCookieOptions(secure: boolean) {
   return { httpOnly: true, sameSite: "lax" as const, path: "/", secure, maxAge: CONTEXT_COOKIE_TTL_SECONDS };
+}
+
+/**
+ * The Set-Cookie that expires `name` (one of {@link CONTEXT_COOKIE_NAMES}). The `__Host-` name is expired with Secure and
+ * Path=/, or the browser would refuse the deletion as it refuses any `__Host-` cookie without them.
+ */
+export function expiredContextCookie(name: (typeof CONTEXT_COOKIE_NAMES)[number]) {
+  return { name, value: "", options: { ...contextCookieOptions(name === CONTEXT_COOKIE_SECURE), maxAge: 0 } };
 }

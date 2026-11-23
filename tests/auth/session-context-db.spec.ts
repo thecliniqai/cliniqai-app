@@ -11,6 +11,7 @@
  * - 09D-01a (A-3): `/api/session-status` is the only issuer of the cookie (ids, role and state only, 5 min, HttpOnly); a
  *   Server Action or route handler that read the context from the database never sets it (a `cookies().set` in an action
  *   makes Next re-render the route);
+ * - 09D-01a (S-5): on a Secure request the cookie is `__Host-clinic_ctx`, and only that name is read there;
  * - the next request of the same session with that cookie reads neither the memberships nor the access level;
  * - the cookie is ignored (database again) when its signature, session, user or pin does not match;
  * - `/api/session-status` always asks Auth and the database (fresh) and reissues the cookie;
@@ -101,7 +102,7 @@ vi.mock("next/cache", async (importOriginal) => {
 import { requireServiceContext } from "@/lib/auth/context";
 import { getActiveMembership, getTenantAccessLevel } from "@/lib/auth/tenant";
 import { requirePermission } from "@/lib/permissions/guards";
-import { CONTEXT_COOKIE, CONTEXT_COOKIE_TTL_SECONDS } from "@/lib/auth/context-cookie";
+import { CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE, CONTEXT_COOKIE_TTL_SECONDS } from "@/lib/auth/context-cookie";
 import { GET as sessionStatus } from "@/app/api/session-status/route";
 import { checkInVisit } from "@/features/queue/actions";
 import { switchClinic } from "@/features/clinics/actions";
@@ -202,6 +203,30 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     expect(p).toMatchObject({ uid: receptionist.userId, sid: await sessionIdOf(receptionist.client), tid: owner.tenantId, role: "receptionist", lvl: "full", pin: owner.tenantId });
     expect(Number(p.exp) - Number(p.iat)).toBe(CONTEXT_COOKIE_TTL_SECONDS);
     expect(value).not.toContain(receptionist.userEmail);
+  });
+
+  it("S-5: on a Secure request the cookie is __Host-clinic_ctx, and only that name is read there", async () => {
+    request(receptionist.client);
+    state.scope = { get: (name: string) => (name === "x-forwarded-proto" ? "https" : null) };
+    const res = await sessionStatus();
+    const header = res.headers.getSetCookie().find((c) => c.startsWith(`${CONTEXT_COOKIE_SECURE}=`));
+    expect(header, res.headers.getSetCookie().join(" | ")).toBeDefined();
+    expect(header).toMatch(/Secure/i);
+    expect(header).toMatch(/Path=\//);
+    expect(header).not.toMatch(/Domain=/i);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith(`${CONTEXT_COOKIE}=`))).toBe(false);
+    const value = header!.slice(CONTEXT_COOKIE_SECURE.length + 1).split(";")[0]!;
+
+    // The Secure name answers a Secure request ...
+    request(receptionist.client, { [CONTEXT_COOKIE_SECURE]: value, [ACTIVE]: owner.tenantId });
+    state.scope = { get: (name: string) => (name === "x-forwarded-proto" ? "https" : null) };
+    await requireServiceContext("appointments:view");
+    expect(contextLookups()).toEqual([]);
+    // ... while the bare name (which a sibling subdomain could set) is never read on one.
+    request(receptionist.client, { [CONTEXT_COOKIE]: value, [ACTIVE]: owner.tenantId });
+    state.scope = { get: (name: string) => (name === "x-forwarded-proto" ? "https" : null) };
+    await requireServiceContext("appointments:view");
+    expect(contextLookups()).toContain("from:memberships");
   });
 
   it("the next request of the same session with the cookie: no membership, access-level or Auth call", async () => {
@@ -315,7 +340,9 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     request(dual.client, device);
     const result = await switchClinic(eco.tenantB.tenantId);
     expect(result).toEqual({ success: true });
-    expect(state.deleted).toContain(CONTEXT_COOKIE);
+    // Expired (Max-Age 0), not left for its TTL.
+    expect(state.sets.find((c) => c.name === CONTEXT_COOKIE)).toMatchObject({ value: "", options: { maxAge: 0 } });
+    expect(state.jar.get(CONTEXT_COOKIE)).toBe("");
     expect(state.jar.get(ACTIVE)).toBe(eco.tenantB.tenantId);
 
     // A device that still sent the old cookie with the new pin: the database answers, for the new clinic.

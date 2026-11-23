@@ -300,6 +300,17 @@ describe("06-09a fetch callers and a failed global revocation", () => {
     expect(plain.headers.getSetCookie().filter((c) => c.startsWith("clinic_ctx="))).toEqual([]);
   });
 
+  it("09D-01a (S-5): the __Host- name is expired too, with Secure and Path=/ (a browser refuses its deletion otherwise)", async () => {
+    slot.client = { auth: { signOut: async () => ({ error: null }) } };
+    const res = await route.POST(post({ origin: APP_ORIGIN, ...FETCH, cookie: "__Host-clinic_ctx=e30.c2lnbmF0dXJl" }, { scope: "local" }));
+    const set = res.headers.getSetCookie().filter((c) => c.startsWith("__Host-clinic_ctx="));
+    expect(set).toHaveLength(1);
+    expect(set[0]).toMatch(/Max-Age=0/i);
+    expect(set[0]).toMatch(/;\s*Secure/i);
+    expect(set[0]).toMatch(/Path=\//);
+    expect(set[0]).not.toMatch(/Domain=/i);
+  });
+
   it("a form post whose GLOBAL revocation failed lands on /login?signout=partial; a failed local one on /login", async () => {
     slot.client = failingGoTrue();
     const global = await route.POST(post({ origin: APP_ORIGIN }, { scope: "global" }));

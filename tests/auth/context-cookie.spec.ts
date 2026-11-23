@@ -10,13 +10,16 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   CONTEXT_COOKIE,
+  CONTEXT_COOKIE_SECURE,
   CONTEXT_COOKIE_TTL_SECONDS,
+  contextCookieName,
   contextCookieOptions,
+  expiredContextCookie,
   signContext,
   verifyContext,
   type SessionContext,
 } from "@/lib/auth/context-cookie";
-import { PROXY_CONTEXT_COOKIE } from "@/proxy";
+import { PROXY_CONTEXT_COOKIE, PROXY_CONTEXT_COOKIE_SECURE } from "@/proxy";
 
 const SECRET = "not-real-session-context-key-".repeat(2);
 const NOW = 1_800_000_000;
@@ -110,5 +113,18 @@ describe("V2-09d session-context cookie", () => {
     expect(contextCookieOptions(true)).toEqual({ httpOnly: true, sameSite: "lax", path: "/", secure: true, maxAge: 300 });
     expect(contextCookieOptions(false).secure).toBe(false);
     expect(PROXY_CONTEXT_COOKIE).toBe(CONTEXT_COOKIE);
+  });
+
+  it("09D-01a (S-5): __Host-clinic_ctx when Secure, the bare name on plain http; both are expired with matching attributes", () => {
+    expect(contextCookieName(true)).toBe("__Host-clinic_ctx");
+    expect(contextCookieName(false)).toBe("clinic_ctx");
+    expect(CONTEXT_COOKIE_SECURE).toBe("__Host-clinic_ctx");
+    expect(PROXY_CONTEXT_COOKIE_SECURE).toBe(CONTEXT_COOKIE_SECURE);
+    expect(expiredContextCookie("__Host-clinic_ctx")).toEqual({
+      name: "__Host-clinic_ctx",
+      value: "",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: true, maxAge: 0 },
+    });
+    expect(expiredContextCookie("clinic_ctx").options).toMatchObject({ secure: false, maxAge: 0, path: "/" });
   });
 });

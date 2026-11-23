@@ -9,8 +9,10 @@ import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 import { isSupabaseAuthCookie } from "@/lib/auth/session-age";
 import { forgetRequestMemo, requestMemo } from "@/lib/auth/request-memo";
 import {
-  CONTEXT_COOKIE,
+  CONTEXT_COOKIE_NAMES,
+  contextCookieName,
   contextCookieOptions,
+  expiredContextCookie,
   normalisePin,
   signContext,
   verifyContext,
@@ -325,7 +327,8 @@ async function contextFromCookie(): Promise<SessionContext | null> {
   if (!secret) return null;
   let raw: string | undefined;
   try {
-    raw = (await cookies()).get(CONTEXT_COOKIE)?.value;
+    // 09D-01a (S-5): only the name this request's cookie would carry (`__Host-` when Secure), never the other one.
+    raw = (await cookies()).get(contextCookieName(cookieSecureFor(await headers())))?.value;
   } catch {
     return null;
   }
@@ -359,7 +362,8 @@ export async function contextCookieFor(
     { userId: membership.userId, sessionId: claims.sessionId, tenantId: membership.tenantId, role: membership.role, level, pin: normalisePin(pin) },
     secret,
   );
-  return { name: CONTEXT_COOKIE, value, options: contextCookieOptions(cookieSecureFor(await headers())) };
+  const secure = cookieSecureFor(await headers());
+  return { name: contextCookieName(secure), value, options: contextCookieOptions(secure) };
 }
 
 /**
@@ -371,7 +375,12 @@ export async function contextCookieFor(
 export async function forgetSessionContext(): Promise<void> {
   await forgetRequestMemo();
   try {
-    (await cookies()).delete(CONTEXT_COOKIE);
+    const store = await cookies();
+    for (const name of CONTEXT_COOKIE_NAMES) {
+      if (!store.has(name)) continue;
+      const expired = expiredContextCookie(name);
+      store.set(expired.name, expired.value, expired.options);
+    }
   } catch {
     // Read-only cookies or no request scope: nothing to expire here.
   }
