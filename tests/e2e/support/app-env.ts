@@ -20,6 +20,7 @@ import {
   E2E_TURNSTILE_SITE_KEY,
   E2E_TURNSTILE_VERIFY_URL,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_SESSION_CONTEXT_SECRET,
   LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_MAILPIT_API_URL,
   LOCAL_OPS_ALERT_EMAIL,
@@ -107,6 +108,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
     ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
     DIAG_ERROR_ROUTE_ENABLED: "true",
+    // V2-09d: the signed session-context cookie is on (synthetic key), as on staging and production.
+    SESSION_CONTEXT_SECRET: LOCAL_SESSION_CONTEXT_SECRET,
     // V2-04 04-02: the job runner route answers the synthetic bearer and runs the drill kinds
     // (tests/e2e/jobs/run-route.spec.ts; scripts/ops/scheduler-local-e2e.ts drives it from pg_cron on macOS).
     JOBS_RUNNER_SECRET: E2E_JOBS_RUNNER_SECRET,

@@ -60,6 +60,7 @@ const COMPLETE_PRODUCTION = {
   MSG91_WEBHOOK_SECRET: "MARKER-boot-webhook",
   AI_PROVIDER: undefined,
   ERROR_INGEST_KEY: "MARKER-boot-error-ingest-0123456789abcdef",
+  SESSION_CONTEXT_SECRET: "MARKER-boot-session-context-0123456789abcdef",
   EMAIL_PROVIDER: "ses",
   EMAIL_FROM: "no-reply@auth.synthetic-clinic.example.org",
   SES_ACCESS_KEY_ID: ["AKIA", "MARKERBOOT000000"].join(""),
@@ -89,6 +90,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stderr).toContain("AI_PROVIDER: must not be mock in production");
     // 03-09b: production must report its errors to the sink.
     expect(res.stderr).toContain("ERROR_INGEST_KEY: required in production");
+    // V2-09d: production runs with the signed session-context cookie.
+    expect(res.stderr).toContain("SESSION_CONTEXT_SECRET: required in production");
     // 03-11b: production must send auth email through SES and verify the Send Email hook.
     expect(res.stderr).toContain("EMAIL_PROVIDER: required in production");
     expect(res.stderr).toContain("SEND_EMAIL_HOOK_SECRET: required in production");

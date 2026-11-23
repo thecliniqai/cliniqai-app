@@ -117,6 +117,12 @@ export const JOBS_RUNNER_SECRET_PATTERN = /^[!-~]{32,512}$/;
 /** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
 export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
 /**
+ * V2-09d (request speed): the HMAC-SHA256 key of the signed session-context cookie (`lib/auth/context-cookie.ts`). At
+ * least 32 characters (64 hex characters from `openssl rand -hex 32` in practice). Unset: no context cookie, every
+ * request resolves the clinic context from the database (deduplicated per request).
+ */
+export const MIN_SESSION_CONTEXT_SECRET_LENGTH = 32;
+/**
  * 03-11b: the Send Email hook secret as Supabase shows it, `v1,whsec_<base64>`. The decoded key must be at least 24
  * bytes (the Standard Webhooks secret range is 24 to 64 bytes); the Supabase CLI itself refuses a shorter string.
  */
@@ -212,6 +218,7 @@ const shapeSchema = z.object({
   AI_MODEL_NAME: text.optional(),
   AI_BASE_URL: text.url().optional(),
   ERROR_INGEST_KEY: text.optional(),
+  SESSION_CONTEXT_SECRET: text.optional(),
   DIAG_ERROR_ROUTE_ENABLED: flag.optional(),
   EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).optional(),
   EMAIL_FROM: text.email().optional(),
@@ -295,6 +302,8 @@ export interface Env {
   AI_MODEL_NAME?: string;
   AI_BASE_URL?: string;
   ERROR_INGEST_KEY?: string;
+  /** V2-09d: key of the signed session-context cookie; unset = no cookie (context from the database every request). */
+  SESSION_CONTEXT_SECRET?: string;
   DIAG_ERROR_ROUTE_ENABLED: boolean;
   /** Defaults to `disabled` outside staging and production; required there. */
   EMAIL_PROVIDER: EmailProviderName;
@@ -553,6 +562,15 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (tier === "production" && !present(raw.ERROR_INGEST_KEY)) add("ERROR_INGEST_KEY", "required in production");
   if (deploy && present(raw.ERROR_INGEST_KEY) && /not-real/i.test(raw.ERROR_INGEST_KEY)) {
     add("ERROR_INGEST_KEY", `must not be a local placeholder in ${tier}`);
+  }
+  // V2-09d: the session-context key is long enough to resist guessing; production runs with the cookie on; a deploy tier
+  // never signs with a local placeholder.
+  if (present(raw.SESSION_CONTEXT_SECRET) && raw.SESSION_CONTEXT_SECRET.length < MIN_SESSION_CONTEXT_SECRET_LENGTH) {
+    add("SESSION_CONTEXT_SECRET", `at least ${MIN_SESSION_CONTEXT_SECRET_LENGTH} characters`);
+  }
+  if (tier === "production" && !present(raw.SESSION_CONTEXT_SECRET)) add("SESSION_CONTEXT_SECRET", "required in production");
+  if (deploy && present(raw.SESSION_CONTEXT_SECRET) && /not-real/i.test(raw.SESSION_CONTEXT_SECRET)) {
+    add("SESSION_CONTEXT_SECRET", `must not be a local placeholder in ${tier}`);
   }
   if (raw.DIAG_ERROR_ROUTE_ENABLED === "true" && tier === "production") {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
@@ -1060,6 +1078,15 @@ export const ENV_DOCS: Record<
       `Error-sink ingest key (03-09b, R-7), at least ${MIN_ERROR_INGEST_KEY_LENGTH} characters. Server only.`,
       "Its SHA-256 (hex) is the vault secret ops_error_ingest_key_sha256 (docs/runbooks/error-sink.md, PO action E9).",
       "Required in production; unset elsewhere means errors are logged but not written to ops.error_events.",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  SESSION_CONTEXT_SECRET: {
+    group: "Supabase",
+    notes: [
+      `HMAC-SHA256 key of the signed session-context cookie (V2-09d), at least ${MIN_SESSION_CONTEXT_SECRET_LENGTH} characters. Server only.`,
+      "Generate with: openssl rand -hex 32. Rotating it only makes every open session look its clinic context up once more.",
+      "Required in production; unset elsewhere means no context cookie (every request reads the context from the database).",
     ],
     example: SET_IN_VERCEL,
   },

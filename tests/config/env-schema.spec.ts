@@ -77,6 +77,7 @@ const PRODUCTION: EnvSource = {
   AI_ENABLED: "false",
   // 03-09b: production must report its errors to the sink.
   ERROR_INGEST_KEY: "MARKER-error-ingest-key-value-0123456789",
+  SESSION_CONTEXT_SECRET: "MARKER-session-context-key-0123456789abcdef",
   // 03-11b: production sends auth email through SES and verifies the Send Email hook.
   EMAIL_PROVIDER: "ses",
   EMAIL_FROM: "no-reply@auth.synthetic-clinic.example.org",
@@ -492,6 +493,29 @@ describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () =
     ["staging", STAGING],
   ])("a local placeholder ERROR_INGEST_KEY throws in %s", (_tier, profile) => {
     expectRejected({ ...profile, ERROR_INGEST_KEY: "not-real-ingest-key-not-real-ingest-key-" }, "ERROR_INGEST_KEY");
+  });
+
+  // V2-09d: the session-context cookie key.
+  it("production without SESSION_CONTEXT_SECRET throws; staging and the local tiers may leave it unset (no cookie)", () => {
+    expectRejected({ ...PRODUCTION, SESSION_CONTEXT_SECRET: undefined }, "SESSION_CONTEXT_SECRET");
+    expect(parseEnv({ ...STAGING, SESSION_CONTEXT_SECRET: undefined }).SESSION_CONTEXT_SECRET).toBeUndefined();
+    expect(parseEnv(CI_BUILD).SESSION_CONTEXT_SECRET).toBeUndefined();
+    expect(parseEnv(PRODUCTION).SESSION_CONTEXT_SECRET).toBe(PRODUCTION.SESSION_CONTEXT_SECRET);
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["ci", CI_BUILD],
+  ])("a short SESSION_CONTEXT_SECRET throws in %s, without echoing it", (_tier, profile) => {
+    expectRejected({ ...profile, SESSION_CONTEXT_SECRET: "MARKER-short-context" }, "SESSION_CONTEXT_SECRET");
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("the local placeholder SESSION_CONTEXT_SECRET throws in %s", (_tier, profile) => {
+    expectRejected({ ...profile, SESSION_CONTEXT_SECRET: "not-real-session-context-key-".repeat(2) }, "SESSION_CONTEXT_SECRET");
   });
 
   it("DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15)", () => {
@@ -931,6 +955,7 @@ describe("env schema: blank and padded secrets (04-00, review A L-1)", () => {
     ["MSG91_WEBHOOK_SECRET", `${PRODUCTION.MSG91_WEBHOOK_SECRET}\r\n`],
     ["SEND_EMAIL_HOOK_SECRET", `${HOOK_SECRET}\n`],
     ["ERROR_INGEST_KEY", ` ${PRODUCTION.ERROR_INGEST_KEY}`],
+    ["SESSION_CONTEXT_SECRET", `${PRODUCTION.SESSION_CONTEXT_SECRET}\n`],
     ["SES_SECRET_ACCESS_KEY", `${SES_SECRET} `],
   ])("a valid %s with surrounding whitespace is refused naming the key, never the value", (key, padded) => {
     const issues = issuesOf({ ...PRODUCTION, [key]: padded });
@@ -952,6 +977,7 @@ describe("env schema: blank and padded secrets (04-00, review A L-1)", () => {
       "MSG91_WEBHOOK_SECRET",
       "SEND_EMAIL_HOOK_SECRET",
       "ERROR_INGEST_KEY",
+      "SESSION_CONTEXT_SECRET",
       "SES_SECRET_ACCESS_KEY",
       "TWILIO_AUTH_TOKEN",
       "GUPSHUP_API_KEY",

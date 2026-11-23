@@ -47,6 +47,7 @@ RESEND_API_KEY=<Resend → API Keys → "clinicos-staging", Sending access, doma
 SEND_EMAIL_HOOK_SECRET=<Supabase staging → Authentication → Hooks → Send Email → generated secret>    # Sensitive
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare → Turnstile → widget "clinicos-staging" → Site key>
 ERROR_INGEST_KEY=<openssl rand -hex 32>                                                        # Sensitive
+SESSION_CONTEXT_SECRET=<openssl rand -hex 32, its own value; V2-09d signed session-context cookie>   # Sensitive; required in production
 PWNED_CHECK=on
 DIAG_ERROR_ROUTE_ENABLED=false     # true only for the one-time error-sink check (PO-ACTIONS 03-E9), then false
 AI_ENABLED=false
