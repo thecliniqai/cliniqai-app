@@ -64,6 +64,8 @@ function turnstileStubBody(): string {
  * fulfilled from the local stub, everything else is aborted and its host pushed to `blocked`.
  */
 export async function routeLoopbackOnly(context: BrowserContext, blocked: string[]): Promise<void> {
+  // V2-09d: every page of a test context (the fixture's and the ones specs make for a second user) settles streamed loads.
+  context.on("page", settleStreamedLoads);
   await context.route("**/*", async (route) => {
     const url = route.request().url();
     if (isAllowedBrowserUrl(url)) return route.continue();
@@ -130,7 +132,6 @@ export const test = base.extend<E2eFixtures>({
 
   context: async ({ context, blockedHosts }, provide) => {
     await routeLoopbackOnly(context, blockedHosts);
-    context.on("page", settleStreamedLoads);
     await context.routeWebSocket(/.*/, (ws) => {
       if (isAllowedBrowserUrl(ws.url())) {
         ws.connectToServer();

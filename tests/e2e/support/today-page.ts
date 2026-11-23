@@ -48,7 +48,7 @@ export async function showLane(page: Page, lane: LaneName): Promise<void> {
 
 /** Types into the filter box ("Token, name or mobile"): every lane with a match is then on screen below 1280 px. */
 export async function filterToday(page: Page, text: string): Promise<void> {
-  await page.getByLabel("Token, name or mobile").fill(text);
+  await page.getByRole("searchbox", { name: "Token, name or mobile" }).fill(text);
 }
 
 /**
@@ -57,7 +57,7 @@ export async function filterToday(page: Page, text: string): Promise<void> {
  * `collect` on every completed visit; a visit with money due says "Collect ₹X", one without says "Bill").
  */
 export async function openBill(page: Page, name: string, ux?: UxCounter): Promise<void> {
-  if (ux) await ux.fill(page.getByLabel("Token, name or mobile"), name, "Token, name or mobile");
+  if (ux) await ux.fill(page.getByRole("searchbox", { name: "Token, name or mobile" }), name, "Token, name or mobile");
   else await filterToday(page, name);
   await showLane(page, "Done");
   const button = rowOf(page, name).getByRole("button", { name: /^(Collect|Open bill of)\b/ });

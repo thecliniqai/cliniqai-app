@@ -120,7 +120,7 @@ for (const size of WIDTHS) {
         await seededVisit(tag);
         await page.setViewportSize(size);
         await openToday(page);
-        await page.getByLabel("Token, name or mobile").fill(`E2E Synthetic Split ${tag}`);
+        await page.getByRole("searchbox", { name: "Token, name or mobile" }).fill(`E2E Synthetic Split ${tag}`);
         await expect(rowOf(page, `E2E Synthetic Split ${tag}`)).toBeVisible();
         await expect(rowOf(page, `E2E Synthetic Split ${tag}`).getByText(VITALS_SUMMARY)).toBeVisible();
         await check(page, testInfo, `today-nurse-${size.width}`, "/today");
@@ -135,7 +135,7 @@ for (const size of WIDTHS) {
         await seededVisit(tag);
         await page.setViewportSize(size);
         await openToday(page);
-        await page.getByLabel("Token, name or mobile").fill(`E2E Synthetic Split ${tag}`);
+        await page.getByRole("searchbox", { name: "Token, name or mobile" }).fill(`E2E Synthetic Split ${tag}`);
         await expect(rowOf(page, `E2E Synthetic Split ${tag}`)).toBeVisible();
         expect(await bodyText(page)).not.toContain(VITALS_SUMMARY);
         await check(page, testInfo, `today-receptionist-${size.width}`, "/today");

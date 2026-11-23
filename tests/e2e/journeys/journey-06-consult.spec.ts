@@ -82,7 +82,7 @@ test("@golden journey 6: Today, tap entry, likely diagnosis, two medicines, a re
 
   // 1. Today: the waiting patient is in the doctor's queue; Call in opens the consult.
   await openToday(page, "/today?mode=doctor");
-  await ux.fill(page.getByLabel("Token, name or mobile"), patientName, "Token, name or mobile");
+  await ux.fill(page.getByRole("searchbox", { name: "Token, name or mobile" }), patientName, "Token, name or mobile");
   await ux.click(rowOf(page, patientName).getByRole("button", { name: `Call in ${patientName}` }), "Call in");
   await expect(page).toHaveURL(new RegExp(`/consultation/${visitId}$`), { timeout: 20_000 });
   await expect(page.getByLabel(NOTES_LABEL)).toBeVisible();
