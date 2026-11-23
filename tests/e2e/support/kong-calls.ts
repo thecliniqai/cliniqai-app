@@ -4,9 +4,9 @@
  * CLI names the container). Every call the app server, the browser or the runner makes to Supabase passes through Kong,
  * so its log is the one place that sees them all.
  *
- * 09D-01a (A-5): Kong writes every access line to BOTH its stdout and its stderr. Only stdout is read: the two streams
- * concatenated duplicated every line, and a window whose end marker had reached one stream but not yet the other spanned
- * the seam and counted calls twice. A failed `docker logs` (a transient daemon error) is retried like a late marker.
+ * 09D-01a (A-5): only Kong's stdout (its access log) is read. Its stderr is the error log: concatenated after stdout, a
+ * marker path quoted in an error line would land after the access lines and break the window's order. A failed
+ * `docker logs` (a transient daemon error) is retried like a late marker.
  *
  * A window is delimited by two marker requests the runner sends to Kong itself (`GET /__clinicos_perf_mark/<id>`,
  * answered 404 by Kong and logged like any other request), so the count never depends on the clocks of the host and
