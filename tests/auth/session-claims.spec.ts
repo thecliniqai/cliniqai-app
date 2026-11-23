@@ -1,10 +1,13 @@
 /**
- * V2-09d 09D-01a: the session read from the verified JWT claims (`getSessionClaims`, `lib/auth/tenant.ts`).
+ * V2-09d 09D-01a: the session read from the verified JWT claims (`getSessionClaims`, `lib/auth/tenant.ts`) and the dashboard
+ * layout's answer when it fails.
  *
  * - S-6: auth-js verifies the token's signature and expiry; a session token must also carry `iss` = this project's Auth URL
  *   (`<NEXT_PUBLIC_SUPABASE_URL>/auth/v1`), `aud` `authenticated` (string or array) and `role` `authenticated`. Anything
  *   else is not a session (UnauthenticatedError), and the refusal is logged by the claim's name only, never its value.
- * The Supabase client is a fake: these pin the claim rules. A real local session passing them is
+ * - A-7: the layout sends only a missing or unverifiable session to /login; an Auth outage and any unexpected failure reach
+ *   the error boundary (thrown), never a silent redirect.
+ * The Supabase client is a fake: these pin the claim rules and the layout's mapping. A real local session passing them is
  * every DB spec's precondition (tests/auth/session-context-db.spec.ts and the rest of the suite).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
@@ -16,8 +19,9 @@ vi.mock("@/lib/supabase/server", async (importOriginal) => {
   return { ...actual, createClient: async () => ({ auth: { getClaims: () => slot.getClaims!() } }) };
 });
 
-import { getSessionClaims, UnauthenticatedError } from "@/lib/auth/tenant";
+import { AuthUnavailableError, getSessionClaims, UnauthenticatedError } from "@/lib/auth/tenant";
 import { publicEnv } from "@/lib/env";
+import DashboardLayout from "@/app/(dashboard)/layout";
 
 const USER = "00000000-0000-4000-8000-0000000000d1";
 const SESSION = "00000000-0000-4000-8000-0000000000d2";
@@ -62,5 +66,37 @@ describe("S-6: the claims a session token must carry", () => {
     expect(logs()).toContain(`"reason":"${reason}"`);
     expect(logs()).not.toContain("otherproject");
     expect(logs()).not.toContain(USER);
+  });
+});
+
+/** Next's redirect is a thrown control-flow error whose digest names the target. */
+function redirectTarget(err: unknown): string | null {
+  const digest = (err as { digest?: unknown } | null)?.digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;") ? (digest.split(";")[2] ?? null) : null;
+}
+
+describe("A-7: the dashboard layout redirects to /login only when the session is missing or does not verify", () => {
+  const layout = () => DashboardLayout({ children: null }).then(() => null, (err: unknown) => err);
+
+  it("no session (a definitive answer) → redirect('/login')", async () => {
+    slot.getClaims = () => Promise.resolve({ data: null, error: null });
+    expect(redirectTarget(await layout())).toBe("/login");
+    slot.getClaims = claims({ role: "anon" });
+    expect(redirectTarget(await layout())).toBe("/login");
+  });
+
+  it("an Auth outage → AuthUnavailableError (the error boundary's Retry), not /login", async () => {
+    slot.getClaims = () => Promise.resolve({ data: null, error: Object.assign(new Error("fetch failed"), { name: "AuthRetryableFetchError", status: 0 }) });
+    const err = await layout();
+    expect(err).toBeInstanceOf(AuthUnavailableError);
+    expect(redirectTarget(err)).toBeNull();
+  });
+
+  it("an unexpected failure (a bug, a broken client) is rethrown, never a silent trip to /login", async () => {
+    const bug = new TypeError("synthetic claims parsing bug");
+    slot.getClaims = () => Promise.reject(bug);
+    const err = await layout();
+    expect(err).toBe(bug);
+    expect(redirectTarget(err)).toBeNull();
   });
 });

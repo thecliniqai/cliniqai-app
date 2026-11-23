@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import {
   ActiveClinicMembershipEndedError,
-  AuthUnavailableError,
   getActiveMembership,
   getSessionClaims,
   getTenantAccessLevel,
@@ -9,6 +8,7 @@ import {
   MultipleClinicsSelectionRequiredError,
   NoClinicMembershipError,
   readActiveClinicCookie,
+  UnauthenticatedError,
   type SessionClaims,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
@@ -43,16 +43,16 @@ export default async function DashboardLayout({
 }) {
   // V2-09d: the session from the verified JWT claims, once per request (no Supabase Auth round trip; the proxy has refreshed
   // the session already). `/api/session-status`, which the shell calls on load, asks Supabase Auth for a fresh answer.
-  let claims: SessionClaims | null = null;
+  let claims: SessionClaims;
   try {
     claims = await getSessionClaims();
   } catch (error) {
-    // V2-06 06-09c (H-AUTHOUT): Auth could not answer (network, timeout, 5xx, 429). That is not a missing session: the
-    // error boundary offers Retry; the user is not sent to sign-in.
-    if (error instanceof AuthUnavailableError) throw error;
-  }
-  if (!claims) {
-    redirect("/login");
+    // 09D-01a (A-7): only a missing or unverifiable session goes to sign-in. Next's own control flow is rethrown; V2-06
+    // 06-09c (H-AUTHOUT) Auth could not answer (network, timeout, 5xx, 429) and any other failure is not a missing session:
+    // the error boundary offers Retry (and `onRequestError` records it), never a silent trip to /login.
+    unstable_rethrow(error);
+    if (error instanceof UnauthenticatedError) redirect("/login");
+    throw error;
   }
 
   let membership;
