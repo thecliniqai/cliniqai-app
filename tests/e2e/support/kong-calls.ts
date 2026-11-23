@@ -34,9 +34,25 @@ export interface KongWindow {
   browserByPath: Record<string, number>;
 }
 
+/**
+ * Sends one marker. Kong answers 404 (no route); the request is logged, which is all a marker needs. A marker that never
+ * reached Kong would make the window unreadable, so a failed or stalled send (a keep-alive socket Kong had already closed)
+ * is bounded, retried and, if it keeps failing, reported instead of swallowed.
+ */
 async function mark(id: string): Promise<void> {
-  // Kong answers 404 (no route); the request is logged, which is all a marker needs.
-  await fetch(`${LOCAL_SUPABASE_URL}${MARK_PATH}${id}`).then((r) => r.arrayBuffer()).catch(() => undefined);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // Bounded: a stalled keep-alive socket otherwise holds the request for undici's 300 s header timeout (seen once:
+      // a 4.4 min test that then found no end marker).
+      const res = await fetch(`${LOCAL_SUPABASE_URL}${MARK_PATH}${id}`, { cache: "no-store", signal: AbortSignal.timeout(5_000) });
+      await res.arrayBuffer();
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`kong-calls: marker request failed (${lastError instanceof Error ? lastError.name : "unknown"})`);
 }
 
 function readKongLog(sinceIso: string): string {
@@ -91,11 +107,11 @@ export async function countKongCalls(body: () => Promise<void>, settleMs = 750):
   await body();
   await new Promise((resolve) => setTimeout(resolve, settleMs));
   await mark(`${id}-end`);
-  // Kong writes its access log asynchronously; read until the end marker is there (bounded).
-  for (let attempt = 0; attempt < 20; attempt++) {
+  // The access log reaches `docker logs` asynchronously; read until the end marker is there (bounded, 10 s).
+  for (let attempt = 0; attempt < 50; attempt++) {
     const log = readKongLog(sinceIso);
     if (log.includes(`${MARK_PATH}${id}-end`)) return parseWindow(log, `${id}-start`, `${id}-end`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   throw new Error("kong-calls: end marker never reached the Kong log");
 }
