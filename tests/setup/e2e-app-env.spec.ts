@@ -15,6 +15,7 @@ import {
   E2E_BASE_URL,
   publicEnvHash,
   SERVER_AUTH_FAULTS,
+  SERVER_LATENCY,
   SERVER_NET_GUARD,
   stampProblems,
   type LocalStackKeys,
@@ -65,6 +66,9 @@ describe("buildAppServerEnv", () => {
     expect(env.NODE_OPTIONS).toContain(SERVER_NET_GUARD);
     expect(env.NODE_OPTIONS).toContain(SERVER_AUTH_FAULTS);
     expect(env.NODE_OPTIONS!.indexOf(SERVER_NET_GUARD), "the guard loads first").toBeLessThan(env.NODE_OPTIONS!.indexOf(SERVER_AUTH_FAULTS));
+    // V2-09e 09E-01: the latency injection is the third preload, wrapped around the guard and the fault hook.
+    expect(env.NODE_OPTIONS).toContain(SERVER_LATENCY);
+    expect(env.NODE_OPTIONS!.indexOf(SERVER_AUTH_FAULTS), "the fault hook loads before the latency injection").toBeLessThan(env.NODE_OPTIONS!.indexOf(SERVER_LATENCY));
   });
 
   it("refuses hosted keys", () => {
