@@ -7,10 +7,14 @@
  * calls count (the browser's own, such as the realtime socket, are reported but not budgeted). The receptionist:
  *
  * - an in-app navigation (what a click on a link does) resolves the session and the clinic context without any Supabase
- *   call: no `/auth/v1/user`, no `my_tenant_access`, no membership read for the context; Patients stays within 3 calls
- *   and Today within 6;
- * - a full load of Today stays within 12 calls, of which the shell's on-load status check (the one fresh check) is the
- *   only `/auth/v1/user` and the only `my_tenant_access`.
+ *   call: no `/auth/v1/user`, no `my_tenant_access`, and on Patients no `memberships` read at all (on Today the one
+ *   `memberships` read is the doctor directory, page data);
+ * - a full load of Today: the shell's on-load status check (the one fresh check) is the only `/auth/v1/user` and the
+ *   only `my_tenant_access`; `memberships` at most 3 (shell clinic list, status check, doctor directory).
+ *
+ * Only the identity/context calls are budgeted here: they do not depend on the clinic's data. The page-data calls do (a
+ * full PR run leaves tenant A with many patients, so Patients' link prefetches of `/patients/[id]` read 11 more rows, and
+ * Today's billing lanes add invoice/payment/follow-up reads); the per-page totals are in the perf report.
  *
  * Before V2-09d the same counts were 27 calls for a Patients full load (10 `/auth/v1/user`) and 26 for Today (8 + 6).
  * The full per-page report is `npm run perf:roundtrips` (tests/e2e/perf/page-roundtrips.spec.ts).
@@ -40,7 +44,7 @@ const count = (byPath: Record<string, number>, key: string) => byPath[key] ?? 0;
 test.describe("V2-09d request budget (receptionist)", () => {
   const desktopOnly = () => test.skip(test.info().project.name !== "desktop-chrome", "the count does not depend on the device");
 
-  test("in-app navigation: no identity or context call; Patients <= 3, Today <= 6", async ({ page }) => {
+  test("in-app navigation: no identity or context call (Patients, Today)", async ({ page }) => {
     desktopOnly();
     await page.goto("/today");
     await settled(page);
@@ -53,16 +57,15 @@ test.describe("V2-09d request budget (receptionist)", () => {
     expect(count(patients.serverByPath, "GET /auth/v1/user"), JSON.stringify(patients.serverByPath)).toBe(0);
     expect(count(patients.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(patients.serverByPath)).toBe(0);
     expect(count(patients.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(patients.serverByPath)).toBe(0);
-    expect(patients.server, JSON.stringify(patients.serverByPath)).toBeLessThanOrEqual(3);
 
     const today = await countKongCalls(() => softNavigate(page, "/today"));
     expect(new URL(page.url()).pathname).toBe("/today");
     expect(count(today.serverByPath, "GET /auth/v1/user"), JSON.stringify(today.serverByPath)).toBe(0);
     expect(count(today.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(today.serverByPath)).toBe(0);
-    expect(today.server, JSON.stringify(today.serverByPath)).toBeLessThanOrEqual(6);
+    expect(count(today.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(today.serverByPath)).toBeLessThanOrEqual(1);
   });
 
-  test("full load of Today: <= 12 calls; the on-load status check is the only Auth and access-level call", async ({ page }) => {
+  test("full load of Today: the on-load status check is the only Auth and access-level call", async ({ page }) => {
     desktopOnly();
     await page.goto("/today");
     await settled(page);
@@ -73,6 +76,6 @@ test.describe("V2-09d request budget (receptionist)", () => {
     expect(new URL(page.url()).pathname).toBe("/today");
     expect(count(full.serverByPath, "GET /auth/v1/user"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(1);
     expect(count(full.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(1);
-    expect(full.server, JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(12);
+    expect(count(full.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(3);
   });
 });
