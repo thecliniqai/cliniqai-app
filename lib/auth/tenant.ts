@@ -21,6 +21,7 @@ import {
 import { cookieSecureFor } from "@/lib/auth/cookie-secure";
 import { sessionLiveness } from "@/lib/auth/session-live";
 import type { SensitiveAction } from "@/lib/auth/sensitive-actions";
+import { publicEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env-server";
 
 export class NoClinicMembershipError extends Error {
@@ -219,6 +220,25 @@ export async function getSessionClaims(): Promise<SessionClaims> {
   return requestMemo(`claims:${await sessionFingerprint()}`, readSessionClaims);
 }
 
+/** The issuer of this project's user tokens: its Auth URL (`<NEXT_PUBLIC_SUPABASE_URL>/auth/v1`), no trailing slash. */
+function expectedIssuer(): string {
+  return `${publicEnv.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/auth/v1`;
+}
+
+/**
+ * 09D-01a (S-6): auth-js checks the token's signature and expiry; the claims a user session token must carry are checked
+ * here: `iss` this project's Auth URL, `aud` `authenticated` (a string, or an array that contains it), `role`
+ * `authenticated`. Anything else (another project's or a custom hook's token, a service or anon token) is not a session.
+ */
+function claimsRejection(claims: Record<string, unknown>): "iss" | "aud" | "role" | null {
+  const iss = typeof claims.iss === "string" ? claims.iss.replace(/\/+$/, "") : null;
+  if (iss !== expectedIssuer()) return "iss";
+  const aud = claims.aud;
+  if (!(aud === "authenticated" || (Array.isArray(aud) && aud.includes("authenticated")))) return "aud";
+  if (claims.role !== "authenticated") return "role";
+  return null;
+}
+
 async function readSessionClaims(): Promise<SessionClaims> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
@@ -229,6 +249,12 @@ async function readSessionClaims(): Promise<SessionClaims> {
   }
   const claims = data?.claims as Record<string, unknown> | undefined;
   if (error || !claims || typeof claims.sub !== "string" || claims.sub === "") throw new UnauthenticatedError();
+  const rejected = claimsRejection(claims);
+  if (rejected) {
+    // The claim's name only (never its value).
+    log.warn({ event: "auth.claims.refused", reason: `claim_${rejected}` as const, requestId: await getRequestId() });
+    throw new UnauthenticatedError();
+  }
   const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
   const metadata = claims.user_metadata;
   return {
