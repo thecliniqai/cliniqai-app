@@ -10,8 +10,11 @@
  * (Navigation Timing `responseEnd`: the document fully streamed, i.e. the server's work, and `loadEventEnd`). A full
  * load includes the shell's on-load `/api/session-status` check (the one fresh Auth + database check). Then
  * {@link SAMPLES} in-app (soft) navigations to the same page from another page (`router.push`, what a click on a link
- * does), counted the same way, with the time from the push until the network is idle. Then one server action, the
- * receptionist's "Check in" on Today, counted from the click until the row is in Waiting.
+ * does), counted the same way, with the time from the push until the network is idle. Then two server actions: the
+ * receptionist's "Check in" on Today (fast path), counted from the click until the row is in Waiting, and (09D-01a, ruling
+ * R-S) the owner's "Save printing settings" on /settings/clinic, an action on the closed list of sensitive actions
+ * (`lib/auth/sensitive-actions.ts`: liveness, membership and access level from the database), counted from the click
+ * until "Saved." shows. The values saved are the ones already stored (nothing changes).
  *
  * Output: a table on stdout and `test-results/perf-roundtrips/{summary.json,summary.md}`. Paths carry no ids or query
  * strings; synthetic data only. The test fails only on a broken measurement (a page that landed elsewhere, a missing
@@ -114,7 +117,7 @@ function writeReport(): void {
       return `| ${r.role} | ${r.kind} | ${r.label}${landed} | ${median(r.server)} | ${median(r.browser)} | ${median(r.responseEndMs)} | ${loadMs} | ${byPath} |`;
     }),
     "",
-    "| Role | Server action | Server calls | Browser calls | ms (click → row in Waiting) | Server calls by path |",
+    "| Role | Server action | Server calls | Browser calls | ms (click → done) | Server calls by path |",
     "| --- | --- | --- | --- | --- | --- |",
     ...actions.map(
       (a) =>
@@ -209,6 +212,28 @@ test.describe("receptionist: server action round trips", () => {
       ms = Date.now() - started;
     });
     actions.push({ role: "receptionist", label: "Check in (Today)", server: window.server, browser: window.browser, ms, serverByPath: window.serverByPath });
+  });
+});
+
+test.describe("owner: a sensitive server action's round trips (09D-01a, ruling R-S)", () => {
+  test.use({ storageState: storageStatePath("owner") });
+
+  test("owner: Save printing settings on /settings/clinic", async ({ page, context }) => {
+    test.setTimeout(3 * 60_000);
+    await page.goto("/settings/clinic");
+    await page.waitForLoadState("networkidle");
+    // The device's session-context cookie is in place (the shell's status check), so the fast path would answer from it.
+    await expect.poll(async () => (await context.cookies()).some((c) => c.name === "clinic_ctx"), { timeout: 15_000 }).toBe(true);
+    const card = page.locator("[data-rx-print-settings]");
+    await expect(card).toBeVisible();
+    let ms = 0;
+    const window = await countKongCalls(async () => {
+      const started = Date.now();
+      await card.getByRole("button", { name: "Save printing settings" }).click();
+      await expect(card.getByText(/Saved\. New prescriptions use this paper/)).toBeVisible({ timeout: 20_000 });
+      ms = Date.now() - started;
+    });
+    actions.push({ role: "owner", label: "Save printing settings (sensitive)", server: window.server, browser: window.browser, ms, serverByPath: window.serverByPath });
   });
 });
 
