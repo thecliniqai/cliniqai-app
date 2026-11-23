@@ -31,6 +31,7 @@ export async function addCustomMedicine(rx: Locator, name: string, opts: AddMedi
   const before = await rows.count();
   if (ux) await ux.fill(field, name, "Medicine search");
   else await field.fill(name);
+  await expectNameInField(field, name);
   const add = rx.getByRole("option", { name: new RegExp(`^Add .${escape(name)}.$`) });
   await expect(add).toBeVisible({ timeout: 10_000 });
   // The list holds the doctor's own similar medicines first and the "Add" row last: ArrowDown walks to it, Enter picks it. 09C-06a (A-10): when the "Add" row
@@ -44,6 +45,32 @@ export async function addCustomMedicine(rx: Locator, name: string, opts: AddMedi
   for (const ch of duration) await press(field, ch, `Duration ${ch}`, ux);
   await press(field, "Enter", "Add the line", ux);
   await expect(rows).toHaveCount(before + 1, { timeout: 15_000 });
+}
+
+/**
+ * The typed name must be in the field before the list is waited for (debug session rx-entry-typed-text-lost). On WebKit, Playwright's `fill` is two
+ * protocol steps: `select()` and `focus()` in one evaluate, then `Page.insertText`, which inserts "into the current selection of the page". Twice under
+ * load (journey 6 step 4: iphone-15 on macOS 1 run in 20, Linux WebKit 1 in 9) it reported success while nothing reached the page: no input event, no
+ * search request, the field still empty, and the step then timed out 10 s later on a missing "Add" row. A real keyboard types into that same selection,
+ * so this never types again: it fails here, at once, and says whether the field still had the focus and the selection, so a recurrence can be traced.
+ */
+async function expectNameInField(field: Locator, name: string): Promise<void> {
+  const state = await field.evaluate((el: HTMLInputElement) => {
+    const selection = getSelection();
+    const anchor = selection?.anchorNode ?? null;
+    // WebKit and Chromium report a selection inside a text field as (the field's parent, the field's index).
+    const inField = anchor === el.parentNode && selection?.anchorOffset === Array.prototype.indexOf.call(el.parentNode?.childNodes ?? [], el);
+    return {
+      value: el.value,
+      readOnly: el.readOnly,
+      focused: document.activeElement === el,
+      activeElement: document.activeElement?.tagName ?? null,
+      selection: inField ? "in the field" : `${anchor?.nodeName ?? "none"}:${selection?.anchorOffset ?? -1}`,
+    };
+  });
+  if (state.value !== name) {
+    throw new Error(`fill reported "${name}" typed, but the field holds ${JSON.stringify(state.value)} (${JSON.stringify(state)})`);
+  }
 }
 
 async function press(field: Locator, key: string, target: string, ux?: UxCounter): Promise<void> {
