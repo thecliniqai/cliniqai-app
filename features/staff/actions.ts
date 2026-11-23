@@ -71,7 +71,7 @@ export async function inviteStaff(
 
   try {
     // 1. Enforce permission server-side
-    const session = await requirePermission(supabase, "staff:invite");
+    const session = await requirePermission(supabase, "staff:invite", "full", { sensitive: "staff.invite" });
 
     // Owner/admin invitations are owner-only (P0-02). The invitations INSERT policy (000019) enforces the same rule.
     if (role === "admin" && session.role !== "owner") {
@@ -177,7 +177,10 @@ async function manageInvitation(
   fn: "resend_invitation" | "revoke_invitation",
   input: { invitationId: string },
 ): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
-  const resolved = await resolveServiceContext("staff:invite");
+  // 09D-01a (ruling R-S): invitation management is on the closed list of sensitive actions.
+  const resolved = await resolveServiceContext("staff:invite", "full", {
+    sensitive: fn === "resend_invitation" ? "staff.invite.resend" : "staff.invite.revoke",
+  });
   if (!resolved.ok) return { ok: false, error: resolved.error };
   const parsed = invitationIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid invitation." };
@@ -234,11 +237,11 @@ export type RemoveStaffActionResult = { success: true; result: RemoveStaffResult
  * target row and binds it to the active clinic). Backend only: the staff UI and journey J-A6 are V2-11's (R-31).
  */
 export async function removeStaff(input: { membershipId: string; reason: string }): Promise<RemoveStaffActionResult> {
-  let resolved = await resolveServiceContext("staff:invite");
+  let resolved = await resolveServiceContext("staff:invite", "full", { sensitive: "staff.remove" });
   if (!resolved.ok && resolved.reason === "locked") {
     // V2-05 05-12 (IND L-5): the OWNER of a locked or onboarding clinic may still remove staff, so a dismissed member
     // does not regain access on renewal. `remove_member` enforces the same rule (owner only, same checks, audited).
-    const billing = await resolveServiceContext("staff:invite", "billing");
+    const billing = await resolveServiceContext("staff:invite", "billing", { sensitive: "staff.remove" });
     if (billing.ok && billing.ctx.role === "owner") resolved = billing;
   }
   if (!resolved.ok) return { success: false, error: resolved.error };

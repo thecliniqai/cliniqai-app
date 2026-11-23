@@ -23,7 +23,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Same formats and headers as the `/api/v1` export (which stays on the API-key path, behind the switch).
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const resolved = await resolveServiceContext(DPDP_EXPORT_PERMISSION);
+  const resolved = await resolveServiceContext(DPDP_EXPORT_PERMISSION, "full", { sensitive: "dpdp.export" });
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

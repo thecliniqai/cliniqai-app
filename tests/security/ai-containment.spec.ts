@@ -129,7 +129,8 @@ describe("AI-01 containment", () => {
       });
       expect(result).not.toHaveProperty("draft");
       expect(fetchSpy).not.toHaveBeenCalled();
-      expect(requirePermissionMock).toHaveBeenCalledWith("consultations:edit");
+      // 09D-01a (ruling R-S): the AI entry point names its sensitive action (fresh liveness, membership and level).
+      expect(requirePermissionMock).toHaveBeenCalledWith(undefined, "consultations:edit", "full", { sensitive: "ai.soap.generate" });
       for (const s of RETIRED_MOCK_STRINGS) expect(JSON.stringify(result)).not.toContain(s);
     });
 

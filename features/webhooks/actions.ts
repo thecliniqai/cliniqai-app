@@ -29,7 +29,7 @@ export async function createWebhookSubscription(data: {
   endpointUrl: string;
   eventTypes: string[];
 }): Promise<Result<typeof webhooksService.createWebhookSubscription>> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "webhooks.create" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await webhooksService.createWebhookSubscription(resolved.ctx, data);
   if (result.success) revalidate();
@@ -39,7 +39,7 @@ export async function createWebhookSubscription(data: {
 export async function deleteWebhookSubscription(
   subscriptionId: string
 ): Promise<Result<typeof webhooksService.deleteWebhookSubscription>> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "webhooks.delete" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await webhooksService.deleteWebhookSubscription(resolved.ctx, subscriptionId);
   if (result.success) revalidate();

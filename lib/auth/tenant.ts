@@ -17,6 +17,8 @@ import {
   type SessionContext,
 } from "@/lib/auth/context-cookie";
 import { cookieSecureFor } from "@/lib/auth/cookie-secure";
+import { sessionLiveness } from "@/lib/auth/session-live";
+import type { SensitiveAction } from "@/lib/auth/sensitive-actions";
 import { serverEnv } from "@/lib/env-server";
 
 export class NoClinicMembershipError extends Error {
@@ -128,8 +130,9 @@ export function accessAllows(level: TenantAccessLevel, required: RequiredAccess)
 export async function assertTenantAccess(
   membership: Pick<ActiveMembership, "tenantId">,
   required: RequiredAccess = "full",
+  options: { fresh?: boolean } = {},
 ): Promise<TenantAccessLevel> {
-  const level = await getTenantAccessLevel(membership.tenantId);
+  const level = await getTenantAccessLevel(membership.tenantId, options);
   if (!accessAllows(level, required)) throw new TenantLockedError(level);
   return level;
 }
@@ -137,7 +140,9 @@ export async function assertTenantAccess(
 /**
  * The active clinic's access level (V2-09d: from the session-context cookie when it is valid for this session and names
  * this clinic, else through `my_tenant_access`, the caller's own clinic only, once per request); fail closed.
- * `fresh: true` always asks the database (`/api/session-status`, the subscription page).
+ * `fresh: true` always asks the database, never the cookie (`/api/session-status`, the access pages, the sensitive
+ * actions of `lib/auth/sensitive-actions.ts`). 09D-01a (A-3): reading the level never sets a cookie; only
+ * `/api/session-status` issues the session-context cookie ({@link contextCookieFor}).
  */
 export async function getTenantAccessLevel(tenantId: string, options: { fresh?: boolean } = {}): Promise<TenantAccessLevel> {
   if (!options.fresh) {
@@ -177,7 +182,7 @@ export function isClinicId(value: string | null | undefined): value is string {
  * (`auth.getClaims()`: verified locally against the project's signing keys, JWKS cached for 10 minutes; no Auth round
  * trip while the token is valid; the proxy has already refreshed it). `getUser()` is kept only where a fresh answer from
  * Supabase Auth is required ({@link getActiveMembership} with `fresh`, i.e. `/api/session-status`, which detects a session
- * revoked elsewhere; and the password and account-security flows).
+ * revoked elsewhere). The sensitive actions ask the database instead ({@link assertSessionLive}).
  */
 export interface SessionClaims {
   userId: string;
@@ -247,6 +252,19 @@ async function confirmSessionAtAuth(claims: SessionClaims): Promise<void> {
     }
     if (error || !user || user.id !== claims.userId) throw new UnauthenticatedError();
   });
+}
+
+/**
+ * 09D-01a (ruling R-S, AUTH_REDESIGN §3.5 step 3): the sensitive actions' liveness check (`session_is_live()`, one RPC,
+ * once per request and session). Throws {@link UnauthenticatedError} for a session revoked elsewhere whose access token is
+ * still unexpired, and {@link AuthUnavailableError} when the database could not answer (never a sign-out).
+ */
+export async function assertSessionLive(action: SensitiveAction): Promise<void> {
+  const verdict = await requestMemo(`session-live:${await sessionFingerprint()}`, async () =>
+    sessionLiveness(await createClient(), action),
+  );
+  if (verdict === "unavailable") throw new AuthUnavailableError();
+  if (verdict !== "live") throw new UnauthenticatedError();
 }
 
 /** One active membership of the caller, with its clinic's name and zone (RLS: own rows; the caller's clinics). */
@@ -364,11 +382,16 @@ export async function forgetSessionContext(): Promise<void> {
  * Never trust browser-supplied tenant IDs (AGENTS.md §7).
  *
  * V2-09d: the session comes from the verified JWT claims (no Auth round trip); the membership from the session-context
- * cookie when it is valid for this session and pin (at most {@link CONTEXT_COOKIE_TTL_SECONDS} old; RLS and the
- * commands re-check membership in the database on every read and write), else from the database, once per request.
+ * cookie when it is valid for this session and pin (at most 300 s old; RLS and the commands re-check membership in the
+ * database on every read and write), else from the database, once per request.
  * `fresh: true` (`/api/session-status`) asks Supabase Auth (`getUser()`) and the database every time.
+ * `fromDatabase: true` (09D-01a, the sensitive actions) skips the cookie and reads the membership and role from the
+ * database (the request memo holds only database answers); liveness is the caller's {@link assertSessionLive}.
  */
-export async function getActiveMembership(explicitTenantId?: string, options: { fresh?: boolean } = {}): Promise<ActiveMembership> {
+export async function getActiveMembership(
+  explicitTenantId?: string,
+  options: { fresh?: boolean; fromDatabase?: boolean } = {},
+): Promise<ActiveMembership> {
   const claims = await getSessionClaims();
   if (options.fresh) await confirmSessionAtAuth(claims);
 
@@ -379,7 +402,7 @@ export async function getActiveMembership(explicitTenantId?: string, options: { 
   if (!targetTenantId) targetTenantId = pin ?? undefined;
   if (targetTenantId && !TENANT_ID_SHAPE.test(targetTenantId)) targetTenantId = undefined;
 
-  if (!options.fresh) {
+  if (!options.fresh && !options.fromDatabase) {
     const context = await contextFromCookie();
     if (context && (!targetTenantId || context.tenantId === targetTenantId.toLowerCase())) {
       return { tenantId: context.tenantId, role: context.role, userId: claims.userId };

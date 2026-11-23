@@ -44,7 +44,7 @@ function revalidate(...paths: string[]) {
 }
 
 export async function updateClinicSettings(input: ClinicSettingsInput): Promise<UpdateClinicSettingsResult> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.update" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateClinicSettings(resolved.ctx, input);
   // V2-09d: the clinic's name or zone may have changed: the shell re-reads them (and the session context) in the render that follows.
@@ -58,7 +58,7 @@ export async function updateClinicSettings(input: ClinicSettingsInput): Promise<
  * to public.tenants with full compliance audit logging under DPDP/NMC regulations (D-16).
  */
 export async function updateStatutorySettings(input: StatutorySettingsInput): Promise<UpdateStatutorySettingsResult> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.statutory" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStatutorySettings(resolved.ctx, input);
   if (result.success) revalidate("/settings/clinic");
@@ -70,7 +70,7 @@ export async function updateStatutorySettings(input: StatutorySettingsInput): Pr
  * `clinic:manage`; the tenant is the session's.
  */
 export async function updateRxPrintSettings(input: RxPrintSettingsInput): Promise<UpdateRxPrintSettingsResult> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.rx_print" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateRxPrintSettings(resolved.ctx, input);
   if (result.success) revalidate("/settings/clinic");
@@ -86,7 +86,7 @@ export async function updateUserProfile(input: UserProfileInput): Promise<Update
 }
 
 export async function updateStaffMember(input: StaffEditInput): Promise<UpdateStaffMemberResult> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "staff.role_edit" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStaffMember(resolved.ctx, input);
   // V2-09d: a role may have changed (the caller's own included): this device's session context is read again.

@@ -40,7 +40,7 @@ export async function generateSoapAction(input: {
   patientContext?: AnonymizedPatientContext;
 }): Promise<GenerateSoapActionResult> {
   try {
-    await requirePermission("consultations:edit");
+    await requirePermission(undefined, "consultations:edit", "full", { sensitive: "ai.soap.generate" });
     const draft = await generateSoapFromShorthand({
       shorthand: input.shorthand,
       patientContext: input.patientContext,

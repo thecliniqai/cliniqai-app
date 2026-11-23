@@ -3,6 +3,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { isPwnedPassword, type PwnedResult } from "@/lib/auth/pwned";
+import { sessionLiveness } from "@/lib/auth/session-live";
+import type { SensitiveAction } from "@/lib/auth/sensitive-actions";
 import { FRESH_MAILBOX_SESSION_SECONDS, assertFreshOtpSession, sessionAuthFrom } from "@/lib/auth/session-age";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -15,8 +17,8 @@ import { changePasswordSchema, setNewPasswordSchema } from "./schemas";
  * Password changes on the session user's own account (V2-03 03-12a: AUTH-04b change password, FT-05, A00-5, R-5).
  *
  * Both entry points read the caller from the request's cookie session (`getClaims()` on the request client); no user
- * id is ever taken from input and no service-role client is used. Order: authenticate → validate → session freshness
- * (A00-5) → breached-password check (FT-05) → `updateUser` → sign-out: `others` after a change of password, `global` after
+ * id is ever taken from input and no service-role client is used. Order: authenticate → validate → session liveness
+ * (09D-01a, ruling R-S: `session_is_live`) → session freshness (A00-5) → breached-password check (FT-05) → `updateUser` → sign-out: `others` after a change of password, `global` after
  * a reset (ruling R-35: the recovery session ends too and the user signs in with the new password). Nothing is called on
  * Pwned Passwords for an unauthenticated caller, and nothing is written when any step refuses.
  *
@@ -30,7 +32,7 @@ import { changePasswordSchema, setNewPasswordSchema } from "./schemas";
 
 export { FRESH_MAILBOX_SESSION_SECONDS, assertFreshOtpSession, sessionAuthFrom, type SessionAuth } from "@/lib/auth/session-age";
 
-type AuthDb = Pick<SupabaseClient, "auth">;
+type AuthDb = Pick<SupabaseClient, "auth" | "rpc">;
 
 type Failure = Extract<SetPasswordResult, { ok: false }>;
 
@@ -68,6 +70,20 @@ export interface PasswordServiceDeps {
 }
 
 type Operation = "change_password" | "set_new_password";
+
+/**
+ * 09D-01a (ruling R-S, AUTH_REDESIGN §3.5 step 3): password changes are on the closed list of sensitive actions
+ * (`lib/auth/sensitive-actions.ts`). The local claims check cannot see a session revoked elsewhere, so the session's
+ * liveness is asked of the database (`session_is_live`) before anything leaves the server (the breached-password check)
+ * or is written. These act on the caller's own Auth account, with or without a clinic, so no membership is read.
+ */
+async function refusedUnlessLive(db: AuthDb, op: Operation, userId: string): Promise<Failure | null> {
+  const action: SensitiveAction = op === "change_password" ? "account.password.change" : "account.password.reset";
+  const verdict = await sessionLiveness(db, action);
+  if (verdict === "live") return null;
+  log.info({ event: "auth.password.rejected", action: op, reason: verdict === "revoked" ? "session_not_live" : "liveness_unavailable", userId });
+  return verdict === "revoked" ? fail("session_not_found") : fail("unknown");
+}
 
 async function sessionUser(db: AuthDb): Promise<{ userId: string; amr: unknown } | null> {
   try {
@@ -172,6 +188,9 @@ export async function changePassword(input: unknown, deps: PasswordServiceDeps =
   const parsed = changePasswordSchema.safeParse(input);
   if (!parsed.success) return fail("invalid_input", parsed.error.issues[0]?.message);
 
+  const notLive = await refusedUnlessLive(db, "change_password", user.userId);
+  if (notLive) return notLive;
+
   const now = (deps.now ?? Date.now)();
   const auth = sessionAuthFrom(user.amr, now);
   const stale = auth.kind === "unknown" || (auth.kind === "mailbox" && !assertFreshOtpSession(user.amr, FRESH_MAILBOX_SESSION_SECONDS, now));
@@ -202,6 +221,9 @@ export async function setNewPassword(input: unknown, deps: PasswordServiceDeps =
 
   const parsed = setNewPasswordSchema.safeParse(input);
   if (!parsed.success) return fail("invalid_input", parsed.error.issues[0]?.message);
+
+  const notLive = await refusedUnlessLive(db, "set_new_password", user.userId);
+  if (notLive) return notLive;
 
   if (!assertFreshOtpSession(user.amr, FRESH_MAILBOX_SESSION_SECONDS, (deps.now ?? Date.now)())) {
     log.info({ event: "auth.password.rejected", action: "set_new_password", reason: "reauth_required", userId: user.userId });

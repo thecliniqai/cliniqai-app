@@ -25,7 +25,12 @@ const NEXT = "Synthetic-next-pass-2";
 
 type Amr = Array<{ method: string; timestamp: number }>;
 
-function fakeAuth(amr: Amr | null, overrides: { updateError?: object | null; signOutError?: object | null } = {}) {
+type Liveness = { data: unknown; error: object | null };
+
+function fakeAuth(
+  amr: Amr | null,
+  overrides: { updateError?: object | null; signOutError?: object | null; live?: Liveness } = {},
+) {
   const auth = {
     getClaims: vi.fn(async () =>
       amr === null ? { data: null, error: null } : { data: { claims: { sub: USER_ID, amr } }, error: null },
@@ -33,7 +38,9 @@ function fakeAuth(amr: Amr | null, overrides: { updateError?: object | null; sig
     updateUser: vi.fn(async () => ({ data: { user: {} }, error: overrides.updateError ?? null })),
     signOut: vi.fn(async () => ({ error: overrides.signOutError ?? null })),
   };
-  return { db: { auth } as unknown as Pick<SupabaseClient, "auth">, auth };
+  // 09D-01a (R-S): `session_is_live` (the database's liveness check); live unless the case says otherwise.
+  const rpc = vi.fn(async () => overrides.live ?? { data: true, error: null });
+  return { db: { auth, rpc } as unknown as Pick<SupabaseClient, "auth" | "rpc">, auth, rpc };
 }
 
 const passwordSession: Amr = [{ method: "password", timestamp: nowSec - 3_600 }];
@@ -55,7 +62,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const deps = (db: Pick<SupabaseClient, "auth">, checkPwned: (password: string) => Promise<PwnedResult> = clear) => ({ db, checkPwned, now: () => NOW });
+const deps = (db: Pick<SupabaseClient, "auth" | "rpc">, checkPwned: (password: string) => Promise<PwnedResult> = clear) => ({ db, checkPwned, now: () => NOW });
 
 describe("changePassword", () => {
   it("unauthenticated: refused with the sign-in-again message; no range lookup, no update", async () => {
@@ -234,6 +241,29 @@ describe("setNewPassword (forgot-password final step)", () => {
     const { db, auth } = fakeAuth(null);
     expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toMatchObject({ ok: false, code: "session_not_found" });
     expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("09D-01a (ruling R-S): a session revoked elsewhere cannot change or reset the password", () => {
+  it.each([
+    ["changePassword", (db: Pick<SupabaseClient, "auth" | "rpc">) => changePassword({ currentPassword: CURRENT, newPassword: NEXT }, deps(db)), passwordSession],
+    ["setNewPassword", (db: Pick<SupabaseClient, "auth" | "rpc">) => setNewPassword({ newPassword: NEXT }, deps(db)), otpSession(30)],
+  ] as const)("%s: session_is_live false → session_not_found; an RPC error → the generic failure; neither checks or writes", async (_name, call, amr) => {
+    const revoked = fakeAuth(amr, { live: { data: false, error: null } });
+    expect(await call(revoked.db)).toEqual({ ok: false, code: "session_not_found", message: en.auth.errors.session_not_found });
+    expect(revoked.rpc).toHaveBeenCalledWith("session_is_live");
+    expect(clear).not.toHaveBeenCalled();
+    expect(revoked.auth.updateUser).not.toHaveBeenCalled();
+    expect(revoked.auth.signOut).not.toHaveBeenCalled();
+
+    const down = fakeAuth(amr, { live: { data: null, error: { code: "PGRST000", message: "synthetic outage" } } });
+    expect(await call(down.db)).toMatchObject({ ok: false, code: "unknown" });
+    expect(clear).not.toHaveBeenCalled();
+    expect(down.auth.updateUser).not.toHaveBeenCalled();
+
+    const live = fakeAuth(amr);
+    expect(await call(live.db)).toMatchObject({ ok: true });
+    expect(live.rpc).toHaveBeenCalledWith("session_is_live");
   });
 });
 

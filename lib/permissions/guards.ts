@@ -1,6 +1,8 @@
 import { UserRole } from "@/lib/db/types";
-import { assertTenantAccess, getActiveMembership, type RequiredAccess } from "@/lib/auth/tenant";
-import { Permission, assertPerm } from "./index";
+import type { RequiredAccess } from "@/lib/auth/tenant";
+import { resolveGuardedMembership } from "@/lib/auth/context";
+import type { GuardOptions } from "@/lib/auth/sensitive-actions";
+import { Permission } from "./index";
 
 export interface GuardedSession {
   tenantId: string;
@@ -20,13 +22,14 @@ export async function requirePermission(
    * V2-05 05-10a (SUB-02): the access the path needs. Default `full`; `billing` only for the billing, subscription and
    * export paths a locked or onboarding owner must still reach (SUB §6.2).
    */
-  access: RequiredAccess = "full"
+  access: RequiredAccess = "full",
+  /** 09D-01a (ruling R-S): `{ sensitive }` names an action of the closed list (`lib/auth/sensitive-actions.ts`). */
+  options: GuardOptions = {}
 ): Promise<GuardedSession> {
   const perm = permission || (_supabase as Permission);
-  const membership = await getActiveMembership();
-  assertPerm(membership.role, perm);
-  // SUB-02: after the membership and the role, the clinic's access level (TenantLockedError → SUBSCRIPTION_LOCKED).
-  await assertTenantAccess(membership, access);
+  // The membership, the role, then (SUB-02) the clinic's access level (TenantLockedError → SUBSCRIPTION_LOCKED); a
+  // sensitive action reads them from the database and also checks the session is live.
+  const membership = await resolveGuardedMembership(perm, access, options);
 
   return {
     tenantId: membership.tenantId,
