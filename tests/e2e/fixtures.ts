@@ -19,7 +19,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { test as base, expect, type BrowserContext } from "@playwright/test";
+import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
 import { COUNTS_PROJECT, UxCounter } from "./support/ux-counter";
 
 const { isLoopbackHost } = createRequire(__filename)("../setup/loopback.cjs") as {
@@ -75,6 +75,36 @@ export async function routeLoopbackOnly(context: BrowserContext, blocked: string
   });
 }
 
+/**
+ * V2-09d: waits until React has revealed every server-streamed Suspense boundary of a full page load. React 19.2 throttles
+ * the reveal of a boundary whose content has streamed in (`$RC` marks it `$~` and `$RV` swaps it in up to ~300 ms later);
+ * when the page hydrates inside that window, the DOM briefly holds the revealed content AND its hidden `<div hidden
+ * id="S:n">` template, so a CSS or test-id locator resolves to two elements (strict-mode failure) or to the hidden one. A
+ * fast server makes that window common. Bounded; it never fails a test by itself (a page with nothing streamed returns at
+ * once).
+ */
+export async function streamedContentRevealed(page: Page): Promise<void> {
+  await page
+    .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'), null, { timeout: 5_000, polling: 50 })
+    .catch(() => undefined);
+}
+
+/** Every full load through `goto`/`reload` (except `waitUntil: "commit"`, which wants the early state) waits for the reveal. */
+function settleStreamedLoads(page: Page): void {
+  const goto = page.goto.bind(page);
+  const reload = page.reload.bind(page);
+  page.goto = async (url, options) => {
+    const response = await goto(url, options);
+    if (options?.waitUntil !== "commit") await streamedContentRevealed(page);
+    return response;
+  };
+  page.reload = async (options) => {
+    const response = await reload(options);
+    if (options?.waitUntil !== "commit") await streamedContentRevealed(page);
+    return response;
+  };
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).host || url;
@@ -100,6 +130,7 @@ export const test = base.extend<E2eFixtures>({
 
   context: async ({ context, blockedHosts }, provide) => {
     await routeLoopbackOnly(context, blockedHosts);
+    context.on("page", settleStreamedLoads);
     await context.routeWebSocket(/.*/, (ws) => {
       if (isAllowedBrowserUrl(ws.url())) {
         ws.connectToServer();
