@@ -323,6 +323,24 @@ jobs:
             test-results/
           if-no-files-found: warn
           retention-days: 14
+      # V2-09e 09E-01 (R-4, decision 8): the latency budgets, after the PR lane (its artifacts are uploaded above, because this run clears
+      # test-results/). 300 ms is added to every Supabase call (tests/e2e/support/server-latency.cjs, the browser route); the @budget subset
+      # measures Today, Patients, the consult in draft and the Schedule day in-app, check in and Rx add, and the calibration (every recorded call
+      # lasted the injected delay; the recorded count equals Kong's). Calls and depth BLOCK a rise over the baseline ceilings
+      # (tests/e2e/perf/latency-ceilings.json); milliseconds are medians, reported in the step summary, never blocking. No retries: a failing
+      # row is root-caused, not re-run.
+      - name: Latency budgets (300 ms per Supabase call; calls and depth block, milliseconds reported)
+        timeout-minutes: 12
+        run: npx playwright test --project=perf-latency --grep @budget
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: latency-budgets
+          path: |
+            test-results/perf-latency/summary.json
+            test-results/perf-latency/summary.md
+          if-no-files-found: warn
+          retention-days: 14
       - name: Stop the local stack
         if: ${{ always() }}
         run: npx supabase stop --no-backup
