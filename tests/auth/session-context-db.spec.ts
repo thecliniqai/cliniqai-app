@@ -12,6 +12,7 @@
  *   Server Action or route handler that read the context from the database never sets it (a `cookies().set` in an action
  *   makes Next re-render the route);
  * - 09D-01a (S-5): on a Secure request the cookie is `__Host-clinic_ctx`, and only that name is read there;
+ * - 09D-01a (S-7): the answer that issues it is `private, no-store`;
  * - the next request of the same session with that cookie reads neither the memberships nor the access level;
  * - the cookie is ignored (database again) when its signature, session, user or pin does not match;
  * - `/api/session-status` always asks Auth and the database (fresh) and reissues the cookie;
@@ -188,10 +189,12 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     expect(state.deleted).toEqual([]);
   });
 
-  it("the status poll issues the cookie: ids, role and state only, 5 min, HttpOnly", async () => {
+  it("the status poll issues the cookie: ids, role and state only, 5 min, HttpOnly, on a private no-store answer", async () => {
     request(receptionist.client);
     const res = await sessionStatus();
     expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toMatch(/private/);
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
     const header = res.headers.getSetCookie().find((c) => c.startsWith(`${CONTEXT_COOKIE}=`))!;
     expect(header).toMatch(/HttpOnly/i);
     expect(header).toMatch(/SameSite=lax/i);

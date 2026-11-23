@@ -305,7 +305,7 @@ describe("L-N4: a definitive sign-out in the proxy expires the active-clinic pin
     expect(live.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE}=`))).toEqual([]);
   });
 
-  it("09D-01a (S-5): the __Host- name is expired with Secure and Path=/", async () => {
+  it("09D-01a (S-5, S-7): the __Host- name is expired with Secure and Path=/, on a private no-store answer", async () => {
     expect(PROXY_CONTEXT_COOKIE_SECURE).toBe(CONTEXT_COOKIE_SECURE);
     const login = await throughProxy({ [CONTEXT_COOKIE_SECURE]: "e30.c2lnbmF0dXJl" }, "/login");
     const set = login.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE_SECURE}=`));
@@ -313,6 +313,8 @@ describe("L-N4: a definitive sign-out in the proxy expires the active-clinic pin
     expect(set[0]).toMatch(/max-age=0/i);
     expect(set[0]).toMatch(/;\s*secure/i);
     expect(set[0]).toMatch(/path=\//i);
+    expect(login.res.headers.get("cache-control")).toMatch(/private/);
+    expect(login.res.headers.get("cache-control")).toMatch(/no-store/);
   });
 
   it("controls: a signed-in request and an Auth outage (a refresh that never answers) keep the pin", async () => {

@@ -309,6 +309,7 @@ describe("06-09a fetch callers and a failed global revocation", () => {
     expect(set[0]).toMatch(/;\s*Secure/i);
     expect(set[0]).toMatch(/Path=\//);
     expect(set[0]).not.toMatch(/Domain=/i);
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
   });
 
   it("a form post whose GLOBAL revocation failed lands on /login?signout=partial; a failed local one on /login", async () => {

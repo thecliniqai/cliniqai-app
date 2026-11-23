@@ -40,12 +40,16 @@ export const PROXY_CONTEXT_COOKIE_SECURE = "__Host-clinic_ctx";
  */
 function forgetActiveClinic(request: NextRequest, response: NextResponse): NextResponse {
   // V2-09d: the session-context cookie goes with it (useless without a session: it is bound to the session it names).
+  let expired = false;
   for (const name of [PROXY_ACTIVE_TENANT_COOKIE, PROXY_CONTEXT_COOKIE, PROXY_CONTEXT_COOKIE_SECURE]) {
     if (request.cookies.has(name)) {
       const secure = name === PROXY_CONTEXT_COOKIE_SECURE;
       response.cookies.set(name, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax", ...(secure ? { secure } : {}) });
+      expired = true;
     }
   }
+  // 09D-01a (S-7): a response that sets (here: expires) the context cookie is never stored by a cache.
+  if (expired) response.headers.set("cache-control", "private, no-store");
   return response;
 }
 
