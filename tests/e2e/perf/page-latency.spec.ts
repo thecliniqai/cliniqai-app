@@ -10,12 +10,19 @@
  */
 import { expect, test } from "../fixtures";
 import { storageStatePath } from "../support/run-data";
-import { clearSupabaseLatency, timeToVisible } from "../support/latency";
+import { armTimer, clearSupabaseLatency, seenAt, setSupabaseLatency, timeFullLoad, timeToVisible, timerEpoch, watchEpoch } from "../support/latency";
+import { routeLoopbackOnly } from "../fixtures";
 import { budgetRow } from "./latency-budgets";
 import { endLane, holdBackground, resetLane, runRow, writeReport, LATENCY_MS } from "./latency-run";
-import { PAGE_ROWS, pageContext } from "./latency-pages";
+import { FULL_ROWS, PAGE_ROWS, pageContext } from "./latency-pages";
+import { SAVE_ROWS, TYPEAHEAD_ROWS, typeaheadAct } from "./latency-saves";
+import { seedBookedToday, todayName } from "../support/today-data";
+import { filterToday, openToday, rowInLane } from "../support/today-page";
 
-test.describe.configure({ mode: "serial", retries: 0 });
+/** One row (warm-up and every sample) must finish inside this; a hung step fails the row instead of the whole job. */
+const TEST_TIMEOUT_MS = Number(process.env.PERF_LATENCY_TEST_TIMEOUT_MS ?? 10 * 60_000);
+
+test.describe.configure({ retries: 0 });
 test.beforeEach(() => test.skip(test.info().project.name !== "perf-latency", "the latency lane runs in the perf-latency project only"));
 test.beforeAll(() => resetLane());
 test.afterAll(() => {
@@ -29,8 +36,8 @@ test.describe("page rows, in-app (B-1, B-2)", () => {
       test.use({ storageState: storageStatePath(def.role) });
       const row = budgetRow(def.id);
       test(`${def.id}${row.pr ? " @budget" : ""}: ${row.label}`, async ({ page, context }) => {
-        test.setTimeout(10 * 60_000);
-        const ctx = pageContext();
+        test.setTimeout(TEST_TIMEOUT_MS);
+        const ctx = await pageContext(Boolean(def.sealed));
         const holds = await holdBackground(page);
         const result = await runRow({
           id: def.id,
@@ -39,13 +46,12 @@ test.describe("page rows, in-app (B-1, B-2)", () => {
           context,
           holds,
           prepare: async () => {
-            await page.goto(def.from);
+            await page.goto(def.from(ctx));
             await page.waitForLoadState("networkidle");
             return ctx;
           },
           act: async () => {
-            const link = def.link ? def.link(page, ctx) : null;
-            if (!link) throw new Error(`${def.id}: no link`);
+            const link = def.click(page, ctx);
             const { skeletonMs, dataMs } = await timeToVisible(page, () => link.click(), def.data(ctx));
             const to = new URL(def.to(ctx), "http://x");
             await page.waitForURL((u) => u.pathname === to.pathname);
@@ -60,4 +66,166 @@ test.describe("page rows, in-app (B-1, B-2)", () => {
       });
     });
   }
+});
+
+test.describe("page rows, full load (B-3)", () => {
+  for (const def of FULL_ROWS) {
+    test.describe(def.role, () => {
+      test.use({ storageState: storageStatePath(def.role) });
+      const row = budgetRow(def.id);
+      test(`${def.id}${row.pr ? " @budget" : ""}: ${row.label}`, async ({ page, context }) => {
+        test.setTimeout(TEST_TIMEOUT_MS);
+        const ctx = await pageContext(Boolean(def.sealed));
+        const holds = await holdBackground(page);
+        const result = await runRow({
+          id: def.id,
+          main: "data",
+          page,
+          context,
+          holds,
+          prepare: async () => {
+            await page.goto("about:blank");
+            return ctx;
+          },
+          act: async () => {
+            const { dataMs, responseEndMs } = await timeFullLoad(page, def.to(ctx), def.data(ctx));
+            return { data: dataMs, responseEnd: responseEndMs };
+          },
+        });
+        expect(result.samples.length).toBeGreaterThan(0);
+        expect(new URL(page.url()).pathname, `${def.id} landed where it was sent`).toBe(new URL(def.to(ctx), "http://x").pathname);
+        clearSupabaseLatency();
+      });
+    });
+  }
+});
+
+test.describe("typeahead rows (B-4, B-5)", () => {
+  for (const def of TYPEAHEAD_ROWS) {
+    test.describe(def.role, () => {
+      test.use({ storageState: storageStatePath(def.role), timezoneId: "Asia/Kolkata" });
+      const row = budgetRow(def.id);
+      test(`${def.id}${row.pr ? " @budget" : ""}: ${row.label}`, async ({ page, context }) => {
+        test.setTimeout(TEST_TIMEOUT_MS);
+        const holds = await holdBackground(page);
+        const result = await runRow({
+          id: def.id,
+          main: "option",
+          page,
+          context,
+          holds,
+          prepare: () => def.prepare(page),
+          act: (state) => typeaheadAct(page, state),
+        });
+        expect(result.ms.median, def.id).not.toBeNull();
+        clearSupabaseLatency();
+      });
+    });
+  }
+});
+
+test.describe("save rows (B-6, B-7, B-8)", () => {
+  for (const def of SAVE_ROWS) {
+    test.describe(def.role, () => {
+      test.use({ storageState: storageStatePath(def.role), timezoneId: "Asia/Kolkata" });
+      const row = budgetRow(def.id);
+      test(`${def.id}${row.pr ? " @budget" : ""}: ${row.label}`, async ({ page, context }) => {
+        test.setTimeout(TEST_TIMEOUT_MS);
+        const holds = await holdBackground(page);
+        const result = await runRow({
+          id: def.id,
+          main: "confirmed",
+          page,
+          context,
+          holds,
+          prepare: () => def.prepare(page),
+          act: (state) => def.act(page, state),
+        });
+        expect(result.ms.median, def.id).not.toBeNull();
+        clearSupabaseLatency();
+      });
+    });
+  }
+});
+
+test.describe("live (B-11)", () => {
+  test.use({ storageState: storageStatePath("receptionist") });
+  test("live.R.check-in-elsewhere: a check-in made in a second browser moves the row here", async ({ page, context, browser }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const blocked: string[] = [];
+    const other = await browser.newContext({ storageState: storageStatePath("receptionist") });
+    await routeLoopbackOnly(other, blocked);
+    await setSupabaseLatency(other, LATENCY_MS);
+    const second = await other.newPage();
+    // This page keeps its live refresh (the liveness probe is not held); the second browser holds its own.
+    const holds = await holdBackground(page, { health: false });
+    await holdBackground(second);
+    try {
+      await runRow({
+        id: "live.R.check-in-elsewhere",
+        main: "visible",
+        page,
+        context,
+        holds,
+        prepare: async () => {
+          const name = todayName("PerfLive");
+          await seedBookedToday(name);
+          for (const p of [page, second]) {
+            await openToday(p);
+            await p.waitForLoadState("networkidle");
+            await filterToday(p, name);
+          }
+          await expect(rowInLane(page, "booked", name)).toBeVisible();
+          return { name };
+        },
+        act: async (state) => {
+          const { name } = state as { name: string };
+          await watchEpoch(page, { selector: '[data-lane="waiting"] [data-queue-row]', text: name });
+          await armTimer(second, {}, { event: "click" });
+          await rowInLane(second, "booked", name).getByRole("button", { name: `Check in ${name}` }).click();
+          const seen = await seenAt(page);
+          const zero = await timerEpoch(second);
+          return { visible: Math.round((seen - zero) * 10) / 10 };
+        },
+      });
+    } finally {
+      await other.close();
+    }
+    expect(blocked, "the second browser reached only loopback").toEqual([]);
+    clearSupabaseLatency();
+  });
+});
+
+test.describe("background requests (R-4)", () => {
+  test.use({ storageState: storageStatePath("receptionist") });
+  test("bg.session-status: the shell's status check, counted on its own", async ({ page, context }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    // Nothing is held here: the request is the measure.
+    const holds = { status: false };
+    await page.route("**/api/health", (route) => route.fulfill({ status: 503, body: "" }));
+    const result = await runRow({
+      id: "bg.session-status",
+      main: "data",
+      page,
+      context,
+      holds,
+      prepare: async () => {
+        await page.goto("/patients");
+        await page.waitForLoadState("networkidle");
+        return null;
+      },
+      act: async () => {
+        const ms = await page.evaluate(async () => {
+          const t0 = performance.now();
+          const res = await fetch("/api/session-status", { credentials: "include", cache: "no-store" });
+          await res.arrayBuffer();
+          if (!res.ok) throw new Error(`session-status answered ${res.status}`);
+          return Math.round((performance.now() - t0) * 10) / 10;
+        });
+        return { data: ms };
+      },
+    });
+    expect(result.calls.max, "the status check reads the database").toBeGreaterThan(0);
+    clearSupabaseLatency();
+  });
 });

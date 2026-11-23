@@ -36,6 +36,9 @@ export interface Sample {
   depth: number | null;
   recordedServer: number;
   recordedBrowser: number;
+  debugEdges?: string[];
+  /** `METHOD path` → count, of the recorded server calls (a calibration failure names the paths that differ from Kong's). */
+  recordedServerByPath: Record<string, number>;
   shortestMs: number | null;
   marks: Record<string, number | null>;
   /** RSC render requests the step caused (link prefetches excluded). */
@@ -73,10 +76,13 @@ export interface Holds {
   status: boolean;
 }
 
-/** Refuses the live-refresh probe for the whole test and the status check while `holds.status` is true. */
-export async function holdBackground(page: Page): Promise<Holds> {
+/**
+ * Refuses the live-refresh probe for the whole test (unless `health` is false: the live row needs the refresh to run) and the status check
+ * while `holds.status` is true.
+ */
+export async function holdBackground(page: Page, opts: { health?: boolean } = {}): Promise<Holds> {
   const holds: Holds = { status: false };
-  await page.route("**/api/health", (route) => route.fulfill({ status: 503, body: "" }));
+  if (opts.health !== false) await page.route("**/api/health", (route) => route.fulfill({ status: 503, body: "" }));
   await page.route("**/api/session-status", (route) => (holds.status ? route.fulfill({ status: 503, body: "" }) : route.fallback()));
   return holds;
 }
@@ -123,14 +129,16 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
   page.on("request", onRequest);
   holds.status = true;
   let from = 0;
+  const timing: { endAt?: number } = {};
   let marks: Record<string, number | null> = {};
   try {
     const kong = await countKongCalls(async () => {
       from = Date.now();
       marks = await body();
       await page.waitForLoadState("networkidle");
-    }, 1_200);
-    const to = Date.now();
+    }, 1_200, timing);
+    // The window closed when the end marker went out: a call that completed after it belongs to the next window (Kong's count stops there too).
+    const to = timing.endAt ?? Date.now();
     const realtimeOf = (byPath: Record<string, number>) =>
       Object.entries(byPath).reduce((n, [key, count]) => (key.includes("/realtime/v1/websocket") ? n + count : n), 0);
     const realtime = realtimeOf(kong.browserByPath);
@@ -143,6 +151,14 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
       depth: LATENCY_MS > 0 ? depthOf(intervals) : null,
       recordedServer: intervals.filter((c) => c.from === "server").length,
       recordedBrowser: intervals.filter((c) => c.from === "browser").length,
+      debugEdges: process.env.PERF_LATENCY_DEBUG ? callIntervals({ from: from - 5000, to: to + 5000 }).filter((c) => c.t1 < from + 200 || c.t1 > to - 200).map((c) => `${c.from} ${c.method} ${c.path} t1-from=${c.t1 - from} t1-to=${c.t1 - to}`) : undefined,
+      recordedServerByPath: intervals
+        .filter((c) => c.from === "server")
+        .reduce<Record<string, number>>((acc, c) => {
+          const key = `${c.method} ${c.path}`;
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {}),
       shortestMs: intervals.length ? Math.min(...intervals.map((c) => c.t1 - c.t0)) : null,
       marks,
       rsc,
@@ -159,7 +175,11 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
 export function calibrationProblems(s: Sample): string[] {
   if (LATENCY_MS === 0) return [];
   const problems: string[] = [];
-  if (s.recordedServer !== s.server) problems.push(`recorded ${s.recordedServer} server calls, Kong counted ${s.server}`);
+  if (s.recordedServer !== s.server) {
+    const keys = new Set([...Object.keys(s.recordedServerByPath), ...Object.keys(s.serverByPath)]);
+    const differ = [...keys].filter((k) => (s.recordedServerByPath[k] ?? 0) !== (s.serverByPath[k] ?? 0)).map((k) => `${k} recorded ${s.recordedServerByPath[k] ?? 0}, Kong ${s.serverByPath[k] ?? 0}`);
+    problems.push(`recorded ${s.recordedServer} server calls, Kong counted ${s.server} (${differ.join("; ")})${s.debugEdges ? ` EDGES ${JSON.stringify(s.debugEdges)}` : ""}`);
+  }
   if (s.recordedBrowser !== s.browser) problems.push(`recorded ${s.recordedBrowser} browser calls, Kong counted ${s.browser}`);
   if (s.shortestMs !== null && s.shortestMs < LATENCY_MS - TIMER_ALLOWANCE_MS) problems.push(`a call lasted ${s.shortestMs} ms, under the injected ${LATENCY_MS} ms`);
   return problems;
@@ -193,6 +213,8 @@ export async function runRow<S>(run: RowRun<S>): Promise<RowResult> {
   for (let i = -1; i < count; i++) {
     if (run.sessionContext !== false) await ensureSessionContext(run.page, run.context);
     const state = await run.prepare();
+    // Nothing from the preparation may still be on its way: Kong logs a call when it completes, so one still running at the start marker would count in the window.
+    await run.page.waitForLoadState("networkidle");
     const sample = await measure(run.page, run.holds, () => run.act(state));
     if (i < 0) continue; // the warm-up: first-hit costs (JWKS, a cold route) are not a per-step cost
     const problems = calibrationProblems(sample);

@@ -29,6 +29,8 @@ export interface CallInterval {
   t0: number;
   /** Epoch ms when the response arrived. */
   t1: number;
+  /** The injected wait before the call was sent. */
+  ms: number;
   method: string;
   path: string;
   from: "server" | "browser";
@@ -93,6 +95,7 @@ export async function setSupabaseLatency(context: BrowserContext, ms: number): P
           const call: CallInterval = {
             t0: Date.now(),
             t1: 0,
+            ms: created.ms,
             method: request.method(),
             path: reportPath(new URL(request.url()).pathname),
             from: "browser",
@@ -135,7 +138,11 @@ export interface LatencyWindow {
   to: number;
 }
 
-/** Every recorded call (server and browser) that began inside the window and has finished. */
+/**
+ * Every recorded call (server and browser) that finished inside the window. Kong writes a call's access-log line when the call completes, so the
+ * window between two Kong markers holds the calls that completed between them, whatever moment they began (`t1`, the arrival of the response, is
+ * the completion as the app saw it, a millisecond or two after Kong's line).
+ */
 export function callIntervals(window: LatencyWindow): CallInterval[] {
   const calls: CallInterval[] = [];
   if (fs.existsSync(LATENCY_RECORD_FILE)) {
@@ -150,7 +157,7 @@ export function callIntervals(window: LatencyWindow): CallInterval[] {
     }
   }
   for (const state of allBrowserStates) calls.push(...state.records);
-  return calls.filter((c) => c.t1 > 0 && c.t0 >= window.from && c.t0 <= window.to);
+  return calls.filter((c) => c.t1 > 0 && c.t1 >= window.from && c.t1 <= window.to);
 }
 
 /** Starts a fresh record file (a lane run begins with no calls of an earlier run). */
@@ -166,6 +173,12 @@ export function resetLatencyRecords(): void {
 export interface MarkSpec {
   selector: string;
   text?: string;
+  /** Counts only once every on-screen match contains `text` (a result list narrowed to the one answer the last key asked for). */
+  only?: boolean;
+  /** The state is "no such element on screen" (a card that went away). */
+  absent?: boolean;
+  /** Counts only after the named mark was recorded (a "Saved" that was already on screen before the click does not count). */
+  after?: string;
 }
 
 export interface TimerStart {
@@ -181,19 +194,32 @@ export interface TimerStart {
 export async function armTimer(page: Page, marks: Record<string, MarkSpec>, start: TimerStart): Promise<void> {
   await page.evaluate(
     ({ marks: wanted, start: when }) => {
-      const w = window as unknown as { __latency?: { t0: number | null; marks: Record<string, number>; stop: () => void } };
+      const w = window as unknown as { __latency?: { t0: number | null; epoch: number; marks: Record<string, number>; stop: () => void } };
       w.__latency?.stop();
-      const state = { t0: null as number | null, marks: {} as Record<string, number>, stop: () => undefined as void };
+      const state = { t0: null as number | null, epoch: 0, marks: {} as Record<string, number>, stop: () => undefined as void };
       const onScreen = (el: Element) =>
         el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden]");
       const check = () => {
         if (state.t0 === null) return;
-        for (const [name, spec] of Object.entries(wanted)) {
-          if (name in state.marks) continue;
-          const hit = [...document.querySelectorAll(spec.selector)].find(
-            (el) => onScreen(el) && (!spec.text || (el.textContent ?? "").includes(spec.text)),
-          );
-          if (hit) state.marks[name] = Math.round((performance.now() - state.t0) * 10) / 10;
+        // A mark that waits for another (`after`) is tried again once the other was recorded, in the same pass.
+        let progressed = true;
+        while (progressed) {
+          progressed = false;
+          for (const [name, spec] of Object.entries(wanted)) {
+            if (name in state.marks) continue;
+            if (spec.after && !(spec.after in state.marks)) continue;
+            const matches = [...document.querySelectorAll(spec.selector)].filter((el) => onScreen(el));
+            const hasText = (el: Element) => !spec.text || (el.textContent ?? "").includes(spec.text);
+            const met = spec.absent
+              ? matches.filter(hasText).length === 0
+              : spec.only
+                ? matches.length > 0 && matches.every(hasText)
+                : matches.some(hasText);
+            if (met) {
+              state.marks[name] = Math.round((performance.now() - (state.t0 as number)) * 10) / 10;
+              progressed = true;
+            }
+          }
         }
       };
       const observer = new MutationObserver(check);
@@ -202,6 +228,7 @@ export async function armTimer(page: Page, marks: Record<string, MarkSpec>, star
         if (state.t0 !== null) return;
         if (when.key !== undefined && (event as KeyboardEvent).key !== when.key) return;
         state.t0 = event.timeStamp;
+        state.epoch = performance.timeOrigin + event.timeStamp;
         // The state may already be on screen when the event is dispatched (an element already there does not count: only later changes do).
         queueMicrotask(check);
       };
@@ -234,6 +261,11 @@ export async function readTimer(page: Page, required: string[], timeoutMs = 30_0
     state.stop();
     return { ...state.marks } as Record<string, number | null>;
   });
+}
+
+/** Epoch ms of the armed timer's zero (the click or key), for marks the runner takes itself (a server action's response). */
+export async function timerEpoch(page: Page): Promise<number> {
+  return page.evaluate(() => (window as unknown as { __latency?: { epoch: number } }).__latency?.epoch ?? 0);
 }
 
 /** Click (or key) → named states: arms, runs `trigger`, waits for `required`. The ms are measured inside the page. */
@@ -269,4 +301,73 @@ export async function timeToVisible(
 export async function timeToOption(page: Page, press: () => Promise<void>, key: string, expected: string, timeoutMs = 30_000): Promise<number> {
   const marks = await timeMarks(page, press, { option: { selector: '[role="option"]', text: expected } }, ["option"], { event: "keydown", key }, timeoutMs);
   return marks.option as number;
+}
+
+/**
+ * Full load: `goto` → the page's first data element on screen, timed by the runner (a full load has no earlier moment inside the page to arm a
+ * timer at), plus Navigation Timing `responseEnd` (the document fully streamed: the server's work). Polls on animation frames.
+ */
+export async function timeFullLoad(
+  page: Page,
+  url: string,
+  data: MarkSpec,
+  timeoutMs = 45_000,
+): Promise<{ dataMs: number; responseEndMs: number }> {
+  const t0 = Date.now();
+  await page.goto(url, { waitUntil: "commit" });
+  await page.waitForFunction(
+    (spec) => {
+      const onScreen = (el: Element) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden]");
+      return [...document.querySelectorAll(spec.selector)].some((el) => onScreen(el) && (!spec.text || (el.textContent ?? "").includes(spec.text)));
+    },
+    data,
+    { polling: "raf", timeout: timeoutMs },
+  );
+  const dataMs = Date.now() - t0;
+  await page.waitForLoadState("load");
+  const responseEndMs = await page.evaluate(() => Math.round((performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.responseEnd ?? -1));
+  return { dataMs, responseEndMs };
+}
+
+/**
+ * The server actions' responses of a page, by arrival (epoch ms, runner clock): a POST carrying `next-action` is answered when the action
+ * finished. For a save whose confirmed state has no DOM marker of its own, `confirmed = first response − the timer's zero`.
+ */
+export function watchActionResponses(page: Page): { firstSince: (epoch: number) => number | null; stop: () => void } {
+  const seen: number[] = [];
+  const onResponse = (response: { request(): { method(): string; headers(): Record<string, string> } }) => {
+    const request = response.request();
+    if (request.method() === "POST" && request.headers()["next-action"]) seen.push(Date.now());
+  };
+  page.on("response", onResponse);
+  return {
+    firstSince: (epoch) => seen.find((at) => at >= epoch) ?? null,
+    stop: () => page.off("response", onResponse),
+  };
+}
+
+/**
+ * Records, in the page, when a state first shows (epoch ms from the page's own clock), for a change made by someone else (a second browser):
+ * read it with {@link seenAt}. Install it before the other browser acts.
+ */
+export async function watchEpoch(page: Page, spec: MarkSpec): Promise<void> {
+  await page.evaluate((wanted) => {
+    const w = window as unknown as { __seenAt?: number; __seenStop?: () => void };
+    w.__seenStop?.();
+    w.__seenAt = undefined;
+    const onScreen = (el: Element) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden]");
+    const check = () => {
+      if (w.__seenAt !== undefined) return;
+      const hit = [...document.querySelectorAll(wanted.selector)].some((el) => onScreen(el) && (!wanted.text || (el.textContent ?? "").includes(wanted.text)));
+      if (hit) w.__seenAt = performance.timeOrigin + performance.now();
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    w.__seenStop = () => observer.disconnect();
+  }, spec);
+}
+
+export async function seenAt(page: Page, timeoutMs = 45_000): Promise<number> {
+  await page.waitForFunction(() => (window as unknown as { __seenAt?: number }).__seenAt !== undefined, undefined, { timeout: timeoutMs });
+  return page.evaluate(() => (window as unknown as { __seenAt: number }).__seenAt);
 }

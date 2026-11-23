@@ -5,20 +5,27 @@
  * First data element of a page: a thing only the page's own data makes (a lane, the first patient row, the Rx entry row, the first grid slot),
  * never the layout or the skeleton.
  */
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { MarkSpec } from "../support/latency";
 import type { E2eRole } from "../support/run-data";
-import { run } from "../support/m0-data";
+import { run, seedSignedConsultation } from "../support/m0-data";
 
-/** What a row needs to know about this run: the seeded ids. */
+/** What a row needs to know about this run: the seeded ids and names. */
 export interface PageContext {
   patientId: string;
+  patientName: string;
+  /** The run's visit, in consultation with the run's doctor (a consult in draft). */
   visitId: string;
+  /** A sealed consultation of the run's doctor (seeded only for the rows that open one). */
+  sealed?: { visitId: string; patientName: string; medicine: string };
 }
 
-export function pageContext(): PageContext {
+export async function pageContext(withSealed: boolean): Promise<PageContext> {
   const { tenantA } = run();
-  return { patientId: tenantA.patientId, visitId: tenantA.visitId };
+  const base = { patientId: tenantA.patientId, patientName: tenantA.patientName, visitId: tenantA.visitId };
+  if (!withSealed) return base;
+  const sealed = await seedSignedConsultation("Perf sealed");
+  return { ...base, sealed: { visitId: sealed.visitId, patientName: sealed.patientName, medicine: sealed.medicine } };
 }
 
 export interface PageRowDef {
@@ -26,24 +33,125 @@ export interface PageRowDef {
   id: string;
   role: E2eRole;
   /** The page the step starts from and the page it ends on (a pathname plus query). */
-  from: string;
+  from: (ctx: PageContext) => string;
   to: (ctx: PageContext) => string;
-  /** The link the user clicks on `from` (a real `next/link`), or null when the role has none and the app navigates by `router.push`. */
-  link: ((page: Page, ctx: PageContext) => ReturnType<Page["locator"]>) | null;
+  /** What the user clicks on `from` (a real `next/link` or the view switch). */
+  click: (page: Page, ctx: PageContext) => Locator;
   /** The first data element of the destination. */
   data: (ctx: PageContext) => MarkSpec;
+  /** The row opens a sealed consultation: seed one first. */
+  sealed?: boolean;
 }
 
 const nav = (name: string) => (page: Page) => page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name, exact: true });
+const inMain = (href: string) => (page: Page) => page.locator(`#main a[href="${href}"]`).first();
 
-/** Today's lanes are the board's data: the first lane on screen. */
 const TODAY_LANE: MarkSpec = { selector: "[data-today-board] [data-lane]" };
+const TABLE_ROW: MarkSpec = { selector: "#main table tbody tr" };
 
 export const PAGE_ROWS: readonly PageRowDef[] = [
-  { id: "in-app.R.today", role: "receptionist", from: "/patients", to: () => "/today", link: nav("Today"), data: () => TODAY_LANE },
-  { id: "in-app.R.patients", role: "receptionist", from: "/today", to: () => "/patients", link: nav("Patients"), data: () => ({ selector: '#main a[href^="/patients/"]' }) },
+  { id: "in-app.R.today", role: "receptionist", from: () => "/patients", to: () => "/today", click: nav("Today"), data: () => TODAY_LANE },
+  {
+    id: "in-app.R.schedule-day",
+    role: "receptionist",
+    from: () => "/today",
+    to: () => "/schedule",
+    click: nav("Schedule"),
+    data: () => ({ selector: "#main [data-day-grid]" }),
+  },
+  {
+    id: "in-app.R.schedule-week",
+    role: "receptionist",
+    from: () => "/schedule",
+    to: () => "/schedule?view=week",
+    click: (page) => page.getByRole("radio", { name: "Week" }),
+    data: () => ({ selector: "#main [data-week-overview]" }),
+  },
+  {
+    id: "in-app.R.patients",
+    role: "receptionist",
+    from: () => "/today",
+    to: () => "/patients",
+    click: nav("Patients"),
+    data: () => TABLE_ROW,
+  },
+  {
+    id: "in-app.R.patient",
+    role: "receptionist",
+    from: () => "/patients",
+    to: (ctx) => `/patients/${ctx.patientId}`,
+    click: (page, ctx) => inMain(`/patients/${ctx.patientId}`)(page),
+    data: (ctx) => ({ selector: "#main h1", text: ctx.patientName }),
+  },
+  { id: "in-app.R.visits", role: "receptionist", from: () => "/today", to: () => "/visits", click: nav("Visits"), data: () => TABLE_ROW },
+  {
+    id: "in-app.D.today",
+    role: "doctor",
+    from: () => "/patients",
+    to: () => "/today",
+    click: nav("Today"),
+    data: () => TODAY_LANE,
+  },
+  {
+    id: "in-app.D.consult-draft",
+    role: "doctor",
+    from: () => "/today",
+    to: (ctx) => `/consultation/${ctx.visitId}`,
+    click: (page, ctx) => page.locator(`[data-today-board] a[href="/consultation/${ctx.visitId}"]`).first(),
+    data: () => ({ selector: "[data-rx-search]" }),
+  },
+  {
+    id: "in-app.D.consult-sealed",
+    role: "doctor",
+    from: () => "/visits",
+    to: (ctx) => `/consultation/${ctx.sealed!.visitId}`,
+    click: (page, ctx) => inMain(`/consultation/${ctx.sealed!.visitId}`)(page),
+    data: (ctx) => ({ selector: "#main", text: ctx.sealed!.medicine }),
+    sealed: true,
+  },
+  {
+    id: "in-app.D.patient",
+    role: "doctor",
+    from: () => "/patients",
+    to: (ctx) => `/patients/${ctx.patientId}`,
+    click: (page, ctx) => inMain(`/patients/${ctx.patientId}`)(page),
+    data: (ctx) => ({ selector: "#main h1", text: ctx.patientName }),
+  },
+  {
+    id: "in-app.O.settings-clinic",
+    role: "owner",
+    from: () => "/today",
+    to: () => "/settings/clinic",
+    click: nav("Clinic Profile"),
+    data: () => ({ selector: "[data-rx-print-settings]" }),
+  },
+  {
+    id: "in-app.O.staff",
+    role: "owner",
+    from: () => "/today",
+    to: () => "/staff",
+    click: nav("Staff & Team"),
+    data: () => ({ selector: "#main .divide-y > div" }),
+  },
+  {
+    id: "in-app.O.billing-reports",
+    role: "owner",
+    from: () => "/today",
+    to: () => "/billing/reports",
+    click: nav("Billing & Reports"),
+    data: () => TABLE_ROW,
+  },
 ];
 
 export function fullLoadId(id: string): string {
   return id.replace(/^in-app\./, "full.");
 }
+
+/**
+ * The full-load twin of an in-app row: the same page, opened by an address, with the same first data element. The in-app Billing reports row is the
+ * owner's (the receptionist has the permission but no nav link); its full-load row is the receptionist's, as the plan lists it.
+ */
+export const FULL_ROWS: readonly PageRowDef[] = [
+  ...PAGE_ROWS.filter((r) => r.id !== "in-app.O.billing-reports").map((r) => ({ ...r, id: fullLoadId(r.id) })),
+  { ...PAGE_ROWS.find((r) => r.id === "in-app.O.billing-reports")!, id: "full.R.billing-reports", role: "receptionist" as const },
+];

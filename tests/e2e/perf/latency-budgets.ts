@@ -63,14 +63,13 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   { id: "in-app.R.patients", kind: "page-in-app", budget: "B-1", label: "Receptionist: Patients (nav link)", ...ONE_SECOND, owner: "09E-06", pr: true },
   { id: "in-app.R.patient", kind: "page-in-app", budget: "B-1", label: "Receptionist: a patient (row link)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.R.visits", kind: "page-in-app", budget: "B-1", label: "Receptionist: Visits (nav link)", ...ONE_SECOND, owner: "09E-06" },
-  { id: "in-app.R.billing-reports", kind: "page-in-app", budget: "B-1", label: "Receptionist: Billing reports (client navigation; no nav link for the role)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.D.today", kind: "page-in-app", budget: "B-1", label: "Doctor: Today, doctor mode (nav link)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.D.consult-draft", kind: "page-in-app", budget: "B-1", label: "Doctor: a consult in draft (Open consult)", ...ONE_SECOND, owner: "09E-05", pr: true },
   { id: "in-app.D.consult-sealed", kind: "page-in-app", budget: "B-1", label: "Doctor: a sealed consult (Visits row link)", ...ONE_SECOND, owner: "09E-05" },
   { id: "in-app.D.patient", kind: "page-in-app", budget: "B-1", label: "Doctor: a patient (Patients row link)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.O.settings-clinic", kind: "page-in-app", budget: "B-1", label: "Owner: Settings, clinic (nav link)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.O.staff", kind: "page-in-app", budget: "B-1", label: "Owner: Staff (nav link)", ...ONE_SECOND, owner: "09E-06" },
-  { id: "in-app.O.billing-reports", kind: "page-in-app", budget: "B-1", label: "Owner: Billing reports (nav link)", ...ONE_SECOND, owner: "09E-06" },
+  { id: "in-app.O.billing-reports", kind: "page-in-app", budget: "B-1", label: "Owner: Billing reports (nav link; the receptionist has the permission but no link)", ...ONE_SECOND, owner: "09E-06" },
 
   // B-3: full load of the same pages
   { id: "full.R.today", kind: "page-full", budget: "B-3", label: "Receptionist: Today, full load", ...FULL_LOAD, owner: "09E-06" },

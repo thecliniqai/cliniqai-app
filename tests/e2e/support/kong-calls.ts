@@ -120,13 +120,16 @@ export function parseWindow(log: string, startId: string, endId: string): KongWi
 /**
  * Runs `body` between two Kong markers and returns the Supabase calls logged in between. `settleMs` waits after the
  * body so calls the page makes right after it (a status poll on load) are counted, then lets Kong flush its log.
+ * `timing.endAt` receives the epoch ms at which the end marker was sent (V2-09e 09E-01).
  */
-export async function countKongCalls(body: () => Promise<void>, settleMs = 750): Promise<KongWindow> {
+export async function countKongCalls(body: () => Promise<void>, settleMs = 750, timing?: { endAt?: number }): Promise<KongWindow> {
   const sinceIso = new Date(Date.now() - 60_000).toISOString();
   const id = randomUUID();
   await mark(`${id}-start`);
   await body();
   await new Promise((resolve) => setTimeout(resolve, settleMs));
+  // V2-09e 09E-01: when the window closed (epoch ms), for a caller that lines other records (call intervals) up with Kong's.
+  if (timing) timing.endAt = Date.now();
   await mark(`${id}-end`);
   // The access log reaches `docker logs` asynchronously; read until the end marker is there (bounded, 10 s). A failed read
   // is retried within the same bound and reported if it never succeeds.
