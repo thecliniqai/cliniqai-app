@@ -6,48 +6,14 @@ history (commit before this one).
 
 ---
 
-## 1. Get staging running (do this first)
+## 1. Staging (done)
 
-**Where it stands (checked 23 Nov, 20:13 IST):** done by the PO on 23 Nov. The Staging runs at 12:55 and 13:10 IST succeeded,
-and `/api/ready` reports ready (database ok, schema current). 1.5 not yet confirmed.
+Done by the PO on 23 Nov 2026: staging moved to a new Supabase project in **Mumbai** (ref `vhazryrgpgygduskkrqp`;
+the Vercel functions were already in Mumbai, `bom1`). Migrated, seeded, auth settings and hooks set, Realtime public
+access off, schema and grants match the snapshot (Drift `schema` job passed). `/api/ready`: ready, schema current.
 
-- [x] **1.1 Create the read-only database user** (staging Supabase → SQL Editor, run once):
-  ```sql
-  create role clinicos_drift_ro with login nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls
-    connection limit 2;
-  grant connect on database postgres to clinicos_drift_ro;
-  grant usage on schema public to clinicos_drift_ro;
-  alter role clinicos_drift_ro set default_transaction_read_only = on;
-  alter role clinicos_drift_ro set statement_timeout = '60s';
-  grant usage on schema supabase_migrations to clinicos_drift_ro;
-  grant select on supabase_migrations.schema_migrations to clinicos_drift_ro;
-  ```
-  Then set its password (generate one in your password manager):
-  `alter role clinicos_drift_ro with password '<password>';`
-  The user can read only the list of applied migrations, no patient or clinic rows.
-
-- [x] **1.2 Fill the `staging-readonly` GitHub environment** (GitHub → repo → Settings → Environments →
-  `staging-readonly`; it exists but is empty):
-  - Deployment branches: `feature/v2` only. No required reviewer.
-  - Secret `STAGING_DB_URL_RO`: copy the **Session pooler** URL from Supabase (Connect → Session pooler, port 5432).
-    Change the user to `clinicos_drift_ro.rzxgkbznyjwrirlufzdw` and the password to the one from 1.1 (percent-encode
-    special characters, e.g. `@` → `%40`). `?sslmode=require` at the very end is optional (TLS is enforced anyway);
-    add no other `?…` parameter. Shape:
-    `postgresql://clinicos_drift_ro.rzxgkbznyjwrirlufzdw:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require`
-  - Variables: `SUPABASE_PROJECT_REF_STAGING` = `rzxgkbznyjwrirlufzdw`, `STAGING_ORIGIN` =
-    `https://staging.thecliniqai.com`. These match the `staging` environment.
-
-- [x] **1.3 Run the migrations** (GitHub → Actions → Staging → Run workflow → branch `feature/v2`, task `migrate`):
-  - The `plan` job lists what it will apply. Expect 90 files, `000031` to `000120`.
-  - If the list is right, click "Review deployments" and approve `staging`. Tell Claude if `plan` fails; Claude reads the log.
-  - The run finishes when staging reports "ready". Claude confirms with `/api/ready`.
-  - If it stops at `000033`, the project lacks the `pg_cron` or `pg_net` extension; tell Claude.
-
-- [x] **1.4 Re-seed the demo clinic** (Actions → Staging → Run workflow, task `seed`, approve `staging`). This brings
-  the synthetic clinic and its 5 logins up to date with the new schema.
-
-- [ ] **1.5 Turn off Realtime public access** (Supabase staging → Realtime → Settings → "Allow public access" off).
-  Today's live board uses a private channel.
+- [x] **1.6 Critical alert**: cleared by itself (no open alerts; /api/ready all clear, 23 Nov).
+- [ ] **1.7 Retire Sydney** (`rzxgkbznyjwrirlufzdw`): pause it after a few days with no issues, then delete it.
 
 ## 2. Make staging behave like production (after section 1)
 
@@ -73,13 +39,13 @@ and `/api/ready` reports ready (database ok, schema current). 1.5 not yet confir
     `SEND_EMAIL_HOOK_SECRET`. Redeploy.
   - Request a password reset on staging for your own address and tell Claude it arrived.
 
-- [ ] **2.3 Bot check (Turnstile)**:
+- [ ] **2.3 Bot check (Turnstile)**: Supabase side done (23 Nov); Vercel `TURNSTILE_SECRET_KEY` missing (invite acceptance refuses).
   - Cloudflare → Turnstile → Add widget `clinicos-staging`, hostname `staging.thecliniqai.com`, mode Managed.
   - Site key → Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
   - Secret key → Vercel `TURNSTILE_SECRET_KEY`, and also Supabase → Authentication → Bot and Abuse Protection →
     CAPTCHA → Turnstile.
 
-- [ ] **2.4 Auth settings**: Claude prints the exact list (`node scripts/ci/check-auth-config.mjs --print staging`)
+- [x] **2.4 Auth settings**: Claude prints the exact list (`node scripts/ci/check-auth-config.mjs --print staging`)
   when you are ready. You apply it in Supabase → Authentication. It takes about 10 minutes of clicks.
 
 ## 3. Decisions (answer in chat, one line each is enough)
@@ -110,9 +76,8 @@ and `/api/ready` reports ready (database ok, schema current). 1.5 not yet confir
 - [ ] **4.2 Device checks** on a real phone and tablet:
   - `08-DEVICE-CHECKLIST.md`, `09B-DEVICE-CHECKLIST.md` and `09C-DEVICE-CHECKLIST.md`, in the same folders.
   - On an iPhone, also: sign in, turn on Airplane mode, sign out. The patient screen must disappear, and Back must show no patient data.
-- [ ] **4.3 Medicine catalogue on staging:** Claude will prepare a staging-only load command for the CDCI catalogue
-  (today's script only targets your local `.env` project). You run it once, so allergy checks can match medicines by
-  substance.
+- [x] **4.3 Medicine catalogue on staging:** loaded by the PO into Mumbai on 23 Nov (CDCI and OPD diagnoses, with
+  the fixed `scripts/seed-cdci.ts`).
 - [ ] **4.4 Approve the merged phases:** V2-05 to V2-09c are merged. Each has a `*-VERIFICATION.md` in its
   `.planning/phases/` folder. Say "approved", or list what to change.
 
