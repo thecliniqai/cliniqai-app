@@ -1,0 +1,157 @@
+/**
+ * V2-09d (request speed): Supabase round trips per page navigation and per server action, report-only.
+ * Project `perf-roundtrips` only (`npm run perf:roundtrips`), never the PR lane (the PR-lane ceiling for the busiest
+ * pages is `tests/e2e/shell/request-budget.spec.ts`).
+ *
+ * Runs inside the e2e run (the guarded server on 127.0.0.1:3100, the run's seeded tenant, the signed-in storage states
+ * of the setup project). For each role and page: one warm-up load (first-hit costs such as the JWKS fetch are not a
+ * per-navigation cost), then {@link SAMPLES} full loads, each counted between two Kong markers
+ * (`support/kong-calls.ts`): the Supabase calls of the app server and of the browser, by path, and the navigation time
+ * (Navigation Timing `responseEnd`: the document fully streamed, i.e. the server's work, and `loadEventEnd`). Then one
+ * server action, the receptionist's "Check in" on Today, counted from the click until the row is in Waiting.
+ *
+ * Output: a table on stdout and `test-results/perf-roundtrips/{summary.json,summary.md}`. Paths carry no ids or query
+ * strings; synthetic data only. The test fails only on a broken measurement (a page that landed elsewhere, a missing
+ * marker), never on a count.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import type { Page } from "@playwright/test";
+import { expect, test } from "../fixtures";
+import { ROOT } from "../support/app-env";
+import { countKongCalls, type KongWindow } from "../support/kong-calls";
+import { run } from "../support/m0-data";
+import { storageStatePath, type E2eRole } from "../support/run-data";
+import { seedBookedToday, todayName } from "../support/today-data";
+import { filterToday, openToday, rowInLane, showLane } from "../support/today-page";
+
+const OUT_DIR = path.join(ROOT, "test-results/perf-roundtrips");
+const SAMPLES = 3;
+
+interface PageRow {
+  role: E2eRole;
+  label: string;
+  landedOn: string;
+  server: number[];
+  browser: number[];
+  responseEndMs: number[];
+  loadMs: number[];
+  serverByPath: Record<string, number>;
+}
+
+const rows: PageRow[] = [];
+const actions: Array<{ role: E2eRole; label: string; server: number; browser: number; ms: number; serverByPath: Record<string, number> }> = [];
+
+const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+
+function pagesFor(role: E2eRole): Array<{ label: string; url: string }> {
+  const { tenantA } = run();
+  const pages = [
+    { label: "/today", url: "/today" },
+    { label: "/schedule (day)", url: "/schedule" },
+    { label: "/schedule?view=week", url: "/schedule?view=week" },
+    { label: "/patients", url: "/patients" },
+    { label: "/patients/[id]", url: `/patients/${tenantA.patientId}` },
+  ];
+  if (role === "doctor") pages.push({ label: "/consultation/[id]", url: `/consultation/${tenantA.visitId}` });
+  pages.push({ label: "/billing/register", url: "/billing/register" }, { label: "/settings/clinic", url: "/settings/clinic" });
+  return pages;
+}
+
+async function navigationTiming(page: Page): Promise<{ responseEnd: number; loadEventEnd: number }> {
+  return page.evaluate(() => {
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    return { responseEnd: Math.round(nav?.responseEnd ?? -1), loadEventEnd: Math.round(nav?.loadEventEnd ?? -1) };
+  });
+}
+
+async function load(page: Page, url: string): Promise<void> {
+  await page.goto(url, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle");
+}
+
+function writeReport(): void {
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const lines = [
+    `| Role | Page | Server calls (median of ${SAMPLES}) | Browser calls | responseEnd ms | load ms | Server calls by path (last sample) |`,
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...rows.map((r) => {
+      const byPath = Object.entries(r.serverByPath)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `${k} ×${n}`)
+        .join("; ");
+      const landed = r.landedOn === r.label.split(" ")[0] || r.label.includes("[id]") || r.label.includes("?") ? "" : ` → ${r.landedOn}`;
+      return `| ${r.role} | ${r.label}${landed} | ${median(r.server)} | ${median(r.browser)} | ${median(r.responseEndMs)} | ${median(r.loadMs)} | ${byPath} |`;
+    }),
+    "",
+    "| Role | Server action | Server calls | Browser calls | ms (click → row in Waiting) | Server calls by path |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...actions.map(
+      (a) =>
+        `| ${a.role} | ${a.label} | ${a.server} | ${a.browser} | ${a.ms} | ${Object.entries(a.serverByPath)
+          .sort((x, y) => y[1] - x[1])
+          .map(([k, n]) => `${k} ×${n}`)
+          .join("; ")} |`,
+    ),
+  ];
+  fs.writeFileSync(path.join(OUT_DIR, "summary.md"), `${lines.join("\n")}\n`);
+  fs.writeFileSync(path.join(OUT_DIR, "summary.json"), `${JSON.stringify({ samples: SAMPLES, pages: rows, actions }, null, 2)}\n`);
+  console.log(`\n${lines.join("\n")}\n`);
+}
+
+test.describe.configure({ mode: "serial" });
+
+for (const role of ["receptionist", "doctor"] as const) {
+  test.describe(`${role}: page round trips`, () => {
+    test.use({ storageState: storageStatePath(role) });
+
+    test(`${role}: Supabase calls per full page load`, async ({ page }) => {
+      test.setTimeout(10 * 60_000);
+      for (const { label, url } of pagesFor(role)) {
+        await load(page, url); // warm-up
+        const row: PageRow = { role, label, landedOn: "", server: [], browser: [], responseEndMs: [], loadMs: [], serverByPath: {} };
+        for (let i = 0; i < SAMPLES; i++) {
+          const window: KongWindow = await countKongCalls(() => load(page, url));
+          const timing = await navigationTiming(page);
+          row.server.push(window.server);
+          row.browser.push(window.browser);
+          row.responseEndMs.push(timing.responseEnd);
+          row.loadMs.push(timing.loadEventEnd);
+          row.serverByPath = window.serverByPath;
+        }
+        row.landedOn = new URL(page.url()).pathname;
+        // A signed-in page must not have bounced to sign-in (that would measure the login page).
+        expect(row.landedOn, `${role} ${label}`).not.toBe("/login");
+        rows.push(row);
+      }
+    });
+  });
+}
+
+test.describe("receptionist: server action round trips", () => {
+  test.use({ storageState: storageStatePath("receptionist") });
+
+  test("receptionist: Check in on Today", async ({ page }) => {
+    test.setTimeout(3 * 60_000);
+    const name = todayName("PerfCheckIn");
+    await seedBookedToday(name);
+    await openToday(page);
+    await page.waitForLoadState("networkidle");
+    await filterToday(page, name);
+    await showLane(page, "Booked");
+    const row = rowInLane(page, "booked", name);
+    await expect(row).toBeVisible();
+    const button = row.getByRole("button", { name: `Check in ${name}` });
+    let ms = 0;
+    const window = await countKongCalls(async () => {
+      const started = Date.now();
+      await button.click();
+      await showLane(page, "Waiting");
+      await expect(rowInLane(page, "waiting", name)).toBeVisible({ timeout: 20_000 });
+      ms = Date.now() - started;
+    });
+    actions.push({ role: "receptionist", label: "Check in (Today)", server: window.server, browser: window.browser, ms, serverByPath: window.serverByPath });
+  });
+});
+
+test.afterAll(() => writeReport());
