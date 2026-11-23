@@ -18,10 +18,17 @@
  *
  * Before V2-09d the same counts were 27 calls for a Patients full load (10 `/auth/v1/user`) and 26 for Today (8 + 6).
  * The full per-page report is `npm run perf:roundtrips` (tests/e2e/perf/page-roundtrips.spec.ts).
+ *
+ * 09D-01a (A-5): deterministic. The zero-call budgets hold only once the device has its session-context cookie, which
+ * only the shell's on-load `/api/session-status` issues (after hydration): each test waits for that cookie before its
+ * measured window and fails with a clear message if it never comes (never a red-then-green on retry). The Kong container
+ * comes from `supabase/config.toml`, the log is read from one stream, only the calls between this test's own markers
+ * count, and the spec never retries (`retries: 0`, a pass on retry would hide a defect).
  */
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
-import { countKongCalls } from "../support/kong-calls";
+import { randomUUID } from "node:crypto";
+import { countKongCalls, kongContainerName, mark, readKongLog } from "../support/kong-calls";
 import { storageStatePath } from "../support/run-data";
 
 test.use({ storageState: storageStatePath("receptionist") });
@@ -41,13 +48,43 @@ async function softNavigate(page: Page, url: string): Promise<void> {
 
 const count = (byPath: Record<string, number>, key: string) => byPath[key] ?? 0;
 
+/** The session-context cookie: `clinic_ctx` on this plain-http loopback server (`__Host-clinic_ctx` only when Secure). */
+const CONTEXT_COOKIE = "clinic_ctx";
+
+/** Waits until the shell's status check has issued the device's session-context cookie (bounded; fails, never skips). */
+async function contextCookieIssued(context: BrowserContext): Promise<void> {
+  await expect
+    .poll(async () => (await context.cookies()).some((c) => c.name === CONTEXT_COOKIE && c.value !== ""), {
+      message: "the shell's /api/session-status never issued the session-context cookie (is SESSION_CONTEXT_SECRET set on the e2e server?)",
+      timeout: 15_000,
+    })
+    .toBe(true);
+}
+
 test.describe("V2-09d request budget (receptionist)", () => {
+  test.describe.configure({ retries: 0 });
   const desktopOnly = () => test.skip(test.info().project.name !== "desktop-chrome", "the count does not depend on the device");
+
+  test("the measuring tool: the Kong container from config.toml, and one marker is one log line (one stream)", async () => {
+    desktopOnly();
+    expect(kongContainerName('project_id = "clinicos"\n[api]\nport = 54321\n')).toBe("supabase_kong_clinicos");
+    expect(() => kongContainerName("[api]\n")).toThrow(/project_id/);
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const id = `probe-${randomUUID()}`;
+    await mark(id);
+    await expect
+      .poll(() => readKongLog(since).split("\n").filter((l) => l.includes(`/__clinicos_perf_mark/${id} `)).length, { timeout: 10_000 })
+      .toBe(1);
+    // Still one a moment later (the line is not echoed on a second stream).
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(readKongLog(since).split("\n").filter((l) => l.includes(`/__clinicos_perf_mark/${id} `))).toHaveLength(1);
+  });
 
   test("in-app navigation: no identity or context call (Patients, Today)", async ({ page }) => {
     desktopOnly();
     await page.goto("/today");
     await settled(page);
+    await contextCookieIssued(page.context());
     // Warm-up: the first in-app navigation of a page may fetch what later ones reuse; the budget is per navigation.
     await softNavigate(page, "/patients");
     await softNavigate(page, "/today");
@@ -69,6 +106,7 @@ test.describe("V2-09d request budget (receptionist)", () => {
     desktopOnly();
     await page.goto("/today");
     await settled(page);
+    await contextCookieIssued(page.context());
     const full = await countKongCalls(async () => {
       await page.goto("/today");
       await settled(page);
