@@ -180,7 +180,7 @@ select alike(pg_temp.change('c1180000-0000-4000-8000-000000000102', 'c1180000-00
 select alike(pg_temp.change('c1180000-0000-4000-8000-000000000101', 'c1180000-0000-4000-8000-000000002001',
     '{"add":[{"medicine_name":"Augmentin 625","dosage":"1-0-1","duration":"5 days"}]}'),
   'error:P0001:ALLERGY_MATCH%', 'the owner: a custom line matching a free-text allergy by name is ALLERGY_MATCH too');
-select is((select count(*)::int from public.prescriptions where visit_id = 'c1180000-0000-4000-8000-000000002001') + (select count(*)::int from public.audit_logs where action = 'prescription.lines_change'), 0,
+select is((select count(*)::int from public.prescriptions where visit_id = 'c1180000-0000-4000-8000-000000002001') + (select count(*)::int from public.audit_logs where action = 'prescription.lines_change' and tenant_id = 'c1180000-0000-4000-8000-00000000000a'), 0,
   'nothing was written: no header, no audit row');
 create temp table allergy_add as
   select pg_temp.change('c1180000-0000-4000-8000-000000000102', 'c1180000-0000-4000-8000-000000002001',

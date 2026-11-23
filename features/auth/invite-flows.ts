@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { forgetSessionContext, getSessionClaims } from "@/lib/auth/tenant";
 import { isPwnedPassword, type PwnedResult } from "@/lib/auth/pwned";
 import { TURNSTILE_ACTIONS, verifyTurnstile, type TurnstileResult } from "@/lib/auth/turnstile";
 import { log } from "@/lib/log";
@@ -86,11 +87,12 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
   const supabase = await createClient();
   try {
     // Authenticate before anything else (ADR-0005 V1); the RPC re-checks auth.uid() and binds the membership to it.
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) return { success: false, error: "Sign in to accept this invitation." };
+    // V2-09d: the verified session claims (no Auth round trip).
+    try {
+      await getSessionClaims();
+    } catch {
+      return { success: false, error: "Sign in to accept this invitation." };
+    }
     const tokenHash = inviteTokenHash(rawToken);
     if (tokenHash === null) return { success: false, error: "Missing or invalid invitation token." };
 
@@ -116,6 +118,8 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       if (msg.includes("ALREADY_MEMBER")) return { success: false, error: M.already_member };
       return { success: false, error: "Failed to accept invitation. Please try again." };
     }
+    // V2-09d: the caller joined a clinic; the session context is read from the database again.
+    await forgetSessionContext();
     return { success: true, tenantId };
   } catch {
     return { success: false, error: "Failed to accept invitation. Please try again." };

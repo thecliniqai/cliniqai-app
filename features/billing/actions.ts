@@ -44,7 +44,7 @@ function revalidate(...paths: string[]) {
  * code the client's `useCommand` needs, as `collectPayment` does); `client_request_id` is required.
  */
 export async function createInvoice(input: CreateInvoiceInput): Promise<CommandResult<billingService.CreateInvoiceValue>> {
-  const resolved = await resolveServiceContext("billing:collect");
+  const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice.create" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.createInvoice(resolved.ctx, input);
   if (result.ok) revalidate("/today", `/consultation/${input.visit_id}`);
@@ -52,7 +52,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CommandR
 }
 
 export async function recordPayment(input: RecordPaymentInput): Promise<RecordPaymentResult> {
-  const resolved = await resolveServiceContext("billing:collect");
+  const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.record" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await billingService.recordPayment(resolved.ctx, input);
   if (result.success) revalidate("/today", "/billing");
@@ -64,7 +64,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<RecordPa
  * `Result` (with the `AppError` code the client's `useCommand` needs); `client_request_id` is required.
  */
 export async function collectPayment(input: CollectPaymentInput): Promise<CommandResult<billingService.CollectPaymentValue>> {
-  const resolved = await resolveServiceContext("billing:collect");
+  const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.collect" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.collectPayment(resolved.ctx, input);
   if (result.ok) revalidate("/today", "/billing", `/consultation/${input.visit_id}`);
@@ -78,13 +78,13 @@ export async function getVisitBillingDetails(visitId: string): Promise<GetVisitB
 }
 
 export async function addInvoiceItem(input: AddInvoiceItemInput): Promise<Result<typeof billingService.addInvoiceItem>> {
-  const resolved = await resolveServiceContext("billing:collect");
+  const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice_item.add" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.addInvoiceItem(resolved.ctx, input);
 }
 
 export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof billingService.deleteInvoiceItem>> {
-  const resolved = await resolveServiceContext("billing:collect");
+  const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice_item.delete" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.deleteInvoiceItem(resolved.ctx, itemId);
 }
@@ -99,7 +99,7 @@ export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof b
 export async function completeAndBillConsultation(
   input: CompleteAndBillInput
 ): Promise<CommandResult<billingService.CompleteAndBillValue>> {
-  const resolved = await resolveServiceContext("consultations:edit");
+  const resolved = await resolveServiceContext("consultations:edit", "full", { sensitive: "billing.complete_and_bill" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
   if (result.success) revalidate(`/consultation/${result.visitId}`, "/today", "/billing");

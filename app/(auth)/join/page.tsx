@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionClaims } from "@/lib/auth/tenant";
 import { inviteTokenHash } from "@/features/staff/invite";
 import { publicEnv } from "@/lib/env";
 import { en } from "@/messages/en";
@@ -40,10 +41,13 @@ async function peek(token: string | undefined): Promise<Peek> {
   return { status: "not_found" };
 }
 
+/** V2-09d: the verified session claims (no Auth round trip); null when signed out or the session cannot be read. */
 async function signedInEmail(): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user ? (data.user.email ?? "") : null;
+  try {
+    return (await getSessionClaims()).email ?? "";
+  } catch {
+    return null;
+  }
 }
 
 const M = en.auth.invite;

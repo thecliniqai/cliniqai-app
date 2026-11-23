@@ -37,6 +37,8 @@ export const E2E_APP_ENV = "e2e";
  * A test lane may carry no other value (a real staging/production key would mean hosted config leaked in).
  */
 export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
+/** V2-09d: the synthetic session-context cookie key of the test lanes (e2e server; Vitest specs stub it explicitly). */
+export const LOCAL_SESSION_CONTEXT_SECRET = "not-real-session-context-key-".repeat(2);
 
 /**
  * V2-03 03-11b: the synthetic Send Email hook secret of every local lane (`v1,whsec_<base64>` of a 32-byte placeholder,
@@ -384,6 +386,10 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   // 03-09b: unset or the local synthetic key only; the value is never echoed (it would be a secret if it were real).
   if (env.ERROR_INGEST_KEY && env.ERROR_INGEST_KEY !== LOCAL_ERROR_INGEST_KEY) {
     problems.push("ERROR_INGEST_KEY must be unset or the local synthetic key (LOCAL_ERROR_INGEST_KEY) in the test lane");
+  }
+  // V2-09d: same rule for the session-context cookie key.
+  if (env.SESSION_CONTEXT_SECRET && env.SESSION_CONTEXT_SECRET !== LOCAL_SESSION_CONTEXT_SECRET) {
+    problems.push("SESSION_CONTEXT_SECRET must be unset or the local synthetic key (LOCAL_SESSION_CONTEXT_SECRET) in the test lane");
   }
   // 05-07b (R-46): the Turnstile secret is unset or one of Cloudflare's test secrets; the value is never echoed.
   if (env.TURNSTILE_SECRET_KEY && !TURNSTILE_TEST_SECRET_KEYS.includes(env.TURNSTILE_SECRET_KEY)) {

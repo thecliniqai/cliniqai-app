@@ -1,17 +1,25 @@
 /**
- * Dashboard pages loaded with a session revoked elsewhere redirect to sign-in instead of throwing "Unauthenticated"
- * (V2-05 05-11c; root cause in the 05-02a record "Open items", wave notes 05-02a/orchestrator).
+ * Dashboard pages and a session that is gone (V2-05 05-11c; root cause in the 05-02a record "Open items", wave notes
+ * 05-02a/orchestrator), as amended by V2-09d (request speed).
  *
- * A session revoked at GoTrue (sign-out on another device, password reset or change) still carries a valid access
- * token, so `proxy.ts` (local JWT check) lets the request through; the page's loader then asks GoTrue, gets no user and
- * `getActiveMembership()` throws. Before, pages without their own handling (patients, visits, staff, referrals,
- * profile, clinic settings; patient detail answered 404) let it escape, and `onRequestError` logged `request.error`
- * and ingested an error-sink event for every such page load. Now every dashboard page answers it with
+ * 05-11c: a page loader that met "no session" let `getActiveMembership()`'s "Unauthenticated" escape, and `onRequestError`
+ * logged `request.error` and ingested an error-sink event for every such page load. Every dashboard page answers it with
  * `redirect("/login")` (`withPageAuth`, lib/auth/page.ts); no other error.
  *
- * Real revoked session on the local stack: an owner signs in, the session is revoked with the admin API (global
- * sign-out), and each page's server component runs with that client as `createClient()` of `@/lib/supabase/server`.
- * Synthetic data only.
+ * V2-09d: page loaders read the session from the verified JWT claims (`getClaims()`, no Supabase Auth round trip), so a
+ * session revoked at GoTrue elsewhere (sign-out on another device, password reset or change) whose access token is still
+ * unexpired is no longer refused by the page itself. What ends it: the shell's `/api/session-status` (on every full load,
+ * on resume and every 5 min) asks Auth fresh and answers 401, and the device signs out (`hardSignOut`); the proxy refuses it
+ * once the token expires (900 s) and the refresh fails. An access token cannot be revoked before it expires at the database
+ * either (AUTH_REDESIGN principle 5): data stays protected by RLS membership, not by the session check.
+ *
+ * - no session at all: every page redirects to /login, never an error;
+ * - revoked session (09D-01a, A-4: an outcome pinned per page, no vacuous pass): every list page renders (resolves to its
+ *   element; never "Unauthenticated", never a redirect), and the two record pages, given an id that is not a record, answer
+ *   Next's not-found; `/api/session-status` answers 401; and a sensitive action (ruling R-S) is refused as signed out.
+ * The precondition reads GoTrue's answer through the admin client: `getUser()` on the user's own client would make auth-js
+ * drop that client's session on `session_not_found`, turning every later "revoked" case into a "no session" case.
+ * Real sessions on the local stack; synthetic data only.
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -33,24 +41,29 @@ import ProfilePage from "@/app/(dashboard)/profile/page";
 import StaffPage from "@/app/(dashboard)/staff/page";
 import ClinicSettingsPage from "@/app/(dashboard)/settings/clinic/page";
 import ConsultationPage from "@/app/(dashboard)/consultation/[id]/page";
+import { GET as sessionStatus } from "@/app/api/session-status/route";
+import { createApiKey } from "@/features/api-keys/actions";
+import { anonClient } from "../security/guard/engine";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 
 const ID = "00000000-0000-4000-8000-0000000000c9";
 const props = { params: Promise.resolve({ id: ID }), searchParams: Promise.resolve({}) };
 
+/** What each page answers a revoked-but-unexpired session (A-4): it renders, or (a record page, an id that is no record) 404s. */
+type Outcome = "rendered" | "not-found";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PAGES: Array<[string, (p: any) => Promise<unknown>]> = [
-  ["/today", TodayPage],
-  ["/patients", PatientsPage],
-  ["/patients/[id]", PatientDetailPage],
-  ["/schedule", SchedulePage],
-  ["/visits", VisitsPage],
-  ["/referrals", ReferralsPage],
-  ["/profile", ProfilePage],
-  ["/staff", StaffPage],
-  ["/settings/clinic", ClinicSettingsPage],
-  ["/consultation/[id]", ConsultationPage],
+const PAGES: Array<[string, (p: any) => Promise<unknown>, Outcome]> = [
+  ["/today", TodayPage, "rendered"],
+  ["/patients", PatientsPage, "rendered"],
+  ["/patients/[id]", PatientDetailPage, "not-found"],
+  ["/schedule", SchedulePage, "rendered"],
+  ["/visits", VisitsPage, "rendered"],
+  ["/referrals", ReferralsPage, "rendered"],
+  ["/profile", ProfilePage, "rendered"],
+  ["/staff", StaffPage, "rendered"],
+  ["/settings/clinic", ClinicSettingsPage, "rendered"],
+  ["/consultation/[id]", ConsultationPage, "not-found"],
 ];
 
 /** Next's redirect is a thrown control-flow error whose digest names the target. */
@@ -60,7 +73,7 @@ function redirectTarget(err: unknown): string | null {
   return digest.split(";")[2] ?? null;
 }
 
-describe("dashboard pages with a revoked session redirect to /login (05-11c)", () => {
+describe("dashboard pages and a missing or revoked session (05-11c, V2-09d)", () => {
   let owner: SeededTenant;
 
   beforeAll(async () => {
@@ -70,18 +83,23 @@ describe("dashboard pages with a revoked session redirect to /login (05-11c)", (
     if (!token) throw new Error("no session");
     const { error } = await getAdminClient().auth.admin.signOut(token, "global");
     if (error) throw new Error(`revoke failed: ${error.status}`);
-    mockState.client = owner.client;
   });
 
-  it("precondition: the client still holds its access token, and GoTrue refuses it (the revoked-session case)", async () => {
+  it("precondition: the client still holds its access token, its claims verify, and GoTrue refuses its session", async () => {
     const { data: session } = await owner.client.auth.getSession();
-    expect(session.session?.access_token).toBeTruthy();
-    const { data, error } = await owner.client.auth.getUser();
+    const token = session.session?.access_token;
+    expect(token).toBeTruthy();
+    const { data: claims } = await owner.client.auth.getClaims();
+    expect(claims?.claims.sub).toBe(owner.userId);
+    // Through the admin client: the user's own client would drop its session here.
+    const { data, error } = await getAdminClient().auth.getUser(token!);
     expect(data.user).toBeNull();
     expect(error).not.toBeNull();
+    expect((await owner.client.rpc("session_is_live")).data).toBe(false);
   });
 
-  it.each(PAGES)("%s → redirect('/login'), not an error", async (_route, page) => {
+  it.each(PAGES)("no session: %s → redirect('/login'), not an error", async (_route, page) => {
+    mockState.client = anonClient();
     const outcome = await page(props).then(
       () => ({ rendered: true as const }),
       (err: unknown) => ({ rendered: false as const, err })
@@ -90,5 +108,35 @@ describe("dashboard pages with a revoked session redirect to /login (05-11c)", (
     const err = (outcome as { err: unknown }).err;
     expect(err instanceof Error ? err.message : String(err)).not.toBe("Unauthenticated");
     expect(redirectTarget(err)).toBe("/login");
+  });
+
+  it.each(PAGES)("revoked session: %s answers %s (pinned; never 'Unauthenticated', never a redirect)", async (_route, page, expected) => {
+    mockState.client = owner.client;
+    const result = await page(props).then(
+      (element: unknown) => ({ element, err: null as unknown }),
+      (err: unknown) => ({ element: null, err })
+    );
+    const digest = (result.err as { digest?: unknown } | null)?.digest;
+    if (expected === "rendered") {
+      expect(result.err, `threw ${String(digest ?? (result.err as Error | null)?.message)}`).toBeNull();
+      expect(result.element).not.toBeNull();
+      expect(result.element).not.toBeUndefined();
+    } else {
+      expect(digest).toBe("NEXT_HTTP_ERROR_FALLBACK;404");
+    }
+  });
+
+  it("revoked session: the shell's status check asks Auth fresh and answers 401, so the device signs out", async () => {
+    mockState.client = owner.client;
+    const res = await sessionStatus();
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthenticated" });
+  });
+
+  it("revoked session: a sensitive action (ruling R-S) is refused as signed out and writes nothing", async () => {
+    mockState.client = owner.client;
+    expect(await createApiKey("Synthetic revoked key")).toEqual({ success: false, error: "Unauthenticated" });
+    const { data } = await getAdminClient().from("api_keys").select("id").eq("tenant_id", owner.tenantId);
+    expect(data).toEqual([]);
   });
 });

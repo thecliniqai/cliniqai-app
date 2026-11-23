@@ -129,10 +129,30 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
       reason: b.reason,
     }));
 
+  // V2-09d: `available_slots` takes one doctor and one date, so the grid needs one call per (doctor, date). They are sent
+  // together (one round trip of latency, not one per call), and a (doctor, date) the day grid and the week strip both
+  // need is asked once. 09D-01a (A-11): the day grid's and the week strip's calls are all started before either is
+  // awaited (one round, not two).
+  const slotCalls = new Map<string, ReturnType<typeof getAvailableSlots>>();
+  const slotsOf = (doctorId: string, day: string) => {
+    const key = `${doctorId}|${day}`;
+    let call = slotCalls.get(key);
+    if (!call) {
+      call = getAvailableSlots(ctx, doctorId, day);
+      slotCalls.set(key, call);
+    }
+    return call;
+  };
+  const weekDoctorId = options.week ? (doctorFilter !== "all" ? doctorFilter : (doctors[0]?.id ?? "")) : "";
+  const weekDates = weekDoctorId ? Array.from({ length: 7 }, (_, i) => addDaysYmd(weekStart(date), i)) : [];
+  const dayCalls = shown.map((doctor) => slotsOf(doctor.id, date));
+  const weekCalls = weekDates.map((day) => slotsOf(weekDoctorId, day));
+  const [daySlots, weekSlots] = await Promise.all([Promise.all(dayCalls), Promise.all(weekCalls)]);
+
   // Free slots: the database's own list for each shown doctor.
   const free: FreeSlot[] = [];
-  for (const doctor of shown) {
-    const slots = await getAvailableSlots(ctx, doctor.id, date);
+  for (const [index, doctor] of shown.entries()) {
+    const slots = daySlots[index]!;
     if (!slots.ok) return fail("schedule.slots.failed", slots.error);
     for (const s of slots.value) {
       // A slot that has started is not offered (the command refuses a time that has passed).
@@ -167,10 +187,9 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
 
   let week: ScheduleData["week"] = null;
   if (options.week) {
-    const doctorId = doctorFilter !== "all" ? doctorFilter : (doctors[0]?.id ?? "");
+    const doctorId = weekDoctorId;
     if (doctorId) {
-      const first = weekStart(date);
-      const dates = Array.from({ length: 7 }, (_, i) => addDaysYmd(first, i));
+      const dates = weekDates;
       const window = rangeWindowUtc(dates[0]!, dates[6]!, timeZone);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: weekVisits, error: weekError } = await (ctx.db.from("visits") as any)
@@ -187,8 +206,8 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
         booked.set(day, (booked.get(day) ?? 0) + 1);
       }
       const days: WeekDayCount[] = [];
-      for (const day of dates) {
-        const slots = await getAvailableSlots(ctx, doctorId, day);
+      for (const [index, day] of dates.entries()) {
+        const slots = weekSlots[index]!;
         if (!slots.ok) return fail("schedule.week_slots.failed", slots.error);
         days.push({ date: day, booked: booked.get(day) ?? 0, free: slots.value.length });
       }

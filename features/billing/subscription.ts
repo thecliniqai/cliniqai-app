@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
+import { getTenantAccessLevel } from "@/lib/auth/tenant";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -55,9 +56,13 @@ export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
     log.error({ event: "billing.subscription_load.failed", code: errorTag(rowError), requestId: await getRequestId() });
   }
 
-  const { data: level, error: levelError } = await supabase.rpc("my_tenant_access", { p_tenant: session.tenantId });
-  if (levelError) {
-    log.error({ event: "billing.access_level_load.failed", code: errorTag(levelError), requestId: await getRequestId() });
+  // V2-09d: the shared lookup, fresh from the database (never the session-context cookie) and once per request; a failure
+  // is logged there (`auth.access_level_lookup.failed`) and shows as an unknown level here.
+  let level: string | null = null;
+  try {
+    level = await getTenantAccessLevel(session.tenantId, { fresh: true });
+  } catch {
+    level = null;
   }
 
   return {
@@ -72,6 +77,7 @@ export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
             cancelAtPeriodEnd: row.cancel_at_period_end,
           }
         : null,
+    // `getTenantAccessLevel` reads an unknown value as `none` (fail closed); the page shows it as such.
     accessLevel: typeof level === "string" && LEVELS.has(level) ? (level as AccessLevel) : null,
   };
 }

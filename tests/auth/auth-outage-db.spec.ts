@@ -11,6 +11,11 @@
  * session revoked for real still give 401. The same classification reaches the other callers: `resolveServiceContext`
  * never answers `unauthenticated` (whose `UNAUTHENTICATED` code signs the client out), the dashboard layout and a
  * wrapped page show the error boundary instead of redirecting to sign-in. Synthetic data only.
+ *
+ * V2-09d (request speed): pages, Server Actions and route handlers read the session from the verified JWT claims
+ * (`getClaims()`: local verification, no Auth round trip while the token is valid), so an outage of `/auth/v1/user` reaches
+ * only the fresh check of `/api/session-status`. The classification is the same where the claims check itself needs Auth
+ * (an expired token's refresh, the JWKS fetch): an outage is "unavailable", a refusal "unauthenticated".
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -33,6 +38,36 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 
 const RETRYABLE: BlipMode[] = ["503", "502", "500", "429", "408", "network", "timeout", "unreadable"];
+
+/**
+ * V2-09d: what `auth.getClaims()` answers when the Auth call it needed (the refresh of an expired token, or the JWKS fetch)
+ * could not be answered: a network failure (auth-js `AuthRetryableFetchError`), the transport's synthetic 408 at the end of
+ * the budget, a 429. And a definitive refusal (the refresh token is gone).
+ */
+const CLAIMS_OUTAGES = [
+  new AuthRetryableFetchError("fetch failed", 0),
+  new AuthApiError("Request Timeout", 408, "clinicos_auth_unavailable"),
+  new AuthApiError("Request rate limit reached", 429, "over_request_rate_limit"),
+];
+const CLAIMS_REFUSAL = new AuthApiError("Invalid Refresh Token: Refresh Token Not Found", 400, "refresh_token_not_found");
+
+/** The real client, except that `auth.getClaims()` answers `error`. */
+function claimsAnswer(real: unknown, error: Error): unknown {
+  const auth = new Proxy((real as { auth: object }).auth, {
+    get(target, prop) {
+      if (prop === "getClaims") return async () => ({ data: null, error });
+      const v = Reflect.get(target, prop);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+  return new Proxy(real as object, {
+    get(target, prop) {
+      if (prop === "auth") return auth;
+      const v = Reflect.get(target, prop);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+}
 
 async function ask(): Promise<{ status: number; body: unknown; cacheControl: string }> {
   const res = await GET();
@@ -108,40 +143,57 @@ describe("Supabase Auth unavailable (local stack, real session, failing /auth/v1
     expect(a.body).toEqual({ error: "unauthenticated" });
   });
 
-  it("getActiveMembership: AuthUnavailableError on an outage, UnauthenticatedError on a refusal", async () => {
+  it("getActiveMembership: AuthUnavailableError on an outage, UnauthenticatedError on a refusal (fresh check); V2-09d: the claims path needs no Auth call", async () => {
     blip.setMode("503");
-    await expect(getActiveMembership()).rejects.toBeInstanceOf(AuthUnavailableError);
+    // V2-09d: the session comes from the verified JWT claims; an outage of GET /auth/v1/user does not reach it.
+    await expect(getActiveMembership()).resolves.toMatchObject({ tenantId: owner.tenantId, role: "owner" });
+    await expect(getActiveMembership(undefined, { fresh: true })).rejects.toBeInstanceOf(AuthUnavailableError);
     blip.setMode("network");
-    await expect(getActiveMembership()).rejects.toBeInstanceOf(AuthUnavailableError);
+    await expect(getActiveMembership(undefined, { fresh: true })).rejects.toBeInstanceOf(AuthUnavailableError);
     blip.setMode("403");
-    await expect(getActiveMembership()).rejects.toBeInstanceOf(UnauthenticatedError);
+    await expect(getActiveMembership(undefined, { fresh: true })).rejects.toBeInstanceOf(UnauthenticatedError);
     blip.setMode("ok");
     await blip.restoreSession();
-    await expect(getActiveMembership()).resolves.toMatchObject({ tenantId: owner.tenantId, role: "owner" });
+    await expect(getActiveMembership(undefined, { fresh: true })).resolves.toMatchObject({ tenantId: owner.tenantId, role: "owner" });
+
+    // When the claims check itself needs Auth (an expired token's refresh, the JWKS fetch) and Auth cannot answer.
+    for (const error of CLAIMS_OUTAGES) {
+      state.client = claimsAnswer(blip.client, error);
+      await expect(getActiveMembership()).rejects.toBeInstanceOf(AuthUnavailableError);
+    }
+    state.client = claimsAnswer(blip.client, CLAIMS_REFUSAL);
+    await expect(getActiveMembership()).rejects.toBeInstanceOf(UnauthenticatedError);
+    state.client = blip.client;
   });
 
   it("server actions: an outage is the generic failure, never 'unauthenticated' (which signs the client out)", async () => {
+    // V2-09d: an outage of GET /auth/v1/user no longer touches a Server Action (identity from the verified claims).
     for (const mode of ["503", "timeout", "429"] as const) {
       blip.setMode(mode);
       const r = await resolveServiceContext("patients:view");
-      expect(r.ok, mode).toBe(false);
+      expect(r.ok, mode).toBe(true);
+    }
+    blip.setMode("ok");
+    for (const error of CLAIMS_OUTAGES) {
+      state.client = claimsAnswer(blip.client, error);
+      const r = await resolveServiceContext("patients:view");
+      expect(r.ok, error.name).toBe(false);
       if (!r.ok) {
-        expect(r.reason, mode).not.toBe("unauthenticated");
-        expect(r.error, mode).not.toBe("Unauthenticated");
+        expect(r.reason, error.name).toBe("unavailable");
+        expect(r.error, error.name).not.toBe("Unauthenticated");
       }
     }
-    blip.setMode("403");
+    state.client = claimsAnswer(blip.client, CLAIMS_REFUSAL);
     const refused = await resolveServiceContext("patients:view");
     expect(refused).toMatchObject({ ok: false, reason: "unauthenticated" });
-    blip.setMode("ok");
-    await blip.restoreSession();
+    state.client = blip.client;
   });
 
   it("the dashboard layout and a wrapped page show the error boundary on an outage, not a redirect to sign-in", async () => {
-    blip.setMode("503");
+    state.client = claimsAnswer(blip.client, CLAIMS_OUTAGES[0]!);
     const layout = await settle(() => DashboardLayout({ children: null }));
     const page = await settle(() => (PatientsPage as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) }));
-    blip.setMode("ok");
+    state.client = blip.client;
     expect(layout.ok).toBe(false);
     if (!layout.ok) {
       expect(layout.err).toBeInstanceOf(AuthUnavailableError);

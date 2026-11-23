@@ -21,6 +21,13 @@ import {
  * restated so the proxy does not load the request client; tests/auth/session-auth-close-db.spec.ts asserts they match).
  */
 export const PROXY_ACTIVE_TENANT_COOKIE = "clinic_active_tenant";
+/**
+ * V2-09d: the signed session-context cookie (same value as `lib/auth/context-cookie.ts` `CONTEXT_COOKIE`, restated so the
+ * proxy loads no server-only module; tests/auth/context-cookie.spec.ts asserts they match). 09D-01a (S-5): on a Secure
+ * request it is named `__Host-clinic_ctx` (`CONTEXT_COOKIE_SECURE`), which can only be expired with Secure and Path=/.
+ */
+export const PROXY_CONTEXT_COOKIE = "clinic_ctx";
+export const PROXY_CONTEXT_COOKIE_SECURE = "__Host-clinic_ctx";
 
 /**
  * V2-06 06-09d close (re-check L-N4): a request the proxy found definitively signed out (no session, or GoTrue refused
@@ -32,9 +39,17 @@ export const PROXY_ACTIVE_TENANT_COOKIE = "clinic_active_tenant";
  * the session, and so the pin.
  */
 function forgetActiveClinic(request: NextRequest, response: NextResponse): NextResponse {
-  if (request.cookies.has(PROXY_ACTIVE_TENANT_COOKIE)) {
-    response.cookies.set(PROXY_ACTIVE_TENANT_COOKIE, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" });
+  // V2-09d: the session-context cookie goes with it (useless without a session: it is bound to the session it names).
+  let expired = false;
+  for (const name of [PROXY_ACTIVE_TENANT_COOKIE, PROXY_CONTEXT_COOKIE, PROXY_CONTEXT_COOKIE_SECURE]) {
+    if (request.cookies.has(name)) {
+      const secure = name === PROXY_CONTEXT_COOKIE_SECURE;
+      response.cookies.set(name, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax", ...(secure ? { secure } : {}) });
+      expired = true;
+    }
   }
+  // 09D-01a (S-7): a response that sets (here: expires) the context cookie is never stored by a cache.
+  if (expired) response.headers.set("cache-control", "private, no-store");
   return response;
 }
 

@@ -61,7 +61,7 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
   // Open the waiting patient from the doctor's Today (R-14: the cabin is "My queue"); the filter box finds this patient among
   // the clinic's shared synthetic rows and the row's own action calls them in.
   await openToday(page, "/today?mode=doctor");
-  await ux.fill(page.getByLabel("Token, name or mobile"), patientName, "Token, name or mobile");
+  await ux.fill(page.getByRole("searchbox", { name: "Token, name or mobile" }), patientName, "Token, name or mobile");
   await ux.click(rowOf(page, patientName).getByRole("button", { name: `Call in ${patientName}` }), "Call in");
   await expect(page).toHaveURL(new RegExp(`/consultation/${visitId}$`));
   // The workspace is open for this patient. (v1 hides the header h1 on narrow screens, so anchor on the notes field,

@@ -25,7 +25,9 @@ export interface AccessDestinationContext {
  * - the member's destination for the clinic's access level is another page → that page; a `full` clinic → `/`.
  *
  * So each page renders only for the members it is meant for, and the rule cannot loop: every destination maps to
- * itself. The access level is read from the database (`my_tenant_access`, fail closed).
+ * itself. 09D-01a (A-9): the access level is read from the database (`my_tenant_access`, `fresh`: never the session-context
+ * cookie, so a clinic that has just been renewed, comped or locked lands on the right page at once; fail closed). These
+ * pages are rare, so the one RPC costs nothing measurable.
  */
 export async function requireAccessDestination(path: AccessDestination): Promise<AccessDestinationContext> {
   let membership: ActiveMembership;
@@ -36,7 +38,7 @@ export async function requireAccessDestination(path: AccessDestination): Promise
     if (err instanceof NoClinicMembershipError) redirect("/clinic/new");
     throw err;
   }
-  const level = await getTenantAccessLevel(membership.tenantId);
+  const level = await getTenantAccessLevel(membership.tenantId, { fresh: true });
   const destination = accessRedirect(membership.role, level);
   if (destination !== path) redirect(destination ?? "/today");
   return { membership, level };

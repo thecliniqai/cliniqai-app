@@ -21,6 +21,15 @@ import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
 import { seedSlotIso } from "../helpers/seed-slots";
 import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { setSchedule, weekSchedule } from "../helpers/front-desk-commands";
+
+// A-6 (09D-01a): the reschedules below target "today + N days" at a fixed UTC hour. The seeded doctor's default week has
+// no Sunday, so a target that falls on a Sunday found no slot (409) one weekday in seven (+13 on a Monday, +11 on a
+// Thursday, +12 on a Tuesday). The doctor is open all seven days with the default shifts (10:00-13:00 and 17:00-21:00
+// clinic time; 05:00-07:00 UTC is 10:30-12:30 in Asia/Kolkata, the seeded zone), so the outcome no longer depends on the
+// day the suite runs.
+const SEVEN_DAY_WEEK = weekSchedule([{ start: "10:00", end: "13:00" }, { start: "17:00", end: "21:00" }]);
+
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -134,6 +143,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
+    await setSchedule(A.owner.tenantId, A.doctor.userId, SEVEN_DAY_WEEK);
     anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });

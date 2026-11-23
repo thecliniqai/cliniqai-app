@@ -1,5 +1,4 @@
 import fs from "fs";
-import readline from "readline";
 import path from "path";
 import { parseGenericSubstanceIds } from "./seed/cdci-parse";
 
@@ -21,6 +20,11 @@ import type { Database } from "@/lib/db/types";
 const admin: any = getAdminClient();
 const BATCH_SIZE = 1000;
 
+/** All lines of a seed file (the largest is about 11 MB); blank lines dropped. */
+function readLines(filePath: string): string[] {
+  return fs.readFileSync(filePath, "utf8").split(/\r?\n/).filter((line) => line.trim() !== "");
+}
+
 export async function ingestTsvFile(
   filePath: string,
   tableName: string,
@@ -31,15 +35,17 @@ export async function ingestTsvFile(
     return;
   }
 
-  const fileStream = fs.createReadStream(filePath, { encoding: "utf8" });
-  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+  // Read the whole file (the largest, BrandMaster.txt, is about 11 MB). A readline async iterator with an awaited upsert
+  // in its loop body fails on newer Node with ERR_USE_AFTER_CLOSE when the stream ends during the await.
+  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
 
   let headers: string[] = [];
   let batch: Record<string, unknown>[] = [];
   let isFirstLine = true;
   let count = 0;
 
-  for await (const line of rl) {
+  for (const line of lines) {
+    if (!line.trim()) continue;
     if (isFirstLine) {
       headers = line.split("\t").map((h) => h.trim());
       isFirstLine = false;
@@ -135,12 +141,9 @@ export async function seedCdci() {
   const supplierMap = new Map<string, string>();
 
   // Read products
-  const productStream = readline.createInterface({
-    input: fs.createReadStream(path.join(cdciDir, "ProductMaster.txt")),
-    crlfDelay: Infinity,
-  });
+  const productStream = readLines(path.join(cdciDir, "ProductMaster.txt"));
   let first = true;
-  for await (const line of productStream) {
+  for (const line of productStream) {
     if (first) {
       first = false;
       continue;
@@ -150,12 +153,9 @@ export async function seedCdci() {
   }
 
   // Read generics
-  const genericStream = readline.createInterface({
-    input: fs.createReadStream(path.join(cdciDir, "GenericMaster.txt")),
-    crlfDelay: Infinity,
-  });
+  const genericStream = readLines(path.join(cdciDir, "GenericMaster.txt"));
   first = true;
-  for await (const line of genericStream) {
+  for (const line of genericStream) {
     if (first) {
       first = false;
       continue;
@@ -165,12 +165,9 @@ export async function seedCdci() {
   }
 
   // Read suppliers
-  const supplierStream = readline.createInterface({
-    input: fs.createReadStream(path.join(cdciDir, "SupplierMaster.txt")),
-    crlfDelay: Infinity,
-  });
+  const supplierStream = readLines(path.join(cdciDir, "SupplierMaster.txt"));
   first = true;
-  for await (const line of supplierStream) {
+  for (const line of supplierStream) {
     if (first) {
       first = false;
       continue;
@@ -180,10 +177,7 @@ export async function seedCdci() {
   }
 
   // Stream brands and compile cdci_medicines_search in chunks of 1,000
-  const brandStream = readline.createInterface({
-    input: fs.createReadStream(path.join(cdciDir, "BrandMaster.txt")),
-    crlfDelay: Infinity,
-  });
+  const brandStream = readLines(path.join(cdciDir, "BrandMaster.txt"));
   first = true;
   let searchBatch: Array<{
     id: string;
@@ -196,7 +190,7 @@ export async function seedCdci() {
   }> = [];
   let searchCount = 0;
 
-  for await (const line of brandStream) {
+  for (const line of brandStream) {
     if (first) {
       first = false;
       continue;

@@ -25,6 +25,7 @@ import { listInReferralDirectory } from "../helpers/referral-directory";
 import { hasPerm } from "@/lib/permissions";
 import { seedSlotIso } from "../helpers/seed-slots";
 import { archiveRxAs, seedClinicalVisit, signVisitAs } from "../helpers/clinical-commands";
+import { setSchedule, weekSchedule } from "../helpers/front-desk-commands";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -440,6 +441,14 @@ describe("01-08 review fixes (000021)", () => {
   });
 
   describe("AR-L2: reschedule horizon, double booking, one live link per visit, bounded lookup", () => {
+    // A-6 (09D-01a, the same flaw as review2-fixes-db): "a slot overlapping ... is 409" reschedules to today + 12 days at
+    // 07:00 UTC and expects 200; on a Tuesday that is a Sunday, which the doctor's default week closes (409). The doctor is
+    // open all seven days with the default shifts (10:00-13:00, 17:00-21:00 clinic time; 07:00 UTC = 12:30 Asia/Kolkata),
+    // so the outcome no longer depends on the weekday. (AR-L3 below replaces this schedule with its own afterwards.)
+    beforeAll(async () => {
+      await setSchedule(A.owner.tenantId, A.members.doctor.userId, weekSchedule([{ start: "10:00", end: "13:00" }, { start: "17:00", end: "21:00" }]));
+    });
+
     async function freshVisit(at: Date): Promise<string> {
       return insertRow("visits", {
         tenant_id: A.owner.tenantId,

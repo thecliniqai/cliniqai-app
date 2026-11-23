@@ -121,7 +121,7 @@ test("Realtime refused: the board says so and still updates, by polling every 20
   await page.clock.install();
   const { started } = await refuseRealtime(page);
   await openToday(page);
-  await expect(page.locator("[data-today-board]")).toBeVisible();
+  await expect(page.locator("[data-today-board]").filter({ visible: true })).toBeVisible();
   await started;
 
   const walkIn = await seedWaitingToday(todayName("Polled"));

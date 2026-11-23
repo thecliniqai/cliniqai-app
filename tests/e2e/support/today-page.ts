@@ -10,16 +10,21 @@ import type { UxCounter } from "./ux-counter";
  * switch, a Check in button). React marks every DOM node it owns with a `__reactFiber$` key; nothing in the app is added for the test.
  */
 export async function boardHydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const board = document.querySelector("[data-today-board]");
-    return Boolean(board && Object.keys(board).some((key) => key.startsWith("__reactFiber$")));
-  });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll<HTMLElement>("[data-today-board]")].some(
+      (board) => board.offsetParent !== null && Object.keys(board).some((key) => key.startsWith("__reactFiber$")),
+    ),
+  );
 }
 
-/** Opens `/today` (or `url`) and waits for the board to be on screen and hydrated. */
+/**
+ * Opens `/today` (or `url`) and waits for the board to be on screen and hydrated. V2-09d: only the visible board counts. While
+ * a streamed page is revealed, React briefly holds two copies of the board (the revealed one and the hidden `S:n` template it
+ * came from); a strict locator that polls in that instant fails with "resolved to 2 elements".
+ */
 export async function openToday(page: Page, url = "/today"): Promise<void> {
   await page.goto(url);
-  await page.locator("[data-today-board]").waitFor();
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor();
   await boardHydrated(page);
 }
 
@@ -43,7 +48,7 @@ export async function showLane(page: Page, lane: LaneName): Promise<void> {
 
 /** Types into the filter box ("Token, name or mobile"): every lane with a match is then on screen below 1280 px. */
 export async function filterToday(page: Page, text: string): Promise<void> {
-  await page.getByLabel("Token, name or mobile").fill(text);
+  await page.getByRole("searchbox", { name: "Token, name or mobile" }).fill(text);
 }
 
 /**
@@ -52,7 +57,7 @@ export async function filterToday(page: Page, text: string): Promise<void> {
  * `collect` on every completed visit; a visit with money due says "Collect ₹X", one without says "Bill").
  */
 export async function openBill(page: Page, name: string, ux?: UxCounter): Promise<void> {
-  if (ux) await ux.fill(page.getByLabel("Token, name or mobile"), name, "Token, name or mobile");
+  if (ux) await ux.fill(page.getByRole("searchbox", { name: "Token, name or mobile" }), name, "Token, name or mobile");
   else await filterToday(page, name);
   await showLane(page, "Done");
   const button = rowOf(page, name).getByRole("button", { name: /^(Collect|Open bill of)\b/ });
@@ -70,11 +75,17 @@ export function rowInLane(page: Page, laneId: string, name: string): Locator {
   return page.locator(`[data-lane="${laneId}"] [data-queue-row]`).filter({ hasText: name });
 }
 
-/** How many RSC (server render) requests the page sends from now on. */
+/**
+ * How many RSC render requests (a refresh or a navigation) the page sends from now on. V2-09d: Next's link prefetches
+ * (`next-router-prefetch: 1`) are not counted. They are RSC requests too, but no refresh: the router sends them when the
+ * navigation links are idle and in view, which on a fast server can fall inside a counting window (seen in the
+ * connection-drop specs: the five nav links' prefetches under the fake clock).
+ */
 export function countRscRequests(page: Page): () => number {
   let n = 0;
   page.on("request", (request) => {
-    if (request.headers()["rsc"] === "1") n += 1;
+    const headers = request.headers();
+    if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") n += 1;
   });
   return () => n;
 }

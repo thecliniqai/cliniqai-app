@@ -25,7 +25,7 @@ export async function listApiKeys(): Promise<ListApiKeysResult> {
 }
 
 export async function createApiKey(name: string): Promise<CreateApiKeyResult> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "api_keys.create" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await apiKeysService.createApiKey(resolved.ctx, name);
   if (result.success) revalidate();
@@ -33,7 +33,7 @@ export async function createApiKey(name: string): Promise<CreateApiKeyResult> {
 }
 
 export async function revokeApiKey(keyId: string): Promise<{ success: boolean; error?: string }> {
-  const resolved = await resolveServiceContext("clinic:manage");
+  const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "api_keys.revoke" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await apiKeysService.revokeApiKey(resolved.ctx, keyId);
   if (result.success) revalidate();

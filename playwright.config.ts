@@ -27,6 +27,9 @@ const DESIGN_CAPTURE = /\/design\/(neutral|screens)\//;
 const DESIGN_PR_ONLY = /\/design\/(keyboard\/|.*axe)/;
 /** V2-06 06-07: Lighthouse CI (`npm run perf:lhci`, nightly `lhci` job) runs only in the perf-lhci project. */
 const PERF = /\/perf\//;
+const PERF_LHCI = /\/perf\/lhci\.spec\.ts$/;
+/** V2-09d: the Supabase round-trip report (`npm run perf:roundtrips`) runs only in the perf-roundtrips project. */
+const PERF_ROUNDTRIPS = /\/perf\/page-roundtrips\.spec\.ts$/;
 /** V2-06 06-09a: the two-build service-worker update spec has its own config (`npm run e2e:sw-update`). */
 const SW_UPDATE = /\/pwa-update\//;
 /**
@@ -130,7 +133,8 @@ const designLane: Project[] = DESIGN_WIDTHS.map((w) => ({
 // the project only needs the setup dependency. Report-only: the spec fails on tool errors, never on a score. No
 // retries: a tool error is reported, not re-run to green (and one run takes several minutes).
 const perfLane: Project[] = [
-  { name: "perf-lhci", use: { ...devices["Desktop Chrome"] }, testMatch: PERF, retries: 0, ...setup },
+  { name: "perf-lhci", use: { ...devices["Desktop Chrome"] }, testMatch: PERF_LHCI, retries: 0, ...setup },
+  { name: "perf-roundtrips", use: { ...devices["Desktop Chrome"] }, testMatch: PERF_ROUNDTRIPS, retries: 0, ...setup },
 ];
 
 export default defineConfig({

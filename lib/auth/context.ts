@@ -5,14 +5,17 @@ import type { Database, UserRole } from "@/lib/db/types";
 import { createClient } from "@/lib/supabase/server";
 import {
   ActiveClinicMembershipEndedError,
+  assertSessionLive,
   assertTenantAccess,
   AuthUnavailableError,
   getActiveMembership,
   MultipleClinicsSelectionRequiredError,
   NoClinicMembershipError,
   TenantLockedError,
+  type ActiveMembership,
   type RequiredAccess,
 } from "@/lib/auth/tenant";
+import type { GuardOptions } from "@/lib/auth/sensitive-actions";
 import { assertPerm, PermissionDeniedError, type Permission } from "@/lib/permissions";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -39,16 +42,44 @@ export interface ServiceContext {
 }
 
 /**
- * Resolves the caller's active membership from the session, checks `permission` (if given) and returns a context
- * bound to the user-JWT client. Throws "Unauthenticated", a membership error, or `PermissionDeniedError`.
+ * The membership, role and access checks of every guard. 09D-01a (ruling R-S): an action on the closed list
+ * (`options.sensitive`, `lib/auth/sensitive-actions.ts`) never takes the session-context cookie: the membership and role
+ * are read from the database, then (after the role check, so a refused role still touches nothing but `memberships`) the
+ * session's liveness (`session_is_live`) and the access level are asked of the database together (one round trip). A
+ * revoked session is refused before a locked clinic. Everything else keeps the fast path (claims + cookie).
  */
-export async function requireServiceContext(permission?: Permission, access: RequiredAccess = "full"): Promise<ServiceContext> {
-  const membership = await getActiveMembership();
+export async function resolveGuardedMembership(
+  permission: Permission | undefined,
+  access: RequiredAccess,
+  options: GuardOptions = {},
+): Promise<ActiveMembership> {
+  const sensitive = options.sensitive;
+  const membership = await getActiveMembership(undefined, { fromDatabase: sensitive !== undefined });
   if (permission) {
     assertPerm(membership.role, permission);
   }
-  // V2-05 05-10a (SUB-02): a locked or onboarding clinic reaches only the billing paths (`access: "billing"`).
-  await assertTenantAccess(membership, access);
+  if (sensitive === undefined) {
+    // V2-05 05-10a (SUB-02): a locked or onboarding clinic reaches only the billing paths (`access: "billing"`).
+    await assertTenantAccess(membership, access);
+    return membership;
+  }
+  const [live, level] = await Promise.allSettled([assertSessionLive(sensitive), assertTenantAccess(membership, access, { fresh: true })]);
+  if (live.status === "rejected") throw live.reason;
+  if (level.status === "rejected") throw level.reason;
+  return membership;
+}
+
+/**
+ * Resolves the caller's active membership from the session, checks `permission` (if given) and returns a context
+ * bound to the user-JWT client. Throws "Unauthenticated", a membership error, or `PermissionDeniedError`.
+ * `options.sensitive` names an action of the closed list (ruling R-S): see {@link resolveGuardedMembership}.
+ */
+export async function requireServiceContext(
+  permission?: Permission,
+  access: RequiredAccess = "full",
+  options: GuardOptions = {},
+): Promise<ServiceContext> {
+  const membership = await resolveGuardedMembership(permission, access, options);
   const db = await createClient();
   return {
     userId: membership.userId,
@@ -67,9 +98,13 @@ export type ServiceContextResult =
  * Non-throwing variant for server actions: they authenticate before parsing any input and map a failure to their
  * existing return shape. The message is safe to show to the caller (no ids, no PHI).
  */
-export async function resolveServiceContext(permission?: Permission, access: RequiredAccess = "full"): Promise<ServiceContextResult> {
+export async function resolveServiceContext(
+  permission?: Permission,
+  access: RequiredAccess = "full",
+  options: GuardOptions = {},
+): Promise<ServiceContextResult> {
   try {
-    return { ok: true, ctx: await requireServiceContext(permission, access) };
+    return { ok: true, ctx: await requireServiceContext(permission, access, options) };
   } catch (err) {
     if (err instanceof PermissionDeniedError) {
       return { ok: false, error: err.message, reason: "forbidden" };

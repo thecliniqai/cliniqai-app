@@ -1,15 +1,15 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { redirect, unstable_rethrow } from "next/navigation";
 import {
   ActiveClinicMembershipEndedError,
-  AuthUnavailableError,
   getActiveMembership,
+  getSessionClaims,
   getTenantAccessLevel,
   isClinicId,
-  isDefinitiveAuthRejection,
   MultipleClinicsSelectionRequiredError,
   NoClinicMembershipError,
   readActiveClinicCookie,
+  UnauthenticatedError,
+  type SessionClaims,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
 import { redirectIfUnauthenticated } from "@/lib/auth/page";
@@ -41,20 +41,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  // V2-06 06-09c (H-AUTHOUT): Auth could not answer (network, timeout, 5xx, 429). That is not a missing session: the
-  // error boundary offers Retry; the user is not sent to sign-in.
-  if (authError && !isDefinitiveAuthRejection(authError)) {
-    throw new AuthUnavailableError();
-  }
-  if (!user) {
-    redirect("/login");
+  // V2-09d: the session from the verified JWT claims, once per request (no Supabase Auth round trip; the proxy has refreshed
+  // the session already). `/api/session-status`, which the shell calls on load, asks Supabase Auth for a fresh answer.
+  let claims: SessionClaims;
+  try {
+    claims = await getSessionClaims();
+  } catch (error) {
+    // 09D-01a (A-7): only a missing or unverifiable session goes to sign-in. Next's own control flow is rethrown; V2-06
+    // 06-09c (H-AUTHOUT) Auth could not answer (network, timeout, 5xx, 429) and any other failure is not a missing session:
+    // the error boundary offers Retry (and `onRequestError` records it), never a silent trip to /login.
+    unstable_rethrow(error);
+    if (error instanceof UnauthenticatedError) redirect("/login");
+    throw error;
   }
 
   let membership;
@@ -72,7 +70,7 @@ export default async function DashboardLayout({
     }
     // V2-08 08-05 (P1-12, R-17): two or more clinics and none chosen on this device: pick one (the switcher's cookie), no error page.
     if (error instanceof MultipleClinicsSelectionRequiredError) {
-      return <ClinicPicker clinics={await listUserClinics()} />;
+      return <ClinicPicker clinics={(await listUserClinics()).map(({ id, name, role }) => ({ id, name, role }))} />;
     }
     // V2-08 08-06a: the session ended between the check above and this one (a sign-out in flight on this device, e.g. the
     // shell's session-status watch): sign-in, as the wrapped pages do, never the error page.
@@ -91,15 +89,10 @@ export default async function DashboardLayout({
     redirect(destination);
   }
 
-  // Fetch tenant name and zone, and the user's clinics for the switcher (V2-08 08-05).
-  const [{ data: tenant }, clinics] = await Promise.all([
-    (supabase
-      .from("tenants")
-      .select("name, timezone")
-      .eq("id", membership.tenantId)
-      .single() as unknown) as Promise<{ data: { name: string; timezone: string | null } | null; error: unknown }>,
-    listUserClinics(),
-  ]);
+  // The user's clinics for the switcher (V2-08 08-05), with the active clinic's name and zone: one membership read per
+  // request, shared with the membership resolution when that read the database (V2-09d).
+  const clinics = await listUserClinics();
+  const activeClinic = clinics.find((c) => c.id.toLowerCase() === membership.tenantId.toLowerCase());
 
   // 06-09d (M-REMOVED-R1): no clinic pinned on this device yet: the shell's first status check pins this one.
   const shellClinic = isClinicId(await readActiveClinicCookie()) ? null : membership.tenantId;
@@ -110,11 +103,11 @@ export default async function DashboardLayout({
   // V2-06 06-04b: the app shell. The navigation model is resolved HERE, from the session's role and the permission
   // matrix (`navForRole`, T-06-16); the client only renders it. The pages keep their own guards.
   return (
-    <ClinicTimeZoneProvider timeZone={resolveTimeZone(tenant?.timezone)}>
+    <ClinicTimeZoneProvider timeZone={resolveTimeZone(activeClinic?.timeZone)}>
       <AppShell
         model={navForRole(membership.role)}
-        clinicName={tenant?.name || "Clinic"}
-        user={{ email: user.email || "", role: membership.role }}
+        clinicName={activeClinic?.name || "Clinic"}
+        user={{ email: claims.email || "", role: membership.role }}
         swEnabled={serviceWorkerEnabled()}
         shellClinic={shellClinic}
         clinics={clinics.map((c) => ({ id: c.id, name: c.name }))}

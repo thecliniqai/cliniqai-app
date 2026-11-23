@@ -282,6 +282,36 @@ describe("06-09a fetch callers and a failed global revocation", () => {
     expect(plain.headers.getSetCookie().filter((c) => c.startsWith("clinic_active_tenant="))).toEqual([]);
   });
 
+  it("V2-09d: every sign-out (fetch or form, revoked or not) expires the session-context cookie", async () => {
+    const cookie = "clinic_ctx=e30.c2lnbmF0dXJl; theme=light";
+    for (const client of [failingGoTrue(), { auth: { signOut: async () => ({ error: null }) } }]) {
+      for (const headers of [{ origin: APP_ORIGIN, ...FETCH, cookie }, { origin: APP_ORIGIN, cookie }]) {
+        slot.client = client;
+        const res = await route.POST(post(headers, { scope: "local" }));
+        expect([200, 303, 502]).toContain(res.status);
+        const set = res.headers.getSetCookie();
+        expect(set.filter((c) => c.startsWith("clinic_ctx=")), "the session context is expired").toHaveLength(1);
+        expect(set.find((c) => c.startsWith("clinic_ctx="))).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+        expect(set.some((c) => c.startsWith("theme="))).toBe(false);
+      }
+    }
+    slot.client = { auth: { signOut: async () => ({ error: null }) } };
+    const plain = await route.POST(post({ origin: APP_ORIGIN, ...FETCH }, { scope: "local" }));
+    expect(plain.headers.getSetCookie().filter((c) => c.startsWith("clinic_ctx="))).toEqual([]);
+  });
+
+  it("09D-01a (S-5): the __Host- name is expired too, with Secure and Path=/ (a browser refuses its deletion otherwise)", async () => {
+    slot.client = { auth: { signOut: async () => ({ error: null }) } };
+    const res = await route.POST(post({ origin: APP_ORIGIN, ...FETCH, cookie: "__Host-clinic_ctx=e30.c2lnbmF0dXJl" }, { scope: "local" }));
+    const set = res.headers.getSetCookie().filter((c) => c.startsWith("__Host-clinic_ctx="));
+    expect(set).toHaveLength(1);
+    expect(set[0]).toMatch(/Max-Age=0/i);
+    expect(set[0]).toMatch(/;\s*Secure/i);
+    expect(set[0]).toMatch(/Path=\//);
+    expect(set[0]).not.toMatch(/Domain=/i);
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
+  });
+
   it("a form post whose GLOBAL revocation failed lands on /login?signout=partial; a failed local one on /login", async () => {
     slot.client = failingGoTrue();
     const global = await route.POST(post({ origin: APP_ORIGIN }, { scope: "global" }));

@@ -87,7 +87,7 @@ export async function updateClinicProfile(input: UpdateProfileInput): Promise<Up
   const supabase = await createClient();
 
   try {
-    const session = await requirePermission(supabase, "clinic:manage");
+    const session = await requirePermission(supabase, "clinic:manage", "full", { sensitive: "clinic_settings.profile" });
 
     const { data, error } = await (supabase.from("tenants") as any)
       .update({

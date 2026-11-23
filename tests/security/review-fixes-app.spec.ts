@@ -16,6 +16,7 @@ import { updateClinicSettings } from "@/features/settings/service";
 import { GET as receiptPdfRoute } from "@/app/api/invoices/[id]/receipt-pdf/route";
 import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
 import { signVisitAs } from "../helpers/clinical-commands";
+import { publicEnv } from "@/lib/env";
 
 // V2-01 plan 01-08, checkpoint 2 (app-only review fixes). DB-backed cases use the local stack; the error-text cases
 // stub the client so a database error whose text carries row data can be produced deterministically.
@@ -210,7 +211,22 @@ describe("01-08 review fixes, app-only items", () => {
 
     it("getActiveMembership throws a fixed message when the membership query fails", async () => {
       const fake = {
-        auth: { getUser: async () => ({ data: { user: { id: randomUUID() } }, error: null }) },
+        // V2-09d: the session comes from the verified JWT claims (`getClaims`), no longer from `getUser`.
+        // 09D-01a (S-6): a session token's issuer, audience and role.
+        auth: {
+          getClaims: async () => ({
+            data: {
+              claims: {
+                sub: randomUUID(),
+                session_id: randomUUID(),
+                iss: `${publicEnv.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/auth/v1`,
+                aud: "authenticated",
+                role: "authenticated",
+              },
+            },
+            error: null,
+          }),
+        },
         ...failingClient(),
       };
       vi.spyOn(serverClientModule, "createClient").mockResolvedValue(fake as never);

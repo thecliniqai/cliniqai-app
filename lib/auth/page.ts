@@ -17,11 +17,12 @@ import type { UserRole } from "@/lib/db/types";
 /**
  * Dashboard page loaders and a session that is gone (V2-05 05-11c; root cause in the 05-02a record, "Open items").
  *
- * A session revoked elsewhere (sign-out on another device, password reset or change) still carries a valid access
- * token, so `proxy.ts` (local JWT verification) lets the page request through. The dashboard layout asks GoTrue, gets
- * no user and redirects to /login, but Next renders the page concurrently: its loader's `getActiveMembership()` threw
- * "Unauthenticated", which `onRequestError` logged as `request.error` and sent to the error sink, one false event per
- * such page load. A page wrapped in {@link withPageAuth} answers the same condition with the same redirect instead.
+ * A request without a valid session reaching a page loader (the layout redirects to /login, but Next renders the page
+ * concurrently) made its loader's `getActiveMembership()` throw "Unauthenticated", which `onRequestError` logged as
+ * `request.error` and sent to the error sink, one false event per such page load. A page wrapped in {@link withPageAuth}
+ * answers the same condition with the same redirect instead. V2-09d: the session is read from the verified JWT claims
+ * (no Auth round trip), so a session revoked elsewhere whose token is unexpired is ended by the shell's
+ * `/api/session-status` check (fresh, 401 → sign-out), not by the page.
  */
 export function isUnauthenticated(err: unknown): boolean {
   return err instanceof UnauthenticatedError || (err instanceof Error && err.message === "Unauthenticated");

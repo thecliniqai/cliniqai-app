@@ -49,7 +49,8 @@ vi.mock("next/headers", async (importOriginal) => {
 });
 
 import { GET } from "@/app/api/session-status/route";
-import { PROXY_ACTIVE_TENANT_COOKIE, proxy } from "@/proxy";
+import { PROXY_ACTIVE_TENANT_COOKIE, PROXY_CONTEXT_COOKIE, PROXY_CONTEXT_COOKIE_SECURE, proxy } from "@/proxy";
+import { CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE } from "@/lib/auth/context-cookie";
 import { changePassword } from "@/features/auth/service";
 import { ACTIVE_TENANT_COOKIE } from "@/lib/supabase/server";
 import { AUTH_REQUEST_BUDGET_MS, PROXY_AUTH_DEADLINE_MS, PROXY_AUTH_REQUEST_BUDGET_MS } from "@/lib/supabase/auth-transport";
@@ -285,6 +286,35 @@ describe("L-N4: a definitive sign-out in the proxy expires the active-clinic pin
     expect(action.pinExpired).toBe(true);
     const none = await throughProxy({}, "/login");
     expect(none.pinWrites, "no pin, nothing written").toEqual([]);
+  });
+
+  it("V2-09d: a definitive sign-out also expires the session-context cookie; a signed-in request keeps it", async () => {
+    expect(PROXY_CONTEXT_COOKIE).toBe(CONTEXT_COOKIE);
+    const ctx = "e30.c2lnbmF0dXJl";
+    const ctxExpired = (setCookies: string[]) => setCookies.some((h) => h.startsWith(`${CONTEXT_COOKIE}=;`) && /max-age=0/i.test(h));
+    const login = await throughProxy({ [CONTEXT_COOKIE]: ctx }, "/login");
+    expect(ctxExpired(login.setCookies)).toBe(true);
+    const action = await throughProxy({ [CONTEXT_COOKIE]: ctx }, "/patients", "POST");
+    expect(ctxExpired(action.setCookies)).toBe(true);
+    const page = await throughProxy({ [CONTEXT_COOKIE]: ctx }, "/patients");
+    expect(page.res.status).toBe(307);
+    expect(ctxExpired(page.setCookies)).toBe(true);
+    const owner = await seedTenantWithOwner(`Synthetic Close Ctx ${randomUUID().slice(0, 6)}`);
+    const live = await throughProxy({ [COOKIE]: encode(await session(owner.userEmail)), [CONTEXT_COOKIE]: ctx });
+    expect(live.res.status).toBe(200);
+    expect(live.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE}=`))).toEqual([]);
+  });
+
+  it("09D-01a (S-5, S-7): the __Host- name is expired with Secure and Path=/, on a private no-store answer", async () => {
+    expect(PROXY_CONTEXT_COOKIE_SECURE).toBe(CONTEXT_COOKIE_SECURE);
+    const login = await throughProxy({ [CONTEXT_COOKIE_SECURE]: "e30.c2lnbmF0dXJl" }, "/login");
+    const set = login.setCookies.filter((h) => h.startsWith(`${CONTEXT_COOKIE_SECURE}=`));
+    expect(set).toHaveLength(1);
+    expect(set[0]).toMatch(/max-age=0/i);
+    expect(set[0]).toMatch(/;\s*secure/i);
+    expect(set[0]).toMatch(/path=\//i);
+    expect(login.res.headers.get("cache-control")).toMatch(/private/);
+    expect(login.res.headers.get("cache-control")).toMatch(/no-store/);
   });
 
   it("controls: a signed-in request and an Auth outage (a refresh that never answers) keep the pin", async () => {
