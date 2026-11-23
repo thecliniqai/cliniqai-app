@@ -75,11 +75,17 @@ export function rowInLane(page: Page, laneId: string, name: string): Locator {
   return page.locator(`[data-lane="${laneId}"] [data-queue-row]`).filter({ hasText: name });
 }
 
-/** How many RSC (server render) requests the page sends from now on. */
+/**
+ * How many RSC render requests (a refresh or a navigation) the page sends from now on. V2-09d: Next's link prefetches
+ * (`next-router-prefetch: 1`) are not counted. They are RSC requests too, but no refresh: the router sends them when the
+ * navigation links are idle and in view, which on a fast server can fall inside a counting window (seen in the
+ * connection-drop specs: the five nav links' prefetches under the fake clock).
+ */
 export function countRscRequests(page: Page): () => number {
   let n = 0;
   page.on("request", (request) => {
-    if (request.headers()["rsc"] === "1") n += 1;
+    const headers = request.headers();
+    if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") n += 1;
   });
   return () => n;
 }
