@@ -57,13 +57,30 @@ const label12 = (time: string): string => {
 
 const doctorId = () => run().tenantA.users.doctor.id;
 
-/** A click whose result is a DOM state: pending (optional) and confirmed. */
+/**
+ * A click whose result is a DOM state. `marks.confirmed` is that state; it is recorded as `shown`: where the screen answers at once (an optimistic
+ * state, a sheet that closes) it is not the database's answer. `response` is the server action's response (runner clock against the in-page zero),
+ * read once the page is idle, and `confirmed` is the later of the two: the state is on screen AND the command answered (an optimistic state alone
+ * is `shown`; a click whose command has no answer the page can see keeps the DOM state).
+ */
 async function clickSave(page: Page, click: Locator, marks: Record<string, MarkSpec>): Promise<Marks> {
-  await armTimer(page, marks, { event: "click" });
-  await click.click();
-  const result = await readTimer(page, ["confirmed"], 45_000);
-  for (const name of Object.keys(marks)) result[name] ??= null;
-  return result;
+  const { confirmed: dom, ...rest } = marks;
+  const armed: Record<string, MarkSpec> = { ...rest, shown: dom };
+  const actions = watchActionResponses(page);
+  try {
+    await armTimer(page, armed, { event: "click" });
+    await click.click();
+    const result = await readTimer(page, ["shown"], 45_000);
+    await page.waitForLoadState("networkidle");
+    const zero = await timerEpoch(page);
+    const at = actions.firstSince(zero);
+    for (const name of Object.keys(armed)) result[name] ??= null;
+    result.response = at === null ? null : Math.round((at - zero) * 10) / 10;
+    result.confirmed = Math.max(result.shown ?? 0, result.response ?? 0);
+    return result;
+  } finally {
+    actions.stop();
+  }
 }
 
 /** A click or key whose confirmed state is the server action's response (no DOM state of its own). */

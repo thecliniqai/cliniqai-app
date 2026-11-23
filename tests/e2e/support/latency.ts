@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BrowserContext, Page, Request } from "@playwright/test";
 import { AUTH_DIR } from "./run-data";
-import { LOCAL_SUPABASE_URL, ROOT } from "./app-env";
+import { E2E_BASE_URL, LOCAL_SUPABASE_URL, ROOT } from "./app-env";
 
 /** Read by `server-latency.cjs` (mtime-checked, no restart). Removed by global setup and by the run's teardown (the whole auth dir). */
 export const LATENCY_RULE_FILE = path.join(AUTH_DIR, "latency.json");
@@ -330,14 +330,23 @@ export async function timeFullLoad(
 }
 
 /**
- * The server actions' responses of a page, by arrival (epoch ms, runner clock): a POST carrying `next-action` is answered when the action
- * finished. For a save whose confirmed state has no DOM marker of its own, `confirmed = first response − the timer's zero`.
+ * The app's own answers to a page's writes, by arrival (epoch ms, runner clock): a POST to the app (a server action carrying `next-action`, or a
+ * route handler) is answered when the command finished. The shell's own status check and, from 09E-02, the monitoring beacon are not saves.
+ * For a save: `response = first answer since the timer's zero − that zero`.
  */
 export function watchActionResponses(page: Page): { firstSince: (epoch: number) => number | null; stop: () => void } {
   const seen: number[] = [];
-  const onResponse = (response: { request(): { method(): string; headers(): Record<string, string> } }) => {
-    const request = response.request();
-    if (request.method() === "POST" && request.headers()["next-action"]) seen.push(Date.now());
+  const onResponse = (response: { url(): string; request(): { method(): string } }) => {
+    if (response.request().method() !== "POST") return;
+    let url: URL;
+    try {
+      url = new URL(response.url());
+    } catch {
+      return;
+    }
+    if (url.origin !== E2E_BASE_URL) return;
+    if (url.pathname === "/api/session-status" || url.pathname === "/api/rum") return;
+    seen.push(Date.now());
   };
   page.on("response", onResponse);
   return {
@@ -370,4 +379,36 @@ export async function watchEpoch(page: Page, spec: MarkSpec): Promise<void> {
 export async function seenAt(page: Page, timeoutMs = 45_000): Promise<number> {
   await page.waitForFunction(() => (window as unknown as { __seenAt?: number }).__seenAt !== undefined, undefined, { timeout: timeoutMs });
   return page.evaluate(() => (window as unknown as { __seenAt: number }).__seenAt);
+}
+
+/** Epoch ms at which the most recent recorded call finished (0 when none). */
+export function lastCallEnd(): number {
+  let last = 0;
+  if (fs.existsSync(LATENCY_RECORD_FILE)) {
+    const lines = fs.readFileSync(LATENCY_RECORD_FILE, "utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0 && last === 0; i--) {
+      if (!lines[i]) continue;
+      try {
+        last = (JSON.parse(lines[i]) as { t1: number }).t1;
+      } catch {
+        // a partial last line of a file still being appended to: look one line back
+      }
+    }
+  }
+  for (const state of allBrowserStates) for (const call of state.records) last = Math.max(last, call.t1);
+  return last;
+}
+
+/**
+ * Waits until no call has finished for `quietMs` (bounded). A server may go on after the page is idle (work queued with `after()`, a
+ * refresh the response triggered): those calls belong to the step that caused them, so a window starts and ends only when they are done. A
+ * call still in flight finishes within the injected wait, so a quiet period longer than twice the wait is a quiet server.
+ */
+export async function waitForQuiet(quietMs: number, maxMs = 20_000): Promise<void> {
+  const started = Date.now();
+  for (;;) {
+    const sinceLast = Date.now() - lastCallEnd();
+    if (sinceLast >= quietMs || Date.now() - started >= maxMs) return;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(150, quietMs - sinceLast)));
+  }
 }

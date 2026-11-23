@@ -16,7 +16,7 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { expect } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { countKongCalls } from "../support/kong-calls";
-import { callIntervals, depthOf, setSupabaseLatency, clearSupabaseLatency, resetLatencyRecords } from "../support/latency";
+import { callIntervals, depthOf, setSupabaseLatency, clearSupabaseLatency, resetLatencyRecords, waitForQuiet } from "../support/latency";
 import { budgetRow, ceilingOf, type BudgetRow } from "./latency-budgets";
 
 export const LATENCY_MS = Number(process.env.PERF_LATENCY_MS ?? 300);
@@ -32,10 +32,16 @@ export interface Sample {
   server: number;
   browser: number;
   realtime: number;
+  /**
+   * Requests the server makes on a clock of its own, counted apart from the step and left out of `calls` and `depth`: the JWKS refresh of the
+   * session verifier (the cached key set expires; it shows in a sample or not by the time). `METHOD path` → count.
+   */
+  background: Record<string, number>;
   /** Longest chain of calls that waited for one another; null on the reference run (no delay, no intervals). */
   depth: number | null;
   recordedServer: number;
   recordedBrowser: number;
+  recordedBackground: number;
   debugEdges?: string[];
   /** `METHOD path` → count, of the recorded server calls (a calibration failure names the paths that differ from Kong's). */
   recordedServerByPath: Record<string, number>;
@@ -65,6 +71,13 @@ export interface RowResult {
   verdict: "within target" | "over target" | "no target";
   ceiling: { maxCalls: number; maxDepth: number; source: string } | null;
 }
+
+/** A server that has made no call for this long (twice the injected wait, and a margin) is done with a step. */
+const QUIET_MS = Math.max(1_000, LATENCY_MS * 2 + 400);
+
+/** Server requests that follow a timer, not the step (see {@link Sample.background}). */
+const BACKGROUND_PATHS = ["/auth/v1/.well-known/jwks.json"];
+const isBackgroundKey = (key: string) => BACKGROUND_PATHS.some((p) => key.endsWith(p));
 
 const results: RowResult[] = [];
 const median = (xs: number[]): number => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
@@ -136,21 +149,29 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
       from = Date.now();
       marks = await body();
       await page.waitForLoadState("networkidle");
+      // The server's own tail (work queued with after(), a refresh the response caused) is part of the step.
+      if (LATENCY_MS > 0) await waitForQuiet(QUIET_MS);
     }, 1_200, timing);
     // The window closed when the end marker went out: a call that completed after it belongs to the next window (Kong's count stops there too).
     const to = timing.endAt ?? Date.now();
     const realtimeOf = (byPath: Record<string, number>) =>
       Object.entries(byPath).reduce((n, [key, count]) => (key.includes("/realtime/v1/websocket") ? n + count : n), 0);
     const realtime = realtimeOf(kong.browserByPath);
-    const intervals = LATENCY_MS > 0 ? callIntervals({ from, to }) : [];
+    const everyInterval = LATENCY_MS > 0 ? callIntervals({ from, to }) : [];
+    const intervals = everyInterval.filter((c) => !BACKGROUND_PATHS.includes(c.path));
+    const background = Object.fromEntries(Object.entries(kong.serverByPath).filter(([key]) => isBackgroundKey(key)));
+    const backgroundKong = Object.values(background).reduce((n, count) => n + count, 0);
+    const serverByPath = Object.fromEntries(Object.entries(kong.serverByPath).filter(([key]) => !isBackgroundKey(key)));
     return {
-      calls: kong.server + kong.browser - realtime,
-      server: kong.server,
+      calls: kong.server - backgroundKong + kong.browser - realtime,
+      server: kong.server - backgroundKong,
       browser: kong.browser - realtime,
       realtime,
+      background,
       depth: LATENCY_MS > 0 ? depthOf(intervals) : null,
       recordedServer: intervals.filter((c) => c.from === "server").length,
       recordedBrowser: intervals.filter((c) => c.from === "browser").length,
+      recordedBackground: everyInterval.length - intervals.length,
       debugEdges: process.env.PERF_LATENCY_DEBUG ? callIntervals({ from: from - 5000, to: to + 5000 }).filter((c) => c.t1 < from + 200 || c.t1 > to - 200).map((c) => `${c.from} ${c.method} ${c.path} t1-from=${c.t1 - from} t1-to=${c.t1 - to}`) : undefined,
       recordedServerByPath: intervals
         .filter((c) => c.from === "server")
@@ -159,10 +180,10 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
           acc[key] = (acc[key] ?? 0) + 1;
           return acc;
         }, {}),
-      shortestMs: intervals.length ? Math.min(...intervals.map((c) => c.t1 - c.t0)) : null,
+      shortestMs: everyInterval.length ? Math.min(...everyInterval.map((c) => c.t1 - c.t0)) : null,
       marks,
       rsc,
-      serverByPath: kong.serverByPath,
+      serverByPath,
       browserByPath: Object.fromEntries(Object.entries(kong.browserByPath).filter(([key]) => !key.includes("/realtime/v1/websocket"))),
     };
   } finally {
@@ -180,6 +201,8 @@ export function calibrationProblems(s: Sample): string[] {
     const differ = [...keys].filter((k) => (s.recordedServerByPath[k] ?? 0) !== (s.serverByPath[k] ?? 0)).map((k) => `${k} recorded ${s.recordedServerByPath[k] ?? 0}, Kong ${s.serverByPath[k] ?? 0}`);
     problems.push(`recorded ${s.recordedServer} server calls, Kong counted ${s.server} (${differ.join("; ")})${s.debugEdges ? ` EDGES ${JSON.stringify(s.debugEdges)}` : ""}`);
   }
+  const backgroundKong = Object.values(s.background).reduce((n, count) => n + count, 0);
+  if (s.recordedBackground !== backgroundKong) problems.push(`recorded ${s.recordedBackground} background calls, Kong counted ${backgroundKong}`);
   if (s.recordedBrowser !== s.browser) problems.push(`recorded ${s.recordedBrowser} browser calls, Kong counted ${s.browser}`);
   if (s.shortestMs !== null && s.shortestMs < LATENCY_MS - TIMER_ALLOWANCE_MS) problems.push(`a call lasted ${s.shortestMs} ms, under the injected ${LATENCY_MS} ms`);
   return problems;
@@ -215,6 +238,7 @@ export async function runRow<S>(run: RowRun<S>): Promise<RowResult> {
     const state = await run.prepare();
     // Nothing from the preparation may still be on its way: Kong logs a call when it completes, so one still running at the start marker would count in the window.
     await run.page.waitForLoadState("networkidle");
+    if (LATENCY_MS > 0) await waitForQuiet(QUIET_MS);
     const sample = await measure(run.page, run.holds, () => run.act(state));
     if (i < 0) continue; // the warm-up: first-hit costs (JWKS, a cold route) are not a per-step cost
     const problems = calibrationProblems(sample);
