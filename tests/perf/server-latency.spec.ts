@@ -77,7 +77,7 @@ describe("server-latency preload", () => {
     expect(probe.waited).toBeLessThan(345 + 400);
     const [rec] = records();
     expect(records()).toHaveLength(1);
-    expect(rec).toMatchObject({ method: "GET", path: "/rest/v1/visits" });
+    expect(rec).toMatchObject({ method: "GET", path: "/rest/v1/visits", ms: 350 });
     expect(rec.t1 - rec.t0).toBeGreaterThanOrEqual(345);
     expect(JSON.stringify(rec)).not.toMatch(/3f2b9c1e|select/);
   });
@@ -119,5 +119,27 @@ describe("server-latency preload", () => {
     const out = JSON.parse(res.stdout) as { reached: number; ms: number };
     expect(out.reached).toBe(1);
     expect(out.ms).toBeLessThan(150);
+  });
+});
+
+describe("server-latency preload: aborted calls", () => {
+  it("does not record a call that was aborted during its wait (it never reached the local stack)", () => {
+    const ruleFile = path.join(dir, "latency.json");
+    const recordFile = path.join(dir, "record.jsonl");
+    fs.writeFileSync(ruleFile, JSON.stringify({ ms: 400, record: recordFile }));
+    const script = `
+      let reached = 0;
+      globalThis.fetch = async () => { reached += 1; return new Response("{}"); };
+      require(${JSON.stringify(SERVER_LATENCY)});
+      (async () => {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 50);
+        const outcome = await fetch("http://127.0.0.1:54321/rest/v1/visits", { signal: controller.signal }).then(() => "answered", () => "aborted");
+        process.stdout.write(JSON.stringify({ outcome, reached }));
+      })();
+    `;
+    const res = spawnSync(process.execPath, ["-e", script], { encoding: "utf8", timeout: 30_000, env: { PATH: process.env.PATH ?? "", E2E_LATENCY_RULE_FILE: ruleFile } as unknown as NodeJS.ProcessEnv });
+    expect(JSON.parse(res.stdout)).toEqual({ outcome: "aborted", reached: 0 });
+    expect(records()).toEqual([]);
   });
 });

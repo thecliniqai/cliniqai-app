@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { depthOf, type CallInterval } from "../e2e/support/latency";
 
-const call = (t0: number, t1: number, from: CallInterval["from"] = "server"): CallInterval => ({ t0, t1, method: "GET", path: "/rest/v1/x", from });
+const call = (t0: number, t1: number, from: CallInterval["from"] = "server"): CallInterval => ({ t0, t1, ms: 300, method: "GET", path: "/rest/v1/x", from });
 
 describe("depthOf", () => {
   it("is 0 for no calls", () => {

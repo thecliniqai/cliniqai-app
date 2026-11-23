@@ -4,7 +4,7 @@
  *
  * While the rule file `playwright/.auth/latency.json` = `{ "ms": N, "record": "<path>" }` exists, every `fetch` to the local Supabase
  * origin (loopback, port 54321) waits N ms before it is sent, and, once the response has arrived, appends one JSON line
- * `{ "t0", "t1", "method", "path" }` (epoch ms; the path without ids or query string) to the record file. Anything else (another
+ * `{ "t0", "t1", "ms", "method", "path" }` (epoch ms; `ms` the injected wait, so a call's moment at the local stack is `t0 + ms`; the path without ids or query string) to the record file. Anything else (another
  * origin, another loopback port, any call made while no rule file exists) is untouched and unrecorded. The rule file is checked with
  * a `stat` on every Supabase call and re-read only when its mtime changes, so a spec starts and ends the injection without a restart.
  * Deleting the file ends it. Synthetic data only; no header, body or id is ever written.
@@ -87,11 +87,14 @@ if (innerFetch && !innerFetch.__latency) {
     const call = rule ? supabaseCall(input, init) : null;
     if (!rule || !call) return innerFetch(input, init);
     const t0 = Date.now();
+    let sent = false;
     try {
       await sleep(rule.ms, (init && init.signal) || (typeof input === "object" && input && input.signal) || undefined);
+      sent = true;
       return await innerFetch(input, init);
     } finally {
-      record(rule, { t0, t1: Date.now(), method: call.method, path: call.path });
+      // A call aborted during its wait never reached the local stack: it is not a call (Kong never saw it), so it is not recorded.
+      if (sent) record(rule, { t0, t1: Date.now(), ms: rule.ms, method: call.method, path: call.path });
     }
   };
   latencyFetch.__latency = true;
