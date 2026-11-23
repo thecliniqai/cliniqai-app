@@ -23,7 +23,7 @@ import type { UserRole } from "@/lib/db/types";
  * Accepted only when: the MAC verifies (constant-time), the version, shape, role and level are known, `iat` is not in the
  * future (30 s skew) and `exp - iat` is at most the TTL and `exp` is after now, `uid` and `sid` equal the verified JWT's
  * `sub` and `session_id`, and `pin` equals the active-clinic cookie sent with this request. Anything else is ignored
- * (the caller falls back to the database and may reissue it).
+ * (the caller falls back to the database; only `/api/session-status` issues a new one, 09D-01a A-3).
  */
 export const CONTEXT_COOKIE = "clinic_ctx";
 /** 5 minutes: well inside the access token's 900 s, and the session-status poll (every 5 min while visible) renews it. */

@@ -7,7 +7,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 import { isSupabaseAuthCookie } from "@/lib/auth/session-age";
-import { forgetRequestMemo, peekRequestMemo, requestMemo, setRequestMemo } from "@/lib/auth/request-memo";
+import { forgetRequestMemo, requestMemo } from "@/lib/auth/request-memo";
 import {
   CONTEXT_COOKIE,
   contextCookieOptions,
@@ -144,9 +144,7 @@ export async function getTenantAccessLevel(tenantId: string, options: { fresh?: 
     const context = await contextFromCookie();
     if (context && context.tenantId === tenantId.toLowerCase()) return context.level;
   }
-  const level = await requestMemo(`level:${tenantId.toLowerCase()}`, () => readTenantAccessLevel(tenantId));
-  if (!options.fresh) await issueContextCookie(tenantId, level);
-  return level;
+  return requestMemo(`level:${tenantId.toLowerCase()}`, () => readTenantAccessLevel(tenantId));
 }
 
 async function readTenantAccessLevel(tenantId: string): Promise<TenantAccessLevel> {
@@ -324,30 +322,11 @@ async function contextFromCookie(): Promise<SessionContext | null> {
   return verdict.ok ? verdict.context : null;
 }
 
-const RESOLVED_KEY = "context:resolved-from-db";
-type ResolvedContext = Omit<SessionContext, "level">;
-
 /**
- * V2-09d: issues the session-context cookie after this request resolved the membership AND the access level of `tenantId`
- * from the database (never from the cookie itself, so its age never extends past one TTL without a database check). A
- * Server Component cannot set cookies (ignored: the next Server Action, route handler or session-status poll issues it).
- */
-async function issueContextCookie(tenantId: string, level: TenantAccessLevel): Promise<void> {
-  const secret = contextSecret();
-  if (!secret) return;
-  const resolved = await peekRequestMemo<ResolvedContext>(RESOLVED_KEY);
-  if (!resolved || resolved.tenantId !== tenantId.toLowerCase()) return;
-  try {
-    const store = await cookies();
-    store.set(CONTEXT_COOKIE, signContext({ ...resolved, level }, secret), contextCookieOptions(cookieSecureFor(await headers())));
-  } catch {
-    // Read-only cookies (a Server Component render) or no request scope.
-  }
-}
-
-/**
- * The session-context cookie for a context this request resolved fresh from the database (`/api/session-status`, which
- * sets it on its own response with the pin that response sets). Null when the cookie is off or the session has no id.
+ * The session-context cookie for a context this request resolved fresh from Supabase Auth and the database. 09D-01a (A-3):
+ * `/api/session-status` is the only issuer (on load, resume, `online` and every 5 min), on its own `no-store` response,
+ * with the pin that response leaves in place. A Server Action never sets it: any `cookies().set` there makes Next treat
+ * the action as a revalidation (a full re-render of the route). Null when the cookie is off or the session has no id.
  */
 export async function contextCookieFor(
   membership: ActiveMembership,
@@ -369,7 +348,7 @@ export async function contextCookieFor(
  * V2-09d: forgets this device's clinic context after an action that changed it (clinic switch, clinic creation, an
  * invitation accepted, a membership or role change by the caller, a subscription change in the app): the cookie is
  * expired and this request's memoised lookups are dropped, so the render that follows and the next request read the
- * database again (and the next Server Action or status poll reissues the cookie).
+ * database again (and the next status poll reissues the cookie).
  */
 export async function forgetSessionContext(): Promise<void> {
   await forgetRequestMemo();
@@ -408,17 +387,7 @@ export async function getActiveMembership(explicitTenantId?: string, options: { 
   }
 
   const memberships = await listActiveMemberships(claims.userId);
-  const membership = selectMembership(memberships, targetTenantId, claims.userId);
-  if (claims.sessionId) {
-    await setRequestMemo<ResolvedContext>(RESOLVED_KEY, {
-      userId: claims.userId,
-      sessionId: claims.sessionId,
-      tenantId: membership.tenantId.toLowerCase(),
-      role: membership.role,
-      pin: normalisePin(pin),
-    });
-  }
-  return membership;
+  return selectMembership(memberships, targetTenantId, claims.userId);
 }
 
 function selectMembership(memberships: ActiveMembershipRow[], targetTenantId: string | undefined, userId: string): ActiveMembership {

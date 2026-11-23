@@ -8,8 +8,9 @@
  * `rpc(<name>)`, `auth.getUser()`.
  *
  * - one request asks for the context many times and reads the memberships and the access level once, Auth never;
- * - a Server Action that read them from the database issues the cookie (ids, role and state only, 5 min, HttpOnly);
- *   a Server Component render cannot (the next action or status poll does);
+ * - 09D-01a (A-3): `/api/session-status` is the only issuer of the cookie (ids, role and state only, 5 min, HttpOnly); a
+ *   Server Action or route handler that read the context from the database never sets it (a `cookies().set` in an action
+ *   makes Next re-render the route);
  * - the next request of the same session with that cookie reads neither the memberships nor the access level;
  * - the cookie is ignored (database again) when its signature, session, user or pin does not match;
  * - `/api/session-status` always asks Auth and the database (fresh) and reissues the cookie;
@@ -123,7 +124,6 @@ function request(client: TestDb, jar: Record<string, string> = {}, kind: "action
 }
 
 const contextLookups = () => state.calls.filter((c) => c === "from:memberships" || c === "rpc:my_tenant_access" || c === "auth:getUser");
-const issued = () => state.sets.find((s) => s.name === CONTEXT_COOKIE);
 const payloadOf = (value: string) => JSON.parse(Buffer.from(value.split(".")[0]!, "base64url").toString("utf8")) as Record<string, unknown>;
 
 async function sessionIdOf(client: TestDb): Promise<string> {
@@ -131,13 +131,22 @@ async function sessionIdOf(client: TestDb): Promise<string> {
   return String((data?.claims as Record<string, unknown>).session_id);
 }
 
-/** A Server Action of `client` that resolves the context from the database: returns the cookie it issued. */
-async function issueFor(client: TestDb, jar: Record<string, string> = {}): Promise<string> {
+/**
+ * The shell's status poll for `client` (09D-01a, A-3: the only issuer): the device's cookies afterwards (the context cookie
+ * and the active-clinic pin it is bound to, merged over `jar`).
+ */
+async function issueFor(client: TestDb, jar: Record<string, string> = {}): Promise<Record<string, string>> {
   request(client, jar);
-  await requireServiceContext("patients:view");
-  const cookie = issued();
-  if (!cookie) throw new Error("no context cookie issued");
-  return cookie.value;
+  const res = await sessionStatus();
+  if (res.status !== 200) throw new Error(`session status ${res.status}`);
+  const device = { ...jar };
+  for (const header of res.headers.getSetCookie()) {
+    const [pair] = header.split(";");
+    const eq = pair!.indexOf("=");
+    device[pair!.slice(0, eq)] = pair!.slice(eq + 1);
+  }
+  if (!device[CONTEXT_COOKIE]) throw new Error("no context cookie issued");
+  return device;
 }
 
 describe("V2-09d request context and session-context cookie (local stack)", () => {
@@ -169,20 +178,35 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     expect(state.sets).toEqual([]);
   });
 
-  it("a Server Action that read the context from the database issues the cookie: ids, role and state only, 5 min, HttpOnly", async () => {
-    const value = await issueFor(receptionist.client);
-    const cookie = issued()!;
-    expect(cookie.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", maxAge: CONTEXT_COOKIE_TTL_SECONDS });
+  it("A-3: a Server Action or route handler that read the context from the database never sets the cookie", async () => {
+    request(receptionist.client);
+    await requireServiceContext("patients:view");
+    await requirePermission("appointments:view");
+    expect(contextLookups().sort()).toEqual(["from:memberships", "rpc:my_tenant_access"]);
+    expect(state.sets).toEqual([]);
+    expect(state.deleted).toEqual([]);
+  });
+
+  it("the status poll issues the cookie: ids, role and state only, 5 min, HttpOnly", async () => {
+    request(receptionist.client);
+    const res = await sessionStatus();
+    expect(res.status).toBe(200);
+    const header = res.headers.getSetCookie().find((c) => c.startsWith(`${CONTEXT_COOKIE}=`))!;
+    expect(header).toMatch(/HttpOnly/i);
+    expect(header).toMatch(/SameSite=lax/i);
+    expect(header).toMatch(/Path=\//);
+    expect(header).toMatch(new RegExp(`Max-Age=${CONTEXT_COOKIE_TTL_SECONDS}`));
+    const value = header.slice(CONTEXT_COOKIE.length + 1).split(";")[0]!;
     const p = payloadOf(value);
     expect(Object.keys(p).sort()).toEqual(["exp", "iat", "lvl", "pin", "role", "sid", "tid", "uid", "v"]);
-    expect(p).toMatchObject({ uid: receptionist.userId, sid: await sessionIdOf(receptionist.client), tid: owner.tenantId, role: "receptionist", lvl: "full", pin: "" });
+    expect(p).toMatchObject({ uid: receptionist.userId, sid: await sessionIdOf(receptionist.client), tid: owner.tenantId, role: "receptionist", lvl: "full", pin: owner.tenantId });
     expect(Number(p.exp) - Number(p.iat)).toBe(CONTEXT_COOKIE_TTL_SECONDS);
     expect(value).not.toContain(receptionist.userEmail);
   });
 
   it("the next request of the same session with the cookie: no membership, access-level or Auth call", async () => {
-    const value = await issueFor(receptionist.client);
-    request(receptionist.client, { [CONTEXT_COOKIE]: value }, "render");
+    const device = await issueFor(receptionist.client);
+    request(receptionist.client, device, "render");
     const ctx = await requireServiceContext("appointments:view");
     await getTenantAccessLevel(owner.tenantId);
     expect(ctx).toMatchObject({ tenantId: owner.tenantId, role: "receptionist", userId: receptionist.userId });
@@ -190,42 +214,43 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
   });
 
   it("a cookie that does not match is ignored and the database answers: changed signature, another user, another pin", async () => {
-    const value = await issueFor(receptionist.client);
+    const device = await issueFor(receptionist.client);
+    const value = device[CONTEXT_COOKIE]!;
     const mac = value.split(".")[1];
     const forged = `${Buffer.from(JSON.stringify({ ...payloadOf(value), role: "owner" })).toString("base64url")}.${mac}`;
 
     // Changed signature: the forged role is not believed.
-    request(receptionist.client, { [CONTEXT_COOKIE]: forged });
+    request(receptionist.client, { ...device, [CONTEXT_COOKIE]: forged });
     expect((await getActiveMembership()).role).toBe("receptionist");
     expect(state.calls).toContain("from:memberships");
 
     // Another user presenting it (a shared front-desk device, the next sign-in) gets their own context from the database.
-    request(owner.client, { [CONTEXT_COOKIE]: value });
+    request(owner.client, device);
     expect(await getActiveMembership()).toMatchObject({ userId: owner.userId, role: "owner" });
     expect(state.calls).toContain("from:memberships");
 
-    // Another pin than the one it was issued under.
-    request(receptionist.client, { [CONTEXT_COOKIE]: value, [ACTIVE]: owner.tenantId });
+    // Another pin than the one it was issued under (none at all).
+    request(receptionist.client, { [CONTEXT_COOKIE]: value });
     expect(await getActiveMembership()).toMatchObject({ tenantId: owner.tenantId, role: "receptionist" });
     expect(state.calls).toContain("from:memberships");
   });
 
   it("another session of the same user (signed in elsewhere) does not accept this session's cookie", async () => {
-    const value = await issueFor(receptionist.client);
+    const device = await issueFor(receptionist.client);
     const second = createSupabaseClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     }) as TestDb;
     const { error } = await second.auth.signInWithPassword({ email: receptionist.userEmail, password: seededUserPassword() });
     expect(error).toBeNull();
     expect(await sessionIdOf(second)).not.toBe(await sessionIdOf(receptionist.client));
-    request(second, { [CONTEXT_COOKIE]: value });
+    request(second, device);
     await getActiveMembership();
     expect(state.calls).toContain("from:memberships");
   });
 
   it("/api/session-status asks Auth and the database every time, then reissues the cookie with the pin it leaves", async () => {
-    const value = await issueFor(receptionist.client);
-    request(receptionist.client, { [CONTEXT_COOKIE]: value, [ACTIVE]: owner.tenantId });
+    const device = await issueFor(receptionist.client);
+    request(receptionist.client, device);
     const res = await sessionStatus();
     expect(res.status).toBe(200);
     expect(contextLookups().sort()).toEqual(["auth:getUser", "from:memberships", "rpc:my_tenant_access"]);
@@ -239,10 +264,10 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     const leaving = await addMemberToTenant(owner.tenantId, "receptionist");
     const patientId = await seedPatient(owner);
     const visitId = await seedBookedVisit(owner, patientId, owner.userId, new Date(Date.now() + 3_600_000).toISOString());
-    const value = await issueFor(leaving.client);
+    const device = await issueFor(leaving.client);
 
     // While a member, the same session reads the clinic's patients.
-    request(leaving.client, { [CONTEXT_COOKIE]: value });
+    request(leaving.client, device);
     const before = await requireServiceContext("patients:view");
     const { data: seen } = await before.db.from("patients").select("id").eq("id", patientId);
     expect(seen).toHaveLength(1);
@@ -255,7 +280,7 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     expect(removeError).toBeNull();
 
     // The cookie is still valid: the app-side context resolves without a database read (navigation for <= TTL) ...
-    request(leaving.client, { [CONTEXT_COOKIE]: value });
+    request(leaving.client, device);
     const stale = await requireServiceContext("patients:view");
     expect(stale.tenantId).toBe(owner.tenantId);
     expect(contextLookups()).toEqual([]);
@@ -265,13 +290,13 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     const { data: visits } = await stale.db.from("visits").select("id").eq("tenant_id", owner.tenantId);
     expect(visits).toEqual([]);
     // ... and so is a command (the real check-in action, which passes the app-side guard on the stale cookie).
-    request(leaving.client, { [CONTEXT_COOKIE]: value });
+    request(leaving.client, device);
     const checkIn = await checkInVisit(visitId, "normal", randomUUID());
     expect(checkIn.ok).toBe(false);
     const { data: visit } = await getAdminClient().from("visits").select("status").eq("id", visitId).single();
     expect(visit?.status).toBe("booked");
     // The shell's next status poll (fresh) ends the session on the device.
-    request(leaving.client, { [CONTEXT_COOKIE]: value, [ACTIVE]: owner.tenantId });
+    request(leaving.client, device);
     expect((await sessionStatus()).status).toBe(403);
 
     // Control: a current member's check-in of the same visit goes through.
@@ -283,10 +308,11 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
   it("the clinic switcher expires the cookie, and a cookie of the previous clinic is refused under the new pin", async () => {
     const eco = await seedDualTenantEcosystem();
     const dual = eco.dualUser;
-    const value = await issueFor(dual.client, { [ACTIVE]: eco.tenantA.tenantId });
+    const device = await issueFor(dual.client, { [ACTIVE]: eco.tenantA.tenantId });
+    const value = device[CONTEXT_COOKIE]!;
     expect(payloadOf(value)).toMatchObject({ tid: eco.tenantA.tenantId, pin: eco.tenantA.tenantId });
 
-    request(dual.client, { [CONTEXT_COOKIE]: value, [ACTIVE]: eco.tenantA.tenantId });
+    request(dual.client, device);
     const result = await switchClinic(eco.tenantB.tenantId);
     expect(result).toEqual({ success: true });
     expect(state.deleted).toContain(CONTEXT_COOKIE);

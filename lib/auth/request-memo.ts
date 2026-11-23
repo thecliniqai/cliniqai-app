@@ -53,21 +53,3 @@ export async function forgetRequestMemo(): Promise<void> {
   if (scope) MEMO.delete(scope);
 }
 
-/** The settled value memoised under `key` in this request, if any (never runs a lookup). */
-export async function peekRequestMemo<T>(key: string): Promise<T | undefined> {
-  const scope = await requestScope();
-  const hit = scope ? (MEMO.get(scope)?.get(key) as Promise<T> | undefined) : undefined;
-  return hit ? hit.catch(() => undefined) : undefined;
-}
-
-/** Records `value` under `key` for the rest of this request (no-op outside a request). */
-export async function setRequestMemo<T>(key: string, value: T): Promise<void> {
-  const scope = await requestScope();
-  if (!scope) return;
-  let entries = MEMO.get(scope);
-  if (!entries) {
-    entries = new Map();
-    MEMO.set(scope, entries);
-  }
-  entries.set(key, Promise.resolve(value));
-}
