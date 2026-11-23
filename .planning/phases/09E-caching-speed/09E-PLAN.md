@@ -580,6 +580,10 @@ No item is unplanned. Strategy item 3 is planned in full and gated by C-1; nothi
 | Q-3 (C-3) | May on-device search answer on every keystroke instead of waiting 200 ms? This changes one design-system rule | Yes |
 | Q-4 | Do you accept the budgets (page under 1 s, full reload under 1.5 s, search under 0.1 s, save confirmed under 0.5 s and visible at once, finish under 1 s), measured with 300 ms per database call, and the budget check on every pull request (about 4 more minutes of CI)? | Yes |
 
+**PO answers (2026-11-23, in chat):** Q-2 yes (amend PWA §4 as C-2 proposes); Q-3 yes (amend DESIGN_SYSTEM §5 Combobox
+as C-3 proposes); Q-4 yes (budgets as listed, budget check on every PR). Q-1 open: the PO asked for an explanation; until
+answered, the default holds (ADR-019 unchanged, 09E-09 not built, its measurement step still runs).
+
 PO actions at the close: `09E-P1` gate; `09E-P2` a 10-minute walkthrough on staging after the staging migrate (open Today, a consult, search a
 drug and a diagnosis, add three Rx lines, book from Schedule, on a phone and a desktop) and the device checklist (low-end Android: catalogue
 download time, search speed, memory; iPad: the same); `09E-P3` staging migrate of 000122 to 000124 (not delegated); `09E-P4` read-only check of
