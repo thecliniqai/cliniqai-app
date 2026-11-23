@@ -7,8 +7,11 @@
  * of the setup project). For each role and page: one warm-up load (first-hit costs such as the JWKS fetch are not a
  * per-navigation cost), then {@link SAMPLES} full loads, each counted between two Kong markers
  * (`support/kong-calls.ts`): the Supabase calls of the app server and of the browser, by path, and the navigation time
- * (Navigation Timing `responseEnd`: the document fully streamed, i.e. the server's work, and `loadEventEnd`). Then one
- * server action, the receptionist's "Check in" on Today, counted from the click until the row is in Waiting.
+ * (Navigation Timing `responseEnd`: the document fully streamed, i.e. the server's work, and `loadEventEnd`). A full
+ * load includes the shell's on-load `/api/session-status` check (the one fresh Auth + database check). Then
+ * {@link SAMPLES} in-app (soft) navigations to the same page from another page (`router.push`, what a click on a link
+ * does), counted the same way, with the time from the push until the network is idle. Then one server action, the
+ * receptionist's "Check in" on Today, counted from the click until the row is in Waiting.
  *
  * Output: a table on stdout and `test-results/perf-roundtrips/{summary.json,summary.md}`. Paths carry no ids or query
  * strings; synthetic data only. The test fails only on a broken measurement (a page that landed elsewhere, a missing
@@ -30,6 +33,7 @@ const SAMPLES = 3;
 
 interface PageRow {
   role: E2eRole;
+  kind: "full load" | "in-app";
   label: string;
   landedOn: string;
   server: number[];
@@ -70,18 +74,44 @@ async function load(page: Page, url: string): Promise<void> {
   await page.waitForLoadState("networkidle");
 }
 
+/**
+ * A client-side navigation (Next's `router.push`, as a link click does). Returns the ms from the push until the last RSC
+ * response of the navigation ended (Resource Timing of the `_rsc` fetches: the server's work and the transfer), once the URL
+ * is `url` and the network is idle; then waits a little longer so a late request is still inside the caller's count window.
+ */
+async function softNavigate(page: Page, url: string): Promise<number> {
+  const target = new URL(url, page.url());
+  const pushedAt = await page.evaluate((href) => {
+    const at = performance.now();
+    (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(href);
+    return at;
+  }, url);
+  await page.waitForURL((u) => u.pathname === target.pathname && u.search === target.search);
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(300);
+  await page.waitForLoadState("networkidle");
+  return page.evaluate((since) => {
+    const ends = performance
+      .getEntriesByType("resource")
+      .filter((e) => e.startTime >= since && e.name.includes("_rsc="))
+      .map((e) => (e as PerformanceResourceTiming).responseEnd);
+    return ends.length ? Math.round(Math.max(...ends) - since) : -1;
+  }, pushedAt);
+}
+
 function writeReport(): void {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const lines = [
-    `| Role | Page | Server calls (median of ${SAMPLES}) | Browser calls | responseEnd ms | load ms | Server calls by path (last sample) |`,
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    `| Role | Navigation | Page | Server calls (median of ${SAMPLES}) | Browser calls | responseEnd ms (full load) / ms push → last RSC byte (in-app) | load ms | Server calls by path (last sample) |`,
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows.map((r) => {
       const byPath = Object.entries(r.serverByPath)
         .sort((a, b) => b[1] - a[1])
         .map(([k, n]) => `${k} ×${n}`)
         .join("; ");
       const landed = r.landedOn === r.label.split(" ")[0] || r.label.includes("[id]") || r.label.includes("?") ? "" : ` → ${r.landedOn}`;
-      return `| ${r.role} | ${r.label}${landed} | ${median(r.server)} | ${median(r.browser)} | ${median(r.responseEndMs)} | ${median(r.loadMs)} | ${byPath} |`;
+      const loadMs = r.kind === "full load" ? String(median(r.loadMs)) : "";
+      return `| ${r.role} | ${r.kind} | ${r.label}${landed} | ${median(r.server)} | ${median(r.browser)} | ${median(r.responseEndMs)} | ${loadMs} | ${byPath} |`;
     }),
     "",
     "| Role | Server action | Server calls | Browser calls | ms (click → row in Waiting) | Server calls by path |",
@@ -109,7 +139,7 @@ for (const role of ["receptionist", "doctor"] as const) {
       test.setTimeout(10 * 60_000);
       for (const { label, url } of pagesFor(role)) {
         await load(page, url); // warm-up
-        const row: PageRow = { role, label, landedOn: "", server: [], browser: [], responseEndMs: [], loadMs: [], serverByPath: {} };
+        const row: PageRow = { role, kind: "full load", label, landedOn: "", server: [], browser: [], responseEndMs: [], loadMs: [], serverByPath: {} };
         for (let i = 0; i < SAMPLES; i++) {
           const window: KongWindow = await countKongCalls(() => load(page, url));
           const timing = await navigationTiming(page);
@@ -121,6 +151,34 @@ for (const role of ["receptionist", "doctor"] as const) {
         }
         row.landedOn = new URL(page.url()).pathname;
         // A signed-in page must not have bounced to sign-in (that would measure the login page).
+        expect(row.landedOn, `${role} ${label}`).not.toBe("/login");
+        rows.push(row);
+      }
+    });
+
+    test(`${role}: Supabase calls per in-app navigation`, async ({ page }) => {
+      test.setTimeout(10 * 60_000);
+      for (const { label, url } of pagesFor(role)) {
+        // A page this role is redirected away from (measured as a full load above) is not an in-app destination.
+        const full = rows.find((r) => r.role === role && r.kind === "full load" && r.label === label);
+        if (full && full.landedOn !== new URL(url, "http://x").pathname) continue;
+        // From another page of the app (Today, or Patients for Today itself), as a click in the navigation does.
+        const from = url === "/today" ? "/patients" : "/today";
+        await load(page, from);
+        await softNavigate(page, url); // warm-up
+        const row: PageRow = { role, kind: "in-app", label, landedOn: "", server: [], browser: [], responseEndMs: [], loadMs: [], serverByPath: {} };
+        for (let i = 0; i < SAMPLES; i++) {
+          await load(page, from);
+          let ms = 0;
+          const window: KongWindow = await countKongCalls(async () => {
+            ms = await softNavigate(page, url);
+          });
+          row.server.push(window.server);
+          row.browser.push(window.browser);
+          row.responseEndMs.push(ms);
+          row.serverByPath = window.serverByPath;
+        }
+        row.landedOn = new URL(page.url()).pathname;
         expect(row.landedOn, `${role} ${label}`).not.toBe("/login");
         rows.push(row);
       }
