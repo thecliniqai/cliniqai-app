@@ -572,6 +572,13 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (deploy && present(raw.SESSION_CONTEXT_SECRET) && /not-real/i.test(raw.SESSION_CONTEXT_SECRET)) {
     add("SESSION_CONTEXT_SECRET", `must not be a local placeholder in ${tier}`);
   }
+  // 09D-01a (S-4): its own value, in every tier: never the value of another secret the schema knows (CRON_SECRET,
+  // JOBS_RUNNER_SECRET, the hook and webhook secrets, the provider keys), whose leak or rotation is someone else's. Only
+  // the other key's name is reported, never a value.
+  if (present(raw.SESSION_CONTEXT_SECRET)) {
+    const reused = SECRET_ENV_NAMES.filter((name) => name !== "SESSION_CONTEXT_SECRET" && raw[name] === raw.SESSION_CONTEXT_SECRET);
+    for (const name of reused) add("SESSION_CONTEXT_SECRET", `must differ from ${name} (its own value)`);
+  }
   if (raw.DIAG_ERROR_ROUTE_ENABLED === "true" && tier === "production") {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
   }

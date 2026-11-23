@@ -518,6 +518,27 @@ describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () =
     expectRejected({ ...profile, SESSION_CONTEXT_SECRET: "not-real-session-context-key-".repeat(2) }, "SESSION_CONTEXT_SECRET");
   });
 
+  // 09D-01a (S-4): its own value, never another secret's.
+  it.each([
+    ["CRON_SECRET", PRODUCTION.CRON_SECRET],
+    ["JOBS_RUNNER_SECRET", PRODUCTION.JOBS_RUNNER_SECRET],
+    ["SEND_EMAIL_HOOK_SECRET", PRODUCTION.SEND_EMAIL_HOOK_SECRET],
+    ["MSG91_WEBHOOK_SECRET", PRODUCTION.MSG91_WEBHOOK_SECRET],
+    ["ERROR_INGEST_KEY", PRODUCTION.ERROR_INGEST_KEY],
+    ["SUPABASE_SECRET_KEY", PRODUCTION.SUPABASE_SECRET_KEY],
+  ])("SESSION_CONTEXT_SECRET equal to %s throws in every tier, naming the other key and echoing no value", (other, value) => {
+    for (const profile of [PRODUCTION, STAGING, CI_BUILD]) {
+      const source = { ...profile, [other]: value, SESSION_CONTEXT_SECRET: value };
+      const issues = expectRejected(source, "SESSION_CONTEXT_SECRET");
+      expect(issues).toContain(`SESSION_CONTEXT_SECRET: must differ from ${other} (its own value)`);
+      expect(issues.join("\n")).not.toContain(String(value));
+    }
+  });
+
+  it("a SESSION_CONTEXT_SECRET of its own parses (control)", () => {
+    expect(issuesOf(PRODUCTION).filter((i) => i.startsWith("SESSION_CONTEXT_SECRET:"))).toEqual([]);
+  });
+
   it("DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15)", () => {
     expectRejected({ ...PRODUCTION, DIAG_ERROR_ROUTE_ENABLED: "true" }, "DIAG_ERROR_ROUTE_ENABLED");
   });
