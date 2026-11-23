@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
+import { getSessionClaims } from "@/lib/auth/tenant";
 import { isUuid } from "@/lib/utils/filter-values";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
@@ -37,9 +38,8 @@ export async function GET(
     const ctx = resolved.ctx;
     const supabase = ctx.db;
     const membership = ctx;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // V2-09d: the verified session claims (no Auth round trip); only the user's metadata name is read from them.
+    const claims = await getSessionClaims();
 
     // 3. Fetch invoice under strict tenant isolation (supports invoice ID or visit ID)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +89,7 @@ export async function GET(
           .maybeSingle();
 
         doctorInfo = {
-          name: doctorMember?.full_name || user?.user_metadata?.full_name || "Clinician",
+          name: doctorMember?.full_name || (typeof claims.userMetadata.full_name === "string" ? claims.userMetadata.full_name : "") || "Clinician",
           qualifications: doctorMember?.qualifications || null,
           registration_no: doctorMember?.medical_council_reg_no || null,
         };

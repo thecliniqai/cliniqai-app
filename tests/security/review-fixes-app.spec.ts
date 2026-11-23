@@ -210,7 +210,8 @@ describe("01-08 review fixes, app-only items", () => {
 
     it("getActiveMembership throws a fixed message when the membership query fails", async () => {
       const fake = {
-        auth: { getUser: async () => ({ data: { user: { id: randomUUID() } }, error: null }) },
+        // V2-09d: the session comes from the verified JWT claims (`getClaims`), no longer from `getUser`.
+        auth: { getClaims: async () => ({ data: { claims: { sub: randomUUID(), session_id: randomUUID() } }, error: null }) },
         ...failingClient(),
       };
       vi.spyOn(serverClientModule, "createClient").mockResolvedValue(fake as never);

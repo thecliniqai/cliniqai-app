@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { errorTag, log } from "@/lib/log";
+import { requestMemo } from "@/lib/auth/request-memo";
 import { DEFAULT_CLINIC_TZ, resolveTimeZone, todayInTz } from "./index";
 
 /**
@@ -11,6 +12,15 @@ import { DEFAULT_CLINIC_TZ, resolveTimeZone, todayInTz } from "./index";
  * logged by tag only.
  */
 export async function getTenantTimeZone(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<any, any, any>,
+  tenantId: string
+): Promise<string> {
+  // V2-09d: once per request and clinic (`requestMemo`; nothing is memoised outside a request, e.g. in a job).
+  return requestMemo(`tenant-tz:${tenantId.toLowerCase()}`, () => readTenantTimeZone(db, tenantId));
+}
+
+async function readTenantTimeZone(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: SupabaseClient<any, any, any>,
   tenantId: string

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import { forgetSessionContext, getActiveMembership, getSessionClaims } from "@/lib/auth/tenant";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { Membership, ScheduleBlock } from "@/lib/db/types";
 import { ClinicSettingsInput, StatutorySettingsInput, RxPrintSettingsInput, UserProfileInput, StaffEditInput } from "./schema";
@@ -47,6 +47,8 @@ export async function updateClinicSettings(input: ClinicSettingsInput): Promise<
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateClinicSettings(resolved.ctx, input);
+  // V2-09d: the clinic's name or zone may have changed: the shell re-reads them (and the session context) in the render that follows.
+  if (result.success) await forgetSessionContext();
   if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/today");
   return result;
 }
@@ -87,6 +89,8 @@ export async function updateStaffMember(input: StaffEditInput): Promise<UpdateSt
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStaffMember(resolved.ctx, input);
+  // V2-09d: a role may have changed (the caller's own included): this device's session context is read again.
+  if (result.success) await forgetSessionContext();
   if (result.success) revalidate("/staff", "/settings/clinic", "/today");
   return result;
 }
@@ -94,9 +98,18 @@ export async function updateStaffMember(input: StaffEditInput): Promise<UpdateSt
 export async function getMyProfile() {
   const supabase = await createClient();
   const membership = await getActiveMembership();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // V2-09d: the verified session claims (no Auth round trip): email, phone and metadata are in the access token.
+  const claims = await getSessionClaims();
+  const metadata = claims.userMetadata as { full_name?: unknown; phone?: unknown };
+  const user = {
+    id: claims.userId,
+    email: claims.email,
+    phone: claims.phone,
+    user_metadata: {
+      full_name: typeof metadata.full_name === "string" ? metadata.full_name : undefined,
+      phone: typeof metadata.phone === "string" ? metadata.phone : undefined,
+    },
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: member } = await (supabase.from("memberships") as any)

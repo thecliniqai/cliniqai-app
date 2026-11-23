@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { ACTIVE_TENANT_COOKIE, createClient } from "@/lib/supabase/server";
+import { CONTEXT_COOKIE } from "@/lib/auth/context-cookie";
 import { serverEnv } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -121,5 +122,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   // 06-09c (M-REMOVED): the clinic this device had open is forgotten on every sign-out, so the next sign-in (the same
   // user after a removal, or another user of this device) never resolves a clinic picked in the ended session.
   if (request.cookies.has(ACTIVE_TENANT_COOKIE)) response.cookies.delete(ACTIVE_TENANT_COOKIE);
+  // V2-09d: and so is the signed session context (it is also refused for any other session: it names this one).
+  if (request.cookies.has(CONTEXT_COOKIE)) response.cookies.delete(CONTEXT_COOKIE);
   return response;
 }

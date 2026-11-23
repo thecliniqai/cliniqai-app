@@ -10,6 +10,7 @@ import {
   activeClinicCookieSecure,
   resolveClinicSwitch,
 } from "./switch";
+import { forgetSessionContext, getSessionClaims } from "@/lib/auth/tenant";
 
 const createClinicSchema = z.object({
   name: z
@@ -39,18 +40,16 @@ export async function createClinic(formData: FormData): Promise<CreateClinicResu
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
+  // V2-09d: the session from the verified claims (the RPC re-checks auth.uid() in the database).
+  try {
+    await getSessionClaims();
+  } catch {
     return {
       success: false,
       error: "You must be signed in to create a clinic",
     };
   }
+  const supabase = await createClient();
 
   if (await hasActiveMembership()) {
     return { success: false, error: CLINIC_SWITCH_MESSAGES.ALREADY_MEMBER };
@@ -76,6 +75,8 @@ export async function createClinic(formData: FormData): Promise<CreateClinicResu
     };
   }
 
+  // V2-09d: the caller now has a clinic; the session context is read from the database again.
+  await forgetSessionContext();
   return {
     success: true,
     tenantId: tenantId as string,
@@ -88,8 +89,8 @@ export type SwitchClinicResult = { success: true } | { success: false; error: st
  * The clinic switcher (V2-08 08-05, P1-12, R-17): pins this device to the clinic `clinicId` by setting the active-clinic cookie, only when
  * the signed-in caller holds an active membership of that clinic (read under RLS). A forged, foreign or removed clinic writes no
  * cookie and answers a fixed refusal. The caller navigates (hard, to /today) on success, which also drops every live channel and
- * in-memory state of the previous clinic. The tenant is never taken on trust afterwards: `getActiveMembership` re-checks the
- * membership on every request.
+ * in-memory state of the previous clinic. The tenant is never taken on trust afterwards: the database re-checks the membership
+ * on every read and write (`x-clinicos-tenant`, RLS), and `getActiveMembership` at least every 5 minutes (V2-09d session context).
  */
 export async function switchClinic(clinicId: string): Promise<SwitchClinicResult> {
   const target = await resolveClinicSwitch(clinicId);
@@ -103,5 +104,7 @@ export async function switchClinic(clinicId: string): Promise<SwitchClinicResult
     return { success: false, error };
   }
   (await cookies()).set(ACTIVE_TENANT_COOKIE, target.tenantId, activeClinicCookieOptions(activeClinicCookieSecure(await headers())));
+  // V2-09d: the session-context cookie of the previous clinic is expired (it is also refused for the new pin).
+  await forgetSessionContext();
   return { success: true };
 }

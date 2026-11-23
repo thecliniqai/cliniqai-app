@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ActiveClinicMembershipEndedError,
   AuthUnavailableError,
+  contextCookieFor,
   getActiveMembership,
   getTenantAccessLevel,
   isClinicId,
@@ -22,6 +23,9 @@ import { getRequestId } from "@/lib/log/request-id";
  * access poll: `PwaRuntime` calls it on load, on resume, on `online`, every 5 min while visible and after any client
  * error, and reacts (`lib/pwa/session-status.ts`).
  *
+ * - V2-09d: the one fresh check of the shell. The session is confirmed with `auth.getUser()` and the membership and access
+ *   level are read from the database (`fresh`), never from the session-context cookie; the 200 answer then (re)issues that
+ *   cookie. Page loads, Server Actions and route handlers read the verified JWT claims and the cookie instead.
  * - The session is read with `auth.getUser()` (inside `getActiveMembership`), so a session revoked elsewhere fails
  *   here even while its access token is unexpired: 401 `{ error: "unauthenticated" }` → the client signs out
  *   (`hardSignOut("expired")`). Only a definitive answer is a 401 (no session, or GoTrue refused this session with a
@@ -60,7 +64,7 @@ export async function GET(request?: NextRequest) {
   const shellClinic = pinned ? null : (request?.headers.get(SHELL_CLINIC_HEADER) ?? null);
   let membership;
   try {
-    membership = await getActiveMembership(isClinicId(shellClinic) ? shellClinic : undefined);
+    membership = await getActiveMembership(isClinicId(shellClinic) ? shellClinic : undefined, { fresh: true });
   } catch (err) {
     if (err instanceof AuthUnavailableError) return refuse(503, "unavailable", "auth_unavailable");
     if (err instanceof UnauthenticatedError) return refuse(401, "unauthenticated", "unauthenticated");
@@ -77,7 +81,7 @@ export async function GET(request?: NextRequest) {
 
   let accessLevel;
   try {
-    accessLevel = await getTenantAccessLevel(membership.tenantId);
+    accessLevel = await getTenantAccessLevel(membership.tenantId, { fresh: true });
   } catch (err) {
     return refuse(503, "unavailable", errorTag(err));
   }
@@ -98,6 +102,14 @@ export async function GET(request?: NextRequest) {
       secure: request?.nextUrl.protocol === "https:",
       maxAge: ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS,
     });
+  }
+  // V2-09d: the context this answer just confirmed with Supabase Auth and the database is the device's session-context
+  // cookie for the next 5 minutes (bound to the pin this response leaves in place). The poll every 5 min renews it.
+  try {
+    const context = await contextCookieFor(membership, accessLevel, pinned ? await readActiveClinicCookie() : membership.tenantId);
+    if (context) response.cookies.set(context.name, context.value, context.options);
+  } catch (err) {
+    log.warn({ event: "pwa.session_status.context_cookie_failed", code: errorTag(err), requestId: await getRequestId() });
   }
   return response;
 }

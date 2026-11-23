@@ -1,9 +1,23 @@
+import { createHash } from "node:crypto";
+import { cookies, headers } from "next/headers";
 import { ACTIVE_TENANT_COOKIE, createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/db/types";
 import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
+import { isSupabaseAuthCookie } from "@/lib/auth/session-age";
+import { forgetRequestMemo, peekRequestMemo, requestMemo, setRequestMemo } from "@/lib/auth/request-memo";
+import {
+  CONTEXT_COOKIE,
+  contextCookieOptions,
+  normalisePin,
+  signContext,
+  verifyContext,
+  type SessionContext,
+} from "@/lib/auth/context-cookie";
+import { cookieSecureFor } from "@/lib/auth/cookie-secure";
+import { serverEnv } from "@/lib/env-server";
 
 export class NoClinicMembershipError extends Error {
   constructor(message = "Your account is not linked to a clinic yet") {
@@ -13,9 +27,9 @@ export class NoClinicMembershipError extends Error {
 }
 
 /**
- * No signed-in user: the session is missing, or it was revoked elsewhere (sign-out, password reset or change) while its
- * access token is still valid, which `proxy.ts` (local JWT check) admits and GoTrue then refuses. The message stays
- * "Unauthenticated" (callers match it). Page loaders turn it into a redirect to sign-in (`lib/auth/page.ts`, V2-05
+ * No signed-in user: the session is missing or its token does not verify; with a fresh check (`/api/session-status`) also a
+ * session revoked elsewhere (sign-out, password reset or change) while its access token is still valid, which the local
+ * JWT check admits and GoTrue then refuses. The message stays "Unauthenticated" (callers match it). Page loaders turn it into a redirect to sign-in (`lib/auth/page.ts`, V2-05
  * 05-11c), never a server error.
  */
 export class UnauthenticatedError extends Error {
@@ -120,8 +134,22 @@ export async function assertTenantAccess(
   return level;
 }
 
-/** The active clinic's access level through `my_tenant_access` (the caller's own clinic only); fail closed. */
-export async function getTenantAccessLevel(tenantId: string): Promise<TenantAccessLevel> {
+/**
+ * The active clinic's access level (V2-09d: from the session-context cookie when it is valid for this session and names
+ * this clinic, else through `my_tenant_access`, the caller's own clinic only, once per request); fail closed.
+ * `fresh: true` always asks the database (`/api/session-status`, the subscription page).
+ */
+export async function getTenantAccessLevel(tenantId: string, options: { fresh?: boolean } = {}): Promise<TenantAccessLevel> {
+  if (!options.fresh) {
+    const context = await contextFromCookie();
+    if (context && context.tenantId === tenantId.toLowerCase()) return context.level;
+  }
+  const level = await requestMemo(`level:${tenantId.toLowerCase()}`, () => readTenantAccessLevel(tenantId));
+  if (!options.fresh) await issueContextCookie(tenantId, level);
+  return level;
+}
+
+async function readTenantAccessLevel(tenantId: string): Promise<TenantAccessLevel> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("my_tenant_access", { p_tenant: tenantId });
   if (error) {
@@ -130,8 +158,6 @@ export async function getTenantAccessLevel(tenantId: string): Promise<TenantAcce
   }
   return (ACCESS_LEVELS as readonly string[]).includes(data as string) ? (data as TenantAccessLevel) : "none";
 }
-
-import { cookies } from "next/headers";
 
 /** The active-clinic cookie as sent, or null (absent, or outside a request scope). */
 export async function readActiveClinicCookie(): Promise<string | null> {
@@ -149,46 +175,254 @@ export function isClinicId(value: string | null | undefined): value is string {
 }
 
 /**
- * Derives the active tenant membership strictly on the server from session and database.
- * Never trust browser-supplied tenant IDs (AGENTS.md §7).
+ * V2-09d: what the verified session says about the caller. Read once per request from the access token's claims
+ * (`auth.getClaims()`: verified locally against the project's signing keys, JWKS cached for 10 minutes; no Auth round
+ * trip while the token is valid; the proxy has already refreshed it). `getUser()` is kept only where a fresh answer from
+ * Supabase Auth is required ({@link getActiveMembership} with `fresh`, i.e. `/api/session-status`, which detects a session
+ * revoked elsewhere; and the password and account-security flows).
  */
-export async function getActiveMembership(explicitTenantId?: string): Promise<ActiveMembership> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+export interface SessionClaims {
+  userId: string;
+  /** The JWT `session_id` (binds the session-context cookie to this session); null if the token has none. */
+  sessionId: string | null;
+  email: string | null;
+  phone: string | null;
+  userMetadata: Record<string, unknown>;
+}
 
+/** A short fingerprint of this request's Supabase auth cookies, so a memoised session never outlives a session change. */
+async function sessionFingerprint(): Promise<string> {
+  try {
+    const auth = (await cookies())
+      .getAll()
+      .filter((c) => isSupabaseAuthCookie(c.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((c) => `${c.name}=${c.value}`)
+      .join(";");
+    return createHash("sha256").update(auth).digest("base64url").slice(0, 22);
+  } catch {
+    return "none";
+  }
+}
+
+/**
+ * The verified session of this request (memoised per request). Throws {@link UnauthenticatedError} when there is no valid
+ * session (no cookie, an expired or unverifiable token) and {@link AuthUnavailableError} when Supabase Auth could not
+ * answer a call the check needed (a refresh, the JWKS fetch).
+ */
+export async function getSessionClaims(): Promise<SessionClaims> {
+  return requestMemo(`claims:${await sessionFingerprint()}`, readSessionClaims);
+}
+
+async function readSessionClaims(): Promise<SessionClaims> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
   // 06-09c (H-AUTHOUT): only a definitive answer is "unauthenticated"; a failure to check is retryable.
-  if (authError && !isDefinitiveAuthRejection(authError)) {
-    log.warn({ event: "auth.get_user.unavailable", code: errorTag(authError), requestId: await getRequestId() });
+  if (error && !isDefinitiveAuthRejection(error)) {
+    log.warn({ event: "auth.get_claims.unavailable", code: errorTag(error), requestId: await getRequestId() });
     throw new AuthUnavailableError();
   }
-  if (authError || !user) {
-    throw new UnauthenticatedError();
-  }
+  const claims = data?.claims as Record<string, unknown> | undefined;
+  if (error || !claims || typeof claims.sub !== "string" || claims.sub === "") throw new UnauthenticatedError();
+  const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
+  const metadata = claims.user_metadata;
+  return {
+    userId: claims.sub,
+    sessionId: text(claims.session_id),
+    email: text(claims.email),
+    phone: text(claims.phone),
+    userMetadata: typeof metadata === "object" && metadata !== null ? (metadata as Record<string, unknown>) : {},
+  };
+}
 
-  const { data: memberships, error: memError } = await supabase
-    .from("memberships")
-    .select("tenant_id, role")
-    .eq("user_id", user.id)
-    // V2-05 05-05 (AUTH-05): a removed or suspended membership is not a clinic of the user (RLS hides it as well).
-    .eq("status", "active")
-    .returns<Array<{ tenant_id: string; role: UserRole }>>();
+/** `getUser()`: Supabase Auth confirms the session is still live (not revoked elsewhere). Once per request. */
+async function confirmSessionAtAuth(claims: SessionClaims): Promise<void> {
+  await requestMemo(`auth-user:${await sessionFingerprint()}`, async () => {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error && !isDefinitiveAuthRejection(error)) {
+      log.warn({ event: "auth.get_user.unavailable", code: errorTag(error), requestId: await getRequestId() });
+      throw new AuthUnavailableError();
+    }
+    if (error || !user || user.id !== claims.userId) throw new UnauthenticatedError();
+  });
+}
 
-  if (memError) {
-    // Database text never leaves the server (IR-L1); only the error code is logged.
-    log.error({ event: "auth.membership_lookup.failed", code: errorTag(memError), requestId: await getRequestId(), userId: user.id });
-    throw new Error("Failed to resolve clinic membership.");
+/** One active membership of the caller, with its clinic's name and zone (RLS: own rows; the caller's clinics). */
+export interface ActiveMembershipRow {
+  tenantId: string;
+  role: UserRole;
+  clinicName: string | null;
+  timeZone: string | null;
+}
+
+type MembershipQueryRow = {
+  tenant_id: string;
+  role: UserRole;
+  tenants: { name: string | null; timezone: string | null } | { name: string | null; timezone: string | null }[] | null;
+};
+
+/**
+ * The caller's active memberships (V2-05 05-05, AUTH-05: a removed or suspended membership is not a clinic of the user;
+ * RLS hides it as well), with each clinic's name and zone, in one query per request: the membership resolution, the
+ * clinic switcher and the shell's clinic name and zone share it. Throws on a database error.
+ */
+export async function listActiveMemberships(userId: string): Promise<ActiveMembershipRow[]> {
+  return requestMemo(`memberships:${userId}`, async () => {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("memberships")
+      .select("tenant_id, role, tenants(name, timezone)")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .returns<MembershipQueryRow[]>();
+    if (error) {
+      // Database text never leaves the server (IR-L1); only the error code is logged.
+      log.error({ event: "auth.membership_lookup.failed", code: errorTag(error), requestId: await getRequestId(), userId });
+      throw new Error("Failed to resolve clinic membership.");
+    }
+    return (data ?? []).map((m) => {
+      const t = Array.isArray(m.tenants) ? m.tenants[0] : m.tenants;
+      return { tenantId: m.tenant_id, role: m.role, clinicName: t?.name ?? null, timeZone: t?.timezone ?? null };
+    });
+  });
+}
+
+/** The session-context cookie key, or null (unset or an environment the schema refuses: no cookie, never an error). */
+function contextSecret(): string | null {
+  try {
+    return serverEnv().SESSION_CONTEXT_SECRET ?? null;
+  } catch {
+    return null;
   }
+}
+
+/**
+ * V2-09d: the session-context cookie of this request when it is valid for this session (signature, expiry, user and
+ * session id of the verified claims, the active-clinic pin; `lib/auth/context-cookie.ts`), else null.
+ */
+async function contextFromCookie(): Promise<SessionContext | null> {
+  const secret = contextSecret();
+  if (!secret) return null;
+  let raw: string | undefined;
+  try {
+    raw = (await cookies()).get(CONTEXT_COOKIE)?.value;
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  let claims: SessionClaims;
+  try {
+    claims = await getSessionClaims();
+  } catch {
+    return null;
+  }
+  const verdict = verifyContext(raw, secret, { userId: claims.userId, sessionId: claims.sessionId, pin: await readActiveClinicCookie() });
+  return verdict.ok ? verdict.context : null;
+}
+
+const RESOLVED_KEY = "context:resolved-from-db";
+type ResolvedContext = Omit<SessionContext, "level">;
+
+/**
+ * V2-09d: issues the session-context cookie after this request resolved the membership AND the access level of `tenantId`
+ * from the database (never from the cookie itself, so its age never extends past one TTL without a database check). A
+ * Server Component cannot set cookies (ignored: the next Server Action, route handler or session-status poll issues it).
+ */
+async function issueContextCookie(tenantId: string, level: TenantAccessLevel): Promise<void> {
+  const secret = contextSecret();
+  if (!secret) return;
+  const resolved = await peekRequestMemo<ResolvedContext>(RESOLVED_KEY);
+  if (!resolved || resolved.tenantId !== tenantId.toLowerCase()) return;
+  try {
+    const store = await cookies();
+    store.set(CONTEXT_COOKIE, signContext({ ...resolved, level }, secret), contextCookieOptions(cookieSecureFor(await headers())));
+  } catch {
+    // Read-only cookies (a Server Component render) or no request scope.
+  }
+}
+
+/**
+ * The session-context cookie for a context this request resolved fresh from the database (`/api/session-status`, which
+ * sets it on its own response with the pin that response sets). Null when the cookie is off or the session has no id.
+ */
+export async function contextCookieFor(
+  membership: ActiveMembership,
+  level: TenantAccessLevel,
+  pin: string | null,
+): Promise<{ name: string; value: string; options: ReturnType<typeof contextCookieOptions> } | null> {
+  const secret = contextSecret();
+  if (!secret) return null;
+  const claims = await getSessionClaims();
+  if (!claims.sessionId || claims.userId !== membership.userId) return null;
+  const value = signContext(
+    { userId: membership.userId, sessionId: claims.sessionId, tenantId: membership.tenantId, role: membership.role, level, pin: normalisePin(pin) },
+    secret,
+  );
+  return { name: CONTEXT_COOKIE, value, options: contextCookieOptions(cookieSecureFor(await headers())) };
+}
+
+/**
+ * V2-09d: forgets this device's clinic context after an action that changed it (clinic switch, clinic creation, an
+ * invitation accepted, a membership or role change by the caller, a subscription change in the app): the cookie is
+ * expired and this request's memoised lookups are dropped, so the render that follows and the next request read the
+ * database again (and the next Server Action or status poll reissues the cookie).
+ */
+export async function forgetSessionContext(): Promise<void> {
+  await forgetRequestMemo();
+  try {
+    (await cookies()).delete(CONTEXT_COOKIE);
+  } catch {
+    // Read-only cookies or no request scope: nothing to expire here.
+  }
+}
+
+/**
+ * Derives the active tenant membership strictly on the server from session and database.
+ * Never trust browser-supplied tenant IDs (AGENTS.md §7).
+ *
+ * V2-09d: the session comes from the verified JWT claims (no Auth round trip); the membership from the session-context
+ * cookie when it is valid for this session and pin (at most {@link CONTEXT_COOKIE_TTL_SECONDS} old; RLS and the
+ * commands re-check membership in the database on every read and write), else from the database, once per request.
+ * `fresh: true` (`/api/session-status`) asks Supabase Auth (`getUser()`) and the database every time.
+ */
+export async function getActiveMembership(explicitTenantId?: string, options: { fresh?: boolean } = {}): Promise<ActiveMembership> {
+  const claims = await getSessionClaims();
+  if (options.fresh) await confirmSessionAtAuth(claims);
 
   // The clinic the user picked (multi-clinic switcher), or the one this device was pinned to (06-09d): an explicit id,
   // else the active-clinic cookie. A value that is not a UUID is ignored (as `activeTenantHeaders` ignores it).
+  const pin = await readActiveClinicCookie();
   let targetTenantId = explicitTenantId;
-  if (!targetTenantId) targetTenantId = (await readActiveClinicCookie()) ?? undefined;
+  if (!targetTenantId) targetTenantId = pin ?? undefined;
   if (targetTenantId && !TENANT_ID_SHAPE.test(targetTenantId)) targetTenantId = undefined;
 
-  if (!memberships || memberships.length === 0) {
+  if (!options.fresh) {
+    const context = await contextFromCookie();
+    if (context && (!targetTenantId || context.tenantId === targetTenantId.toLowerCase())) {
+      return { tenantId: context.tenantId, role: context.role, userId: claims.userId };
+    }
+  }
+
+  const memberships = await listActiveMemberships(claims.userId);
+  const membership = selectMembership(memberships, targetTenantId, claims.userId);
+  if (claims.sessionId) {
+    await setRequestMemo<ResolvedContext>(RESOLVED_KEY, {
+      userId: claims.userId,
+      sessionId: claims.sessionId,
+      tenantId: membership.tenantId.toLowerCase(),
+      role: membership.role,
+      pin: normalisePin(pin),
+    });
+  }
+  return membership;
+}
+
+function selectMembership(memberships: ActiveMembershipRow[], targetTenantId: string | undefined, userId: string): ActiveMembership {
+  if (memberships.length === 0) {
     // 06-09d (L-R4): this device had a clinic (pinned or picked) and the user is no longer a member of any clinic:
     // that is a removal (sign-out and purge), not a new account without a clinic (`/clinic/new`).
     if (targetTenantId) throw new ActiveClinicMembershipEndedError();
@@ -198,19 +432,15 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
   if (targetTenantId) {
     // 06-09c (M-REMOVED): a picked clinic that is no longer an active membership is a removal, however many clinics
     // remain; never fall back to the remaining one (stale screen of the old clinic, wrong-clinic writes).
-    const match = memberships.find((m) => m.tenant_id.toLowerCase() === targetTenantId!.toLowerCase());
+    const match = memberships.find((m) => m.tenantId.toLowerCase() === targetTenantId.toLowerCase());
     if (!match) {
       throw new ActiveClinicMembershipEndedError();
     }
-    return { tenantId: match.tenant_id, role: match.role, userId: user.id };
+    return { tenantId: match.tenantId, role: match.role, userId };
   }
 
   if (memberships.length === 1) {
-    return {
-      tenantId: memberships[0].tenant_id,
-      role: memberships[0].role,
-      userId: user.id,
-    };
+    return { tenantId: memberships[0].tenantId, role: memberships[0].role, userId };
   }
 
   // Multiple memberships: require explicit tenant selection rather than guessing (Plan 02 / Plan 05)

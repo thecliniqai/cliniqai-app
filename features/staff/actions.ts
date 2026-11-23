@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { acceptInvite as acceptInviteFlow, type AcceptInviteResult } from "@/features/auth/invite-flows";
 import { resolveServiceContext } from "@/lib/auth/context";
-import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
+import { forgetSessionContext, MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import * as staffService from "./service";
 import type { RemoveStaffResult, TenantDoctorInfo, TenantStaffInfo } from "./service";
@@ -250,6 +250,9 @@ export async function removeStaff(input: { membershipId: string; reason: string 
 
   const removed = await staffService.removeStaff(resolved.ctx, parsed.data);
   if (!removed.ok) return { success: false, error: removed.error.message };
+  // V2-09d: memberships changed: this device's session context is read again (the removed member's own device keeps
+  // navigation for at most the cookie's 5 minutes; RLS refuses their data at once).
+  await forgetSessionContext();
   return { success: true, result: removed.value };
 }
 

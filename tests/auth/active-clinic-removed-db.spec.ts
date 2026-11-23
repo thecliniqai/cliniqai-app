@@ -122,17 +122,19 @@ describe("removed from the active clinic, one clinic left (local stack)", () => 
 
   it("the session ends between the layout's two auth checks (a sign-out in flight): a redirect to /login, not the error page", async () => {
     // CI 44874140074 (desktop flake): the shell's session-status watch signed the device out while a navigation to /today
-    // rendered; the layout's own getUser() still saw the user, getActiveMembership()'s did not, and the layout rethrew
-    // UnauthenticatedError to the route error page. Real client; only the second getUser() answers "no user".
+    // rendered; the layout's own session read still saw the user, getActiveMembership()'s did not, and the layout rethrew
+    // UnauthenticatedError to the route error page. Real client; only the second session read answers "no session".
+    // V2-09d: the session is read from the verified claims (`getClaims`), once per request inside a Next request (this
+    // spec has no request scope, so each caller reads it: the race stays reproducible).
     const real = dual.client as { auth: object };
     let calls = 0;
     const auth = new Proxy(real.auth, {
       get(target, prop) {
-        if (prop === "getUser") {
+        if (prop === "getClaims") {
           return async () => {
             calls += 1;
-            if (calls === 1) return (target as { getUser: () => Promise<unknown> }).getUser();
-            return { data: { user: null }, error: null };
+            if (calls === 1) return (target as { getClaims: () => Promise<unknown> }).getClaims();
+            return { data: null, error: null };
           };
         }
         const v = Reflect.get(target, prop);
