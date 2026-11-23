@@ -131,7 +131,8 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
 
   // V2-09d: `available_slots` takes one doctor and one date, so the grid needs one call per (doctor, date). They are sent
   // together (one round trip of latency, not one per call), and a (doctor, date) the day grid and the week strip both
-  // need is asked once.
+  // need is asked once. 09D-01a (A-11): the day grid's and the week strip's calls are all started before either is
+  // awaited (one round, not two).
   const slotCalls = new Map<string, ReturnType<typeof getAvailableSlots>>();
   const slotsOf = (doctorId: string, day: string) => {
     const key = `${doctorId}|${day}`;
@@ -144,8 +145,9 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
   };
   const weekDoctorId = options.week ? (doctorFilter !== "all" ? doctorFilter : (doctors[0]?.id ?? "")) : "";
   const weekDates = weekDoctorId ? Array.from({ length: 7 }, (_, i) => addDaysYmd(weekStart(date), i)) : [];
-  const daySlots = await Promise.all(shown.map((doctor) => slotsOf(doctor.id, date)));
-  const weekSlots = await Promise.all(weekDates.map((day) => slotsOf(weekDoctorId, day)));
+  const dayCalls = shown.map((doctor) => slotsOf(doctor.id, date));
+  const weekCalls = weekDates.map((day) => slotsOf(weekDoctorId, day));
+  const [daySlots, weekSlots] = await Promise.all([Promise.all(dayCalls), Promise.all(weekCalls)]);
 
   // Free slots: the database's own list for each shown doctor.
   const free: FreeSlot[] = [];
