@@ -19,6 +19,9 @@
  * Before V2-09d the same counts were 27 calls for a Patients full load (10 `/auth/v1/user`) and 26 for Today (8 + 6).
  * The full per-page report is `npm run perf:roundtrips` (tests/e2e/perf/page-roundtrips.spec.ts).
  *
+ * V2-09e 09E-01 (R-2): the ceilings below are rows of the latency budget table (`tests/e2e/perf/latency-budgets.ts`, ids `request.*`), so each plan lowers
+ * them in one place; the numbers are the V2-09d ones, unchanged.
+ *
  * 09D-01a (A-5): deterministic. The zero-call budgets hold only once the device has its session-context cookie, which
  * only the shell's on-load `/api/session-status` issues (after hydration): each test waits for that cookie before its
  * measured window and fails with a clear message if it never comes (never a red-then-green on retry); the live views'
@@ -31,6 +34,7 @@ import { expect, test } from "../fixtures";
 import { randomUUID } from "node:crypto";
 import { countKongCalls, kongContainerName, mark, readKongLog } from "../support/kong-calls";
 import { storageStatePath } from "../support/run-data";
+import { pathCeiling } from "../perf/latency-budgets";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -113,15 +117,15 @@ test.describe("V2-09d request budget (receptionist)", () => {
 
     const patients = await countKongCalls(() => softNavigate(page, "/patients"));
     expect(new URL(page.url()).pathname).toBe("/patients");
-    expect(count(patients.serverByPath, "GET /auth/v1/user"), JSON.stringify(patients.serverByPath)).toBe(0);
-    expect(count(patients.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(patients.serverByPath)).toBe(0);
-    expect(count(patients.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(patients.serverByPath)).toBe(0);
+    for (const key of ["GET /auth/v1/user", "POST /rest/v1/rpc/my_tenant_access", "GET /rest/v1/memberships"]) {
+      expect(count(patients.serverByPath, key), `${key} ${JSON.stringify(patients.serverByPath)}`).toBeLessThanOrEqual(pathCeiling("request.in-app.patients", key));
+    }
 
     const today = await countKongCalls(() => softNavigate(page, "/today"));
     expect(new URL(page.url()).pathname).toBe("/today");
-    expect(count(today.serverByPath, "GET /auth/v1/user"), JSON.stringify(today.serverByPath)).toBe(0);
-    expect(count(today.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(today.serverByPath)).toBe(0);
-    expect(count(today.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(today.serverByPath)).toBeLessThanOrEqual(1);
+    for (const key of ["GET /auth/v1/user", "POST /rest/v1/rpc/my_tenant_access", "GET /rest/v1/memberships"]) {
+      expect(count(today.serverByPath, key), `${key} ${JSON.stringify(today.serverByPath)}`).toBeLessThanOrEqual(pathCeiling("request.in-app.today", key));
+    }
   });
 
   test("full load of Today: the on-load status check is the only Auth and access-level call", async ({ page }) => {
@@ -139,8 +143,8 @@ test.describe("V2-09d request budget (receptionist)", () => {
       await settled(page);
     });
     expect(new URL(page.url()).pathname).toBe("/today");
-    expect(count(full.serverByPath, "GET /auth/v1/user"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(1);
-    expect(count(full.serverByPath, "POST /rest/v1/rpc/my_tenant_access"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(1);
-    expect(count(full.serverByPath, "GET /rest/v1/memberships"), JSON.stringify(full.serverByPath)).toBeLessThanOrEqual(3);
+    for (const key of ["GET /auth/v1/user", "POST /rest/v1/rpc/my_tenant_access", "GET /rest/v1/memberships"]) {
+      expect(count(full.serverByPath, key), `${key} ${JSON.stringify(full.serverByPath)}`).toBeLessThanOrEqual(pathCeiling("request.full.today", key));
+    }
   });
 });
