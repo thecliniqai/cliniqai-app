@@ -122,7 +122,7 @@ test.describe("owner: the mode toggle", () => {
     await expect(page.getByRole("radiogroup", { name: "Today mode" })).toBeVisible();
     await page.getByRole("radio", { name: "My queue" }).click();
     await expect(page).toHaveURL(/mode=doctor/);
-    await page.locator("[data-today-board]").waitFor();
+    await page.locator("[data-today-board]").filter({ visible: true }).waitFor();
     await filterToday(page, mine.name);
     await expect(rowOf(page, mine.name)).toBeVisible();
     await filterToday(page, theirs.name);

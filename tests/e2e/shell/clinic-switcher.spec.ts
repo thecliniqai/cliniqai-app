@@ -82,7 +82,7 @@ test("@golden two clinics: choose a clinic, the cookie pins the device, the pati
     .map((h) => h.value)
     .join(", ");
   expect(header, "400-day cookie").toMatch(new RegExp(`${COOKIE}=[^\\n]*?;\\s*Max-Age=34560000(;|,|$)`, "i"));
-  await page.locator("[data-today-board]").waitFor({ timeout: 30_000 });
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor({ timeout: 30_000 });
   const cookie = (await context.cookies()).find((c) => c.name === COOKIE);
   expect(cookie?.value).toBe(a.tenantId);
   expect(cookie).toMatchObject({ httpOnly: true, sameSite: "Lax", path: "/" });
@@ -99,7 +99,7 @@ test("@golden two clinics: choose a clinic, the cookie pins the device, the pati
   await openAccountMenu(page);
   await page.getByRole("menuitem", { name: `Switch to ${b.tenantName}` }).click();
   await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
-  await page.locator("[data-today-board]").waitFor();
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor();
   expect((await context.cookies()).find((c) => c.name === COOKIE)?.value).toBe(b.tenantId);
   await page.goto("/patients");
   await expect(page.getByText(nameB)).toBeVisible();
@@ -121,7 +121,7 @@ test("a removed membership of the chosen clinic signs the device out, whatever c
   const { a, b, dual } = await twoClinics();
   await uiSignIn(page, { email: dual.userEmail, password: seededUserPassword() });
   await page.getByRole("button", { name: b.tenantName }).click();
-  await page.locator("[data-today-board]").waitFor({ timeout: 30_000 });
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor({ timeout: 30_000 });
 
   const { error } = await getAdminClient()
     .from("memberships")
@@ -145,11 +145,11 @@ test("desktop width: the sidebar's clinic block is the switcher too", async ({ p
   const { a, b, dual } = await twoClinics();
   await uiSignIn(page, { email: dual.userEmail, password: seededUserPassword() });
   await page.getByRole("button", { name: a.tenantName }).click();
-  await page.locator("[data-today-board]").waitFor({ timeout: 30_000 });
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor({ timeout: 30_000 });
   await page.locator("[data-clinic-switcher]").click();
   await page.getByRole("menuitem", { name: b.tenantName }).click();
   await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
-  await page.locator("[data-today-board]").waitFor();
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor();
   await expect(page.locator("[data-clinic-switcher]")).toHaveAttribute("aria-label", new RegExp(b.tenantName));
 });
 

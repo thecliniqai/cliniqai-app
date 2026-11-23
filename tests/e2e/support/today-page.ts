@@ -10,16 +10,21 @@ import type { UxCounter } from "./ux-counter";
  * switch, a Check in button). React marks every DOM node it owns with a `__reactFiber$` key; nothing in the app is added for the test.
  */
 export async function boardHydrated(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const board = document.querySelector("[data-today-board]");
-    return Boolean(board && Object.keys(board).some((key) => key.startsWith("__reactFiber$")));
-  });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll<HTMLElement>("[data-today-board]")].some(
+      (board) => board.offsetParent !== null && Object.keys(board).some((key) => key.startsWith("__reactFiber$")),
+    ),
+  );
 }
 
-/** Opens `/today` (or `url`) and waits for the board to be on screen and hydrated. */
+/**
+ * Opens `/today` (or `url`) and waits for the board to be on screen and hydrated. V2-09d: only the visible board counts. While
+ * a streamed page is revealed, React briefly holds two copies of the board (the revealed one and the hidden `S:n` template it
+ * came from); a strict locator that polls in that instant fails with "resolved to 2 elements".
+ */
 export async function openToday(page: Page, url = "/today"): Promise<void> {
   await page.goto(url);
-  await page.locator("[data-today-board]").waitFor();
+  await page.locator("[data-today-board]").filter({ visible: true }).waitFor();
   await boardHydrated(page);
 }
 
