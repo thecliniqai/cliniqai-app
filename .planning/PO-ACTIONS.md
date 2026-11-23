@@ -8,11 +8,10 @@ history (commit before this one).
 
 ## 1. Get staging running (do this first)
 
-**Where it stands:** `staging.thecliniqai.com` runs the latest code, but its database stopped at migration 000030 on
-13 Nov. Every migration run since then failed at its first job (`plan`), because that job logs in with a read-only
-database user that was never created. So staging is "not ready" and you cannot test on it.
+**Where it stands (checked 23 Nov, 20:13 IST):** done by the PO on 23 Nov. The Staging runs at 12:55 and 13:10 IST succeeded,
+and `/api/ready` reports ready (database ok, schema current). 1.5 not yet confirmed.
 
-- [ ] **1.1 Create the read-only database user** (staging Supabase → SQL Editor, run once):
+- [x] **1.1 Create the read-only database user** (staging Supabase → SQL Editor, run once):
   ```sql
   create role clinicos_drift_ro with login nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls
     connection limit 2;
@@ -27,7 +26,7 @@ database user that was never created. So staging is "not ready" and you cannot t
   `alter role clinicos_drift_ro with password '<password>';`
   The user can read only the list of applied migrations, no patient or clinic rows.
 
-- [ ] **1.2 Fill the `staging-readonly` GitHub environment** (GitHub → repo → Settings → Environments →
+- [x] **1.2 Fill the `staging-readonly` GitHub environment** (GitHub → repo → Settings → Environments →
   `staging-readonly`; it exists but is empty):
   - Deployment branches: `feature/v2` only. No required reviewer.
   - Secret `STAGING_DB_URL_RO`: copy the **Session pooler** URL from Supabase (Connect → Session pooler, port 5432).
@@ -38,13 +37,13 @@ database user that was never created. So staging is "not ready" and you cannot t
   - Variables: `SUPABASE_PROJECT_REF_STAGING` = `rzxgkbznyjwrirlufzdw`, `STAGING_ORIGIN` =
     `https://staging.thecliniqai.com`. These match the `staging` environment.
 
-- [ ] **1.3 Run the migrations** (GitHub → Actions → Staging → Run workflow → branch `feature/v2`, task `migrate`):
+- [x] **1.3 Run the migrations** (GitHub → Actions → Staging → Run workflow → branch `feature/v2`, task `migrate`):
   - The `plan` job lists what it will apply. Expect 90 files, `000031` to `000120`.
   - If the list is right, click "Review deployments" and approve `staging`. Tell Claude if `plan` fails; Claude reads the log.
   - The run finishes when staging reports "ready". Claude confirms with `/api/ready`.
   - If it stops at `000033`, the project lacks the `pg_cron` or `pg_net` extension; tell Claude.
 
-- [ ] **1.4 Re-seed the demo clinic** (Actions → Staging → Run workflow, task `seed`, approve `staging`). This brings
+- [x] **1.4 Re-seed the demo clinic** (Actions → Staging → Run workflow, task `seed`, approve `staging`). This brings
   the synthetic clinic and its 5 logins up to date with the new schema.
 
 - [ ] **1.5 Turn off Realtime public access** (Supabase staging → Realtime → Settings → "Allow public access" off).
