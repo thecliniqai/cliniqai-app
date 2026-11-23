@@ -15,6 +15,7 @@
     "db:types": "supabase gen types typescript --local --schema public > types/database.ts && prettier --log-level warn --write types/database.ts",
     "db:drift:local": "node scripts/ci/local-drift.mjs",
     "db:diagnostics": "node scripts/db/diagnostics.mjs",
+    "stack:recycle": "node scripts/db/stack-recycle.mjs",
     "ci:ai-l1": "node scripts/ci/ai-l1-greps.mjs",
     "ci:ui-policy": "node scripts/ci/ui-policy.mjs",
     "ci:route-js": "node scripts/ci/route-js.mjs",

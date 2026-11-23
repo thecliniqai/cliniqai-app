@@ -26,6 +26,8 @@ Storage) via @supabase/ssr · zod · Vitest · Playwright. Code: `app/` (routes)
 - `npm run typecheck` (app + tests) · `npx eslint .` · `npm run inventory` (server-action inventory, exits 1 on a flag)
 - Local stack: `npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor` ·
   `npx supabase db reset --local` (re-applies all migrations). Never `--linked`, never `db push`.
+- `npm run stack:recycle` restarts the local stack (data kept) and prints per-container memory before/after. Run it
+  before each evidence run and between executor runs; never mid-run. Docker Desktop memory is capped by the PO.
 - Unit + DB tests: `npm run test:db` (starts the stack, then `vitest run`) or `npx vitest run` with the stack
   up. They run freely: `vitest.config.ts` never reads `.env`, uses the local stack keys, and a fail-closed
   guard refuses any non-loopback Supabase URL or outbound network. Coverage: `npm run test:coverage`.
