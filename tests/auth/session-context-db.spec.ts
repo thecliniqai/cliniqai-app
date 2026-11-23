@@ -13,6 +13,7 @@
  *   makes Next re-render the route);
  * - 09D-01a (S-5): on a Secure request the cookie is `__Host-clinic_ctx`, and only that name is read there;
  * - 09D-01a (S-7): the answer that issues it is `private, no-store`;
+ * - 09D-01a (A-9): the access pages read the level from the database, never from the cookie;
  * - the next request of the same session with that cookie reads neither the memberships nor the access level;
  * - the cookie is ignored (database again) when its signature, session, user or pin does not match;
  * - `/api/session-status` always asks Auth and the database (fresh) and reissues the cookie;
@@ -103,7 +104,9 @@ vi.mock("next/cache", async (importOriginal) => {
 import { requireServiceContext } from "@/lib/auth/context";
 import { getActiveMembership, getTenantAccessLevel } from "@/lib/auth/tenant";
 import { requirePermission } from "@/lib/permissions/guards";
-import { CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE, CONTEXT_COOKIE_TTL_SECONDS } from "@/lib/auth/context-cookie";
+import { CONTEXT_COOKIE, CONTEXT_COOKIE_SECURE, CONTEXT_COOKIE_TTL_SECONDS, signContext } from "@/lib/auth/context-cookie";
+import { requireAccessDestination } from "@/lib/auth/access-page";
+import { LOCKED_OWNER_PATH } from "@/lib/auth/access-redirect";
 import { GET as sessionStatus } from "@/app/api/session-status/route";
 import { checkInVisit } from "@/features/queue/actions";
 import { switchClinic } from "@/features/clinics/actions";
@@ -230,6 +233,24 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     state.scope = { get: (name: string) => (name === "x-forwarded-proto" ? "https" : null) };
     await requireServiceContext("appointments:view");
     expect(contextLookups()).toContain("from:memberships");
+  });
+
+  it("A-9: the access pages read the level from the database, never from the cookie", async () => {
+    const device = await issueFor(owner.client);
+    // A correctly signed cookie of this session that says "locked" (as one issued before a renewal would).
+    const p = payloadOf(device[CONTEXT_COOKIE]!);
+    const locked = signContext(
+      { userId: String(p.uid), sessionId: String(p.sid), tenantId: String(p.tid), role: "owner", level: "locked", pin: String(p.pin) },
+      SECRET,
+    );
+    request(owner.client, { ...device, [CONTEXT_COOKIE]: locked }, "render");
+    const target = await requireAccessDestination(LOCKED_OWNER_PATH).then(
+      () => "rendered",
+      (err: unknown) => String((err as { digest?: unknown }).digest ?? err),
+    );
+    // The clinic is `full` in the database: the locked page sends the owner on, whatever the cookie said.
+    expect(target).toMatch(/^NEXT_REDIRECT;[^;]*;\/today;/);
+    expect(state.calls).toContain("rpc:my_tenant_access");
   });
 
   it("the next request of the same session with the cookie: no membership, access-level or Auth call", async () => {
