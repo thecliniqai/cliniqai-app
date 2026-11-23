@@ -6,7 +6,7 @@
  * `assertLocalAppServerEnv` (the test-lane rules with `NODE_ENV=production` allowed). `__NEXT_PROCESSED_ENV=true`
  * stops `@next/env` from filling anything from a developer's `.env*` files (pinned by
  * tests/setup/next-env-flag.spec.ts), and `NODE_OPTIONS` preloads the server-side socket guard (and, 06-09d, the
- * per-device Auth refresh fault hook, `server-auth-faults.cjs`). The local stack's
+ * per-device Auth refresh fault hook, `server-auth-faults.cjs`; V2-09e 09E-01, the latency injection, `server-latency.cjs`). The local stack's
  * keys come from `npx supabase status` (never from the shell or a file).
  *
  * Plain Node + relative imports only: used by the Playwright config, `build.ts`/`serve.ts` (via tsx) and Vitest.
@@ -48,6 +48,8 @@ export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
 /** V2-06 06-09d: per-device Auth refresh faults for the server (rule files; a no-op without one). */
 export const SERVER_AUTH_FAULTS = path.join(ROOT, "tests/e2e/support/server-auth-faults.cjs");
+/** V2-09e 09E-01 (R-3): per-call latency for the server's Supabase calls (a rule file; a no-op without one). */
+export const SERVER_LATENCY = path.join(ROOT, "tests/e2e/support/server-latency.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
 export const BUILD_STAMP_FILE = path.join(ROOT, ".next/e2e-build-stamp.json");
 export const BUILD_ID_FILE = path.join(ROOT, ".next/BUILD_ID");
@@ -140,7 +142,7 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // V2-06 06-06 (R-21): a fixed deployment id for build and serve: Next writes it as `data-dpl-id` and
     // `/api/session-status` reports it, so they agree; tests/e2e/pwa/06-update.spec.ts changes the answer with page.route.
     NEXT_DEPLOYMENT_ID: E2E_DEPLOYMENT_ID,
-    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}" --require "${SERVER_AUTH_FAULTS}"`,
+    NODE_OPTIONS: `--require "${SERVER_NET_GUARD}" --require "${SERVER_AUTH_FAULTS}" --require "${SERVER_LATENCY}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);
   return env;

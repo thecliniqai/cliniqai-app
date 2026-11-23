@@ -37,6 +37,7 @@
     "e2e:baseline": "playwright test tests/e2e/m0 --project=desktop-chrome --project=vp-360 --project=vp-768 --project=vp-1280 --project=m0-axe-desktop-chrome --project=m0-axe-pixel-7 --project=m0-axe-iphone-15 && node scripts/m0-baseline-report.mjs",
     "perf:lhci": "playwright test --project=perf-lhci",
     "perf:roundtrips": "playwright test --project=perf-roundtrips",
+    "perf:latency": "playwright test --project=perf-latency",
     "seed:local": "tsx scripts/seed-local-dev.ts",
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",

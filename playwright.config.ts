@@ -30,6 +30,8 @@ const PERF = /\/perf\//;
 const PERF_LHCI = /\/perf\/lhci\.spec\.ts$/;
 /** V2-09d: the Supabase round-trip report (`npm run perf:roundtrips`) runs only in the perf-roundtrips project. */
 const PERF_ROUNDTRIPS = /\/perf\/page-roundtrips\.spec\.ts$/;
+/** V2-09e 09E-01: the latency lane (`npm run perf:latency`: PERF_LATENCY_MS added to every Supabase call) runs only in the perf-latency project. */
+const PERF_LATENCY = /\/perf\/page-latency\.spec\.ts$/;
 /** V2-06 06-09a: the two-build service-worker update spec has its own config (`npm run e2e:sw-update`). */
 const SW_UPDATE = /\/pwa-update\//;
 /**
@@ -135,6 +137,7 @@ const designLane: Project[] = DESIGN_WIDTHS.map((w) => ({
 const perfLane: Project[] = [
   { name: "perf-lhci", use: { ...devices["Desktop Chrome"] }, testMatch: PERF_LHCI, retries: 0, ...setup },
   { name: "perf-roundtrips", use: { ...devices["Desktop Chrome"] }, testMatch: PERF_ROUNDTRIPS, retries: 0, ...setup },
+  { name: "perf-latency", use: { ...devices["Desktop Chrome"] }, testMatch: PERF_LATENCY, retries: 0, ...setup },
 ];
 
 export default defineConfig({
