@@ -18,7 +18,7 @@ const mockState = vi.hoisted(() => ({ client: null as unknown, authDown: false }
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => {
     if (mockState.authDown) {
-      return { auth: { getUser: async () => ({ data: { user: null }, error: { status: 503, message: "unavailable" } }) } };
+      return { auth: { getClaims: async () => ({ data: null, error: { status: 503, message: "unavailable" } }), getUser: async () => ({ data: { user: null }, error: { status: 503, message: "unavailable" } }) } };
     }
     return mockState.client;
   },
