@@ -31,8 +31,10 @@ database user that was never created. So staging is "not ready" and you cannot t
   `staging-readonly`; it exists but is empty):
   - Deployment branches: `feature/v2` only. No required reviewer.
   - Secret `STAGING_DB_URL_RO`: copy the **Session pooler** URL from Supabase (Connect → Session pooler, port 5432).
-    Change the user to `clinicos_drift_ro.rzxgkbznyjwrirlufzdw` and the password to the one from 1.1. Percent-encode
-    special characters in the password, and add nothing after the database name except `?sslmode=require`.
+    Change the user to `clinicos_drift_ro.rzxgkbznyjwrirlufzdw` and the password to the one from 1.1 (percent-encode
+    special characters, e.g. `@` → `%40`). `?sslmode=require` at the very end is optional (TLS is enforced anyway);
+    add no other `?…` parameter. Shape:
+    `postgresql://clinicos_drift_ro.rzxgkbznyjwrirlufzdw:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require`
   - Variables: `SUPABASE_PROJECT_REF_STAGING` = `rzxgkbznyjwrirlufzdw`, `STAGING_ORIGIN` =
     `https://staging.thecliniqai.com`. These match the `staging` environment.
 
