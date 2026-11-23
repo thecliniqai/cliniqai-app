@@ -32,7 +32,11 @@ async function requestScope(): Promise<object | null> {
   }
 }
 
-export async function requestMemo<T>(key: string, load: () => Promise<T>): Promise<T> {
+/**
+ * `options.keep` (09D-01a, A-10): an answer for which it returns false is handed to the callers waiting on it but not kept
+ * for the rest of the request (a fallback after a failed lookup: the next caller asks again).
+ */
+export async function requestMemo<T>(key: string, load: () => Promise<T>, options: { keep?: (value: T) => boolean } = {}): Promise<T> {
   const scope = await requestScope();
   if (!scope) return load();
   let entries = MEMO.get(scope);
@@ -44,6 +48,16 @@ export async function requestMemo<T>(key: string, load: () => Promise<T>): Promi
   if (hit) return hit;
   const pending = load();
   entries.set(key, pending);
+  const keep = options.keep;
+  if (keep) {
+    const current = entries;
+    void pending.then(
+      (value) => {
+        if (!keep(value) && current.get(key) === pending) current.delete(key);
+      },
+      () => undefined,
+    );
+  }
   return pending;
 }
 

@@ -16,25 +16,29 @@ export async function getTenantTimeZone(
   db: SupabaseClient<any, any, any>,
   tenantId: string
 ): Promise<string> {
-  // V2-09d: once per request and clinic (`requestMemo`; nothing is memoised outside a request, e.g. in a job).
-  return requestMemo(`tenant-tz:${tenantId.toLowerCase()}`, () => readTenantTimeZone(db, tenantId));
+  // V2-09d: once per request and clinic (`requestMemo`; nothing is memoised outside a request, e.g. in a job). 09D-01a
+  // (A-10): a failed read's fallback answers its own callers but is not kept, so the next reader in the request asks again.
+  const read = await requestMemo(`tenant-tz:${tenantId.toLowerCase()}`, () => readTenantTimeZone(db, tenantId), {
+    keep: (r) => !r.fallback,
+  });
+  return read.zone;
 }
 
 async function readTenantTimeZone(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: SupabaseClient<any, any, any>,
   tenantId: string
-): Promise<string> {
+): Promise<{ zone: string; fallback: boolean }> {
   try {
     const { data, error } = await db.from("tenants").select("timezone").eq("id", tenantId).maybeSingle();
     if (error) {
       log.warn({ event: "datetime.tenant_tz.failed", code: errorTag(error), tenantId });
-      return DEFAULT_CLINIC_TZ;
+      return { zone: DEFAULT_CLINIC_TZ, fallback: true };
     }
-    return resolveTimeZone((data as { timezone?: string | null } | null)?.timezone);
+    return { zone: resolveTimeZone((data as { timezone?: string | null } | null)?.timezone), fallback: false };
   } catch (err) {
     log.warn({ event: "datetime.tenant_tz.failed", code: errorTag(err), tenantId });
-    return DEFAULT_CLINIC_TZ;
+    return { zone: DEFAULT_CLINIC_TZ, fallback: true };
   }
 }
 
