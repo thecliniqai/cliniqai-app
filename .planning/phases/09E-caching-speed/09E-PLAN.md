@@ -2,10 +2,10 @@
 phase: "09E"
 roadmap_id: V2-09e
 name: Caching and speed
-gate: "G4 (light, per PR): one isolated reviewer (Sonnet) over the latency lane and its budgets, the parity tables, the single reads per screen, skeletons and prefetch at 360/820/1280, the optimistic and rollback states of every save, the schedule store and its live updates; one adversarial security reviewer (Opus) over migrations 000122 to 000124 (consult_screen, the reference catalogue versions and shard read, schedule_range and the extra Realtime kinds), the reference routes, everything the device stores (IndexedDB, HTTP cache, memory) and its purge, the per-clinic server cache if C-1 allows it, and the confinement of the latency preload to the e2e lane; one fix round (09E-10a, lean process, VERIFICATION_LOG 2026-11-15). The PO approves the gate (the 2026-11-21 delegation covered V2-07 to V2-11 for one night); if the PO delegates again, approved by delegation with the CI run recorded."
+gate: "G4 (light, per PR): one isolated reviewer (Sonnet) over the latency lane and its budgets, the parity tables, the single reads per screen, skeletons and prefetch at 360/820/1280, the optimistic and rollback states of every save, the schedule store and its live updates; one adversarial security reviewer (Opus) over migrations 000122 to 000124 (consult_screen, the reference catalogue versions and shard read, schedule_range and the extra Realtime kinds), the reference routes, everything the device stores (IndexedDB, HTTP cache, memory) and its purge, migration 000125 (settings_version), the settings held on the device and the cookie fields, and proof that billing, fees, access and roles are never held, and the confinement of the latency preload to the e2e lane; one fix round (09E-10a, lean process, VERIFICATION_LOG 2026-11-15). The PO approves the gate (the 2026-11-21 delegation covered V2-07 to V2-11 for one night); if the PO delegates again, approved by delegation with the CI run recorded."
 requirements: ["PO directive 2026-11-23: every click and page must feel instant on staging (300-450 ms per Supabase call, Vercel bom1 to Supabase Sydney); the fix is our call count and caching, not the region", "PO-approved strategy 2026-11-23 items 1-7 (reference data on the device, per-doctor data in memory, per-clinic config cache, schedule data layer, PHI screens in one query, instant feel, latency lane and budgets)", "PRD 1-2 s core actions on 3G/4G (PWA_STRATEGY §1.14, §3.9)", "FE-9 performance budgets (report-only until V2-15; this phase adds latency budgets that block)", "DESIGN_SYSTEM §6.9 (layout-matching loading.tsx per route group, optimistic UI with rollback, no full-screen spinner)", "FRONTEND_TECHNOLOGY_ASSESSMENT D4 and §5 (GET routes for search, Realtime for live views, TanStack Query decision gate)", "TARGET_ARCHITECTURE §9 and ADR-019 (request-scoped caching; tag caching for global reference data only)", "PWA_STRATEGY §4 D-3, D-4, D-5 (no PHI on the device, no-store PHI responses, purge at sign-out)", "FRONTEND_MIGRATION_PLAN M criterion 6 (Today realtime update visible within 2 s)", "V2-09d hand-offs: per-request memo, signed clinic_ctx cookie, Kong round-trip counter, PR-lane call ceilings, the batched available_slots calls"]
 plans: ["09E-01", "09E-02", "09E-03", "09E-04", "09E-05", "09E-06", "09E-07", "09E-08", "09E-09", "09E-10a", "close"]
-order: "09E-01 -> 09E-02 -> 09E-03 -> 09E-04 -> 09E-05 -> 09E-06 -> 09E-07 -> 09E-08 -> 09E-09 (built only if the PO's answer to C-1 allows it) -> reviews -> 09E-10a -> close (sequential; one local stack; one executor at a time)"
+order: "09E-01 -> 09E-02 -> 09E-03 -> 09E-04 -> 09E-05 -> 09E-06 -> 09E-07 -> 09E-08 -> 09E-09 -> reviews -> 09E-10a -> close (sequential; one local stack; one executor at a time)"
 preconditions: "V2-09d merged into feature/v2 (09E branches from that merge); C-2 answered before 09E-05 starts; C-1 answered before 09E-09 starts"
 migrations: {"09E-02": "000122_consult_screen", "09E-05": "000123_reference_catalogues", "09E-08": "000124_schedule_range"}
 migrations_note: "000120_rx_review_fixes is the newest migration at planning time; the brief reserved 000121 for V2-09d, whose notes say it adds none. Run `ls supabase/migrations | tail -3` at the start of each plan: if 000121 is still free when 09E-02 starts, take the next free number and shift the later ones; record the numbers in 09E-NOTES.md. Every migration commit also bumps app/api/ready/expected-migration.ts, the schema snapshot, types/database.ts (npm run db:types) and scripts/ci/assert-pgtap-report.mjs (REQUIRED_FILES and FLOOR with the arithmetic in its header). No other plan adds a migration; 09E-10a takes the next free number only if a fix needs SQL."
@@ -28,7 +28,7 @@ must_haves:
     - "lib/reference/{idb.ts,sync.ts,store.ts,trigram.ts,search-substances.ts,search-diagnoses.ts,search-medicines.ts,medicine-index.ts,worker.ts}, features/reference/{catalogues.ts,service.ts}, app/api/reference/manifest/route.ts, app/api/reference/[catalogue]/[version]/[shard]/route.ts, scripts/perf/reference-size.ts"
     - "lib/schedule/{slots.ts,range-store.ts}, lib/live/clinic-channel.ts, app/api/schedule/range/route.ts"
     - "tests/reference/{substance-search-parity,trigram-parity,diagnosis-search-parity,medicine-search-parity}.spec.ts, tests/schedule/slots-parity.spec.ts, tests/consultation/consult-screen-parity.spec.ts"
-    - "lib/cache/clinic-config.ts and its specs (09E-09, only if C-1 allows)"
+    - "the settings version store, migration 000125 and its specs (09E-09)"
   key_links:
     - "public.consult_screen (000122) is the consult page's only database read on its critical path; it calls the existing INVOKER reads (consult_assist_context, patient_snapshot, rx_allergy_context, my_entitlements) so the rules of 09B and 09C stay in one place."
     - "public.reference_catalogues versions change by statement triggers on every catalogue table, so any reload (seed, SQL console) gives the device a new version without app code; the shard read and the manifest carry that version and the device never mixes two versions."
@@ -139,7 +139,7 @@ overturn any of them at the gate.
 
 | # | Ruling | Why / how |
 |---|---|---|
-| R-1 | **Scope.** Strategy items 1 to 7 as planned below, item 3 as C-1 allows. Out: the calendar views (week time grid, month view), V2-10 billing, a region move, Redis or CDN caching, offline writes, PHI on the device, caching in the service worker, on-device patient search, Lighthouse and k6 blocking (V2-15) | PO brief; ADR-019; PWA §4 |
+| R-1 | **Scope.** Strategy items 1 to 7 as planned below, item 3 as the device-held settings design in 09E-09 (no server cache). Out: the calendar views (week time grid, month view), V2-10 billing, a region move, Redis or CDN caching, offline writes, PHI on the device, caching in the service worker, on-device patient search, Lighthouse and k6 blocking (V2-15) | PO brief; ADR-019; PWA §4 |
 | R-2 | **Measure first, by tool.** Every budget is a row in `tests/e2e/perf/latency-budgets.ts` (`id`, `kind`, `budgetMs`, `maxMs`, `maxCalls`, `enforce`, `owner`). 09E-01 adds every row with `enforce: false` except the calibration row; each plan flips its rows to `enforce: true` in the commit that meets them. Numbers in notes, summaries and the verification come from the lane's JSON only | CLAUDE.md DoD 5 |
 | R-3 | **Latency injection** (no new dependency). Server side: a preload `tests/e2e/support/server-latency.cjs` loaded through the e2e app env's `NODE_OPTIONS` beside the network guard and the auth-fault hook (the `server-auth-faults.cjs` precedent): while the rule file `playwright/.auth/latency.json` = `{ "ms": N }` exists, every `fetch` to the local Supabase origin (loopback, port 54321) waits N ms before it is sent; anything else is untouched; the file is read with an mtime check, so no restart. Browser side: `context.route` on the Supabase origin waits N ms then continues (HTTP only; the Realtime socket is not delayed and the report says so). The lane writes the file in `beforeAll`, removes it in `afterAll`, and global setup deletes a stale one. Calibration row (always enforced): a route whose Kong count is k takes at least k × N ms with the file and less than N ms without. Rejected: Docker `tc netem` on Docker Desktop (needs `NET_ADMIN`, an image pull with `tc`, delays Kong's upstream hops too and every lane sharing the stack) and a delaying proxy port (the Supabase URL is inlined at build time, so it would need a second build) | Deterministic, per-call, reversible without a rebuild |
 | R-4 | **Budgets** as the table above. The lane runs on desktop-chrome; typeahead and index rows add Chromium's 4× CPU slowdown (CDP `Emulation.setCPUThrottlingRate`) as the stand-in for the low-end Android of PO-13; the real phone is the device checklist. In CI the `@budget` subset (calibration, the B-1 rows of Today, Patients, consult and Schedule, one B-4 row per catalogue, B-7 for check in and Rx add) runs after the PR lane on every PR; the full lane runs nightly and at the gate. A budget row that fails once is root-caused like a flaky test, never re-run to green | CI time (95-minute job); flaky-test policy |
@@ -151,7 +151,7 @@ overturn any of them at the gate.
 | R-10 | **Schedule data layer** (strategy 4). `public.schedule_range(p_tenant_id, p_from date, p_to date)` (INVOKER, `appointments:view`, at most 42 days) returns the clinic zone, the clinicians (id, display name, slot minutes, effective weekly schedule), the schedule blocks and the visits of the range with the fields the cards show today. Slots are computed on the client by `lib/schedule/slots.ts`, the twin of `private.available_slots_core`, with a shared case table; the booking commands' `slot_conflicts` stays the authority and a refusal is shown as today. `lib/schedule/range-store.ts`: `useScheduleRange({ from, to, doctorIds })` → `{ zone, doctors, visits, blocks, slotsFor(doctorId, date), status }`, one call per range, adjacent range prefetched after the visible one settles, kept in memory per tab (at most 6 ranges), dropped by hardSignOut and the clinic switch. Live: `lib/live/clinic-channel.ts` subscribes once to `today:<tenant>`; 000124 adds kinds `block` (schedule_blocks insert, update, delete) and `hours` (memberships when the schedule, slot length, role or status changes) and widens the visit kind to duration, overbooking and origin changes; payload keys stay `kind` and `visit_id` (null for the new kinds); on a signal the store re-reads the visible range (coalesced 400 ms, the Today rule) and marks other cached ranges stale. Day and week views read the store; a 42-day range in one call is tested, so the week grid and the month view plug in later | Strategy 4; 08 R-10 |
 | R-11 | **Saves** (strategy 5). Each hot save shows its result at once (a pending marker), calls one command, applies the command's result or what it sent (no read-back), and does not call `revalidatePath` on its hot path; Today and Schedule reconcile through the live channel, other screens on their next navigation. A failure removes the pending result, restores the previous state and shows the fixed error with Retry (`useCommand` semantics, the same request id); "Saved" is never shown before the server confirmed | DESIGN §6.9; ADR-004 |
 | R-12 | **Instant feel** (strategy 6). Every main route has a `loading.tsx` with a skeleton that matches its layout (DESIGN §6.9: static `sunken` blocks, the real page title at once); navigation keeps `next/link` with the default prefetch; the `patient.view` audit insert moves after the response (`after()` from `next/server`; still written once per opening, failures logged by tag) | DESIGN §6.9 |
-| R-13 | **Per-clinic config** (strategy 3). Built only as C-1 allows; design in 09E-09 | ADR-019 |
+| R-13 | **Per-clinic config** (strategy 3). Device-held with a version check, critical settings always fresh; design in 09E-09 (PO 2026-11-23) | ADR-019 |
 | R-14 | **No client-cache library.** The four client caches (reference catalogues, doctor lists, schedule ranges, the Today board) each have their own invalidation (version, save result, live signal); a small keyed store per surface (`useSyncExternalStore`, in-flight dedupe, `registerCleanup`) is less code than adopting and constraining TanStack Query to "memory only, purge on sign-out". This is the FRONTEND_TECHNOLOGY §5 decision gate's answer; the PO is informed | No new dependency |
 | R-15 | **Platform rules.** No service-role client (ADR-0005): reads under the caller's JWT, INVOKER, tenant from the session; routes authenticate, check the permission and derive the tenant from the session. No PHI in IndexedDB, localStorage, sessionStorage, Cache Storage or the HTTP cache. Dates through `lib/datetime` (ADR-016); slots in the clinic zone. No per-flow flags (PO-15). No new dependency (IndexedDB, Web Workers, compression and timing use platform APIs) | CLAUDE.md non-negotiables |
 | R-16 | **Evidence and latency.** `node scripts/phase-evidence.mjs .planning/phases/09E-caching-speed/evidence 1`, then `--ci-run <id>`; the baseline and final `perf-latency` and `perf-roundtrips` summaries; `reference-size.json`; `scripts/perf/command-latency.ts` gains `consult_screen` (300 signed visits for one doctor), `schedule_range` (42 days, 3 doctors, 600 visits) and `reference_shard` (12,000 brands) with p95 under 50 ms, 50 ms and 200 ms | CLAUDE.md DoD 5 |
@@ -457,32 +457,31 @@ registries.
 Tests: Vitest `tests/schedule tests/realtime tests/visits`; full pgTAP; e2e `tests/e2e/schedule tests/e2e/today tests/e2e/journeys/journey-04-book-appointment.spec.ts`, then the full PR lane once.
 Done: B-1, B-9, B-10, B-11 green for the schedule; slot parity green; the 09D `available_slots` batching no longer on the schedule's path.
 
-### 09E-09 Per-clinic config cache on the server · S-M · no migration · only if C-1 allows
+### 09E-09 Clinic settings on the device, with a version check · S-M · one migration (000125) · PO-approved 2026-11-23
 
-Precondition: the PO amended ADR-019 (C-1). Goal: R-13. Clinic settings that every member may see are cached per clinic across requests,
-invalidated by every writer, never shared across clinics.
+PO ruling (2026-11-23, replaces the server cache): no server-side cache; ADR-019 and TARGET §9 stay as they are. Settings that change rarely
+are held by the browser with a version number and fetched again only when the version moves. Critical settings are never held: they are read
+from the database on the path that uses them.
 
-1. Measure first: from the latest `perf-latency` and `perf-roundtrips` summaries, list every remaining clinic-config read on a critical path. If
-   there is none, the plan stops here, the notes record the finding and the PO is told; no cache is built.
-2. Tracer: `lib/cache/clinic-config.ts` `getClinicConfig(ctx)` = `unstable_cache(load, ["clinic-config", tenantId, SHAPE_VERSION], { tags: ["clinic-config:" + tenantId], revalidate: 60 })`;
-   `load` reads only fields every member may see (name, zone, address and phone, fees, accepted payment methods, Rx print settings and margins,
-   the clinicians' id, display name, slot minutes and schedule) through the caller's JWT client created outside the cache scope (Next forbids
-   request data inside it); one screen reads it; one writer invalidates it.
-3. Writers, each calling `updateTag("clinic-config:" + tenantId)` in its Server Action after a committed write (the grep at the start is
-   authoritative; known at planning): `updateClinicSettings`, `updateStatutorySettings`, `updateRxPrintSettings`, `updateUserProfile`,
-   `updateStaffMember`, `updateDoctorAvailability`, `updateDoctorSlotDuration`, `deleteDoctorScheduleBlock` (`features/settings/actions.ts`, service
-   writes at `features/settings/service.ts:100, 128, 211, 269, 334, 474, 573, 652`); `updateClinicProfileAction` (`features/clinics/profile.ts:92`);
-   `createScheduleBlock`, `deleteScheduleBlock` (`features/visits/scheduling-service.ts:94, 171`); `acceptInvite` (`consume_invitation`,
-   `private.invitation_consume`); the staff role change (`change_member_role`); `removeStaff` (`remove_member`). `createClinic`
-   (`create_clinic_with_owner`) needs none (a new clinic has no entry). Outside the app (platform admin in V2-13c, the disabled v1 API,
-   migrations, the SQL editor) the 60 s time-to-live is the backstop; V2-13c's plan must call the same invalidation (hand-off).
-4. Specs. Vitest with `next/cache` mocked: the key parts and the tag carry the clinic id for every call; two clinics never share an entry.
-   e2e: clinics A and B with different names and fees, loaded alternately on one server: each sees only its own, 20 alternations (fails without
-   the clinic id in the key: one proof run recorded). One e2e per writer: change through the UI, the next screen shows the new value. Backstop: a
-   direct SQL change appears within the e2e TTL (`CLINIC_CONFIG_TTL_SECONDS`, default 60, the e2e server 2; `lib/env.ts`, `.env.example`, the e2e
-   app env).
+Never held on the device or in the cookie (always read fresh, inside the screen's or the command's own single read): fees and every billing,
+payment, invoice and subscription value; the access level and entitlements; roles and permissions (09D rules unchanged); anything a sensitive
+action (`lib/auth/sensitive-actions.ts`) reads.
 
-Done: the measured finding recorded, and if built, isolation and every writer proven.
+1. Cookie (`clinic_ctx`, 09D): add the clinic's display name and IANA zone (default `Asia/Kolkata`; the clinic's own zone is still stored per
+   clinic). The layout and date formatting read them from the cookie; no settings call on a page load while the cookie is valid. Size stays well
+   under 4 KB (a name longer than 80 characters is truncated in the cookie only).
+2. Migration 000125: `tenants.settings_version bigint not null default 1`, bumped by a trigger on every write to the held settings (clinic
+   profile, Rx print settings, doctor directory: display names, slot minutes, availability and blocks). `/api/session-status` returns it.
+3. Browser: one in-memory store per tab (no IndexedDB, no localStorage; PWA §4 unchanged for this) holding the doctor directory, Rx print and
+   letterhead settings, keyed by clinic and version. Filled from the first screen read that carries them; on each status answer (load, resume,
+   5-minute poll) a changed version drops the store and the cookie fields, and the next read refills them. A save on this device updates the
+   store at once. Dropped at sign-out and clinic switch.
+4. Specs: two devices (browser contexts), a settings change on one shows on the other after its next status check, never a stale value after it
+   (fails without the version check: one proof run recorded); a change on the same device shows at once; fees changed on device A are used by
+   device B's next bill with no status check in between (proves fees are never held); clinic switch and sign-out leave nothing; two clinics never
+   share a store entry.
+
+Done: page loads make no settings call while the cookie and version hold; critical settings proven fresh.
 
 ### Close (reviews, fix round, evidence, docs)
 
@@ -581,8 +580,9 @@ No item is unplanned. Strategy item 3 is planned in full and gated by C-1; nothi
 | Q-4 | Do you accept the budgets (page under 1 s, full reload under 1.5 s, search under 0.1 s, save confirmed under 0.5 s and visible at once, finish under 1 s), measured with 300 ms per database call, and the budget check on every pull request (about 4 more minutes of CI)? | Yes |
 
 **PO answers (2026-11-23, in chat):** Q-2 yes (amend PWA §4 as C-2 proposes); Q-3 yes (amend DESIGN_SYSTEM §5 Combobox
-as C-3 proposes); Q-4 yes (budgets as listed, budget check on every PR). Q-1 open: the PO asked for an explanation; until
-answered, the default holds (ADR-019 unchanged, 09E-09 not built, its measurement step still runs).
+as C-3 proposes); Q-4 yes (budgets as listed, budget check on every PR). Q-1: no server cache; instead 09E-09 holds
+rarely-changing settings on the device with a version check, and critical settings (billing, fees, access, roles) are always read from the
+database. Almost all clinics are IST (no international launch yet); the zone stays per clinic, default `Asia/Kolkata`.
 
 PO actions at the close: `09E-P1` gate; `09E-P2` a 10-minute walkthrough on staging after the staging migrate (open Today, a consult, search a
 drug and a diagnosis, add three Rx lines, book from Schedule, on a phone and a desktop) and the device checklist (low-end Android: catalogue
