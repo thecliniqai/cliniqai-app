@@ -13,6 +13,8 @@
  *   makes Next re-render the route);
  * - 09D-01a (S-5): on a Secure request the cookie is `__Host-clinic_ctx`, and only that name is read there;
  * - 09D-01a (S-7): the answer that issues it is `private, no-store`;
+ * - 09D-01a (A-14): with the cookie switched off (no secret, or an environment the schema refuses) nothing is issued and
+ *   the database answers, without an error; one request scope shares its lookups across awaits;
  * - 09D-01a (A-9): the access pages read the level from the database, never from the cookie;
  * - the next request of the same session with that cookie reads neither the memberships nor the access level;
  * - the cookie is ignored (database again) when its signature, session, user or pin does not match;
@@ -116,6 +118,7 @@ import { addMemberToTenant, seedDualTenantEcosystem, seededUserPassword, seedTen
 import { seedBookedVisit, seedPatient } from "../helpers/front-desk-commands";
 
 const ACTIVE = "clinic_active_tenant";
+const ORIGINAL_APP_ENV = process.env.APP_ENV;
 
 /** Starts a new request: a new scope, the cookies the browser sends, a writable (action) or read-only (render) store. */
 function request(client: TestDb, jar: Record<string, string> = {}, kind: "action" | "render" = "action") {
@@ -233,6 +236,44 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     state.scope = { get: (name: string) => (name === "x-forwarded-proto" ? "https" : null) };
     await requireServiceContext("appointments:view");
     expect(contextLookups()).toContain("from:memberships");
+  });
+
+  it("A-14: with no secret, or an environment the schema refuses, nothing is issued and the database answers (no error)", async () => {
+    vi.stubEnv("SESSION_CONTEXT_SECRET", "");
+    try {
+      request(receptionist.client);
+      const res = await sessionStatus();
+      expect(res.status).toBe(200);
+      expect(res.headers.getSetCookie().some((c) => c.includes("clinic_ctx="))).toBe(false);
+    } finally {
+      vi.stubEnv("SESSION_CONTEXT_SECRET", SECRET);
+    }
+    const device = await issueFor(receptionist.client);
+    // A refused environment (here a production tier without its required keys) makes `serverEnv()` throw: the cookie is off.
+    vi.stubEnv("APP_ENV", "production");
+    try {
+      request(receptionist.client, device);
+      const ctx = await requireServiceContext("appointments:view");
+      expect(ctx).toMatchObject({ tenantId: owner.tenantId, role: "receptionist" });
+      expect(contextLookups().sort()).toEqual(["from:memberships", "rpc:my_tenant_access"]);
+      expect(state.sets).toEqual([]);
+    } finally {
+      vi.stubEnv("APP_ENV", ORIGINAL_APP_ENV ?? "");
+      if (ORIGINAL_APP_ENV === undefined) delete process.env.APP_ENV;
+    }
+  });
+
+  it("A-14: within one real request scope (one shared headers object), the lookups are shared across awaits", async () => {
+    request(receptionist.client, {}, "render");
+    const [a, b] = await Promise.all([getActiveMembership(), (async () => { await Promise.resolve(); return getActiveMembership(); })()]);
+    await getTenantAccessLevel(a.tenantId);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await getTenantAccessLevel(b.tenantId);
+    expect(contextLookups().sort()).toEqual(["from:memberships", "rpc:my_tenant_access"]);
+    // A new scope (the next request) asks again.
+    request(receptionist.client, {}, "render");
+    await getActiveMembership();
+    expect(contextLookups()).toEqual(["from:memberships"]);
   });
 
   it("A-9: the access pages read the level from the database, never from the cookie", async () => {
