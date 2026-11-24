@@ -13,13 +13,13 @@ import { publicEnv } from "@/lib/env";
  * The browser side of real-user monitoring (V2-09e 09E-02, R-20): `rum.record(metric, value)` keeps one closed-list sample (screen,
  * metric, device, net, value) and sends them in batches to `POST /api/rum`: when 60 are waiting, every 60 s, and with
  * `navigator.sendBeacon` when the page goes to the background or closes. One sampling decision per session
- * (`NEXT_PUBLIC_RUM_SAMPLE_RATE`, kept in `sessionStorage`). Never a URL, id, text or time of day; a value that is not a finite number in
+ * (`NEXT_PUBLIC_RUM_SAMPLE_RATE`, kept in memory for the page's lifetime, never in a storage API: PWA D-3). Never a URL, id, text or time of day; a value that is not a finite number in
  * range is dropped here as well as at the route and in the database. Every call is safe: monitoring never throws into a screen.
  */
 
 export const RUM_ENDPOINT = "/api/rum";
 export const RUM_FLUSH_MS = 60_000;
-const SAMPLED_KEY = "clinicos.rum.sampled";
+let keptDecision: string | null = null;
 /** A click that started a navigation counts for this long; later `DataReady` marks are full loads. */
 const NAV_WINDOW_MS = 30_000;
 
@@ -150,8 +150,12 @@ function browserEnv(sampleRate: number): CollectorEnv {
       void fetch(RUM_ENDPOINT, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true, credentials: "same-origin" }).catch(() => undefined);
       return true;
     },
-    getSession: () => window.sessionStorage.getItem(SAMPLED_KEY),
-    setSession: (value) => window.sessionStorage.setItem(SAMPLED_KEY, value),
+    // Memory only: PWA_STRATEGY D-3 lets a device keep the preference keys and nothing else in any storage (05-cache-audit), so the decision
+    // lives as long as the page's scripts (every full load decides again; at the default rate of 1 that changes nothing).
+    getSession: () => keptDecision,
+    setSession: (value) => {
+      keptDecision = value;
+    },
     random: () => Math.random(),
   };
 }
