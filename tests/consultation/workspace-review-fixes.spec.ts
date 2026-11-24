@@ -11,6 +11,7 @@
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -21,6 +22,9 @@ import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/li
 import type { Json } from "@/lib/db/types";
 import { recordState, signedVersionOf } from "@/features/consultation/record-state";
 import { saveDraftAs, followUpDay } from "../helpers/consult-draft";
+
+// The consult reads the doctor's lists from its query (09E-05): the workspace needs a client, here one that holds nothing.
+const TENANT = "00000000-0000-4000-8000-0000000000aa";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined, replace: () => undefined }) }));
 
@@ -148,7 +152,7 @@ async function workspaceVisit(visitId: string): Promise<Props["visit"]> {
 
 const patient: Props["patient"] = { id: "00000000-0000-4000-8000-0000000000c1", full_name: "Synthetic Patient", phone: "+919000000000", gender: "female", date_of_birth: null, age: 6 };
 const render = (visit: Props["visit"]) =>
-  renderToStaticMarkup(createElement(ConsultWorkspace, { visit, patient, pastEncounters: [], canAmend: true }));
+  renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(ConsultWorkspace, { tenantId: TENANT, visit, patient, pastEncounters: [], canAmend: true })));
 
 const tags = (html: string, tag: string) => [...html.matchAll(new RegExp(`<${tag}\\b[^>]*>`, "g"))].map((m) => m[0]);
 const isDisabled = (tag: string) => /\sdisabled(=""|\s|>)/.test(tag);

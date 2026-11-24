@@ -13,7 +13,11 @@
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
+
+// The consult reads the doctor's lists from its query (09E-05): the workspace needs a client, here one that holds nothing.
+const TENANT = "00000000-0000-4000-8000-0000000000aa";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined, replace: () => undefined }) }));
 
@@ -54,7 +58,7 @@ function visitProps(over: Partial<Props["visit"]>): Props["visit"] {
 }
 
 const render = (visit: Props["visit"], extra: Partial<Props> = {}) =>
-  renderToStaticMarkup(createElement(ConsultWorkspace, { visit, patient, pastEncounters: [], canAmend: true, ...extra }));
+  renderToStaticMarkup(createElement(QueryClientProvider, { client: new QueryClient() }, createElement(ConsultWorkspace, { tenantId: TENANT, visit, patient, pastEncounters: [], canAmend: true, ...extra })));
 
 const draft = () => render(visitProps({}));
 const SIGNED = "2031-01-15T10:12:00Z"; // 15:42 in Asia/Kolkata

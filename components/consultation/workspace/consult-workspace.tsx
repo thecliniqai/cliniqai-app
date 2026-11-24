@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Vitals,
@@ -70,11 +70,11 @@ import { Attachments } from "./attachments";
 import type { ConsultDocument } from "@/features/labs/consult-documents";
 import { MacroList } from "./macro-list";
 import { BookFollowUp, FollowUpSuggestion } from "./follow-up-suggestion";
-import type { DoctorMacro } from "@/features/consultation/macros";
 import { findFollowUpPhrase, type FollowUpPhrase, type ShorthandResult } from "@/features/consultation/shorthand";
 import { applyShorthand, followUpFromDuration } from "@/features/consultation/shorthand-apply";
-import type { AssistContext } from "@/features/consultation/assist-ranking";
 import type { PatientSnapshot } from "@/features/consultation/snapshot";
+import type { ConsultQueryData } from "@/features/consultation/screen";
+import { ConsultQueryProvider, useConsultQuery } from "./consult-query";
 
 export interface ConsultWorkspaceProps {
   visit: {
@@ -147,26 +147,23 @@ export interface ConsultWorkspaceProps {
    */
   assist?: Record<string, boolean>;
   /**
-   * The calling doctor's learned order (`consult_assist_context`, V2-09b R-12), read on the server only when the clinic is entitled to
-   * `assist.terminology` and the record is editable; null otherwise (the tiles use the catalogue order and carry no label).
+   * The clinic's id: the first element of the consult's query key (09E-05). The doctor's lists, macros and the two learned-order reads (the calling
+   * doctor's learned order, `consult_assist_context`, V2-09b R-12, and the same read for the Prescription section's favourites and "your usual",
+   * V2-09c R-9) come from the consult's query; `queryData` is what the page read for it (a later server render replaces the query's content).
    */
-  assistContext?: AssistContext | null;
+  tenantId: string;
+  queryData?: ConsultQueryData;
   /**
-   * The same read, for the Prescription section's favourites and "your usual" (V2-09c R-9): only when the clinic is entitled to `assist.frequent_rx` and the
-   * record is editable; null otherwise ("Same as last visit" stays).
+   * The signed prescription's print payload (V2-09c 09C-04, R-12; CTO ruling Q-2), for a sealed record and a role that may read prescriptions; null
+   * otherwise. It is a separate read the page does NOT wait for (09E-05, R-9): the page hands over the promise and the workspace draws the print view
+   * when it resolves, under `Suspense` with no skeleton (the PDF link and "Print Rx" are already on screen). "Print Rx" prints it with the browser's print
+   * dialog, on the clinic's paper and margins; the PDF link stays beside it. A read that failed or found nothing resolves to null ("no print view").
    */
-  rxAssistContext?: AssistContext | null;
-  /**
-   * The signed prescription's print payload (V2-09c 09C-04, R-12; CTO ruling Q-2), read on the server for a sealed record and a role that may read prescriptions;
-   * null otherwise. "Print Rx" prints it with the browser's print dialog, on the clinic's paper and margins; the PDF link stays beside it.
-   */
-  printPayload?: PrescriptionPdfPayload | null;
+  printPayload?: Promise<PrescriptionPdfPayload | null> | null;
   /** The allergy picture of the visit the page read (V2-09c 09C-02, R-7): the three states, the coded allergies, what each line matches. */
   allergyContext?: RxAllergyContext | null;
   /** The patient snapshot (`patient_snapshot`, V2-09b 09B-04a), read on the server only with `assist.snapshot`; null: the plain last-visit block. */
   snapshot?: PatientSnapshot | null;
-  /** The signed-in doctor's own text macros (V2-09b 09B-04b, R-14), read on the server only with `assist.shorthand` and an editable record. */
-  macros?: DoctorMacro[];
   /**
    * The instants of this patient's booked or confirmed visits with this doctor from three days ago onward (09B-04b, R-15, Q-14), read on the server. A display
    * rule only: the "Book follow-up" action gives way to a note when one falls on or after three days before the follow-up date.
@@ -182,6 +179,8 @@ export interface ConsultWorkspaceProps {
   /** The role holds `labs:edit`: the upload is offered (else the drop zone is disabled with the reason). */
   canUpload?: boolean;
 }
+
+const EMPTY_QUERY_DATA: ConsultQueryData = { lists: null, macros: [], assistContext: null, rxAssistContext: null };
 
 const SECTION_IDS = ["complaints", "examination", "diagnosis", "prescription", "plan"] as const;
 type SectionId = (typeof SECTION_IDS)[number];
@@ -241,12 +240,11 @@ export function ConsultWorkspace({
   canEditRx = true,
   canViewRx = true,
   assist,
-  assistContext = null,
-  rxAssistContext = null,
-  printPayload = null,
+  tenantId,
+  queryData = EMPTY_QUERY_DATA,
+  printPayload: printSource = null,
   allergyContext: initialAllergyContext = null,
   snapshot = null,
-  macros = [],
   upcomingVisits = [],
   canBook = false,
   documents: initialDocuments = null,
@@ -307,7 +305,11 @@ export function ConsultWorkspace({
   // The shorthand bar and the doctor's macros (09B-04b). The macro list is the doctor's own and lives here so the bar sees an edit at once.
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const [isMacroListOpen, setIsMacroListOpen] = useState(false);
-  const [macroList, setMacroList] = useState<DoctorMacro[]>(macros);
+  // The print view: resolved from the page's separate read (streamed), null until then and when the read gave nothing.
+  const [printPayload, setPrintPayload] = useState<PrescriptionPdfPayload | null>(null);
+  const consult = useConsultQuery(tenantId, visit.id, queryData);
+  const { macros: macroList, assistContext, rxAssistContext } = consult.data;
+  const setMacroList = consult.setMacros;
   // The patient's documents (09B-05): a report uploaded here is added at the top of the list at once; the server copy is read again on the next load.
   const [documents, setDocuments] = useState<ConsultDocument[] | null>(initialDocuments);
   const [shortcutsOn, setShortcutsOn] = useState(false);
@@ -800,11 +802,17 @@ export function ConsultWorkspace({
   );
 
   return (
+    <ConsultQueryProvider value={consult}>
     <div
       data-consult-workspace=""
       data-record-state={state}
       className="flex w-full flex-1 flex-col bg-canvas md:h-[calc(100dvh-var(--spacing-bar)-env(safe-area-inset-top,0px))] md:flex-none md:overflow-clip"
     >
+      {printSource && (
+        <Suspense fallback={null}>
+          <PrintPayloadResolver source={printSource} onResolved={setPrintPayload} />
+        </Suspense>
+      )}
       {printPayload && state === "sealed" && <RxPrintPortal payload={printPayload} />}
       {/* The sticky header: top bar, allergy strip (always on screen, sealed records included) and, on a phone, the section strip. */}
       <header className="sticky top-0 z-30 shrink-0 md:static">
@@ -1211,5 +1219,15 @@ export function ConsultWorkspace({
         onSuccess={(ref) => setActiveReferral(ref)}
       />
     </div>
+    </ConsultQueryProvider>
   );
+}
+
+/** Reads the page's streamed print payload (`use` suspends only this component) and hands it to the workspace. Renders nothing. */
+function PrintPayloadResolver({ source, onResolved }: { source: Promise<PrescriptionPdfPayload | null>; onResolved: (payload: PrescriptionPdfPayload | null) => void }) {
+  const payload = use(source);
+  useEffect(() => {
+    onResolved(payload);
+  }, [payload, onResolved]);
+  return null;
 }

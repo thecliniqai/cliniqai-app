@@ -18,6 +18,8 @@ export const queryKeys = {
   clinic: (tenantId: string) => [tenantId] as const,
   /** Today's board for one mode: `[tenantId, "today", mode]`. */
   today: (tenantId: string, mode: TodayMode) => [tenantId, "today", mode] as const,
+  /** The consult's own data for one visit (09E-05, R-8): the doctor's lists, macros and what ranks them. Ids only. */
+  consult: (tenantId: string, visitId: string) => [tenantId, "consult", visitId] as const,
   /** Every Today query of the clinic (a signal or a resume invalidates this prefix). */
   todayAll: (tenantId: string) => [tenantId, "today"] as const,
 } satisfies Record<string, (...args: never[]) => QueryKey>;
