@@ -101,7 +101,8 @@ describe("the expected outcomes", () => {
       .filter((c) => c.principal.id === "dual_hdr_b" && admitted(c.expected))
       .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
       .map((c) => `${targetName(c.target)} ${c.op}`);
-    expect(leaks).toEqual(["public.tenants select"]);
+    // clinic_versions (09E-04, R-18): a version number per domain, no PHI, readable by every active member of that clinic, like the switcher's tenants row.
+    expect(leaks).toEqual(["public.tenants select", "public.clinic_versions select"]);
   });
 
   it("shows a dual member with no active clinic only the clinic switcher (tenants) and global reference data", () => {
@@ -109,7 +110,7 @@ describe("the expected outcomes", () => {
       .filter((c) => c.principal.id === "dual_no_hdr" && admitted(c.expected))
       .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
       .map((c) => `${targetName(c.target)} ${c.op}`);
-    expect(visible).toEqual(["public.tenants select"]);
+    expect(visible).toEqual(["public.tenants select", "public.clinic_versions select"]);
   });
 
   // V2-05 05-05 (AUTH-05, acceptance 4): a removed or suspended member keeps a valid JWT but no active membership.
@@ -154,6 +155,7 @@ describe("the expected outcomes", () => {
  */
 const FINAL_DELETE: Record<string, string> = {
   "public.tenants": "rpc_only",
+  "public.clinic_versions": "rpc_only",
   "public.memberships": "rpc_only",
   "public.invitations": "rpc_only",
   "public.patients": "rpc_only",
@@ -516,7 +518,9 @@ describe("the subscription tables (SUB-01, since 05-09a)", () => {
     }
     // memberships: the fixture row is another member's, which only staff:view (full) reveals; the caller's OWN row stays
     // visible at every level (member helper), proven over the live catalogue by access_lock_rls.test.sql.
+    // clinic_versions (09E-04): readable at every level on purpose, so a device of a locked clinic learns its access level from clinic_live_state.
     expect([...admitted].sort()).toEqual([
+      "public.clinic_versions:select",
       "public.subscription_events:select",
       "public.tenant_subscriptions:select",
       "public.tenants:select",

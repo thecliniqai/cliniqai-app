@@ -1,11 +1,12 @@
--- today_signals.test.sql — V2-08 08-03a (R-10, T-08-01; migration 000102).
--- The Today signals: PHI-free private broadcasts on today:<tenant_id>, written by triggers on visits, queue_tokens,
--- invoices, payments and the vitals of clinical_notes, read through one SELECT policy on realtime.messages.
---   1. objects: the helper, the sender, the trigger function, the five triggers (shapes), the policy, no INSERT policy;
+-- today_signals.test.sql — V2-08 08-03a (R-10, T-08-01; migration 000102), revised by 09E-04 (R-18; migration 000123).
+-- The live signals: PHI-free private broadcasts on today:<tenant_id>, written by private.clinic_bump from the statement triggers of
+-- 000123 (visits, queue_tokens, invoices, invoice_items, payments, clinical_notes vitals, ...), read through one SELECT policy on realtime.messages.
+--   1. objects: the helper, the sender, the bump, the statement triggers (shapes), the policy, no INSERT policy;
 --   2. the policy's test (authz.today_topic_allowed): member of the topic's clinic, active, appointments:view, clinic
 --      access level full; every other topic shape refused; no active-clinic header needed;
---   3. payloads: each trigger writes {kind, visit_id} and nothing else (realtime.send adds the message id), on the clinic's own topic;
+--   3. payloads: a signal is {domain, version} and nothing else (realtime.send adds the message id), on the clinic's own topic;
 --   4. a failing send does not abort the clinical write.
+-- Which table and column moves which domain, once per transaction, rollback and counts: clinic_versions.test.sql.
 -- Delivery over a real socket is in tests/realtime/today-signals.spec.ts. Synthetic data only; the file rolls back.
 begin;
 select plan(31);
@@ -68,28 +69,26 @@ select is(
   'authenticated', 'EXECUTE: authenticated only (no PUBLIC, anon or service_role grant)');
 select is(
   (select string_agg(p.oid::regprocedure::text || ':' || p.prosecdef::text || ':' || array_to_string(p.proconfig, ','), ';' order by p.oid::regprocedure::text)
-     from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname in ('today_signal', 'today_signal_send')),
-  'private.today_signal_send(uuid,text,uuid):true:search_path="";private.today_signal():true:search_path=""',
-  'the two private functions are definer functions with search_path pinned');
+     from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname in ('clinic_bump', 'today_signal_send')),
+  'private.clinic_bump(uuid[],text):true:search_path="";private.today_signal_send(uuid,text,bigint):true:search_path=""',
+  'the bump and the sender are definer functions with search_path pinned');
 select is(
   (select count(*)::int from pg_proc p cross join lateral aclexplode(p.proacl) a
-    where p.pronamespace = 'private'::regnamespace and p.proname in ('today_signal', 'today_signal_send')
+    where p.pronamespace = 'private'::regnamespace and (p.proname in ('clinic_bump', 'today_signal_send') or p.proname like 'cv\_%')
       and a.privilege_type = 'EXECUTE' and a.grantee <> p.proowner),
-  0, 'neither private function has an API grant');
+  0, 'neither the bump, the sender nor any statement trigger function has an API grant');
 
 select is(
-  (select string_agg(t.tgname || '@' || t.tgrelid::regclass::text, ',' order by t.tgname) from pg_trigger t
-    where not t.tgisinternal and t.tgfoid = 'private.today_signal()'::regprocedure),
-  'clinical_notes_today_signal@clinical_notes,invoices_today_signal_insert@invoices,invoices_today_signal_update@invoices,payments_today_signal@payments,queue_tokens_today_signal@queue_tokens,visits_today_signal_insert@visits,visits_today_signal_update@visits',
-  'seven triggers call the signal function, on the five tables (000106, A-5: invoices)');
-select matches(
-  (select pg_get_triggerdef(t.oid) from pg_trigger t where t.tgrelid = 'public.visits'::regclass and t.tgname = 'visits_today_signal_update'),
-  'AFTER UPDATE OF status, scheduled_at, doctor_id ON public\.visits FOR EACH ROW WHEN \(\(\(old\.status IS DISTINCT FROM new\.status\) OR \(old\.scheduled_at IS DISTINCT FROM new\.scheduled_at\) OR \(old\.doctor_id IS DISTINCT FROM new\.doctor_id\)\)\)',
-  'the visits update trigger fires only when status, scheduled_at or doctor_id changed');
-select matches(
-  (select pg_get_triggerdef(t.oid) from pg_trigger t where t.tgrelid = 'public.clinical_notes'::regclass and t.tgname = 'clinical_notes_today_signal'),
-  'AFTER UPDATE OF vitals ON public\.clinical_notes FOR EACH ROW WHEN \(\(old\.vitals IS DISTINCT FROM new\.vitals\)\)',
-  'the clinical_notes trigger fires only when the vitals changed');
+  (select count(*)::int from pg_proc p where p.pronamespace = 'private'::regnamespace and p.proname = 'today_signal'), 0,
+  'the 000102 row trigger function private.today_signal() is gone (000123)');
+select is(
+  (select count(*)::int from pg_trigger t where not t.tgisinternal and t.tgname like '%today\_signal%'), 0,
+  'no row-level *_today_signal* trigger remains (000123)');
+select is(
+  (select count(*)::int from pg_trigger t join pg_proc f on f.oid = t.tgfoid
+    where not t.tgisinternal and f.pronamespace = 'private'::regnamespace and f.proname like 'cv\_%'
+      and (t.tgtype & 1) = 0 and (t.tgtype & 2) = 0 and (t.tgtype & 64) = 0),
+  22, 'the 22 statement triggers: AFTER, FOR EACH STATEMENT, one event each');
 
 select is(
   (select string_agg(p.polcmd::text || ':' || coalesce((select string_agg(r.rolname, ',') from pg_roles r where r.oid = any (p.polroles)), 'public'), ';')
@@ -134,7 +133,9 @@ select is(pg_temp.allowed('c1020000-0000-4000-8000-000000000201', 'today:c102000
 select is(pg_temp.allowed('c1020000-0000-4000-8000-000000000101', 'today:c1020000-0000-4000-8000-00000000000a'), 'true', 'a clinic that is not locked is unaffected');
 
 -- 3. Payloads -----------------------------------------------------------------------------------------------------------
-delete from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a';
+-- One transaction: each domain is raised once (the first statement), so the whole sequence below sends one signal per domain.
+update public.clinic_versions set last_xact = null;
+delete from realtime.messages;
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, created_by) values
   ('c1020000-0000-4000-8000-000000002001', 'c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000001001',
    'c1020000-0000-4000-8000-000000000102', 'walk_in', 'booked', 'c1020000-0000-4000-8000-000000000101');
@@ -149,19 +150,19 @@ insert into public.payments (tenant_id, invoice_id, amount, payment_method, reco
   ('c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000003001', 100, 'cash', 'c1020000-0000-4000-8000-000000000101');
 
 select set_eq(
-  $$ select payload->>'kind' as kind, payload->>'visit_id' as visit_id from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a' $$,
-  $$ values ('visit', 'c1020000-0000-4000-8000-000000002001'), ('queue', 'c1020000-0000-4000-8000-000000002001'),
-            ('vitals', 'c1020000-0000-4000-8000-000000002001'), ('invoice', 'c1020000-0000-4000-8000-000000002001'),
-            ('payment', 'c1020000-0000-4000-8000-000000002001') $$,
-  'insert, status change, token, vitals, invoice (000106, A-5) and payment each signal the visit');
+  $$ select payload->>'domain' from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a' $$,
+  $$ values ('queue'), ('schedule'), ('billing') $$,
+  'the visit, token, vitals, invoice and payment writes of one transaction signal the queue, schedule and billing domains');
 select is(
-  (select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a'), 6,
-  'six messages: visit insert, visit status change, queue token, vitals, invoice, payment');
+  (select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a'), 3,
+  'three messages: one per domain, not one per row');
 select is(
   (select count(*)::int from realtime.messages m where m.topic = 'today:c1020000-0000-4000-8000-00000000000a'
-      and (select array_agg(k order by k) from jsonb_object_keys(m.payload) as t(k)) = array['id', 'kind', 'visit_id']
-      and m.payload->>'id' = m.id::text),
-  6, 'every payload has exactly the keys kind and visit_id, plus the message''s own random id that realtime.send adds');
+      and (select array_agg(k order by k) from jsonb_object_keys(m.payload) as t(k)) = array['domain', 'id', 'version']
+      and m.payload->>'id' = m.id::text
+      and (m.payload->>'version')::bigint = (select v.version from public.clinic_versions v
+                                              where v.tenant_id = 'c1020000-0000-4000-8000-00000000000a' and v.domain = m.payload->>'domain')),
+  3, 'every payload has exactly the keys domain and version (the version in the table), plus the message''s own random id that realtime.send adds');
 select is(
   (select string_agg(distinct m.extension || ':' || m.private::text || ':' || m.event, ',') from realtime.messages m where m.topic = 'today:c1020000-0000-4000-8000-00000000000a'),
   'broadcast:true:today', 'every message is a private broadcast with the event name today');
@@ -169,17 +170,19 @@ select is(
   (select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000b'), 0, 'nothing was sent on the other clinic''s topic');
 
 delete from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a';
+update public.clinic_versions set last_xact = null;
 update public.visits set reason_for_visit = 'synthetic' where id = 'c1020000-0000-4000-8000-000000002001';
 select is((select count(*)::int from realtime.messages where topic = 'today:c1020000-0000-4000-8000-00000000000a'), 0,
-  'a write that leaves status, scheduled_at and doctor_id alone sends nothing');
+  'a write that leaves every listed column alone sends nothing (the once-per-transaction marker was cleared first)');
 
 -- 4. A failing send never aborts the write -----------------------------------------------------------------------------
-create or replace function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid)
+create or replace function private.today_signal_send(p_tenant_id uuid, p_domain text, p_version bigint)
 returns void language plpgsql security definer set search_path = '' as $f$
 begin
   raise exception 'synthetic realtime fault';
 end;
 $f$;
+update public.clinic_versions set last_xact = null;
 insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, status, created_by) values
   ('c1020000-0000-4000-8000-000000002002', 'c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000001001',
    'c1020000-0000-4000-8000-000000000102', 'walk_in', 'booked', 'c1020000-0000-4000-8000-000000000101');

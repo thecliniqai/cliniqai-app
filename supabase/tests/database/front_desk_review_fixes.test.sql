@@ -257,8 +257,8 @@ select is(pg_temp.val_as(null, null,
 
 -- 6. S-7: the Realtime read policy --------------------------------------------------------------------------------------------------------
 delete from realtime.messages;
-select private.today_signal_send('c1060000-0000-4000-8000-00000000000a', 'visit', 'c1060000-0000-4000-8000-000000002001');
-select private.today_signal_send('c1060000-0000-4000-8000-00000000000b', 'visit', 'c1060000-0000-4000-8000-000000002101');
+select private.today_signal_send('c1060000-0000-4000-8000-00000000000a', 'queue', 1);
+select private.today_signal_send('c1060000-0000-4000-8000-00000000000b', 'queue', 1);
 select matches(
   (select pg_get_expr(p.polqual, p.polrelid) from pg_policy p where p.polrelid = 'realtime.messages'::regclass and p.polname = 'today_signals_select'),
   '\(topic = realtime\.topic\(\)\)', 'S-7: the policy compares the row''s own topic with the session topic');
@@ -327,24 +327,28 @@ select is(pg_temp.val_as('c1060000-0000-4000-8000-000000000103', 'c1060000-0000-
   $$select v.status || ':' || v.is_overbooked::text from public.visits v where v.id = 'c1060000-0000-4000-8000-000000002013'$$),
   'in_consultation:true', 'A-3: start_consultation of the late no-show with the rebooked slot works too (overbooked)');
 
--- 9. A-5: invoices signal the Today board -------------------------------------------------------------------------------------------------------
+-- 9. A-5: invoices signal the Today board (09E-04, R-18: the signal is {domain, version}; the domain is billing) ----------------------------------------
+update public.clinic_versions set last_xact = null;
 delete from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a';
 insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount) values
   ('c1060000-0000-4000-8000-000000003001', 'c1060000-0000-4000-8000-00000000000a', 'c1060000-0000-4000-8000-000000002006',
    'c1060000-0000-4000-8000-000000001002', 'INV-C106-1', 0);
 select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a'
-             and payload ->> 'kind' = 'invoice' and payload ->> 'visit_id' = 'c1060000-0000-4000-8000-000000002006'), 1,
-  'A-5: an invoice insert signals {kind: invoice, visit_id}');
-select is((select (payload - 'id' - 'kind' - 'visit_id') from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'kind' = 'invoice'),
+             and payload ->> 'domain' = 'billing'), 1,
+  'A-5: an invoice insert signals {domain: billing, version}');
+select is((select (payload - 'id' - 'domain' - 'version') from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'domain' = 'billing'),
   '{}'::jsonb, 'A-5: and the payload carries nothing else (no PHI, no amount, no number)');
+update public.clinic_versions set last_xact = null;
 delete from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a';
 update public.invoices set total_amount = 250, updated_at = now() where id = 'c1060000-0000-4000-8000-000000003001';
-select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'kind' = 'invoice'), 1,
+select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'domain' = 'billing'), 1,
   'A-5: a change of the total signals');
+update public.clinic_versions set last_xact = null;
 delete from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a';
 update public.invoices set status = 'issued' where id = 'c1060000-0000-4000-8000-000000003001';
-select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'kind' = 'invoice'), 1,
+select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'domain' = 'billing'), 1,
   'A-5: a change of the status signals');
+update public.clinic_versions set last_xact = null;
 delete from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a';
 update public.invoices set updated_at = now() + interval '1 second' where id = 'c1060000-0000-4000-8000-000000003001';
 select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a'), 0,

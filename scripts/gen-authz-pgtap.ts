@@ -599,8 +599,8 @@ export function accessLockSql(): string {
   const tests: string[] = [];
   const allowedLocked = (id: string) =>
     ["owner_a", "admin_a"].includes(id)
-      ? "memberships,subscription_events,tenant_subscriptions,tenants"
-      : "memberships,tenants";
+      ? "clinic_versions,memberships,subscription_events,tenant_subscriptions,tenants"
+      : "clinic_versions,memberships,tenants";
   for (const id of LOCK_ROLES) {
     const base = principalById(id);
     for (const level of levels) {

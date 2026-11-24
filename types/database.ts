@@ -430,6 +430,39 @@ export type Database = {
           },
         ];
       };
+      clinic_versions: {
+        Row: {
+          changed_at: string;
+          domain: string;
+          last_xact: unknown;
+          tenant_id: string;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          changed_at?: string;
+          domain: string;
+          last_xact?: unknown;
+          tenant_id: string;
+          version?: number;
+        };
+        Update: {
+          changed_at?: string;
+          domain?: string;
+          last_xact?: unknown;
+          tenant_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinic_versions_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_notes: {
         Row: {
           advice: string[];
@@ -1310,6 +1343,7 @@ export type Database = {
           invoice_number: string;
           location_id: string;
           patient_id: string;
+          row_version: number;
           status: string;
           subtotal: number;
           tax: number;
@@ -1326,6 +1360,7 @@ export type Database = {
           invoice_number: string;
           location_id?: string;
           patient_id: string;
+          row_version?: number;
           status?: string;
           subtotal?: number;
           tax?: number;
@@ -1341,6 +1376,7 @@ export type Database = {
           invoice_number?: string;
           location_id?: string;
           patient_id?: string;
+          row_version?: number;
           status?: string;
           subtotal?: number;
           tax?: number;
@@ -2914,6 +2950,7 @@ export type Database = {
           origin_type: string;
           patient_id: string;
           reason_for_visit: string | null;
+          row_version: number;
           scheduled_at: string | null;
           signed_at: string | null;
           signed_by: string | null;
@@ -2936,6 +2973,7 @@ export type Database = {
           origin_type: string;
           patient_id: string;
           reason_for_visit?: string | null;
+          row_version?: number;
           scheduled_at?: string | null;
           signed_at?: string | null;
           signed_by?: string | null;
@@ -2957,6 +2995,7 @@ export type Database = {
           origin_type?: string;
           patient_id?: string;
           reason_for_visit?: string | null;
+          row_version?: number;
           scheduled_at?: string | null;
           signed_at?: string | null;
           signed_by?: string | null;
@@ -3312,6 +3351,7 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      clinic_live_state: { Args: { p_tenant_id: string }; Returns: Json };
       collect_payment: {
         Args: {
           p_amount: number;

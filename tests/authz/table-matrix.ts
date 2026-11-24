@@ -1172,6 +1172,19 @@ export const TARGETS: readonly Target[] = [
     rules: selectOnly(perm("clinic:view")),
     note: "the owner's AI opt-in (05-10c): SELECT clinic:view of the active clinic; written only by set_ai_opt_in (owner of the active, full clinic, R-33)",
   },
+  // V2-09e 09E-04 (R-18; migration 000123).
+  {
+    kind: "table",
+    schema: "public",
+    table: "clinic_versions",
+    key: ["tenant_id", "domain"],
+    fixture: { tenant_id: A, domain: "'queue'" },
+    inBase: true,
+    insert: { tenant_id: A, domain: "'schedule'" },
+    update: "version",
+    rules: selectOnly(member()),
+    note: "one version per clinic and domain (09E-04, R-18): SELECT for every active member of the clinic (no PHI); raised only by private.clinic_bump from statement triggers; no API role writes; rows created by the tenants trigger",
+  },
   {
     kind: "table",
     schema: "public",

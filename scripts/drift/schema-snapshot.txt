@@ -217,6 +217,11 @@ column public.clinic_locations.id uuid not_null=t default=gen_random_uuid() iden
 column public.clinic_locations.is_default boolean not_null=t default=false identity=- generated=-
 column public.clinic_locations.name text not_null=t default=- identity=- generated=-
 column public.clinic_locations.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.clinic_versions.changed_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.clinic_versions.domain text not_null=t default=- identity=- generated=-
+column public.clinic_versions.last_xact xid8 not_null=f default=- identity=- generated=-
+column public.clinic_versions.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.clinic_versions.version bigint not_null=t default=0 identity=- generated=-
 column public.clinical_notes.advice text[] not_null=t default='{}'::text[] identity=- generated=-
 column public.clinical_notes.chief_complaints jsonb not_null=t default='[]'::jsonb identity=- generated=-
 column public.clinical_notes.clinical_notes text not_null=f default=- identity=- generated=-
@@ -384,6 +389,7 @@ column public.invoices.id uuid not_null=t default=gen_random_uuid() identity=- g
 column public.invoices.invoice_number text not_null=t default=- identity=- generated=-
 column public.invoices.location_id uuid not_null=t default='00000000-0000-0000-0000-000000000000'::uuid identity=- generated=-
 column public.invoices.patient_id uuid not_null=t default=- identity=- generated=-
+column public.invoices.row_version bigint not_null=t default=0 identity=- generated=-
 column public.invoices.status text not_null=t default='draft'::text identity=- generated=-
 column public.invoices.subtotal numeric(10,2) not_null=t default=0.00 identity=- generated=-
 column public.invoices.tax numeric(10,2) not_null=t default=0.00 identity=- generated=-
@@ -737,6 +743,7 @@ column public.visits.metadata jsonb not_null=t default='{}'::jsonb identity=- ge
 column public.visits.origin_type text not_null=t default=- identity=- generated=-
 column public.visits.patient_id uuid not_null=t default=- identity=- generated=-
 column public.visits.reason_for_visit text not_null=f default=- identity=- generated=-
+column public.visits.row_version bigint not_null=t default=0 identity=- generated=-
 column public.visits.scheduled_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.visits.signed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.visits.signed_by uuid not_null=f default=- identity=- generated=-
@@ -935,6 +942,9 @@ constraint public.clinic_locations.clinic_locations_name_check CHECK (((char_len
 constraint public.clinic_locations.clinic_locations_pkey PRIMARY KEY (id)
 constraint public.clinic_locations.clinic_locations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.clinic_locations.clinic_locations_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.clinic_versions.clinic_versions_domain_check CHECK ((domain = ANY (ARRAY['schedule'::text, 'queue'::text, 'billing'::text, 'settings'::text])))
+constraint public.clinic_versions.clinic_versions_pkey PRIMARY KEY (tenant_id, domain)
+constraint public.clinic_versions.clinic_versions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.clinical_notes.clinical_notes_draft_version_check CHECK ((draft_version >= 0))
 constraint public.clinical_notes.clinical_notes_pkey PRIMARY KEY (visit_id)
 constraint public.clinical_notes.clinical_notes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -1386,12 +1396,27 @@ function private.audit_client_actions() returns text[] lang=sql security_definer
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
 function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=6d24e9749e03c8b5f70f414c243f4330
 function private.available_slots_core(p_tenant_id uuid, p_doctor_id uuid, p_date date, p_exclude_visit_id uuid) returns TABLE(slot_start timestamp with time zone, slot_end timestamp with time zone) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fc001d98757af3ce8f34857804fff6f5
+function private.clinic_bump(p_tenant_ids uuid[], p_domain text) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=934dd17c93757198769d4af9f50a5a1c
+function private.clinic_versions_seed() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=11c71c16a14a789c6789c5cd2d4166f7
 function private.clinical_notes_version_bump() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7aefc63484c949a0d8320c7ffa8f900a
 function private.command_claim(p_tenant_id uuid, p_client_request_id uuid, p_command text, p_request_hash text, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=0878fa043910b81ac20b7e2993173f12
 function private.command_complete(p_tenant_id uuid, p_client_request_id uuid, p_result jsonb) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=707e89686aebb7b944cbd5a1ab9be4d1
 function private.command_request_hash(p_payload jsonb) returns text lang=sql security_definer=t volatility=s config=search_path="" body_md5=93e7e89121f5ba6123d566e487f56b2a
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
 function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=83a1f436a12194681628f55d54c5ddcf
+function private.cv_clinical_notes_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=dc60e287babb790f8b3983507eba1ca7
+function private.cv_invoice_items() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
+function private.cv_invoices_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
+function private.cv_invoices_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=1949978583a3218c84db022c68981f92
+function private.cv_memberships_change() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=226cf783b206dfb32d5921fd0bced67a
+function private.cv_memberships_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4050b0e184dd4512a9a83e88530599fa
+function private.cv_payments() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
+function private.cv_queue_tokens() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
+function private.cv_schedule_blocks() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
+function private.cv_tenants_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=16a82ce744842074df808fa794aaaf8e
+function private.cv_visits_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e28ee3a2033a603b9bd57a1fdad05d1f
+function private.cv_visits_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=994894291720e5dbe618c3960c1865ca
+function private.cv_waitlist_entries() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
 function private.default_weekly_schedule() returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=1e1240645f56cb3091aeafdd680c52c3
 function private.doctor_display_name(p_tenant_id uuid, p_doctor_id uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cb933c897f6a7f3a6e6258f40392cf04
 function private.doctor_text_macros_before_insert() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=1eaf878d4a4f6f54bcaa15375a04fc41
@@ -1412,6 +1437,7 @@ function private.invoice_items_integrity_guard() returns trigger lang=plpgsql se
 function private.invoice_items_normalize(p_items jsonb) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5e7402d7435978378323bd4d907f1a4c
 function private.invoice_items_sync_invoice() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b82d3d630d44c615bd5dcf0368ba1bf8
 function private.invoices_insert_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9e99b683ef5df552abc6ed4429d5f956
+function private.invoices_row_version() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=456db5ce35987bdedfec4a7088b9f326
 function private.is_iana_timezone(p_name text) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=3ba7184e1f8a6435ac0ff493cb7773b2
 function private.log_command_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=50f8b5f5d486ae5d7f9538dad16f699c
 function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=43454c84b959bca41bce09ae79e83f95
@@ -1457,14 +1483,14 @@ function private.step_start_consultation(p_tenant_id uuid, p_visit_id uuid) retu
 function private.tenants_create_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=76c204abc91170246f73551f6a08b87b
 function private.tenants_create_subscription() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=da1abe8986b6288346d47a4405504d48
 function private.tenants_timezone_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0ccce20a1bd68bf56fc7c41c76d16da7
-function private.today_signal() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b973db9c775436906b509d1c4634c5e
-function private.today_signal_send(p_tenant_id uuid, p_kind text, p_visit_id uuid) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=0411ba64557b426e48555d5d84e2f82e
+function private.today_signal_send(p_tenant_id uuid, p_domain text, p_version bigint) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=827307618d3cebd11ff982b3442be4c0
 function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=59886ffedbe12a913fe998ba72dccd85
 function private.visit_revisions_append_only() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=de6120b9c9f1c1e567d9405a15026da2
 function private.visit_transition_allowed(p_from text, p_to text, p_signed boolean) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=d2449a1356e9fe1add6a813ad21c580a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=ea512e23dec4fd73c9c139bee847a01f
 function private.visits_metadata_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=11d84ccf7ee3b5c34d054d2018c6e865
+function private.visits_row_version() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=085e85790b5e10c6de818a0fd151da17
 function private.visits_sealed_delete_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=d6e2f4a2ac7b40e2404639907fae8c78
 function private.visits_status_transition_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a92dd0b6e1cd57eddbdba30793fb59eb
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=7a9fbd0acfab047a0ab458184c4b00d9
@@ -1480,6 +1506,7 @@ function public.change_member_role(p_membership_id uuid, p_role text) returns me
 function public.change_prescription(p_tenant_id uuid, p_visit_id uuid, p_changes jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4a1eac7cd3e80690abbb5f9e1054fd18
 function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4cf513f36a0468ab94b9b39c898789e0
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a989ea795a0a4f28ec1b54a5850537b9
+function public.clinic_live_state(p_tenant_id uuid) returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=17b234c77a94a3adece7ae9587f94d32
 function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=489d6b77ee5caeba3a0315e87f2f5707
 function public.collect_payment(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_amount numeric, p_method text, p_reference text, p_notes text, p_client_request_id uuid, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a2a6d6cd9e20e0d4fb3e34183e3edf49
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
@@ -1684,6 +1711,7 @@ grant function public.change_member_role(p_membership_id uuid, p_role text) EXEC
 grant function public.change_prescription(p_tenant_id uuid, p_visit_id uuid, p_changes jsonb, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.check_in_visit(p_tenant_id uuid, p_visit_id uuid, p_priority text, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
+grant function public.clinic_live_state(p_tenant_id uuid) EXECUTE to authenticated
 grant function public.clinical_notes_guard() EXECUTE to service_role
 grant function public.collect_payment(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_amount numeric, p_method text, p_reference text, p_notes text, p_client_request_id uuid, p_discount numeric, p_tax numeric) EXECUTE to authenticated
 grant function public.communication_metadata_strip_tokens(p jsonb) EXECUTE to service_role
@@ -1959,6 +1987,7 @@ grant table public.clinic_locations SELECT to service_role
 grant table public.clinic_locations TRIGGER to service_role
 grant table public.clinic_locations TRUNCATE to service_role
 grant table public.clinic_locations UPDATE to service_role
+grant table public.clinic_versions SELECT to authenticated
 grant table public.clinical_notes DELETE to service_role
 grant table public.clinical_notes INSERT to service_role
 grant table public.clinical_notes MAINTAIN to service_role
@@ -2409,6 +2438,7 @@ index public.cdci_suppliers_pkey CREATE UNIQUE INDEX cdci_suppliers_pkey ON publ
 index public.clinic_locations_one_default CREATE UNIQUE INDEX clinic_locations_one_default ON public.clinic_locations USING btree (tenant_id) WHERE is_default
 index public.clinic_locations_pkey CREATE UNIQUE INDEX clinic_locations_pkey ON public.clinic_locations USING btree (id)
 index public.clinic_locations_tenant_id_id_key CREATE UNIQUE INDEX clinic_locations_tenant_id_id_key ON public.clinic_locations USING btree (tenant_id, id)
+index public.clinic_versions_pkey CREATE UNIQUE INDEX clinic_versions_pkey ON public.clinic_versions USING btree (tenant_id, domain)
 index public.clinical_notes_pkey CREATE UNIQUE INDEX clinical_notes_pkey ON public.clinical_notes USING btree (visit_id)
 index public.clinical_notes_tenant_id_visit_id_key CREATE UNIQUE INDEX clinical_notes_tenant_id_visit_id_key ON public.clinical_notes USING btree (tenant_id, visit_id)
 index public.communication_queue_pkey CREATE UNIQUE INDEX communication_queue_pkey ON public.communication_queue USING btree (id)
@@ -2650,6 +2680,7 @@ policy public.cdci_routes.cdci_routes_select cmd=r permissive=t roles=authentica
 policy public.cdci_substances.cdci_substances_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.cdci_suppliers.cdci_suppliers_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.clinic_locations.clinic_locations_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) check=-
+policy public.clinic_versions.clinic_versions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids)) check=-
 policy public.clinical_notes.clinical_notes_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.clinical_notes.clinical_notes_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('vitals:edit'::text) AS tenant_ids_with))) check=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('vitals:edit'::text) AS tenant_ids_with)))
 policy public.communication_queue.communication_queue_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
@@ -2793,6 +2824,7 @@ relation public.cdci_routes kind=r rls=t force_rls=f
 relation public.cdci_substances kind=r rls=t force_rls=f
 relation public.cdci_suppliers kind=r rls=t force_rls=f
 relation public.clinic_locations kind=r rls=t force_rls=f
+relation public.clinic_versions kind=r rls=t force_rls=f
 relation public.clinical_notes kind=r rls=t force_rls=f
 relation public.communication_queue kind=r rls=t force_rls=f
 relation public.consent_records kind=r rls=t force_rls=f
@@ -2843,9 +2875,9 @@ trigger ops.jobs.jobs_reply_unmatched_redact CREATE TRIGGER jobs_reply_unmatched
 trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'webhook.deliver'::text))) EXECUTE FUNCTION ops.webhook_job_dead()
 trigger public.api_keys.api_keys_scope_guard CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
+trigger public.clinical_notes.clinical_notes_clinic_version_update CREATE TRIGGER clinical_notes_clinic_version_update AFTER UPDATE ON public.clinical_notes REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_clinical_notes_update()
 trigger public.clinical_notes.clinical_notes_delete_guard CREATE TRIGGER clinical_notes_delete_guard BEFORE DELETE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
 trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
-trigger public.clinical_notes.clinical_notes_today_signal CREATE TRIGGER clinical_notes_today_signal AFTER UPDATE OF vitals ON public.clinical_notes FOR EACH ROW WHEN ((old.vitals IS DISTINCT FROM new.vitals)) EXECUTE FUNCTION private.today_signal()
 trigger public.clinical_notes.clinical_notes_version_bump CREATE TRIGGER clinical_notes_version_bump BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION private.clinical_notes_version_bump()
 trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TRIGGER communication_queue_apply_early_dlr AFTER UPDATE OF external_message_id ON public.communication_queue FOR EACH ROW WHEN (((new.external_message_id IS NOT NULL) AND (old.external_message_id IS DISTINCT FROM new.external_message_id))) EXECUTE FUNCTION ops.communication_queue_apply_early_dlr()
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
@@ -2855,12 +2887,19 @@ trigger public.consultation_diagnoses.consultation_diagnoses_integrity_guard CRE
 trigger public.doctor_text_macros.doctor_text_macros_before_insert CREATE TRIGGER doctor_text_macros_before_insert BEFORE INSERT ON public.doctor_text_macros FOR EACH ROW EXECUTE FUNCTION private.doctor_text_macros_before_insert()
 trigger public.doctor_text_macros.doctor_text_macros_before_update CREATE TRIGGER doctor_text_macros_before_update BEFORE UPDATE ON public.doctor_text_macros FOR EACH ROW EXECUTE FUNCTION private.doctor_text_macros_before_update()
 trigger public.follow_ups.follow_ups_integrity_guard CREATE TRIGGER follow_ups_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.follow_ups FOR EACH ROW EXECUTE FUNCTION private.follow_ups_integrity_guard()
+trigger public.invoice_items.invoice_items_clinic_version_delete CREATE TRIGGER invoice_items_clinic_version_delete AFTER DELETE ON public.invoice_items REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoice_items()
+trigger public.invoice_items.invoice_items_clinic_version_insert CREATE TRIGGER invoice_items_clinic_version_insert AFTER INSERT ON public.invoice_items REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoice_items()
+trigger public.invoice_items.invoice_items_clinic_version_update CREATE TRIGGER invoice_items_clinic_version_update AFTER UPDATE ON public.invoice_items REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoice_items()
 trigger public.invoice_items.invoice_items_integrity_guard CREATE TRIGGER invoice_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.invoice_items FOR EACH ROW EXECUTE FUNCTION private.invoice_items_integrity_guard()
 trigger public.invoice_items.invoice_items_sync_invoice CREATE TRIGGER invoice_items_sync_invoice AFTER INSERT OR DELETE OR UPDATE ON public.invoice_items FOR EACH ROW EXECUTE FUNCTION private.invoice_items_sync_invoice()
 trigger public.invoices.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
+trigger public.invoices.invoices_clinic_version_insert CREATE TRIGGER invoices_clinic_version_insert AFTER INSERT ON public.invoices REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoices_insert()
+trigger public.invoices.invoices_clinic_version_update CREATE TRIGGER invoices_clinic_version_update AFTER UPDATE ON public.invoices REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoices_update()
 trigger public.invoices.invoices_insert_guard CREATE TRIGGER invoices_insert_guard BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.invoices_insert_guard()
-trigger public.invoices.invoices_today_signal_insert CREATE TRIGGER invoices_today_signal_insert AFTER INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.today_signal()
-trigger public.invoices.invoices_today_signal_update CREATE TRIGGER invoices_today_signal_update AFTER UPDATE OF total_amount, status ON public.invoices FOR EACH ROW WHEN (((old.total_amount IS DISTINCT FROM new.total_amount) OR (old.status IS DISTINCT FROM new.status))) EXECUTE FUNCTION private.today_signal()
+trigger public.invoices.invoices_row_version CREATE TRIGGER invoices_row_version BEFORE INSERT OR UPDATE ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.invoices_row_version()
+trigger public.memberships.memberships_clinic_version_delete CREATE TRIGGER memberships_clinic_version_delete AFTER DELETE ON public.memberships REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_memberships_change()
+trigger public.memberships.memberships_clinic_version_insert CREATE TRIGGER memberships_clinic_version_insert AFTER INSERT ON public.memberships REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_memberships_change()
+trigger public.memberships.memberships_clinic_version_update CREATE TRIGGER memberships_clinic_version_update AFTER UPDATE ON public.memberships REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_memberships_update()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
 trigger public.patient_documents.patient_documents_no_delete CREATE TRIGGER patient_documents_no_delete BEFORE DELETE ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_no_delete()
@@ -2871,28 +2910,39 @@ trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_o
 trigger public.patients.patients_allergies_audit CREATE TRIGGER patients_allergies_audit AFTER UPDATE OF allergies ON public.patients FOR EACH ROW WHEN ((new.allergies IS DISTINCT FROM old.allergies)) EXECUTE FUNCTION private.patients_allergies_audit()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
-trigger public.payments.payments_today_signal CREATE TRIGGER payments_today_signal AFTER INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.today_signal()
+trigger public.payments.payments_clinic_version_insert CREATE TRIGGER payments_clinic_version_insert AFTER INSERT ON public.payments REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_payments()
+trigger public.payments.payments_clinic_version_update CREATE TRIGGER payments_clinic_version_update AFTER UPDATE ON public.payments REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_payments()
 trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_admins_audit AFTER INSERT OR DELETE OR UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION private.platform_admins_audit()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
 trigger public.prescriptions.prescriptions_seal_guard CREATE TRIGGER prescriptions_seal_guard BEFORE DELETE OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_seal_guard()
 trigger public.queue_tokens.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
+trigger public.queue_tokens.queue_tokens_clinic_version_insert CREATE TRIGGER queue_tokens_clinic_version_insert AFTER INSERT ON public.queue_tokens REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_queue_tokens()
+trigger public.queue_tokens.queue_tokens_clinic_version_update CREATE TRIGGER queue_tokens_clinic_version_update AFTER UPDATE ON public.queue_tokens REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_queue_tokens()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
-trigger public.queue_tokens.queue_tokens_today_signal CREATE TRIGGER queue_tokens_today_signal AFTER INSERT OR UPDATE ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.today_signal()
 trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
+trigger public.schedule_blocks.schedule_blocks_clinic_version_delete CREATE TRIGGER schedule_blocks_clinic_version_delete AFTER DELETE ON public.schedule_blocks REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_schedule_blocks()
+trigger public.schedule_blocks.schedule_blocks_clinic_version_insert CREATE TRIGGER schedule_blocks_clinic_version_insert AFTER INSERT ON public.schedule_blocks REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_schedule_blocks()
+trigger public.schedule_blocks.schedule_blocks_clinic_version_update CREATE TRIGGER schedule_blocks_clinic_version_update AFTER UPDATE ON public.schedule_blocks REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_schedule_blocks()
+trigger public.tenants.tenants_clinic_version_update CREATE TRIGGER tenants_clinic_version_update AFTER UPDATE ON public.tenants REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_tenants_update()
+trigger public.tenants.tenants_clinic_versions_seed CREATE TRIGGER tenants_clinic_versions_seed AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.clinic_versions_seed()
 trigger public.tenants.tenants_create_default_location CREATE TRIGGER tenants_create_default_location AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.tenants_create_default_location()
 trigger public.tenants.tenants_create_subscription CREATE TRIGGER tenants_create_subscription AFTER INSERT ON public.tenants FOR EACH ROW EXECUTE FUNCTION private.tenants_create_subscription()
 trigger public.tenants.tenants_timezone_audit CREATE TRIGGER tenants_timezone_audit AFTER UPDATE OF timezone ON public.tenants FOR EACH ROW WHEN ((new.timezone IS DISTINCT FROM old.timezone)) EXECUTE FUNCTION private.tenants_timezone_audit()
 trigger public.visit_revisions.visit_revisions_actor_guard CREATE TRIGGER visit_revisions_actor_guard BEFORE INSERT ON public.visit_revisions FOR EACH ROW EXECUTE FUNCTION private.visit_revisions_actor_guard()
 trigger public.visit_revisions.visit_revisions_append_only CREATE TRIGGER visit_revisions_append_only BEFORE DELETE OR UPDATE ON public.visit_revisions FOR EACH ROW EXECUTE FUNCTION private.visit_revisions_append_only()
 trigger public.visits.a_fill_default_location CREATE TRIGGER a_fill_default_location BEFORE INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.fill_default_location()
+trigger public.visits.visits_clinic_version_insert CREATE TRIGGER visits_clinic_version_insert AFTER INSERT ON public.visits REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_visits_insert()
+trigger public.visits.visits_clinic_version_update CREATE TRIGGER visits_clinic_version_update AFTER UPDATE ON public.visits REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_visits_update()
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.visits.visits_integrity_guard CREATE TRIGGER visits_integrity_guard BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_integrity_guard()
 trigger public.visits.visits_metadata_guard CREATE TRIGGER visits_metadata_guard BEFORE UPDATE OF metadata ON public.visits FOR EACH ROW WHEN ((old.metadata IS DISTINCT FROM new.metadata)) EXECUTE FUNCTION private.visits_metadata_guard()
+trigger public.visits.visits_row_version CREATE TRIGGER visits_row_version BEFORE INSERT OR UPDATE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_row_version()
 trigger public.visits.visits_sealed_delete_guard CREATE TRIGGER visits_sealed_delete_guard BEFORE DELETE ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_sealed_delete_guard()
 trigger public.visits.visits_status_transition_guard CREATE TRIGGER visits_status_transition_guard BEFORE UPDATE OF status ON public.visits FOR EACH ROW WHEN ((old.status IS DISTINCT FROM new.status)) EXECUTE FUNCTION private.visits_status_transition_guard()
-trigger public.visits.visits_today_signal_insert CREATE TRIGGER visits_today_signal_insert AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.today_signal()
-trigger public.visits.visits_today_signal_update CREATE TRIGGER visits_today_signal_update AFTER UPDATE OF status, scheduled_at, doctor_id ON public.visits FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) OR (old.scheduled_at IS DISTINCT FROM new.scheduled_at) OR (old.doctor_id IS DISTINCT FROM new.doctor_id))) EXECUTE FUNCTION private.today_signal()
+trigger public.waitlist_entries.waitlist_entries_clinic_version_delete CREATE TRIGGER waitlist_entries_clinic_version_delete AFTER DELETE ON public.waitlist_entries REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_waitlist_entries()
+trigger public.waitlist_entries.waitlist_entries_clinic_version_insert CREATE TRIGGER waitlist_entries_clinic_version_insert AFTER INSERT ON public.waitlist_entries REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_waitlist_entries()
+trigger public.waitlist_entries.waitlist_entries_clinic_version_update CREATE TRIGGER waitlist_entries_clinic_version_update AFTER UPDATE ON public.waitlist_entries REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_waitlist_entries()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()
