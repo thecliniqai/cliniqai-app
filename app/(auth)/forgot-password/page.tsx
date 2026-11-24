@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { createAuthPageClient } from "@/lib/supabase/client";
-import { abandonReset, completeReset, requestReset, type SetPasswordResult } from "@/features/auth/password-flows";
+import { abandonReset, completeReset, probeRecoverySession, requestReset, saveWithRecheck, type SetPasswordResult } from "@/features/auth/password-flows";
 import { setNewPasswordAction } from "@/features/auth/actions";
 import { PASSWORDS_DO_NOT_MATCH_MESSAGE, RECOVERY_CODE_LENGTH, completeResetFormSchema } from "@/features/auth/schemas";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
@@ -20,19 +20,6 @@ import { en } from "@/messages/en";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_NOTICE = `If an account exists for this email, we've sent an ${RECOVERY_CODE_LENGTH}-digit code. It can take a minute to arrive.`;
-const RESET_FAILED = "We couldn't reset your password, try again";
-
-/**
- * Sets the password through the server action (FT-05 breached-password check + 10-minute recovery-session bound,
- * 03-12a). A network failure is a failed attempt, not a thrown error.
- */
-async function saveNewPassword(input: { newPassword: string }): Promise<SetPasswordResult> {
-  try {
-    return await setNewPasswordAction(input);
-  } catch {
-    return { ok: false, code: "unknown", message: RESET_FAILED };
-  }
-}
 
 type Step = "request" | "reset" | "done";
 
@@ -56,11 +43,31 @@ export default function ForgotPasswordPage() {
   const [cooldown, setCooldown] = useState(0);
   // True once the code has been accepted but the new password was not saved yet (a recovery session exists).
   const [codeAccepted, setCodeAccepted] = useState(false);
+  // 09E-02 (staging finding, 2026-11-23): true while the page checks whether a save whose answer never arrived went through.
+  const [checking, setChecking] = useState(false);
   // 03-12c (C43): the reset request (`/recover`) carries a Turnstile token when a site key is configured. The request
   // step and the "Resend code" row each render their own widget (only one is mounted at a time).
   const siteKey = publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const requestTurnstile = useRef<TurnstileFieldHandle>(null);
   const resendTurnstile = useRef<TurnstileFieldHandle>(null);
+
+  /**
+   * Sets the password through the server action (FT-05 breached-password check + 10-minute recovery-session bound, 03-12a). When the
+   * answer never arrives (a network failure, a function timeout) the page does not say "failed": it checks the recovery session (a
+   * successful reset ends it), tries once more if the session is still open, and otherwise says it could not confirm
+   * (`saveWithRecheck`, features/auth/password-flows.ts).
+   */
+  const saveNewPassword = async (input: { newPassword: string }): Promise<SetPasswordResult> => {
+    try {
+      return await saveWithRecheck(input, {
+        save: setNewPasswordAction,
+        probe: () => probeRecoverySession(supabase()),
+        onChecking: () => setChecking(true),
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const pendingRecovery = useRef(false);
   useEffect(() => {
@@ -209,7 +216,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <FormMessage id="reset-error" tone="error" message={error} />
-          <FormMessage id="reset-notice" tone="info" message={notice} />
+          <FormMessage id="reset-notice" tone="info" message={checking ? en.auth.flows.reset_checking : notice} />
 
           {step === "request" && (
             <form method="post" onSubmit={handleRequest} className="space-y-4" noValidate aria-describedby="reset-error">

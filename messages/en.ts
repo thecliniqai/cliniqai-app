@@ -30,6 +30,11 @@ export const en = {
       sign_in_failed: "Sign-in failed, try again",
       reset_request_failed: "We couldn't send the code, try again",
       reset_failed: "We couldn't reset your password, try again",
+      // 09E-02 (staging finding, 2026-11-23): the save's answer never arrived and the session check could not tell either way, so the
+      // page does not claim a failure.
+      reset_unconfirmed: "We couldn't confirm that your password was changed. Try signing in with your new password. If that doesn't work, request a new code.",
+      // Shown while the page checks (session probe, then one retry) after the save's answer did not arrive.
+      reset_checking: "Checking whether your password was saved…",
       change_failed: "We couldn't change your password, try again",
       reset_session_stale: "This reset has expired. Request a new code and try again.",
       // 03-13a (M-EMAILCAP): GoTrue refused to send (per-address interval or the project-wide email cap).
