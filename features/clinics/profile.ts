@@ -1,5 +1,6 @@
 "use server";
 
+import { parseVersionRows, type Versions } from "@/lib/live/domains";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
@@ -50,27 +51,26 @@ export async function getClinicProfile(): Promise<Tenant | null> {
 export async function getClinicProfileWithMembership(): Promise<{
   tenant: Tenant | null;
   membership: any | null;
+  /** The clinic versions of the same statement as the clinic row (09E-06: the basis of the "Changed on another device" notice); null when not readable. */
+  versions: Versions | null;
 }> {
   await markAction("clinics_profile.get_clinic_profile_with_membership");
   const supabase = await createClient();
   const session = await requirePermission(supabase, "clinic:view");
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("*")
-    .eq("id", session.tenantId)
-    .single();
+  // V2-09e 09E-06 (R-9): the clinic row and the caller's own membership are independent: one round trip.
+  const [{ data: tenant }, { data: member }] = await Promise.all([
+    // The clinic's versions ride on the same statement (an embed; no call of their own).
+    supabase.from("tenants").select("*, clinic_versions(domain, version)").eq("id", session.tenantId).single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("memberships") as any).select("*").eq("tenant_id", session.tenantId).eq("user_id", session.userId).maybeSingle(),
+  ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: member } = await (supabase.from("memberships") as any)
-    .select("*")
-    .eq("tenant_id", session.tenantId)
-    .eq("user_id", session.userId)
-    .maybeSingle();
-
+  const { clinic_versions: versionRows, ...clinic } = (tenant ?? {}) as Record<string, unknown>;
   return {
-    tenant: (tenant as unknown as Tenant) || null,
+    tenant: tenant ? (clinic as unknown as Tenant) : null,
     membership: member || null,
+    versions: parseVersionRows(versionRows),
   };
 }
 

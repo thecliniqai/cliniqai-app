@@ -34,7 +34,7 @@ export function AppointmentCard({ appointment: a, showDoctor = false }: { appoin
           <p className="text-label font-medium text-fg-muted tabular-nums">
             {formatClinicTime(a.time)} – {formatClinicTime(a.endTime)}
           </p>
-          <Link href={`/patients/${a.patientId}`} className="block truncate text-body-md font-medium text-fg underline-offset-2 hover:underline" data-patient-name="">
+          <Link href={`/patients/${a.patientId}`} prefetch={false} className="block truncate text-body-md font-medium text-fg underline-offset-2 hover:underline" data-patient-name="">
             {a.name}
           </Link>
           {showDoctor && <p className="truncate text-label text-fg-muted">{a.doctorName}</p>}

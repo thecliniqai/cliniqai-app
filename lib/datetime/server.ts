@@ -68,6 +68,8 @@ export async function getTenantTimeZoneAndVersions(
   const read = await requestMemo(`tenant-tz-v:${tenantId.toLowerCase()}`, () => readTenantTimeZoneAndVersions(db, tenantId), {
     keep: (r) => !r.fallback,
   });
+  // The plain zone readers of this request (the services take the zone themselves) find it: one `tenants` read answers both (V2-09e 09E-06).
+  if (!read.fallback) await requestMemo(`tenant-tz:${tenantId.toLowerCase()}`, async () => ({ zone: read.zone, fallback: false }), { keep: (r) => !r.fallback });
   return { zone: read.zone, versions: read.versions };
 }
 

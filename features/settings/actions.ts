@@ -118,18 +118,17 @@ export async function getMyProfile() {
     },
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: member } = await (supabase.from("memberships") as any)
-    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, default_slot_duration_minutes, availability_schedule, created_at")
-    .eq("tenant_id", membership.tenantId)
-    .eq("user_id", membership.userId)
-    .single();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tenant } = await (supabase.from("tenants") as any)
-    .select("id, name")
-    .eq("id", membership.tenantId)
-    .single();
+  // V2-09e 09E-06 (R-9): the caller's membership row and the clinic's name are independent: one round trip.
+  const [{ data: member }, { data: tenant }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, default_slot_duration_minutes, availability_schedule, created_at")
+      .eq("tenant_id", membership.tenantId)
+      .eq("user_id", membership.userId)
+      .single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("tenants") as any).select("id, name").eq("id", membership.tenantId).single(),
+  ]);
 
   return {
     user: {

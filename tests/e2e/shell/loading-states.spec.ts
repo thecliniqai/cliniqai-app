@@ -9,6 +9,8 @@ import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
+import AxeBuilder from "@axe-core/playwright";
+import { clearSupabaseLatency, setSupabaseLatency } from "../support/latency";
 import { clickNavLink, holdNavigation } from "./support/slow-navigation";
 
 test.beforeEach(({}, testInfo) => {
@@ -87,21 +89,81 @@ test.describe("the skeleton shows during a slow client navigation", () => {
     });
   }
 
-  test("a patient record opened from Patients", async ({ page }) => {
+  test("a patient record opened from Patients (its links are not prefetched, R-9): the skeleton shows once the layout has answered, then the record", async ({ page, context }) => {
     const { tenantA } = readRunData();
     const path = `/patients/${tenantA.patientId}`;
     await page.setViewportSize({ width: 1280, height: 800 });
-    const nav = await holdNavigation(page, path);
     await page.goto("/patients");
-    // Next prefetches a link once it is in the viewport; in a long directory (other specs add patients) it may not be.
+    await page.getByPlaceholder("Search by name, phone, or ABHA...").fill(tenantA.patientName);
     const link = page.getByRole("main").locator(`a[href="${path}"]`).first();
-    await link.scrollIntoViewIfNeeded();
-    await expect(link).toBeInViewport();
-    await expect.poll(nav.prefetched, { timeout: 15_000 }).toBeGreaterThan(0);
-    await link.click();
-    await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
-    nav.release();
-    await page.waitForURL((url) => url.pathname === path);
-    await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });
+    await expect(link).toBeVisible();
+    await setSupabaseLatency(context, 300);
+    try {
+      await link.click();
+      await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
+      await page.waitForURL((url) => url.pathname === path);
+      await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });
+    } finally {
+      clearSupabaseLatency();
+    }
   });
+});
+
+/**
+ * V2-09e 09E-06 (R-9, B-2): every main screen shows a skeleton of its own layout while its calls are pending: 0.7 s is added to every Supabase call
+ * (workers: 1, so no other spec sees it; cleared after each test), the screen is entered by a client navigation, the skeleton is there (its kind is the
+ * screen's), axe finds nothing on it, and the screen's content replaces it. At 360, 820 and 1280.
+ */
+const SKELETON_PAGES = [
+  { name: "Today", path: "/today", from: "/patients", kind: "today" },
+  { name: "Schedule", path: "/schedule", from: "/today", kind: "schedule" },
+  { name: "Patients", path: "/patients", from: "/today", kind: "list" },
+  // Not prefetched (R-9), so its layout answers first and the record's own reads run beside it (one round trip): the record has no gap to fill with a route
+  // skeleton; what is pending when it first paints is the history (streamed), which has its own.
+  { name: "a patient (history streams)", path: () => `/patients/${readRunData().tenantA.patientId}`, from: "/patients", kind: "patient-history" },
+  { name: "Visits", path: "/visits", from: "/today", kind: "list" },
+  { name: "Billing reports", path: "/billing/reports", from: "/today", kind: "list" },
+  { name: "Settings, clinic", path: "/settings/clinic", from: "/today", kind: "settings" },
+  { name: "Settings, subscription", path: "/settings/billing", from: "/today", kind: "settings" },
+  { name: "Settings, developer", path: "/settings/developer", from: "/today", kind: "settings" },
+  { name: "Staff", path: "/staff", from: "/today", kind: "list" },
+  { name: "Profile", path: "/profile", from: "/today", kind: "settings" },
+  { name: "Referrals", path: "/referrals", from: "/today", kind: "list" },
+] as const;
+
+test.describe("every main screen shows its own skeleton while its calls are pending (300 ms and more per call)", () => {
+  test.use({ storageState: storageStatePath("owner") });
+  test.afterEach(() => clearSupabaseLatency());
+
+  for (const width of [360, 820, 1280]) {
+    for (const def of SKELETON_PAGES) {
+      test(`${def.name} at ${width} px`, async ({ page, context }) => {
+        test.setTimeout(120_000);
+        const path = typeof def.path === "function" ? def.path() : def.path;
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(def.from);
+        await expect(page.getByRole("main")).toBeVisible();
+        await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 20_000 });
+        if (def.kind !== "patient-history") {
+          // The loading boundary is prefetched before the click (see slow-navigation.ts: a prefetch still in flight at the click hides the skeleton); at 360 px
+          // the link may be in the More sheet, so the prefetch is asked for explicitly and awaited.
+          const prefetched = page.waitForResponse((r) => new URL(r.url()).pathname === path && r.request().headers()["next-router-prefetch"] !== undefined && r.request().headers()["next-router-segment-prefetch"] !== "/_tree", { timeout: 15_000 }).catch(() => null);
+          await page.evaluate((href) => (window as unknown as { next: { router: { prefetch(h: string): void } } }).next.router.prefetch(href), path);
+          await prefetched;
+          await page.waitForTimeout(500);
+        }
+        await setSupabaseLatency(context, 700);
+        await page.evaluate((href) => (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(href), path);
+        const history = def.kind === "patient-history";
+        const skeleton = history ? page.getByRole("status", { name: "Loading visit history" }) : page.locator(`[data-route-skeleton="${def.kind}"]`);
+        await expect(skeleton).toBeVisible({ timeout: 10_000 });
+        // The skeleton's own region (the shell around it has its own axe specs).
+        const axe = await new AxeBuilder({ page }).include(history ? '[role="status"][aria-label="Loading visit history"]' : '[role="status"][aria-label="Loading"]').analyze();
+        expect(axe.violations.map((v) => `${v.id}: ${v.nodes.length}`), "axe on the skeleton").toEqual([]);
+        await page.waitForURL((url) => url.pathname === path);
+        await expect(skeleton).toHaveCount(0, { timeout: 30_000 });
+        await expect(page.getByRole("status", { name: /^Loading/ })).toHaveCount(0);
+      });
+    }
+  }
 });

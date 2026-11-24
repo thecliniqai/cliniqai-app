@@ -13,3 +13,4 @@ export async function readLiveSnapshot(ctx: Pick<ServiceContext, "db" | "tenantI
   if (error) return null;
   return parseSnapshot(data);
 }
+

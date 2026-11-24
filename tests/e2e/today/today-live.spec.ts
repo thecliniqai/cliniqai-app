@@ -15,6 +15,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test, routeLoopbackOnly } from "../fixtures";
 import { E2E_BASE_URL } from "../support/app-env";
+import { countKongCalls } from "../support/kong-calls";
 import { storageStatePath } from "../support/run-data";
 import { ownClinic, seedBookedToday, seedWaitingToday, tokensOfVisit, todayName, visitStatusOf } from "../support/today-data";
 import { countBoardRequests, countRscRequests, countStateRequests, openToday, rowInLane, rowOf, showLane } from "../support/today-page";
@@ -92,12 +93,20 @@ test("@golden a check-in on one screen reaches another browser of the clinic wit
     const rsc = countRscRequests(observer);
     const boardReads = countBoardRequests(observer);
     const stateReads = countStateRequests(observer);
-    await rowOf(page, name).getByRole("button", { name: `Check in ${name}` }).click();
-    await expect.poll(() => visitStatusOf(visitId), { timeout: 20_000 }).toBe("waiting");
+    const ownBoardReads = countBoardRequests(page);
+    // 09E-06 (R-9, R-12): every board read, the observer's and the actor's own, is ONE Supabase call (`rpc/today_board`); the invoices, payments, follow-ups and
+    // directory reads of the old board are gone.
+    const window = await countKongCalls(async () => {
+      await rowOf(page, name).getByRole("button", { name: `Check in ${name}` }).click();
+      await expect.poll(() => visitStatusOf(visitId), { timeout: 20_000 }).toBe("waiting");
 
-    // The change is committed: the other screen shows it in Waiting within 2 s, with no reload of its own.
-    await expect(rowInLane(observer, "waiting", name)).toBeVisible({ timeout: 2_000 });
+      // The change is committed: the other screen shows it in Waiting within 2 s, with no reload of its own.
+      await expect(rowInLane(observer, "waiting", name)).toBeVisible({ timeout: 2_000 });
+    });
+    const callsOf = (re: RegExp) => Object.entries(window.serverByPath).reduce((n, [key, c]) => (re.test(key) ? n + c : n), 0);
     expect(boardReads.count(), "the signal's refresh is one board read").toBe(1);
+    expect(callsOf(/rpc\/today_board/), "one today_board call per board read").toBe(boardReads.count() + ownBoardReads.count());
+    expect(callsOf(/\/rest\/v1\/(invoices|payments|follow_ups|queue_tokens)\b/), "no table read of the old board").toBe(0);
     expect(boardReads.serverTimings()[0], "the data route reports its timing").toMatch(/db;dur=[\d.]+/);
     expect(rsc(), "no render (RSC) request for a refresh").toBe(0);
     expect(stateReads.count(), "the signal carries its version: no state read is needed").toBe(0);

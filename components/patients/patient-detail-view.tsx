@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, use, useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Patient, type UserRole } from "@/lib/db/types";
 import { hasPerm } from "@/lib/permissions";
@@ -41,10 +42,35 @@ import { useClinicTimeZone } from "@/lib/datetime/client";
 
 interface PatientDetailViewProps {
   patient: Patient;
-  visits: PatientVisitHistoryItem[];
+  /** The history, streamed by the page (09E-06): a promise the view reads under `Suspense`; an array (a test, a caller that has it) is used as is. */
+  visits: PatientVisitHistoryItem[] | Promise<PatientVisitHistoryItem[]>;
   userRole: string;
   treatmentConsent: CurrentConsentState;
   dataSharingConsent: CurrentConsentState;
+}
+
+/** The history as an array: a promise (the page streams it) is read here, under the nearest `Suspense`. */
+function useVisits(visits: PatientDetailViewProps["visits"]): PatientVisitHistoryItem[] {
+  return Array.isArray(visits) ? visits : use(visits);
+}
+
+function VisitCount({ visits }: { visits: PatientDetailViewProps["visits"] }) {
+  return <>{useVisits(visits).length}</>;
+}
+
+function VisitHistoryPanel({ visits, userRole, patientId }: { visits: PatientDetailViewProps["visits"]; userRole: string; patientId: string }) {
+  return <PatientVisitHistory visits={useVisits(visits)} userRole={userRole} patientId={patientId} />;
+}
+
+/** Stands in for the encounter list while the history is read (DESIGN §6.9: static blocks, one announcement). */
+function VisitHistorySkeleton() {
+  return (
+    <SkeletonRegion label="Loading visit history" className="space-y-3">
+      {[0, 1, 2].map((row) => (
+        <Skeleton key={row} className="h-20 w-full" />
+      ))}
+    </SkeletonRegion>
+  );
 }
 
 export function PatientDetailView({
@@ -316,7 +342,9 @@ export function PatientDetailView({
                   : "bg-gray-100 text-gray-600"
               )}
             >
-              {visits.length}
+              <Suspense fallback={<span aria-hidden="true">…</span>}>
+                <VisitCount visits={visits} />
+              </Suspense>
             </span>
           </button>
 
@@ -386,11 +414,9 @@ export function PatientDetailView({
               </Link>
             </CardHeader>
             <CardContent>
-              <PatientVisitHistory
-                visits={visits}
-                userRole={userRole}
-                patientId={patient.id}
-              />
+              <Suspense fallback={<VisitHistorySkeleton />}>
+                <VisitHistoryPanel visits={visits} userRole={userRole} patientId={patient.id} />
+              </Suspense>
             </CardContent>
           </Card>
         </div>

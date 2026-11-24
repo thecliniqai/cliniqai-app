@@ -488,6 +488,7 @@ export function VisitsRegisterView({
                         <div className="space-y-0.5">
                           <Link
                             href={`/patients/${visit.patient.id}`}
+                            prefetch={false}
                             className="font-semibold text-gray-900 hover:text-accent transition-colors"
                           >
                             {visit.patient.full_name}

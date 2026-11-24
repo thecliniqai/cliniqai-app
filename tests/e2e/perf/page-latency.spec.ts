@@ -210,6 +210,8 @@ test.describe("live (B-11)", () => {
       holds,
       prepare: async () => {
         await openToday(page);
+        // The channel has joined and its catch-up check has answered (the badge says Live), so that check is not a call of the measured window (09E-06).
+        await expect(page.locator("[data-live-status]")).toHaveText("Live", { timeout: 20_000 });
         await waitForQuiet(1_500);
         // The page's own check on subscription must be over.
         await page.waitForTimeout(2_200);

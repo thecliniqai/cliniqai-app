@@ -44,3 +44,30 @@ export function parseSnapshot(body: unknown): LiveSnapshot | null {
   }
   return { versions: out, access };
 }
+
+/**
+ * The versions of an embedded `clinic_versions(domain, version)` list (a PostgREST embed on a read the page makes anyway): all four domains or null.
+ * A page that reads its data with this embed has the versions of the same statement as its basis, with no call of their own (V2-09e 09E-06, R-9, R-18).
+ */
+export function parseVersionRows(rows: unknown): Versions | null {
+  if (!Array.isArray(rows)) return null;
+  const versions = emptyVersions();
+  const seen = new Set<string>();
+  for (const row of rows as Array<{ domain?: unknown; version?: unknown }>) {
+    if (typeof row?.domain === "string" && (LIVE_DOMAINS as readonly string[]).includes(row.domain) && isVersion(row.version)) {
+      versions[row.domain as LiveDomain] = row.version;
+      seen.add(row.domain);
+    }
+  }
+  return seen.size === LIVE_DOMAINS.length ? versions : null;
+}
+
+/** The embed to add to a select on a table with a `tenant_id` foreign key to `tenants`: `tenants(clinic_versions(domain, version))`. */
+export const VERSIONS_VIA_TENANT_EMBED = "tenants(clinic_versions(domain, version))";
+
+/** The versions out of a row that carries {@link VERSIONS_VIA_TENANT_EMBED} (or null). */
+export function versionsOfTenantEmbed(row: unknown): Versions | null {
+  const tenant = (row as { tenants?: unknown } | null)?.tenants;
+  const one = Array.isArray(tenant) ? tenant[0] : tenant;
+  return parseVersionRows((one as { clinic_versions?: unknown } | null | undefined)?.clinic_versions);
+}
