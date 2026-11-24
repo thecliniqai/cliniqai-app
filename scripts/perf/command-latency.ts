@@ -454,6 +454,28 @@ async function main(): Promise<void> {
     await measure("read: patient_snapshot", "read", async () => () =>
       owner.client.rpc("patient_snapshot", { p_tenant_id: t.tenantId, p_patient_id: hotPatient }),
     );
+    // V2-09e 09E-05 (R-8, R-9): the consult in one read, on the heaviest draft: the hot patient's 50 signed visits (history), the doctor's learned order from 300
+    // signed visits, three prescription lines, and the doctor's own lists at their caps (500 custom medicines, 500 custom diagnoses, 100 templates, 200 macros).
+    const screenVisit = await seedVisit(t, undefined, { status: "in_consultation" });
+    await admin.from("visits").update({ patient_id: hotPatient }).eq("id", screenVisit.visitId);
+    const screenAdd = await owner.client.rpc("change_prescription", {
+      p_tenant_id: t.tenantId,
+      p_visit_id: screenVisit.visitId,
+      p_changes: { add: [1, 2, 3].map((n) => ({ medicine_name: `Latency screen line ${n}`, dosage: "1-0-1", duration: "5 days" })) },
+      p_client_request_id: randomUUID(),
+    });
+    if (screenAdd.error) throw new Error(`consult_screen seed failed: ${screenAdd.error.message}`);
+    const listRows = (n: number, make: (i: number) => Record<string, unknown>) => Array.from({ length: n }, (_, i) => ({ tenant_id: t.tenantId, doctor_id: t.userId, ...make(i + 1) }));
+    for (const [table, rows] of [
+      ["doctor_custom_medicines", listRows(500, (i) => ({ medicine_name: `Latency custom medicine ${i}`, default_dosage: "1-0-1", use_count: 1 + (i % 17) }))],
+      ["doctor_custom_diagnoses", listRows(500, (i) => ({ diagnosis_name: `Latency custom diagnosis ${i}`, use_count: 1 + (i % 11) }))],
+      ["doctor_prescription_templates", listRows(100, (i) => ({ template_name: `Latency template ${i}`, items: [1, 2, 3].map((n) => ({ medicine_name: `Latency template line ${n}`, dosage: "1-0-1", duration: "5 days", sort_order: n - 1 })) }))],
+      ["doctor_text_macros", listRows(200, (i) => ({ shortcut: `.lat${i}`, expansion: `Latency macro expansion ${i}` }))],
+    ] as const) {
+      const { error } = await admin.from(table).insert(rows as never);
+      if (error) throw new Error(`consult_screen list seed (${table}) failed: ${error.message}`);
+    }
+    await measure("read: consult_screen", "read", async () => () => owner.client.rpc("consult_screen", { p_tenant_id: t.tenantId, p_visit_id: screenVisit.visitId }));
   } finally {
     // Remove what this run made (the catalogue rows; the clinic cascades; then the two users).
     for (let i = 0; i < catalogueIds.length; i += 100) {

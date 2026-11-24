@@ -190,6 +190,11 @@ test("09C-06a A-3: a template with an allergen line adds the safe line and leave
       ],
     })
     .throwOnError();
+  // The doctor's templates come with the consult (09E-05, R-8) and the Templates sheet reads nothing when it opens: a template written after the page
+  // was served is on the next load.
+  await page.reload();
+  await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toBeVisible();
+  await awaitHydrated(page);
   const rx = page.locator("#prescription");
   await rx.getByRole("button", { name: "Templates" }).click();
   const sheet = page.getByRole("dialog", { name: "Templates" });

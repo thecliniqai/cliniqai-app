@@ -341,3 +341,106 @@ A statement that touches no row, or an update whose compared columns are unchang
 - e2e, final tree (`stack:recycle` before, `--retries=0`, desktop-chrome, pixel-7 and iphone-15 as each spec's lane allows): `live/convergence` (4 cases: delivered, dropped, refused socket, hidden tab; the first two are `@golden` and run on iphone-15), `today/*` (today-live 5, front-desk, review-fixes), `a11y/live-badge` (3 widths: 360, 820, 1280; the badge's three states), `shell/query-clear`, `shell/request-budget`, `shell/clinic-switcher`, `shell/back-resume-keyboard` (rewritten), `pwa/05-cache-audit`, `pwa/11-refresh-outage-and-pin`, `observability/rum`: **142 passed, 0 failed, 19 skipped by design** (12.6 min).
 - `perf-latency --grep "@budget|live.today.refresh" --retries=0`: 14 passed (8 setup + 6 `@budget` rows; `live.today.refresh` 5 calls, depth 5, now the ceiling).
 - **Open: one unexplained e2e failure.** In one earlier combined run (`live` + `back-resume-keyboard`, three projects) `convergence` "delivered" failed on iphone-15 (30.5 s; the error text was lost because the run's output was filtered). It was not reproduced: the same case passed 5 of 5 with `--repeat-each=5`, in two full three-project sequences after a stack recycle (18 and 30 of 30), and in the final run. Candidates: WebKit's first Realtime join after a recycle taking longer than the 20 s badge wait, or the 2 s delivery window. Not root-caused; to be watched in CI (a retried pass there is a defect).
+
+## 09E-05 The consult in one read; the doctor's lists in its query
+
+Branch `v2/phase-09e-caching-speed`. Migration `000124_consult_screen`. No new dependency.
+
+### What shipped
+
+- **000124** (`supabase/migrations/000124_consult_screen.sql`, pgTAP `consult_screen.test.sql`, 73 tests): `public.consult_screen(p_tenant_id, p_visit_id) RETURNS jsonb`, STABLE, **SECURITY INVOKER**, `search_path ''`, EXECUTE for `authenticated` only
+  (not PUBLIC, anon or service_role). Header: "a new INVOKER read composed of existing reads; no table, policy or grant change beyond EXECUTE". No table, column, policy, trigger or data change; no definer function (so no
+  `definer_functions` registry row and no authz-matrix change were needed: the registry lists definer functions and tables; the schema snapshot and `types/database.ts` carry the function).
+  - NULL (never an error that tells the cases apart) for: no session, a NULL argument, another clinic's visit, a forged tenant, a visit that is not in the tenant, a role without `consultations:view` (receptionist, admin), a clinic that is not `full`
+    (the permission helpers only count full clinics), a patient the caller cannot read.
+  - Parts and gates (as the page gated them): `visit`, `patient`, `notes` (+ `draft_version`), `token_number`, `follow_up`, `diagnoses`, `prescription {items, latest_version}`, `amendment` (only while amending), `history` (the patient's other completed or
+    in-consultation visits with their diagnoses and active Rx lines, newest first, the visit on screen excluded), `entitlements` (the `assist.*` map), `allergy_context` (`rx_allergy_context`); `assist_context` (`consult_assist_context`, editable record,
+    `consultations:edit`, `assist.terminology` or `assist.frequent_rx`), `snapshot` (`patient_snapshot`, `assist.snapshot`), `macros` (editable, `consultations:edit`, `assist.shorthand`, the caller's own, cap 200), `upcoming` (editable, `assist.followup`),
+    `documents` (`labs:view`; the fields the screen shows, no storage path), `my_lists` (`prescriptions:edit` or `consultations:edit`: the caller's OWN custom medicines (500 by use_count), custom diagnoses (500) and templates (100), `doctor_id = auth.uid()`).
+  - "Editable" is `amending OR (draft AND status not completed/cancelled)` in SQL for the reads that are only worth doing for an editable record; the TypeScript predicate (`recordState`, `isEditableRecord` in `screen.ts`) is applied again and is the rule the page shows
+    (the SQL copy only saves the work; the parity spec compares the two over five record states).
+- **`features/consultation/screen.ts`** (new): zod parse of the answer and `buildConsultScreen(raw, {canEdit})` -> `ConsultScreen` (the view model the workspace reads: visit, patient, past encounters, assist map, learned order, snapshot, macros, upcoming instants,
+  documents, allergy context, lists); a part that is not the documented shape is dropped, a NULL answer is `null` (the page answers 404). `consultQueryData`, `withTemplate`, `withMacros` (pure updates for the query).
+  `parseRxAllergyContext` moved to `features/prescriptions/allergy.ts` (the service uses it; the one schema).
+- **Page** (`app/(dashboard)/consultation/[id]/page.tsx`): membership from the session context (no call), `consultations:view` check, a non-uuid id is a 404 with no call, **one** `rpc/consult_screen`, `buildConsultScreen`, `hydrate` of `queryKeys.consult(tenantId, visitId)`
+  (`HydrationBoundary`). The 14 sequential reads are deleted from the page (their services stay: history, diagnoses, Rx, assist context, snapshot, macros, upcoming, documents, allergy context have other callers or are the parity reference).
+  An RPC error is logged (code only) and throws (the error boundary, Retry); it is not a 404. The print payload of a sealed record is started, not awaited, and handed to the workspace as a promise (below).
+- **The consult's query** (`components/consultation/workspace/consult-query.tsx`, `lib/query/keys.ts` `queryKeys.consult`): holds `{lists, macros, assistContext, rxAssistContext}` (memory only, no persistence: the 09E-03 lint ban stands). `queryFn: skipToken`: it can be written, never re-read, so a focus or
+  a reconnect cannot make a call. The workspace reads favourites, usual doses (`assistContext`, `rxAssistContext`) and macros from it; the Templates sheet reads `lists.templates` through a context and no longer fetches when it opens; a saved template
+  (`saveDoctorProtocolTemplate` now returns the saved row) and an edited macro list update it with `setQueryData`. A later server render of the page (Finish, Amend, Finalize: `router.refresh`) replaces the query's content with what the database says
+  (an effect on the new server object, not hydrate's `dataUpdatedAt` rule: a client clock that runs ahead would otherwise keep stale data after Amend).
+- **Print view** (R-9): `printPayload` is now `Promise<PrescriptionPdfPayload | null>`; `PrintPayloadResolver` (`use`) under `Suspense` with no fallback hands it to the workspace state. The sealed record's data (`consult_screen`) is on screen first; "Print Rx" / "Rx PDF" settle when it resolves.
+- **`DataReady`**: unchanged, `withPageAuth` already renders it after every main screen's content (the consult included).
+- `scripts/perf/command-latency.ts`: `read: consult_screen` (below). `tests/e2e/perf/latency-ceilings.json`: five rows lowered through `scripts/perf/latency-ceilings.mjs` (below).
+- Fixture fallout: `tests/consultation/workspace-{sealed,review-fixes}.spec.ts` render the workspace inside a `QueryClientProvider` and pass `tenantId`; `tests/e2e/consult/rx-allergy.spec.ts` (09C-06a A-3) writes its template with the admin client AFTER the page was served,
+  so it reloads before opening the sheet (the sheet no longer reads the table when it opens: that is the requirement).
+
+### Specs
+
+- **pgTAP `consult_screen.test.sql`** (73): grants and shape; 12 refusal cases (all NULL); the role x part matrix (owner, visit's doctor, another doctor, nurse; receptionist and admin NULL); the five record states (draft, sealed, unsigned completed, cancelled, amending with its reason);
+  own lists only (custom medicines, custom diagnoses, templates, macros; another doctor's never; caps 500/100 with 510 medicines and 110 templates seeded); entitlement overrides remove their part; content of the parts (order, history without the current visit, documents without a path).
+- **`tests/consultation/consult-screen-parity.spec.ts`** (49): for draft, amending, sealed, unsigned completed and cancelled, and for owner, the visit's doctor, another doctor, nurse and receptionist, the view model from `consult_screen` **deep-equals** the one built from the old reads (the page's old loader kept in the spec as
+  `legacyScreen`, over the caller's own client; 25 comparisons, receptionist = null on both sides), and a second block of stored expectations (which parts each state and role carries; own lists only; history without the visit on screen; Rx in sort order). Deviation from the plan's wording
+  ("the committed spec then compares against stored expectations"): the comparison with the old reads is kept in the committed spec because the services it uses stay in the tree; the stored expectations are added next to it.
+- **e2e `tests/e2e/consult/consult-screen.spec.ts`** (all three projects): a full load of a draft consult has exactly one `POST rpc/consult_screen` in the server's Kong window and none of the old table reads or Smart Assist rpc calls; opening Templates twice makes **0 Supabase calls** (server and browser); saving a template
+  makes no `GET doctor_prescription_templates` and no browser call, and the sheet reopened shows it with 0 calls.
+
+### Fails-without (High: another doctor's data in the consult)
+
+With the `doctor_id = v_uid` filter removed from the four list reads (a scratch copy of the function applied to the local database, the migration untouched; `db reset --local` restored it), `consult_screen.test.sql` fails 5 of 73: 40-43 (one custom diagnosis and one template, the caller's own: the other doctor's rows appear) and 49 (the owner,
+who owns no list rows, sees the doctors' diagnoses and templates instead of three empty lists). `doctor_custom_diagnoses` and `doctor_prescription_templates` have clinic-wide SELECT policies (`consultations:view`), so the filter is the only thing keeping a colleague's rows out. `doctor_custom_medicines` and `doctor_text_macros` pass without it
+(their policies already limit SELECT to the caller's own rows since 000120 and 000115): the filter there is defence in depth. Restored; the committed function passes 73 of 73.
+
+### Latency, calls and budget rows (tool output)
+
+- **`command-latency.ts` `read: consult_screen`** (heaviest draft: the hot patient's 50 signed visits, the learned order from 300 signed visits, three Rx lines, and the lists at their caps: 500 + 500 + 100 + 200 macros; 60 calls): **p50 93.7, p95 126.4, p99 170.7 ms**
+  (`evidence/09E-05/command-latency.json`). **The plan's "p95 < 50 ms" is not met on this VM.** The same run measures the existing reads it composes over their own 50 ms read target on this machine: `consult_assist_context` p50 45.7 / p95 57, `rx_allergy_context` p50 32.3 / p95 36.9, `patient_snapshot` p50 18.5 / p95 23.2,
+  against 13.1 / 14.1, 7.5 / 8.1 and about 6 on the 09C machine (3 to 4 times faster), so this VM is about 3.5 times slower than the one the target was set on; `search_diagnoses` (p95 125.5) and `search_medicines` (103.5) also fail their 09B/09C targets in the same run. `consult_screen` p50 (93.7) is no more than the sum of its parts' p50 (96.5): the
+  composition adds nothing. A machine like the 09C one would measure about 30 ms. I did not change the function to hit a number on a slower machine; this is for the PO (below).
+- **Budget rows** (`perf-latency --grep consult` at 300 ms, `PERF_LATENCY_MERGE` onto the 09E-04 file, `evidence/09E-05/consult-rows-300ms.{json,md}`; ceilings written by `latency-ceilings.mjs`, no number typed, no raise):
+
+| Row | Before (calls / depth) | After (calls / depth) | ms (median) |
+| --- | --- | --- | --- |
+| `in-app.D.consult-draft` (B-1, PR lane) | 16 / 16 | **1 / 1** (`consult_screen`) | 449 |
+| `in-app.D.consult-sealed` (B-1) | 31 / 23 | 18 / 10 (1 + the print read's 17) | 456 |
+| `full.D.consult-draft` (B-3) | 20 / 16 | 5 / 3 | 593 |
+| `full.D.consult-sealed` (B-3) | 35 / 23 | 22 / 10 | 574 |
+| `save.D.start-consult` (09E-08's row, lowered as a side effect: the page it redirects to) | 27 / 17 | 16 / 8 | 1087 |
+
+  The plan expected depth 1 for the sealed rows and 2 for the full loads. **Sealed**: the 17 other calls are the print payload read (`loadPrescriptionPdfSource`, 16 sequential-ish table reads and one storage read), which the plan keeps as a separate read; it is streamed now, so the data row is on screen at 456 ms (within the 1,000 ms target) while that read
+  finishes, but it is still in the window's count and depth. Turning it into one SQL read is a separate piece of work (PO question). **Full draft**: 5 calls = the shell's two (`memberships`, `visits`: the layout/shell read, not the page), `consult_screen`, and the notification count (HEAD + GET, after hydration); depth 3, not 2, because the notification read starts after the page is up.
+  Neither is the page's own cost: the page's own cost is 1 call, depth 1.
+
+### Decisions and deviations
+
+- **Print payload as a promise**: the workspace holds the resolved payload in state and the page returns before it resolves, so the server-rendered HTML of a sealed record carries "Print Rx" (soft) until the promise lands (hydration), then "Rx PDF" and the print portal. Specs that look for the print view wait for it (they pass, 0 retries).
+- **`getDoctorProtocolTemplates` (server action) is now unused by the UI** but stays: it is in the guard manifest and other callers may use it; removing a server action is outside this plan.
+- **Custom medicines and custom diagnoses are in the query but nothing reads them yet**: the consumers are the on-device search (09E-10, 09E-11: "custom first", "custom diagnoses first"). R-8's "update with `setQueryData` from each save's result" for a custom medicine's `use_count + 1` and a custom diagnosis belongs with those consumers (the Rx command's and the diagnosis command's results); I did not add dead
+  update code for them here. Templates and macros (which have readers) update from the result.
+- **`entitlements` and the access level**: `my_entitlements` is level-neutral; the SQL reads it only for a `full` clinic, and the permission helpers already return NULL for any other level, so a clinic that is not `full` gets NULL as a whole (the layout redirects it first on a full load; `withPageAuth` first on a client navigation).
+- **History order and ties**: diagnoses and prescriptions are ordered by `created_at`/`version` then `id` in SQL (the old reads left ties unordered); the parity fixtures use distinct timestamps.
+- **A visit with a hidden patient** (RLS) is NULL (404) as before.
+- `assert-pgtap-report.mjs`: REQUIRED_FILES + `consult_screen.test.sql`, FLOOR 9364 (9291 + 73, measured 9364 in 72 files). `EXPECTED_MIGRATION` 000124; schema snapshot (2 lines) and `types/database.ts` (the function) regenerated.
+
+### Security-sensitive for the adversarial review
+
+`supabase/migrations/000124_consult_screen.sql` (INVOKER, `search_path ''`, the NULL cases, every `doctor_id = v_uid` filter, the caps, `my_entitlements`/`my_tenant_access` use, EXECUTE grant), `app/(dashboard)/consultation/[id]/page.tsx` (tenant from the session, the uuid check, the error path),
+`features/consultation/screen.ts` (what is dropped or applied again), the consult's query (`consult-query.tsx`: memory only, ids-only key `[tenantId, "consult", visitId]`, cleared by the 09E-03 provider cleanup at sign-out, lock and clinic switch; it holds the doctor's own lists, macros and the learned order, which contain medicine and diagnosis names and macro text but no patient, visit or item id),
+the dehydrated state in the server-rendered HTML (the same data), the print promise (a payload of a sealed record streamed to the page that is already authorised to show it). No service-role client, no route added, no RLS or grant change.
+
+### For the PO
+
+- **p95 < 50 ms for `consult_screen` is not met on this VM (126 ms), by the VM**: its parts measure 3 to 4 times their recorded figures. Options: accept the target as "no slower than the sum of its parts" (measured: 93.7 vs 96.5 p50), or re-measure on a faster machine. The three reads it composes would also need the same allowance (`consult_assist_context` p95 57 ms here).
+- **The sealed consult's print read (17 calls, depth 10)** is off the critical path now, but a one-read `rx_print_source` would take the sealed rows to 2 calls: do it in this phase (a later plan) or leave it?
+- Open from 09E-04, unchanged by this plan: `save.R.check-in` (owner 09E-08; see below), and the one unexplained iphone-15 "Delivered" failure.
+
+### Tests run (local stack)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (390 warnings, unchanged). `npm run inventory`: 0 flagged. `server-routes.mjs --check`, `schema-snapshot.mjs --local --check`: pass.
+- pgTAP (after `db reset --local`): 9364 tests in 72 files, 0 failed, gate PASS at floor 9364 (`consult_screen.test.sql` 73 of 73; no other file's count moved). `seed:local` was not needed for these lanes.
+- Vitest (affected directories: consultation, prescriptions, terminology, security, query, live, today, perf, observability, api, authz, ci, shell, pwa, lint, realtime, labs, permissions): 180 files, 4111 tests passed (parity spec 49, workspace specs 15). The two `age`-binary files were not in scope and were not run (known).
+- e2e (`--retries=0`, `stack:recycle` before each run, desktop-chrome, pixel-7, iphone-15): `tests/e2e/consult` all 15 specs: 296 passed, 28 skipped by design, 2 failed = `rx-allergy` "template with an allergen line" (desktop, pixel-7): it wrote the template after the page was served and expected the sheet to read it; fixed in the spec (reload, see above).
+  Second batch: `rx-allergy`, `consult-screen`, `shell/request-budget`, `shell/query-clear`, `shell/nav-per-role`, `a11y/consult-screens`, `pwa/05-cache-audit`, `live/convergence`, `observability/rum`: 140 passed, 20 skipped by design, 0 failed. `consult/workspace-layout` and the print specs passed in the first batch (axe clean, 360/tablet/desktop as each spec covers).
+- `perf-latency --grep "@budget|live.today.refresh" --retries=0` on the final tree: 14 passed, **1 failed: `save.R.check-in`** (6 calls against its 4: `visits` and `tenants` read twice). This is the 09E-04 watch item (the check-in's second `visits` read, owner 09E-08, ceiling untouched); it is a Today action and the consult is not on its path. It is not raised here.
+  `in-app.D.consult-draft` (the consult's PR row, 1 call / depth 1) passed; `live.today.refresh` passed.
+- The unexplained iphone-15 "Delivered" failure of 09E-04 did not occur in `live/convergence` (3 projects) in this run.
