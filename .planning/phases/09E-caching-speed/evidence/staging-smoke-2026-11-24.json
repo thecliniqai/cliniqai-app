@@ -1,0 +1,198 @@
+{
+  "date": "2026-11-24",
+  "local": true,
+  "steps": [
+    {
+      "step": "Today",
+      "kind": "load",
+      "status": "ok",
+      "dataReadyMs": 550,
+      "vitals": {
+        "lcp": 552,
+        "cls": 0,
+        "fcp": 264,
+        "ttfb": 126.6000000005588
+      },
+      "routes": [
+        {
+          "route": "/api/session-status",
+          "ms": 195,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 157,
+              "description": "calls=3 depth=3"
+            },
+            {
+              "name": "app",
+              "durationMs": 182,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "Today to one consult (link)",
+      "kind": "click",
+      "status": "skipped",
+      "note": "no such link on the page (no data of that kind)",
+      "dataReadyMs": null,
+      "vitals": null,
+      "routes": []
+    },
+    {
+      "step": "Schedule day",
+      "kind": "load",
+      "status": "ok",
+      "dataReadyMs": 444,
+      "vitals": {
+        "lcp": 132,
+        "cls": 0,
+        "fcp": 132,
+        "ttfb": 55.59999999962747
+      },
+      "routes": [
+        {
+          "route": "/api/session-status",
+          "ms": 192,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 150,
+              "description": "calls=3 depth=3"
+            },
+            {
+              "name": "app",
+              "durationMs": 182,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "Schedule week",
+      "kind": "load",
+      "status": "ok",
+      "dataReadyMs": 495,
+      "vitals": {
+        "lcp": 184,
+        "cls": 0,
+        "fcp": 184,
+        "ttfb": 63
+      },
+      "routes": [
+        {
+          "route": "/api/session-status",
+          "ms": 180,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 150,
+              "description": "calls=3 depth=3"
+            },
+            {
+              "name": "app",
+              "durationMs": 173,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "Patients",
+      "kind": "load",
+      "status": "ok",
+      "dataReadyMs": 357,
+      "vitals": {
+        "lcp": 156,
+        "cls": 0,
+        "fcp": 156,
+        "ttfb": 58.10000000055879
+      },
+      "routes": [
+        {
+          "route": "/api/session-status",
+          "ms": 153,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 131,
+              "description": "calls=3 depth=3"
+            },
+            {
+              "name": "app",
+              "durationMs": 147,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "Patients to one patient (link)",
+      "kind": "click",
+      "status": "ok",
+      "dataReadyMs": 78,
+      "vitals": {
+        "lcp": 156,
+        "cls": 0,
+        "fcp": 156,
+        "ttfb": 58.10000000055879
+      },
+      "routes": []
+    },
+    {
+      "step": "Medicine search (GET)",
+      "kind": "api",
+      "status": "ok",
+      "dataReadyMs": 37,
+      "vitals": null,
+      "routes": [
+        {
+          "route": "/api/prescriptions/medicines",
+          "ms": 34,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 12,
+              "description": "calls=1 depth=1"
+            },
+            {
+              "name": "app",
+              "durationMs": 23,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "Diagnosis search (GET)",
+      "kind": "api",
+      "status": "ok",
+      "dataReadyMs": 51,
+      "vitals": null,
+      "routes": [
+        {
+          "route": "/api/terminology/diagnoses",
+          "ms": 49,
+          "serverTiming": [
+            {
+              "name": "db",
+              "durationMs": 28,
+              "description": "calls=2 depth=2"
+            },
+            {
+              "name": "app",
+              "durationMs": 42,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

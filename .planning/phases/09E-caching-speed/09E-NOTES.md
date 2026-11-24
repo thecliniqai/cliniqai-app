@@ -96,3 +96,97 @@ The full load of the Today board costs 9 to 12 calls and 1.9 to 2.3 s.
   `tests/e2e/shell/request-budget.spec.ts` on desktop-chrome, pixel-7, iphone-15 (`--retries=0`): 11 passed (setup 8, 3 desktop tests; the other two projects skip by design).
 - `npm run typecheck`: clean. `npx eslint .`: 0 errors (390 warnings, none in the files of this plan). `node scripts/ci/workflow-policy.mjs`: pass.
 - Not run in CI yet (not pushed): the new CI step and nightly job.
+
+## 09E-02 Observability without a vendor: server timing, database report, real-user monitoring
+
+Branch `v2/phase-09e-caching-speed`. Migration `000122_rum_daily` (000121 stays unused). No new dependency (no `web-vitals`: Next's `useReportWebVitals`).
+Commits (not pushed): `da3c52d6` server timing, `88c7556b` perf scripts, `1b90c947` 000122, `02b05210` RUM client + route + guard legs, `07c827ba` reset-page fix,
+`53a55977` fixes found by the e2e repeat runs, and the notes commit.
+
+### What shipped
+
+- **Server timing** (`lib/observability/db-timing.ts`, `server-timing.ts`, `route-patterns.ts`, generated `server-routes.ts` + `scripts/observability/server-routes.mjs`):
+  one `RequestTiming` per request on the 09D request scope (the header store); the request client's `fetch` (`lib/supabase/server.ts`, also `createPublicClient`)
+  and `timedCall` (the breached-password range call) feed it; one `after()` per request writes `request.timing` (route pattern, kind page/action/route, action name, status for
+  routes, `db_calls`, `db_ms`, `db_depth`, `total_ms`, outcome ok/refused/error/unfinished). Actions and routes also write `request.start` and one `request.call` per
+  call (kind auth/rest/rpc/storage/pwned/..., ms, status, outcome; at most 200 a request), so a call that never ends shows as the last `request.call` and an `unfinished`
+  (or missing) `request.timing`. `proxy.ts` forwards `x-clinicos-route` (the pattern from the generated list, never the path) and `x-clinicos-t0` (its start, so `total_ms` counts the
+  proxy's own work); both are overwritten on every request and re-validated by the reader. Closed fields only (`lib/log/fields.ts`): no URL, query, id, name or error text.
+- **Action names**: every exported Server Action (121 exports, 27 modules) starts with `await markAction("<module>.<name>")` (Next gives only a hashed id).
+  `tests/observability/action-names.spec.ts` parses every `"use server"` module and fails on a new action without it, a name the logger would drop, or a duplicate.
+- **Server-Timing** on the data routes through `timedRoute(handler)`: `db;dur=<ms>;desc="calls=<n> depth=<d>", app;dur=<ms>`.
+  Covered: GET `/api/terminology/diagnoses`, `/api/terminology/substances`, `/api/prescriptions/medicines`, `/api/patients/search`, `/api/patients/[id]/export`,
+  `/api/invoices/[id]/receipt-pdf`, `/api/visits/[id]/prescription-pdf`, `/api/session-status`, `/api/reports/view`, `/api/r/[token]`, and POST `/api/rum`.
+  Pages and actions write the line (every page or action that makes a request-client call; `/login`-style pages with no call write none).
+  Not covered: `/api/v1/**` (API-key routes on the service-role client), `/api/health`, `/api/ready`, `/api/jobs/run`, `/api/webhooks/messaging`, `/api/auth/send-email`,
+  `/api/diag/error`, `/api/reschedule/[token]`, `/auth/signout` (its calls still write a line), `/sw.js`.
+- **Database and staging tools**: `npm run perf:db-top` (`scripts/perf/db-top-queries.ts`; docker exec into the local container, refuses any non-loopback target; `--reset` first
+  for a measured run) writes `evidence/db-top-queries.{json,md}` (top 25 by total and by mean); `scripts/perf/top-queries.sql` is the same read-only SELECT for the PO's SQL editor.
+  `npm run perf:staging-smoke` (`scripts/perf/staging-smoke.ts`): headed, the PO signs in by hand; `--local` (loopback only, `SMOKE_EMAIL`/`SMOKE_PASSWORD` from `seed:local`)
+  is how it was checked. Steps: Today, Today to a consult, Schedule day and week, Patients, Patients to one patient, one medicine search, one diagnosis search; per step the app's own
+  data-ready mark, Server-Timing of the data routes and LCP/CLS/FCP/TTFB. Local run: 7 measured, 1 skipped (the demo clinic has no consult link on Today), 0 failed
+  (`evidence/staging-smoke-2026-11-24.{json,md}`).
+- **000122** (`supabase/migrations/000122_rum_daily.sql`, pgTAP `rum_daily.test.sql`, 63 tests): `ops.rum_daily`, `ops.rum_overflow` (RLS on, no grant, `ops` unserved),
+  `public.ops_ingest_rum` (definer, `search_path=''`, EXECUTE `authenticated` only), `ops.rum_report(p_days)` (postgres only), `ops.cleanup()` also deletes rum rows past 90 days,
+  `CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions` (a no-op on the local stack, which has it). Bumped in the same commit: `EXPECTED_MIGRATION`,
+  schema snapshot, `types/database.ts`, `assert-pgtap-report.mjs` (REQUIRED_FILES, FLOOR 9025 + 63 = 9088, measured 9088 in 70 files), `definer_functions.test.sql` (three registry rows).
+- **Client RUM** (`lib/observability/rum/{catalog,collector,ingest}.ts`, `components/shell/{rum-reporter,data-ready}.tsx`): the five Web Vitals plus `nav_data_ready`, `load_data_ready`,
+  `search_server` (the patient picker and the diagnosis search: keystroke to the answer's first option; `search_device`, `save_*`, `finish_confirmed`, `live_*` are accepted by the route and
+  the database but nothing emits them until 09E-04 and 09E-08 to 09E-11). `DataReady` is rendered by `withPageAuth` after every wrapped page (one place, every main screen).
+  One sampling decision per session (`NEXT_PUBLIC_RUM_SAMPLE_RATE`, default 1; in `lib/env.ts`, `.env.example`, the e2e env), batches of at most 60, flush at 60 samples, every 60 s and
+  `sendBeacon` on hide and `pagehide`. **`POST /api/rum`**: same origin, session (any member, any access level), 8 kB, strict zod, 10 batches a minute per user (in process), environment
+  and release from the server, 204 `private, no-store`. Guard manifest kind `rum-ingest` with its legs.
+- **Staging finding**: see the last block.
+
+### Fails-without (High: nothing identifying reaches `ops`)
+
+Recorded with temporary copies of the pgTAP file (deleted): (1) `ops_ingest_rum` with its `screen` closed-list check removed: the three screen cases fail (the table CHECK still refuses the row, 23514 instead of
+the function's 22023: two layers). (2) The same plus `rum_daily_screen_check` dropped: a sample whose screen is a uuid or a path is accepted ("ok"), writes a row (5 rows against 9; counts 7 against 11) and the
+closed-word check fails: 6 of 63 tests fail. Both restored (the migration file was never edited); the committed test passes 63 of 63.
+
+### Staging finding (2026-11-23): what changed
+
+- Every action and route now writes `request.start`, a `request.call` per external call and `request.timing` (see above); the breached-password call is timed as `pwned`. A stall inside the function shows as the last
+  `request.call` and no (or an `unfinished`) `request.timing`.
+- `saveWithRecheck` (`features/auth/password-flows.ts`, used by the reset page): when the Server Action call throws, the page shows "Checking whether your password was saved...", asks Supabase Auth whether the
+  recovery session still exists (a reset ends it, R-35), retries once if it is open, treats a retry answered `session_not_found` as saved, and otherwise says "We couldn't confirm that your password was changed..."
+  (never "We couldn't reset your password" for an unknown outcome). Unit: `tests/auth/password-save-recheck.spec.ts` (12). e2e: `tests/e2e/auth/j-a4-reset.spec.ts` loses the answer after the server ran the
+  save, and before it arrived; both end with "Password changed" and the new password signing in, and the log holds `request.start` for `auth.set_new_password_action`.
+- **Not done (needs the PO)**: reproduce on staging after an idle period with the new lines before closing (agents never touch staging).
+
+### Decisions and deviations
+
+- **Action names are carried by a one-line `markAction` call** (121 sites) because Next exposes only hashed action ids; enforced by the spec above, not by the inventory (its fixtures would change).
+- **A line per external call** (not only slow ones) for actions and routes, capped at 200 per request. A 93-call action (sign and finish) writes about 95 lines. The cap and the "only slow or failed" alternative are
+  the PO's call if log volume matters.
+- `db_ms` is the calls' times added up (parallel calls add); `db_depth` is the chain length (same rule as the latency lane, `depthOfIntervals` = `depthOf`).
+- The service-role factory (`lib/supabase/system.ts`, ADR-0005 D2) is not instrumented (security-sensitive file, no change): calls on the system client (API v1, webhooks, jobs, share links, invite acceptance) are not counted.
+- `ops.rum_report` returns `environment` and `samples` besides the plan's columns (a local database mixes e2e and test rows). A percentile in the open top bucket is `Infinity`.
+- The plan's "fails-without" says a uuid screen writes a row with the function's check removed; the table CHECKs make that a second layer, so the proof has two steps (above).
+- `x-clinicos-t0` is added beside the route header (the plan names only the route): `total_ms` then includes the proxy's own auth time.
+- A reset saved with a lost answer shows the notice "We could not sign out your other devices" (the recheck cannot know that the global sign-out ran); harmless, but wrong when it did.
+- nav timing starts at a click on an in-app link; a programmatic `router.push` is not timed (09E-03/04 can add a call).
+- The route's rate limit counts every attempt including refused bodies; a user who loads pages by full load more than 10 times a minute loses samples (429, no user-visible effect).
+- `POST /api/rum` is a new route kind in the guard manifest and `ops_ingest_rum` a new definer function: security-sensitive per CLAUDE.md DoD 6 (adversarial second review needed).
+- No git identity is configured on this machine: the commits are authored `Claude <noreply@anthropic.com>` through environment variables (no config changed).
+- `assert-vitest-report.mjs`: REQUIRED_FILES gains the 09E-01 perf specs and the nine 09E-02 specs; its FLOOR (6455) is unchanged (re-measure at the phase gate).
+- `evidence/db-top-queries.*` is from the staging-smoke walk on the local stack (counters reset before it); `staging-smoke-2026-11-24.*` likewise. Re-run both at the gate.
+
+### For the PO
+
+- Sign and finish aside, the first thing worth looking at on staging after this lands: run `top-queries.sql` in the SQL editor and `ops.rum_report(7)`; the function log now has a `request.timing` line for every page, action and covered route.
+- To reproduce the finding: leave staging idle, run a password reset, and read the `request.start` / `request.call` / `request.timing` lines for `auth.set_new_password_action`.
+
+### Tests run (local stack, after `db reset --local` and `stack:recycle`)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (390 warnings, the 09E-01 number). `npm run inventory`: 0 flagged (27 modules, 122 exports, 35 route modules, 57 methods).
+  `node scripts/ci/env-example.mjs --check`, `node scripts/observability/server-routes.mjs --check`, `node scripts/ci/workflow-policy.mjs`: pass.
+- pgTAP: `npm run test:pgtap`: 9088 tests in 70 files, 0 failed; `assert-pgtap-report.mjs`: PASS at floor 9088. `rum_daily.test.sql` 63 of 63; `definer_functions.test.sql` 109 of 109.
+- Vitest: 72 files, 1481 tests (observability, auth, config, api readiness, ci, terminology, patients search route, pwa session-status, perf, subscriptions redirects) all pass after fixing one test of my own (the 429 window);
+  `tests/security/guard-routes.spec.ts` + `guard-actions.spec.ts`: 743 passed (includes the new `rum-ingest` legs); final re-run of observability, password recheck, config and perf: 753 passed.
+- e2e (desktop-chrome and pixel-7, `--retries=0`): `observability/rum.spec.ts` 11 passed twice in a row (setup 8 + 3); `auth/j-a4-reset.spec.ts` incl. the two lost-answer cases, `consult/keyboard-golden.spec.ts`,
+  `shell/request-budget.spec.ts`: 24 passed, 8 skipped by design. `npx playwright test --project=perf-latency --grep @budget --retries=0`: 14 passed (5.3 min), ceilings unchanged (the timing adds no Supabase call).
+- Repeat-run findings fixed (not retried): the RUM e2e shared the doctor with other specs and hit the 10-batches-a-minute limit on the second device project; a link clicked before hydration was a full load; the Web Vitals were
+  counted two or three times (unstable callback); the resource-timing buffer was full (observer instead of getEntries).
+- `npm run perf:staging-smoke -- --local`: 7 measured, 1 skipped, 0 failed. `npm run perf:db-top`: 28 statements written.
+- Not run: the full Vitest suite and the full e2e PR lane (CI does); the staging reproduction (PO).

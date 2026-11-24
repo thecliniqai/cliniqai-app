@@ -1,0 +1,285 @@
+{
+  "generatedAt": "2026-11-24T13:14:44.338Z",
+  "rows": [
+    {
+      "rank_total": 1,
+      "rank_mean": 4,
+      "query": "WITH pgrst_source AS (SELECT \"pgrst_call\".* FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_doctor_id\", \"p_date\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_doctor_id\" uuid, \"p_date\" date) LIMIT 1) pgrst_body , LATERAL \"public\".\"available_slots\"(\"p_doctor_id\" := pgrst_body.\"p_doctor_id\", \"p_date\" := pgrst_body.\"p_date\") pgrst_call) SELECT null::bigint AS total_result_set, ",
+      "calls": 8,
+      "rows": 8,
+      "mean_ms": 4.98,
+      "max_ms": 6.31,
+      "total_ms": 39.87
+    },
+    {
+      "rank_total": 2,
+      "rank_mean": 1,
+      "query": "WITH pgrst_source AS (SELECT \"pgrst_call\".* FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_tenant\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_tenant\" uuid) LIMIT $4) pgrst_body , LATERAL \"public\".\"my_entitlements\"(\"p_tenant\" := pgrst_body.\"p_tenant\") pgrst_call) SELECT $5::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgr",
+      "calls": 4,
+      "rows": 4,
+      "mean_ms": 7.12,
+      "max_ms": 11.14,
+      "total_ms": 28.46
+    },
+    {
+      "rank_total": 7,
+      "rank_mean": 2,
+      "query": "WITH pgrst_source AS (SELECT pgrst_call.pgrst_scalar FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_tenant\", \"p_action\", \"p_entity_type\", \"p_entity_id\", \"p_metadata\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_tenant\" uuid, \"p_action\" text, \"p_entity_type\" text, \"p_entity_id\" uuid, \"p_metadata\" jsonb) LIMIT $4) pgrst_body , LATERAL (SELECT \"public\".\"log_audit\"(\"p_tenant\" ",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 6.19,
+      "max_ms": 6.19,
+      "total_ms": 6.19
+    },
+    {
+      "rank_total": 3,
+      "rank_mean": 5,
+      "query": "WITH pgrst_source AS (SELECT pgrst_call.pgrst_scalar FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_environment\", \"p_release\", \"p_samples\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_environment\" text, \"p_release\" text, \"p_samples\" jsonb) LIMIT 1) pgrst_body , LATERAL (SELECT \"public\".\"ops_ingest_rum\"(\"p_environment\" := pgrst_body.\"p_environment\", \"p_release\" := pgrst_bod",
+      "calls": 5,
+      "rows": 5,
+      "mean_ms": 4.23,
+      "max_ms": 6.8,
+      "total_ms": 21.13
+    },
+    {
+      "rank_total": 8,
+      "rank_mean": 3,
+      "query": "WITH pgrst_source AS (SELECT \"pgrst_call\".* FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_tenant_id\", \"p_terms\", \"p_specialty\", \"p_limit\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_tenant_id\" uuid, \"p_terms\" text[], \"p_specialty\" text, \"p_limit\" integer) LIMIT $4) pgrst_body , LATERAL \"public\".\"search_diagnoses\"(\"p_tenant_id\" := pgrst_body.\"p_tenant_id\", \"p_terms\" := pg",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 5.78,
+      "max_ms": 5.78,
+      "total_ms": 5.78
+    },
+    {
+      "rank_total": 4,
+      "rank_mean": 16,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"memberships\".\"tenant_id\", \"public\".\"memberships\".\"role\", row_to_json(\"memberships_tenants_1\".*)::jsonb AS \"tenants\" FROM \"public\".\"memberships\" LEFT JOIN LATERAL ( SELECT \"tenants_1\".\"name\", \"tenants_1\".\"timezone\" FROM \"public\".\"tenants\" AS \"tenants_1\" WHERE \"tenants_1\".\"id\" = \"public\".\"memberships\".\"tenant_id\" LIMIT $1 OFFSET $2 ) AS \"memberships_tenants_1\"",
+      "calls": 17,
+      "rows": 17,
+      "mean_ms": 0.81,
+      "max_ms": 1.12,
+      "total_ms": 13.76
+    },
+    {
+      "rank_total": 5,
+      "rank_mean": 14,
+      "query": "WITH pgrst_source AS (SELECT pgrst_call.pgrst_scalar FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_tenant\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_tenant\" uuid) LIMIT 1) pgrst_body , LATERAL (SELECT \"public\".\"my_tenant_access\"(\"p_tenant\" := pgrst_body.\"p_tenant\") pgrst_scalar) pgrst_call) SELECT null::bigint AS total_result_set, 1 AS page_total, coalesce(json_agg(_po",
+      "calls": 14,
+      "rows": 14,
+      "mean_ms": 0.92,
+      "max_ms": 1.26,
+      "total_ms": 12.89
+    },
+    {
+      "rank_total": 6,
+      "rank_mean": 7,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"memberships\".\"id\", \"public\".\"memberships\".\"user_id\", \"public\".\"memberships\".\"tenant_id\", \"public\".\"memberships\".\"role\", \"public\".\"memberships\".\"full_name\", \"public\".\"memberships\".\"default_specialty\", \"public\".\"memberships\".\"default_slot_duration_minutes\", \"public\".\"memberships\".\"availability_schedule\" FROM \"public\".\"memberships\" WHERE \"public\".\"memberships\".",
+      "calls": 3,
+      "rows": 3,
+      "mean_ms": 2.81,
+      "max_ms": 3.75,
+      "total_ms": 8.43
+    },
+    {
+      "rank_total": 11,
+      "rank_mean": 6,
+      "query": "WITH pgrst_source AS (SELECT \"pgrst_call\".* FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"p_tenant_id\", \"p_query\", \"p_limit\" FROM json_to_record(pgrst_payload.json_data) AS _(\"p_tenant_id\" uuid, \"p_query\" text, \"p_limit\" integer) LIMIT 1) pgrst_body , LATERAL \"public\".\"search_medicines\"(\"p_tenant_id\" := pgrst_body.\"p_tenant_id\", \"p_query\" := pgrst_body.\"p_query\", \"p_limit\" := pgrst",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 3.56,
+      "max_ms": 3.56,
+      "total_ms": 3.56
+    },
+    {
+      "rank_total": 15,
+      "rank_mean": 8,
+      "query": "select \"private\".\"session_age_token_hook\"($1)",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 2.12,
+      "max_ms": 2.12,
+      "total_ms": 2.12
+    },
+    {
+      "rank_total": 9,
+      "rank_mean": 12,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"patients\".\"id\" FROM \"public\".\"patients\" WHERE \"public\".\"patients\".\"id\" = $1 AND \"public\".\"patients\".\"tenant_id\" = $2 AND \"public\".\"patients\".\"is_deleted\" = $3 LIMIT $4 OFFSET $5 ) SELECT $6::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgrest_t), $7) AS body, nullif(current_setting($8, $9), $10) AS response_",
+      "calls": 3,
+      "rows": 3,
+      "mean_ms": 1.71,
+      "max_ms": 1.81,
+      "total_ms": 5.14
+    },
+    {
+      "rank_total": 16,
+      "rank_mean": 9,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"patients\".* FROM \"public\".\"patients\" WHERE \"public\".\"patients\".\"id\" = $1 AND \"public\".\"patients\".\"tenant_id\" = $2 AND \"public\".\"patients\".\"is_deleted\" = $3 LIMIT $4 OFFSET $5 ) SELECT $6::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgrest_t), $7) AS body, nullif(current_setting($8, $9), $10) AS response_hea",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 1.81,
+      "max_ms": 1.81,
+      "total_ms": 1.81
+    },
+    {
+      "rank_total": 10,
+      "rank_mean": 36,
+      "query": "select set_config('search_path', $1, true), set_config($2, $3, true), set_config('role', $4, true), set_config('request.jwt.claims', $5, true), set_config('request.method', $6, true), set_config('request.path', $7, true), set_config('request.headers', $8, true), set_config('request.cookies', $9, true)",
+      "calls": 97,
+      "rows": 97,
+      "mean_ms": 0.05,
+      "max_ms": 0.14,
+      "total_ms": 4.73
+    },
+    {
+      "rank_total": 17,
+      "rank_mean": 10,
+      "query": "INSERT INTO \"sessions\" (\"aal\", \"created_at\", \"factor_id\", \"id\", \"ip\", \"not_after\", \"oauth_client_id\", \"refresh_token_counter\", \"refresh_token_hmac_key\", \"refreshed_at\", \"scopes\", \"tag\", \"updated_at\", \"user_agent\", \"user_id\") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 1.78,
+      "max_ms": 1.78,
+      "total_ms": 1.78
+    },
+    {
+      "rank_total": 18,
+      "rank_mean": 11,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"patients\".\"id\", \"public\".\"patients\".\"full_name\", \"public\".\"patients\".\"phone\", \"public\".\"patients\".\"abha_id\", \"public\".\"patients\".\"age\", \"public\".\"patients\".\"sex\", \"public\".\"patients\".\"created_at\" FROM \"public\".\"patients\" WHERE \"public\".\"patients\".\"tenant_id\" = $1 AND \"public\".\"patients\".\"is_deleted\" = $2 ORDER BY \"public\".\"patients\".\"created_at\" DESC LIMIT $",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 1.74,
+      "max_ms": 1.74,
+      "total_ms": 1.74
+    },
+    {
+      "rank_total": 12,
+      "rank_mean": 17,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"tenants\".\"timezone\" FROM \"public\".\"tenants\" WHERE \"public\".\"tenants\".\"id\" = $1 LIMIT $2 OFFSET $3 ) SELECT null::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgrest_t), '[]') AS body, nullif(current_setting('response.headers', true), '') AS response_headers, nullif(current_setting('response.status', true), '",
+      "calls": 5,
+      "rows": 5,
+      "mean_ms": 0.59,
+      "max_ms": 1.02,
+      "total_ms": 2.93
+    },
+    {
+      "rank_total": 13,
+      "rank_mean": 13,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"memberships\".\"id\", \"public\".\"memberships\".\"user_id\", \"public\".\"memberships\".\"tenant_id\", \"public\".\"memberships\".\"role\", \"public\".\"memberships\".\"full_name\", \"public\".\"memberships\".\"default_specialty\", \"public\".\"memberships\".\"default_slot_duration_minutes\", \"public\".\"memberships\".\"availability_schedule\" FROM \"public\".\"memberships\" WHERE \"public\".\"memberships\".",
+      "calls": 2,
+      "rows": 2,
+      "mean_ms": 1.46,
+      "max_ms": 1.66,
+      "total_ms": 2.93
+    },
+    {
+      "rank_total": 14,
+      "rank_mean": 18,
+      "query": "WITH pgrst_source AS ( SELECT \"public\".\"tenants\".\"owner_is_practicing_doctor\" FROM \"public\".\"tenants\" WHERE \"public\".\"tenants\".\"id\" = $1 LIMIT $2 OFFSET $3 ) SELECT $4::bigint AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, coalesce(json_agg(_postgrest_t)->$5, $6) AS body, nullif(current_setting($7, $8), $9) AS response_headers, nullif(current_setting($10, $11), $12) AS response",
+      "calls": 5,
+      "rows": 5,
+      "mean_ms": 0.49,
+      "max_ms": 0.62,
+      "total_ms": 2.45
+    },
+    {
+      "rank_total": 19,
+      "rank_mean": 15,
+      "query": "INSERT INTO \"refresh_tokens\" (\"created_at\", \"instance_id\", \"parent\", \"revoked\", \"session_id\", \"token\", \"updated_at\", \"user_id\") VALUES ($1, $2, $3, $4, $5, $6, $7, $8) returning id",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.88,
+      "max_ms": 0.88,
+      "total_ms": 0.88
+    },
+    {
+      "rank_total": 21,
+      "rank_mean": 19,
+      "query": "UPDATE \"users\" AS users SET \"last_sign_in_at\" = $1, \"updated_at\" = $2 WHERE users.id = $3",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.43,
+      "max_ms": 0.43,
+      "total_ms": 0.43
+    },
+    {
+      "rank_total": 20,
+      "rank_mean": 25,
+      "query": "SELECT sessions.aal, sessions.created_at, sessions.factor_id, sessions.id, sessions.ip, sessions.not_after, sessions.oauth_client_id, sessions.refresh_token_counter, sessions.refresh_token_hmac_key, sessions.refreshed_at, sessions.scopes, sessions.tag, sessions.updated_at, sessions.user_agent, sessions.user_id FROM sessions AS sessions WHERE id = $1 LIMIT $2",
+      "calls": 6,
+      "rows": 6,
+      "mean_ms": 0.09,
+      "max_ms": 0.13,
+      "total_ms": 0.56
+    },
+    {
+      "rank_total": 23,
+      "rank_mean": 20,
+      "query": "INSERT INTO \"audit_log_entries\" (\"created_at\", \"id\", \"instance_id\", \"ip_address\", \"payload\") VALUES ($1, $2, $3, $4, $5)",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.41,
+      "max_ms": 0.41,
+      "total_ms": 0.41
+    },
+    {
+      "rank_total": 25,
+      "rank_mean": 21,
+      "query": "INSERT INTO mfa_amr_claims(id, session_id, created_at, updated_at, authentication_method) values ($1, $2, $3, $4, $5) ON CONFLICT ON CONSTRAINT mfa_amr_claims_session_id_authentication_method_pkey DO UPDATE SET updated_at = $6",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.31,
+      "max_ms": 0.31,
+      "total_ms": 0.31
+    },
+    {
+      "rank_total": 22,
+      "rank_mean": 26,
+      "query": "SELECT users.aud, users.banned_until, users.confirmation_sent_at, users.confirmation_token, users.confirmed_at, users.created_at, users.deleted_at, users.email, users.email_change, users.email_change_confirm_status, users.email_change_sent_at, users.email_change_token_current, users.email_change_token_new, users.email_confirmed_at, users.encrypted_password, users.id, users.instance_id, users.invit",
+      "calls": 5,
+      "rows": 5,
+      "mean_ms": 0.09,
+      "max_ms": 0.12,
+      "total_ms": 0.43
+    },
+    {
+      "rank_total": 27,
+      "rank_mean": 22,
+      "query": "INSERT INTO \"realtime\".\"messages\" (\"topic\",\"updated_at\",\"inserted_at\",\"extension\",\"id\") VALUES ($1,$2,$3,$4,$5)",
+      "calls": 2,
+      "rows": 2,
+      "mean_ms": 0.1,
+      "max_ms": 0.1,
+      "total_ms": 0.2
+    },
+    {
+      "rank_total": 34,
+      "rank_mean": 23,
+      "query": "SELECT e0.\"id\", e0.\"type\", e0.\"settings\", e0.\"tenant_external_id\", e0.\"inserted_at\", e0.\"updated_at\", e0.\"tenant_external_id\" FROM \"extensions\" AS e0 WHERE (e0.\"tenant_external_id\" = $1) ORDER BY e0.\"tenant_external_id\"",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.1,
+      "max_ms": 0.1,
+      "total_ms": 0.1
+    },
+    {
+      "rank_total": 24,
+      "rank_mean": 28,
+      "query": "SELECT identities.created_at, identities.email, identities.id, identities.identity_data, identities.last_sign_in_at, identities.provider, identities.provider_id, identities.updated_at, identities.user_id FROM identities AS identities WHERE user_id = $1",
+      "calls": 6,
+      "rows": 6,
+      "mean_ms": 0.06,
+      "max_ms": 0.07,
+      "total_ms": 0.36
+    },
+    {
+      "rank_total": 35,
+      "rank_mean": 24,
+      "query": "SELECT users.aud, users.banned_until, users.confirmation_sent_at, users.confirmation_token, users.confirmed_at, users.created_at, users.deleted_at, users.email, users.email_change, users.email_change_confirm_status, users.email_change_sent_at, users.email_change_token_current, users.email_change_token_new, users.email_confirmed_at, users.encrypted_password, users.id, users.instance_id, users.invit",
+      "calls": 1,
+      "rows": 1,
+      "mean_ms": 0.1,
+      "max_ms": 0.1,
+      "total_ms": 0.1
+    }
+  ]
+}
