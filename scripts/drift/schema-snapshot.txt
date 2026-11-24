@@ -1521,6 +1521,7 @@ function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang
 function public.complete_visit(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b501d39b6c98517cede459f7b51886f0
 function public.confirm_appointment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3daa696985ba2cad55513c66be6339c9
 function public.consult_assist_context(p_tenant_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=41fa22ac9348c6e51eb4f90687cca2ae
+function public.consult_screen(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=16a917bb35ffc0a48d21eb86faa97cd7
 function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=baa83f696258d0742c6451fea44320fb
 function public.consume_invitation_for(p_user_id uuid, p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=63bf8dac3bbc99f14db4278598f9a98e
 function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=d964f83c0dd94fe31021225f3406ce98
@@ -1726,6 +1727,7 @@ grant function public.complete_job(p_id uuid, p_lease_token uuid) EXECUTE to ser
 grant function public.complete_visit(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.confirm_appointment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.consult_assist_context(p_tenant_id uuid) EXECUTE to authenticated
+grant function public.consult_screen(p_tenant_id uuid, p_visit_id uuid) EXECUTE to authenticated
 grant function public.consume_invitation(p_token_hash text) EXECUTE to authenticated
 grant function public.consume_invitation_for(p_user_id uuid, p_token_hash text) EXECUTE to service_role
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to anon

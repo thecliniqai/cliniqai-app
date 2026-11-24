@@ -148,6 +148,8 @@
  *          registry rows for the one new function, ops_ingest_rum); no table or policy of `public` changed (the new tables are in `ops`, unserved).
  *   9291 — V2-09e 09E-04 (000123 clinic_versions): 9088 + clinic_versions 107 (new file, every one required) + the regenerated authz files (the new table's cells in
  *          authz_matrix, access_lock_rls and authz_completeness) + today_signals (+0) and front_desk_review_fixes (+0, A-5 reworded) = 9291 (71 files).
+ *   9364 — V2-09e 09E-05 (000124 consult_screen): 9291 + consult_screen 73 (new file, every one required) = 9364 (72 files). No table, policy or definer function
+ *          changed, so the authz files and definer_functions keep their counts.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -159,7 +161,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9291;
+export const FLOOR = 9364;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -281,6 +283,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/rum_daily.test.sql",
   // 09E-04
   "supabase/tests/database/clinic_versions.test.sql",
+  // V2-09e 09E-05
+  "supabase/tests/database/consult_screen.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */
