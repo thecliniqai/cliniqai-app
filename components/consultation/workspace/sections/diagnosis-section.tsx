@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, TRANSITION } from "@/lib/ui/variants";
 import { focusBoxInput } from "@/lib/ui/focus-box";
 import { reportClientError } from "@/lib/log/client";
+import { rum } from "@/lib/observability/rum/collector";
 
 /**
  * The Diagnosis section of the consult (06-UI-SPEC §7; V2-09b 09B-04a, R-11, AI-07). Replaces the v1 `diagnosis-section.tsx` and its React Compiler waiver:
@@ -99,6 +100,7 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
       return;
     }
     setLoading(true);
+    const stopTimer = rum.timer("search_server");
     timer.current = setTimeout(async () => {
       const controller = new AbortController();
       pending.current = controller;
@@ -106,6 +108,7 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
         const hits = await fetchDiagnosisHits(q, specialty, controller.signal);
         if (n !== seq.current) return;
         setAnswer({ query: q, hits, failed: false });
+        stopTimer();
       } catch (err) {
         if (n !== seq.current) return;
         if (!controller.signal.aborted) reportClientError("terminology.diagnosis_search.failed", err);

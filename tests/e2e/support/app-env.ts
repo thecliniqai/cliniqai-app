@@ -134,6 +134,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // test key. The browser never reaches Cloudflare: tests/e2e/fixtures.ts fulfils the widget script with
     // tests/e2e/support/turnstile-stub.js, and local GoTrue has CAPTCHA off, so the lane proves the token wiring.
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_TURNSTILE_SITE_KEY,
+    // V2-09e 09E-02 (R-20): every e2e session sends its real-user timings (`tests/e2e/observability/rum.spec.ts` reads them).
+    NEXT_PUBLIC_RUM_SAMPLE_RATE: "1",
     // V2-05 05-07b (R-46): invite acceptance verifies the widget token server-side against the loopback fake
     // siteverify global setup starts (tests/e2e/support/turnstile-verify-server.ts), with Cloudflare's always-pass
     // test secret (built at run time).

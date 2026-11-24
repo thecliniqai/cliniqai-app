@@ -43,6 +43,7 @@ import {
   cronRouteLeg,
   healthRouteLeg,
   publicAssetRouteLeg,
+  rumIngestRouteLegs,
   sessionStatusRouteLegs,
   runnerRouteLegs,
   webhookSignatureRouteLegs,
@@ -243,6 +244,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("public-asset"))("public-asset: %s", async (_k, c, guard) => {
         const violations = await publicAssetRouteLeg(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("rum-ingest"))("rum-ingest: %s", async (_k, c) => {
+        const violations = await rumIngestRouteLegs(slot, c, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

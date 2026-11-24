@@ -1084,6 +1084,59 @@ export async function sessionStatusRouteLegs(
 }
 
 /**
+ * `rum-ingest` route (09E-02, T-09E-14, T-09E-15): a cross-origin call 403 with no data access; no session 401 and no membership 403, each touching nothing
+ * but the membership lookup; a member's valid batch 204 with `no-store`, no body and no cookie whose only data access beyond the membership lookup is the
+ * one `ops_ingest_rum` call; a body that names a tenant (tenant B's id), carries a uuid as the screen, is not JSON, or is over 8 kB is refused (400/413)
+ * with no `ops_ingest_rum` call. Nothing of tenant B is ever answered.
+ */
+export async function rumIngestRouteLegs(slot: RequestSlot, c: RouteCase, world: GuardWorld): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const sample = { screen: "today", metric: "lcp", device: "desktop", net: "4g", value: 1800 };
+  const sameOrigin = { origin: "http://localhost:3000", "sec-fetch-site": "same-origin" };
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const ingestCalls = (r: RouteResult) => r.access.filter((a) => a === "rpc:ops_ingest_rum");
+
+  const cross = await callRoute(slot, world.roles.receptionist.client, c, {
+    body: { samples: [sample] },
+    headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+  });
+  out.push(...expectStatus(c, "cross-origin", cross, [403]), ...expectNoAccess(c, "cross-origin", cross));
+
+  const anon = await callRoute(slot, anonClient(), c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  const member = await callRoute(slot, world.roles.receptionist.client, c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "member", member, [204]), ...expectNoB(c, "member", member, world));
+  noStore("member", member);
+  if (member.body !== "") out.push(routeV(c, "member", `a 204 with a body: ${brief(member.body)}`));
+  if (member.headers.get("set-cookie")) out.push(routeV(c, "member", "sets a cookie"));
+  if (ingestCalls(member).length !== 1) out.push(routeV(c, "member", `expected exactly one ops_ingest_rum call, saw ${ingestCalls(member).length}`));
+  const stray = member.access.filter((a) => a !== "rpc:ops_ingest_rum" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+  if (stray.length > 0) out.push(routeV(c, "member", `data access beyond the ingest and the membership lookup: ${stray.join(", ")}`));
+
+  const refusals: Array<[string, { body?: unknown; headers?: Record<string, string> }]> = [
+    ["a body naming tenant B", { body: { samples: [sample], tenantId: world.b.tenant } }],
+    ["a sample naming tenant B", { body: { samples: [{ ...sample, tenantId: world.b.tenant }] } }],
+    ["a uuid as the screen", { body: { samples: [{ ...sample, screen: world.b.tenant }] } }],
+    ["a path as the screen", { body: { samples: [{ ...sample, screen: "/patients/x" }] } }],
+    ["an oversize body", { body: { samples: [sample], pad: "x".repeat(9000) } }],
+  ];
+  for (const [leg, call] of refusals) {
+    const r = await callRoute(slot, world.roles.receptionist.client, c, { ...call, headers: sameOrigin });
+    out.push(...expectStatus(c, leg, r, [400, 413]), ...expectNoB(c, leg, r, world));
+    if (ingestCalls(r).length > 0) out.push(routeV(c, leg, "reached ops_ingest_rum"));
+  }
+  return out;
+}
+
+/**
  * `session-search` route (08-02, T-08-02): the least-privileged holder of the permission searches tenant B's synthetic
  * patient by name and by mobile number and gets 200 with an empty list and nothing of B; searching tenant A's own patient
  * answers 200 with `no-store` and a list whose rows have exactly the projection keys and no full mobile number. The

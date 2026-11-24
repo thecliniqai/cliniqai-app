@@ -540,6 +540,16 @@ const REQUIRED_FILES = [
   "tests/files/compress-image.spec.ts",
   // V2-09c 09C-06a
   "tests/prescriptions/rx-review-fixes-db.spec.ts",
+  // V2-09e 09E-01 (the two perf specs the lane added) and 09E-02 (000122: observability); the floor is re-measured at the phase gate, it only rises.
+  "tests/perf/depth.spec.ts",
+  "tests/perf/server-latency.spec.ts",
+  "tests/observability/db-timing.spec.ts",
+  "tests/observability/server-timing.spec.ts",
+  "tests/observability/server-routes.spec.ts",
+  "tests/observability/action-names.spec.ts",
+  "tests/observability/rum-collector.spec.ts",
+  "tests/observability/rum-route.spec.ts",
+  "tests/auth/password-save-recheck.spec.ts",
 ];
 
 const file = process.argv[2];

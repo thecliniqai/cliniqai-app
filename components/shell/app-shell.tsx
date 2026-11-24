@@ -21,6 +21,7 @@ import { CommandPalette } from "./command-palette";
 import { MoreSheet } from "./more-sheet";
 import { PwaRuntime } from "./pwa-runtime";
 import { Rail } from "./rail";
+import { RumReporter } from "./rum-reporter";
 import { Sidebar } from "./sidebar";
 import { ShellToaster } from "./toaster";
 import { TopBar } from "./top-bar";
@@ -186,6 +187,7 @@ export function AppShell({
       <MoreSheet open={moreOpen} onOpenChange={setMoreOpen} destinations={moreDestinations} activeId={active?.id ?? null} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} model={model} />
       <PwaRuntime swEnabled={swEnabled} shellClinic={shellClinic} />
+      <RumReporter />
       <ShellToaster aboveBottomBar={bottomBarShown} />
     </div>
   );

@@ -110,6 +110,13 @@ export type RouteGuard =
    * permission searching a synthetic substance answers 200 with `no-store` and rows with exactly `keys`, nothing of tenant B, and hostile queries are data.
    */
   | { kind: "session-substance-search"; permission: Permission; keys: readonly string[] }
+  /**
+   * V2-09e 09E-02 (T-09E-14, T-09E-15): the real-user timing ingest `POST /api/rum`. A cross-origin call 403 before any session work; no session 401; a
+   * signed-in user with no membership 403 (membership lookup only); a member's valid batch answers 204 with `no-store`, no body and no cookie, and its only
+   * data access is the one `ops_ingest_rum` call; a body naming a tenant or any other key (a forged `tenantId`, a uuid as the screen), a malformed one and an
+   * oversize one are refused (400, 413) before any data access. Nothing of tenant B is answered and no tenant table row is written.
+   */
+  | { kind: "rum-ingest" }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -313,6 +320,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // browser fetches it with no session on the login page and on every update check.
   "app/sw.js/route.ts#GET": { kind: "public-asset", contentType: "application/javascript" },
   // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
+  // V2-09e 09E-02 (R-20): real-user timings; any active member of a clinic, closed-list samples only, nothing identifying stored.
+  "app/api/rum/route.ts#POST": { kind: "rum-ingest" },
   "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
