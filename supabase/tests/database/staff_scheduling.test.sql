@@ -228,20 +228,20 @@ select is(
   (select array_agg(f || ':' || has_function_privilege('anon', f, 'EXECUTE')::text || ':' || has_function_privilege('authenticated', f, 'EXECUTE')::text
                     || ':' || has_function_privilege('service_role', f, 'EXECUTE')::text order by f)
      from unnest(array[
-       'public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean)',
-       'public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean)',
-       'public.mark_no_show(uuid, uuid, uuid)', 'public.confirm_appointment(uuid, uuid, uuid)',
+       'public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean, bigint)',
+       'public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean, bigint)',
+       'public.mark_no_show(uuid, uuid, uuid, bigint)', 'public.confirm_appointment(uuid, uuid, uuid, bigint)',
        'public.add_to_waitlist(uuid, uuid, date, uuid, uuid, text, integer, text)',
        'public.promote_waitlist_entry(uuid, uuid, timestamptz, uuid, uuid, integer, boolean)',
        'public.available_slots(uuid, date, uuid)']) f),
   array[
     'public.add_to_waitlist(uuid, uuid, date, uuid, uuid, text, integer, text):false:true:false',
     'public.available_slots(uuid, date, uuid):false:true:false',
-    'public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean):false:true:false',
-    'public.confirm_appointment(uuid, uuid, uuid):false:true:false',
-    'public.mark_no_show(uuid, uuid, uuid):false:true:false',
+    'public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean, bigint):false:true:false',
+    'public.confirm_appointment(uuid, uuid, uuid, bigint):false:true:false',
+    'public.mark_no_show(uuid, uuid, uuid, bigint):false:true:false',
     'public.promote_waitlist_entry(uuid, uuid, timestamptz, uuid, uuid, integer, boolean):false:true:false',
-    'public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean):false:true:false'
+    'public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean, bigint):false:true:false'
   ]::text[],
   'the six commands and the slot list: EXECUTE for authenticated only (no anon, no service role)');
 select is(

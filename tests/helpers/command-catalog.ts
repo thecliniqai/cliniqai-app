@@ -16,7 +16,7 @@ import { expect } from "vitest";
 import { psql } from "./sql";
 
 export interface CommandCatalogExpectation {
-  /** `schema.name(argtypes)` as `regprocedure` reads it, e.g. `public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)`. */
+  /** `schema.name(argtypes)` as `regprocedure` reads it, e.g. `public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text, bigint)`. */
   signature: string;
   /** Expected `prosecdef`. */
   definer: boolean;

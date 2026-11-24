@@ -44,7 +44,7 @@ const completeAudit = (visitId: string) => auditRows(tenantA.tenantId, "visit.co
 
 describe("complete_visit: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.complete_visit(uuid, uuid, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.complete_visit(uuid, uuid, uuid, bigint)", definer: true });
   });
 });
 

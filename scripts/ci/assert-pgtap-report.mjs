@@ -152,6 +152,8 @@
  *          changed, so the authz files and definer_functions keep their counts.
  *   9426 — V2-09e 09E-06 (000125 today_board): 9364 + today_board 62 (new file, every one required) = 9426 (73 files). One new INVOKER function and no table, policy
  *          or definer function, so the authz files and definer_functions keep their counts.
+ *   9505 — V2-09e 09E-07 (000126 stale_write_refusal): 9426 + stale_write_refusal 79 (new file, every one required) = 9505 (74 files). Ten definer commands are replaced
+ *          with the same name, checks and grants (one parameter more); the signature pins in staff_scheduling, visit_state_machine and billing_rpc_only changed text, not count.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -163,7 +165,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9426;
+export const FLOOR = 9505;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -289,6 +291,7 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/consult_screen.test.sql",
   // V2-09e 09E-06
   "supabase/tests/database/today_board.test.sql",
+  "supabase/tests/database/stale_write_refusal.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

@@ -146,8 +146,8 @@ select is(
   (select string_agg(f.fn || ':' || has_function_privilege('authenticated', f.fn, 'EXECUTE')::text || ':'
                      || has_function_privilege('anon', f.fn, 'EXECUTE')::text || ':' || has_function_privilege('service_role', f.fn, 'EXECUTE')::text,
                      ',' order by f.fn)
-     from (values ('public.start_consultation(uuid, uuid, uuid)'), ('public.complete_visit(uuid, uuid, uuid)')) f(fn)),
-  'public.complete_visit(uuid, uuid, uuid):true:false:false,public.start_consultation(uuid, uuid, uuid):true:false:false',
+     from (values ('public.start_consultation(uuid, uuid, uuid, bigint)'), ('public.complete_visit(uuid, uuid, uuid, bigint)')) f(fn)),
+  'public.complete_visit(uuid, uuid, uuid, bigint):true:false:false,public.start_consultation(uuid, uuid, uuid, bigint):true:false:false',
   'start_consultation and complete_visit: EXECUTE for authenticated only (no anon, no service role)');
 select is(
   (select string_agg(f.fn || ':' || has_function_privilege('authenticated', f.fn, 'EXECUTE')::text || ':' || has_function_privilege('service_role', f.fn, 'EXECUTE')::text,
@@ -158,7 +158,7 @@ select is(
   'the state machine and the check-in step have no API grant');
 select is(
   (select string_agg(p.proname || ':' || p.prosecdef::text || ':' || array_to_string(p.proconfig, ','), ',' order by p.proname)
-     from pg_proc p where p.oid in ('public.start_consultation(uuid, uuid, uuid)'::regprocedure, 'public.complete_visit(uuid, uuid, uuid)'::regprocedure)),
+     from pg_proc p where p.oid in ('public.start_consultation(uuid, uuid, uuid, bigint)'::regprocedure, 'public.complete_visit(uuid, uuid, uuid, bigint)'::regprocedure)),
   'complete_visit:true:search_path="",lock_timeout=2s,start_consultation:true:search_path="",lock_timeout=2s',
   'the two commands are definer functions with search_path pinned and lock_timeout 2s');
 

@@ -3277,6 +3277,7 @@ export type Database = {
       cancel_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_notify?: boolean;
           p_promote_waitlist?: boolean;
           p_reason_code: string;
@@ -3325,6 +3326,7 @@ export type Database = {
       check_in_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_priority: string;
           p_tenant_id: string;
           p_visit_id: string;
@@ -3357,6 +3359,7 @@ export type Database = {
           p_amount: number;
           p_client_request_id: string;
           p_discount?: number;
+          p_expected_invoice_version?: number;
           p_items: Json;
           p_method: string;
           p_notes: string;
@@ -3431,6 +3434,7 @@ export type Database = {
         Args: {
           p_client_request_id: string;
           p_discount: number;
+          p_expected_version?: number;
           p_items: Json;
           p_payment: Json;
           p_tax: number;
@@ -3446,6 +3450,7 @@ export type Database = {
       complete_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3454,6 +3459,7 @@ export type Database = {
       confirm_appointment: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3706,6 +3712,7 @@ export type Database = {
       mark_no_show: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3787,6 +3794,7 @@ export type Database = {
         Args: {
           p_amount: number;
           p_command_id: string;
+          p_expected_invoice_version?: number;
           p_invoice_id: string;
           p_method: string;
           p_notes?: string;
@@ -3868,6 +3876,7 @@ export type Database = {
           p_client_request_id: string;
           p_doctor_id?: string;
           p_duration_minutes?: number;
+          p_expected_version?: number;
           p_new_scheduled_at: string;
           p_notify?: boolean;
           p_overbook?: boolean;
@@ -4011,6 +4020,7 @@ export type Database = {
       start_consultation: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };

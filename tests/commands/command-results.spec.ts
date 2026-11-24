@@ -321,7 +321,7 @@ describe("surface and catalog", () => {
   });
 
   it("the shared catalog assertion is not vacuous: it fails for a wrong definer flag and for a function with no client_request_id", () => {
-    const recordPayment = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)";
+    const recordPayment = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text, bigint)";
     expectCommandCatalog({ signature: recordPayment, definer: true, serviceRole: true, command: false });
     expect(() => expectCommandCatalog({ signature: recordPayment, definer: false, serviceRole: true, command: false })).toThrow();
     expect(() => expectCommandCatalog({ signature: recordPayment, definer: true, serviceRole: false, command: false })).toThrow();

@@ -95,7 +95,7 @@ const NOTHING = { signAudit: 0, invoices: 0, payments: 0, completed: 0, issued: 
 
 describe("complete_and_bill: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.complete_and_bill(uuid, uuid, jsonb, numeric, numeric, jsonb, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.complete_and_bill(uuid, uuid, jsonb, numeric, numeric, jsonb, uuid, bigint)", definer: true });
   });
 });
 

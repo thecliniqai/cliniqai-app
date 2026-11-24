@@ -30,7 +30,7 @@ import { messagesOfVisit, seedBlock, seedBookedVisit, seedPatient } from "../hel
 import { callReschedule, ist, rescheduleArgs, schedRow, subscribeAppointmentEvents } from "../helpers/scheduling-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
-const SIGNATURE = "public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean)";
+const SIGNATURE = "public.reschedule_visit(uuid, uuid, timestamptz, uuid, uuid, integer, boolean, boolean, boolean, boolean, bigint)";
 
 let tenantA: SeededTenant;
 let tenantB: SeededTenant;

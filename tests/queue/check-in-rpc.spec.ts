@@ -49,7 +49,7 @@ const at = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
 
 describe("check_in_visit: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.check_in_visit(uuid, uuid, text, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.check_in_visit(uuid, uuid, text, uuid, bigint)", definer: true });
   });
 
   it("the shared step has no API grant", () => {

@@ -47,7 +47,7 @@ const startAudit = (visitId: string) => auditRows(tenantA.tenantId, "visit.consu
 
 describe("start_consultation: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.start_consultation(uuid, uuid, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.start_consultation(uuid, uuid, uuid, bigint)", definer: true });
   });
 });
 

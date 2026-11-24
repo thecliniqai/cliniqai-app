@@ -29,7 +29,7 @@ import { messagesOfVisit, seedBlock, seedBookedVisit, seedPatient, visitsOfPatie
 import { callCancel, cancelArgs, ist, schedRow, seedWaitlistEntry, subscribeAppointmentEvents, waitlistRow } from "../helpers/scheduling-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
-const SIGNATURE = "public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean)";
+const SIGNATURE = "public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean, bigint)";
 
 let tenantA: SeededTenant;
 let tenantB: SeededTenant;

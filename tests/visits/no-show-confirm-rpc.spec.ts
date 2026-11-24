@@ -56,8 +56,8 @@ afterAll(() => {
 
 describe("mark_no_show / confirm_appointment: catalog", () => {
   it("are DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.mark_no_show(uuid, uuid, uuid)", definer: true });
-    expectCommandCatalog({ signature: "public.confirm_appointment(uuid, uuid, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.mark_no_show(uuid, uuid, uuid, bigint)", definer: true });
+    expectCommandCatalog({ signature: "public.confirm_appointment(uuid, uuid, uuid, bigint)", definer: true });
   });
 });
 
