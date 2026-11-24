@@ -38,6 +38,8 @@
     "perf:lhci": "playwright test --project=perf-lhci",
     "perf:roundtrips": "playwright test --project=perf-roundtrips",
     "perf:latency": "playwright test --project=perf-latency",
+    "perf:db-top": "tsx scripts/perf/db-top-queries.ts",
+    "perf:staging-smoke": "tsx scripts/perf/staging-smoke.ts",
     "seed:local": "tsx scripts/seed-local-dev.ts",
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",
