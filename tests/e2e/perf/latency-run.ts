@@ -302,7 +302,19 @@ const byPathText = (byPath: Record<string, number>) =>
 export function writeReport(): void {
   if (!results.length) return;
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const ordered = [...results].sort((a, b) => a.id.localeCompare(b.id));
+  // PERF_LATENCY_MERGE=<summary.json of an earlier run at the same delay and samples>: this run's rows replace theirs by id, so one row that had to
+  // be measured again (after its cause was fixed) joins the others without typing or re-running them. Anything else is refused.
+  let merged: RowResult[] = [...results];
+  const mergeFrom = process.env.PERF_LATENCY_MERGE;
+  if (mergeFrom) {
+    const prior = JSON.parse(fs.readFileSync(mergeFrom, "utf8")) as { latencyMs: number; samples: number; rows: RowResult[] };
+    if (prior.latencyMs !== LATENCY_MS || prior.samples !== SAMPLES) {
+      throw new Error(`PERF_LATENCY_MERGE: ${mergeFrom} was taken at ${prior.latencyMs} ms with ${prior.samples} samples, not ${LATENCY_MS} ms with ${SAMPLES}`);
+    }
+    const mine = new Set(results.map((r) => r.id));
+    merged = [...prior.rows.filter((r) => !mine.has(r.id)), ...results];
+  }
+  const ordered = merged.sort((a, b) => a.id.localeCompare(b.id));
   const header = [
     `| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |`,
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
