@@ -7,16 +7,19 @@ import type { RumMetric } from "@/lib/observability/rum/catalog";
 
 const VITALS: Readonly<Record<string, RumMetric>> = { LCP: "lcp", INP: "inp", CLS: "cls", TTFB: "ttfb", FCP: "fcp" };
 
+/** One function for the life of the page: Next re-subscribes (and replays the metrics so far) when the callback changes, which counted each vital twice or more. */
+function reportVital(metric: { name: string; value: number }): void {
+  const name = VITALS[metric.name];
+  if (name) rum.record(name, metric.value);
+}
+
 /**
  * Real-user monitoring in the dashboard shell (V2-09e 09E-02, R-20; no `web-vitals` package: Next's own hook). Records the five Web
  * Vitals, marks the start of an in-app navigation (a click on a same-origin link) for `DataReady`, and flushes the batch with a beacon when
  * the page goes to the background. Renders nothing.
  */
 export function RumReporter() {
-  useReportWebVitals((metric) => {
-    const name = VITALS[metric.name];
-    if (name) rum.record(name, metric.value);
-  });
+  useReportWebVitals(reportVital);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {

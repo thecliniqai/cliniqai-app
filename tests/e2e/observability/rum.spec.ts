@@ -13,11 +13,18 @@ import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
 import { countKongCalls } from "../support/kong-calls";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
-import { storageStatePath } from "../support/run-data";
+import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
+import { storageStatePath, type RunUser } from "../support/run-data";
 import { logOffset, readLogFrom, SERVER_STDERR_LOG, SERVER_STDOUT_LOG } from "../support/server-log";
 import { psql } from "../../helpers/sql";
 
 test.use({ storageState: storageStatePath("doctor") });
+
+let ownDoctor: RunUser | null = null;
+test.afterEach(async () => {
+  if (ownDoctor) await retireOwnDoctor(ownDoctor);
+  ownDoctor = null;
+});
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const SCREENS = ["today", "schedule", "patients", "patient", "consult", "visits", "billing", "settings", "staff", "other"];
@@ -37,6 +44,11 @@ function counts(): Map<string, number> {
 test("real users: the beacons hold only closed words and numbers, and ops.rum_daily gains the screens and metrics of the steps", async ({ page }, testInfo) => {
   test.slow();
   const device = testInfo.project.name === "pixel-7" ? "phone" : "desktop";
+  // The test's own doctor: `POST /api/rum` limits each user to 10 batches a minute, and every page this test leaves sends one, so a user shared with the
+  // other specs and the other device project would be limited mid-test (429, found by the repeat run).
+  const own = await seedOwnDoctor("rum");
+  ownDoctor = own;
+  await signInAsOwnDoctor(page, own);
   const before = counts();
   const bodies: string[] = [];
   page.on("request", (req) => {
@@ -50,25 +62,32 @@ test("real users: the beacons hold only closed words and numbers, and ops.rum_da
   await page.goto("/today"); // a clean first screen of this document for the click below
   await awaitHydrated(page, "#main");
   const nav = device === "phone" ? page.getByRole("navigation").getByRole("link", { name: /^Patients$/ }).first() : page.getByRole("link", { name: /^Patients$/ }).first();
+  // A link clicked before React attached its handler is a full page load, not the in-app navigation measured here.
+  await expect.poll(() => nav.evaluate((el) => Object.keys(el).some((k) => k.startsWith("__reactProps$"))), { timeout: 15_000 }).toBe(true);
   await nav.click();
   await page.waitForURL((u) => u.pathname === "/patients");
-  await expect.poll(() => page.evaluate(() => performance.getEntriesByName("clinicos.data_ready").length), { timeout: 15_000 }).toBeGreaterThan(0);
+  // Two marks in this document: Today's, and Patients' (the click's end).
+  await expect.poll(() => page.evaluate(() => performance.getEntriesByName("clinicos.data_ready").length), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
 
   const { tenantA } = run();
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic RUM ${testTag()}`);
-  const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: tenantA.users.doctor.id, createdBy: tenantA.users.receptionist.id, status: "in_consultation" });
+  const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: own.id, createdBy: tenantA.users.receptionist.id, status: "in_consultation" });
   await page.goto(`/consultation/${visitId}`);
   await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toBeVisible();
   await awaitHydrated(page);
   const search = page.locator('input[placeholder*="Search diagnosis name"]');
   await search.click();
+  const answered = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/terminology/diagnoses" && r.request().url().includes("q=fever"), { timeout: 15_000 });
   await search.pressSequentially("fever", { delay: 40 });
+  await answered;
   await expect(page.getByRole("option").first()).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(300); // the answer is applied and its timing recorded in the next ticks
 
   // The page goes away: the batch leaves as a beacon.
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await expect.poll(() => bodies.length, { timeout: 10_000 }).toBeGreaterThan(0);
 
+  await testInfo.attach("beacons", { body: bodies.join("\n"), contentType: "text/plain" });
   const samples = bodies.flatMap((b) => {
     const parsed = JSON.parse(b) as { samples: Array<Record<string, unknown>> };
     expect(Object.keys(parsed), "a batch holds only `samples`").toEqual(["samples"]);
@@ -92,10 +111,11 @@ test("real users: the beacons hold only closed words and numbers, and ops.rum_da
 
   // The database gained those rows (the server answers 204 asynchronously: poll).
   const gained = (screen: string, metric: string) => (counts().get(`${screen}|${metric}|${device}`) ?? 0) - (before.get(`${screen}|${metric}|${device}`) ?? 0);
-  await expect.poll(() => gained("consult", "search_server"), { timeout: 15_000, message: "the diagnosis search's real-user timing" }).toBeGreaterThanOrEqual(1);
-  expect(gained("today", "load_data_ready")).toBeGreaterThanOrEqual(1);
-  expect(gained("patients", "nav_data_ready")).toBeGreaterThanOrEqual(1);
-  expect(gained("consult", "load_data_ready")).toBeGreaterThanOrEqual(1);
+  const seen = `beacons held: ${samples.map((s) => `${s.screen}/${s.metric}/${s.device}`).join(" ")}`;
+  await expect.poll(() => gained("consult", "search_server"), { timeout: 15_000, message: `the diagnosis search's real-user timing; ${seen}` }).toBeGreaterThanOrEqual(1);
+  expect(gained("today", "load_data_ready"), seen).toBeGreaterThanOrEqual(1);
+  expect(gained("patients", "nav_data_ready"), seen).toBeGreaterThanOrEqual(1);
+  expect(gained("consult", "load_data_ready"), seen).toBeGreaterThanOrEqual(1);
 
   // Nothing identifying in the table: closed words, a day and numbers.
   const [shape] = psql(`select coalesce(bool_and(screen = any(array['today','schedule','patients','patient','consult','visits','billing','settings','staff','other'])
@@ -166,14 +186,22 @@ test("server timing: the route answers Server-Timing and its request.timing line
   await page.goto("/today");
   await awaitHydrated(page, "#main");
   const serverTiming = await page.evaluate(async () => {
-    await fetch("/api/terminology/diagnoses?q=fever&specialty=general", { credentials: "same-origin" });
-    // The resource entry is added just after the response is read: look for it for a moment.
-    let entry: PerformanceResourceTiming | undefined;
-    for (let i = 0; i < 50 && !entry; i++) {
-      entry = (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).filter((e) => e.name.includes("/api/terminology/diagnoses")).at(-1);
-      if (!entry) await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    return entry!.serverTiming.map((s) => ({ name: s.name, duration: s.duration, description: s.description }));
+    // An observer, not getEntries: the page's resource buffer (250 entries) is already full of chunks and prefetches, and a full buffer drops new entries.
+    const seen = new Promise<PerformanceResourceTiming>((resolve, reject) => {
+      const observer = new PerformanceObserver((list) => {
+        const hit = (list.getEntries() as PerformanceResourceTiming[]).find((e) => e.name.includes("/api/terminology/diagnoses"));
+        if (hit) {
+          observer.disconnect();
+          resolve(hit);
+        }
+      });
+      observer.observe({ type: "resource" });
+      setTimeout(() => reject(new Error("no resource entry for the diagnosis search")), 10_000);
+    });
+    // The entry is added once the body has been read.
+    await (await fetch("/api/terminology/diagnoses?q=fever&specialty=general", { credentials: "same-origin" })).text();
+    const entry = await seen;
+    return entry.serverTiming.map((s) => ({ name: s.name, duration: s.duration, description: s.description }));
   });
   expect(serverTiming.map((s) => s.name)).toEqual(["db", "app"]);
   expect(serverTiming[0]!.description).toMatch(/^calls=\d+ depth=\d+$/);
