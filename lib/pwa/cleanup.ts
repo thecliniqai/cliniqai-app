@@ -4,13 +4,13 @@ import { reportClientError } from "@/lib/log/client";
  * Cleanup registry (PWA_STRATEGY §4 D-5/D-8; V2-06 06-05, ruling R-17). Code that keeps patient data in memory or a
  * live channel open registers a cleanup here: Realtime unsubscribes, in-flight request aborts, in-memory query state.
  * `hardSignOut()` runs them with "signout" before it signs out; 06-06's lock redirect runs them with "lock" (the
- * session is kept). v1 has no Realtime subscriber; Today (V2-08) is the first.
+ * session is kept); the clinic switch runs them with "switch" before its hard navigation (09E-03: the client data layer is cleared). v1 has no Realtime subscriber; Today (V2-08) is the first.
  *
  * A cleanup that throws or rejects is reported (class name only) and the others still run; one that has not settled
  * after CLEANUP_TIMEOUT_MS is left behind, so a stuck cleanup can never hold a sign-out or a lock redirect.
  */
 export const CLEANUP_TIMEOUT_MS = 2000;
-export type CleanupKind = "signout" | "lock";
+export type CleanupKind = "signout" | "lock" | "switch";
 export type Cleanup = (kind: CleanupKind) => void | Promise<void>;
 
 const cleanups = new Set<Cleanup>();
