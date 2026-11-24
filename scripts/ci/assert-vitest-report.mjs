@@ -550,6 +550,10 @@ const REQUIRED_FILES = [
   "tests/observability/rum-collector.spec.ts",
   "tests/observability/rum-route.spec.ts",
   "tests/auth/password-save-recheck.spec.ts",
+  // V2-09e 09E-03: the client data layer and the board route.
+  "tests/query/keys.spec.ts",
+  "tests/query/cleanup.spec.ts",
+  "tests/api/today-board-route.spec.ts",
 ];
 
 const file = process.argv[2];

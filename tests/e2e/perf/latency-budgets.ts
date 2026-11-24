@@ -111,6 +111,9 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   // B-11: a change made in another browser
   { id: "live.R.check-in-elsewhere", kind: "live", budget: "B-11", label: "Receptionist: a check-in made in a second browser moves the row", targetMs: 2_000, maxMs: 3_000, owner: "09E-04" },
 
+  // B-11, the board's own re-read (09E-03): one `GET /api/today/board` into the board's query, at the current service's calls and depth until 09E-06 lowers it to 1 and 1.
+  { id: "live.today.refresh", kind: "live", budget: "B-11", label: "Receptionist: Today's refresh (a signal or a resume) is one board read", owner: "09E-06" },
+
   // Background requests the shell makes on its own (held during every measured window, R-4)
   { id: "bg.session-status", kind: "background", budget: "R-4", label: "The shell's session status check (on load, resume, every 5 min)", owner: "09E-13" },
 

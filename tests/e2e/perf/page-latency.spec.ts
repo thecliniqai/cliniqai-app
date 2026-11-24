@@ -196,6 +196,34 @@ test.describe("live (B-11)", () => {
     expect(blocked, "the second browser reached only loopback").toEqual([]);
     clearSupabaseLatency();
   });
+
+  test("live.today.refresh: Today's refresh is one board read (09E-03)", async ({ page, context }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const holds = await holdBackground(page);
+    const result = await runRow({
+      id: "live.today.refresh",
+      main: "refresh",
+      idle: "quiet",
+      page,
+      context,
+      holds,
+      prepare: async () => {
+        await openToday(page);
+        await waitForQuiet(1_500);
+        // The resume hook drops a second trigger within 2 s of the last one: the page's own refresh on subscription must be over.
+        await page.waitForTimeout(2_200);
+      },
+      act: async () => {
+        const started = Date.now();
+        const answered = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/today/board");
+        await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await answered;
+        return { refresh: Date.now() - started };
+      },
+    });
+    expect(result.samples.length).toBeGreaterThan(0);
+    clearSupabaseLatency();
+  });
 });
 
 test.describe("background requests (R-4)", () => {

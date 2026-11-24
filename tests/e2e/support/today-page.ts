@@ -89,3 +89,19 @@ export function countRscRequests(page: Page): () => number {
   });
   return () => n;
 }
+
+/**
+ * Counts the board reads of the client data layer (09E-03, R-14): `GET /api/today/board`. Returns the count so far and the
+ * responses' `Server-Timing` headers (the data route's own timing, 09E-02).
+ */
+export function countBoardRequests(page: Page): { count: () => number; serverTimings: () => string[] } {
+  let n = 0;
+  const timings: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "GET" && new URL(request.url()).pathname === "/api/today/board") n += 1;
+  });
+  page.on("response", (response) => {
+    if (new URL(response.url()).pathname === "/api/today/board") timings.push(response.headers()["server-timing"] ?? "");
+  });
+  return { count: () => n, serverTimings: () => timings };
+}

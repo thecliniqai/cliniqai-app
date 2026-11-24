@@ -142,6 +142,11 @@
       "maxDepth": 8,
       "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#live.R.check-in-elsewhere"
     },
+    "live.today.refresh": {
+      "maxCalls": 8,
+      "maxDepth": 8,
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-03/live-today-refresh-300ms.json#live.today.refresh"
+    },
     "save.D.add-diagnosis": {
       "maxCalls": 22,
       "maxDepth": 20,

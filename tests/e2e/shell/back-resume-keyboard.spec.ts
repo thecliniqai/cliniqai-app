@@ -4,7 +4,8 @@
  * - Back is shown on a non-root screen below 1280 px and goes back through the in-app history; a deep link with no
  *   history goes to the nav parent instead of leaving the app; at 1280 it is hidden except in focus mode (the consult).
  * - At 360 px, focusing a text field hides the BottomBar; leaving it shows the bar again.
- * - A `visibilitychange` to visible on Today (a live view) triggers exactly one RSC refresh; on Patients none.
+ * - A `visibilitychange` to visible on Today (a live view) triggers exactly one board read (`GET /api/today/board`, V2-09e 09E-03) and no RSC
+ *   request; on Patients (a live view not on the client data layer) none of either.
  *
  * desktop-chrome (fine pointer) and pixel-7 (touch): both set their own viewport.
  */
@@ -80,22 +81,34 @@ function countRefreshes(page: Page, pathname: string): () => number {
   return () => n;
 }
 
+/** Board reads of the client data layer (`GET /api/today/board`). */
+function countBoardReads(page: Page): () => number {
+  let n = 0;
+  page.on("request", (r: Request) => {
+    if (r.method() === "GET" && new URL(r.url()).pathname === "/api/today/board") n++;
+  });
+  return () => n;
+}
+
 async function resume(page: Page): Promise<void> {
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 }
 
-test("visibilitychange on Today triggers one RSC refresh; on Patients none", async ({ page }) => {
+test("visibilitychange on Today triggers one board read and no RSC refresh; on Patients none", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const today = countRefreshes(page, "/today");
+  const board = countBoardReads(page);
   await page.goto("/today");
   await expect(page.getByRole("main")).toBeVisible();
   await page.waitForLoadState("networkidle");
+  const loadReads = board();
   expect(today()).toBe(0);
   await resume(page);
-  await expect.poll(today, { timeout: 5_000 }).toBe(1);
+  await expect.poll(() => board() - loadReads, { timeout: 5_000 }).toBe(1);
   await resume(page); // within the coalescing window: no second request
   await page.waitForTimeout(1_000);
-  expect(today()).toBe(1);
+  expect(board() - loadReads).toBe(1);
+  expect(today(), "a resume on Today is a board read, not a render (RSC) request").toBe(0);
 
   const patients = countRefreshes(page, "/patients");
   await page.goto("/patients");
