@@ -444,3 +444,92 @@ the dehydrated state in the server-rendered HTML (the same data), the print prom
 - `perf-latency --grep "@budget|live.today.refresh" --retries=0` on the final tree: 14 passed, **1 failed: `save.R.check-in`** (6 calls against its 4: `visits` and `tenants` read twice). This is the 09E-04 watch item (the check-in's second `visits` read, owner 09E-08, ceiling untouched); it is a Today action and the consult is not on its path. It is not raised here.
   `in-app.D.consult-draft` (the consult's PR row, 1 call / depth 1) passed; `live.today.refresh` passed.
 - The unexplained iphone-15 "Delivered" failure of 09E-04 did not occur in `live/convergence` (3 projects) in this run.
+
+## 09E-06 Today and the other main screens in one round trip; skeletons; the changed-elsewhere notice
+
+Branch `v2/phase-09e-caching-speed`. Migration `000125_today_board`. No new dependency.
+
+### What shipped
+
+- **000125** (`supabase/migrations/000125_today_board.sql`, pgTAP `today_board.test.sql`, 62 tests): `public.today_board(p_tenant_id, p_mode, p_doctor_id DEFAULT NULL, p_date DEFAULT NULL) RETURNS jsonb`, STABLE, **SECURITY INVOKER**, `search_path ''`, EXECUTE for `authenticated` only. No table,
+  column, policy, trigger or grant change (so no definer-registry row and no authz-matrix change; schema snapshot and `types/database.ts` carry the function). NULL (never an error that tells the cases apart) for: no session, a NULL tenant or mode, an unknown mode, no `appointments:view`
+  (another clinic, a forged tenant, no membership, a clinic that is not `full`). Returns `{time_zone, versions, doctors, visits}`: the clinic's stored zone text; the four `clinic_versions` of the **same snapshot** as the visits (an exact basis, not 09E-04's lower bound); the clinic's doctors (role doctor, or the owner when
+  practising; removed ones too, so a past visit names its doctor); the clinic day's visits with only the fields a row shows (patient: name, phone, sex, age, date of birth; **`has_allergy` flag, never allergen names**; token; vitals; invoice total, payments summed and `row_version`; follow-up date and its booked flag) and each visit's `row_version`. Gates as the page applied them, in the statement
+  and again by RLS: allergy flag with `vitals:view` or `consultations:view`; vitals with `consultations:view`; invoice part with `billing:view` and a completed visit; follow-up part with `appointments:edit` and a completed visit. Mode `doctor` lists one doctor's visits: `p_doctor_id`, else the caller.
+- **`features/today/board-model.ts`** (new, pure): zod parse of the answer, `buildTodayBoard(raw, role, {now})` -> the same `TodayBoard` the screen took (age text, wait minutes, row actions, balance, lanes stay in TypeScript). `getTodayBoard` is now one `rpc('today_board')` + that builder and also returns `versions`. `TodayRow` gained `rowVersion` and `invoiceVersion` (09E-07 compares them; `TODAY_ROW_KEYS` updated).
+  The page and `GET /api/today/board` (unchanged body and gates) use it; the page's separate zone-and-versions read is gone (the versions come with the board and are the screen's basis).
+- **Pages in one round trip** (independent reads together, dependent or slow ones streamed): the patient record (patient, consents, role together; the visit history, a chain of reads, started at once and streamed under `Suspense` with its own skeleton; the history's prescription lines and payments are now embeds on their statements, so the history is two round trips, not four); Visits (the period's invoices read beside the page's own reads;
+  the zone-and-versions read first, which also seeds the plain zone memo, so no second `tenants` read); Billing reports (the invoices read beside the payments; same zone read); Staff (members and invitations together); clinic settings and the profile (their two reads together). Developer settings and Referrals already read together. `/billing/register` is a redirect and needs no skeleton.
+- **Skeletons** (`components/shell/skeletons/{today,list,patient,schedule,settings}-skeleton.tsx`, DESIGN §6.9: static blocks, the real page title at once, announced once as "Loading") on every main route's `loading.tsx` (13 files; clinic, subscription and developer settings got their own). The patient record has no route skeleton gap to fill (below), its history has one.
+- **`patient.view` through `after()`** (`features/patients/service.ts`): the page no longer waits for its own audit row; written once per opening; a failure is logged by tag `patients.view_audit.failed` (code and tenant only) and never reaches the person; with no request scope (a script, a spec) it is written before the call returns. **Links to `/patients/[id]` are not prefetched** (Patients list, Visits, Referrals, Schedule card, Today detail): the record's layout reads the patient to decide 404, so a prefetch made one read per row in view.
+  The layout and the page now share **one** patient read (`readPatientRecord`, a request-shared read with the clinic versions embedded; the layout writes no audit row).
+- **Changed on another device** (`components/shell/changed-elsewhere.tsx`, `lib/live/use-changed-elsewhere.ts`): an inline `Banner` (role status, not a toast) "Changed on another device" with **Refresh** = `router.refresh()` on a patient (schedule, billing), Visits (schedule, queue), Billing reports (billing), Staff and clinic settings (settings). The basis is the versions the page read **in the same statement as its data, with no call of their own**:
+  an embed `tenants(clinic_versions(domain, version))` on the patient and members reads, `clinic_versions` embedded in the clinic row of the settings read, and the shared zone read for Visits and Billing reports (read before the screen's data, so a lower bound). The hook's baseline now follows a new server render (Refresh), so the notice is answered. Nothing re-renders by itself.
+- `scripts/perf/command-latency.ts` `read: today_board`; `tests/e2e/perf/latency-ceilings.json` lowered by `scripts/perf/latency-ceilings.mjs` (below); `assert-pgtap-report.mjs` floor 9426 and `today_board.test.sql` required; `EXPECTED_MIGRATION` 000125.
+
+### Specs
+
+- **pgTAP `today_board.test.sql`** (62): grants and shape; 10 refusal cases (all NULL); the versions equal `clinic_versions` in the same transaction for every role; the role x part matrix (allergy flag, vitals, invoice, follow-up for owner, doctor, nurse, receptionist, admin); the exact key sets of a visit and its patient and no allergen, address, note or follow-up text in any role's answer; the clinic day (yesterday, a booking six days ahead and another clinic's visit never; `p_date`);
+  doctor mode (the caller's own, `p_doctor_id`, front and triage); invoices (total, payments summed, a cancelled invoice is no invoice, completed visits only); follow-up and its booked rule; `row_version` moves; the removed doctor is listed. `nobody lacks appointments:edit` in the matrix, so that gate is only structural (the test says so).
+- **`tests/today/today-board-parity.spec.ts`** (13): front, triage and doctor mode for owner, admin, receptionist, nurse, doctor and an owner in doctor mode: the view model from `today_board` **deep-equals** the one the old service built (the old service is kept verbatim as `tests/today/support/legacy-board.ts`, the oracle; same deviation as 09E-05: it stays, with stored expectations beside it). A day with booked, waiting, in consultation, completed and billed, completed and unbilled, cancelled and no-show visits, a follow-up that is booked, two doctors (one nameless).
+  Only difference by design: the number of a nameless doctor ("Doctor (3)") is its position in the directory; the old read left that order to the heap (an UPDATE moved a row), the new one is the membership's creation order. The parity compares the shape of that fallback.
+- **e2e**: `shell/changed-elsewhere.spec.ts` (4): a booking for the open patient made elsewhere shows the notice, with **no render request and no new `patient.view` row** until Refresh, which writes one and answers the notice; Staff and clinic settings show it for a settings change (a letterhead margin, restored); Staff shows none for a booking; a patient's opening writes one row and rendering the list, hovering and focusing its link write none.
+  `shell/loading-states.spec.ts`: 12 screens x 360, 820 and 1280 px (desktop-chrome): 700 ms added to every Supabase call, the screen entered by a client navigation, **its own skeleton is visible while the calls are pending, axe finds nothing on it**, then the content replaces it; a patient record's history skeleton the same way; status codes unchanged. `today/today-live.spec.ts`: a check-in in B shows in A within 2 s and the window holds exactly one `rpc/today_board` per board read (A's and B's) and no `invoices`/`payments`/`follow_ups`/`queue_tokens` table read.
+  Vitest: `tests/live/changed-elsewhere.spec.ts` (the rule, the basis key, the embed parsers), `tests/patients/patient-view-audit.spec.ts` (5: the task is scheduled and the row not yet written; one row when it runs; a failed write is logged by tag and never thrown; no scope = inline; the layout's read writes nothing).
+
+### Budget rows (tool output: `evidence/09E-06/final-rows-300ms.json`, `.md`; ceilings written by `latency-ceilings.mjs`, no number typed, no raise)
+
+| Row | Before (calls / depth) | After |
+| --- | --- | --- |
+| `in-app.R.today` (B-1, PR lane) | 4 / 4 | **1 / 1** (`today_board`) |
+| `in-app.R.patients` (B-1, PR lane) | 2 / 2 | **1 / 1** |
+| `in-app.D.today` | 7 / 7 | 4 / 4 (the board, then the doctor's open amendments, snapshot entitlements and the next patient's snapshot: the plan streams the snapshot; not yet) |
+| `in-app.R.visits` | 12 / 5 | 11 / 3 |
+| `in-app.O.staff` | 2 / 2 | 2 / 1 |
+| `in-app.O.settings-clinic` | 3 / 3 | 3 / 2 |
+| `full.R.today` | 9 / 6 | 4 / 3 |
+| `full.D.today` | 12 / 9 | 7 / 4 |
+| `full.R.patients` | 6 / 4 | 4 / 3 |
+| `full.R.visits` | 16 / 5 | 14 / 4 |
+| `live.today.refresh` | 5 / 5 | **2 / 2** (planned 1 / 1: see open items) |
+
+Rows that did **not** reach "depth 1 (full load 2)": the patient record, Visits, Billing reports, Settings and Staff full loads keep the depth of their own chain (see open items). `in-app.O.billing-reports`, `full.O.*`, `full.R.patient` kept their ceilings (unchanged by this plan or refused as a raise).
+
+### Fails-without
+
+- **`today_board` (High: another role's or clinic's data on the board)**, scratch copies applied to the local database (migration untouched, restored from the file): (A) the `appointments:view` gate removed: 1 of 62 fails (the clinic that is not `full` gets a board); (B) the allergy, vitals, billing and follow-up gates removed (`:= true`): 3 fail (receptionist and admin see the allergy flag, the doctor sees the invoice).
+  (C) the `v.tenant_id = p_tenant_id` filter on the visits removed: **0 fail**: RLS alone keeps another clinic's visits out, so that filter, like the vitals and invoice gates for roles RLS already refuses, is defence in depth that the tests cannot tell from RLS; they pass with or without it. Stated, not hidden.
+- **`patient.view` after the response**: with `after(run)` replaced by `await run()`, `patient-view-audit.spec.ts` fails 3 of 5 (the row exists before the response is over). Restored.
+- **Parity**: the old service is the oracle in `today-board-parity.spec.ts`; the numbering of nameless doctors differed from it before the order was fixed (the spec caught it, 5 failures, until the comparison read the shape of the fallback).
+
+### Decisions and deviations
+
+- **`p_date` as a fourth, defaulted argument** of `today_board` (the plan's signature has three): the board is read for other days in the existing specs (`date` option) and by the schedule later; the caller's reach is the same as on any other day (`appointments:view` over the clinic's visits, RLS). The route and the page never pass it.
+- **Doctor mode with no `p_doctor_id`** reads the caller's own visits (the mode argument needed a meaning in the database; the application always passes the doctor).
+- **Versions ride on the page's own statement** instead of `clinic_live_state` calls: a separate call per page made every page's call count one higher than its ceiling (the lane refused it: 10 rows). The embed costs no call; for the patient and Staff the versions come from the same statement as the data (exact), for Visits and Billing reports from the zone read before the data (a lower bound), for clinic settings from the clinic row read beside the membership.
+- **Patient links are not prefetched**, so the record's layout read now falls inside the click's window (it used to be in the prefetch): that is why `in-app.R.patient` could not stay at depth 2 (below).
+- **`getTenantTimeZoneAndVersions` seeds the plain zone memo** of the request (`tenant-tz`), so a service that asks for the zone after a page has read zone-and-versions makes no second `tenants` read.
+- **A nameless doctor's number** is now creation order (was heap order): a fix, not a behaviour anyone relied on.
+
+### Security-sensitive for the adversarial review
+
+`supabase/migrations/000125_today_board.sql` (INVOKER, `search_path ''`, the NULL cases, every gate in the statement, the allergy flag not the names, the doctor filter, EXECUTE grant, `p_date`), `features/today/board-model.ts` (what the parse drops), `features/patients/service.ts` (`after()` audit: fire-and-log; `readPatientRecord` request-shared read, memo key = clinic + id, never kept on error, no audit; the embed `tenants(clinic_versions)` returns four counters),
+`app/(dashboard)/patients/[id]/{layout,page}.tsx` (404 decision kept above the skeleton; one read), the Staff read (`tenants(clinic_versions)` embed on `memberships`: the member rows handed to the list are stripped of it), clinic settings (`clinic_versions` stripped from the tenant row before it reaches the form), `lib/datetime/server.ts` (memo seeding). No service-role client, no route added, no RLS or grant change. The notice carries no name or id.
+
+### For the PO
+
+- **`today_board` p95 < 50 ms is not met on this VM** (p50 126 ms, p95 143 ms; `evidence/09E-06/command-latency.json`) on the heaviest day the harness makes (every visit of the run: several hundred, each with a token, invoices and payments), 3 to 4 times slower than the 09C machine (as for `consult_screen` in 09E-05). A real clinic's day is tens of visits.
+- **Patient record depth**: with `patient.view` in `after()` (plan) the audit write starts when the streamed history has finished, so `in-app.R.patient` (ceiling depth 2), `full.D.patient` (4) and `full.R.patient` (3) measure one deeper than their ceilings and **fail in the nightly lane** (ceilings untouched). Options: write the view row beside the history (not `after()`), or accept +1 on those rows.
+- **`live.today.refresh` is 2 / 2, planned 1 / 1**: the second call is a `clinic_live_state` read inside the window after the signal's board read, in every sample, with the channel joined and the badge "Live" before the window; I did not find what asks for it (09E-04's e2e sees no state read in the first 2 s).
+- **`full.R.billing-reports`** measures depth 4 in some samples (ceiling 3): the shell's own notification reads start after hydration and chain behind the faster page; the row's ceiling is untouched.
+- Visits and the patient history are still chains of reads (the register: visits, then its patients, doctors, tokens, diagnoses, prescriptions and invoices; the history: visits, then those). A one-read `visits_register` / `patient_history` is the way to depth 1; not in this plan.
+- Open from 09E-04/05, unchanged: `save.R.check-in` (09E-08), the one unexplained iphone-15 "Delivered" failure. `tests/realtime/today-signals.spec.ts` "a 50-row insert ... one signal per domain" failed once in a 225-file Vitest run (the global broadcast counter went negative) and passed alone: a shared counter under load, not touched here.
+
+### Tests run (local stack)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (390 warnings, unchanged). `npm run inventory`: 0 flagged. `schema-snapshot.mjs --local --check`: pass.
+- pgTAP (after `db reset --local`): 9426 tests in 73 files, 0 failed, gate PASS at floor 9426 (`today_board.test.sql` 62 of 62). `seed:local` not needed for these lanes.
+- Vitest (tests/today, patients, live, perf, ci, security, api, visits, auth, audit, observability, query): 184 files, 4107 tests passed; an earlier 225-file run (adds integration, dpdp, settings, staff, clinics, nav, permissions, authz, realtime) had one failure, the shared broadcast counter case noted above (passes alone) and a recursion bug in my own new helper, fixed. The two `age`-binary files were not run (known).
+- e2e (`--retries=0`, `stack:recycle` before each run; desktop-chrome, pixel-7, iphone-15): tests/e2e/{today,shell,live,observability,a11y,schedule,design}, `pwa/05-cache-audit`, `journeys/journey-03-register-patient`: **548 passed, 245 skipped by design, 4 failed**, all four mine and fixed: `loading-states` patient history at 360 px (the history skeleton was gone before axe ran: its wait is 1.8 s now) and `today-live` "reaches another browser" on the three projects
+  (my count did not allow for the actor's own page render after its Server Action: at most one more `today_board`). Re-run after the fixes: both passed (desktop-chrome; today-live also on pixel-7 and iphone-15); the changed-elsewhere spec and the full loading-states matrix passed earlier in the same state of the code. No test passed on a retry. The iphone-15 "Delivered" failure did not occur; `save.R.check-in` is the lane's known failing row (untouched).
+- Latency lane at 300 ms (`evidence/09E-06/`): the rows above. Playwright restarts the worker after a failed test and the report of that process loses the rows already measured in it, so the rows were measured in groups and merged with `PERF_LATENCY_MERGE` (parts a to g in the evidence folder); the failing rows (patient record, billing-reports full load) kept their old ceilings in `final-rows-300ms.json`.

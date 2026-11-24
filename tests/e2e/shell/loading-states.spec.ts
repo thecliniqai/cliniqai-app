@@ -152,7 +152,8 @@ test.describe("every main screen shows its own skeleton while its calls are pend
           await prefetched;
           await page.waitForTimeout(500);
         }
-        await setSupabaseLatency(context, 700);
+        // The history is the quick part to catch: it gets a longer wait, so axe can run while its skeleton is up.
+        await setSupabaseLatency(context, def.kind === "patient-history" ? 1_800 : 700);
         await page.evaluate((href) => (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(href), path);
         const history = def.kind === "patient-history";
         const skeleton = history ? page.getByRole("status", { name: "Loading visit history" }) : page.locator(`[data-route-skeleton="${def.kind}"]`);
