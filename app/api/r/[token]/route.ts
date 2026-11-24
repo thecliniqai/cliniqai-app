@@ -4,6 +4,7 @@ import { renderSharedReceiptPdf, resolveSharedObject } from "@/features/sharing/
 import { SHARED_RX_PENDING_MESSAGE, SHARED_RX_UNVERIFIED_MESSAGE } from "@/features/sharing/public-links";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 // Public document link (P0-04, ADR-0005 D3). The token is resolved by `resolve_share_token`, bound to the token's
 // tenant and to the kinds this route serves; every "no such link" answer is the same 404 (no oracle between a missing
@@ -16,7 +17,7 @@ function notFound() {
   return NextResponse.json({ error: NOT_FOUND_MESSAGE }, { status: 404 });
 }
 
-export async function GET(request: NextRequest, context: { params: Promise<{ token: string }> }) {
+async function handleGet(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await context.params;
     const { searchParams } = new URL(request.url);
@@ -109,3 +110,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     );
   }
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

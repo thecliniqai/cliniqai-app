@@ -11,6 +11,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { isIanaZoneName } from "@/lib/datetime";
+import { markAction } from "@/lib/observability/db-timing";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
@@ -29,6 +30,7 @@ const updateProfileSchema = z.object({
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export async function getClinicProfile(): Promise<Tenant | null> {
+  await markAction("clinics_profile.get_clinic_profile");
   const supabase = await createClient();
   const session = await requirePermission(supabase, "clinic:view");
 
@@ -49,6 +51,7 @@ export async function getClinicProfileWithMembership(): Promise<{
   tenant: Tenant | null;
   membership: any | null;
 }> {
+  await markAction("clinics_profile.get_clinic_profile_with_membership");
   const supabase = await createClient();
   const session = await requirePermission(supabase, "clinic:view");
 
@@ -76,6 +79,7 @@ export type UpdateProfileResult =
   | { success: false; error: string };
 
 export async function updateClinicProfile(input: UpdateProfileInput): Promise<UpdateProfileResult> {
+  await markAction("clinics_profile.update_clinic_profile");
   const parseResult = updateProfileSchema.safeParse(input);
   if (!parseResult.success) {
     return {

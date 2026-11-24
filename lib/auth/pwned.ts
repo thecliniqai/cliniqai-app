@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { PWNED_API_PUBLIC_BASE_URL } from "@/lib/env";
 import { serverEnv } from "@/lib/env-server";
 import { log } from "@/lib/log";
+import { timedCall } from "@/lib/observability/db-timing";
 
 /**
  * FT-05 breached-password check against the Have I Been Pwned "Pwned Passwords" range API (V2-03 03-12a, R-5).
@@ -95,7 +96,8 @@ export async function isPwnedPassword(password: string, options: PwnedCheckOptio
       return { status: 200, body: await res.text() };
     })();
     lookup.catch(() => undefined); // settled after the deadline: nothing to report twice
-    const { status, body } = await Promise.race([lookup, deadline]);
+    // 09E-02 (R-20): the range-API call is timed with the request's other external calls (its kind only, never the prefix).
+    const { status, body } = await timedCall("pwned", () => Promise.race([lookup, deadline]), (r) => r.status);
     if (body === null) return unavailable("http_status", status);
     return listsSuffix(body, suffix) ? "pwned" : "clear";
   } catch {

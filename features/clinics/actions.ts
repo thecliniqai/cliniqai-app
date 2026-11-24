@@ -11,6 +11,7 @@ import {
   resolveClinicSwitch,
 } from "./switch";
 import { forgetSessionContext, getSessionClaims } from "@/lib/auth/tenant";
+import { markAction } from "@/lib/observability/db-timing";
 
 const createClinicSchema = z.object({
   name: z
@@ -30,6 +31,7 @@ export type CreateClinicResult =
  * into another clinic stays allowed and is the way to a second membership.
  */
 export async function createClinic(formData: FormData): Promise<CreateClinicResult> {
+  await markAction("clinics.create_clinic");
   const rawName = formData.get("name");
   const parsed = createClinicSchema.safeParse({ name: rawName });
 
@@ -93,6 +95,7 @@ export type SwitchClinicResult = { success: true } | { success: false; error: st
  * on every read and write (`x-clinicos-tenant`, RLS), and `getActiveMembership` at least every 5 minutes (V2-09d session context).
  */
 export async function switchClinic(clinicId: string): Promise<SwitchClinicResult> {
+  await markAction("clinics.switch_clinic");
   const target = await resolveClinicSwitch(clinicId);
   if (!target.ok) {
     const error =

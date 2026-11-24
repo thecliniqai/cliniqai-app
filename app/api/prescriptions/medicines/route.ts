@@ -3,6 +3,7 @@ import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/conte
 import { cleanQuery } from "@/features/terminology/abbreviations";
 import { searchMedicines } from "@/features/prescriptions/service";
 import { MEDICINE_QUERY_MAX, MEDICINE_SEARCH_LIMIT } from "@/features/prescriptions/schema";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -19,7 +20,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  *   `tests/prescriptions/medicine-search-route.spec.ts` pins the keys. `Cache-Control: private, no-store`.
  * Rate limiting is V2-12 (accepted until then, as T-08-02).
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const resolved = await resolveServiceContext("prescriptions:edit");
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") {
@@ -49,3 +50,6 @@ export async function GET(request: NextRequest) {
   }
   return NextResponse.json({ results: result.results }, { status: 200, headers: NO_STORE });
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

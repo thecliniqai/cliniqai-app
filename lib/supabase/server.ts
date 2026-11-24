@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { Database } from "@/lib/db/types";
+import { timedFetch } from "@/lib/observability/db-timing";
 import { publicEnv } from "@/lib/env";
 import {
   AUTH_STATE_HEADER,
@@ -40,6 +41,8 @@ export function activeTenantHeaders(cookieValue: string | undefined): Record<str
  */
 export function createPublicClient() {
   return createServerClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    // 09E-02 (R-20): a public token route's calls are counted in its `request.timing` line like any other (outside a request: untouched).
+    global: { fetch: timedFetch((input, init) => fetch(input, init)) },
     cookies: {
       getAll() {
         return [];
@@ -68,6 +71,9 @@ async function authUnavailableForRequest(): Promise<boolean> {
  * answered "unavailable" at once when the proxy already found Auth unavailable for this request), and `setAll` never
  * deletes the auth cookies after an Auth answer that was not definitive (`keepSessionCookies`): a route handler or
  * server action whose refresh got a 429, a 5xx, a timeout or a gateway's uncoded 4xx keeps the session.
+ *
+ * V2-09e 09E-02 (R-20): every call of this client goes through `timedFetch` (the request's call count, time and depth for the
+ * `request.timing` line); creating the client does not start a timer, the first call does.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -81,7 +87,7 @@ export async function createClient() {
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
     publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
-      global: { headers: activeTenantHeaders(activeTenant), fetch: transport.fetch },
+      global: { headers: activeTenantHeaders(activeTenant), fetch: timedFetch(transport.fetch) },
       cookies: {
         getAll() {
           return cookieStore.getAll();

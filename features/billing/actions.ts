@@ -13,6 +13,7 @@ import type {
   GetReceiptPdfResult,
   SendConsolidatedConsultationWhatsAppInput,
 } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   CreateInvoiceValue,
@@ -44,6 +45,7 @@ function revalidate(...paths: string[]) {
  * code the client's `useCommand` needs, as `collectPayment` does); `client_request_id` is required.
  */
 export async function createInvoice(input: CreateInvoiceInput): Promise<CommandResult<billingService.CreateInvoiceValue>> {
+  await markAction("billing.create_invoice");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice.create" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.createInvoice(resolved.ctx, input);
@@ -52,6 +54,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CommandR
 }
 
 export async function recordPayment(input: RecordPaymentInput): Promise<RecordPaymentResult> {
+  await markAction("billing.record_payment");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.record" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await billingService.recordPayment(resolved.ctx, input);
@@ -64,6 +67,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<RecordPa
  * `Result` (with the `AppError` code the client's `useCommand` needs); `client_request_id` is required.
  */
 export async function collectPayment(input: CollectPaymentInput): Promise<CommandResult<billingService.CollectPaymentValue>> {
+  await markAction("billing.collect_payment");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.collect" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.collectPayment(resolved.ctx, input);
@@ -72,18 +76,21 @@ export async function collectPayment(input: CollectPaymentInput): Promise<Comman
 }
 
 export async function getVisitBillingDetails(visitId: string): Promise<GetVisitBillingResult> {
+  await markAction("billing.get_visit_billing_details");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.getVisitBillingDetails(resolved.ctx, visitId);
 }
 
 export async function addInvoiceItem(input: AddInvoiceItemInput): Promise<Result<typeof billingService.addInvoiceItem>> {
+  await markAction("billing.add_invoice_item");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice_item.add" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.addInvoiceItem(resolved.ctx, input);
 }
 
 export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof billingService.deleteInvoiceItem>> {
+  await markAction("billing.delete_invoice_item");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice_item.delete" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.deleteInvoiceItem(resolved.ctx, itemId);
@@ -99,6 +106,7 @@ export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof b
 export async function completeAndBillConsultation(
   input: CompleteAndBillInput
 ): Promise<CommandResult<billingService.CompleteAndBillValue>> {
+  await markAction("billing.complete_and_bill_consultation");
   const resolved = await resolveServiceContext("consultations:edit", "full", { sensitive: "billing.complete_and_bill" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
@@ -111,6 +119,7 @@ export async function completeAndBillConsultation(
 }
 
 export async function getInvoiceReceiptPdfSignedUrl(invoiceId: string): Promise<GetReceiptPdfResult> {
+  await markAction("billing.get_invoice_receipt_pdf_signed_url");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.getInvoiceReceiptPdfSignedUrl(resolved.ctx, invoiceId);
@@ -119,6 +128,7 @@ export async function getInvoiceReceiptPdfSignedUrl(invoiceId: string): Promise<
 export async function shareReceiptViaWhatsApp(
   invoiceId: string
 ): Promise<Result<typeof billingService.shareReceiptViaWhatsApp>> {
+  await markAction("billing.share_receipt_via_whats_app");
   const resolved = await resolveServiceContext("billing:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.shareReceiptViaWhatsApp(resolved.ctx, invoiceId);
@@ -127,6 +137,7 @@ export async function shareReceiptViaWhatsApp(
 export async function sendConsolidatedConsultationWhatsApp(
   input: SendConsolidatedConsultationWhatsAppInput
 ): Promise<Result<typeof billingService.sendConsolidatedConsultationWhatsApp>> {
+  await markAction("billing.send_consolidated_consultation_whats_app");
   const resolved = await resolveServiceContext("prescriptions:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return billingService.sendConsolidatedConsultationWhatsApp(resolved.ctx, input);

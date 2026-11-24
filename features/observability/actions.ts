@@ -25,6 +25,7 @@ import {
   MAX_CLIENT_ROUTE,
 } from "@/lib/observability/client-render-event";
 import { admitToSink, sendErrorEvent } from "@/lib/observability/sink";
+import { markAction } from "@/lib/observability/db-timing";
 
 // Unknown keys (a `message`, `tenant_id`, …) are stripped: only the two fields below reach the event builder.
 const reportSchema = z.object({
@@ -33,6 +34,7 @@ const reportSchema = z.object({
 });
 
 export async function reportClientRenderError(report: { name: string; route: string }): Promise<{ ok: boolean }> {
+  await markAction("observability.report_client_render_error");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { ok: false };
   const parsed = reportSchema.safeParse(report);

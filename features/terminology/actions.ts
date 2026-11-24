@@ -10,6 +10,7 @@ import type {
   GetVisitDiagnosesResult,
 } from "./service";
 import type { AddConsultationDiagnosisInput } from "./schema";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   AddConsultationDiagnosisResult,
@@ -35,6 +36,7 @@ function revalidate(path: string) {
 export async function addConsultationDiagnosis(
   input: AddConsultationDiagnosisInput
 ): Promise<AddConsultationDiagnosisResult> {
+  await markAction("terminology.add_consultation_diagnosis");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.addConsultationDiagnosis(resolved.ctx, input);
@@ -49,6 +51,7 @@ export async function removeConsultationDiagnosis(
   diagnosisId: string,
   visitId: string
 ): Promise<RemoveConsultationDiagnosisResult> {
+  await markAction("terminology.remove_consultation_diagnosis");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.removeConsultationDiagnosis(resolved.ctx, diagnosisId, visitId);
@@ -64,6 +67,7 @@ export async function updateDiagnosisNote(
   visitId: string,
   notes: string | null
 ): Promise<UpdateDiagnosisNoteResult> {
+  await markAction("terminology.update_diagnosis_note");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.updateDiagnosisNote(resolved.ctx, diagnosisId, visitId, notes);
@@ -75,6 +79,7 @@ export async function updateDiagnosisNote(
  * Fetches all diagnoses recorded for a specific visit.
  */
 export async function getVisitDiagnoses(visitId: string): Promise<GetVisitDiagnosesResult> {
+  await markAction("terminology.get_visit_diagnoses");
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return terminologyService.getVisitDiagnoses(resolved.ctx, visitId);

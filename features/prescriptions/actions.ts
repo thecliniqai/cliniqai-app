@@ -14,6 +14,7 @@ import type {
 } from "./service";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import type { PrescriptionItem } from "@/lib/db/types";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   GetRxAllergyContextResult,
@@ -35,6 +36,7 @@ export type {
  * builder needs; `client_request_id` is required and the same id replays the first result. `prescriptions:edit`; the tenant is the session's.
  */
 export async function changePrescriptionAction(input: ChangePrescriptionInput): Promise<CommandResult<{ prescriptionId: string; addedItemIds: string[]; replayed: boolean }>> {
+  await markAction("prescriptions.change_prescription_action");
   const resolved = await resolveServiceContext("prescriptions:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await rxService.changePrescription(resolved.ctx, input);
@@ -63,6 +65,7 @@ export interface RepeatVisitPlanValue {
  * `prescriptions:edit` and `consultations:edit`; the tenant is the session's; `client_request_id` is required and the same id replays the first result.
  */
 export async function repeatVisitPlanAction(input: RepeatVisitPlanInput): Promise<CommandResult<RepeatVisitPlanValue>> {
+  await markAction("prescriptions.repeat_visit_plan_action");
   const resolved = await resolveServiceContext("prescriptions:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await rxService.repeatVisitPlan(resolved.ctx, input);
@@ -76,30 +79,35 @@ export async function repeatVisitPlanAction(input: RepeatVisitPlanInput): Promis
 
 /** The allergy picture of a consult (V2-09c 09C-02, R-7), read again after a change. consultations:view; the tenant is the session's. */
 export async function getRxAllergyContextAction(visitId: string): Promise<GetRxAllergyContextResult> {
+  await markAction("prescriptions.get_rx_allergy_context_action");
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.getRxAllergyContext(resolved.ctx, visitId);
 }
 
 export async function saveDoctorProtocolTemplate(input: ProtocolTemplateInput): Promise<SaveDoctorProtocolTemplateResult> {
+  await markAction("prescriptions.save_doctor_protocol_template");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.saveDoctorProtocolTemplate(resolved.ctx, input);
 }
 
 export async function getDoctorProtocolTemplates(specialty?: string): Promise<GetDoctorProtocolTemplatesResult> {
+  await markAction("prescriptions.get_doctor_protocol_templates");
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.getDoctorProtocolTemplates(resolved.ctx, specialty);
 }
 
 export async function getVisitPrescription(visitId: string): Promise<GetVisitPrescriptionResult> {
+  await markAction("prescriptions.get_visit_prescription");
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.getVisitPrescription(resolved.ctx, visitId);
 }
 
 export async function sharePrescriptionViaWhatsApp(prescriptionId: string): Promise<SharePrescriptionViaWhatsAppResult> {
+  await markAction("prescriptions.share_prescription_via_whats_app");
   const resolved = await resolveServiceContext("prescriptions:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.sharePrescriptionViaWhatsApp(resolved.ctx, prescriptionId);

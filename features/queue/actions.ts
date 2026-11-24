@@ -14,6 +14,7 @@ import type {
   StartConsultationValue,
   CompleteVisitValue,
 } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { CheckInResult, PaletteQueueMatch } from "./service";
 
@@ -37,6 +38,7 @@ export async function checkInVisit(
   priority: QueuePriority,
   clientRequestId: string
 ): Promise<CommandResult<{ tokenNumber: number; queueTokenId: string; replayed: boolean }>> {
+  await markAction("queue.check_in_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId);
@@ -57,6 +59,7 @@ export async function enqueueWalkIn(
   input: EnqueueWalkInInput,
   clientRequestId: string
 ): Promise<CommandResult<WalkInValue>> {
+  await markAction("queue.enqueue_walk_in");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.enqueueWalkIn(resolved.ctx, input, clientRequestId);
@@ -73,6 +76,7 @@ export async function startConsultation(
   visitId: string,
   clientRequestId: string
 ): Promise<CommandResult<StartConsultationValue>> {
+  await markAction("queue.start_consultation");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId);
@@ -88,6 +92,7 @@ export async function completeVisit(
   visitId: string,
   clientRequestId: string
 ): Promise<CommandResult<CompleteVisitValue>> {
+  await markAction("queue.complete_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId);
@@ -102,6 +107,7 @@ export async function completeVisit(
 export async function searchTodayQueueForPalette(
   query: string
 ): Promise<{ ok: true; matches: PaletteQueueMatch[] } | { ok: false }> {
+  await markAction("queue.search_today_queue_for_palette");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { ok: false };
   return { ok: true, matches: await queueService.searchTodayQueueForPalette(resolved.ctx, query) };

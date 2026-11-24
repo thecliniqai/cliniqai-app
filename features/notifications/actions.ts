@@ -5,6 +5,7 @@ import { resolveServiceContext } from "@/lib/auth/context";
 import { NotificationCategory } from "@/lib/db/types";
 import * as notificationsService from "./service";
 import type { GetNotificationsOptions, GetNotificationsResult, UnreadCountResult } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { GetNotificationsOptions, GetNotificationsResult, UnreadCountResult } from "./service";
 
@@ -23,6 +24,7 @@ function revalidateLayout() {
  * Fetches in-app notifications scoped strictly to the current tenant and authorized user/role.
  */
 export async function getInAppNotifications(options: GetNotificationsOptions = {}): Promise<GetNotificationsResult> {
+  await markAction("notifications.get_in_app_notifications");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, notifications: [], error: resolved.error };
   return notificationsService.getInAppNotifications(resolved.ctx, options);
@@ -32,6 +34,7 @@ export async function getInAppNotifications(options: GetNotificationsOptions = {
  * Returns integer count of unread notifications for current user/role.
  */
 export async function getUnreadNotificationCount(): Promise<UnreadCountResult> {
+  await markAction("notifications.get_unread_notification_count");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, count: 0, error: resolved.error };
   return notificationsService.getUnreadNotificationCount(resolved.ctx);
@@ -41,6 +44,7 @@ export async function getUnreadNotificationCount(): Promise<UnreadCountResult> {
  * Marks a specific notification as read and records read_at timestamp.
  */
 export async function markNotificationRead(notificationId: string): Promise<{ success: boolean; error?: string }> {
+  await markAction("notifications.mark_notification_read");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await notificationsService.markNotificationRead(resolved.ctx, notificationId);
@@ -54,6 +58,7 @@ export async function markNotificationRead(notificationId: string): Promise<{ su
 export async function markAllNotificationsRead(
   category?: NotificationCategory
 ): Promise<{ success: boolean; updatedCount?: number; error?: string }> {
+  await markAction("notifications.mark_all_notifications_read");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await notificationsService.markAllNotificationsRead(resolved.ctx, category);

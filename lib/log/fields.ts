@@ -78,7 +78,28 @@ export interface LogFields {
   durationMs?: number;
   /** Non-negative integer ≤ {@link MAX_COUNT}. */
   count?: number;
+  /** 09E-02 (R-20), the `request.*` timing lines only: what kind of request, from {@link TIMING_KINDS}. */
+  timing_kind?: TimingKind;
+  /** Supabase calls of the request (the request client's own calls and the timed external calls), their summed milliseconds and their depth. */
+  db_calls?: number;
+  db_ms?: number;
+  db_depth?: number;
+  /** From the proxy's start to the end of the response. */
+  total_ms?: number;
+  /** One call (`request.call`): its kind from {@link CALL_KINDS} and its milliseconds. */
+  call_kind?: CallKind;
+  call_ms?: number;
+  /** How the request or call ended, from {@link TIMING_OUTCOMES}. */
+  outcome?: TimingOutcome;
 }
+
+export const TIMING_KINDS = ["page", "action", "route"] as const;
+export type TimingKind = (typeof TIMING_KINDS)[number];
+export const CALL_KINDS = ["auth", "rest", "rpc", "storage", "pwned", "email", "messaging", "ai", "other"] as const;
+export type CallKind = (typeof CALL_KINDS)[number];
+export const TIMING_OUTCOMES = ["ok", "refused", "error", "unfinished"] as const;
+export type TimingOutcome = (typeof TIMING_OUTCOMES)[number];
+const NUMBER_KEYS = ["db_calls", "db_ms", "db_depth", "total_ms", "call_ms"] as const;
 
 /** A sanitised line body, in the key order it is written. */
 export type SafeLogFields = { event: string } & Partial<Record<Exclude<keyof LogFields, "event">, string | number>>;
@@ -121,6 +142,16 @@ export function sanitiseFields(input: unknown): SafeLogFields {
   const duration = source.durationMs;
   if (typeof duration === "number" && Number.isFinite(duration) && duration >= 0 && duration <= MAX_COUNT) {
     out.durationMs = duration;
+  }
+  // 09E-02: the timing fields are numbers and closed words only.
+  for (const key of NUMBER_KEYS) {
+    const value = source[key];
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= MAX_COUNT) out[key] = Math.round(value);
+  }
+  const closed: Array<[string, readonly string[]]> = [["timing_kind", TIMING_KINDS], ["call_kind", CALL_KINDS], ["outcome", TIMING_OUTCOMES]];
+  for (const [key, allowed] of closed) {
+    const value = source[key];
+    if (typeof value === "string" && allowed.includes(value)) out[key as "timing_kind" | "call_kind" | "outcome"] = value;
   }
   const count = source.count;
   if (Number.isInteger(count) && (count as number) >= 0 && (count as number) <= MAX_COUNT) out.count = count as number;

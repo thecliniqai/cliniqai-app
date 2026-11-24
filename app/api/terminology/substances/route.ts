@@ -3,6 +3,7 @@ import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/conte
 import { cleanQuery } from "@/features/terminology/abbreviations";
 import { searchSubstances } from "@/features/terminology/service";
 import { SUBSTANCE_QUERY_MAX, SUBSTANCE_SEARCH_LIMIT } from "@/features/terminology/substances";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -16,7 +17,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  *   the database could not answer. Error bodies are fixed strings.
  * - 200 `{ results: [{ id, name }] }`, at most 12, in rank order. `Cache-Control: private, no-store`. Rate limiting is V2-12 (accepted until then, T-09C-13).
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE });
@@ -31,3 +32,6 @@ export async function GET(request: NextRequest) {
   if (!result.success) return NextResponse.json({ error: "Could not search substances." }, { status: 500, headers: NO_STORE });
   return NextResponse.json({ results: result.results }, { status: 200, headers: NO_STORE });
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

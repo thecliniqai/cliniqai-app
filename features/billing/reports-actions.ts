@@ -3,6 +3,7 @@
 import { resolveServiceContext } from "@/lib/auth/context";
 import * as reportsService from "./reports-service";
 import type { GetCollectionReportResult } from "./reports-service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   CollectionReportPaymentItem,
@@ -18,6 +19,7 @@ export async function getDailyCollectionReport(
   startDateStr: string,
   endDateStr: string
 ): Promise<GetCollectionReportResult> {
+  await markAction("billing_reports_actions.get_daily_collection_report");
   const resolved = await resolveServiceContext("billing:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return reportsService.getDailyCollectionReport(resolved.ctx, startDateStr, endDateStr);

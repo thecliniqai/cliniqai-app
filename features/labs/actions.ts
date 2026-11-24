@@ -5,6 +5,7 @@ import { resolveServiceContext } from "@/lib/auth/context";
 import * as labsService from "./service";
 import type { UploadLabDocumentResult } from "./service";
 import { LabDocumentItem, ShareTokenResult } from "./types";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { UploadLabDocumentResult } from "./service";
 
@@ -23,6 +24,7 @@ function revalidate(path: string, type?: "page") {
  * Uploads a patient diagnostic lab report or document (auto-amended name, private storage, metadata row).
  */
 export async function uploadLabDocument(formData: FormData): Promise<UploadLabDocumentResult> {
+  await markAction("labs.upload_lab_document");
   const resolved = await resolveServiceContext("labs:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await labsService.uploadLabDocument(resolved.ctx, formData);
@@ -36,6 +38,7 @@ export async function uploadLabDocument(formData: FormData): Promise<UploadLabDo
 export async function getPatientDocuments(
   patientId: string
 ): Promise<{ success: boolean; documents: LabDocumentItem[]; error?: string }> {
+  await markAction("labs.get_patient_documents");
   const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, documents: [], error: resolved.error };
   return labsService.getPatientDocuments(resolved.ctx, patientId);
@@ -47,6 +50,7 @@ export async function getPatientDocuments(
 export async function getDocumentSignedUrl(
   documentId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+  await markAction("labs.get_document_signed_url");
   const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.getDocumentSignedUrl(resolved.ctx, documentId);
@@ -56,6 +60,7 @@ export async function getDocumentSignedUrl(
  * Generates a 7-day patient share token for a document.
  */
 export async function generateDocumentShareToken(documentId: string): Promise<ShareTokenResult> {
+  await markAction("labs.generate_document_share_token");
   const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.generateDocumentShareToken(resolved.ctx, documentId);
@@ -67,6 +72,7 @@ export async function generateDocumentShareToken(documentId: string): Promise<Sh
 export async function shareLabReportViaWhatsApp(
   documentId: string
 ): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  await markAction("labs.share_lab_report_via_whats_app");
   const resolved = await resolveServiceContext("labs:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return labsService.shareLabReportViaWhatsApp(resolved.ctx, documentId);
