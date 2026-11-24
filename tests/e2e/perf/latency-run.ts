@@ -133,7 +133,12 @@ export async function ensureSessionContext(page: Page, context: BrowserContext, 
 // --- one sample ------------------------------------------------------------------------------------------------------------------
 
 /** Runs `body` between two Kong markers; returns its calls, its depth and the marks it returned. */
-export async function measure(page: Page, holds: Holds, body: () => Promise<Record<string, number | null>>): Promise<Sample> {
+export async function measure(
+  page: Page,
+  holds: Holds,
+  body: () => Promise<Record<string, number | null>>,
+  idle: "network" | "quiet" = "network",
+): Promise<Sample> {
   let rsc = 0;
   const onRequest = (request: { headers(): Record<string, string> }) => {
     const headers = request.headers();
@@ -148,7 +153,7 @@ export async function measure(page: Page, holds: Holds, body: () => Promise<Reco
     const kong = await countKongCalls(async () => {
       from = Date.now();
       marks = await body();
-      await page.waitForLoadState("networkidle");
+      if (idle === "network") await page.waitForLoadState("networkidle");
       // The server's own tail (work queued with after(), a refresh the response caused) is part of the step.
       if (LATENCY_MS > 0) await waitForQuiet(QUIET_MS);
     }, 1_200, timing);
@@ -225,6 +230,11 @@ export interface RowRun<S> {
   samples?: number;
   /** A per-sample step before `prepare`, e.g. a signed-in role change. */
   sessionContext?: boolean;
+  /**
+   * What "the page is idle" means. "network" (default): Playwright's network idle. "quiet": no Supabase call finished for a while (a live screen keeps a
+   * channel and a liveness probe going, so the network is never idle for as long as Playwright wants).
+   */
+  idle?: "network" | "quiet";
 }
 
 /** Warm-up, then N measured samples; records the row for the report and enforces calibration and the ceilings. */
@@ -237,9 +247,9 @@ export async function runRow<S>(run: RowRun<S>): Promise<RowResult> {
     if (run.sessionContext !== false) await ensureSessionContext(run.page, run.context);
     const state = await run.prepare();
     // Nothing from the preparation may still be on its way: Kong logs a call when it completes, so one still running at the start marker would count in the window.
-    await run.page.waitForLoadState("networkidle");
+    if (run.idle !== "quiet") await run.page.waitForLoadState("networkidle");
     if (LATENCY_MS > 0) await waitForQuiet(QUIET_MS);
-    const sample = await measure(run.page, run.holds, () => run.act(state));
+    const sample = await measure(run.page, run.holds, () => run.act(state), run.idle);
     if (i < 0) continue; // the warm-up: first-hit costs (JWKS, a cold route) are not a per-step cost
     const problems = calibrationProblems(sample);
     expect(problems, `${run.id} sample ${i + 1}: the latency calibration failed`).toEqual([]);

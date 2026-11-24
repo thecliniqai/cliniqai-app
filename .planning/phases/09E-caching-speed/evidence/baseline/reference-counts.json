@@ -1,0 +1,44 @@
+{
+  "files": {
+    "cdci/BrandMaster.txt": {
+      "rows": 93911,
+      "bytes": 11152784
+    },
+    "cdci/DrugFormMaster.txt": {
+      "rows": 423,
+      "bytes": 16252
+    },
+    "cdci/GenericMaster.txt": {
+      "rows": 10305,
+      "bytes": 2598230
+    },
+    "cdci/ProductMaster.txt": {
+      "rows": 72284,
+      "bytes": 1997407
+    },
+    "cdci/RouteOfAdministrationMaster.txt": {
+      "rows": 160,
+      "bytes": 4930
+    },
+    "cdci/SubstanceMaster.txt": {
+      "rows": 3283,
+      "bytes": 362703
+    },
+    "cdci/SupplierMaster.txt": {
+      "rows": 8213,
+      "bytes": 410366
+    },
+    "terminology/diagnoses.json": {
+      "rows": 1550,
+      "bytes": 486734
+    }
+  },
+  "localStackRows": {
+    "cdci_substances": 30,
+    "cdci_generics": 3,
+    "cdci_brands": 4,
+    "cdci_products": 0,
+    "cdci_medicines_search": 236,
+    "opd_diagnoses": 0
+  }
+}

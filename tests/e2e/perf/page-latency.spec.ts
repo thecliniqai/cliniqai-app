@@ -10,7 +10,7 @@
  */
 import { expect, test } from "../fixtures";
 import { storageStatePath } from "../support/run-data";
-import { armTimer, clearSupabaseLatency, seenAt, setSupabaseLatency, timeFullLoad, timeToVisible, timerEpoch, watchEpoch } from "../support/latency";
+import { armTimer, clearSupabaseLatency, seenAt, setSupabaseLatency, timeFullLoad, timeToVisible, timerEpoch, waitForQuiet, watchEpoch } from "../support/latency";
 import { routeLoopbackOnly } from "../fixtures";
 import { budgetRow } from "./latency-budgets";
 import { endLane, holdBackground, resetLane, runRow, writeReport, LATENCY_MS } from "./latency-run";
@@ -164,6 +164,7 @@ test.describe("live (B-11)", () => {
       await runRow({
         id: "live.R.check-in-elsewhere",
         main: "visible",
+        idle: "quiet",
         page,
         context,
         holds,
@@ -172,7 +173,8 @@ test.describe("live (B-11)", () => {
           await seedBookedToday(name);
           for (const p of [page, second]) {
             await openToday(p);
-            await p.waitForLoadState("networkidle");
+            // A live screen keeps its channel and liveness probe going: wait for the server to be quiet, not for the network.
+            await waitForQuiet(1_500);
             await filterToday(p, name);
           }
           await expect(rowInLane(page, "booked", name)).toBeVisible();
