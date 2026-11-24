@@ -9,7 +9,8 @@
  * A failing row is root-caused like a flaky test, never re-run to green.
  */
 import { expect, test } from "../fixtures";
-import { storageStatePath } from "../support/run-data";
+import { readRunData, storageStatePath } from "../support/run-data";
+import { psql } from "../../helpers/sql";
 import { armTimer, clearSupabaseLatency, seenAt, setSupabaseLatency, timeFullLoad, timeToVisible, timerEpoch, waitForQuiet, watchEpoch } from "../support/latency";
 import { routeLoopbackOnly } from "../fixtures";
 import { budgetRow } from "./latency-budgets";
@@ -197,7 +198,7 @@ test.describe("live (B-11)", () => {
     clearSupabaseLatency();
   });
 
-  test("live.today.refresh: Today's refresh is one board read (09E-03)", async ({ page, context }) => {
+  test("live.today.refresh: Today's refresh (a signal) is one board read (09E-03, 09E-04)", async ({ page, context }) => {
     test.setTimeout(TEST_TIMEOUT_MS);
     const holds = await holdBackground(page);
     const result = await runRow({
@@ -210,13 +211,17 @@ test.describe("live (B-11)", () => {
       prepare: async () => {
         await openToday(page);
         await waitForQuiet(1_500);
-        // The resume hook drops a second trigger within 2 s of the last one: the page's own refresh on subscription must be over.
+        // The page's own check on subscription must be over.
         await page.waitForTimeout(2_200);
       },
       act: async () => {
+        // 09E-04 (R-18): a refresh happens when a clinic version moved. The change is made in the database directly (psql, not through Kong, so it is no
+        // call of the window): a visit of the clinic gets another length, the signal reaches the page, and the board is read once.
         const started = Date.now();
         const answered = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/today/board");
-        await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        psql(
+          `update public.visits set estimated_duration_minutes = case when estimated_duration_minutes = 20 then 25 else 20 end where id = '${readRunData().tenantA.visitId}'`,
+        );
         await answered;
         return { refresh: Date.now() - started };
       },

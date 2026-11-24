@@ -12,6 +12,7 @@ export const SERVER_ROUTE_PATTERNS = [
   "/api/health",
   "/api/invoices/[id]/receipt-pdf",
   "/api/jobs/run",
+  "/api/live/state",
   "/api/patients/[id]/export",
   "/api/patients/search",
   "/api/prescriptions/medicines",

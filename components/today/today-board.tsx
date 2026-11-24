@@ -4,9 +4,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { hashKey, useQuery } from "@tanstack/react-query";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
-import { queryKeys } from "@/lib/query/keys";
+import { queryDomains, queryKeys } from "@/lib/query/keys";
+import { useLiveCore } from "@/lib/live/provider";
+import type { Versions } from "@/lib/live/domains";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { buttonClassName } from "@/components/ui/button";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
@@ -91,6 +93,8 @@ export interface TodayBoardViewProps {
   snapshotPanel?: SnapshotPanelData | null;
   /** Doctor mode: the doctor's own signed visits that are reopened and not finalized. */
   openAmendments?: readonly OpenAmendment[];
+  /** 09E-04 (R-18): the clinic versions the page read BEFORE it read the board (a lower bound of what the board holds); absent when that read failed. */
+  versions?: Versions;
 }
 
 /** The error of a refused or failed board read; the fixed text only, never a body. */
@@ -109,12 +113,19 @@ async function fetchBoard(mode: TodayMode, signal: AbortSignal): Promise<TodayBo
  * rows on screen. After the client was cleared (sign-out, lock, clinic switch) the provider renders nothing, so no stale rows show.
  */
 export function TodayBoardView(props: TodayBoardViewProps) {
-  const { tenantId, mode } = props;
+  const { tenantId, mode, versions } = props;
+  const key = queryKeys.today(tenantId, mode);
   const { data } = useQuery({
-    queryKey: queryKeys.today(tenantId, mode),
+    queryKey: key,
     queryFn: ({ signal }) => fetchBoard(mode, signal),
-    meta: { live: true, domains: ["queue", "schedule", "billing"] },
+    meta: { live: true, domains: queryDomains.today },
   });
+  // The page's own read is the board's basis until a re-read replaces it (a later page render never raises it: that data may not have been taken).
+  const core = useLiveCore();
+  const hash = hashKey(key);
+  useEffect(() => {
+    if (core && versions) core.setBasis(hash, versions);
+  }, [core, hash, versions]);
   if (!data) return null;
   return <TodayBoardLoaded {...props} board={data} />;
 }
@@ -247,7 +258,6 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
     <div data-today-board="" className="flex flex-col gap-3">
       <TodayHead
         dateLine={dateLine}
-        live={live.state}
         query={query}
         onQueryChange={setQuery}
         doctors={doctors}

@@ -1137,6 +1137,64 @@ export async function rumIngestRouteLegs(slot: RequestSlot, c: RouteCase, world:
 }
 
 /**
+ * `live-state` route (09E-04, T-09E-05): no session 401 and no membership 403, each touching nothing but the membership lookup; every role of the clinic
+ * answers 200 with `no-store`, a body of exactly the guard's keys whose `versions` hold exactly the four domains as numbers, and no cookie; a forged
+ * `?tenant=` / `?tenantId=` naming tenant B changes nothing (the answer is the plain call's) and nothing of B is in the response; the only data access
+ * beyond the membership lookup is the one `clinic_live_state` call.
+ */
+export async function liveStateRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "live-state" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const stateCalls = (r: RouteResult) => r.access.filter((a) => a === "rpc:clinic_live_state");
+
+  const anon = await callRoute(slot, anonClient(), c, {});
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, {});
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  let plain: string | null = null;
+  for (const role of ROLES) {
+    const leg = `role ${role}`;
+    const r = await callRoute(slot, world.roles[role].client, c, {});
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    noStore(leg, r);
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+    if (stateCalls(r).length !== 1) out.push(routeV(c, leg, `expected exactly one clinic_live_state call, saw ${stateCalls(r).length}`));
+    const stray = r.access.filter((a) => a !== "rpc:clinic_live_state" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+    if (stray.length > 0) out.push(routeV(c, leg, `data access beyond the state read and the membership lookup: ${stray.join(", ")}`));
+    try {
+      const body = JSON.parse(r.body) as { versions?: Record<string, unknown>; access?: unknown };
+      const keys = Object.keys(body);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+      const domains = Object.keys(body.versions ?? {}).sort();
+      if (domains.join(",") !== [...guard.domains].sort().join(",")) out.push(routeV(c, "projection", `versions hold ${domains.join(",")}`));
+      if (Object.values(body.versions ?? {}).some((v) => typeof v !== "number")) out.push(routeV(c, "projection", "a version is not a number"));
+      if (typeof body.access !== "string") out.push(routeV(c, "projection", "access is not a word"));
+      plain ??= r.body;
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
+
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (plain !== null && forged.body !== plain) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
+/**
  * `session-search` route (08-02, T-08-02): the least-privileged holder of the permission searches tenant B's synthetic
  * patient by name and by mobile number and gets 200 with an empty list and nothing of B; searching tenant A's own patient
  * answers 200 with `no-store` and a list whose rows have exactly the projection keys and no full mobile number. The

@@ -7,20 +7,18 @@ import { buttonClassName } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SearchField } from "@/components/ui/search-field";
 import { ModeSwitch } from "./doctor-mode";
-import { LiveStatus } from "./live-status";
+import { LiveBadge } from "@/components/shell/live-badge";
 import type { TodayMode } from "@/features/today/schema";
-import type { LiveState } from "./use-today-live";
 
 /**
  * The head of Today (V2-08 08-03a; 06-UI-SPEC §7): the date line ("Fri, 13 Nov 2026 · clinic time (IST)") with the live
- * status, the filter box "Token, name or mobile" (client-side, over the rows already loaded), the doctor filter (only when
+ * badge (09E-04), the filter box "Token, name or mobile" (client-side, over the rows already loaded), the doctor filter (only when
  * the day has more than one doctor), the mode switch (an owner: front desk or "My queue") and the actions "Add walk-in"
  * (`?walkin=1`) and "Register patient" (`?new=1`): links, R-13, so the sheet survives a refresh. At 360 px the search takes
  * the full width and the doctor filter sits under it; from 768 px they share one row.
  */
 export interface TodayHeadProps {
   dateLine: string;
-  live: LiveState;
   query: string;
   onQueryChange: (query: string) => void;
   doctors: { id: string; name: string }[];
@@ -34,7 +32,6 @@ export interface TodayHeadProps {
 
 export function TodayHead({
   dateLine,
-  live,
   query,
   onQueryChange,
   doctors,
@@ -57,7 +54,7 @@ export function TodayHead({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <h1 className="sr-only">Today</h1>
         <p className="text-label text-fg-muted">{dateLine}</p>
-        <LiveStatus state={live} />
+        <LiveBadge />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-[1_1_20rem] md:max-w-[32.5rem]">

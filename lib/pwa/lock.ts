@@ -72,3 +72,14 @@ export function onAppErrorCode(
   }
   return false;
 }
+
+/**
+ * V2-09e 09E-04 (R-18): the access level the live state reports (`GET /api/live/state`) every time the device confirms the clinic's versions. Anything
+ * but `full` takes the existing lock path (D-8): a fresh status check, which redirects to the member's locked or onboarding page and keeps the session
+ * (`requestSessionCheck("lock")` is throttled by the status watch, so a locked clinic's heartbeat does not storm the route).
+ */
+export function onAccessLevel(access: string, check: () => void = () => requestSessionCheck("lock")): boolean {
+  if (access === "full") return false;
+  check();
+  return true;
+}

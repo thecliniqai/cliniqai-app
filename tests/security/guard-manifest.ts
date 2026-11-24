@@ -123,6 +123,13 @@ export type RouteGuard =
    * oversize one are refused (400, 413) before any data access. Nothing of tenant B is answered and no tenant table row is written.
    */
   | { kind: "rum-ingest" }
+  /**
+   * V2-09e 09E-04 (T-09E-05): the live state `GET /api/live/state`. No session 401; a signed-in user with no membership 403 (membership lookup only); any
+   * active member of the clinic, whatever the role, answers 200 with `no-store` and a body of exactly `versions` (the four domains, numbers) and `access`;
+   * a forged `?tenant=` / `?tenantId=` naming tenant B changes nothing and nothing of tenant B is in the response; its only data access beyond the
+   * membership lookup is the one `clinic_live_state` call.
+   */
+  | { kind: "live-state"; keys: readonly string[]; domains: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -328,6 +335,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
   // V2-09e 09E-02 (R-20): real-user timings; any active member of a clinic, closed-list samples only, nothing identifying stored.
   "app/api/rum/route.ts#POST": { kind: "rum-ingest" },
+  // V2-09e 09E-04 (R-18): the clinic's versions and access level; any active member, numbers and one word, nothing identifying.
+  "app/api/live/state/route.ts#GET": { kind: "live-state", keys: ["versions", "access"], domains: ["schedule", "queue", "billing", "settings"] },
   "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },

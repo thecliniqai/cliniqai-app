@@ -105,3 +105,42 @@ export function countBoardRequests(page: Page): { count: () => number; serverTim
   });
   return { count: () => n, serverTimings: () => timings };
 }
+
+/** Counts `GET /api/live/state` calls of `page` (09E-04): the heartbeat and the checks. `answers` holds the access word of each answer. */
+export function countStateRequests(page: Page): { count: () => number; reset: () => void } {
+  let n = 0;
+  page.on("request", (request) => {
+    if (request.method() === "GET" && new URL(request.url()).pathname === "/api/live/state") n += 1;
+  });
+  return { count: () => n, reset: () => (n = 0) };
+}
+
+/** Holds the Realtime frames of the clinic's channel from reaching the page while the socket itself stays joined (the signal is dropped, not refused). */
+export async function dropBroadcastFrames(page: Page): Promise<{ dropped: () => number }> {
+  let dropped = 0;
+  await page.routeWebSocket(/\/realtime\//, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage((message) => {
+      // realtime-js 2 (vsn 2.0.0) delivers a broadcast as a BINARY frame whose first byte is the kind 4 (userBroadcast); a text frame is a JSON array
+      // `[join_ref, ref, topic, event, payload]`. Joins, replies and heartbeats are text frames of other events and pass through.
+      let isBroadcast = false;
+      if (typeof message !== "string") {
+        isBroadcast = message.length > 0 && message[0] === 4;
+      } else {
+        try {
+          const frame = JSON.parse(message) as unknown;
+          isBroadcast = (Array.isArray(frame) ? frame[3] : (frame as { event?: unknown }).event) === "broadcast";
+        } catch {
+          isBroadcast = false;
+        }
+      }
+      if (isBroadcast) {
+        dropped += 1;
+        return;
+      }
+      ws.send(message);
+    });
+  });
+  return { dropped: () => dropped };
+}

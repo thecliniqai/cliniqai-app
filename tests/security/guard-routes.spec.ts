@@ -43,6 +43,7 @@ import {
   cronRouteLeg,
   healthRouteLeg,
   publicAssetRouteLeg,
+  liveStateRouteLegs,
   rumIngestRouteLegs,
   sessionStatusRouteLegs,
   runnerRouteLegs,
@@ -255,6 +256,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("rum-ingest"))("rum-ingest: %s", async (_k, c) => {
         const violations = await rumIngestRouteLegs(slot, c, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("live-state"))("live-state: %s", async (_k, c, guard) => {
+        const violations = await liveStateRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

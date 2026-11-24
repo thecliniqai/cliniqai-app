@@ -12,6 +12,7 @@
 import type { Page, Request } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
+import { psql } from "../../helpers/sql";
 
 test.use({ storageState: storageStatePath("owner") });
 
@@ -94,21 +95,43 @@ async function resume(page: Page): Promise<void> {
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
 }
 
-test("visibilitychange on Today triggers one board read and no RSC refresh; on Patients none", async ({ page }) => {
+/** `GET /api/live/state` calls (09E-04): what a resume on Today asks. */
+function countStateReads(page: Page): () => number {
+  let n = 0;
+  page.on("request", (r: Request) => {
+    if (r.method() === "GET" && new URL(r.url()).pathname === "/api/live/state") n++;
+  });
+  return () => n;
+}
+
+test("visibilitychange on Today asks for the live state (one call, no board read, no RSC refresh) and reads the board only when a version moved; on Patients nothing", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const today = countRefreshes(page, "/today");
   const board = countBoardReads(page);
+  const state = countStateReads(page);
   await page.goto("/today");
   await expect(page.getByRole("main")).toBeVisible();
   await page.waitForLoadState("networkidle");
-  const loadReads = board();
+  // The page's own check on subscription is over.
+  await page.waitForTimeout(2_500);
+  const loadBoard = board();
+  const loadState = state();
   expect(today()).toBe(0);
   await resume(page);
-  await expect.poll(() => board() - loadReads, { timeout: 5_000 }).toBe(1);
+  await expect.poll(() => state() - loadState, { timeout: 5_000 }).toBe(1);
   await resume(page); // within the coalescing window: no second request
   await page.waitForTimeout(1_000);
-  expect(board() - loadReads).toBe(1);
-  expect(today(), "a resume on Today is a board read, not a render (RSC) request").toBe(0);
+  expect(state() - loadState, "one state read for two resumes inside the coalescing window").toBe(1);
+  expect(board() - loadBoard, "nothing moved: the board is not read").toBe(0);
+  expect(today(), "a resume on Today is never a render (RSC) request").toBe(0);
+
+  // A version moves while the tab sleeps (its signal is no matter: the check also learns it): the next resume reads the board once.
+  await page.waitForTimeout(1_500);
+  psql(`update public.visits set estimated_duration_minutes = case when estimated_duration_minutes = 20 then 25 else 20 end where id = '${readRunData().tenantA.visitId}'`);
+  await resume(page);
+  await expect.poll(() => board() - loadBoard, { timeout: 5_000 }).toBe(1);
+  await page.waitForTimeout(1_000);
+  expect(board() - loadBoard, "one board read for one change, however it was learned").toBe(1);
 
   const patients = countRefreshes(page, "/patients");
   await page.goto("/patients");
