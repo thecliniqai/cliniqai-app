@@ -177,6 +177,7 @@ describe("heartbeat", () => {
 describe("checks", () => {
   it("runs at once on SUBSCRIBED, on every rejoin, when the tab becomes visible, on online and on resume, but not while hidden", async () => {
     const h = harness();
+    h.core.registerScreen();
     h.core.channel(true);
     await flush();
     expect(h.calls.state).toBe(1);
@@ -196,8 +197,29 @@ describe("checks", () => {
     expect(h.calls.state).toBe(4);
   });
 
+  it("with no live screen and no query that depends on a domain, joining the channel asks nothing (a page of another kind pays no call)", async () => {
+    const h = harness();
+    h.core.channel(true);
+    await flush();
+    expect(h.calls.state).toBe(0);
+    h.core.channel(false);
+    h.core.channel(true);
+    await flush();
+    expect(h.calls.state).toBe(0);
+    // a query with domains that a screen shows is reason enough; one nobody shows (the board after a navigation away) is not
+    const g = harness({ dependents: [board()] });
+    g.core.channel(true);
+    await flush();
+    expect(g.calls.state).toBe(1);
+    const idle = harness({ dependents: [board({ active: false })] });
+    idle.core.channel(true);
+    await flush();
+    expect(idle.calls.state).toBe(0);
+  });
+
   it("a subscription that is not a change (SUBSCRIBED again with no drop between) checks nothing more", async () => {
     const h = harness();
+    h.core.registerScreen();
     h.core.channel(true);
     await flush();
     h.core.channel(true);
@@ -207,6 +229,7 @@ describe("checks", () => {
 
   it("reports the access level of every confirmed read, and nothing of a failed one", async () => {
     const h = harness();
+    h.core.registerScreen();
     h.core.channel(true);
     await flush();
     h.setAnswer(h.state({}, "locked"));
@@ -354,6 +377,7 @@ describe("the basis rule never misses a version", () => {
 describe("the badge", () => {
   it("says Reconnecting, never confirmed, until the channel is joined and a confirmation arrives", async () => {
     const h = harness();
+    h.core.registerScreen();
     expect(h.core.badge()).toEqual({ live: false, secondsAgo: null });
     h.core.channel(true);
     await flush();
@@ -361,7 +385,7 @@ describe("the badge", () => {
   });
 
   it("says Live while subscribed and confirmed within 24 s, then Reconnecting with the seconds since", async () => {
-    const h = harness();
+    const h = harness({ dependents: [board()] }); // a query with domains asks on join; no screen, so no heartbeat keeps confirming
     h.core.channel(true);
     await flush();
     await h.advance(LIVE_FRESH_MS);

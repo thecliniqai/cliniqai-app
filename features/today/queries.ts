@@ -30,6 +30,8 @@ export interface TodayBoardOptions {
   doctorId?: string;
   /** The screen mode (`front`, `triage`, `doctor`); 08-03a lists the same day for every mode. */
   mode?: "front" | "triage" | "doctor";
+  /** The clinic's zone when the caller has just read it (the page reads it together with the live versions, 09E-04): skips the board's own zone read. */
+  timeZone?: string;
   /** The clinic date to read (`YYYY-MM-DD`); defaults to the clinic's today. Tests only. */
   date?: string;
   now?: Date;
@@ -97,7 +99,7 @@ export async function getTodayBoard(
 ): Promise<{ ok: true; board: TodayBoard } | { ok: false }> {
   assertPerm(ctx.role, "appointments:view");
   const now = options.now ?? new Date();
-  const timeZone = await getTenantTimeZone(ctx.db, ctx.tenantId);
+  const timeZone = options.timeZone ?? (await getTenantTimeZone(ctx.db, ctx.tenantId));
   const today = options.date ?? todayInTz(timeZone, now);
   const { startIso, endIsoExclusive } = dayWindowUtc(today, timeZone);
 

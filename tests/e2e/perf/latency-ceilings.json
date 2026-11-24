@@ -1,241 +1,241 @@
 {
-  "baselineSource": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json",
+  "baselineSource": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json",
   "latencyMs": 300,
   "rows": {
     "bg.session-status": {
       "maxCalls": 3,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#bg.session-status"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#bg.session-status"
     },
     "full.D.consult-draft": {
       "maxCalls": 20,
       "maxDepth": 16,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.D.consult-draft"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.D.consult-draft"
     },
     "full.D.consult-sealed": {
       "maxCalls": 35,
       "maxDepth": 23,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.D.consult-sealed"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.D.consult-sealed"
     },
     "full.D.patient": {
       "maxCalls": 15,
       "maxDepth": 4,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.D.patient"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.D.patient"
     },
     "full.D.today": {
       "maxCalls": 12,
       "maxDepth": 9,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.D.today"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.D.today"
     },
     "full.O.settings-clinic": {
       "maxCalls": 6,
       "maxDepth": 4,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.O.settings-clinic"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.O.settings-clinic"
     },
     "full.O.staff": {
       "maxCalls": 5,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.O.staff"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.O.staff"
     },
     "full.R.billing-reports": {
       "maxCalls": 6,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.billing-reports"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.billing-reports"
     },
     "full.R.patient": {
       "maxCalls": 14,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.patient"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.patient"
     },
     "full.R.patients": {
       "maxCalls": 6,
       "maxDepth": 4,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.patients"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.patients"
     },
     "full.R.schedule-day": {
       "maxCalls": 11,
       "maxDepth": 7,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.schedule-day"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.schedule-day"
     },
     "full.R.schedule-week": {
       "maxCalls": 18,
       "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.schedule-week"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.schedule-week"
     },
     "full.R.today": {
       "maxCalls": 9,
       "maxDepth": 6,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.today"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.today"
     },
     "full.R.visits": {
       "maxCalls": 16,
       "maxDepth": 5,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#full.R.visits"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#full.R.visits"
     },
     "in-app.D.consult-draft": {
       "maxCalls": 16,
       "maxDepth": 16,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.D.consult-draft"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.D.consult-draft"
     },
     "in-app.D.consult-sealed": {
       "maxCalls": 31,
       "maxDepth": 23,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.D.consult-sealed"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.D.consult-sealed"
     },
     "in-app.D.patient": {
       "maxCalls": 11,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.D.patient"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.D.patient"
     },
     "in-app.D.today": {
       "maxCalls": 7,
       "maxDepth": 7,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.D.today"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.D.today"
     },
     "in-app.O.billing-reports": {
       "maxCalls": 3,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.O.billing-reports"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.O.billing-reports"
     },
     "in-app.O.settings-clinic": {
       "maxCalls": 3,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.O.settings-clinic"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.O.settings-clinic"
     },
     "in-app.O.staff": {
       "maxCalls": 2,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.O.staff"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.O.staff"
     },
     "in-app.R.patient": {
       "maxCalls": 10,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.patient"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.patient"
     },
     "in-app.R.patients": {
       "maxCalls": 2,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.patients"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.patients"
     },
     "in-app.R.schedule-day": {
       "maxCalls": 8,
       "maxDepth": 7,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.schedule-day"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.schedule-day"
     },
     "in-app.R.schedule-week": {
       "maxCalls": 15,
       "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.schedule-week"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.schedule-week"
     },
     "in-app.R.today": {
       "maxCalls": 4,
       "maxDepth": 4,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.today"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.today"
     },
     "in-app.R.visits": {
       "maxCalls": 12,
       "maxDepth": 5,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#in-app.R.visits"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#in-app.R.visits"
     },
     "live.R.check-in-elsewhere": {
       "maxCalls": 11,
       "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#live.R.check-in-elsewhere"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#live.R.check-in-elsewhere"
     },
     "live.today.refresh": {
-      "maxCalls": 8,
-      "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/09E-03/live-today-refresh-300ms.json#live.today.refresh"
+      "maxCalls": 5,
+      "maxDepth": 5,
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#live.today.refresh"
     },
     "save.D.add-diagnosis": {
       "maxCalls": 22,
       "maxDepth": 20,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.add-diagnosis"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.add-diagnosis"
     },
     "save.D.add-rx-line": {
       "maxCalls": 2,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.add-rx-line"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.add-rx-line"
     },
     "save.D.allergies": {
       "maxCalls": 20,
       "maxDepth": 17,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.allergies"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.allergies"
     },
     "save.D.draft-autosave": {
       "maxCalls": 1,
       "maxDepth": 1,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.draft-autosave"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.draft-autosave"
     },
     "save.D.edit-rx-line": {
       "maxCalls": 2,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.edit-rx-line"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.edit-rx-line"
     },
     "save.D.sign-finish": {
       "maxCalls": 131,
       "maxDepth": 46,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.sign-finish"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.sign-finish"
     },
     "save.D.start-consult": {
       "maxCalls": 27,
       "maxDepth": 17,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.D.start-consult"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.D.start-consult"
     },
     "save.R.book": {
       "maxCalls": 19,
       "maxDepth": 9,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.book"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.book"
     },
     "save.R.cancel": {
       "maxCalls": 11,
       "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.cancel"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.cancel"
     },
     "save.R.check-in": {
       "maxCalls": 4,
       "maxDepth": 3,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.check-in"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.check-in"
     },
     "save.R.collect": {
       "maxCalls": 22,
       "maxDepth": 12,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.collect"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.collect"
     },
     "save.R.register-book": {
       "maxCalls": 19,
       "maxDepth": 9,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.register-book"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.register-book"
     },
     "save.R.reschedule": {
       "maxCalls": 19,
       "maxDepth": 8,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#save.R.reschedule"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#save.R.reschedule"
     },
     "type.D.diagnosis": {
       "maxCalls": 2,
       "maxDepth": 2,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#type.D.diagnosis"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#type.D.diagnosis"
     },
     "type.D.medicine": {
       "maxCalls": 1,
       "maxDepth": 1,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#type.D.medicine"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#type.D.medicine"
     },
     "type.D.substance": {
       "maxCalls": 1,
       "maxDepth": 1,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#type.D.substance"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#type.D.substance"
     },
     "type.R.patient-register": {
       "maxCalls": 1,
       "maxDepth": 1,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#type.R.patient-register"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#type.R.patient-register"
     },
     "type.R.patient-today": {
       "maxCalls": 1,
       "maxDepth": 1,
-      "source": ".planning/phases/09E-caching-speed/evidence/baseline/perf-latency-300ms/summary.json#type.R.patient-today"
+      "source": ".planning/phases/09E-caching-speed/evidence/09E-04/live-today-refresh-300ms.json#type.R.patient-today"
     }
   }
 }

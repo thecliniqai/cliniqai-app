@@ -12,7 +12,7 @@ import { InstallCard } from "@/components/shell/install-card";
 import { HydrationBoundary } from "@tanstack/react-query";
 import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
 import { queryKeys } from "@/lib/query/keys";
-import { readLiveSnapshot } from "@/lib/live/server";
+import { getTenantTimeZoneAndVersions } from "@/lib/datetime/server";
 
 /**
  * Today (V2-08 08-03a, P1-29; R-10, R-14): the front desk's day in one live screen. The board is read on the server through
@@ -36,10 +36,11 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
   }
 
   const mode = resolveMode(ctx.role, requested);
-  // 09E-04 (R-18): the clinic's versions are read BEFORE the board, so they are a lower bound of what the board holds (research 2.1): the live
-  // core re-reads the board only when a version above them arrives. A failed read hands the screen no basis (one extra re-read, never a missed one).
-  const snapshot = await readLiveSnapshot(ctx);
-  const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined });
+  // 09E-04 (R-18): the clinic's versions are read BEFORE the board, in the statement that reads the clinic's zone (no extra call), so they are a lower
+  // bound of what the board holds (research 2.1): the live core re-reads the board only when a version above them arrives. A failed read hands the
+  // screen no basis (one extra re-read, never a missed one).
+  const { zone, versions } = await getTenantTimeZoneAndVersions(ctx.db, ctx.tenantId);
+  const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined, timeZone: zone });
   if (!result.ok) throw new Error("Today could not be loaded.");
   const { board } = result;
 
@@ -78,7 +79,7 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
           canConsult={hasPerm(ctx.role, "consultations:edit")}
           snapshotPanel={snapshotPanel}
           openAmendments={openAmendments}
-          versions={snapshot?.versions}
+          versions={versions ?? undefined}
         />
       </div>
     </HydrationBoundary>

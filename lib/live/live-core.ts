@@ -13,8 +13,8 @@ import { emptyVersions, LIVE_DOMAINS, type LiveDomain, type LiveSnapshot, type V
  * A fetch that ends while `seen` moved past its basis is re-read again (a signal during a read is never lost).
  *
  * When it asks the server (`readState`): every {@link HEARTBEAT_MS} while a live screen is registered and the tab is visible (also while the
- * channel is SUBSCRIBED: a signal Realtime refused or dropped is caught within one beat), at once when the channel is (re)subscribed, when the
- * tab becomes visible, on `online` and on resume. Never while the tab is hidden.
+ * channel is SUBSCRIBED: a signal Realtime refused or dropped is caught within one beat), at once when the channel is (re)subscribed (when a live
+ * screen or an active query with domains exists), when the tab becomes visible, on `online` and on resume. Never while the tab is hidden.
  *
  * What the badge says: "live" while the channel is SUBSCRIBED and a signal or a check confirmed the versions within {@link LIVE_FRESH_MS};
  * otherwise "reconnecting" with the seconds since the last confirmation.
@@ -204,7 +204,9 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
       if (isSubscribed && !was) {
         if (everSubscribed) deps.record("live_reconnect", 1);
         everSubscribed = true;
-        void check();
+        // The check closes the gap between what a screen read and the moment the channel started listening. With no live screen and no query that
+        // depends on a domain there is nothing to catch up (the first one to appear carries its own basis), so a page of another kind pays no call.
+        if (screens > 0 || deps.dependents().some((d) => d.active)) void check();
       }
     },
     signal(domain, version) {

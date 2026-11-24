@@ -166,6 +166,9 @@ describe("ops.cleanup(): retention per table", () => {
       quota_snapshots: 0,
       backup_runs: 0,
       error_events: 0,
+      // 000122 (09E-02): the real-user timing tables are cleaned too (rows older than 90 days).
+      rum_daily: 0,
+      rum_overflow: 0,
     });
   });
 

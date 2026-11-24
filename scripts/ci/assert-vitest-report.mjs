@@ -459,7 +459,6 @@ const REQUIRED_FILES = [
   // V2-08 08-03a (Today's read model, live updates, the Realtime isolation spec, the safe refresh).
   "tests/realtime/today-signals.spec.ts",
   "tests/today/get-today-board.spec.ts",
-  "tests/today/live.spec.ts",
   "tests/today/announcer.spec.ts",
   "tests/today/schema.spec.ts",
   "tests/today/modes.spec.ts",
@@ -554,6 +553,9 @@ const REQUIRED_FILES = [
   "tests/query/keys.spec.ts",
   "tests/query/cleanup.spec.ts",
   "tests/api/today-board-route.spec.ts",
+  // V2-09e 09E-04: the live core replaces tests/today/live.spec.ts (the old 20 s poll and its channel are gone).
+  "tests/live/live-core.spec.ts",
+  "tests/live/tenant-zone-and-versions.spec.ts",
 ];
 
 const file = process.argv[2];
