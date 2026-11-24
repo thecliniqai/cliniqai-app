@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Building2, ChevronsUpDown } from "lucide-react";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { switchClinic } from "@/features/clinics/actions";
+import { runCleanups } from "@/lib/pwa/cleanup";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 
@@ -30,6 +31,8 @@ export function useClinicSwitch() {
     try {
       const result = await switchClinic(clinicId);
       if (result.success) {
+        // 09E-03 (R-14): the old clinic's client data and live channel go first, so no row of it can show once the device is pinned to the other.
+        await runCleanups("switch");
         // A new document on purpose (not the router): the old clinic's live channel, caches and in-memory state go with the page.
         const target = new URL(AFTER_SWITCH_PATH, window.location.origin).href;
         window.location.assign(target);

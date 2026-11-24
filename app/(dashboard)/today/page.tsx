@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { requireServiceContext } from "@/lib/auth/context";
 import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 import { hasPerm } from "@/lib/permissions";
-import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
 import { getOpenAmendments, getTodayBoard } from "@/features/today/queries";
 import { groupIntoLanes, modesOf, nextUp, resolveMode } from "@/features/today/schema";
 import { getPatientSnapshot } from "@/features/consultation/service";
@@ -10,6 +9,9 @@ import { activeEntitlements } from "@/lib/entitlements/require-entitlement";
 import type { SnapshotPanelData } from "@/components/today/patient-snapshot-panel";
 import { TodayBoardView } from "@/components/today/today-board";
 import { InstallCard } from "@/components/shell/install-card";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
+import { queryKeys } from "@/lib/query/keys";
 
 /**
  * Today (V2-08 08-03a, P1-29; R-10, R-14): the front desk's day in one live screen. The board is read on the server through
@@ -18,6 +20,8 @@ import { InstallCard } from "@/components/shell/install-card";
  * the role's own (doctor: their queue; nurse: triage; others: the front desk's day); an owner toggles front and doctor. The
  * doctor's mode, for a doctor or a practising owner, reads only that doctor's visits. 08-03b: this screen replaced the v1
  * dashboard (`/`), queue (`/queue`) and cabin (`/cabin`), which now redirect here.
+ * V2-09e 09E-03 (R-14): the page still reads the board once on the server (first paint, no spinner) and hands it to the client's
+ * query for this clinic and mode (`HydrationBoundary`); every later refresh is one `GET /api/today/board` into the same query.
  */
 async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
   const { mode: requested } = await props.searchParams;
@@ -54,24 +58,25 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
     }
   }
 
-  const zone = board.timeZone === "Asia/Kolkata" ? "IST" : board.timeZone;
+  const queryClient = createRequestQueryClient();
+  queryClient.setQueryData(queryKeys.today(ctx.tenantId, mode), board);
   return (
-    <div className="flex flex-col gap-3">
-      <InstallCard />
-      <TodayBoardView
-        key={mode}
-        board={board}
-        tenantId={ctx.tenantId}
-        mode={mode}
-        modes={modesOf(ctx.role)}
-        canRegister={hasPerm(ctx.role, "patients:edit")}
-        canWalkIn={hasPerm(ctx.role, "appointments:edit")}
-        canConsult={hasPerm(ctx.role, "consultations:edit")}
-        dateLine={`${formatClinicDateWithWeekday(board.today)} · clinic time (${zone})`}
-        snapshotPanel={snapshotPanel}
-        openAmendments={openAmendments}
-      />
-    </div>
+    <HydrationBoundary state={dehydrateRequest(queryClient)}>
+      <div className="flex flex-col gap-3">
+        <InstallCard />
+        <TodayBoardView
+          key={mode}
+          tenantId={ctx.tenantId}
+          mode={mode}
+          modes={modesOf(ctx.role)}
+          canRegister={hasPerm(ctx.role, "patients:edit")}
+          canWalkIn={hasPerm(ctx.role, "appointments:edit")}
+          canConsult={hasPerm(ctx.role, "consultations:edit")}
+          snapshotPanel={snapshotPanel}
+          openAmendments={openAmendments}
+        />
+      </div>
+    </HydrationBoundary>
   );
 }
 

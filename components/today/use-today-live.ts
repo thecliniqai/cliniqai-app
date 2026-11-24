@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { registerCleanup } from "@/lib/pwa/cleanup";
-import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
+import { queryKeys } from "@/lib/query/keys";
 
 /**
  * Today's live updates (V2-08 08-03a, R-10, TARGET §3.9, PWA §3.2). The server sends a signal-only private broadcast on
@@ -12,8 +12,8 @@ import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
  * and answered by one refresh. While the channel is not SUBSCRIBED (the socket refused, the network down, a rejoin) the
  * board polls every {@link POLL_INTERVAL_MS} while the page is visible, so it is never stale for long; every
  * (re)subscription refreshes once to catch what was missed. Resume from the background is refreshed by the shell
- * (`/today` is a live view, `lib/pwa/resume.ts`). Refreshes go through `refreshWhenReachable`: never while offline,
- * so a dropped connection never turns into a full navigation that loses the rows.
+ * (`/today` is a live view, `lib/pwa/resume.ts`). 09E-03 (R-14): a refresh invalidates Today's query, so the re-read is one
+ * `GET /api/today/board` into the same key (no RSC request, no page render); a failed or offline read keeps the rows on screen.
  *
  * {@link createTodayLive} holds the rules and no React or browser (`tests/today/live.spec.ts`, fake clock);
  * {@link useTodayLive} binds it to a component.
@@ -96,13 +96,14 @@ export function createTodayLive(deps: TodayLiveDeps): TodayLive {
 
 /** Starts the live updates of Today for `tenantId`; returns the state for `LiveStatus` and a manual refresh. */
 export function useTodayLive(tenantId: string): { state: LiveState; refreshNow: () => void } {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<LiveState>("connecting");
   const refreshRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
-    refreshRef.current = () => void refreshWhenReachable(() => router.refresh());
-  }, [router]);
+    // `cancelRefetch: false`: a read already in flight answers this refresh too (a signal burst never aborts and restarts the read).
+    refreshRef.current = () => void queryClient.invalidateQueries({ queryKey: queryKeys.todayAll(tenantId) }, { cancelRefetch: false });
+  }, [queryClient, tenantId]);
 
   useEffect(() => {
     const live = createTodayLive({

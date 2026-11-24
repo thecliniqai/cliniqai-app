@@ -4,6 +4,9 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { queryKeys } from "@/lib/query/keys";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { buttonClassName } from "@/components/ui/button";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
@@ -29,6 +32,7 @@ import { OpenAmendments } from "./open-amendments";
 import type { OpenAmendment } from "@/features/today/queries";
 import { TodayHead } from "./today-head";
 import { TodayRowView } from "./today-row";
+import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
 import { useTodayLive } from "./use-today-live";
 import { VisitDetail } from "./visit-detail";
 
@@ -75,7 +79,6 @@ function useTwoPane(): boolean {
 }
 
 export interface TodayBoardViewProps {
-  board: TodayBoard;
   tenantId: string;
   canRegister: boolean;
   canWalkIn: boolean;
@@ -84,20 +87,56 @@ export interface TodayBoardViewProps {
   mode: TodayMode;
   /** The modes the role may open (an owner has two). */
   modes: readonly TodayMode[];
-  /** "Fri, 13 Nov 2026 · clinic time (IST)". */
-  dateLine: string;
   /** Doctor mode (V2-09b 09B-04a): the snapshot of the patient the server saw as Next (`assist.snapshot`), shown beside the Next card at 768 px and up. */
   snapshotPanel?: SnapshotPanelData | null;
   /** Doctor mode: the doctor's own signed visits that are reopened and not finalized. */
   openAmendments?: readonly OpenAmendment[];
 }
 
-export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, dateLine, snapshotPanel = null, openAmendments = [] }: TodayBoardViewProps) {
+/** The error of a refused or failed board read; the fixed text only, never a body. */
+class BoardReadError extends Error {}
+
+/** One `GET /api/today/board` (09E-03, R-14): the query's read. No RSC request, no page render. */
+async function fetchBoard(mode: TodayMode, signal: AbortSignal): Promise<TodayBoard> {
+  const response = await fetch(`/api/today/board?mode=${mode}`, { cache: "no-store", credentials: "same-origin", signal });
+  if (!response.ok) throw new BoardReadError("Today could not be refreshed.");
+  return (await response.json()) as TodayBoard;
+}
+
+/**
+ * Today's board from the client data layer (09E-03, R-14): the page hydrates `[tenantId, "today", mode]` with the board it read, a
+ * live signal, a resume or a mutation invalidates it, and the re-read is one board GET into the same key. A failed re-read keeps the
+ * rows on screen. After the client was cleared (sign-out, lock, clinic switch) the provider renders nothing, so no stale rows show.
+ */
+export function TodayBoardView(props: TodayBoardViewProps) {
+  const { tenantId, mode } = props;
+  const { data } = useQuery({
+    queryKey: queryKeys.today(tenantId, mode),
+    queryFn: ({ signal }) => fetchBoard(mode, signal),
+    meta: { live: true, domains: ["queue", "schedule", "billing"] },
+  });
+  if (!data) return null;
+  return <TodayBoardLoaded {...props} board={data} />;
+}
+
+function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, snapshotPanel = null, openAmendments = [] }: TodayBoardViewProps & { board: TodayBoard }) {
   const router = useRouter();
+  const zone = board.timeZone === "Asia/Kolkata" ? "IST" : board.timeZone;
+  const dateLine = `${formatClinicDateWithWeekday(board.today)} · clinic time (${zone})`;
   const pathname = usePathname();
   const params = useSearchParams();
   const live = useTodayLive(tenantId);
   const twoPane = useTwoPane();
+
+  // Doctor mode: the snapshot panel and the amendments are server-rendered for the Next patient the page saw. The board's live refresh no
+  // longer re-renders the page, so when Next becomes someone else the page is refreshed once (09E-03), as the old refresh always did.
+  const nextPatientId = mode === "doctor" ? (nextUp(groupIntoLanes(board.rows, "doctor"))?.patientId ?? null) : null;
+  const renderedNext = useRef(nextPatientId);
+  useEffect(() => {
+    if (nextPatientId === renderedNext.current) return;
+    renderedNext.current = nextPatientId;
+    void refreshWhenReachable(() => router.refresh());
+  }, [nextPatientId, router]);
 
   const [query, setQuery] = useState("");
   const [doctorId, setDoctorId] = useState("all");

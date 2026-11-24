@@ -23,6 +23,8 @@ import { navForRole } from "@/lib/nav/nav-for-role";
 import { resolveTimeZone } from "@/lib/datetime";
 import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
 import { serverEnv } from "@/lib/env-server";
+import { QueryProvider } from "@/lib/query/provider";
+import { ResumeRefresh } from "@/components/shell/resume-refresh";
 
 /**
  * V2-06 06-05: the worker never registers under `next dev`. 06-09a (IND L-5): an environment the schema refuses makes
@@ -100,6 +102,7 @@ export default async function DashboardLayout({
   // Every client component below reads the clinic's zone from here (V2-03 03-05); the browser zone is never used.
   // V2-06 06-05: the PWA runtime (service worker, offline banner) runs only in the signed-in shell; `next dev` never
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
+  // V2-09e 09E-03 (R-14): the tab's one client data layer (memory only, cleared at sign-out, lock and clinic switch) wraps the screens.
   // V2-06 06-04b: the app shell. The navigation model is resolved HERE, from the session's role and the permission
   // matrix (`navForRole`, T-06-16); the client only renders it. The pages keep their own guards.
   return (
@@ -113,12 +116,15 @@ export default async function DashboardLayout({
         clinics={clinics.map((c) => ({ id: c.id, name: c.name }))}
         activeClinicId={membership.tenantId}
       >
-        {children}
-        <FrontDeskSheets
-          canRegister={hasPerm(membership.role, "patients:edit")}
-          canWalkIn={hasPerm(membership.role, "appointments:edit")}
-          canBook={hasPerm(membership.role, "appointments:edit")}
-        />
+        <QueryProvider>
+          <ResumeRefresh />
+          {children}
+          <FrontDeskSheets
+            canRegister={hasPerm(membership.role, "patients:edit")}
+            canWalkIn={hasPerm(membership.role, "appointments:edit")}
+            canBook={hasPerm(membership.role, "appointments:edit")}
+          />
+        </QueryProvider>
       </AppShell>
     </ClinicTimeZoneProvider>
   );
