@@ -58,6 +58,8 @@ function row(over: Partial<TodayRow>): TodayRow {
     balanceDue: null,
     billed: null,
     followUp: null,
+    rowVersion: 0,
+    invoiceVersion: null,
     actions: [],
     ...over,
   };

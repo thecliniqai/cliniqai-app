@@ -116,6 +116,13 @@ export interface TodayRow {
    * any other role, a visit that is not completed, or a visit with no follow-up.
    */
   followUp: { date: string; booked: boolean } | null;
+  /**
+   * The visit's `row_version` (000123) as the board was read: the stale-write refusal of the queue commands compares it (V2-09e 09E-07). A counter, no
+   * personal data.
+   */
+  rowVersion: number;
+  /** The live invoice's `row_version` on a completed visit, for a role with `billing:view`; null otherwise (09E-07's billing commands compare it). */
+  invoiceVersion: number | null;
 }
 
 export const TODAY_ROW_KEYS = [
@@ -128,12 +135,14 @@ export const TODAY_ROW_KEYS = [
   "doctorName",
   "followUp",
   "hasAllergy",
+  "invoiceVersion",
   "name",
   "origin",
   "overbooked",
   "patientId",
   "phone",
   "priority",
+  "rowVersion",
   "sex",
   "signed",
   "status",

@@ -4025,6 +4025,15 @@ export type Database = {
         Args: { p_at: string; p_tenant: string };
         Returns: string;
       };
+      today_board: {
+        Args: {
+          p_date?: string;
+          p_doctor_id?: string;
+          p_mode: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       visit_slot: { Args: { p_at: string; p_mins: number }; Returns: unknown };
       webhook_delivery_claim: {
         Args: { p_id: string };

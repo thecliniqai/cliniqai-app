@@ -150,6 +150,8 @@
  *          authz_matrix, access_lock_rls and authz_completeness) + today_signals (+0) and front_desk_review_fixes (+0, A-5 reworded) = 9291 (71 files).
  *   9364 — V2-09e 09E-05 (000124 consult_screen): 9291 + consult_screen 73 (new file, every one required) = 9364 (72 files). No table, policy or definer function
  *          changed, so the authz files and definer_functions keep their counts.
+ *   9426 — V2-09e 09E-06 (000125 today_board): 9364 + today_board 62 (new file, every one required) = 9426 (73 files). One new INVOKER function and no table, policy
+ *          or definer function, so the authz files and definer_functions keep their counts.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -161,7 +163,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9364;
+export const FLOOR = 9426;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -285,6 +287,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/clinic_versions.test.sql",
   // V2-09e 09E-05
   "supabase/tests/database/consult_screen.test.sql",
+  // V2-09e 09E-06
+  "supabase/tests/database/today_board.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

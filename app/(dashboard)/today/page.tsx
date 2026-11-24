@@ -12,7 +12,6 @@ import { InstallCard } from "@/components/shell/install-card";
 import { HydrationBoundary } from "@tanstack/react-query";
 import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
 import { queryKeys } from "@/lib/query/keys";
-import { getTenantTimeZoneAndVersions } from "@/lib/datetime/server";
 
 /**
  * Today (V2-08 08-03a, P1-29; R-10, R-14): the front desk's day in one live screen. The board is read on the server through
@@ -36,13 +35,11 @@ async function TodayPage(props: { searchParams: Promise<{ mode?: string }> }) {
   }
 
   const mode = resolveMode(ctx.role, requested);
-  // 09E-04 (R-18): the clinic's versions are read BEFORE the board, in the statement that reads the clinic's zone (no extra call), so they are a lower
-  // bound of what the board holds (research 2.1): the live core re-reads the board only when a version above them arrives. A failed read hands the
-  // screen no basis (one extra re-read, never a missed one).
-  const { zone, versions } = await getTenantTimeZoneAndVersions(ctx.db, ctx.tenantId);
-  const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined, timeZone: zone });
+  // 09E-06 (R-9, R-12): one SQL read (`today_board`) answers the board and the clinic versions it reflects in the same snapshot, so the versions are the
+  // exact basis of the live core (no lower bound, no second call). A read whose versions could not be given hands the screen no basis (one extra re-read).
+  const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined });
   if (!result.ok) throw new Error("Today could not be loaded.");
-  const { board } = result;
+  const { board, versions } = result;
 
   // Doctor mode (V2-09b 09B-04a): the Next patient's snapshot when the clinic has `assist.snapshot`, and the doctor's open amendments. Both are read on the
   // session's own context under RLS; a failed or refused read leaves the panel out.
