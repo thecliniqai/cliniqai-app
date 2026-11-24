@@ -190,3 +190,71 @@ closed-word check fails: 6 of 63 tests fail. Both restored (the migration file w
   counted two or three times (unstable callback); the resource-timing buffer was full (observer instead of getEntries).
 - `npm run perf:staging-smoke -- --local`: 7 measured, 1 skipped, 0 failed. `npm run perf:db-top`: 28 statements written.
 - Not run: the full Vitest suite and the full e2e PR lane (CI does); the staging reproduction (PO).
+
+## 09E-03 Client data layer: TanStack Query, with Today on it
+
+Branch `v2/phase-09e-caching-speed`. No migration. One new dependency: `@tanstack/react-query` 5.108.4, exact pin (reason: one memory-only client data layer, R-14; the lockfile adds it and `@tanstack/query-core` only, MIT, registry URLs and integrity hashes unchanged in form). No persister, no devtools.
+
+### What shipped
+
+- **`lib/query/`**: `policy.ts` (`createQueryClient`: staleTime 30 s, gcTime 5 min, reads retry once, mutations never, refetch on focus and reconnect, `networkMode: "online"`),
+  `keys.ts` (`queryKeys.{clinic,today,todayAll}`, tenant id first, ids and modes only; the `meta` slot is typed with `domains` for 09E-04 and `live`),
+  `client.ts` (`registerQueryClientCleanup`: cancel in-flight reads, `clear()`, then tell the provider), `provider.tsx` (one client per mounted provider, never module level; after a clear it renders no children),
+  `server.ts` (`createRequestQueryClient`, `dehydrateRequest`; `server-only`).
+- **Provider** wraps the screens inside the shell (`app/(dashboard)/layout.tsx`: `QueryProvider` around `ResumeRefresh`, `{children}` and `FrontDeskSheets`, inside `AppShell`). The shell chrome (top bar, "Switching...", sign-out items) stays outside it.
+- **Clearing**: `CleanupKind` gains `"switch"`. Sign-out and lock already ran the registry; `useClinicSwitch` now runs `runCleanups("switch")` after `switchClinic` succeeds and before the hard navigation (`lib/pwa/lock.ts` needed no edit: it already calls `runCleanups("lock")` before its `replace`).
+- **`GET /api/today/board?mode=`** (`app/api/today/board/route.ts`): `resolveServiceContext("appointments:view")`, tenant and role from the session (a `tenant` parameter is ignored), `resolveMode` per role (doctor mode reads only the session user's visits),
+  the existing `getTodayBoard`, 401/403/403 `SUBSCRIPTION_LOCKED`/503/500 with fixed bodies, `private, no-store`, `timedRoute` (Server-Timing + `request.timing`). Body is the board itself (`rows, generatedAt, today, timeZone`). Guard manifest kind `session-board` with legs
+  (`sessionBoardRouteLegs`: least-privileged holder gets 200, no-store, exactly those keys, a forged `tenant`/`tenantId` changes nothing, nothing of tenant B). `server-routes.ts` regenerated.
+- **Today**: the page still reads the board once on the server and hydrates `queryKeys.today(tenantId, mode)` (`HydrationBoundary`); `TodayBoardView` is now a `useQuery` shell over the old component (`TodayBoardLoaded`); the date line is computed on the client from `board.today`/`timeZone` (it used to be a server prop that only `router.refresh()` updated).
+  `use-today-live.ts` keeps its 400 ms coalescing and 20 s fallback poll; its refresh is `invalidateQueries(todayAll(tenant), { cancelRefetch: false })` (a read already in flight answers it), no `refreshWhenReachable` probe (a failed fetch keeps the rows; offline the query pauses itself).
+  Resume moved out of `AppShell` into `components/shell/resume-refresh.tsx` (it needs the client): `/today` invalidates the `meta.live` queries; the schedule (not on the layer yet) still gets `router.refresh()` through `refreshWhenReachable`.
+- **Lint**: `no-restricted-imports` group `queryPersist` (`@tanstack/*persist*`, `@tanstack/react-query-devtools`, `@tanstack/query-devtools`), checked with a throwaway file (both imports error).
+- **Budget row** `live.today.refresh` (kind live, B-11, owner 09E-06) in `latency-budgets.ts`, its test in `page-latency.spec.ts` (a resume trigger on Today, waits for the board response), ceiling from the lane's own output
+  (`evidence/09E-03/live-today-refresh-300ms.json` -> `latency-ceilings.mjs`, no number typed): **8 calls, depth 8** at 300 ms (4 `tenants`, 2 `visits`, 2 `memberships`; no invoice read in that clinic day). 09E-06 lowers it to 1 and 1.
+
+### Fails-without (High: data crossing clinics)
+
+With the `registerQueryClientCleanup` registration removed from `provider.tsx` (rebuilt, restored, rebuilt): `query-clear.spec.ts` "clinic switch" fails on desktop-chrome and pixel-7. The old page, still on screen while the navigation to the new clinic is held for 3 s,
+ends with a row of the **new** clinic (`ClearRowB`) under the old clinic's key: after the cookie flipped, a refetch landed in the old page's query. With the registration the last report of the old document is "no rows". Sign-out case still passes without it (the document is concealed and replaced), as expected.
+Restored; committed code passes both.
+
+### `npm run ci:route-js` (B-15, report-only)
+
+| Route | Before (09E-02 tree) | After | Growth |
+| --- | --- | --- | --- |
+| `/today` | 331.8 kB gz | 344.2 kB gz | +12.4 kB (route-specific 203.1 -> 215.5) |
+| `/consultation/[id]` | 395.1 kB gz | 403.8 kB gz | +8.7 kB |
+
+Framework root unchanged (128.7 kB). The provider is in the dashboard layout, so every dashboard route grows by the library (about 8.7 kB gz); Today adds its own hook code. Budgets (200/150) were already over before.
+
+### Decisions and deviations
+
+- **The Today page is hydrated, not replaced**: a server action that revalidates the page still re-renders it and the newer `dataUpdatedAt` replaces the cached board (the same-tab check-in path keeps working without a signal).
+- **Doctor mode**: the snapshot panel and the amendments list are still server-rendered props. A board-only refresh would leave them stale, so when the doctor's Next patient changes, the board runs one `router.refresh()` (same safe-refresh guard), once per change. Everything else refreshes without a page render.
+- **After a clear the provider renders nothing** (not a spinner): the page is about to be replaced by a hard navigation; this is also what makes the clear observable (e2e) without a test hook in product code.
+- **The resume hook moved** from `AppShell` to `ResumeRefresh` inside the provider (needs the client). `startResumeRefresh` and its 2 s coalescing are unchanged.
+- **Found and fixed (09E-02 defect)**: `05-cache-audit` failed on the tree before this plan: the RUM collector kept its sampling decision in `sessionStorage` under `clinicos.rum.sampled`, a key outside the D-3 list (the spec allows `clinicos.pref.*` only). It now lives in memory for the page's lifetime (every full load decides again; at the default rate 1 nothing changes).
+  I did not add a key to `DEVICE_PREF_KEYS` (a spec pins exactly five). 09E-02's notes did not list that spec among the ones it ran.
+- `tests/e2e/today/today-live.spec.ts`: the two connection-drop cases were written around the `/api/health` probe and RSC counts; they now say the same thing for the board read (offline: 0 board reads and 0 RSC; the board GET aborted: rows stay, no navigation, no RSC; the next tick catches up). The signal case asserts one board read, `Server-Timing` on it, and 0 RSC requests.
+- `Server-Timing` on the route is asserted in the e2e (a unit test has no request scope).
+- `tests/today/live.spec.ts` needed no change: `createTodayLive` takes `refresh` as a dependency and its rules are unchanged.
+- `assert-vitest-report.mjs` REQUIRED_FILES + `tests/query/{keys,cleanup}.spec.ts`, `tests/api/today-board-route.spec.ts`; FLOOR unchanged (re-measure at the phase gate).
+
+### Security-sensitive for the adversarial review
+
+`app/api/today/board/route.ts` and its guard kind (`session-board`, `engine.ts`, `guard-manifest.ts`), `lib/pwa/cleanup.ts` (new kind) and the clear on exit paths (`lib/query/*`, `clinic-switcher.tsx`), the lint ban, the dependency (`package-lock.json`: two packages), and the RUM storage fix. No migration, no RLS change, no service-role use.
+
+### For the PO
+
+- Open question: the route does 8 Supabase calls (4 of them `tenants`) at depth 8; that is the current service, not new, and 09E-06's `today_board` brings it to 1. Nothing to decide now.
+- `/today` first-load JS grows 12.4 kB gz (report-only, FE-9). The plan expected about 13 kB.
+
+### Tests run (local stack)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors (390 warnings, unchanged). `npm run inventory`: 0 flagged (36 route modules, 58 methods). `node scripts/observability/server-routes.mjs --check`: pass.
+- Vitest: `tests/security tests/pwa tests/perf tests/today tests/query tests/api/today-board-route.spec.ts tests/observability tests/lint tests/ci tests/shell`: 110 files, 2651 tests passed (includes guard-routes and guard-actions with the new kind, the lint-gate specs, the new specs: keys 3, cleanup 6, route 6).
+- e2e (`--retries=0`, desktop-chrome and pixel-7, `stack:recycle` before each run, never mid-run): `today/*` (today-live 5 each, front-desk, review-fixes), `shell/query-clear` (2 each), `shell/request-budget`, `shell/clinic-switcher`, `shell/back-resume-keyboard` (rewritten for the board read; 6 each),
+  `pwa/11-refresh-outage-and-pin`: 91 passed, 15 skipped by design, 2 failed = `back-resume-keyboard` "visibilitychange on Today" (it counted an RSC refresh; fixed above, 20 of 20 pass). `pwa/05-cache-audit` + `observability/rum`: 29 passed, 1 skipped (after the RUM storage fix; 2 failed before it).
+  `perf-latency` row `live.today.refresh`: passed (5 samples, 8 calls, depth 8).
+- Not run: the full Vitest suite, the full e2e PR lane and the design projects (no markup changed; CI does).
