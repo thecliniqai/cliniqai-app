@@ -691,7 +691,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" | "session-medicine-search" | "session-substance-search" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-board" | "session-diagnosis-search" | "session-medicine-search" | "session-substance-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1197,6 +1197,40 @@ export async function sessionSearchRouteLegs(
   }
   const digits = a.phone.replace(/\D/g, "").slice(-10);
   if (r.body.includes(digits)) out.push(routeV(c, "projection", "the full mobile number is in the response"));
+  return out;
+}
+
+/**
+ * `session-board` route (09E-03, T-09E-02, T-09E-04): the least-privileged holder of the permission reads the board and gets 200 with `no-store` and a body
+ * whose top-level keys are exactly the guard's; a forged `?tenant=` and `?tenantId=` naming tenant B change nothing and nothing of B is in the response.
+ * The denial legs (401, 403, no membership) are `sessionRouteDenialLegs`.
+ */
+export async function sessionBoardRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-board" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  await world.aRows({ userId: world.roles[role].userId, role });
+  for (const [leg, query] of [
+    ["own clinic", {}],
+    ["forged tenant parameters", { tenant: world.b.tenant, tenantId: world.b.tenant }],
+  ] as const) {
+    const r = await callRoute(slot, client, c, { query });
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+    try {
+      const keys = Object.keys(JSON.parse(r.body) as Record<string, unknown>);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
   return out;
 }
 

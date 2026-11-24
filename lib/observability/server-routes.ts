@@ -23,6 +23,7 @@ export const SERVER_ROUTE_PATTERNS = [
   "/api/session-status",
   "/api/terminology/diagnoses",
   "/api/terminology/substances",
+  "/api/today/board",
   "/api/v1/appointments",
   "/api/v1/appointments/[id]",
   "/api/v1/docs",

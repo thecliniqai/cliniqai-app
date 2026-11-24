@@ -93,6 +93,12 @@ export type RouteGuard =
    */
   | { kind: "session-search"; permission: Permission; keys: readonly string[] }
   /**
+   * V2-09e 09E-03 (T-09E-02, T-09E-04): Today's board for the client data layer `GET /api/today/board?mode=`. The denial legs of session(P) (no session 401,
+   * a role lacking `permission` 403, no membership refused); a member with the permission answers 200 with `no-store` and a body whose top-level keys are
+   * exactly `keys`; a forged `?tenant=` (tenant B's id) changes nothing and nothing of tenant B is in the response.
+   */
+  | { kind: "session-board"; permission: Permission; keys: readonly string[] }
+  /**
    * V2-09b 09B-04a (T-09B-06): the diagnosis typeahead `GET /api/terminology/diagnoses?q=`. The denial legs of session(P) (no session 401, a role
    * lacking `permission` 403, no membership refused); a member with the permission searching a catalogue row answers 200 with `no-store` and rows with
    * exactly `keys`, nothing of tenant B in the response, and a hostile query (SQL text, array syntax, a NUL, wildcards) is data (200, never a 500).
@@ -342,6 +348,11 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-search",
     permission: "patients:view",
     keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
+  "app/api/today/board/route.ts#GET": {
+    kind: "session-board",
+    permission: "appointments:view",
+    keys: ["rows", "generatedAt", "today", "timeZone"],
   },
   "app/api/prescriptions/medicines/route.ts#GET": {
     kind: "session-medicine-search",

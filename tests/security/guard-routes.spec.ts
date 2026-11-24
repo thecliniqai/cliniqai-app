@@ -53,6 +53,7 @@ import {
   routeCases,
   sessionRouteCrossTenantLeg,
   sessionRouteDenialLegs,
+  sessionBoardRouteLegs,
   sessionSearchRouteLegs,
   sessionDiagnosisSearchRouteLegs,
   sessionMedicineSearchRouteLegs,
@@ -134,6 +135,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
       });
 
       it.each(ofKind("session-search"))("session-search denial: %s", async (_k, c, guard) => {
+        const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b.patient);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("session-board"))("session-board denial: %s", async (_k, c, guard) => {
         const violations = await sessionRouteDenialLegs(slot, c, guard, world, world.b.patient);
         expect(violations, report(violations)).toEqual([]);
       });
@@ -277,6 +283,12 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
       // A search route has no id to forge: tenant B's patient is searched by name and by number (the control seeds tenant A rows).
       it.each(ofKind("session-search"))("session-search: %s", async (_k, c: RouteCase, guard) => {
         const violations = await sessionSearchRouteLegs(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      // Today's board (09E-03): exactly the guard's keys, no-store, a forged tenant parameter changes nothing.
+      it.each(ofKind("session-board"))("session-board: %s", async (_k, c: RouteCase, guard) => {
+        const violations = await sessionBoardRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 
