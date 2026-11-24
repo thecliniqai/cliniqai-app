@@ -3693,6 +3693,10 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      ops_ingest_rum: {
+        Args: { p_environment: string; p_release: string; p_samples: Json };
+        Returns: undefined;
+      };
       patient_snapshot: {
         Args: {
           p_exclude_visit_id?: string;

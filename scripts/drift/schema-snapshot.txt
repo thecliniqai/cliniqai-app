@@ -121,6 +121,17 @@ column ops.quota_snapshots.limits jsonb not_null=t default=- identity=- generate
 column ops.quota_snapshots.mau_estimate integer not_null=t default=- identity=- generated=-
 column ops.quota_snapshots.plan text not_null=t default=- identity=- generated=-
 column ops.quota_snapshots.storage_bytes bigint not_null=t default=- identity=- generated=-
+column ops.rum_daily.bucket smallint not_null=t default=- identity=- generated=-
+column ops.rum_daily.count bigint not_null=t default=- identity=- generated=-
+column ops.rum_daily.day date not_null=t default=- identity=- generated=-
+column ops.rum_daily.device text not_null=t default=- identity=- generated=-
+column ops.rum_daily.environment text not_null=t default=- identity=- generated=-
+column ops.rum_daily.metric text not_null=t default=- identity=- generated=-
+column ops.rum_daily.net text not_null=t default=- identity=- generated=-
+column ops.rum_daily.release text not_null=t default=- identity=- generated=-
+column ops.rum_daily.screen text not_null=t default=- identity=- generated=-
+column ops.rum_overflow.day date not_null=t default=- identity=- generated=-
+column ops.rum_overflow.dropped bigint not_null=t default=0 identity=- generated=-
 column ops.settings.key text not_null=t default=- identity=- generated=-
 column ops.settings.value text not_null=t default=- identity=- generated=-
 column private.command_hash_key.id smallint not_null=t default=- identity=- generated=-
@@ -866,6 +877,17 @@ constraint ops.quota_snapshots.quota_snapshots_mau_estimate_check CHECK ((mau_es
 constraint ops.quota_snapshots.quota_snapshots_pkey PRIMARY KEY (id)
 constraint ops.quota_snapshots.quota_snapshots_plan_check CHECK ((plan ~ '^[a-z][a-z0-9_]{0,30}$'::text))
 constraint ops.quota_snapshots.quota_snapshots_storage_bytes_check CHECK ((storage_bytes >= 0))
+constraint ops.rum_daily.rum_daily_bucket_check CHECK (((bucket >= 0) AND (bucket <= 40)))
+constraint ops.rum_daily.rum_daily_count_check CHECK ((count >= 1))
+constraint ops.rum_daily.rum_daily_device_check CHECK ((device = ANY (ARRAY['phone'::text, 'tablet'::text, 'desktop'::text])))
+constraint ops.rum_daily.rum_daily_environment_check CHECK ((environment = ANY (ARRAY['development'::text, 'test'::text, 'e2e'::text, 'ci'::text, 'staging'::text, 'production'::text])))
+constraint ops.rum_daily.rum_daily_metric_check CHECK ((metric = ANY (ARRAY['lcp'::text, 'inp'::text, 'cls'::text, 'ttfb'::text, 'fcp'::text, 'nav_data_ready'::text, 'load_data_ready'::text, 'search_server'::text, 'search_device'::text, 'save_reversible'::text, 'save_confirmed'::text, 'finish_confirmed'::text, 'live_reread'::text, 'live_dropped'::text, 'live_reconnect'::text])))
+constraint ops.rum_daily.rum_daily_net_check CHECK ((net = ANY (ARRAY['slow-2g'::text, '2g'::text, '3g'::text, '4g'::text, 'unknown'::text])))
+constraint ops.rum_daily.rum_daily_pkey PRIMARY KEY (day, environment, release, screen, metric, device, net, bucket)
+constraint ops.rum_daily.rum_daily_release_check CHECK ((release ~ '^([0-9a-f]{7,40}|unknown)$'::text))
+constraint ops.rum_daily.rum_daily_screen_check CHECK ((screen = ANY (ARRAY['today'::text, 'schedule'::text, 'patients'::text, 'patient'::text, 'consult'::text, 'visits'::text, 'billing'::text, 'settings'::text, 'staff'::text, 'other'::text])))
+constraint ops.rum_overflow.rum_overflow_dropped_check CHECK ((dropped >= 0))
+constraint ops.rum_overflow.rum_overflow_pkey PRIMARY KEY (day)
 constraint ops.settings.settings_key_check CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))
 constraint ops.settings.settings_pkey PRIMARY KEY (key)
 constraint ops.settings.settings_value_check CHECK (((char_length(value) >= 1) AND (char_length(value) <= 200)))
@@ -1316,7 +1338,7 @@ function ops.alert_rule_quota_weekly_summary(p_params jsonb) returns TABLE(firin
 function ops.alert_rule_runner_stale(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=4d19f3f0217d5868f464963cfa0c6727
 function ops.backfill_delivery_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ef4f996cd2cb1cc86acedcd710f1a30b
 function ops.backup_runner_stale() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=9a8d5274788a81a84161ee59019a023f
-function ops.cleanup() returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=b156227a48d12892a3e6f18f92d217ef
+function ops.cleanup() returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=629013ca4178a9fbe06f2eeb6979609c
 function ops.communication_queue_apply_early_dlr() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b95506dc9d65cfb02c46ce95260b7dbd
 function ops.communication_queue_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=96fd89c9a82aded58b07cbfc8c491453
 function ops.delivery_job_cancelled() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=2286f3f7cb1f7eac76d8ae5754c7e66d
@@ -1340,6 +1362,11 @@ function ops.reap_jobs() returns integer lang=plpgsql security_definer=t volatil
 function ops.redact_reply_unmatched_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b7b3fe38eb4d7642c14787e79b457d2
 function ops.replay_job(p_id uuid) returns void lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=4638583d2c6c0a95b00e189021fd0609
 function ops.report_all(p_hours integer) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=7cb2ad0a6606bff065cfde77fb75a7d7
+function ops.rum_bounds(p_metric text) returns numeric[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=39e756895944c6ae8058667a5a1f81e0
+function ops.rum_bucket(p_metric text, p_value numeric) returns smallint lang=sql security_definer=f volatility=i config=search_path="" body_md5=e0a60bbf2515cb41846eb2a66915168c
+function ops.rum_daily_cap() returns bigint lang=sql security_definer=f volatility=i config=search_path="" body_md5=eb96031199ae95b57950f07baa5ffe54
+function ops.rum_edge(p_metric text, p_bucket smallint) returns numeric lang=sql security_definer=f volatility=i config=search_path="" body_md5=6dfa3c0d5e72c49d55674113a82603c5
+function ops.rum_report(p_days integer) returns TABLE(environment text, screen text, metric text, device text, samples bigint, p50 numeric, p75 numeric, p95 numeric) lang=sql security_definer=t volatility=s config=search_path="" body_md5=be21671fd0a4ac33bba3ef1daf1329f3
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
 function ops.utc_text(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=42079a21f3de41233494ff11a2fa1e07
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
@@ -1510,6 +1537,7 @@ function public.normalize_indian_phone_e164(raw_phone text) returns text lang=pl
 function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, p_seq integer) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=298e7bdd6c125b654f910a39def7cfc6
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
+function public.ops_ingest_rum(p_environment text, p_release text, p_samples jsonb) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94b837878f86b995133f405be2490821
 function public.patient_snapshot(p_tenant_id uuid, p_patient_id uuid, p_exclude_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=acfeac716c2dc7156fb337970d28aadc
 function public.patients_clinical_fields_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=0cd27f8d47d2cdb83c07494b52b75c1c
 function public.peek_invitation(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=eb3e0439d1e55230792a241f80ba9030
@@ -1732,6 +1760,7 @@ grant function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id 
 grant function public.ops_alert_payload(p_alert_id uuid) EXECUTE to service_role
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to anon
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to authenticated
+grant function public.ops_ingest_rum(p_environment text, p_release text, p_samples jsonb) EXECUTE to authenticated
 grant function public.patient_snapshot(p_tenant_id uuid, p_patient_id uuid, p_exclude_visit_id uuid) EXECUTE to authenticated
 grant function public.patients_clinical_fields_guard() EXECUTE to service_role
 grant function public.peek_invitation(p_token_hash text) EXECUTE to anon
@@ -2356,6 +2385,8 @@ index ops.message_templates_pkey CREATE UNIQUE INDEX message_templates_pkey ON o
 index ops.quota_limits_pkey CREATE UNIQUE INDEX quota_limits_pkey ON ops.quota_limits USING btree (plan, metric)
 index ops.quota_snapshots_at CREATE INDEX quota_snapshots_at ON ops.quota_snapshots USING btree (at)
 index ops.quota_snapshots_pkey CREATE UNIQUE INDEX quota_snapshots_pkey ON ops.quota_snapshots USING btree (id)
+index ops.rum_daily_pkey CREATE UNIQUE INDEX rum_daily_pkey ON ops.rum_daily USING btree (day, environment, release, screen, metric, device, net, bucket)
+index ops.rum_overflow_pkey CREATE UNIQUE INDEX rum_overflow_pkey ON ops.rum_overflow USING btree (day)
 index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING btree (key)
 index private.command_hash_key_pkey CREATE UNIQUE INDEX command_hash_key_pkey ON private.command_hash_key USING btree (id)
 index private.command_results_created_at_idx CREATE INDEX command_results_created_at_idx ON private.command_results USING btree (created_at)
@@ -2742,6 +2773,8 @@ relation ops.message_templates kind=r rls=t force_rls=f
 relation ops.quota_limits kind=r rls=t force_rls=f
 relation ops.quota_snapshots kind=r rls=t force_rls=f
 relation ops.quota_snapshots_id_seq kind=S rls=f force_rls=f
+relation ops.rum_daily kind=r rls=t force_rls=f
+relation ops.rum_overflow kind=r rls=t force_rls=f
 relation ops.settings kind=r rls=t force_rls=f
 relation private.command_hash_key kind=r rls=t force_rls=f
 relation private.command_results kind=r rls=t force_rls=f
