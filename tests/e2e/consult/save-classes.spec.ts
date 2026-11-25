@@ -99,7 +99,7 @@ test("@golden tracer: an Rx line added by keyboard shows at once with a pending 
   expect(stored).toMatchObject({ medicine_name: name, dosage: "1-0-1", duration: "5 days" });
 });
 
-test("Q-6: keys typed while a line is being saved are kept; the field stays editable (the 09C field was read-only and dropped them)", async ({ page }) => {
+test("@golden Q-6: keys typed while a line is being saved are kept; the field stays editable (the 09C field was read-only and dropped them)", async ({ page }) => {
   await openConsult(page, "RxKeys");
   const name = marker("Qzxfirst");
   const rx = page.locator("#prescription");

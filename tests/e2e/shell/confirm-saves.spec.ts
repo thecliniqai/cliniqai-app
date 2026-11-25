@@ -43,7 +43,8 @@ for (const row of CONFIRM_ROWS) {
       await expect.poll(() => hold.waiting(), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
       await page.waitForTimeout(400);
       await held.before(page, state);
-      await expect(page.getByText(held.success)).toHaveCount(0);
+      // An immediate count, not a retrying assertion: a success toast that shows for 4 s would satisfy `toHaveCount(0)` once it had gone.
+      expect(await page.getByText(held.success).count(), `no success text while the save is held (${String(held.success)})`).toBe(0);
 
       hold.release();
       const result = await acted;
