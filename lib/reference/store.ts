@@ -12,6 +12,7 @@ import {
 import { reportClientError } from "@/lib/log/client";
 import { registerCleanup, type CleanupKind } from "@/lib/pwa/cleanup";
 import { openReferenceDb, readMeta, readShards, REFERENCE_DB_NAME, writeCatalogue } from "./idb";
+import { endMedicineIndex, loadMedicineShards } from "./medicine-host";
 import { createReferenceSync, type ReferenceStorage, type ReferenceSync, type ShardAnswer } from "./sync";
 
 /**
@@ -22,7 +23,8 @@ import { createReferenceSync, type ReferenceStorage, type ReferenceSync, type Sh
  *   resume or reconnect (at most once a minute), and before the first search ({@link requestReferenceSync}). It registers with `lib/pwa/cleanup.ts`: at
  *   sign-out, lock and clinic switch the memory is emptied, the database connection closed and no later run writes; at sign-out the database is deleted
  *   too (the purge deletes it as well).
- * - {@link useReferenceCatalogue}: `{ status, rows }` for a screen; `status` is `ready` only when a complete version is in memory.
+ * - {@link useReferenceCatalogue}: `{ status, rows }` for a screen; `status` is `ready` only when a complete version is in memory. The medicine catalogue
+ *   (09E-11) is handed to its index (`./medicine-host.ts`, a worker) instead: its `rows` stay empty here, and the Rx field reads `useMedicineIndex`.
  */
 export type ReferenceStatus = "ready" | "loading" | "unavailable";
 
@@ -33,6 +35,7 @@ interface Held {
 }
 
 const memory = new Map<ReferenceCatalogue, Held>();
+const EMPTY_ROWS: CatalogueRow[] = [];
 const listeners = new Set<() => void>();
 let wanted: readonly ReferenceCatalogue[] = [];
 let sync: ReferenceSync | null = null;
@@ -98,7 +101,13 @@ function ensureSync(): ReferenceSync {
     memoryVersion: heldVersion,
     setMemory: (catalogue, version, shards, source) => {
       if (ended) return;
-      memory.set(catalogue, { version, rows: shards.flat(), source });
+      if (catalogue === "medicines") {
+        // 09E-11 (R-7): the medicine catalogue is held by its index (a worker), not as rows here; this tab keeps only the version.
+        loadMedicineShards(version, shards);
+        memory.set(catalogue, { version, rows: EMPTY_ROWS, source });
+      } else {
+        memory.set(catalogue, { version, rows: shards.flat(), source });
+      }
       emit();
     },
     onStorageError: (err) => {
@@ -118,6 +127,7 @@ function end(kind: CleanupKind): void {
   ended = true;
   sync?.dispose();
   memory.clear();
+  endMedicineIndex();
   db?.close();
   db = null;
   emit();
