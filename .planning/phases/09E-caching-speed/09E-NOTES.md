@@ -589,3 +589,111 @@ Ten definer commands replaced (000126): permission order, replay-before-compare,
 
 1. Should the consult screen carry the visit's version so Sign and Bill is refused when the visit moved (needs `consult_screen` replaced, 09E-12 candidate)?
 2. The Schedule's booking sheets pass the version they loaded until 09E-12, as planned; the Schedule day read carries `rowVersion` meanwhile.
+
+## 09E-08 Saves by risk class
+
+Branch `v2/phase-09e-caching-speed`. No migration, no new dependency. Commits (not pushed): `7f0ff37d` (hooks and Today's moves), `f180996b` (Rx tracer, diagnoses), `228a47a6` (confirm class, `revalidatePath` removal), then the specs, lane rows and evidence.
+
+### What shipped
+
+- **`lib/query/mutations.ts`** (R-11): `useReversibleCommand` (result applied at once by `apply`, which returns its rollback; a refusal or a failure takes it back, then `onFailure` shows the fixed error with `retry` = the same save, the same request id) and
+  `useConfirmedCommand` (nothing changes until the answer; `onValue` writes the answer with `setQueryData`; `pending` is the only thing on screen), both on `useMutation` over the existing `useCommand` (one request id per submit, 15 s timeout, one retry with the same id, the dirty guard). `useConfirmedCall` is the same for a form that builds its own call
+  (the sheets, the drawer, the allergy editor, Sign and Bill), exposing `command` so their `SaveStatus` is unchanged. RUM: `save_reversible` (timed to the frame that shows the result), `save_confirmed`, `finish_confirmed` (Sign and Bill); closed words and a number, no id or text.
+- **`lib/query/after-save.ts`**: what a confirmed save does to the screens after the answer. Today's boards (`[clinic, "today", mode]`): a status change the answer describes is written (`patchTodayBoards`), a change that adds or moves rows marks the boards stale (one `GET /api/today/board`). The Schedule is still server-rendered until 09E-12, so a save made there refreshes its route (see deviations).
+- **Rx line tracer** (`use-rx-lines.ts`, `features/prescriptions/rx-overlay.ts`): `items` = the database's list (`confirmed`) with the unanswered changes laid over it (`overlay`, pure, `tests/prescriptions/rx-overlay.spec.ts`). An added line shows at once as `pending:<change>:<n>` with a "Saving…" marker (`RxLineItem pending`, pills and Remove disabled); an edit shows its new dose; a removal is gone. The answer replaces the overlay with the database's list;
+  a refusal or failure drops the change. One `changePrescriptionAction`; the line is what was sent plus the returned id. **No allergy-context re-read after a change of lines**: `consult-workspace.tsx` derives the context's items from the stored picture plus the TypeScript twin (`allergyMatches`) for lines this session added or confirmed (their substance ids and override reason are kept by the hook);
+  the context is read again only after the allergy editor saved or reloaded (`allergyVersion`). The database still refuses a match on every write, whatever the screen says. A custom medicine joins the consult's query lists (`withCustomMedicine`, as `change_prescription` does in SQL, 09C R-2); same for a custom diagnosis (`withCustomDiagnosis`; `use_count` is written as 1 by the add, mirrored).
+- **Q-6 (PO default: keys typed during an Rx line save are NOT dropped)**: `RxEntryRow` closes the builder and empties the field the moment Enter is pressed and the field stays editable. A refusal after that: when the field is still empty the dose builder comes back with the line, the reason and the error (Enter sends it again, same request id); when the doctor has started the next medicine nothing of it is touched and a notice
+  **above** the field (the open list is drawn over what is below it: found by the e2e) says the line was not added, with Retry. The full name typed across a 400 ms save reaches the field.
+- **Reversible class**: Rx edit and remove (same overlay; the editor closes at once and returns with the draft on a refusal; a list-level alert with Retry); diagnosis add, remove and note (`diagnosis-section.tsx`: rolled back on a refusal or a lost response, notice with Retry; no `revalidatePath`; `rum` timer); Today's **check in** and **start** (`use-row-commands.ts` on `useReversibleCommand`: the row moves to Waiting / With doctor through the existing overlay (`withPendingCheckIns`, now with `to`), the answer
+  is written into the board (`withCheckedIn`: status, token, arrival time, the returned `rowVersion`), a refusal removes the overlay with the fixed text and Retry, a `ROW_CHANGED` refusal rolls back, shows the fixed text with no Retry and re-reads (09E-07's `useRowChanged`)). Draft autosave already re-rendered nothing (its saver keeps its own state and shows "Saving/Saved"); unchanged.
+- **Confirm class**: register and book, book, reschedule, promote, walk-in, cancel, no-show, collect payment, allergies, Sign and Bill, the confirmation on the Schedule card: pending state only (`SaveStatus` / button spinner), success text only after the answer (the sheets already did this; they now go through `useConfirmedCall`). Cancel and no-show write their answer into Today's board (`withStatus`, `rowVersion` from the answer);
+  walk-in, booking, reschedule, promotion and cancel with a waitlist promotion mark the boards stale (one GET); the vitals sheet writes the readings the database answered (`withVitals`). The checkout drawer sends the completion stamp and the billing read together instead of one after the other (one round trip fewer).
+- **`revalidatePath` removed from every hot save, by action name**: `queue.checkInVisit`, `queue.enqueueWalkIn`, `queue.startConsultation`, `queue.completeVisit`; `visits.recordVisitVitals`; `visits_scheduling.registerAndBook`, `rescheduleVisit`, `cancelVisit`, `markNoShow`, `confirmAppointment`; `waitlist.promoteWaitlistEntry`; `billing.createInvoice`, `recordPayment`, `collectPayment`, `completeAndBillConsultation`;
+  `consultation.completeAndSignConsultation`, `reopenVisitForAmendment`, `finalizeVisitAmendment` (their screens call `router.refresh()` themselves: it was a double render); `terminology.addConsultationDiagnosis`, `removeConsultationDiagnosis`, `updateDiagnosisNote`; `patients.registerPatient`, `recordPatientAllergies`;
+  `settings.updateClinicSettings`, `updateStatutorySettings`, `updateRxPrintSettings`, `updateUserProfile`, `updateStaffMember` (their forms refresh or hold the answer). **Kept** (not hot saves): schedule blocks, `waitlist.addToWaitlist`, the doctor's schedule blocks and working hours, patient edit, consent, referrals, labs, webhooks, API keys, notifications, `updateClinicProfileAction` (unused).
+- **Check in no longer renders twice**: the action revalidated `/today` and `/schedule` (a render in the action's response) and `onDone` then read the board (a second render's reads). It is one command now: `save.R.check-in` **1 call / depth 1** (was 4 / 3 at the failing ceiling), ceiling lowered by the tool, not raised.
+
+### Budget rows (tool output: `evidence/09E-08/save-rows-300ms.json`, `.md`; ceilings written by `latency-ceilings.mjs`, no number typed, none raised)
+
+| Row | Before (calls / depth) | After |
+| --- | --- | --- |
+| `save.R.check-in` (B-7, PR lane) | 4 / 3 | **1 / 1** |
+| `save.D.add-rx-line` (B-6, PR lane) | 2 / 2 | **1 / 1** (the line visible while the call is held: spec) |
+| `save.D.edit-rx-line` (B-6) | 2 / 2 | **1 / 1** |
+| `save.D.add-diagnosis` (B-6) | 22 / 20 | 4 / 4 |
+| `save.D.allergies` (B-7) | 20 / 17 | 2 / 2 (the command and the one allowed context re-read after the editor saved) |
+| `save.D.start-consult` (B-7) | 16 / 8 | 4 / 2 |
+| `save.D.sign-finish` (B-8) | 131 / 46 | 58 / 34 (see below) |
+| `save.R.register-book`, `save.R.book`, `save.R.reschedule` (B-7) | 19 / 9 (8) | 9 / 8 |
+| `save.R.cancel` (B-7) | 11 / 8 | 10 / 8 |
+| `save.R.collect` (B-7) | 22 / 12 | 10 / 9 |
+| `save.D.draft-autosave` (B-6) | 1 / 1 | 1 / 1 (unchanged) |
+
+New blocking assertion in the lane: **a save causes no RSC page request** (`maxRsc` on the row, default 0; `latency-run.ts` `enforce`): 0 for Rx, diagnosis, check in, collect, allergies; 1 for the Schedule's sheets and dialogs (below), start (a navigation), Sign and Bill (`router.refresh`).
+
+### Sign and finish: measured and reported (B-8 is **not met**; nothing moved)
+
+`save.D.sign-finish` at 300 ms: **131 -> 58 calls, depth 46 -> 34** (`evidence/09E-08/save-rows-300ms.md`; the last sample's calls by path). The action's own `revalidatePath` (a second render of the consult after the one `onSigned` asks for) is gone; the rest is what the response waits for or follows:
+- the session context (2: `session_is_live`, `my_tenant_access`) and the command (1: `complete_and_bill`);
+- **inside the action, after the commit, before the answer**: the signed prescription's PDF archive (storage POST of `rx_v1.pdf`, `PATCH prescriptions`, its reads of the prescription, items, diagnoses, patient, follow-up) and the receipt PDF (invoice, items, payments reads; storage POST and sign; `log_audit` x2). That is about a quarter of the window and the success screen needs the result of the receipt and the WhatsApp outcome (`whatsAppSent`), so it cannot simply go to `after()` without changing the screen;
+- **after the response**: `onSigned` -> `router.refresh()` reads the sealed record (`consult_screen`, the print payload's chain of reads and the stored PDF GETs: 09E-05's open question) so Print is ready in the success screen.
+Not moved, because each move changes what the success screen shows or needs the print payload as one SQL read (09E-05 PO question). The PDF/receipt work would be the next candidate (cost: about 12 calls, depth 8, before the answer).
+
+### Specs and proofs
+
+- `tests/e2e/consult/save-classes.spec.ts` (desktop-chrome, pixel-7; `@golden` ones also iphone-15): the tracer (held call: the line is on screen with `data-pending` and "Saving…", the database holds 0 rows, the builder is closed and the field free; released: 1 action POST, 0 RSC requests, one stored line equal to what was shown after a reload); **Q-6** (`Paracetamol` typed across a 400 ms save reaches the field; desktop-chrome and iphone-15); a refused save (the command is cut in the browser, nothing committed): the line goes, the builder returns with "The change was not saved", Enter stores it once;
+  a refusal after the doctor started the next medicine (the field is untouched, the notice has Retry, Retry stores it once); remove refused (the line is back, alert with Retry; Retry removes it); a diagnosis added at once (1 call, 0 RSC), its removal refused (back, Retry).
+- `tests/e2e/shell/confirm-saves.spec.ts`: for **register and book, book, reschedule, cancel, collect payment, allergies, sign and finish** (`SAVE_ROWS`' own steps, so the press is exactly what the budget measures; `held` on each row): with the action POST held, no success text (an immediate count, see the note below), the dialog or sheet still open, nothing moved, the database empty of the change; after the release the success shows and the database holds it.
+  Check in (reversible): the row is in Waiting while the command is held and the database still says booked; one POST, 0 RSC; a lost command rolls the row back with the fixed error and Retry (Retry moves it, one token); a **stale** check-in (`ROW_CHANGED`: B checked the visit in) rolls back with the fixed text and **no** Retry, and the re-read shows it Waiting.
+- Vitest: `tests/today/optimistic-moves.spec.ts` (7), `tests/prescriptions/rx-overlay.spec.ts` (4), `tests/consultation/custom-lists.spec.ts` (4); registered in `assert-vitest-report.mjs`.
+- RUM: `tests/e2e/observability/rum.spec.ts` "saves by risk class": an Rx line gives `consult|save_reversible`, an allergy save `save_confirmed`, sign and finish `finish_confirmed` in `ops.rum_daily`; no uuid, path or name in any beacon.
+- Lane: a save row fails on an RSC page request over its `maxRsc` (0 by default; 1 for the Schedule's sheets, dialogs and the Confirm button, Sign and Bill and start; blocking at any delay).
+
+### Fails-without
+
+- **High: an optimistic success added to booking makes it red; recorded, restored.** `booking-sheet.tsx` with `notify.success(...)` and `onDone()` sent before `await run(...)` (rebuilt): `confirm-saves` **`save.R.book` and `save.R.register-book` fail** on desktop-chrome (the success text is on screen while the POST is held). Restored (rebuilt); both pass.
+  The first version of the spec passed with this defect in place: `toHaveCount(0)` retries until true, and the 4 s toast went away inside the 5 s window. The spec now takes an immediate count; this is the version that failed on the defect.
+- **Q-6**: `rx-entry-row.tsx` with the input `readOnly` (and its keys swallowed) while the add is on its way, as in 09C-01: `save-classes` "Q-6" **fails on desktop-chrome and iphone-15** (the field is empty after `Paracetamol` is typed during the save). Restored. The test was first not tagged `@golden`, so iphone-15 skipped it; it is tagged now.
+
+### Decisions and deviations
+
+- **The Schedule is still server-rendered (09E-12 puts it on the query layer), so a save made on it cannot be applied with `setQueryData`**: registration, booking, reschedule, cancel, no-show, promotion and the Confirm button end in one RSC request for the Schedule (`useAfterSave`: the soft navigation that closes a link-opened sheet already re-reads the route; a dialog or a button calls `router.refresh()` itself). On Today they write the board (cancel, no-show, check-in, vitals) or mark it stale (one `GET /api/today/board`: a new row or a row that leaves the day). The plan's "no RSC page request" holds for every Today and consult save; for the Schedule it is "one", per row `maxRsc`.
+  09E-12 removes it. **Creates and moves are a board GET, not `setQueryData`**: a walk-in, a booking, a reschedule or a promotion adds or moves a row; the answer carries ids and a token, not the patient's row, so building the row on the client would be a guess.
+- **Vitals** save as a confirmed form (the sheet keeps the server's fixed refusal text and its inputs when refused: 08-03b) and write the answer into the board; it is not an optimistic move.
+- **Complete** (the queue move after a payment) stays a confirm-class step of the checkout, sent in the same round trip as the billing read, not a Today row move: Today has no row action for it.
+- **Allergies**: one call for the command and one allowed re-read of the context after the editor saved (`rx_allergy_context`), so `save.D.allergies` is 2 / 2, not 1.
+- **Diagnosis saves are not commands** (no `client_request_id`; they are plain server actions): they are reversible with rollback and Retry but not run through `useCommand` (a retry after a lost response could add a second row). Draft autosave unchanged.
+- **Pending Rx lines cannot be edited or removed** until the answer (their buttons are disabled): there is no id to send for them yet.
+- **Found and fixed**: the doctor's Next card made `/today` wider than a 360 px screen when the snapshot panel is on and the patient's name is long (a grid column sized by its content): `grid-cols-1`. Found by the design review once a long name was on the board (`design-review-09e` M3, doctor).
+- **Found, not mine, not fixed (open)**: `shell/loading-states.spec.ts` "a patient record opened from Patients ... skeleton shows once the layout has answered" fails 2 of 3 runs with `--repeat-each=3` on the **09E-07 tree (`4eb220a3`, built and run for this check)**, and passes on its first run; in the full PR-lane run it failed once on the same tree plus this plan. It is 09E-06's spec; its skeleton window depends on a state the first run leaves behind. Root cause not found here.
+  `shell/back-resume-keyboard.spec.ts:107` (pixel-7) failed once in the full run (2 state reads for two resumes inside the coalescing window) and passed 3 of 3 alone; it is 09E-04's; under load a heartbeat tick can fall in its window. Both are reported, not hidden.
+- Specs that read the database right after the screen shows an Rx line now wait for the pending markers to clear (`rxStored`, `support/rx-entry.ts`): an added line shows before the database has it by design (found by `rx-assist` on iphone-15).
+
+### Security-sensitive for the adversarial review
+
+No migration, no RLS or grant change, no new route, no new action, no service-role use. Every server action keeps its own authentication, permission check and tenant derivation (only `revalidatePath` calls were removed from them; `tests/security` guard specs pass). For the review: `lib/query/mutations.ts` (a retry reuses the request id; a mutation never retries by itself), `lib/query/after-save.ts` (the board predicate is `key[1] === "today"`; keys hold the clinic id first and ids and modes only),
+the allergy picture on the consult (`consult-workspace.tsx` `allergyItems`: a line this session added is checked with the TypeScript twin, not the database; the database still refuses a match on every write and `unresolvedAllergies` blocks Finish for a flagged line without a reason), `rx-overlay.ts` (pending ids are never sent to the server; their buttons are disabled), RUM emissions (closed metric names, a number only), and the removal of every `revalidatePath` listed above (nothing else read those paths' caches: no `unstable_cache` in the app).
+
+### For the PO
+
+1. Q-6 was implemented as the default (the field stays editable; keys typed during a save are kept). The refusal case when the doctor has moved on shows a notice above the field with Retry rather than putting the old line back in the builder: acceptable?
+2. B-8 (sign and finish in 2 calls) is not met: 58 calls remain at 300 ms (the archive and receipt PDFs inside the action, and the sealed record read after it). Moving the PDF work after the response changes what the success screen can show (the WhatsApp outcome); which do you want?
+3. The Schedule's saves refresh their route (one RSC request) until 09E-12; the plan's "no RSC request" is met on Today and the consult only.
+4. The two flaky specs above (`loading-states` patient record, `back-resume-keyboard` on pixel-7) are 09E-06's and 09E-04's; they need an owner.
+
+### Tests run (local stack, `stack:recycle` before each e2e run, `--retries=0`)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors, 390 warnings (the 09E-07 count; mine were removed). `npm run inventory`: 0 flagged. `server-routes.mjs --check`: pass. No migration, so no pgTAP and no `seed:local` were needed.
+- Vitest (`tests/{prescriptions,terminology,queue,visits,billing,security,perf,ci,today,query,live,consultation,observability,lint,shell,pwa}`): **182 files, 4125 tests passed** (the two `age`-binary files are outside these folders).
+- Latency lane at 300 ms, `perf-latency --grep "save\."`: 21 passed (the last of three runs; the two before failed on the new RSC assertion, once on my own wrong `closing` option for the dialogs: both fixed in code, not by raising `maxRsc`: it was first set to 2 for the sheets, refused by the review of my own change, and the product was changed so the save makes one request).
+- e2e, desktop-chrome + pixel-7 + iphone-15 (`consult today schedule journey-04 journey-05 shell live observability pwa/05-cache-audit`, 796 tests): 621 passed, 170 skipped by design, 4 failed (below).
+  `tests/e2e/a11y` (desktop-chrome, pixel-7): 148 passed. Design projects (360 / 820 / 1180 / 1280): 142 passed (their screenshots overwrote tracked evidence; discarded, never committed). `confirm-saves` and `save-classes` on all three: 36 passed, 7 skipped by design.
+- **Full PR lane once** (`desktop-chrome pixel-7 iphone-15 pwa-ipados`, 1,544 tests, 1.6 h, no retries): **1,209 passed, 326 skipped, 9 failed.** Every failure was re-run alone:
+  - `design/keyboard/clinical-b` "Rx entry ... five keys" (the page scrolled 1,574 px; desktop-chrome): passes 3 of 3 alone. It drives the entry row I changed, so I looked: the commit now closes the builder and adds the line in one render instead of two; the focus and the scroll calls are the same. Not reproduced; reported.
+  - `shell/back-resume-keyboard:107` (desktop-chrome and pixel-7; 09E-04's): passes 4 of 4 alone (desktop-chrome) and 3 of 3 (pixel-7). A second state read lands inside its window under load.
+  - `shell/loading-states:92` patient record (09E-06's): **fails 2 of 3 alone on the 09E-07 tree as well** (not this plan's).
+  - `shell/ui-checks` owner at 820, 1180 and 1280 px ("animations still running", the 30 s test limit; many pages in one test): passes 2 of 2 alone.
+  - `journeys/journey-03-register-patient` and `m0/register-patient` (iphone-15): the Register patient sheet did not open within 5 s after the link click; they pass 2 of 2 alone on iphone-15. Nothing in this plan touches that sheet's opening.
+  The lane's failures are timing under a loaded full run; none is a spec that only passes on a retry in CI terms, but I did not root-cause the five that pass alone beyond what is written above, and the PO should expect the CI run to show them if the runner is as loaded.
+- Fails-without: both recorded above.
