@@ -6,6 +6,7 @@ import { onAccessLevel } from "@/lib/pwa/lock";
 import { registerCleanup } from "@/lib/pwa/cleanup";
 import { rum } from "@/lib/observability/rum/collector";
 import { parseSignal, parseSnapshot, type LiveDomain, type Versions } from "./domains";
+import { clinicHeaders, isClinicChanged, onClinicChanged } from "./clinic-changed";
 import { createLiveCore, type Dependent, type LiveCore, type LiveCoreDeps } from "./live-core";
 
 /**
@@ -45,11 +46,15 @@ function dependentsOf(client: QueryClient): Dependent[] {
     .map((q) => ({ id: q.queryHash, domains: (q.meta?.domains ?? []) as readonly LiveDomain[], active: q.isActive() }));
 }
 
-async function readState(): Promise<ReturnType<typeof parseSnapshot>> {
+async function readState(tenantId: string): Promise<ReturnType<typeof parseSnapshot>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), STATE_TIMEOUT_MS);
   try {
-    const response = await fetch(STATE_URL, { cache: "no-store", credentials: "same-origin", signal: controller.signal });
+    const response = await fetch(STATE_URL, { cache: "no-store", credentials: "same-origin", signal: controller.signal, headers: clinicHeaders(tenantId) });
+    if (await isClinicChanged(response)) {
+      onClinicChanged();
+      return null;
+    }
     if (!response.ok) return null;
     return parseSnapshot(await response.json());
   } catch {
@@ -66,7 +71,7 @@ function badgeKey(core: LiveCore): string {
   return badge.secondsAgo === null ? "reconnecting" : `reconnecting:${Math.floor(badge.secondsAgo / 5) * 5}`;
 }
 
-function createStore(queryClient: QueryClient): LiveStore {
+function createStore(queryClient: QueryClient, tenantId: string): LiveStore {
   const listeners = new Set<() => void>();
   const deps: LiveCoreDeps = {
     now: () => Date.now(),
@@ -79,7 +84,7 @@ function createStore(queryClient: QueryClient): LiveStore {
       const t = setInterval(fn, ms);
       return () => clearInterval(t);
     },
-    readState,
+    readState: () => readState(tenantId),
     dependents: () => dependentsOf(queryClient),
     reread: (id) => void queryClient.invalidateQueries({ predicate: (q) => q.queryHash === id }, { cancelRefetch: false }),
     remove: (id) => queryClient.removeQueries({ predicate: (q) => q.queryHash === id }),
@@ -103,7 +108,7 @@ function createStore(queryClient: QueryClient): LiveStore {
 export function LiveProvider({ tenantId, children }: { tenantId: string; children: React.ReactNode }) {
   const queryClient = useQueryClient();
   // Created in the first render so a screen's effect (which runs before this component's) can register at once; nothing runs until then.
-  const [store] = useState(() => createStore(queryClient));
+  const [store] = useState(() => createStore(queryClient, tenantId));
   const { core } = store;
 
   useEffect(() => {

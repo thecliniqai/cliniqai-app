@@ -33,6 +33,7 @@ import { getAdminClient } from "../../helpers/supabase-admin";
 import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
+import { TENANT_HEADER } from "@/lib/live/clinic-header";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -1136,6 +1137,32 @@ export async function rumIngestRouteLegs(slot: RequestSlot, c: RouteCase, world:
   return out;
 }
 
+
+/**
+ * 09E-14a (finding A): a read made for another clinic than the session's (the `x-clinicos-tenant` header names tenant B, a tab left open across a
+ * switch) answers 409 CLINIC_CHANGED with the fixed body, no cookie, no data and no id, and touches nothing but the membership lookup; the header
+ * naming the session's own clinic is the plain call.
+ */
+async function clinicChangedLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  world: GuardWorld,
+  client: object,
+  ownTenant: string,
+  query: Record<string, string> = {},
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const other = await callRoute(slot, client, c, { query, headers: { [TENANT_HEADER]: world.b.tenant } });
+  out.push(...expectStatus(c, "another clinic's header", other, [409]), ...expectNoB(c, "another clinic's header", other, world));
+  if (other.body !== '{"error":"The clinic changed.","code":"CLINIC_CHANGED"}') out.push(routeV(c, "another clinic's header", `body is not the fixed text: ${brief(other.body)}`));
+  if (!/\bno-store\b/.test(other.headers.get("cache-control") ?? "")) out.push(routeV(c, "another clinic's header", "no Cache-Control: no-store"));
+  const stray = other.access.filter((a) => !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+  if (stray.length > 0) out.push(routeV(c, "another clinic's header", `data access after a clinic change: ${stray.join(", ")}`));
+  const own = await callRoute(slot, client, c, { query, headers: { [TENANT_HEADER]: ownTenant } });
+  out.push(...expectStatus(c, "the session's own clinic header", own, [200]));
+  return out;
+}
+
 /**
  * `live-state` route (09E-04, T-09E-05): no session 401 and no membership 403, each touching nothing but the membership lookup; every role of the clinic
  * answers 200 with `no-store`, a body of exactly the guard's keys whose `versions` hold exactly the four domains as numbers, and no cookie; a forged
@@ -1186,6 +1213,17 @@ export async function liveStateRouteLegs(
     } catch {
       out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
     }
+  }
+
+  out.push(...(await clinicChangedLegs(slot, c, world, world.roles.receptionist.client, world.roles.receptionist.tenantId)));
+  // A locked clinic's device must still learn it: 200 and an access level that is not `full` (never a 403).
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [200]));
+  try {
+    const access = (JSON.parse(locked.body) as { access?: unknown }).access;
+    if (access === "full" || typeof access !== "string") out.push(routeV(c, "locked clinic", `access is ${String(access)}, expected a level other than full`));
+  } catch {
+    out.push(routeV(c, "locked clinic", `body is not JSON: ${brief(locked.body)}`));
   }
 
   const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
@@ -1289,6 +1327,10 @@ export async function sessionBoardRouteLegs(
       out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
     }
   }
+  out.push(...(await clinicChangedLegs(slot, c, world, client, world.roles[role].tenantId)));
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes("SUBSCRIPTION_LOCKED")) out.push(routeV(c, "locked clinic", `no SUBSCRIPTION_LOCKED code: ${brief(locked.body)}`));
   return out;
 }
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { getTodayBoard } from "@/features/today/queries";
 import { resolveMode } from "@/features/today/schema";
+import { clinicChangedResponse } from "@/lib/live/clinic-guard";
 import { timedRoute } from "@/lib/observability/server-timing";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -16,6 +17,8 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  *   that doctor's visits (the session's user, never a parameter).
  * - 401 unauthenticated, 403 without the permission or a membership, 403 `SUBSCRIPTION_LOCKED` for a locked or onboarding clinic,
  *   503 when Auth could not answer (never a sign-out), 500 when the database could not answer. Error bodies are fixed strings.
+ * - 409 `CLINIC_CHANGED` (09E-14a) when the client's `x-clinicos-tenant` names another clinic than the session's (a tab left open across a switch); fixed body, after the
+ *   permission check, before any read. The header only makes a read fail; the clinic is always the session's.
  * - 200 the board `{ rows, generatedAt, today, timeZone }`. `Cache-Control: private, no-store`; `Server-Timing` through `timedRoute`.
  */
 async function handleGet(request: NextRequest) {
@@ -34,6 +37,8 @@ async function handleGet(request: NextRequest) {
   }
 
   const ctx = resolved.ctx;
+  const changed = clinicChangedResponse(request, ctx.tenantId, NO_STORE);
+  if (changed) return changed;
   const mode = resolveMode(ctx.role, request.nextUrl.searchParams.get("mode"));
   const result = await getTodayBoard(ctx, { mode, doctorId: mode === "doctor" ? ctx.userId : undefined });
   if (!result.ok) {

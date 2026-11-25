@@ -14,6 +14,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { buttonClassName } from "@/components/ui/button";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
 import { registerHref } from "@/components/front-desk/patient-search";
+import { ClinicChangedError, clinicHeaders, isClinicChanged, onClinicChanged } from "@/lib/live/clinic-changed";
 import {
   groupIntoLanes,
   lanesOf,
@@ -105,8 +106,13 @@ export interface TodayBoardViewProps {
 class BoardReadError extends Error {}
 
 /** One `GET /api/today/board` (09E-03, R-14): the query's read. No RSC request, no page render. */
-async function fetchBoard(mode: TodayMode, signal: AbortSignal): Promise<TodayBoard> {
-  const response = await fetch(`/api/today/board?mode=${mode}`, { cache: "no-store", credentials: "same-origin", signal });
+async function fetchBoard(tenantId: string, mode: TodayMode, signal: AbortSignal): Promise<TodayBoard> {
+  const response = await fetch(`/api/today/board?mode=${mode}`, { cache: "no-store", credentials: "same-origin", signal, headers: clinicHeaders(tenantId) });
+  // 09E-14a: this tab shows a clinic the session left (a switch in another tab): never store the answer under this clinic's key.
+  if (await isClinicChanged(response)) {
+    onClinicChanged();
+    throw new ClinicChangedError();
+  }
   if (!response.ok) throw new BoardReadError("Today could not be refreshed.");
   return (await response.json()) as TodayBoard;
 }
@@ -121,7 +127,7 @@ export function TodayBoardView(props: TodayBoardViewProps) {
   const key = queryKeys.today(tenantId, mode);
   const { data } = useQuery({
     queryKey: key,
-    queryFn: ({ signal }) => fetchBoard(mode, signal),
+    queryFn: ({ signal }) => fetchBoard(tenantId, mode, signal),
     meta: { live: true, domains: queryDomains.today },
   });
   // The page's own read is the board's basis until a re-read replaces it (a later page render never raises it: that data may not have been taken).

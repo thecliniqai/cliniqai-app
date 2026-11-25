@@ -21,7 +21,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { GET } from "@/app/api/today/board/route";
 
-const board = (query = "") => GET(new NextRequest(`http://localhost/api/today/board${query}`));
+const board = (query = "", headers: Record<string, string> = {}) => GET(new NextRequest(`http://localhost/api/today/board${query}`, { headers }));
 
 let a: SeededTenant;
 let b: SeededTenant;
@@ -99,5 +99,20 @@ describe("GET /api/today/board", () => {
     expect(asReception.rows.map((r) => r.visitId).sort()).toEqual([visitOfOwner, visitOfDoctor].sort());
     const junk = await board("?mode=%00;drop");
     expect(junk.status).toBe(200);
+  });
+
+  it("09E-14a: a read made for another clinic (x-clinicos-tenant) is 409 CLINIC_CHANGED with a fixed body and no rows; the session's own clinic reads", async () => {
+    mockState.client = receptionist.client;
+    const stale = await board("?mode=front", { "x-clinicos-tenant": b.tenantId });
+    expect(stale.status).toBe(409);
+    expect(stale.headers.get("cache-control")).toBe("private, no-store");
+    expect(await stale.json()).toEqual({ error: "The clinic changed.", code: "CLINIC_CHANGED" });
+    const own = await board("?mode=front", { "x-clinicos-tenant": a.tenantId });
+    expect(own.status).toBe(200);
+    // The permission check is first: no session is 401 whatever the header says.
+    mockState.client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    expect((await board("?mode=front", { "x-clinicos-tenant": b.tenantId })).status).toBe(401);
   });
 });
