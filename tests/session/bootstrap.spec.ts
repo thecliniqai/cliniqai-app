@@ -3,7 +3,8 @@
  * answer enters the shell's memory, so a key outside the allow-list, at any level, is refused and nothing is held. Synthetic data only.
  */
 import { describe, expect, it } from "vitest";
-import { clinicLabel, parseSessionBootstrap, switcherClinics } from "@/features/session/bootstrap";
+import { parseSessionBootstrap } from "@/features/session/bootstrap";
+import { clinicLabel, switcherClinics } from "@/features/session/view";
 
 const T = "c1310000-0000-4000-8000-00000000000a";
 const U = "c1310000-0000-4000-8000-000000000101";

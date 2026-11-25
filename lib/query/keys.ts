@@ -39,7 +39,8 @@ declare module "@tanstack/react-query" {
     /**
      * `domains`: the clinic domains (schedule, queue, billing, settings) a query depends on (`queryDomains`); the live core (09E-04) re-reads or removes the query when a newer version of one arrives.
      * `live`: the query is a live view and is refreshed when the app resumes (the shell's resume hook).
+     * `passive` (09E-13): held for the session (the bootstrap), not a screen's: it never makes the channel's join ask the server on its own.
      */
-    queryMeta: { domains?: readonly ("schedule" | "queue" | "billing" | "settings")[]; live?: boolean };
+    queryMeta: { domains?: readonly ("schedule" | "queue" | "billing" | "settings")[]; live?: boolean; passive?: boolean };
   }
 }

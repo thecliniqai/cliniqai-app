@@ -2,7 +2,7 @@
 
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo } from "react";
 import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
-import { parseSessionBootstrap, type SessionBootstrap } from "@/features/session/bootstrap";
+import type { SessionBootstrap } from "@/features/session/bootstrap";
 import { clinicHeaders, ClinicChangedError, isClinicChanged, onClinicChanged } from "@/lib/live/clinic-changed";
 import { emptyVersions } from "@/lib/live/domains";
 import { useLiveCore } from "@/lib/live/provider";
@@ -28,6 +28,8 @@ export async function fetchSessionBootstrap(tenantId: string, signal?: AbortSign
     throw new ClinicChangedError();
   }
   if (!response.ok) throw new BootstrapReadError("The session could not be refreshed.");
+  // The allow-list parser (zod) is loaded only when a re-read happens, never in the first-load JS of the shell.
+  const { parseSessionBootstrap } = await import("@/features/session/bootstrap");
   const parsed = parseSessionBootstrap(await response.json());
   if (!parsed) throw new BootstrapReadError("The session could not be refreshed.");
   return parsed;
@@ -37,7 +39,8 @@ export function sessionBootstrapOptions(tenantId: string) {
   return {
     queryKey: queryKeys.bootstrap(tenantId),
     queryFn: ({ signal }: { signal: AbortSignal }) => fetchSessionBootstrap(tenantId, signal),
-    meta: { live: true, domains: queryDomains.bootstrap },
+    // Passive: held by the shell on every page; the channel's join does not ask the server for it (a page that is not a live screen pays no call).
+    meta: { live: true, passive: true, domains: queryDomains.bootstrap },
     staleTime: Infinity,
   } as const;
 }

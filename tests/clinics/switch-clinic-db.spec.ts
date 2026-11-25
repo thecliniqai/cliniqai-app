@@ -51,7 +51,8 @@ import { ACTIVE_TENANT_COOKIE, ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS } from "@/li
 import { ClinicPicker } from "@/components/shell/clinic-picker";
 import { HydrationBoundary } from "@tanstack/react-query";
 import { SessionShell } from "@/components/shell/session-shell";
-import { switcherClinics, type SessionBootstrap } from "@/features/session/bootstrap";
+import type { SessionBootstrap } from "@/features/session/bootstrap";
+import { switcherClinics } from "@/features/session/view";
 import { findElement } from "../helpers/element-tree";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { createClient as createSupabase } from "@supabase/supabase-js";

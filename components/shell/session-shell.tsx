@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { UserRole } from "@/lib/db/types";
-import { clinicLabel, switcherClinics } from "@/features/session/bootstrap";
+import { clinicLabel, switcherClinics } from "@/features/session/view";
 import { resolveTimeZone } from "@/lib/datetime";
 import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
 import { navForRole } from "@/lib/nav/nav-for-role";

@@ -40,15 +40,3 @@ export function parseSessionBootstrap(body: unknown): SessionBootstrap | null {
   const parsed = sessionBootstrapSchema.safeParse(body);
   return parsed.success ? parsed.data : null;
 }
-
-/** The clinic's name as the shell shows it ("Clinic" for an empty one, as the switcher did). */
-export function clinicLabel(name: string | null | undefined): string {
-  return name?.trim() || "Clinic";
-}
-
-/** The user's clinics for the switcher, ordered by name then id (the order the layout's own read gave). */
-export function switcherClinics(bootstrap: Pick<SessionBootstrap, "clinics">): { id: string; name: string }[] {
-  return bootstrap.clinics
-    .map((c) => ({ id: c.id, name: clinicLabel(c.name) }))
-    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-}

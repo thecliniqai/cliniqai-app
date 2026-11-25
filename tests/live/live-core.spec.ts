@@ -217,6 +217,23 @@ describe("checks", () => {
     expect(idle.calls.state).toBe(0);
   });
 
+  it("09E-13: the session bootstrap (a passive query every page holds) never makes the join ask, yet a signal or a check re-reads it", async () => {
+    const bootstrap: Dependent = { id: "bootstrap", domains: ["settings"], active: true, passive: true };
+    const h = harness({ dependents: [bootstrap] });
+    h.core.channel(true);
+    await flush();
+    expect(h.calls.state, "a page that is not a live screen pays no call when the channel joins").toBe(0);
+    h.core.signal("settings", 4);
+    await h.advance(400);
+    expect(h.calls.reread).toEqual(["bootstrap"]);
+    h.setAnswer(h.state({ settings: 5 }));
+    h.core.wake();
+    await flush();
+    expect(h.calls.state).toBe(1);
+    await h.advance(400);
+    expect(h.calls.reread).toEqual(["bootstrap", "bootstrap"]);
+  });
+
   it("a subscription that is not a change (SUBSCRIBED again with no drop between) checks nothing more", async () => {
     const h = harness();
     h.core.registerScreen();

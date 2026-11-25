@@ -43,7 +43,7 @@ function dependentsOf(client: QueryClient): Dependent[] {
     .getQueryCache()
     .findAll()
     .filter(isLiveQuery)
-    .map((q) => ({ id: q.queryHash, domains: (q.meta?.domains ?? []) as readonly LiveDomain[], active: q.isActive() }));
+    .map((q) => ({ id: q.queryHash, domains: (q.meta?.domains ?? []) as readonly LiveDomain[], active: q.isActive(), passive: q.meta?.passive === true }));
 }
 
 async function readState(tenantId: string): Promise<ReturnType<typeof parseSnapshot>> {

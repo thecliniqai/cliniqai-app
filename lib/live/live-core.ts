@@ -31,6 +31,11 @@ export interface Dependent {
   domains: readonly LiveDomain[];
   /** A screen is showing it now. */
   active: boolean;
+  /**
+   * 09E-13 (R-13): a query held for the whole session (the session bootstrap) rather than shown by a screen. It converges like any other (a signal, a check,
+   * a resume), but its presence alone never asks the server when the channel (re)joins: a page that is not a live screen still pays no call.
+   */
+  passive?: boolean;
 }
 
 export interface LiveCoreDeps {
@@ -206,7 +211,7 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
         everSubscribed = true;
         // The check closes the gap between what a screen read and the moment the channel started listening. With no live screen and no query that
         // depends on a domain there is nothing to catch up (the first one to appear carries its own basis), so a page of another kind pays no call.
-        if (screens > 0 || deps.dependents().some((d) => d.active)) void check();
+        if (screens > 0 || deps.dependents().some((d) => d.active && !d.passive)) void check();
       }
     },
     signal(domain, version) {

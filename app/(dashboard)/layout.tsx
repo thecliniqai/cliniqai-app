@@ -25,7 +25,7 @@ import { QueryProvider, QueryScreens } from "@/lib/query/provider";
 import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
 import { queryKeys } from "@/lib/query/keys";
 import { createClient } from "@/lib/supabase/server";
-import { clinicLabel } from "@/features/session/bootstrap";
+import { clinicLabel } from "@/features/session/view";
 import { readSessionBootstrap } from "@/features/session/queries";
 import { BootstrapLiveBasis, SessionBootstrapScope } from "@/lib/session/use-bootstrap";
 import { ResumeRefresh } from "@/components/shell/resume-refresh";
@@ -64,6 +64,13 @@ export default async function DashboardLayout({
     throw error;
   }
 
+  // V2-09e 09E-13 (R-13): the session bootstrap is read as soon as the clinic is known, beside the membership and access checks, never after them (the
+  // depth of a full load stays as it was). The device's pinned clinic is the clinic in almost every load, so its read starts now; the function answers only
+  // for an active member (NULL otherwise), and it is used only when the session resolves to that same clinic.
+  const pinned = await readActiveClinicCookie();
+  const bootstrapDb = await createClient();
+  const pinnedBootstrap = isClinicId(pinned) ? readSessionBootstrap(bootstrapDb, pinned.toLowerCase()) : null;
+
   let membership;
   try {
     membership = await getActiveMembership();
@@ -93,7 +100,12 @@ export default async function DashboardLayout({
   // closed). This is the UX on top of the database stop (RLS, storage, definer RPCs and guards, 05-10a), not the
   // control itself. The destinations are outside this layout, so they never loop, and the proxy does not query the
   // database (SUB §7.2 item 5): PWA assets and every non-dashboard path are never redirected by this rule.
-  const destination = accessRedirect(membership.role, await getTenantAccessLevel(membership.tenantId));
+  const bootstrapRead =
+    pinnedBootstrap && isClinicId(pinned) && pinned.toLowerCase() === membership.tenantId.toLowerCase()
+      ? pinnedBootstrap
+      : readSessionBootstrap(bootstrapDb, membership.tenantId);
+  const [accessLevel, bootstrap] = await Promise.all([getTenantAccessLevel(membership.tenantId), bootstrapRead]);
+  const destination = accessRedirect(membership.role, accessLevel);
   if (destination) {
     redirect(destination);
   }
@@ -103,12 +115,11 @@ export default async function DashboardLayout({
   // this layout made for the switcher (V2-08 08-05), so a full load makes the same number of calls at the same depth. It is handed to the client's bootstrap
   // query (`HydrationBoundary`), which the shell and the screens read for the rest of the session; a layout render after a refresh hands over a newer one.
   // A failed read shows what the session knows (the role) and "Clinic", as the failed switcher read did, and the client reads it again.
-  const bootstrap = await readSessionBootstrap(await createClient(), membership.tenantId);
   const queryClient = createRequestQueryClient();
   if (bootstrap) queryClient.setQueryData(queryKeys.bootstrap(membership.tenantId), bootstrap);
 
   // 06-09d (M-REMOVED-R1): no clinic pinned on this device yet: the shell's first status check pins this one.
-  const shellClinic = isClinicId(await readActiveClinicCookie()) ? null : membership.tenantId;
+  const shellClinic = isClinicId(pinned) ? null : membership.tenantId;
 
   // Every client component below reads the clinic's zone from the shell (V2-03 03-05; from the bootstrap since 09E-13); the browser zone is never used.
   // V2-06 06-05: the PWA runtime (service worker, offline banner) runs only in the signed-in shell; `next dev` never
