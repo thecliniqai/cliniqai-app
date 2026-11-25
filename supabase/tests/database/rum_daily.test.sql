@@ -12,6 +12,11 @@
 begin;
 select plan(63);
 
+-- 09E-14a (000127): the ingest answers an active member only; the caller below is the owner of a synthetic clinic.
+insert into auth.users (id, email) values ('c1220000-0000-4000-8000-000000000001', 'c122-member@example.test');
+insert into public.tenants (id, name) values ('c1220000-0000-4000-8000-00000000000a', 'Synthetic 000122 Clinic');
+insert into public.memberships (user_id, tenant_id, role) values ('c1220000-0000-4000-8000-000000000001', 'c1220000-0000-4000-8000-00000000000a', 'owner');
+
 -- Nothing the local stack already holds may colour the counts below (the transaction rolls back).
 delete from ops.rum_daily;
 delete from ops.rum_overflow;

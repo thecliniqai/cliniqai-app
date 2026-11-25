@@ -88,7 +88,7 @@ select is(
   (select count(*)::int from pg_trigger t join pg_proc f on f.oid = t.tgfoid
     where not t.tgisinternal and f.pronamespace = 'private'::regnamespace and f.proname like 'cv\_%'
       and (t.tgtype & 1) = 0 and (t.tgtype & 2) = 0 and (t.tgtype & 64) = 0),
-  22, 'the 22 statement triggers: AFTER, FOR EACH STATEMENT, one event each');
+  27, 'the 27 statement triggers (22 of 000123, 5 of 000127): AFTER, FOR EACH STATEMENT, one event each');
 
 select is(
   (select string_agg(p.polcmd::text || ':' || coalesce((select string_agg(r.rolname, ',') from pg_roles r where r.oid = any (p.polroles)), 'public'), ';')

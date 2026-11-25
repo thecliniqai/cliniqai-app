@@ -132,6 +132,9 @@ column ops.rum_daily.release text not_null=t default=- identity=- generated=-
 column ops.rum_daily.screen text not_null=t default=- identity=- generated=-
 column ops.rum_overflow.day date not_null=t default=- identity=- generated=-
 column ops.rum_overflow.dropped bigint not_null=t default=0 identity=- generated=-
+column ops.rum_user_daily.day date not_null=t default=- identity=- generated=-
+column ops.rum_user_daily.samples bigint not_null=t default=- identity=- generated=-
+column ops.rum_user_daily.user_key bytea not_null=t default=- identity=- generated=-
 column ops.settings.key text not_null=t default=- identity=- generated=-
 column ops.settings.value text not_null=t default=- identity=- generated=-
 column private.command_hash_key.id smallint not_null=t default=- identity=- generated=-
@@ -895,6 +898,8 @@ constraint ops.rum_daily.rum_daily_release_check CHECK ((release ~ '^([0-9a-f]{7
 constraint ops.rum_daily.rum_daily_screen_check CHECK ((screen = ANY (ARRAY['today'::text, 'schedule'::text, 'patients'::text, 'patient'::text, 'consult'::text, 'visits'::text, 'billing'::text, 'settings'::text, 'staff'::text, 'other'::text])))
 constraint ops.rum_overflow.rum_overflow_dropped_check CHECK ((dropped >= 0))
 constraint ops.rum_overflow.rum_overflow_pkey PRIMARY KEY (day)
+constraint ops.rum_user_daily.rum_user_daily_pkey PRIMARY KEY (day, user_key)
+constraint ops.rum_user_daily.rum_user_daily_samples_check CHECK ((samples >= 1))
 constraint ops.settings.settings_key_check CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))
 constraint ops.settings.settings_pkey PRIMARY KEY (key)
 constraint ops.settings.settings_value_check CHECK (((char_length(value) >= 1) AND (char_length(value) <= 200)))
@@ -1377,6 +1382,7 @@ function ops.rum_bucket(p_metric text, p_value numeric) returns smallint lang=sq
 function ops.rum_daily_cap() returns bigint lang=sql security_definer=f volatility=i config=search_path="" body_md5=eb96031199ae95b57950f07baa5ffe54
 function ops.rum_edge(p_metric text, p_bucket smallint) returns numeric lang=sql security_definer=f volatility=i config=search_path="" body_md5=6dfa3c0d5e72c49d55674113a82603c5
 function ops.rum_report(p_days integer) returns TABLE(environment text, screen text, metric text, device text, samples bigint, p50 numeric, p75 numeric, p95 numeric) lang=sql security_definer=t volatility=s config=search_path="" body_md5=be21671fd0a4ac33bba3ef1daf1329f3
+function ops.rum_user_daily_cap() returns bigint lang=sql security_definer=f volatility=i config=search_path="" body_md5=ff093bced019415415e111dba47c994b
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
 function ops.utc_text(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=42079a21f3de41233494ff11a2fa1e07
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
@@ -1405,11 +1411,15 @@ function private.command_request_hash(p_payload jsonb) returns text lang=sql sec
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
 function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=83a1f436a12194681628f55d54c5ddcf
 function private.cv_clinical_notes_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=dc60e287babb790f8b3983507eba1ca7
+function private.cv_follow_ups_change() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
+function private.cv_follow_ups_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6e0974e59cf4cff1eb9ff4bca99d412a
 function private.cv_invoice_items() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_invoices_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_invoices_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=1949978583a3218c84db022c68981f92
 function private.cv_memberships_change() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=226cf783b206dfb32d5921fd0bced67a
 function private.cv_memberships_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4050b0e184dd4512a9a83e88530599fa
+function private.cv_patients_delete() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
+function private.cv_patients_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0fa040d292d1b0aecd1b40bba405ca5c
 function private.cv_payments() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_queue_tokens() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
 function private.cv_schedule_blocks() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
@@ -1565,7 +1575,7 @@ function public.normalize_indian_phone_e164(raw_phone text) returns text lang=pl
 function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, p_seq integer) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=298e7bdd6c125b654f910a39def7cfc6
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
-function public.ops_ingest_rum(p_environment text, p_release text, p_samples jsonb) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94b837878f86b995133f405be2490821
+function public.ops_ingest_rum(p_environment text, p_release text, p_samples jsonb) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9d0f1b1e91e0b075b96c8b8d16c3b9ad
 function public.patient_snapshot(p_tenant_id uuid, p_patient_id uuid, p_exclude_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=acfeac716c2dc7156fb337970d28aadc
 function public.patients_clinical_fields_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=0cd27f8d47d2cdb83c07494b52b75c1c
 function public.peek_invitation(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=eb3e0439d1e55230792a241f80ba9030
@@ -2420,6 +2430,7 @@ index ops.quota_snapshots_at CREATE INDEX quota_snapshots_at ON ops.quota_snapsh
 index ops.quota_snapshots_pkey CREATE UNIQUE INDEX quota_snapshots_pkey ON ops.quota_snapshots USING btree (id)
 index ops.rum_daily_pkey CREATE UNIQUE INDEX rum_daily_pkey ON ops.rum_daily USING btree (day, environment, release, screen, metric, device, net, bucket)
 index ops.rum_overflow_pkey CREATE UNIQUE INDEX rum_overflow_pkey ON ops.rum_overflow USING btree (day)
+index ops.rum_user_daily_pkey CREATE UNIQUE INDEX rum_user_daily_pkey ON ops.rum_user_daily USING btree (day, user_key)
 index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING btree (key)
 index private.command_hash_key_pkey CREATE UNIQUE INDEX command_hash_key_pkey ON private.command_hash_key USING btree (id)
 index private.command_results_created_at_idx CREATE INDEX command_results_created_at_idx ON private.command_results USING btree (created_at)
@@ -2810,6 +2821,7 @@ relation ops.quota_snapshots kind=r rls=t force_rls=f
 relation ops.quota_snapshots_id_seq kind=S rls=f force_rls=f
 relation ops.rum_daily kind=r rls=t force_rls=f
 relation ops.rum_overflow kind=r rls=t force_rls=f
+relation ops.rum_user_daily kind=r rls=t force_rls=f
 relation ops.settings kind=r rls=t force_rls=f
 relation private.command_hash_key kind=r rls=t force_rls=f
 relation private.command_results kind=r rls=t force_rls=f
@@ -2890,6 +2902,9 @@ trigger public.consent_records.consent_records_actor_guard CREATE TRIGGER consen
 trigger public.consultation_diagnoses.consultation_diagnoses_integrity_guard CREATE TRIGGER consultation_diagnoses_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.consultation_diagnoses FOR EACH ROW EXECUTE FUNCTION private.consultation_diagnoses_integrity_guard()
 trigger public.doctor_text_macros.doctor_text_macros_before_insert CREATE TRIGGER doctor_text_macros_before_insert BEFORE INSERT ON public.doctor_text_macros FOR EACH ROW EXECUTE FUNCTION private.doctor_text_macros_before_insert()
 trigger public.doctor_text_macros.doctor_text_macros_before_update CREATE TRIGGER doctor_text_macros_before_update BEFORE UPDATE ON public.doctor_text_macros FOR EACH ROW EXECUTE FUNCTION private.doctor_text_macros_before_update()
+trigger public.follow_ups.follow_ups_clinic_version_delete CREATE TRIGGER follow_ups_clinic_version_delete AFTER DELETE ON public.follow_ups REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_follow_ups_change()
+trigger public.follow_ups.follow_ups_clinic_version_insert CREATE TRIGGER follow_ups_clinic_version_insert AFTER INSERT ON public.follow_ups REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_follow_ups_change()
+trigger public.follow_ups.follow_ups_clinic_version_update CREATE TRIGGER follow_ups_clinic_version_update AFTER UPDATE ON public.follow_ups REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_follow_ups_update()
 trigger public.follow_ups.follow_ups_integrity_guard CREATE TRIGGER follow_ups_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.follow_ups FOR EACH ROW EXECUTE FUNCTION private.follow_ups_integrity_guard()
 trigger public.invoice_items.invoice_items_clinic_version_delete CREATE TRIGGER invoice_items_clinic_version_delete AFTER DELETE ON public.invoice_items REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoice_items()
 trigger public.invoice_items.invoice_items_clinic_version_insert CREATE TRIGGER invoice_items_clinic_version_insert AFTER INSERT ON public.invoice_items REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_invoice_items()
@@ -2912,6 +2927,8 @@ trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard
 trigger public.patients.patients_ai_objection_audit CREATE TRIGGER patients_ai_objection_audit AFTER INSERT OR UPDATE OF ai_processing_objected ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_audit()
 trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_objection_stamp BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_stamp()
 trigger public.patients.patients_allergies_audit CREATE TRIGGER patients_allergies_audit AFTER UPDATE OF allergies ON public.patients FOR EACH ROW WHEN ((new.allergies IS DISTINCT FROM old.allergies)) EXECUTE FUNCTION private.patients_allergies_audit()
+trigger public.patients.patients_clinic_version_delete CREATE TRIGGER patients_clinic_version_delete AFTER DELETE ON public.patients REFERENCING OLD TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_patients_delete()
+trigger public.patients.patients_clinic_version_update CREATE TRIGGER patients_clinic_version_update AFTER UPDATE ON public.patients REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_patients_update()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.payments.payments_clinic_version_insert CREATE TRIGGER payments_clinic_version_insert AFTER INSERT ON public.payments REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_payments()
