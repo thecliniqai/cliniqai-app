@@ -614,6 +614,8 @@ export const TYPEAHEAD_ROWS: readonly TypeaheadRowDef[] = [
     prepare: async (page) => {
       const { visitId } = await seedConsult("PerfTypeDx");
       await openConsult(page, visitId);
+      // 09E-10 (B-4): the diagnosis catalogue is on the device before the measured key (the shell's sync after first paint; the row measures the device path).
+      await expect(page.locator('[data-diagnosis-input][data-search-source="device"]')).toBeAttached({ timeout: 30_000 });
       const field = page.getByPlaceholder(/Search diagnosis name/);
       const q = query("Perfdx");
       await field.click();

@@ -57,6 +57,9 @@ test("real users: the beacons hold only closed words and numbers, and ops.rum_da
   });
 
   // Today, then a click to Patients (nav_data_ready), then a consult with a diagnosis search (search_server).
+  // 09E-10: with the diagnosis catalogue on the device the search makes no request; this test measures the server path, so the catalogue stays off
+  // the device (the device path's `search_device` is recorded by tests/e2e/reference/diagnoses-local.spec.ts).
+  await page.route("**/api/reference/**", (route) => route.abort());
   await page.goto("/today");
   await awaitHydrated(page, "#main");
   await expect.poll(() => page.evaluate(() => performance.getEntriesByName("clinicos.data_ready").length), { timeout: 15_000 }).toBeGreaterThan(0);

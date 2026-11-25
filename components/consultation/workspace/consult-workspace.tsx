@@ -1020,6 +1020,8 @@ export function ConsultWorkspace({
                 context={assistContext}
                 disabled={readOnly}
                 onCustomAdded={consult.addCustomDiagnosis}
+                customDiagnoses={consult.data.lists?.custom_diagnoses}
+                expandTerms={assist?.["assist.terminology"] === true}
               />
             </ConsultSection>
 

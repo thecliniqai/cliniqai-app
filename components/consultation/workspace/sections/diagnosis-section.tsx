@@ -20,6 +20,8 @@ import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, TRANSITION } from "@/lib/u
 import { focusBoxInput } from "@/lib/ui/focus-box";
 import { reportClientError } from "@/lib/log/client";
 import { rum } from "@/lib/observability/rum/collector";
+import { requestReferenceSync, useReferenceCatalogue } from "@/lib/reference/store";
+import { searchDiagnosesOnDevice, type CustomDiagnosis } from "@/lib/reference/search-diagnoses";
 
 /**
  * The Diagnosis section of the consult (06-UI-SPEC §7; V2-09b 09B-04a, R-11, AI-07). Replaces the v1 `diagnosis-section.tsx` and its React Compiler waiver:
@@ -29,9 +31,12 @@ import { rum } from "@/lib/observability/rum/collector";
  *   `assist.terminology` (`context`). The fixed chips of the specialty (the v1 list) are always there under them: the only group for a doctor with no
  *   history or no entitlement, and a way to a diagnosis the history does not hold. A chip whose diagnosis a learned tile already offers is left out
  *   (one diagnosis, one button; CI 44924479177).
- * - A combobox over `GET /api/terminology/diagnoses` (a route handler, never a server action: it aborts with each keystroke and runs beside a draft
- *   save), debounced 200 ms: the doctor's own custom diagnoses first, then the catalogue ranked by name, synonym and abbreviation expansion. Codes are
- *   labelled ICD-11. Enter or a tap adds the highlighted row; the last row adds what was typed as the doctor's own diagnosis.
+ * - A combobox: the doctor's own custom diagnoses first, then the catalogue ranked by name, synonym and abbreviation expansion. Codes are labelled ICD-11.
+ *   Enter or a tap adds the highlighted row; the last row adds what was typed as the doctor's own diagnosis. V2-09e 09E-10 (R-5, R-6, B-4): once the
+ *   diagnosis catalogue is on the device each keystroke is answered there by the twin of `search_diagnoses` (`searchDiagnosesOnDevice`, with the
+ *   doctor's own diagnoses from the consult's query and the expansion when the clinic has `assist.terminology`), with no debounce and no database call
+ *   (one search per animation frame). Until then, and whenever it is not available, `GET /api/terminology/diagnoses` (a route handler, never a server
+ *   action: it aborts with each keystroke and runs beside a draft save), debounced 200 ms.
  * - A tile or row is applied only by a tap or Enter; nothing is added for the doctor. Add, remove and note keep the existing actions and their sealed-
  *   refusal texts. Everything is read-only on a sealed record.
  */
@@ -50,7 +55,13 @@ export interface DiagnosisSectionProps {
   disabled?: boolean;
   /** A diagnosis outside the catalogue the database accepted: it joins the doctor's own list in the consult's query (09E-08, R-11). */
   onCustomAdded?: (diagnosis: { diagnosis_name: string; specialty: string | null }) => void;
+  /** 09E-10 (R-8): the doctor's own custom diagnoses from the consult's query (memory only), for the search on the device. */
+  customDiagnoses?: readonly CustomDiagnosis[];
+  /** 09E-10: the clinic has `assist.terminology` (the entitlement the route reads): the device search expands abbreviations as the route does. */
+  expandTerms?: boolean;
 }
+
+const NO_CUSTOM: readonly CustomDiagnosis[] = [];
 
 export const DIAGNOSIS_DEBOUNCE_MS = 200;
 export const DIAGNOSIS_SEARCH_FAILED_TEXT = "Couldn't search diagnoses. Try again.";
@@ -68,7 +79,19 @@ interface DiagnosisInput {
   chronic?: boolean;
 }
 
-export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onDiagnosesChange, complaints, context = null, disabled = false, onCustomAdded }: DiagnosisSectionProps) {
+export function DiagnosisSection({
+  visitId,
+  patientId,
+  specialty,
+  diagnoses,
+  onDiagnosesChange,
+  complaints,
+  context = null,
+  disabled = false,
+  onCustomAdded,
+  customDiagnoses = NO_CUSTOM,
+  expandTerms = false,
+}: DiagnosisSectionProps) {
   const [query, setQuery] = useState("");
   // The answer and the query it answers (results are never shown for another query).
   const [answer, setAnswer] = useState<{ query: string; hits: readonly DiagnosisHit[]; failed: boolean }>({ query: "", hits: [], failed: false });
@@ -85,21 +108,28 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<AbortController | null>(null);
+  const frame = useRef<number | null>(null);
+  const catalogue = useReferenceCatalogue("diagnoses");
+  const device = catalogue.status === "ready";
   const trimmed = query.trim();
   const listOpen = trimmed.length >= DIAGNOSIS_SEARCH_MIN_CHARS;
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Before the first search: the catalogue is asked for now if this tab does not hold it yet (the shell's sync usually has).
+    requestReferenceSync("diagnoses");
+    return () => {
       seq.current += 1;
       if (timer.current) clearTimeout(timer.current);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
       pending.current?.abort();
-    },
-    [],
-  );
+    };
+  }, []);
 
   function run(next: string) {
     const n = ++seq.current;
     if (timer.current) clearTimeout(timer.current);
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
     pending.current?.abort();
     const q = next.trim();
     if (q.length < DIAGNOSIS_SEARCH_MIN_CHARS) {
@@ -108,6 +138,19 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
       return;
     }
     setLoading(true);
+    if (device) {
+      const rows = catalogue.rows;
+      // On the device (09E-10): no debounce (C-3), one search per frame; the twin answers what the route would.
+      const stop = rum.timer("search_device");
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        if (n !== seq.current) return;
+        setAnswer({ query: q, hits: searchDiagnosesOnDevice(rows, customDiagnoses, q, { expand: expandTerms, specialty }), failed: false });
+        setLoading(false);
+        stop();
+      });
+      return;
+    }
     const stopTimer = rum.timer("search_server");
     timer.current = setTimeout(async () => {
       const controller = new AbortController();
@@ -349,6 +392,8 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
               }
             }}
             placeholder="Search diagnosis name, ICD-11, SNOMED CT, or custom condition..."
+            data-diagnosis-input=""
+            data-search-source={device ? "device" : "server"}
             enterKeyHint="search"
             autoCapitalize="none"
             className={cn(CONTROL_BASE, "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 outline-none")}
@@ -371,7 +416,9 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
                 hint={<span className="hidden in-data-[selected=true]:inline">Add</span>}
               >
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="font-medium text-fg">{hit.name}</span>
+                  <span className="font-medium text-fg" data-diagnosis-hit="">
+                    {hit.name}
+                  </span>
                   {hit.custom && <span className="rounded-xs border border-border-strong px-1.5 text-caption text-fg-secondary">My diagnosis</span>}
                   {hit.chronic && <span className="rounded-xs border border-warning-border bg-warning-bg px-1.5 text-caption font-semibold text-warning-fg">Chronic</span>}
                   {hit.icd11 && <span className="text-caption text-fg-muted tabular-nums">ICD-11 {hit.icd11}</span>}

@@ -16,7 +16,7 @@ export type ReferenceCatalogue = (typeof REFERENCE_CATALOGUES)[number];
 export type ReferenceSource = "cdci" | "diagnoses";
 
 /** The catalogues the device holds today: each plan adds its catalogue with its consumer (09E-10 diagnoses, 09E-11 medicines). */
-export const DEVICE_CATALOGUES: readonly ReferenceCatalogue[] = ["substances"];
+export const DEVICE_CATALOGUES: readonly ReferenceCatalogue[] = ["substances", "diagnoses"];
 
 export const CATALOGUE_SOURCE: Readonly<Record<ReferenceCatalogue, ReferenceSource>> = {
   substances: "cdci",
