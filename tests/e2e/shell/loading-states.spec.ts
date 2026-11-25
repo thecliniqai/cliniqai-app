@@ -120,7 +120,7 @@ test.describe("the skeleton shows during a slow client navigation", () => {
 });
 
 /**
- * V2-09e 09E-06 (R-9, B-2): every main screen shows a skeleton of its own layout while its calls are pending: 0.7 s is added to every Supabase call
+ * V2-09e 09E-06 (R-9, B-2): every main screen shows a skeleton of its own layout while its calls are pending: 1.5 s is added to every Supabase call
  * (workers: 1, so no other spec sees it; cleared after each test), the screen is entered by a client navigation, the skeleton is there (its kind is the
  * screen's), axe finds nothing on it, and the screen's content replaces it. At 360, 820 and 1280.
  */
@@ -163,7 +163,9 @@ test.describe("every main screen shows its own skeleton while its calls are pend
           await page.waitForTimeout(500);
         }
         // The history is the quick part to catch: it gets a longer wait, so axe can run while its skeleton is up.
-        await setSupabaseLatency(context, def.kind === "patient-history" ? 1_800 : 700);
+        // 09E-14a (flake, full lane: "No elements found for include" on Referrals at 1,280 px): at 0.7 s a one-call page keeps its skeleton for about 0.7 s, which the
+        // visibility wait and the axe run can outlast on a loaded machine. A longer delay widens the window; the checks are the same.
+        await setSupabaseLatency(context, def.kind === "patient-history" ? 1_800 : 1_500);
         await page.evaluate((href) => (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(href), path);
         const history = def.kind === "patient-history";
         const skeleton = history ? page.getByRole("status", { name: "Loading visit history" }) : page.locator(`[data-route-skeleton="${def.kind}"]`);

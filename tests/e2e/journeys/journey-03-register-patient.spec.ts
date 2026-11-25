@@ -23,6 +23,8 @@ test.use({ storageState: storageStatePath("receptionist") });
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 
 test("@golden journey 3: register with the AI objection; the same mobile and name again shows the duplicate banner and 'Use this patient'", async ({ page, ux }) => {
+  // 09E-14a (F5): two loads of the Patients page, which lists every patient (638 rows late in a lane), on emulated WebKit.
+  test.setTimeout(90_000);
   ux.flow("journey-03-register-patient", "Receptionist registers a patient (mobile, name, age, sex, AI objection)");
   const { tenantA } = run();
   const fullName = `E2E Synthetic Journey3 ${testTag()}`;
@@ -75,7 +77,7 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
   // Second entry: the same mobile number shows the candidate with age and sex; "Use this patient" opens the record.
   await page.goto("/patients?new=1");
   const again = page.getByRole("dialog", { name: "Register patient" });
-  await expect(again).toBeVisible();
+  await expect(again).toBeVisible({ timeout: 20_000 });
   await again.getByRole("textbox", { name: "Mobile number" }).fill(phoneDigits);
   await again.getByRole("textbox", { name: "Full name" }).fill(fullName);
   // The same mobile and name is probably the same person: Smart Assist (the clinic is entitled) says so as a warning with the

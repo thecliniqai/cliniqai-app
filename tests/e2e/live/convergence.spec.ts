@@ -68,6 +68,8 @@ async function pair(page: Page, browser: import("@playwright/test").Browser, pre
 }
 
 test("@golden delivered: B checks in and A shows it within 2 s with one board read (B-11)", async ({ page, browser }) => {
+  // Two UI sign-ins and two Realtime joins (about 6 s each on emulated WebKit, measured in a trace of the lane) take most of the default 30 s before the case measures anything.
+  test.setTimeout(90_000);
   const p = await pair(page, browser);
   try {
     await expect(badge(p.a)).toHaveAttribute("data-live-status", "live", { timeout: 20_000 });
@@ -82,20 +84,20 @@ test("@golden delivered: B checks in and A shows it within 2 s with one board re
     const probe = countBoardRequests(p.a);
     const admin = getAdminClient();
     let minutes = 20;
+    let lastProbe = 0;
     await expect
       .poll(
         async () => {
-          if (probe.count() === 0) {
+          if (probe.count() === 0 && Date.now() - lastProbe > 3_000) {
+            lastProbe = Date.now();
             minutes = minutes === 20 ? 25 : 20;
             await admin.from("visits").update({ estimated_duration_minutes: minutes }).eq("id", p.visitId);
-            await p.a.waitForTimeout(3_000);
           }
           return probe.count();
         },
-        { timeout: 24_000, message: "a probe change reached A through Realtime" },
+        { timeout: 24_000, intervals: [250], message: "a probe change reached A through Realtime" },
       )
       .toBeGreaterThan(0);
-    await p.a.waitForTimeout(1_000);
     // The 12 s heartbeat is a legitimate state read, and on a loaded machine the steps above can take most of 12 s: restart it. Hiding and showing the tab stops the
     // interval and starts a new one (and makes one check, which is made here, before the counting starts), so the whole measured part is within a few seconds of its start.
     const checks = countStateRequests(p.a);
@@ -105,8 +107,8 @@ test("@golden delivered: B checks in and A shows it within 2 s with one board re
         document.dispatchEvent(new Event("visibilitychange"));
       }
     });
-    await expect.poll(() => checks.count(), { message: "the check made when the tab is visible again" }).toBeGreaterThan(0);
-    await p.a.waitForTimeout(1_000);
+    await expect.poll(() => checks.count(), { intervals: [100], message: "the check made when the tab is visible again" }).toBeGreaterThan(0);
+    await p.a.waitForTimeout(400);
     // Everything A does from here is counted: the signal's board read, and any state read (there must be none).
     const boardReads = countBoardRequests(p.a);
     const stateReads = countStateRequests(p.a);
