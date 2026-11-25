@@ -21,7 +21,8 @@ import { getActiveClinicDoctors } from "@/features/visits/actions";
 import { quickRegisterToPatientInput } from "@/features/patients/register-input";
 import type { PatientHit } from "@/features/patients/search";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
 import { PatientSearch, splitTypedQuery } from "./patient-search";
 import { useDuplicateLookup } from "./use-duplicate-lookup";
 
@@ -63,7 +64,8 @@ const doctorLabel = (name: string, specialty: string | null) => {
 type Stage = { kind: "find" } | { kind: "confirm"; patient: PatientHit } | { kind: "register"; phone?: string; name?: string };
 
 function WalkInBody({ onDone }: { onDone: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
   const findDuplicates = useDuplicateLookup();
   const [stage, setStage] = useState<Stage>({ kind: "find" });
   const [doctors, setDoctors] = useState<DoctorChoice[] | null>(null);
@@ -106,11 +108,13 @@ function WalkInBody({ onDone }: { onDone: () => void }) {
 
   const send = async (who: { patient_id: string } | { new_patient: ReturnType<typeof quickRegisterToPatientInput> }, name: string) => {
     lastSend.current = () => send(who, name);
-    const result = await command.run((clientRequestId) =>
+    const result = await run((clientRequestId) =>
       enqueueWalkIn({ ...who, doctor_id: doctorId, priority, reason_for_visit: "Walk-in consultation" }, clientRequestId),
     );
     if (result.ok) {
       rememberDoctor(doctorId);
+      // A new row on the board: Today's board is read again (one GET), the Schedule refreshes its route.
+      afterSave.refreshScreens({ closing: true });
       notify.success(`${name} added to the queue · token ${result.value.tokenNumber}`);
       onDone();
     }

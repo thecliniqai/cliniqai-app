@@ -8,7 +8,8 @@ import { StatusChip } from "@/components/clinical/status-chip";
 import { RowMenu } from "@/components/front-desk/row-menu";
 import { confirmAppointment } from "@/features/visits/scheduling";
 import type { ScheduleAppointment } from "@/features/schedule/schema";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
 import { useRowChanged } from "@/lib/live/use-row-changed";
 import { formatClinicTime } from "@/lib/datetime/format";
 
@@ -19,11 +20,16 @@ import { formatClinicTime } from "@/lib/datetime/format";
  * and the agenda.
  */
 export function AppointmentCard({ appointment: a, showDoctor = false }: { appointment: ScheduleAppointment; showDoctor?: boolean }) {
-  const confirm = useCommand();
+  const confirm = useConfirmedCall();
+  const afterSave = useAfterSave();
   const rowChanged = useRowChanged();
   const onConfirm = async () => {
     const result = await confirm.run((id) => confirmAppointment(a.visitId, id, a.rowVersion));
-    if (result.ok) return;
+    // The Schedule is a server-rendered screen until 09E-12: the saved confirmation refreshes its route (no action revalidates a path any more).
+    if (result.ok) {
+      afterSave.refreshScreens();
+      return;
+    }
     // A visit that moved on elsewhere (09E-07, R-19): the day is re-read and the message says why; a Retry with the same version would be refused again.
     if (rowChanged(result.error)) notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`);
     else notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`, { retry: () => void onConfirm() });

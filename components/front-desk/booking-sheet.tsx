@@ -23,7 +23,8 @@ import type { SlotAssist } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { saveStatusProps } from "@/lib/commands/save-state";
 import { appError } from "@/lib/errors/app-error";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicDateWithWeekday, formatClinicTime } from "@/lib/datetime/format";
 import { formatAgeToday } from "@/lib/ui/age";
@@ -58,7 +59,8 @@ export interface BookingDefaults {
 type Who = { patient_id: string } | { new_patient: ReturnType<typeof quickRegisterToPatientInput> };
 
 function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
   const timeZone = useClinicTimeZone();
   const today = useClinicToday();
   const doctors = useClinicDoctors();
@@ -166,7 +168,7 @@ function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: 
     lastWho.current = { who, name };
     lastSend.current = () => send(who, name, flags);
     const time = plan.time;
-    const result = await command.run((clientRequestId) =>
+    const result = await run((clientRequestId) =>
       registerAndBook(
         {
           ...who,
@@ -182,6 +184,8 @@ function BookingBody({ defaults, onDone }: { defaults: BookingDefaults; onDone: 
       ),
     );
     if (result.ok) {
+      // The booking adds a visit to the day: Today's board is read again and the Schedule (a server-rendered screen until 09E-12) refreshes its route.
+      afterSave.refreshScreens({ closing: true });
       notify.success(`${name} booked · ${formatClinicDateWithWeekday(plan.date)}, ${formatClinicTime(time)}`);
       onDone();
       return result;

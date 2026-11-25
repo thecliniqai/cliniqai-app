@@ -9,7 +9,7 @@ import { Command, CommandItem, CommandList, CommandLoading } from "@/components/
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetFooter, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
 import { recordPatientAllergies } from "@/features/patients/actions";
 import { fetchSubstances, type SubstanceHit } from "@/features/terminology/substances";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
 import { cn } from "@/lib/utils";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, TRANSITION } from "@/lib/ui/variants";
 import { focusBoxInput } from "@/lib/ui/focus-box";
@@ -67,7 +67,7 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
   const [answer, setAnswer] = useState<{ query: string; hits: readonly SubstanceHit[]; failed: boolean }>({ query: "", hits: [], failed: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const command = useCommand();
+  const { command, run: runConfirmed } = useConfirmedCall();
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<AbortController | null>(null);
@@ -139,7 +139,7 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
     setError(null);
     const list = entries.map((e) => e.text);
     const expected = base === null ? null : [...base];
-    const result = await command.run((clientRequestId) =>
+    const result = await runConfirmed((clientRequestId) =>
       recordPatientAllergies({ patient_id: patientId, allergies: list, expected_allergies: expected, client_request_id: clientRequestId }),
     );
     if (!mounted.current) return;

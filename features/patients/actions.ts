@@ -37,7 +37,6 @@ export async function registerPatient(
   const resolved = await resolveServiceContext("patients:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await registerPatientService(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/patients");
   return result;
 }
 
@@ -51,7 +50,6 @@ export async function recordPatientAllergies(input: RecordAllergiesInput): Promi
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await recordPatientAllergiesService(resolved.ctx, input);
-  if (result.ok) revalidate(`/patients/${input.patient_id}`);
   return result;
 }
 

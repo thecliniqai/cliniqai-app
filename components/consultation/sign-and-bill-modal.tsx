@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SharePdfButton } from "@/components/clinical/share-pdf-button";
@@ -82,7 +82,9 @@ export function SignAndBillModal({
   const [isPending, startTransition] = useTransition();
   // One client_request_id per logical submit (V2-07 07-03): a retry after an error re-sends it, so a committed
   // sign-off-and-bill whose response was lost replays instead of running twice.
-  const { run: runCommand, reset: resetCommand } = useCommand();
+  // 09E-08 (R-11, confirm class): sign and finish shows a pending state only; the success screen comes after the database answered (`finish_confirmed`).
+  const { run: runCommand, command: signCommand } = useConfirmedCall({ metric: "finish_confirmed" });
+  const resetCommand = signCommand.reset;
 
   const [consultationFee, setConsultationFee] = useState<number>(defaultFee);
   const [discount, setDiscount] = useState<number>(0);

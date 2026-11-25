@@ -15,7 +15,8 @@ import { SaveStatus } from "@/components/clinical/save-status";
 import { getRescheduleTarget, rescheduleVisit, type RescheduleTarget } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
 import { useRowChanged } from "@/lib/live/use-row-changed";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicDateWithWeekday, formatClinicTime } from "@/lib/datetime/format";
@@ -34,7 +35,8 @@ import { useClinicDoctors } from "./use-doctors";
 const MOVABLE = ["booked", "confirmed", "no_show"];
 
 function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
   const rowChanged = useRowChanged();
   const timeZone = useClinicTimeZone();
   const today = useClinicToday();
@@ -70,7 +72,7 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
     if (!target || !plan?.time) return;
     lastSend.current = () => send(flags);
     const time = plan.time;
-    const result = await command.run((clientRequestId) =>
+    const result = await run((clientRequestId) =>
       rescheduleVisit(
         {
           visit_id: target.visitId,
@@ -90,6 +92,7 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
       ),
     );
     if (result.ok) {
+      afterSave.refreshScreens({ closing: true });
       notify.success(`${target.patientName} moved to ${formatClinicDateWithWeekday(plan.date)}, ${formatClinicTime(time)}`);
       onDone();
       return;

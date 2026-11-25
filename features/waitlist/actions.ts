@@ -72,6 +72,5 @@ export async function promoteWaitlistEntry(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await waitlistService.promoteWaitlistEntry(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }

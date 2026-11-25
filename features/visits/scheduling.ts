@@ -139,7 +139,6 @@ export async function registerAndBook(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today", "/patients");
   return result;
 }
 
@@ -158,7 +157,6 @@ export async function rescheduleVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.rescheduleVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -175,7 +173,6 @@ export async function cancelVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.cancelVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -185,7 +182,6 @@ export async function markNoShow(visitId: string, clientRequestId: string, expec
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId, expectedVersion);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
@@ -199,6 +195,5 @@ export async function confirmAppointment(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId, expectedVersion);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }

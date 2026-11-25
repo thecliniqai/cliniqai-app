@@ -13,7 +13,9 @@ import { SaveStatus } from "@/components/clinical/save-status";
 import { cancelVisit } from "@/features/visits/scheduling";
 import { CANCEL_REASON_CODES, type CancelReasonCode } from "@/features/visits/schema";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
+import { withStatus } from "@/features/today/schema";
 import { useRowChanged } from "@/lib/live/use-row-changed";
 
 /**
@@ -31,7 +33,8 @@ export const CANCEL_REASON_LABELS: Record<CancelReasonCode, string> = {
 };
 
 function CancelBody({ visitId, name, rowVersion, onDone, onClose }: { visitId: string; name: string; rowVersion: number; onDone: () => void; onClose: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
   const rowChanged = useRowChanged();
   const [reason, setReason] = useState<CancelReasonCode>("patient_request");
   const [note, setNote] = useState("");
@@ -40,7 +43,7 @@ function CancelBody({ visitId, name, rowVersion, onDone, onClose }: { visitId: s
 
   const send = async () => {
     lastSend.current = send;
-    const result = await command.run((clientRequestId) =>
+    const result = await run((clientRequestId) =>
       cancelVisit(
         { visit_id: visitId, reason_code: reason, reason_note: note.trim() || null, notify: tell, promote_waitlist: true, expected_version: rowVersion },
         clientRequestId,
@@ -51,6 +54,9 @@ function CancelBody({ visitId, name, rowVersion, onDone, onClose }: { visitId: s
       rowChanged(result.error);
       return;
     }
+    // The answer is written into Today's board; a waitlist promotion adds a visit to a later slot, so a promoted slot also reads the board again.
+    if (result.value.autoPromoted) afterSave.refreshScreens();
+    else afterSave.patchToday((board) => withStatus(board, visitId, "cancelled", result.value.rowVersion));
     notify.success(
       result.value.autoPromoted
         ? `${name}'s appointment was cancelled. A waitlisted patient was booked into the vacated slot.`

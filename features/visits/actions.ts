@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption } from "./schema";
 import type { RecordVitalsInput } from "@/features/consultation/schema";
@@ -15,14 +14,6 @@ export type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
 // Visits are created only by the front-desk commands (V2-07 07-03: enqueue_walk_in, register_and_book, V2-08 08-04a:
 // promote_waitlist_entry and the cancel promotion); their status, time and doctor change only through the commands
 // (reschedule, cancel, no-show, confirm in `scheduling.ts`; check-in, start and complete in the queue actions).
-
-function revalidate(...paths: string[]) {
-  try {
-    for (const path of paths) revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
 
 export async function getVisitsForDate(dateStr: string, doctorId?: string): Promise<GetVisitsResult> {
   await markAction("visits.get_visits_for_date");
@@ -73,6 +64,5 @@ export async function recordVisitVitals(
   const resolved = await resolveServiceContext("vitals:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.recordVisitVitals(resolved.ctx, visitId, vitalsInput);
-  if (result.success) revalidate("/today", "/visits", `/consultation/${visitId}`);
   return result;
 }

@@ -51,7 +51,6 @@ export async function updateClinicSettings(input: ClinicSettingsInput): Promise<
   const result = await settingsService.updateClinicSettings(resolved.ctx, input);
   // V2-09d: the clinic's name or zone may have changed: the shell re-reads them (and the session context) in the render that follows.
   if (result.success) await forgetSessionContext();
-  if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/today");
   return result;
 }
 
@@ -64,7 +63,6 @@ export async function updateStatutorySettings(input: StatutorySettingsInput): Pr
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.statutory" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStatutorySettings(resolved.ctx, input);
-  if (result.success) revalidate("/settings/clinic");
   return result;
 }
 
@@ -77,7 +75,6 @@ export async function updateRxPrintSettings(input: RxPrintSettingsInput): Promis
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.rx_print" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateRxPrintSettings(resolved.ctx, input);
-  if (result.success) revalidate("/settings/clinic");
   return result;
 }
 
@@ -86,7 +83,6 @@ export async function updateUserProfile(input: UserProfileInput): Promise<Update
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateUserProfile(resolved.ctx, input);
-  if (result.success) revalidate("/profile", "/settings/clinic", "/staff", "/today");
   return result;
 }
 
@@ -97,7 +93,6 @@ export async function updateStaffMember(input: StaffEditInput): Promise<UpdateSt
   const result = await settingsService.updateStaffMember(resolved.ctx, input);
   // V2-09d: a role may have changed (the caller's own included): this device's session context is read again.
   if (result.success) await forgetSessionContext();
-  if (result.success) revalidate("/staff", "/settings/clinic", "/today");
   return result;
 }
 

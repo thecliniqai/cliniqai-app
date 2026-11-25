@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { toCommandResult } from "@/lib/commands/command-result";
@@ -21,14 +20,6 @@ export type { CheckInResult, PaletteQueueMatch } from "./service";
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
 
-function revalidate(...paths: string[]) {
-  try {
-    for (const path of paths) revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
-
 /**
  * Check-in as one atomic command (V2-07 07-01): `Result` with the `AppError` code `useCommand` needs; the
  * `client_request_id` is required (the same id replays the first result and writes nothing new). `expectedVersion` (09E-07, R-19) is the visit's
@@ -44,7 +35,6 @@ export async function checkInVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId, expectedVersion);
-  if (result.success) revalidate("/today", "/schedule");
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
     queueTokenId: ok.queueTokenId,
@@ -66,7 +56,6 @@ export async function enqueueWalkIn(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.enqueueWalkIn(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/today", "/schedule", "/patients");
   return result;
 }
 
@@ -85,7 +74,6 @@ export async function startConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId, expectedVersion);
-  if (result.ok) revalidate("/today", "/schedule");
   return result;
 }
 
@@ -103,7 +91,6 @@ export async function completeVisit(
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId, expectedVersion);
-  if (result.ok) revalidate("/today", "/schedule");
   return result;
 }
 

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import * as terminologyService from "./service";
 import type {
@@ -22,14 +21,6 @@ export type {
 // Each action authenticates and checks permission before it reads any input, derives the tenant and actor from the
 // session (ADR-0005 D1), then delegates to the server-only service.
 
-function revalidate(path: string) {
-  try {
-    revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
-
 /**
  * Adds a diagnosis to an active consultation visit.
  */
@@ -40,7 +31,6 @@ export async function addConsultationDiagnosis(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.addConsultationDiagnosis(resolved.ctx, input);
-  if (result.success) revalidate(`/consultation/${input.visit_id}`);
   return result;
 }
 
@@ -55,7 +45,6 @@ export async function removeConsultationDiagnosis(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.removeConsultationDiagnosis(resolved.ctx, diagnosisId, visitId);
-  if (result.success) revalidate(`/consultation/${visitId}`);
   return result;
 }
 
@@ -71,7 +60,6 @@ export async function updateDiagnosisNote(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await terminologyService.updateDiagnosisNote(resolved.ctx, diagnosisId, visitId, notes);
-  if (result.success) revalidate(`/consultation/${visitId}`);
   return result;
 }
 

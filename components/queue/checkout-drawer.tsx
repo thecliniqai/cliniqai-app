@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
 import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
 import { useRowChanged } from "@/lib/live/use-row-changed";
 
@@ -101,7 +102,10 @@ export function CheckoutDrawer({
   // succeeds, reset when the drawer opens again or the user changes what is being collected. After a failure whose
   // outcome is unknown (network, timeout, INTERNAL) the id is kept and changing the form does not rotate it until the
   // billing details have been reloaded (V2-07 07-04a F-13): a committed-but-lost payment must not become a second one.
-  const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
+  // 09E-08 (R-11, confirm class): the payment shows a pending state only; the success text comes after the answer.
+  const confirmedPayment = useConfirmedCall();
+  const { run: runCommand } = confirmedPayment;
+  const { reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = confirmedPayment.command;
   // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
   const completeCommand = useCommand();
   const rowChanged = useRowChanged();
@@ -365,13 +369,15 @@ export function CheckoutDrawer({
         }
 
         // 3. Complete queue encounter
-        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion));
+        // The completion stamp and the billing read do not depend on each other: they go together (09E-08: the path is one round trip shorter).
+        const [queueRes, updated] = await Promise.all([
+          completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion)),
+          // 4. Reload updated billing details
+          getVisitBillingDetails(visit.id),
+        ]);
         if (!queueRes.ok) {
           reportClientError("queue.checkout_transition.failed", null);
         }
-
-        // 4. Reload updated billing details
-        const updated = await getVisitBillingDetails(visit.id);
         setBillingData(updated);
         setIsCompleted(true);
         setSuccessNotice(

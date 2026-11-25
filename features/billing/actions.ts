@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { CreateInvoiceInput, CollectPaymentRequest, RecordPaymentRequest, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
@@ -32,14 +31,6 @@ export type {
 
 type Result<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>;
 
-function revalidate(...paths: string[]) {
-  try {
-    for (const path of paths) revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
-
 /**
  * Creates the visit's invoice as one atomic command (V2-07 07-02, 07-04a F-10). Returns a `Result` (with the `AppError`
  * code the client's `useCommand` needs, as `collectPayment` does); `client_request_id` is required.
@@ -49,7 +40,6 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CommandR
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.invoice.create" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.createInvoice(resolved.ctx, input);
-  if (result.ok) revalidate("/today", `/consultation/${input.visit_id}`);
   return result;
 }
 
@@ -58,7 +48,6 @@ export async function recordPayment(input: RecordPaymentRequest): Promise<Record
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.record" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await billingService.recordPayment(resolved.ctx, input);
-  if (result.success) revalidate("/today", "/billing");
   return result;
 }
 
@@ -71,7 +60,6 @@ export async function collectPayment(input: CollectPaymentRequest): Promise<Comm
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.collect" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.collectPayment(resolved.ctx, input);
-  if (result.ok) revalidate("/today", "/billing", `/consultation/${input.visit_id}`);
   return result;
 }
 
@@ -110,7 +98,6 @@ export async function completeAndBillConsultation(
   const resolved = await resolveServiceContext("consultations:edit", "full", { sensitive: "billing.complete_and_bill" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
-  if (result.success) revalidate(`/consultation/${result.visitId}`, "/today", "/billing");
   return toCommandResult(result, (ok) => {
     const { success, ...value } = ok;
     void success;

@@ -25,7 +25,8 @@ import type { ScheduleData, WaitlistView } from "@/features/schedule/schema";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { addToWaitlist, promoteWaitlistEntry } from "@/features/waitlist/actions";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { formatClinicDateWithWeekday, formatClinicTime } from "@/lib/datetime/format";
 
@@ -45,7 +46,7 @@ const PRIORITIES = [
 function AddForm({ data, doctors, onDone }: { data: ScheduleData; doctors: readonly DoctorChoice[]; onDone: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
   const [patient, setPatient] = useState<PatientHit | null>(null);
   const [doctorId, setDoctorId] = useState("any");
   const [priority, setPriority] = useState("0");
@@ -56,7 +57,7 @@ function AddForm({ data, doctors, onDone }: { data: ScheduleData; doctors: reado
   const send = async () => {
     if (!patient) return;
     lastSend.current = send;
-    const result = await command.run((id) =>
+    const result = await run((id) =>
       addToWaitlist(
         {
           patient_id: patient.id,
@@ -133,7 +134,8 @@ function AddForm({ data, doctors, onDone }: { data: ScheduleData; doctors: reado
 }
 
 function PromoteForm({ entry, data, doctors, onDone }: { entry: WaitlistView; data: ScheduleData; doctors: readonly DoctorChoice[]; onDone: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
   const timeZone = useClinicTimeZone();
   const [plan, setPlan] = useState<SlotPlan>({
     doctorId: entry.doctorId ?? data.doctors[0]?.id ?? "",
@@ -149,7 +151,7 @@ function PromoteForm({ entry, data, doctors, onDone }: { entry: WaitlistView; da
     if (!plan.time) return;
     lastSend.current = () => send(overbook);
     const time = plan.time;
-    const result = await command.run((id) =>
+    const result = await run((id) =>
       promoteWaitlistEntry(
         {
           entry_id: entry.id,
@@ -162,6 +164,7 @@ function PromoteForm({ entry, data, doctors, onDone }: { entry: WaitlistView; da
       ),
     );
     if (result.ok) {
+      afterSave.refreshScreens({ closing: true });
       notify.success(`${entry.patientName} booked · ${formatClinicDateWithWeekday(plan.date)}, ${formatClinicTime(time)}`);
       onDone();
       return;

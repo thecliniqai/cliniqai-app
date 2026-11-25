@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { SaveDraftCommandInput } from "./schema";
 import type { ServerDraft } from "./draft";
@@ -15,14 +14,6 @@ export type { PastVisitEncounter, GetPatientConsultationHistoryResult } from "./
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
-
-function revalidate(...paths: string[]) {
-  try {
-    for (const path of paths) revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
 
 /**
  * The consult's draft save as one atomic command (V2-09b R-3): `Result` with the `AppError` code and reason the draft saver needs
@@ -74,7 +65,6 @@ export async function completeAndSignConsultation(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.completeAndSignConsultation(resolved.ctx, visitId, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, replayed: ok.replayed }));
 }
 
@@ -87,7 +77,6 @@ export async function reopenVisitForAmendment(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.reopenVisitForAmendment(resolved.ctx, visitId, reason, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, revisionNumber: ok.revisionNumber, replayed: ok.replayed }));
 }
 
@@ -99,6 +88,5 @@ export async function finalizeVisitAmendment(
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await consultationService.finalizeVisitAmendment(resolved.ctx, visitId, clientRequestId);
-  if (result.success) revalidate(`/consultation/${visitId}`, "/today");
   return toCommandResult(result, (ok) => ({ visitId: ok.visitId, version: ok.version, replayed: ok.replayed }));
 }
