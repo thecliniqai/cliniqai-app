@@ -7,6 +7,8 @@
  * `{ "t0", "t1", "ms", "method", "path" }` (epoch ms; `ms` the injected wait, so a call's moment at the local stack is `t0 + ms`; the path without ids or query string) to the record file. Anything else (another
  * origin, another loopback port, any call made while no rule file exists) is untouched and unrecorded. The rule file is checked with
  * a `stat` on every Supabase call and re-read only when its mtime changes, so a spec starts and ends the injection without a restart.
+ * An optional `"extra": { "<METHOD> <path>": M }` (the path as recorded) adds M ms to those calls only, so a spec can make one call the slow one of a batch
+ * (the recorded `ms` is then N + M).
  * Deleting the file ends it. Synthetic data only; no header, body or id is ever written.
  */
 "use strict";
@@ -22,6 +24,15 @@ const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 let cached = { mtimeMs: -1, rule: null };
 
+/** The optional per-path additions (`{ "<METHOD> <path>": ms }`, the path as recorded): only finite, non-negative values; anything else is none. */
+function extraOf(value) {
+  const extra = {};
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [key, ms] of Object.entries(value)) if (Number.isFinite(ms) && ms >= 0) extra[key] = ms;
+  }
+  return extra;
+}
+
 /** The current rule, or null (no file, an unreadable file, or a bad value). */
 function currentRule() {
   let stat;
@@ -35,7 +46,7 @@ function currentRule() {
     let rule = null;
     try {
       const parsed = JSON.parse(fs.readFileSync(RULE_FILE, "utf8"));
-      if (Number.isFinite(parsed.ms) && parsed.ms >= 0 && typeof parsed.record === "string" && parsed.record) rule = { ms: parsed.ms, record: parsed.record };
+      if (Number.isFinite(parsed.ms) && parsed.ms >= 0 && typeof parsed.record === "string" && parsed.record) rule = { ms: parsed.ms, record: parsed.record, extra: extraOf(parsed.extra) };
     } catch {
       rule = null;
     }
@@ -87,14 +98,15 @@ if (innerFetch && !innerFetch.__latency) {
     const call = rule ? supabaseCall(input, init) : null;
     if (!rule || !call) return innerFetch(input, init);
     const t0 = Date.now();
+    const ms = rule.ms + (rule.extra[`${call.method} ${call.path}`] ?? 0);
     let sent = false;
     try {
-      await sleep(rule.ms, (init && init.signal) || (typeof input === "object" && input && input.signal) || undefined);
+      await sleep(ms, (init && init.signal) || (typeof input === "object" && input && input.signal) || undefined);
       sent = true;
       return await innerFetch(input, init);
     } finally {
       // A call aborted during its wait never reached the local stack: it is not a call (Kong never saw it), so it is not recorded.
-      if (sent) record(rule, { t0, t1: Date.now(), ms: rule.ms, method: call.method, path: call.path });
+      if (sent) record(rule, { t0, t1: Date.now(), ms, method: call.method, path: call.path });
     }
   };
   latencyFetch.__latency = true;

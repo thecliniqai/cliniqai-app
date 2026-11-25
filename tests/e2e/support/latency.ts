@@ -69,9 +69,13 @@ const reportPath = (rawPath: string) => rawPath.split("?")[0].replace(UUID, ":id
 /**
  * Adds `ms` to every Supabase call of the app server (rule file) and of this context's browser pages (route). `ms` of 0 is the reference
  * run: nothing is delayed and nothing is recorded (depth needs the delay). Calling it again with a new value changes the delay; no restart.
+ * `serverExtra` (`{ "POST /rest/v1/rpc/x": M }`, the recorded path) adds M ms to those server calls only: one call of a batch made the slow one.
  */
-export async function setSupabaseLatency(context: BrowserContext, ms: number): Promise<void> {
+export async function setSupabaseLatency(context: BrowserContext, ms: number, options: { serverExtra?: Record<string, number> } = {}): Promise<void> {
   if (!(ms >= 0)) throw new Error(`setSupabaseLatency: bad delay ${ms}`);
+  for (const [key, extra] of Object.entries(options.serverExtra ?? {})) {
+    if (!/^[A-Z]+ \/\S+$/.test(key) || !(extra >= 0)) throw new Error(`setSupabaseLatency: bad extra ${key}=${extra}`);
+  }
   if (ms === 0) {
     clearSupabaseLatency();
     const state = browserStates.get(context);
@@ -80,7 +84,7 @@ export async function setSupabaseLatency(context: BrowserContext, ms: number): P
   }
   fs.mkdirSync(path.dirname(LATENCY_RULE_FILE), { recursive: true });
   fs.mkdirSync(path.dirname(LATENCY_RECORD_FILE), { recursive: true });
-  fs.writeFileSync(LATENCY_RULE_FILE, `${JSON.stringify({ ms, record: LATENCY_RECORD_FILE })}\n`);
+  fs.writeFileSync(LATENCY_RULE_FILE, `${JSON.stringify({ ms, record: LATENCY_RECORD_FILE, ...(options.serverExtra ? { extra: options.serverExtra } : {}) })}\n`);
   let state = browserStates.get(context);
   if (!state) {
     const created: BrowserState = { ms, records: [] };

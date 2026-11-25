@@ -89,7 +89,7 @@ test.describe("the skeleton shows during a slow client navigation", () => {
     });
   }
 
-  test("a patient record opened from Patients (its links are not prefetched, R-9): the skeleton shows once the layout has answered, then the record", async ({ page, context }) => {
+  test("a patient record opened from Patients (its links are not prefetched, R-9): the skeleton shows once the layout has answered while the page's read is pending, then the record", async ({ page, context }) => {
     const { tenantA } = readRunData();
     const path = `/patients/${tenantA.patientId}`;
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -97,22 +97,31 @@ test.describe("the skeleton shows during a slow client navigation", () => {
     await page.getByPlaceholder("Search by name, phone, or ABHA...").fill(tenantA.patientName);
     const link = page.getByRole("main").locator(`a[href="${path}"]`).first();
     await expect(link).toBeVisible();
-    await setSupabaseLatency(context, 300);
+    // 09E-ci (CI 45624794749): the layout's 404 read (`GET patients`) and the page's audited read (`rpc/view_patient_record`, 09E-14a) start in the same
+    // millisecond and, at one delay for every call, end within a few ms of each other (one round trip, R-9): whether the route skeleton flashes in that gap
+    // was chance (3 of 5 failed locally). The page's read is made the slow one (1.2 s more), so the layout answers first and the boundary under it has a
+    // window of its own: the 404 decision above it, the skeleton below it, then the record.
+    await setSupabaseLatency(context, 300, { serverExtra: { "POST /rest/v1/rpc/view_patient_record": 1_200 } });
     try {
-      // 09E-14a (flake F3): the skeleton is on screen only while the page's own calls are pending (about 300 ms per call here), and a polling assertion can look
-      // between two frames. A MutationObserver on this document (a client navigation keeps it) records that the status appeared, whatever the polling does.
-      await page.evaluate(() => {
-        const w = window as unknown as { __sawLoading: boolean };
-        w.__sawLoading = false;
+      // A MutationObserver on this document (a client navigation keeps it), installed before the click, records when the patient skeleton and the record's
+      // heading first appear, whatever the polling does.
+      await page.evaluate((name) => {
+        const w = window as unknown as { __seen: { skeleton: number | null; record: number | null } };
+        w.__seen = { skeleton: null, record: null };
         const look = () => {
-          if (document.querySelector('[role="status"][aria-label="Loading"]')) w.__sawLoading = true;
+          if (w.__seen.skeleton === null && document.querySelector('[role="status"][aria-label="Loading"] [data-route-skeleton="patient"]')) w.__seen.skeleton = performance.now();
+          if (w.__seen.record === null && [...document.querySelectorAll("main h1")].some((h) => h.textContent?.trim() === name)) w.__seen.record = performance.now();
         };
-        new MutationObserver(look).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
-      });
+        new MutationObserver(look).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+      }, tenantA.patientName);
       await link.click();
       await page.waitForURL((url) => url.pathname === path);
-      await expect.poll(() => page.evaluate(() => (window as unknown as { __sawLoading: boolean }).__sawLoading), { message: "the skeleton showed after the click" }).toBe(true);
-      await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.getByRole("main").getByRole("heading", { level: 1, name: tenantA.patientName })).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator('[data-route-skeleton="patient"]')).toHaveCount(0);
+      const seen = await page.evaluate(() => (window as unknown as { __seen: { skeleton: number | null; record: number | null } }).__seen);
+      expect(seen.skeleton, "the patient skeleton showed after the click").not.toBeNull();
+      expect(seen.record, "the record's heading showed").not.toBeNull();
+      expect(seen.skeleton!, "the skeleton came before the record").toBeLessThan(seen.record!);
     } finally {
       clearSupabaseLatency();
     }

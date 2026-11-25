@@ -25,10 +25,10 @@ interface Probe {
 }
 
 /** Runs the calls in order in a child that preloads the hook over a fake `fetch`; the rule file can be removed between calls. */
-function run(rule: { ms: number } | null, urls: Array<string | { url: string; removeRuleBefore: true }>, extra?: { init?: RequestInit }): Probe[] {
+function run(rule: { ms: number; extra?: Record<string, unknown> } | null, urls: Array<string | { url: string; removeRuleBefore: true }>, extra?: { init?: RequestInit }): Probe[] {
   const ruleFile = path.join(dir, "latency.json");
   const recordFile = path.join(dir, "record.jsonl");
-  if (rule) fs.writeFileSync(ruleFile, JSON.stringify({ ms: rule.ms, record: recordFile }));
+  if (rule) fs.writeFileSync(ruleFile, JSON.stringify({ ms: rule.ms, record: recordFile, ...(rule.extra ? { extra: rule.extra } : {}) }));
   const script = `
     const fs = require("node:fs");
     let reached = 0;
@@ -85,6 +85,26 @@ describe("server-latency preload", () => {
   it("collapses ids in the path and keeps the method", () => {
     run({ ms: 10 }, ["http://localhost:54321/rest/v1/rpc/get_thing/3f2b9c1e-1111-4222-8333-444455556666"], { init: { method: "POST", body: "{}" } });
     expect(records().map((r) => `${r.method} ${r.path}`)).toEqual(["POST /rest/v1/rpc/get_thing/:id"]);
+  });
+
+  it("adds a per-path extra to the named calls only (method and recorded path), records the whole wait, and ignores a bad extra", () => {
+    const probes = run({ ms: 100, extra: { "GET /rest/v1/rpc/slow": 400, "GET /rest/v1/bad": "x", "GET /rest/v1/neg": -5 } }, [
+      "http://127.0.0.1:54321/rest/v1/rpc/slow?select=*",
+      "http://127.0.0.1:54321/rest/v1/fast",
+      "http://127.0.0.1:54321/rest/v1/bad",
+      "http://127.0.0.1:54321/rest/v1/neg",
+    ]);
+    expect(probes[0].waited).toBeGreaterThanOrEqual(495);
+    for (const probe of probes.slice(1)) {
+      expect(probe.waited).toBeGreaterThanOrEqual(95);
+      expect(probe.waited).toBeLessThan(95 + 300);
+    }
+    expect(records().map((r) => [r.path, (r as unknown as { ms: number }).ms])).toEqual([
+      ["/rest/v1/rpc/slow", 500],
+      ["/rest/v1/fast", 100],
+      ["/rest/v1/bad", 100],
+      ["/rest/v1/neg", 100],
+    ]);
   });
 
   it("leaves every other origin and every other loopback port untouched and unrecorded", () => {
