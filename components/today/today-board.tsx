@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { hashKey, useQuery } from "@tanstack/react-query";
+import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
+import { clockOf } from "@/lib/datetime";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
 import { queryDomains, queryKeys } from "@/lib/query/keys";
 import { useLiveCore } from "@/lib/live/provider";
@@ -18,6 +19,8 @@ import {
   lanesOf,
   matchesQuery,
   nextUp,
+  withCheckedIn,
+  withVitals,
   withPendingCheckIns,
   type PendingCheckIn,
   type TodayBoard,
@@ -25,6 +28,7 @@ import {
   type TodayMode,
   type TodayRow,
 } from "@/features/today/schema";
+import { toVitalsReading } from "@/features/today/board-model";
 import { createAnnouncer, announcementsFor, type Announcer } from "./announcer";
 import { toCheckoutTarget } from "./checkout-target";
 import { Lane } from "./lane";
@@ -137,6 +141,7 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
   const pathname = usePathname();
   const params = useSearchParams();
   const live = useTodayLive(tenantId);
+  const queryClient = useQueryClient();
   const twoPane = useTwoPane();
 
   // Doctor mode: the snapshot panel and the amendments are server-rendered for the Next patient the page saw. The board's live refresh no
@@ -230,9 +235,20 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
   const laneOptions = laneDefs.map((l) => ({ value: l.id, label: l.short, count: counts[l.id].length }));
 
   const handlers = {
-    onOptimistic: (r: TodayRow) => setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status }]),
+    onOptimistic: (r: TodayRow, to: "waiting" | "in_consultation" = "waiting") =>
+      setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status, to }]),
     onRollback: (id: string) => setPending((p) => p.filter((x) => x.visitId !== id)),
-    onChanged: live.refreshNow,
+    // A check-in's answer is written into the board (09E-08, R-11: no read-back); a refused stale version re-reads it. Other devices converge through the live layer.
+    onChanged: (result?: { visitId: string; tokenNumber: number; rowVersion?: number }) => {
+      if (!result) {
+        live.refreshNow();
+        return;
+      }
+      const { hour, minute } = clockOf(new Date(), board.timeZone);
+      const arrivedAt = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      queryClient.setQueryData<TodayBoard>(queryKeys.today(tenantId, mode), (old) => (old ? withCheckedIn(old, result.visitId, result, arrivedAt) : old));
+      setPending((p) => p.filter((x) => x.visitId !== result.visitId));
+    },
     onRecordVitals: setVitalsRow,
     onCollect: setCollectRow,
   };
@@ -373,7 +389,10 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
         </div>
       )}
 
-      {vitalsRow && <VitalsSheet row={vitalsRow} onOpenChange={(open) => !open && setVitalsRow(null)} onSaved={live.refreshNow} />}
+      {vitalsRow && <VitalsSheet row={vitalsRow} onOpenChange={(open) => !open && setVitalsRow(null)} onSaved={(vitals) => {
+          const reading = toVitalsReading(vitals);
+          if (reading) queryClient.setQueryData<TodayBoard>(queryKeys.today(tenantId, mode), (old) => (old ? withVitals(old, vitalsRow.visitId, reading) : old));
+        }} />}
       {collectRow && (
         <CheckoutDrawer isOpen onClose={() => setCollectRow(null)} onSuccess={live.refreshNow} queueItem={toCheckoutTarget(collectRow)} />
       )}

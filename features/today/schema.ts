@@ -285,20 +285,25 @@ export function matchesQuery(row: Pick<TodayRow, "token" | "name" | "phone">, qu
   return q.split(/\s+/).every((part) => name.includes(part));
 }
 
-/** What the client shows for a check-in it has sent and the server has not yet confirmed. */
+/** What the client shows for a move it has sent (a check-in, a start) and the server has not yet confirmed. */
 export interface PendingCheckIn {
   visitId: string;
-  /** The status the row had when the check-in was sent; the override applies only while the server row still has it. */
+  /** The status the row had when the move was sent; the override applies only while the server row still has it. */
   from: VisitStatus;
+  /** Where the row goes at once: Waiting (a check-in, the default) or With doctor (a start). */
+  to?: "waiting" | "in_consultation";
 }
 
-/** Applies the checked-in rows the server has not caught up with yet (the optimistic move to Waiting). */
+/** Applies the moves the server has not caught up with yet (the optimistic move to Waiting or With doctor, 09E-08, R-11). */
 export function withPendingCheckIns(rows: readonly TodayRow[], pending: readonly PendingCheckIn[]): TodayRow[] {
   if (pending.length === 0) return rows as TodayRow[];
   const byId = new Map(pending.map((p) => [p.visitId, p]));
   return rows.map((row) => {
     const p = byId.get(row.visitId);
     if (!p || row.status !== p.from) return row;
+    if (p.to === "in_consultation") {
+      return { ...row, status: "in_consultation", waitMinutes: null, actions: row.actions.filter((a) => a === "record_vitals") };
+    }
     return {
       ...row,
       status: "waiting",
@@ -306,6 +311,65 @@ export function withPendingCheckIns(rows: readonly TodayRow[], pending: readonly
       actions: row.actions.filter((a) => a !== "check_in" && a !== "reschedule" && a !== "no_show"),
     };
   });
+}
+
+/**
+ * A status change the command's answer describes (cancel, no-show; 09E-08, R-11) written into the board: the row has the status, the version the
+ * command returned, and the actions that make no sense any more are gone. The next live read replaces it with the database's own row.
+ */
+export function withStatus(board: TodayBoard, visitId: string, status: "cancelled" | "no_show", rowVersion?: number): TodayBoard {
+  let changed = false;
+  const rows = board.rows.map((row) => {
+    if (row.visitId !== visitId) return row;
+    changed = true;
+    return {
+      ...row,
+      status,
+      waitMinutes: null,
+      rowVersion: rowVersion ?? row.rowVersion,
+      actions: status === "cancelled" ? [] : row.actions.filter((a) => a !== "no_show"),
+    };
+  });
+  return changed ? { ...board, rows } : board;
+}
+
+/** A vitals save's answer applied to the board (09E-08, R-11): the readings the database now holds, for a role that reads them. */
+export function withVitals(board: TodayBoard, visitId: string, vitals: VitalsReading): TodayBoard {
+  let changed = false;
+  const rows = board.rows.map((row) => {
+    // A role that may not read vitals has none on its rows and none is added.
+    if (row.visitId !== visitId || (row.vitals === null && !row.vitalsPending)) return row;
+    changed = true;
+    return { ...row, vitals, vitalsPending: false };
+  });
+  return changed ? { ...board, rows } : board;
+}
+
+/**
+ * A check-in's answer applied to the board (09E-08, R-11: the command's result, not a re-read): the visit is Waiting with the token the command issued and
+ * the version it now has. The next live read of the board replaces it with the database's own row.
+ */
+export function withCheckedIn(
+  board: TodayBoard,
+  visitId: string,
+  result: { tokenNumber: number; rowVersion?: number },
+  arrivedAt: string | null,
+): TodayBoard {
+  let changed = false;
+  const rows = board.rows.map((row) => {
+    if (row.visitId !== visitId || row.status === "waiting") return row;
+    changed = true;
+    return {
+      ...row,
+      status: "waiting" as const,
+      token: result.tokenNumber,
+      arrivedAt,
+      waitMinutes: 0,
+      rowVersion: result.rowVersion ?? row.rowVersion,
+      actions: row.actions.filter((a) => a !== "check_in" && a !== "reschedule" && a !== "no_show"),
+    };
+  });
+  return changed ? { ...board, rows } : board;
 }
 
 /** The wait of a waiting row now: the board's minutes plus the time since the browser received it. */
