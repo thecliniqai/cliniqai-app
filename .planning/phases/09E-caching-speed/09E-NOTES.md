@@ -811,3 +811,144 @@ Method: each one was run repeatedly, and under CPU load (three to six busy loops
 | e2e: `shell/loading-states.spec.ts:92` "a patient record opened from Patients", desktop-chrome (also 3 of 5 locally) | Test race, not a product bug. Since `view_patient_record` (09E-14a) the layout's 404 read (`GET patients`) and the page's audited read (`rpc/view_patient_record`) start in the same millisecond and, at one injected delay for every call, end within about 5 ms of each other (server call record: the record's first paint is one round trip, as R-9 and 09E-06 designed: "the patient record has no route skeleton gap to fill"). Whether the route skeleton flashed in that gap was chance. The observer was installed in time; there was simply no window. | The spec makes the page's read the slow one: the latency preload takes an optional per-path extra (`{"extra": {"POST /rest/v1/rpc/view_patient_record": 1200}}`, `setSupabaseLatency(ctx, 300, { serverExtra })`; unit-tested in `tests/perf/server-latency.spec.ts`), so the layout answers first and the boundary under it has a window. The spec now asserts the real outcome: the patient skeleton (`data-route-skeleton="patient"`) appears, before the record's `h1` (the patient's name), and is gone once the record shows. Fails without the extra: 4 of 5. With it: 5 of 5 alone; whole `loading-states` on desktop-chrome, pixel-7, iphone-15 under CPU load (4 busy cores of 8): 52 passed, 44 skipped by design, 0 failed, `--retries=0`. No ceiling or timeout raised. |
 
 For the PO: a record opened from Patients (not prefetched, R-9) shows nothing new between the click and the record's first paint (one round trip at hosted latency), as designed in 09E-06. If you want feedback in that moment, a link-pending indicator (`useLinkStatus`) on the Patients list is a small design change, not made here.
+
+## 09E-09 Reference catalogues on the device: versions, shards and substances (tracer)
+
+Branch `v2/phase-09e-pr2-search-schedule` (stacked on PR 1, `v2/phase-09e-caching-speed` at `6da8a89c`; retargeted to `feature/v2` after PR 1 merges). Migration `000128_reference_catalogues`
+(numbers as shifted by 09E-14a). No new dependency (IndexedDB, compression and the worker-free search use platform APIs; `node:zlib` in the size script).
+
+### What shipped
+
+- **000128** (`supabase/migrations/000128_reference_catalogues.sql`, pgTAP `reference_catalogues.test.sql`, 84 tests):
+  - `public.reference_catalogues(catalogue, version uuid, changed_at)`: rows `cdci` and `diagnoses` seeded; RLS on, one SELECT policy for `authenticated` (`true`: global reference data, like the
+    catalogue tables), `REVOKE ALL` from PUBLIC, anon, authenticated and service_role, then `GRANT SELECT` to authenticated only (no write grant to any API role).
+  - `private.reference_catalogue_bump()` (definer, `search_path ''`, no API grant) and five statement-level `AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE` triggers: `cdci_substances`,
+    `cdci_generics`, `cdci_brands`, `cdci_medicines_search` -> `cdci`; `opd_diagnoses` -> `diagnoses`. A new `gen_random_uuid()` and `now()` per statement.
+  - `public.reference_shard(p_tenant_id, p_catalogue, p_shard) RETURNS jsonb` (STABLE, INVOKER, `search_path ''`, EXECUTE `authenticated` only): substances and diagnoses need
+    `consultations:view`, medicines `prescriptions:edit` (`public.has_permission`, so a clinic that is not full gets nothing); NULL for no session, another clinic, a forged or unknown
+    tenant, an unknown catalogue, a negative, NULL or out-of-range shard. `{catalogue, version, shard, shards, rows}` from one snapshot; rows are arrays ordered by id `COLLATE "C"`:
+    substances `[id, name]`; diagnoses `[id, name, icd11, snomed, chronic, specialties, synonyms]` (NULL arrays as `[]`); medicines shard 0 = generics `[id, name, substance_ids]`,
+    shards 1..n = the medicine search table's brands `[id, brand_name, generic_row, dose_form]`, 12,000 per shard, `generic_row` = the generic's 0-based position in shard 0.
+  - `search_substances` (000118), `search_diagnoses` (000114, its pg_trgm schema lookup kept) and `search_medicines` (000117): `CREATE OR REPLACE` from the latest bodies (grants and
+    comments kept), the name tie-break only: `lower(name) COLLATE "C"` (R-6).
+  - Registries in the migration commit: `EXPECTED_MIGRATION` 000128, schema snapshot, `types/database.ts`, pgTAP FLOOR **9739** (9559 + 84 + 96 authz_matrix cells; 76 files; the new
+    file required), `definer_functions` (one classified trigger function), authz matrix (`reference_catalogues` target with the catalogue rule, `authz:gen` regenerated `authz_matrix`,
+    `authz_completeness`, `AUTHZ-MATRIX.md`; `table-matrix.spec.ts` DELETE column).
+- **Server** (`features/reference/catalogues.ts`, `service.ts`): names, permissions, shard sizes, the uuid and shard-index checks, the shared row shapes (`isCatalogueRow`,
+  `parseShard`, `parseManifest`); one call each, the caller's JWT client, no server cache.
+- **Routes**: `GET /api/reference/manifest` (`resolveServiceContext()`; `private, no-cache`, ETag, 304 on `If-None-Match`; `{catalogues: {<name>: {version, shards}}}` for the
+  catalogues the role reads; a receptionist or admin gets `{}`) and `GET /api/reference/{catalogue}/{version}/{shard}` (permission of the catalogue, 403 without; 404 for an unknown
+  catalogue, a non-uuid version, a shard that is not `0`..`999` or out of range; 409 `CATALOGUE_CHANGED` `no-store` for a version that is not current; 200 `private,
+  max-age=31536000, immutable`). Both: 401, 403, 403 `SUBSCRIPTION_LOCKED`, 503, 500 with fixed bodies, `timedRoute` (Server-Timing). Guard kinds `reference-manifest` and
+  `reference-shard` with their legs (`tests/security/guard/engine.ts`); `server-routes.ts` regenerated; `npm run inventory` 0 flagged.
+- **Device** (`lib/reference/idb.ts`, `sync.ts`, `store.ts`, `search-substances.ts`, `components/shell/reference-sync.tsx`): one IndexedDB database `cliniq-reference` (stores
+  `meta` and `rows`; a meta record is written in the same transaction as the last shard, so a catalogue with a meta record is complete; older versions deleted in that transaction).
+  The sync (one run at a time per tab): stored version into memory first (offline-capable), then the manifest, then only the missing shards, each checked against the manifest's
+  version (a 409 or a shard of another version: the manifest is read again, at most 3 times a run); storage unavailable or over quota: memory only for the tab. Started by the shell
+  (`app/(dashboard)/layout.tsx`, the catalogues the role reads from the permission matrix) after first paint (`requestIdleCallback`, `setTimeout(0)` where WebKit has none), again on
+  resume and `online` (at most once a minute), and before the first search (the editor's mount). Registered with `lib/pwa/cleanup.ts`: sign-out, lock and switch empty the memory,
+  close the connection and stop the sync; sign-out also deletes the database (the purge deletes it as well; see deviations).
+- **Allergy editor** (`components/clinical/allergy-editor.tsx`): when the catalogue is held, each keystroke is answered by `searchSubstancesLocal` (the twin) with no debounce, one
+  search per animation frame, RUM `search_device`; the query goes through the same steps the route and the service apply (`substanceQueryOf`); otherwise the route as before.
+  `data-search-source="device" | "server"` on the input (the specs wait on it).
+- **Size** (`scripts/perf/reference-size.ts`, `evidence/reference-size.json`; the real files, no database, no network): substances 1 shard, 3,283 rows, 107,446 B raw, 34,934 gzip,
+  29,471 brotli; diagnoses 1 shard, 1,550 rows, 256,879 raw, 25,477 gzip, 14,918 brotli; medicines 9 shards (generics + 8 brand shards), 104,216 rows, 7,522,178 raw,
+  1,257,108 gzip, 969,515 brotli; largest shard 941,118 B raw (under 1 MB).
+
+### Specs
+
+- **pgTAP `reference_catalogues.test.sql`** (84): the table, its grants, policy, seeded rows and CHECK; the bump (definer, no API grant) and its five triggers; each of the five tables moves ITS
+  catalogue's version on insert, update, delete and truncate and not the other's (a zero-row statement moves it too); `reference_shard` grants, 19 refusal cases (all NULL), the
+  shapes (exact keys, the version of the same snapshot, rows by id, non-ASCII kept, NULL arrays as `[]`, generics and the brands' `generic_row`), 24,004 brands = shards of 12,000,
+  12,000 and 4 with every brand exactly once and the last id in the last shard, a full shard under 1 MB raw, a version moved by an edit is the next read's; the three searches order
+  `Qzxtie-b` before `Qzxtiea` (byte order; en_US says the opposite, asserted as a control) and keep EXECUTE for authenticated only.
+- **Vitest `tests/reference/substance-search-parity.spec.ts`** (46: 34 cases + breadth, non-vacuous, helper and route-path checks): the twin over the shard the doctor downloads against
+  `public.search_substances` through the doctor's JWT client: exact, prefix, word prefix, inside, case and spaces (btrim of spaces only; a tab is kept), `%`, `_`, `\` (literal in
+  every rank), non-ASCII (Ä, É, ß), code point order beyond the BMP, ties (the `C` tie-break and identical names by id), limits 0, 5, null, 50 and the default, empty, spaces, null,
+  61 characters, no match. Then the device path (`substanceQueryOf` + twin) equals the server path (the service the route calls) for 9 typed values.
+  `tests/reference/reference-sync.spec.ts` (12): the sync's rules with fakes (download and store, stored version first, offline keeps the stored version, a changed catalogue is
+  read again from the manifest at most 3 times and nothing is stored, a catalogue the manifest does not list is never fetched, over quota = memory only, runs never overlap, nothing
+  after dispose) and the shared shapes.
+- **Guard legs** (`tests/security/guard-routes.spec.ts`): `reference-manifest` (401, 403, locked 403 `SUBSCRIPTION_LOCKED`, every role exactly its catalogues from the matrix,
+  `private, no-cache` + ETag, 304, no cookie, one `reference_catalogues` read, forged tenant changes nothing) and `reference-shard` (401, 403, locked, every role lacking the catalogue's
+  permission 403 with the membership lookup only, the holder 200 immutable with exactly the keys and one `reference_shard` call, stale version 409 with the fixed body, five 404s,
+  forged tenant changes nothing).
+- **e2e** `tests/e2e/reference/reference-routes.spec.ts` (desktop-chrome, pixel-7): headers through the real server incl. Server-Timing, 304, 409, 404, a receptionist's empty
+  manifest and 403, no session 401, a fixture write changes the manifest at once and turns the old shard URL into a 409. `substances-local.spec.ts` (`@golden`: desktop-chrome,
+  pixel-7, iphone-15): typing with 300 ms added to every Supabase call answers from the device with **0 Supabase calls** (Kong, server and browser; background held) in the SQL order;
+  offline still answers; IndexedDB refused (`IDBFactory.prototype.open` throws) answers from memory and creates no database; the reference routes unreachable falls back to the route;
+  the stored records are catalogue records of a known shape and hold no patient name or clinic id; a sign-out leaves no database.
+- **Cache audit** (`tests/e2e/pwa/05-cache-audit.spec.ts`, `support/storage-dump.ts` `referenceDbAudit`): during a session exactly `cliniq-reference` with stores `meta` and
+  `rows`, every record of a known shape (the shapes restated in the spec, not imported); after every exit path nothing (unchanged assertion).
+
+### Fails-without
+
+- **High, only catalogue rows on the device**: a scratch copy of the cache audit (deleted) put `{key, patient, visit}` into `cliniq-reference.rows` before the audit: "browse as
+  owner" **fails** on desktop-chrome ("records outside the catalogue shapes", 3 lines). The committed spec passes.
+- **Tie-break**: the pgTAP tie cases assert the byte order on names the database's own collation (en_US.UTF-8 locally) orders the other way (the control case proves the two
+  disagree), so the old `lower(name)` / `name` tie-break fails them by construction; the parity spec's `qzxreftie` case likewise (not re-run on the old bodies).
+
+### Budget rows (tool output: `evidence/09E-09/substance-row-300ms.{json,md}`, merged onto `evidence/09E-08/save-rows-300ms.json`; ceilings by `latency-ceilings.mjs`)
+
+| Row | Before (calls / depth, median ms) | After |
+| --- | --- | --- |
+| `type.D.substance` (B-4, now `@budget`) | 1 / 1, 468.7 ms | **0 / 0**, 26.7 ms (max 37.4) |
+
+`latency-ceilings.mjs --write` lowered only that row (1/1 -> 0/0) and re-pointed every row's `source` at the merged file (no other number changed). `perf-latency --grep @budget
+--retries=0` on the final tree: **15 passed** (8 setup + 7 rows, incl. `type.D.substance` 0/0, 21 ms median). `command-latency.ts` `read: reference_shard (substances)`: p50 12.3,
+p95 15.4 ms (`evidence/09E-09/command-latency.json`; the script exits 1 on the five reads that were already over 50 ms on this VM in 09E-05/06: consult_assist_context, search_diagnoses,
+search_medicines, consult_screen, today_board; none is this plan's).
+
+### Decisions and deviations
+
+- **Only `substances` is synced in this plan** (`DEVICE_CATALOGUES`): the manifest lists all three catalogues the role reads, the routes and `reference_shard` serve all three, and
+  09E-10 / 09E-11 add their catalogue to the list with their consumer (no download nobody uses).
+- **Medicines' shard count is not in the manifest** (`shards: null`; shard 0 carries `shards`): the manifest stays one `reference_catalogues` read with no new function; counting
+  93,911 brands per manifest call would add work to every app start.
+- **Resume and `online` re-check the manifest at most once a minute** (`RESYNC_MIN_MS`); app start and "before the first search" are never throttled. The plan says "on resume".
+- **Sign-out also deletes the database in the store's cleanup** (`indexedDB.deleteDatabase`, queued behind any open of this tab): the purge (unchanged) deletes only the databases
+  `indexedDB.databases()` lists at that moment, and an open started a moment before could be missing from that list. Lock and clinic switch keep the database (global rows only).
+- **A catalogue that changes while it is read** (a 409 or a shard of another version) is re-read from a fresh manifest, at most 3 manifest reads a run: on a busy database (the e2e
+  lane upserts CDCI fixtures in many specs) the first try can meet a version change.
+- **The lane holds `/api/reference/**` during a measured window** (like `/api/session-status`, R-4 background): the sync after first paint would otherwise land in full-load windows.
+  It has no row of its own yet: B-14 (the download's bytes) is 09E-11's.
+- **The plan's single "IndexedDB unavailable" case is two**: R-5 says unavailable storage means memory only (so the editor answers from the device after the download), and the
+  route fallback is shown with the reference routes unreachable.
+- **`search_diagnoses` tie-break** was `m.name` (case-sensitive, default collation); it is now `lower(m.name) COLLATE "C"` as R-6 states (one `lower()` more than "the collation only").
+- **`search_substances`' rank 1 is a literal prefix** (`LIKE v_pat || '%'`, escaped), as the twin implements; my first twin read it as an unescaped pattern and the parity table caught it.
+- `tests/e2e/pwa/fixtures.ts` needed no change (the audit helper lives in `support/storage-dump.ts`). `tests/terminology/*` and `tests/prescriptions/medicine-search-route.spec.ts` needed no
+  order change. One fixture of my parity spec (`Qzxref 50% Special`) collided with `substance-search-route.spec.ts`'s unscoped `50%` query in a parallel run: renamed `Qzxref 5% Special`.
+- Affected-test grep (`allergy-editor|AllergyEditor|data-allergy-search|search_substances|search_diagnoses|search_medicines|indexedDB|registerCleanup|Record now`): tests/ci/pgtap-*,
+  tests/e2e/a11y/consult-screens, tests/e2e/consult/rx-allergy, tests/e2e/design/keyboard/clinical-a (allergy line only, not the editor), tests/e2e/perf/latency-saves,
+  tests/e2e/pwa/05-cache-audit and fixtures, tests/e2e/shell/user-menu-keyboard, tests/e2e/support/storage-dump, tests/integration/cdci-search, tests/observability/server-timing,
+  tests/pwa/{hard-sign-out,purge}, tests/security/{membership-guard,review-fixes-db}, tests/terminology/diagnosis-search.
+
+### Security-sensitive for the adversarial review
+
+`supabase/migrations/000128_reference_catalogues.sql` (the new table's RLS and grants, the definer bump and its five triggers, `reference_shard` INVOKER with the permission per
+catalogue and NULL cases, the three replaced searches: tie-break only, grants and comments kept); `app/api/reference/**` and `features/reference/*` (session, permission per catalogue,
+tenant from the session, 409/404 before any row reaches the body, immutable caching of catalogue rows only, no server cache); the guard kinds (`guard-manifest.ts`, `guard/engine.ts`);
+the device store (`lib/reference/*`: catalogue rows only, parsed and shape-checked before storing, cleared at sign-out, lock and switch, deleted at sign-out); the cache-audit
+allowance (`05-cache-audit`, `referenceDbAudit`); the layout's catalogue list from the role (`app/(dashboard)/layout.tsx`, display only: the routes and the database decide). No
+service-role client, no PHI anywhere in the new paths, no cookie.
+
+### For the PO
+
+1. A statement that touches no catalogue row still changes the version (statement triggers): a seed re-run or a test fixture upsert makes every device download the catalogue again
+   (36 kB gzip for substances). Acceptable, or should the bump compare transition tables (four triggers per table)?
+2. `reference_catalogues` is readable by any signed-in user, including a member of a locked clinic (the catalogue rule of the CDCI tables); the manifest route refuses a locked clinic.
+3. Resume re-checks the manifest at most once a minute (above).
+
+### Tests run (local stack)
+
+- `npm run typecheck`: clean. `npx eslint .`: 0 errors, 391 warnings (the same 391 on the untouched head, measured with the change stashed; none in a file of this plan).
+  `npm run inventory`: 0 flagged. `server-routes.mjs --write` (two routes). Schema snapshot regenerated after `db reset --local`.
+- pgTAP (after `db reset --local`): **9,739 tests in 76 files, 0 failed**, gate PASS at floor 9,739 (`reference_catalogues` 84 of 84; `authz_matrix` 6,624; `definer_functions` 109).
+- Vitest (tests/{reference,terminology,security,pwa,ci,authz,observability,perf,query,live}, `prescriptions/medicine-search-route`, `integration/cdci-search`,
+  `api/readiness-probe-db`): 121 files, 2,857 tests: 2,856 passed, 1 failed = the fixture collision above (fixed; the two files re-run: 65 of 65). Guard routes 72 of 72.
+  The two `age`-binary files were not in scope (known).
+- e2e (`stack:recycle` before, `--retries=0`): `tests/e2e/reference` + `pwa/05-cache-audit` on desktop-chrome, pixel-7, iphone-15: 53 passed, 1 failed (iphone-15, IndexedDB refused:
+  WebKit ignored an own `open` assigned on the factory; the spec now patches `IDBFactory.prototype`; that case then passed on iphone-15 and desktop-chrome). Final run of
+  `reference/*`, `consult/rx-allergy`, `consult/consult-screen`, `a11y/consult-screens` (the editor at 360, 820, 1280, axe), `shell/user-menu-keyboard` on the three projects:
+  **102 passed, 2 skipped by design, 0 failed**. No design project was run (no markup changed: one data attribute), so no screenshots to discard.
+- Latency lane: the `type.D.substance` row (5 samples) and the `@budget` subset (15 passed), above. Not run: the full Vitest suite, the full PR lane, the nightly lane (CI).
