@@ -51,7 +51,8 @@ test("a booking for the open patient made elsewhere shows the notice; nothing re
   await page.goto(`/patients/${patient.id}`);
   await expect(page.getByRole("heading", { name: /E2E Synthetic Elsewhere/ }).first()).toBeVisible();
   await joined;
-  await expect.poll(() => viewRows(patient.id), { message: "the opening wrote one patient.view row" }).toBe(1);
+  // Fail-closed (09E-14a): the row is written before the record is shown, so it is there as soon as the page is, with no waiting.
+  expect(await viewRows(patient.id), "the opening wrote one patient.view row").toBe(1);
   await expect(notice(page)).toHaveCount(0);
   page.on("request", (request) => {
     if (request.headers()["rsc"] === "1") renders.push(request.url());

@@ -2,7 +2,6 @@ import "server-only";
 
 import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
-import { after } from "next/server";
 import { recordAudit } from "@/lib/audit/audit";
 import { requestMemo } from "@/lib/auth/request-memo";
 import { VERSIONS_VIA_TENANT_EMBED, versionsOfTenantEmbed, type Versions } from "@/lib/live/domains";
@@ -189,7 +188,7 @@ export type PatientRecordRead =
 /**
  * One read of a patient's record with the clinic versions of the same statement (V2-09e 09E-06, R-9, R-18), shared inside a request: the record's layout
  * (which decides 404 before the page streams) and the page both ask for it and the database is asked once (the in-flight read is the one answer). It writes no
- * audit row: the view is written by `getPatientWithVersions`, once, by the page. `error` is a read that failed (not "no such record").
+ * audit row: the view is written (awaited, fail-closed) by `getPatientWithVersions`, once, by the page. `error` is a read that failed (not "no such record").
  */
 export async function readPatientRecord(ctx: ServiceContext, patientId: string): Promise<PatientRecordRead> {
   assertPerm(ctx.role, "patients:view");
@@ -229,34 +228,12 @@ async function readPatient(
     found = { patient: data as Patient, versions: null };
   }
 
-  // Record view access in the audit log: once per opening, after the response (V2-09e 09E-06, R-9: the page does not wait for its own audit row).
-  await afterResponse(
-    () => recordAudit(ctx, { action: "patient.view", entityType: "patient", entityId: patientId }),
-    "patients.view_audit.failed",
-    ctx.tenantId,
-  );
+  // Record view access in the audit log, once per opening. Fail-closed (09E-14a, B): the write is awaited before the record is returned and a failure throws (`recordAudit`
+  // never swallows one), so a record is never shown without its view row. It costs no extra depth on the record page: by now the record is read (the layout's
+  // shared read) and the page runs this beside its consents, role and history reads.
+  await recordAudit(ctx, { action: "patient.view", entityType: "patient", entityId: patientId });
 
   return found;
-}
-
-/**
- * Runs `task` after the response is sent (`after()`), so a read that must leave an audit row does not make the screen wait for it. A failure is logged by its
- * tag (code and tenant only, never a row or an id) and does not change what the person already received. Outside a request scope (a script, a unit test calling
- * the service directly) `after()` is not available: the task runs there and then (awaited), and a failure is logged the same way.
- */
-async function afterResponse(task: () => Promise<void>, tag: `${string}.${string}`, tenantId: string): Promise<void> {
-  const run = async () => {
-    try {
-      await task();
-    } catch (err) {
-      log.error({ event: tag, code: errorTag(err), requestId: await getRequestId(), tenantId });
-    }
-  };
-  try {
-    after(run);
-  } catch {
-    await run();
-  }
 }
 
 /**
