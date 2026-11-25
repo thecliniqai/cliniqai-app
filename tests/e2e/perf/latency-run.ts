@@ -43,6 +43,8 @@ export interface Sample {
   recordedBrowser: number;
   recordedBackground: number;
   debugEdges?: string[];
+  /** With PERF_LATENCY_DEBUG: every counted call as `from method path start-end` (ms from the step's start), the evidence for a depth that is over its ceiling. */
+  chain?: string[];
   /** `METHOD path` → count, of the recorded server calls (a calibration failure names the paths that differ from Kong's). */
   recordedServerByPath: Record<string, number>;
   shortestMs: number | null;
@@ -177,6 +179,7 @@ export async function measure(
       recordedServer: intervals.filter((c) => c.from === "server").length,
       recordedBrowser: intervals.filter((c) => c.from === "browser").length,
       recordedBackground: everyInterval.length - intervals.length,
+      chain: process.env.PERF_LATENCY_DEBUG ? [...intervals].sort((a, b) => a.t0 - b.t0).map((c) => `${c.from} ${c.method} ${c.path} ${c.t0 - from}-${c.t1 - from}`) : undefined,
       debugEdges: process.env.PERF_LATENCY_DEBUG ? callIntervals({ from: from - 5000, to: to + 5000 }).filter((c) => c.t1 < from + 200 || c.t1 > to - 200).map((c) => `${c.from} ${c.method} ${c.path} t1-from=${c.t1 - from} t1-to=${c.t1 - to}`) : undefined,
       recordedServerByPath: intervals
         .filter((c) => c.from === "server")
@@ -295,7 +298,7 @@ function enforce(result: RowResult): void {
   result.samples.forEach((s, i) => {
     const where = `${result.id} sample ${i + 1} (ceiling from ${source})`;
     expect(s.calls, `${where}: Supabase calls ${JSON.stringify({ server: s.serverByPath, browser: s.browserByPath })}`).toBeLessThanOrEqual(maxCalls);
-    expect(s.depth ?? 0, `${where}: round-trip depth`).toBeLessThanOrEqual(maxDepth);
+    expect(s.depth ?? 0, `${where}: round-trip depth${s.chain ? ` CHAIN ${JSON.stringify(s.chain)}` : ""}`).toBeLessThanOrEqual(maxDepth);
   });
 }
 

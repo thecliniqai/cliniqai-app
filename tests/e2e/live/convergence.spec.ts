@@ -96,6 +96,17 @@ test("@golden delivered: B checks in and A shows it within 2 s with one board re
       )
       .toBeGreaterThan(0);
     await p.a.waitForTimeout(1_000);
+    // The 12 s heartbeat is a legitimate state read, and on a loaded machine the steps above can take most of 12 s: restart it. Hiding and showing the tab stops the
+    // interval and starts a new one (and makes one check, which is made here, before the counting starts), so the whole measured part is within a few seconds of its start.
+    const checks = countStateRequests(p.a);
+    await p.a.evaluate(() => {
+      for (const value of ["hidden", "visible"]) {
+        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => value });
+        document.dispatchEvent(new Event("visibilitychange"));
+      }
+    });
+    await expect.poll(() => checks.count(), { message: "the check made when the tab is visible again" }).toBeGreaterThan(0);
+    await p.a.waitForTimeout(1_000);
     // Everything A does from here is counted: the signal's board read, and any state read (there must be none).
     const boardReads = countBoardRequests(p.a);
     const stateReads = countStateRequests(p.a);
