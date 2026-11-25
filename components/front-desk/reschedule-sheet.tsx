@@ -16,6 +16,7 @@ import { getRescheduleTarget, rescheduleVisit, type RescheduleTarget } from "@/f
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { saveStatusProps } from "@/lib/commands/save-state";
 import { useCommand } from "@/lib/commands/use-command";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicDateWithWeekday, formatClinicTime } from "@/lib/datetime/format";
 import { slotInstant } from "./slot-adapter";
@@ -34,6 +35,7 @@ const MOVABLE = ["booked", "confirmed", "no_show"];
 
 function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => void }) {
   const command = useCommand();
+  const rowChanged = useRowChanged();
   const timeZone = useClinicTimeZone();
   const today = useClinicToday();
   const doctors = useClinicDoctors();
@@ -81,6 +83,8 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
           override_off_duty: flags.offDuty,
           override_block: flags.block,
           notify: notifyPatient,
+          // The visit as this sheet read it when it opened (09E-07, R-19).
+          expected_version: target.rowVersion,
         },
         clientRequestId,
       ),
@@ -88,6 +92,11 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
     if (result.ok) {
       notify.success(`${target.patientName} moved to ${formatClinicDateWithWeekday(plan.date)}, ${formatClinicTime(time)}`);
       onDone();
+      return;
+    }
+    if (rowChanged(result.error)) {
+      // The visit moved on elsewhere: nothing was written. The fixed message stays; the appointment is read again, so the sheet shows the latest and the next move carries its version.
+      void getRescheduleTarget(target.visitId).then((latest) => latest.ok && setTarget(latest.value)).catch(() => undefined);
       return;
     }
     if (isSlotConflictReason(result.error.reason)) {

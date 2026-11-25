@@ -35,13 +35,15 @@ import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
 import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 
 /**
  * What the drawer needs of a visit (V2-08 08-03b: the v1 queue card's `QueueItem` left with that screen). Today's To-bill row
  * builds it with `toCheckoutTarget` (`components/today/checkout-target.ts`).
  */
 export interface CheckoutTarget {
-  visit: { id: string; status: string };
+  /** `rowVersion`: the visit's `row_version` the board shows (09E-07, R-19); the desk completion sends it. */
+  visit: { id: string; status: string; rowVersion: number };
   patient: { id: string; full_name: string; sex?: string | null; age?: number | null; phone?: string | null };
   queueToken?: { token_number: number } | null;
   doctorName?: string | null;
@@ -102,6 +104,7 @@ export function CheckoutDrawer({
   const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
   // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
   const completeCommand = useCommand();
+  const rowChanged = useRowChanged();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -279,6 +282,18 @@ export function CheckoutDrawer({
     }
   };
 
+  // A payment refused because the invoice moved on (another device added an item, 09E-07, R-19): nothing was written. The drawer shows the latest
+  // invoice and its balance, the fixed message stays, and the next attempt carries the new version.
+  const showLatestInvoice = async (): Promise<void> => {
+    try {
+      const updated = await getVisitBillingDetails(visit.id);
+      setBillingData(updated);
+      if (updated.success && updated.invoice) setAmountToPay(updated.balanceDue);
+    } catch (err: unknown) {
+      reportClientError("billing.visit_billing_reload.failed", err);
+    }
+  };
+
   // Handler for checkout and collecting payment
   const handleCheckoutAndPay = (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,11 +334,14 @@ export function CheckoutDrawer({
               reference_number: referenceNumber.trim() || undefined,
               notes: paymentNotes.trim() || undefined,
               client_request_id: clientRequestId,
+              // The invoice as this drawer shows it (read when it opened, and again after each of the user's own item changes); null: it shows none yet (09E-07, R-19).
+              expected_invoice_version: invoice?.row_version ?? null,
             })
           );
           if (!res.ok) {
             setError(res.error.message || "Failed to record payment.");
             if (isOutcomeUnknownCode(res.error.code)) await reloadAfterUnknownOutcome();
+            else if (rowChanged(res.error)) await showLatestInvoice();
             return;
           }
         } else if (!invoice) {
@@ -347,7 +365,7 @@ export function CheckoutDrawer({
         }
 
         // 3. Complete queue encounter
-        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion));
         if (!queueRes.ok) {
           reportClientError("queue.checkout_transition.failed", null);
         }
@@ -1092,7 +1110,7 @@ export function CheckoutDrawer({
                   <Button
                     type="button"
                     onClick={async () => {
-                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion));
                       if (!done.ok) {
                         setError(done.error.message);
                         return;

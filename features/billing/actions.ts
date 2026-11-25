@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
-import { CreateInvoiceInput, CollectPaymentInput, RecordPaymentInput, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
+import type { CreateInvoiceInput, CollectPaymentRequest, RecordPaymentRequest, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
@@ -53,7 +53,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CommandR
   return result;
 }
 
-export async function recordPayment(input: RecordPaymentInput): Promise<RecordPaymentResult> {
+export async function recordPayment(input: RecordPaymentRequest): Promise<RecordPaymentResult> {
   await markAction("billing.record_payment");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.record" });
   if (!resolved.ok) return { success: false, error: resolved.error };
@@ -66,7 +66,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<RecordPa
  * Desk checkout as one atomic command (V2-07 07-02): the visit's invoice and its payment in one transaction. Returns a
  * `Result` (with the `AppError` code the client's `useCommand` needs); `client_request_id` is required.
  */
-export async function collectPayment(input: CollectPaymentInput): Promise<CommandResult<billingService.CollectPaymentValue>> {
+export async function collectPayment(input: CollectPaymentRequest): Promise<CommandResult<billingService.CollectPaymentValue>> {
   await markAction("billing.collect_payment");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.collect" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };

@@ -41,13 +41,14 @@ interface VisitRow {
   estimated_duration_minutes: number | null;
   is_overbooked: boolean;
   signed_at: string | null;
+  row_version: number;
   clinic_confirmed: string | null;
   patient_confirmed: string | null;
   patients: { full_name: string } | { full_name: string }[] | null;
 }
 
 const VISIT_COLUMNS =
-  "id, patient_id, doctor_id, status, scheduled_at, estimated_duration_minutes, is_overbooked, signed_at, " +
+  "id, patient_id, doctor_id, status, scheduled_at, estimated_duration_minutes, is_overbooked, signed_at, row_version, " +
   "clinic_confirmed:metadata->>clinic_confirmed, patient_confirmed:metadata->>patient_confirmed, patients(full_name)";
 
 export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions = {}): Promise<{ ok: true; data: ScheduleData } | { ok: false }> {
@@ -107,6 +108,7 @@ export async function getSchedule(ctx: ServiceContext, options: ScheduleOptions 
       confirmed,
       actions: rowActions(permissions, { status: v.status, scheduledAt: v.scheduled_at, signed: v.signed_at != null }, now, timeZone),
       canConfirm: canEdit && v.status === "booked" && !confirmed,
+      rowVersion: v.row_version,
     };
   });
 

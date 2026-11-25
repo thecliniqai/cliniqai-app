@@ -342,6 +342,8 @@ export interface Invoice {
   tax: number;
   total_amount: number;
   status: InvoiceStatus;
+  /** 09E-07 (R-19): +1 when status, total, subtotal, discount or tax change; the version a screen sends with a payment (000123). */
+  row_version?: number;
   created_at: string;
   updated_at: string;
 }

@@ -346,7 +346,7 @@ describe("09D-01a ruling R-S: sensitive actions get a fresh check (local stack)"
     const patientId = await seedPatient(owner);
     const visitId = await seedBookedVisit(owner, patientId, owner.userId, new Date(Date.now() + 3_600_000).toISOString());
     request(live, liveCookies);
-    const result = await checkInVisit(visitId, "normal", randomUUID());
+    const result = await checkInVisit(visitId, "normal", randomUUID(), 0);
     expect(result.ok).toBe(true);
     expect(state.calls).not.toContain("rpc:session_is_live");
     expect(state.calls).not.toContain("from:memberships");

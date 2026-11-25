@@ -16,13 +16,12 @@ import type {
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
-  RescheduleVisitInput,
   RescheduleVisitValue,
-  CancelVisitInput,
   CancelVisitValue,
   MarkNoShowValue,
   ConfirmAppointmentValue,
 } from "./scheduling-service";
+import type { CancelVisitRequest, RescheduleVisitRequest } from "./schema";
 import { markAction } from "@/lib/observability/db-timing";
 
 export type {
@@ -148,10 +147,11 @@ export async function registerAndBook(
  * Moves a booked, confirmed or missed appointment to a new time as one atomic command (V2-08 08-04a): the slot check, the
  * status back to booked, the audit row, the optional patient message and the webhook event commit together. A slot that is
  * taken, off duty or blocked answers CONFLICT (reasons SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED) and writes nothing.
- * `client_request_id` is required (the same id replays the first result).
+ * `client_request_id` is required (the same id replays the first result). `input.expected_version` is the visit's `row_version` the screen shows
+ * (09E-07, R-19), required here: a visit that moved on is refused (`CONFLICT` / `ROW_CHANGED`) and nothing is written.
  */
 export async function rescheduleVisit(
-  input: RescheduleVisitInput,
+  input: RescheduleVisitRequest,
   clientRequestId: string
 ): Promise<CommandResult<RescheduleVisitValue>> {
   await markAction("visits_scheduling.reschedule_visit");
@@ -164,10 +164,11 @@ export async function rescheduleVisit(
 
 /**
  * Cancels a booked, confirmed or waiting appointment as one atomic command (V2-08 08-04a): the reason, the waitlist
- * promotion into the vacated slot, the optional patient message and the webhook event commit together.
+ * promotion into the vacated slot, the optional patient message and the webhook event commit together. `input.expected_version`: the visit's
+ * `row_version` the screen shows (09E-07, R-19), required.
  */
 export async function cancelVisit(
-  input: CancelVisitInput,
+  input: CancelVisitRequest,
   clientRequestId: string
 ): Promise<CommandResult<CancelVisitValue>> {
   await markAction("visits_scheduling.cancel_visit");
@@ -178,25 +179,26 @@ export async function cancelVisit(
   return result;
 }
 
-/** Marks a booked or confirmed appointment whose time has passed as a no-show (V2-08 08-04a). */
-export async function markNoShow(visitId: string, clientRequestId: string): Promise<CommandResult<MarkNoShowValue>> {
+/** Marks a booked or confirmed appointment whose time has passed as a no-show (V2-08 08-04a). `expectedVersion`: the visit's `row_version` the screen shows (09E-07). */
+export async function markNoShow(visitId: string, clientRequestId: string, expectedVersion: number): Promise<CommandResult<MarkNoShowValue>> {
   await markAction("visits_scheduling.mark_no_show");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId);
+  const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId, expectedVersion);
   if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
-/** Confirms a booked appointment (V2-08 08-04a). */
+/** Confirms a booked appointment (V2-08 08-04a). `expectedVersion`: the visit's `row_version` the screen shows (09E-07). */
 export async function confirmAppointment(
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion: number
 ): Promise<CommandResult<ConfirmAppointmentValue>> {
   await markAction("visits_scheduling.confirm_appointment");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId);
+  const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId, expectedVersion);
   if (result.ok) revalidate("/schedule", "/today");
   return result;
 }

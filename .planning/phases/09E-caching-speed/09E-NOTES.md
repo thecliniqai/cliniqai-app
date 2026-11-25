@@ -533,3 +533,59 @@ Rows that did **not** reach "depth 1 (full load 2)": the patient record, Visits,
 - e2e (`--retries=0`, `stack:recycle` before each run; desktop-chrome, pixel-7, iphone-15): tests/e2e/{today,shell,live,observability,a11y,schedule,design}, `pwa/05-cache-audit`, `journeys/journey-03-register-patient`: **548 passed, 245 skipped by design, 4 failed**, all four mine and fixed: `loading-states` patient history at 360 px (the history skeleton was gone before axe ran: its wait is 1.8 s now) and `today-live` "reaches another browser" on the three projects
   (my count did not allow for the actor's own page render after its Server Action: at most one more `today_board`). Re-run after the fixes: both passed (desktop-chrome; today-live also on pixel-7 and iphone-15); the changed-elsewhere spec and the full loading-states matrix passed earlier in the same state of the code. No test passed on a retry. The iphone-15 "Delivered" failure did not occur; `save.R.check-in` is the lane's known failing row (untouched).
 - Latency lane at 300 ms (`evidence/09E-06/`): the rows above. Playwright restarts the worker after a failed test and the report of that process loses the rows already measured in it, so the rows were measured in groups and merged with `PERF_LATENCY_MERGE` (parts a to g in the evidence folder); the failing rows (patient record, billing-reports full load) kept their old ceilings in `final-rows-300ms.json`.
+
+## 09E-07 Stale-write refusal for queue and billing commands
+
+Branch `v2/phase-09e-caching-speed`. Migration `000126_stale_write_refusal`. No new dependency.
+
+### What shipped
+
+- **000126** (`supabase/migrations/000126_stale_write_refusal.sql`, pgTAP `stale_write_refusal.test.sql`, 79 tests): ten definer commands dropped and created again, each from its
+  LATEST live definition (read with `pg_get_functiondef` on the local stack after 000125, which equals the latest migration body; the dollar-quoted bodies are verbatim, only the header is
+  normalised) with ONE parameter last, `DEFAULT NULL`: `p_expected_version` (visits.row_version) on `check_in_visit`, `start_consultation`, `complete_visit`, `mark_no_show`, `cancel_visit`,
+  `reschedule_visit`, `confirm_appointment`, `complete_and_bill`; `p_expected_invoice_version` (invoices.row_version) on `collect_payment` and `record_payment`. No overload is left. Grants,
+  `SECURITY DEFINER`, `search_path ''`, `lock_timeout 2s` and the comments (extended by one sentence) are restored; `record_payment` keeps `service_role` (re-granted after the revoke so the
+  ACL order is the old one: the definer registry compares it).
+- Order in every command: actor, active clinic, permission, input; the request-id claim (a replay answers its STORED result whatever the version); the existing row lock; `ROW_CHANGED` (P0001)
+  when the version differs; the unchanged body. `check_in_visit` and `start_consultation` lock the visit themselves before the compare (their shared steps lock it again, a no-op) and only when a
+  version is given, so a call without one is byte-for-byte the old behaviour. `complete_and_bill` compares after its in-body `billing:collect`-or-own-doctor permission check. `collect_payment`
+  compares the visit's live invoice (locked `FOR UPDATE`, as the step locks it) and refuses a version given when there is none. `record_payment` has no claim: its replay by command id sits after
+  the lock and before the compare. The version is not in the request hash (a retry with another version is a replay, not a mismatch). A refusal rolls back the whole transaction, claim included.
+- Results gain `row_version` (visit commands; `complete_and_bill` also `invoice_version`) and `invoice_version` (`collect_payment`, `record_payment`, its replay too).
+- App: `lib/errors/row-changed.ts` (reason, fixed text "This changed on another device. The latest is shown.", `versionArg`), `ROW_CHANGED: CONFLICT` in `RPC_REASON_CODES`, `callCommand` adds the
+  fixed text to every command's messages (and `callRecordPayment` too). Services accept `expectedVersion` (optional); the server ACTIONS require it (`checkInVisit`, `startConsultation`,
+  `completeVisit`, `markNoShow`, `confirmAppointment` take a positional number; `cancelVisit`/`rescheduleVisit` take `CancelVisitRequest`/`RescheduleVisitRequest` with `expected_version`;
+  `collectPayment` takes `CollectPaymentRequest` with `expected_invoice_version: number | null`; `recordPayment` `RecordPaymentRequest`). Screens: Today rows pass `row.rowVersion`; the row menu,
+  cancel and no-show dialogs and the Schedule card pass the schedule read's new `rowVersion`; the reschedule sheet passes the version of the visit it loaded (`getRescheduleTarget` now returns it)
+  and reloads the target after a refusal; the checkout drawer sends the invoice version it shows (`getVisitBillingDetails` now returns `invoice.row_version`: the first e2e run found the drawer was
+  sending none) and the visit's version for the desk completion. `lib/live/use-row-changed.ts`: on `ROW_CHANGED` it wakes the live layer (state read now), invalidates the live queries and, on
+  `/schedule`, refreshes the route; the toast of a row command has no Retry for it (the same version would be refused again).
+- Bookkeeping: `EXPECTED_MIGRATION` 000126, schema snapshot, `types/database.ts`, pgTAP floor 9505 (74 files, the new file required), signature pins in `staff_scheduling`, `visit_state_machine`,
+  `billing_rpc_only` pgTAP and the Vitest catalog specs (text only, no count change). `tests/security/guard-manifest.ts` pins actions by name and permission, not signatures: unchanged.
+
+### Fails-without (High: lost update)
+
+With the compare removed from `reschedule_visit` (the shipped test file run with the function redefined inside its transaction, rolled back): tests 17 and 18 fail ("a stale version is
+ROW_CHANGED": the call answered; "nothing written": audit/claim counts 3/3 against 2/2, the visit moved from +1 day to +3 days, version 2). Restored (the migration is untouched); the file passes 79/79.
+
+### Decisions and deviations
+
+- **Services take the version optionally; the actions require it.** Required at the service would have broken about 100 call sites (the specs, and the system and API paths that have nothing to compare);
+  NULL means "no version known" in the database too. "The app always sends one" is enforced where the app enters: the actions' TypeScript signatures (`@ts-expect-error` cases in
+  `tests/queue/stale-write-services.spec.ts`, checked by `npm run typecheck`). `app/api/v1` unchanged.
+- **`complete_and_bill` supports the version but the Sign and Bill modal sends none**: the consult screen's read (000124) carries no visit version, and adding one means replacing `consult_screen`
+  and a version held by a long-open client. PO question below.
+- A Today row of a visit that is not completed has no `invoiceVersion`; the checkout drawer does not need it (it reads the invoice itself when opened and after each of its own item edits).
+- The e2e's "B" is the command API of the owner's session (what a second device's click sends), not a second browser: the reschedule sheet's slot picking is not what is under test. A's state reads are
+  held by a route (not a fake clock) so it cannot heal by heartbeat while the test runs.
+- Partial payments do not move `invoices.row_version` (no listed column changes), by the 000123 design: a second partial payment from a screen that is behind on the balance is limited by the overpayment rule.
+
+### Security-sensitive for the adversarial review
+
+Ten definer commands replaced (000126): permission order, replay-before-compare, lock-then-compare, no grant change (ACL equality incl. order, `record_payment`'s `service_role`), no new write path.
+`versionArg` sends -1 for an impossible version (always refused) rather than throwing. The version is lost-update protection for honest clients, not an access control.
+
+### For the PO
+
+1. Should the consult screen carry the visit's version so Sign and Bill is refused when the visit moved (needs `consult_screen` replaced, 09E-12 candidate)?
+2. The Schedule's booking sheets pass the version they loaded until 09E-12, as planned; the Schedule day read carries `rowVersion` meanwhile.

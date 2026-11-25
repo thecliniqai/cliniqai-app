@@ -39,6 +39,8 @@ export interface ScheduleAppointment {
   actions: RowAction[];
   /** Offered a Confirm button: booked, not yet confirmed, and the role may edit appointments. */
   canConfirm: boolean;
+  /** The visit's `row_version` as read with the day (09E-07, R-19): the commands of the row (Confirm, Mark as no-show, Cancel) send it. */
+  rowVersion: number;
 }
 
 export interface ScheduleBlockView {

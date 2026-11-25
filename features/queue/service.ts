@@ -8,6 +8,7 @@ import type { QueuePriority } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { versionArg } from "@/lib/errors/row-changed";
 import { callCommand } from "@/lib/commands/call-command";
 import { clientRequestIdSchema } from "@/lib/commands/request-id";
 import { appError, type AppError, type Result } from "@/lib/errors/app-error";
@@ -39,23 +40,27 @@ const checkInRpcResultSchema = z.object({
   reused: z.boolean(),
   status_repaired: z.boolean(),
   replayed: z.boolean(),
+  /** 09E-07: the visit's new `row_version` (absent in a result stored before migration 000126). */
+  row_version: z.number().int().optional(),
 });
 
 export type CheckInResult =
-  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean }
+  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number }
   | { success: false; error: string; code?: AppError["code"]; reason?: string };
 
 /**
  * Checks a visit in as one atomic command (`public.check_in_visit`, V2-07 07-01): the visit's queue token (its existing
  * one, or the next of the clinic-local day), the visit moved to `waiting` (a visit that already holds a token but was
  * left without the status is repaired) and the `queue.check_in` audit row, all in one transaction. The same
- * `client_request_id` replays the first result.
+ * `client_request_id` replays the first result. `expectedVersion` is the visit's `row_version` the screen shows (09E-07, R-19): the command
+ * refuses with `CONFLICT` / `ROW_CHANGED` and writes nothing when the visit moved on; omitted, nothing is compared (the server actions require it).
  */
 export async function checkInVisit(
   ctx: ServiceContext,
   visitId: string,
   priority: QueuePriority,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion?: number | null
 ): Promise<CheckInResult> {
   try {
     assertPerm(ctx.role, "appointments:edit");
@@ -76,7 +81,7 @@ export async function checkInVisit(
   const outcome = await callCommand(
     ctx,
     "check_in_visit",
-    { p_visit_id: visitId, p_priority: priority, p_client_request_id: clientRequestId },
+    { p_visit_id: visitId, p_priority: priority, p_client_request_id: clientRequestId, ...versionArg("p_expected_version", expectedVersion) },
     checkInRpcResultSchema,
     CHECK_IN_COMMAND_MESSAGES,
     { event: "queue.check_in_visit.failed" }
@@ -89,6 +94,7 @@ export async function checkInVisit(
     tokenNumber: outcome.value.token_number,
     queueTokenId: outcome.value.queue_token_id,
     replayed: outcome.value.replayed,
+    rowVersion: outcome.value.row_version,
   };
 }
 
@@ -245,6 +251,7 @@ const startConsultationResultSchema = z.object({
   token_number: z.number().int().nullable(),
   already_started: z.boolean(),
   replayed: z.boolean(),
+  row_version: z.number().int().optional(),
 });
 
 export interface StartConsultationValue {
@@ -254,17 +261,20 @@ export interface StartConsultationValue {
   alreadyStarted: boolean;
   /** True when this client_request_id was already processed: nothing new was written. */
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 /**
  * "Start Consultation" as one atomic command (R-1): a booked, confirmed or no-show visit is checked in first (token,
  * `waiting`, `queue.check_in` audit row), then moved to `in_consultation` with the `visit.consultation_start` audit row, in
- * one transaction. `consultations:edit` and `appointments:edit` (owner and doctor).
+ * one transaction. `consultations:edit` and `appointments:edit` (owner and doctor). `expectedVersion`: the visit's `row_version` the screen shows (09E-07).
  */
 export async function startConsultation(
   ctx: ServiceContext,
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion?: number | null
 ): Promise<Result<StartConsultationValue>> {
   const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
   if (!input.success) {
@@ -276,14 +286,17 @@ export async function startConsultation(
   const outcome = await callCommand(
     ctx,
     "start_consultation",
-    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    { p_visit_id: visitId, p_client_request_id: clientRequestId, ...versionArg("p_expected_version", expectedVersion) },
     startConsultationResultSchema,
     START_CONSULTATION_MESSAGES,
     { event: "queue.start_consultation.failed" }
   );
   if (!outcome.ok) return outcome;
   const v = outcome.value;
-  return { ok: true, value: { visitId: v.visit_id, tokenNumber: v.token_number, alreadyStarted: v.already_started, replayed: v.replayed } };
+  return {
+    ok: true,
+    value: { visitId: v.visit_id, tokenNumber: v.token_number, alreadyStarted: v.already_started, replayed: v.replayed, rowVersion: v.row_version },
+  };
 }
 
 /** Fixed, data-free texts by reason or code for `complete_visit`. */
@@ -303,6 +316,7 @@ const completeVisitResultSchema = z.object({
   visit_id: z.string().uuid(),
   already_completed: z.boolean(),
   replayed: z.boolean(),
+  row_version: z.number().int().optional(),
 });
 
 export interface CompleteVisitValue {
@@ -310,16 +324,20 @@ export interface CompleteVisitValue {
   /** True when the visit was already completed (the checkout after a sign-off): only the token's completion time is stamped. */
   alreadyCompleted: boolean;
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 /**
  * Completes an unsigned waiting or in-consultation visit at the desk as one atomic command (`appointments:edit`); a visit
- * that is already completed answers `alreadyCompleted`. A signed visit changes only through the amendment commands.
+ * that is already completed answers `alreadyCompleted`. A signed visit changes only through the amendment commands. `expectedVersion`: the visit's
+ * `row_version` the screen shows (09E-07).
  */
 export async function completeVisit(
   ctx: ServiceContext,
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion?: number | null
 ): Promise<Result<CompleteVisitValue>> {
   const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
   if (!input.success) {
@@ -331,14 +349,14 @@ export async function completeVisit(
   const outcome = await callCommand(
     ctx,
     "complete_visit",
-    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    { p_visit_id: visitId, p_client_request_id: clientRequestId, ...versionArg("p_expected_version", expectedVersion) },
     completeVisitResultSchema,
     COMPLETE_VISIT_MESSAGES,
     { event: "queue.complete_visit.failed" }
   );
   if (!outcome.ok) return outcome;
   const v = outcome.value;
-  return { ok: true, value: { visitId: v.visit_id, alreadyCompleted: v.already_completed, replayed: v.replayed } };
+  return { ok: true, value: { visitId: v.visit_id, alreadyCompleted: v.already_completed, replayed: v.replayed, rowVersion: v.row_version } };
 }
 
 /**

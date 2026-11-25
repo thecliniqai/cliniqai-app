@@ -157,6 +157,9 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   NO_SHOW_TOO_EARLY: "CONFLICT",
   SLOT_IN_PAST: "VALIDATION_FAILED",
   WAITLIST_ENTRY_CLOSED: "CONFLICT",
+  // V2-09e 09E-07 (migration 000126, R-19): the row version the screen showed is not the row's now; nothing was written. The text is fixed
+  // (`ROW_CHANGED_MESSAGE`, added to every command's messages by `callCommand`).
+  ROW_CHANGED: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

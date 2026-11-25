@@ -57,7 +57,7 @@ describe("complete_visit: one transaction", () => {
     const args = completeVisitArgs(tenantA, visitId);
     const { data, error } = await callCompleteVisit(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, already_completed: false, replayed: false });
+    expect(data).toEqual({ visit_id: visitId, already_completed: false, replayed: false, row_version: expect.any(Number) });
     expect((await visitRow(visitId)).status).toBe("completed");
     expect((await tokensOfVisit(visitId))[0].completed_at).not.toBeNull();
     expect(await completeAudit(visitId)).toEqual([
@@ -76,7 +76,7 @@ describe("complete_visit: one transaction", () => {
     const { visitId } = await seedVisit(tenantA, undefined, { status: "completed" });
     const first = await callCompleteVisit(tenantA.client, completeVisitArgs(tenantA, visitId));
     expect(first.error).toBeNull();
-    expect(first.data).toEqual({ visit_id: visitId, already_completed: true, replayed: false });
+    expect(first.data).toEqual({ visit_id: visitId, already_completed: true, replayed: false, row_version: expect.any(Number) });
     expect(await completeAudit(visitId)).toEqual([]);
     expect((await visitRow(visitId)).status).toBe("completed");
 

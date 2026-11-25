@@ -31,22 +31,25 @@ function revalidate(...paths: string[]) {
 
 /**
  * Check-in as one atomic command (V2-07 07-01): `Result` with the `AppError` code `useCommand` needs; the
- * `client_request_id` is required (the same id replays the first result and writes nothing new).
+ * `client_request_id` is required (the same id replays the first result and writes nothing new). `expectedVersion` (09E-07, R-19) is the visit's
+ * `row_version` the screen shows: required here, so every screen sends one; a visit that moved on is refused (`CONFLICT` / `ROW_CHANGED`) and nothing is written.
  */
 export async function checkInVisit(
   visitId: string,
   priority: QueuePriority,
-  clientRequestId: string
-): Promise<CommandResult<{ tokenNumber: number; queueTokenId: string; replayed: boolean }>> {
+  clientRequestId: string,
+  expectedVersion: number
+): Promise<CommandResult<{ tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number }>> {
   await markAction("queue.check_in_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId);
+  const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId, expectedVersion);
   if (result.success) revalidate("/today", "/schedule");
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
     queueTokenId: ok.queueTokenId,
     replayed: ok.replayed,
+    rowVersion: ok.rowVersion,
   }));
 }
 
@@ -70,32 +73,36 @@ export async function enqueueWalkIn(
 /**
  * "Start Consultation" as one atomic command (V2-08 08-01b, R-1): a booked, confirmed or no-show visit is checked in first, then
  * moved to `in_consultation`, in one transaction. `Result` with the `AppError` code `useCommand` needs; `client_request_id` is
- * required (the same id replays the first result). Owner and doctor only (`consultations:edit`).
+ * required (the same id replays the first result). Owner and doctor only (`consultations:edit`). `expectedVersion`: the visit's `row_version` the screen
+ * shows (09E-07, R-19), required.
  */
 export async function startConsultation(
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion: number
 ): Promise<CommandResult<StartConsultationValue>> {
   await markAction("queue.start_consultation");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId);
+  const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId, expectedVersion);
   if (result.ok) revalidate("/today", "/schedule");
   return result;
 }
 
 /**
  * Completes an unsigned waiting or in-consultation visit at the desk as one atomic command (V2-08 08-01b); a visit that is
- * already completed (the checkout after a sign-off) is a no-op that stamps the queue token's completion time.
+ * already completed (the checkout after a sign-off) is a no-op that stamps the queue token's completion time. `expectedVersion`: the visit's
+ * `row_version` the screen shows (09E-07, R-19), required.
  */
 export async function completeVisit(
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion: number
 ): Promise<CommandResult<CompleteVisitValue>> {
   await markAction("queue.complete_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId);
+  const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId, expectedVersion);
   if (result.ok) revalidate("/today", "/schedule");
   return result;
 }

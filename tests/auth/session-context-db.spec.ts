@@ -381,7 +381,7 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
     expect(visits).toEqual([]);
     // ... and so is a command (the real check-in action, which passes the app-side guard on the stale cookie).
     request(leaving.client, device);
-    const checkIn = await checkInVisit(visitId, "normal", randomUUID());
+    const checkIn = await checkInVisit(visitId, "normal", randomUUID(), 0);
     expect(checkIn.ok).toBe(false);
     const { data: visit } = await getAdminClient().from("visits").select("status").eq("id", visitId).single();
     expect(visit?.status).toBe("booked");
@@ -391,7 +391,7 @@ describe("V2-09d request context and session-context cookie (local stack)", () =
 
     // Control: a current member's check-in of the same visit goes through.
     request(owner.client);
-    const control = await checkInVisit(visitId, "normal", randomUUID());
+    const control = await checkInVisit(visitId, "normal", randomUUID(), 0);
     expect(control.ok).toBe(true);
   }, 30_000);
 

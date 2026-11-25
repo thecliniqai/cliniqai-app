@@ -19,7 +19,8 @@ export function rowMenuItems(actions: readonly RowAction[]): ("reschedule" | "no
  * sheet (`?reschedule=<id>`, a link on the current address), Mark as no-show and Cancel appointment open their dialogs.
  * Renders nothing when the state machine offers none of them.
  */
-export function RowMenu({ visitId, name, actions }: { visitId: string; name: string; actions: readonly RowAction[] }) {
+/** `rowVersion`: the visit's `row_version` the screen shows; Mark as no-show and Cancel send it (09E-07, R-19). */
+export function RowMenu({ visitId, name, actions, rowVersion }: { visitId: string; name: string; actions: readonly RowAction[]; rowVersion: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -58,8 +59,8 @@ export function RowMenu({ visitId, name, actions }: { visitId: string; name: str
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <NoShowDialog open={dialog === "no_show"} onOpenChange={(open) => !open && setDialog(null)} visitId={visitId} name={name} />
-      <CancelDialog open={dialog === "cancel"} onOpenChange={(open) => !open && setDialog(null)} visitId={visitId} name={name} />
+      <NoShowDialog open={dialog === "no_show"} onOpenChange={(open) => !open && setDialog(null)} visitId={visitId} name={name} rowVersion={rowVersion} />
+      <CancelDialog open={dialog === "cancel"} onOpenChange={(open) => !open && setDialog(null)} visitId={visitId} name={name} rowVersion={rowVersion} />
     </>
   );
 }

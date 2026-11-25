@@ -237,7 +237,7 @@ export function TodayRowView(props: TodayRowViewProps) {
                 Book follow-up
               </Link>
             )}
-            {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} />}
+            {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} rowVersion={row.rowVersion} />}
           </>
         ) : undefined
       }

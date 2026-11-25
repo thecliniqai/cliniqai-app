@@ -14,6 +14,7 @@ import { cancelVisit } from "@/features/visits/scheduling";
 import { CANCEL_REASON_CODES, type CancelReasonCode } from "@/features/visits/schema";
 import { saveStatusProps } from "@/lib/commands/save-state";
 import { useCommand } from "@/lib/commands/use-command";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 
 /**
  * CancelDialog (V2-08 08-04b, P1-31, R-15): cancels an appointment with `cancel_visit`, one command: the status, the reason
@@ -29,8 +30,9 @@ export const CANCEL_REASON_LABELS: Record<CancelReasonCode, string> = {
   other: "Other reason",
 };
 
-function CancelBody({ visitId, name, onDone, onClose }: { visitId: string; name: string; onDone: () => void; onClose: () => void }) {
+function CancelBody({ visitId, name, rowVersion, onDone, onClose }: { visitId: string; name: string; rowVersion: number; onDone: () => void; onClose: () => void }) {
   const command = useCommand();
+  const rowChanged = useRowChanged();
   const [reason, setReason] = useState<CancelReasonCode>("patient_request");
   const [note, setNote] = useState("");
   const [tell, setTell] = useState(true);
@@ -40,11 +42,15 @@ function CancelBody({ visitId, name, onDone, onClose }: { visitId: string; name:
     lastSend.current = send;
     const result = await command.run((clientRequestId) =>
       cancelVisit(
-        { visit_id: visitId, reason_code: reason, reason_note: note.trim() || null, notify: tell, promote_waitlist: true },
+        { visit_id: visitId, reason_code: reason, reason_note: note.trim() || null, notify: tell, promote_waitlist: true, expected_version: rowVersion },
         clientRequestId,
       ),
     );
-    if (!result.ok) return;
+    if (!result.ok) {
+      // The visit moved on elsewhere (09E-07, R-19): the screen behind re-reads, the fixed message stays in the dialog, nothing was cancelled.
+      rowChanged(result.error);
+      return;
+    }
     notify.success(
       result.value.autoPromoted
         ? `${name}'s appointment was cancelled. A waitlisted patient was booked into the vacated slot.`
@@ -118,13 +124,15 @@ export interface CancelDialogProps {
   onOpenChange: (open: boolean) => void;
   visitId: string;
   name: string;
+  /** The visit's `row_version` the screen shows (09E-07, R-19). */
+  rowVersion: number;
 }
 
-export function CancelDialog({ open, onOpenChange, visitId, name }: CancelDialogProps) {
+export function CancelDialog({ open, onOpenChange, visitId, name, rowVersion }: CancelDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent data-cancel-dialog="">
-        {open && <CancelBody visitId={visitId} name={name} onDone={() => onOpenChange(false)} onClose={() => onOpenChange(false)} />}
+        {open && <CancelBody visitId={visitId} name={name} rowVersion={rowVersion} onDone={() => onOpenChange(false)} onClose={() => onOpenChange(false)} />}
       </AlertDialogContent>
     </AlertDialog>
   );

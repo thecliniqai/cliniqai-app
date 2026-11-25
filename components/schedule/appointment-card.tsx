@@ -9,6 +9,7 @@ import { RowMenu } from "@/components/front-desk/row-menu";
 import { confirmAppointment } from "@/features/visits/scheduling";
 import type { ScheduleAppointment } from "@/features/schedule/schema";
 import { useCommand } from "@/lib/commands/use-command";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 import { formatClinicTime } from "@/lib/datetime/format";
 
 /**
@@ -19,9 +20,13 @@ import { formatClinicTime } from "@/lib/datetime/format";
  */
 export function AppointmentCard({ appointment: a, showDoctor = false }: { appointment: ScheduleAppointment; showDoctor?: boolean }) {
   const confirm = useCommand();
+  const rowChanged = useRowChanged();
   const onConfirm = async () => {
-    const result = await confirm.run((id) => confirmAppointment(a.visitId, id));
-    if (!result.ok) notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`, { retry: () => void onConfirm() });
+    const result = await confirm.run((id) => confirmAppointment(a.visitId, id, a.rowVersion));
+    if (result.ok) return;
+    // A visit that moved on elsewhere (09E-07, R-19): the day is re-read and the message says why; a Retry with the same version would be refused again.
+    if (rowChanged(result.error)) notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`);
+    else notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`, { retry: () => void onConfirm() });
   };
   return (
     <li
@@ -72,7 +77,7 @@ export function AppointmentCard({ appointment: a, showDoctor = false }: { appoin
               Confirm
             </Button>
           )}
-          <RowMenu visitId={a.visitId} name={a.name} actions={a.actions} />
+          <RowMenu visitId={a.visitId} name={a.name} actions={a.actions} rowVersion={a.rowVersion} />
         </div>
       </div>
     </li>

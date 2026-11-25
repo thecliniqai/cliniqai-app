@@ -27,6 +27,7 @@ const appt = (over: Partial<ScheduleAppointment>): ScheduleAppointment => ({
   confirmed: false,
   actions: [],
   canConfirm: false,
+  rowVersion: 0,
   ...over,
 });
 const free = (doctorId: string, ...times: string[]): FreeSlot[] => times.map((time) => ({ doctorId, time, minutes: 15 }));

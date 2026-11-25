@@ -34,6 +34,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type AppErrorCode, type Result } from "@/lib/errors/app-error";
+import { ROW_CHANGED_MESSAGE, versionArg } from "@/lib/errors/row-changed";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
@@ -155,6 +156,8 @@ export interface CollectPaymentValue {
   balanceDue: number;
   /** True when this client_request_id was already collected: nothing new was written. */
   replayed: boolean;
+  /** The invoice's new `row_version` (09E-07). */
+  invoiceVersion?: number;
 }
 
 /** What `create_invoice` returns to the checkout (V2-07 07-04a F-10). */
@@ -335,6 +338,7 @@ export async function collectPayment(
       p_discount: toPaise(data.discount),
       p_tax: toPaise(data.tax),
       p_client_request_id: data.client_request_id,
+      ...versionArg("p_expected_invoice_version", data.expected_invoice_version),
     },
     collectPaymentRpcResultSchema,
     { ...INVOICE_COMMAND_MESSAGES, INTERNAL: RECORD_PAYMENT_MESSAGES.INTERNAL },
@@ -354,6 +358,7 @@ export async function collectPayment(
       totalPaid: v.paid_total,
       balanceDue: v.balance_due,
       replayed: v.replayed ?? false,
+      invoiceVersion: v.invoice_version,
     },
   };
 }
@@ -367,6 +372,8 @@ export type RecordPaymentResult =
       balanceDue: number;
       /** True when this command id was already recorded: nothing new was written (V2-03 03-07). */
       replayed?: boolean;
+      /** The invoice's new `row_version` (09E-07). */
+      invoiceVersion?: number;
     }
   | { success: false; error: string };
 
@@ -378,6 +385,8 @@ export const recordPaymentRpcResultSchema = z.object({
   total_amount: z.number(),
   balance_due: z.number(),
   replayed: z.boolean(),
+  /** 09E-07: the invoice's `row_version` after the call (absent from the system path of an older database). */
+  invoice_version: z.number().int().optional(),
 });
 export type RecordPaymentRpcResult = z.infer<typeof recordPaymentRpcResultSchema>;
 
@@ -386,6 +395,8 @@ const collectPaymentRpcResultSchema = recordPaymentRpcResultSchema.omit({ replay
   invoice_number: z.string(),
   invoice_created: z.boolean(),
   replayed: z.boolean().optional(),
+  /** 09E-07: the invoice's new `row_version` (absent in a result stored before migration 000126). */
+  invoice_version: z.number().int().optional(),
 });
 
 /** Fixed, data-free texts by reason or code. The driver message never reaches the caller (AD-7). */
@@ -414,6 +425,8 @@ export interface RecordPaymentRpcArgs {
   reference?: string | null;
   notes?: string | null;
   commandId: string;
+  /** The invoice's `row_version` the screen shows (09E-07, R-19); absent: nothing is compared (the system path). */
+  expectedInvoiceVersion?: number | null;
 }
 
 /**
@@ -437,10 +450,11 @@ export async function callRecordPayment(
     p_notes: args.notes ?? undefined,
     p_command_id: args.commandId,
     p_system_actor: systemActor,
+    ...versionArg("p_expected_invoice_version", args.expectedInvoiceVersion),
   });
 
   if (error) {
-    const mapped = mapDbError(error, RECORD_PAYMENT_MESSAGES);
+    const mapped = mapDbError(error, { ROW_CHANGED: ROW_CHANGED_MESSAGE, ...RECORD_PAYMENT_MESSAGES });
     if (mapped.code === "INTERNAL") {
       log.error({ event: failure.event, code: errorTag(error), requestId: await getRequestId(), tenantId: args.tenantId });
     }
@@ -496,6 +510,7 @@ export async function recordPayment(
         notes: data.notes,
         // A caller without a per-attempt id still gets a unique command; only the id the client resends replays.
         commandId: data.commandId ?? randomUUID(),
+        expectedInvoiceVersion: data.expected_invoice_version,
       },
       { event: "billing.payment_record.failed" }
     );
@@ -514,6 +529,7 @@ export async function recordPayment(
     totalPaid: result.paid_total,
     balanceDue: result.balance_due,
     replayed: result.replayed,
+    invoiceVersion: result.invoice_version,
   };
 }
 
@@ -596,6 +612,8 @@ export async function getVisitBillingDetails(
         tax: Number(invoice.tax),
         total_amount: Number(invoice.total_amount),
         status: invoice.status,
+        // The version the drawer shows (09E-07, R-19): the payment sends it back.
+        row_version: typeof invoice.row_version === "number" ? invoice.row_version : undefined,
         created_at: invoice.created_at,
         updated_at: invoice.updated_at,
       },
@@ -890,6 +908,7 @@ export async function completeAndBillConsultation(
           ? { method: data.payment_method, reference: data.reference_number ?? null }
           : null,
         p_client_request_id: data.client_request_id,
+        ...versionArg("p_expected_version", data.expected_version),
       },
       completeAndBillRpcResultSchema,
       COMPLETE_AND_BILL_MESSAGES,

@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { ServiceContext } from "@/lib/auth/context";
 import { mapDbError, type DbErrorLike, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type Result } from "@/lib/errors/app-error";
+import { ROW_CHANGED_MESSAGE, ROW_CHANGED_REASON } from "@/lib/errors/row-changed";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import type { Database } from "@/types/database";
@@ -62,7 +63,8 @@ export async function callCommand<S extends z.ZodTypeAny>(
   }
 
   if (error) {
-    const mapped = mapDbError(error, fixedMessages);
+    // A stale-write refusal (09E-07, R-19) has one fixed text for every command; a command's own text for the reason still wins.
+    const mapped = mapDbError(error, { [ROW_CHANGED_REASON]: ROW_CHANGED_MESSAGE, ...fixedMessages });
     if (mapped.code === "INTERNAL") {
       log.error({ event, code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
