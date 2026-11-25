@@ -11,12 +11,12 @@
  */
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
+import { rxStored } from "../support/rx-entry";
 import { expect, test } from "../fixtures";
 import { awaitHydrated } from "../support/hydrated";
 import { run, seedPatient, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
 import { storageStatePath, type RunUser } from "../support/run-data";
 import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
-import { rxItemsOf } from "../support/cdci-fixtures";
 import { getAdminClient } from "../../helpers/supabase-admin";
 
 test.use({ storageState: storageStatePath("doctor") });
@@ -135,7 +135,7 @@ test("@golden 'Your usual for Viral fever' adds the three usual medicines in 1 t
   expect(counts?.keystrokes).toBe(0);
 
   // The database holds the doctor's stored doses: a stored null timing stays null, nothing is invented.
-  const items = await rxItemsOf(visitId);
+  const items = await rxStored(page, visitId);
   expect(items.map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([
     [`Alpha Syrup ${tag}`, "1-0-1", "After food", "5 days"],
     [`Beta Tablet ${tag}`, "0-0-1", null, "3 days"],
@@ -200,7 +200,7 @@ test("a favourite with no complete stored dose opens the dose builder instead an
   await rx.locator("[data-rx-search]").press("Enter");
   await expect(rx.getByRole("alert").filter({ hasText: "Choose a frequency (1 to 5) and a duration such as 5d" })).toBeVisible();
   await page.waitForTimeout(300);
-  expect(await rxItemsOf(visitId)).toEqual([]);
+  expect(await rxStored(page, visitId)).toEqual([]);
   await expect(rxList(page)).toHaveCount(0);
 });
 
@@ -228,7 +228,7 @@ test("@golden 'Same as last visit' copies the diagnosis and the lines in 1 tap (
   expect(counts?.clicks).toBe(1);
   expect(counts?.keystrokes).toBe(0);
 
-  expect((await rxItemsOf(visitId)).map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([
+  expect((await rxStored(page, visitId)).map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([
     [`Last Visit Syrup ${tag}`, "1-0-0", null, "7 days"],
     [`Last Visit Tablet ${tag}`, "0-0-1", "After food", "5 days"],
   ]);
@@ -253,7 +253,7 @@ test("the history list's 'Repeat this Rx' copies the lines only, as one command 
   });
   await page.getByRole("button", { name: "Repeat this Rx" }).click();
   await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
-  expect((await rxItemsOf(visitId)).map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([[`History Syrup ${tag}`, "1-0-0", null, "7 days"]]);
+  expect((await rxStored(page, visitId)).map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toEqual([[`History Syrup ${tag}`, "1-0-0", null, "7 days"]]);
   const dx = await admin.from("consultation_diagnoses").select("diagnosis_name").eq("visit_id", visitId);
   expect(dx.data).toEqual([]);
 });
@@ -280,14 +280,14 @@ test("'Same as last visit' never copies an allergy-matching medicine silently: i
   await expect(rx.locator("[data-dose-builder]")).toBeVisible();
   await expect(rx.locator("[data-dose-builder]")).toContainText(`${allergen} 500`);
   await expect(rx.locator("[data-dose-notice]")).toContainText("Matches allergy");
-  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([`Safe Lozenge ${tag}`]);
+  expect((await rxStored(page, visitId)).map((i) => i.medicine_name)).toEqual([`Safe Lozenge ${tag}`]);
   // Adding it needs a reason (the dose the doctor stored is in the builder).
   await rx.locator("[data-rx-search]").press("Enter");
   await expect(rx.getByLabel("Reason to prescribe anyway")).toBeVisible();
   await rx.getByLabel("Reason to prescribe anyway").fill("Tolerated before, reviewed");
   await rx.getByRole("button", { name: "Prescribe anyway", exact: true }).click();
   await expect(rxList(page)).toHaveCount(2, { timeout: 15_000 });
-  const stored = await rxItemsOf(visitId);
+  const stored = await rxStored(page, visitId);
   expect(stored.map((i) => [i.medicine_name, i.dosage, i.timing, i.duration])).toContainEqual([`${allergen} 500`, "1-0-1", "After food", "5 days"]);
 });
 
@@ -310,7 +310,7 @@ test("a bundle medicine that matches a recorded allergy is left out of the one t
   await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
   await expect(rx.locator("[data-dose-builder]")).toContainText(`${allergen} 250`);
   await expect(rx.locator("[data-dose-notice]")).toContainText(`Matches allergy: ${allergen}`);
-  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([`Bundle Safe ${tag}`]);
+  expect((await rxStored(page, visitId)).map((i) => i.medicine_name)).toEqual([`Bundle Safe ${tag}`]);
 });
 
 test("with assist.frequent_rx overridden off the favourites and the bundle are absent and 'Same as last visit' stays", async ({ page }) => {
@@ -389,5 +389,5 @@ test("09C-06a A-4: a double tap on a favourite tile adds its line once; the tile
   await expect(rxList(page)).toHaveCount(1, { timeout: 15_000 });
   await page.waitForTimeout(1_000);
   await expect(rxList(page)).toHaveCount(1);
-  expect((await rxItemsOf(visitId)).filter((i) => i.medicine_name === `Alpha Syrup ${tag}`)).toHaveLength(1);
+  expect((await rxStored(page, visitId)).filter((i) => i.medicine_name === `Alpha Syrup ${tag}`)).toHaveLength(1);
 });

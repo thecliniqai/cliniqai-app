@@ -9,7 +9,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect } from "../fixtures";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { freeBookingDate, istInstant, run, seedPatient, seedPrescription, seedQueueToken, seedVisit, testTag } from "../support/m0-data";
+import { freeBookingDate, invoicesOf, istInstant, run, seedPatient, seedPrescription, seedQueueToken, seedVisit, testTag } from "../support/m0-data";
 import { seedBookedToday, seedWaitingToday, todayName } from "../support/today-data";
 import { filterToday, openBill, openToday, rowInLane } from "../support/today-page";
 import { appointmentOf, bookingSheet, moveSheet, openSchedule, slotsLoaded } from "../support/schedule-page";
@@ -25,9 +25,24 @@ import type { E2eRole } from "../support/run-data";
 
 export type Marks = Record<string, number | null>;
 
+/**
+ * 09E-08 (R-11, confirm class): what the held-POST spec (`tests/e2e/shell/confirm-saves.spec.ts`) checks for a save. While the save's action POST is held
+ * the screen shows a pending state only: no success text and nothing moved (`before` passes); once released the database holds the change (`stored`).
+ */
+export interface HeldCheck {
+  /** The success text that must not be on screen before the answer (a toast, or the success screen's heading). */
+  success: RegExp;
+  /** The screen as it was before the save: the dialog or sheet still open, the row not moved. */
+  before: (page: Page, state: unknown) => Promise<void>;
+  /** The database after the answer. */
+  stored: (state: unknown) => Promise<void>;
+}
+
 export interface SaveRowDef {
   id: string;
   role: E2eRole;
+  /** The confirm-class check of `confirm-saves.spec.ts`. */
+  held?: HeldCheck;
   /** Not measured: seed this sample's data and put the page where the step starts. */
   prepare: (page: Page) => Promise<unknown>;
   /** Measured: the click or key, and the waits that end it. */
@@ -105,7 +120,7 @@ async function actionSave(page: Page, trigger: () => Promise<void>, marks: Recor
 // --- seeds ------------------------------------------------------------------------------------------------------------------------
 
 /** An open consultation of the run's doctor on a new patient; `allergies` null is "not recorded". */
-async function seedConsult(label: string, allergies: string[] | null = []): Promise<{ visitId: string; patientName: string }> {
+async function seedConsult(label: string, allergies: string[] | null = []): Promise<{ visitId: string; patientName: string; patientId: string }> {
   const { tenantA } = run();
   const patientName = `E2E Synthetic ${label} ${testTag()}`;
   const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, patientName);
@@ -117,7 +132,7 @@ async function seedConsult(label: string, allergies: string[] | null = []): Prom
     createdBy: tenantA.users.receptionist.id,
     status: "in_consultation",
   });
-  return { visitId, patientName };
+  return { visitId, patientName, patientId: patient.id };
 }
 
 async function openConsult(page: Page, visitId: string): Promise<void> {
@@ -160,6 +175,18 @@ async function seedBookedOn(date: string, time: string, label: string): Promise<
   return { visitId, name };
 }
 
+// --- what the held-POST spec reads from the database -------------------------------------------------------------------------------
+
+async function visitOfPatient(name: string): Promise<{ id: string; status: string; scheduled_at: string | null; signed_at: string | null } | null> {
+  const admin = getAdminClient();
+  const patient = await admin.from("patients").select("id").eq("full_name", name).maybeSingle();
+  if (!patient.data) return null;
+  const { data } = await admin.from("visits").select("id, status, scheduled_at, signed_at").eq("patient_id", patient.data.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
+const istHour = (iso: string | null): number | null => (iso ? Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false }).format(new Date(iso))) : null);
+
 // --- the save rows -------------------------------------------------------------------------------------------------------------------
 
 export const SAVE_ROWS: readonly SaveRowDef[] = [
@@ -184,6 +211,18 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.R.register-book",
     role: "receptionist",
+    held: {
+      success: /booked ·/,
+      before: async (page, state) => {
+        const { name, sheet } = state as { name: string; sheet: Locator };
+        await expect(sheet).toBeVisible();
+        await expect(page.locator("[data-appointment]").filter({ hasText: name })).toHaveCount(0);
+      },
+      stored: async (state) => {
+        const { name } = state as { name: string };
+        await expect.poll(async () => (await visitOfPatient(name))?.status ?? null).toBe("booked");
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const date = await freeBookingDate(tenantA.id, doctorId());
@@ -205,6 +244,18 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.R.book",
     role: "receptionist",
+    held: {
+      success: /booked ·/,
+      before: async (page, state) => {
+        const { name, sheet } = state as { name: string; sheet: Locator };
+        await expect(sheet).toBeVisible();
+        await expect(page.locator("[data-appointment]").filter({ hasText: name })).toHaveCount(0);
+      },
+      stored: async (state) => {
+        const { name } = state as { name: string };
+        await expect.poll(async () => (await visitOfPatient(name))?.status ?? null).toBe("booked");
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const date = await freeBookingDate(tenantA.id, doctorId());
@@ -227,6 +278,20 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.R.reschedule",
     role: "receptionist",
+    held: {
+      success: /moved to/,
+      before: async (page, state) => {
+        const { sheet, name } = state as { name: string; sheet: Locator };
+        await expect(sheet).toBeVisible();
+        // The card has not moved: the visit is still at 10:00 in the database and on the day.
+        await expect(page.locator("[data-appointment]").filter({ hasText: name })).toContainText(/10:00/);
+        expect(istHour((await visitOfPatient(name))?.scheduled_at ?? null)).toBe(10);
+      },
+      stored: async (state) => {
+        const { name } = state as { name: string };
+        await expect.poll(async () => istHour((await visitOfPatient(name))?.scheduled_at ?? null)).toBe(11);
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const date = await freeBookingDate(tenantA.id, doctorId());
@@ -250,6 +315,19 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.R.cancel",
     role: "receptionist",
+    held: {
+      success: /was cancelled/,
+      before: async (page, state) => {
+        const { name, dialog } = state as { name: string; dialog: Locator };
+        await expect(dialog).toBeVisible();
+        await expect(page.locator("[data-appointment]").filter({ hasText: name })).toHaveCount(1);
+        expect((await visitOfPatient(name))?.status).toBe("booked");
+      },
+      stored: async (state) => {
+        const { name } = state as { name: string };
+        await expect.poll(async () => (await visitOfPatient(name))?.status ?? null).toBe("cancelled");
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const date = await freeBookingDate(tenantA.id, doctorId());
@@ -272,6 +350,22 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.R.collect",
     role: "receptionist",
+    held: {
+      success: /Patient Checkout Complete/,
+      before: async (_page, state) => {
+        const { drawer } = state as { drawer: Locator; name: string };
+        await expect(drawer).toBeVisible();
+        await expect(drawer.getByText(/recorded successfully/)).toHaveCount(0);
+      },
+      stored: async (state) => {
+        const { name } = state as { drawer: Locator; name: string };
+        await expect.poll(async () => {
+          const visit = await visitOfPatient(name);
+          if (!visit) return 0;
+          return (await invoicesOf(visit.id)).flatMap((i) => i.payments).length;
+        }).toBe(1);
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const name = `E2E Synthetic PerfCollect ${testTag()}`;
@@ -292,7 +386,7 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
       await expect(drawer).toBeVisible();
       await drawer.getByLabel(/^OPD Consultation Fee/).fill("600");
       await drawer.getByLabel(/^Amount to Collect/).fill("200");
-      return { drawer };
+      return { drawer, name };
     },
     act: async (page, state) => {
       const { drawer } = state as { drawer: Locator };
@@ -414,14 +508,27 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.D.allergies",
     role: "doctor",
+    held: {
+      // The editor says nothing of its own: its success is the sheet closing and the strip taking the list. Until the answer the strip still says "not recorded".
+      success: /Allergies (saved|recorded)/i,
+      before: async (page, state) => {
+        const { sheet } = state as { sheet: Locator; patientId: string };
+        await expect(sheet).toBeVisible();
+        await expect(page.locator("[data-allergy-strip]").getByText("Record now")).toBeVisible();
+      },
+      stored: async (state) => {
+        const { patientId } = state as { sheet: Locator; patientId: string };
+        await expect.poll(async () => ((await getAdminClient().from("patients").select("allergies").eq("id", patientId).single()).data?.allergies ?? null)).toEqual([]);
+      },
+    },
     prepare: async (page) => {
-      const { visitId } = await seedConsult("PerfAllergy", null);
+      const { visitId, patientId } = await seedConsult("PerfAllergy", null);
       await openConsult(page, visitId);
       await page.locator("[data-allergy-strip]").getByRole("button", { name: "Record now" }).click();
       const sheet = page.getByRole("dialog", { name: "Allergies" });
       await expect(sheet).toBeVisible();
       await sheet.getByRole("button", { name: "No known allergies" }).click();
-      return { sheet };
+      return { sheet, patientId };
     },
     act: async (page, state) => {
       const { sheet } = state as { sheet: Locator };
@@ -431,6 +538,19 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
   {
     id: "save.D.sign-finish",
     role: "doctor",
+    held: {
+      success: /Consultation Finalized & Signed/,
+      before: async (_page, state) => {
+        const { dialog, visitId } = state as { dialog: Locator; visitId: string };
+        await expect(dialog).toBeVisible();
+        const { data } = await getAdminClient().from("visits").select("status, signed_at").eq("id", visitId).single();
+        expect(data?.status).not.toBe("completed");
+      },
+      stored: async (state) => {
+        const { visitId } = state as { dialog: Locator; visitId: string };
+        await expect.poll(async () => (await getAdminClient().from("visits").select("status").eq("id", visitId).single()).data?.status ?? null).toBe("completed");
+      },
+    },
     prepare: async (page) => {
       const { tenantA } = run();
       const name = `E2E Synthetic PerfSign ${testTag()}`;
@@ -442,7 +562,7 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
       await page.getByRole("button", { name: /Finish visit/ }).first().click();
       const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
       await expect(dialog).toBeVisible();
-      return { dialog };
+      return { dialog, visitId };
     },
     act: async (page, state) => {
       const { dialog } = state as { dialog: Locator };

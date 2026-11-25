@@ -556,6 +556,10 @@ const REQUIRED_FILES = [
   // V2-09e 09E-04: the live core replaces tests/today/live.spec.ts (the old 20 s poll and its channel are gone).
   "tests/live/live-core.spec.ts",
   "tests/live/tenant-zone-and-versions.spec.ts",
+  // V2-09e 09E-08: saves by risk class (the board's own writes, the Rx overlay, the consult's custom lists).
+  "tests/today/optimistic-moves.spec.ts",
+  "tests/prescriptions/rx-overlay.spec.ts",
+  "tests/consultation/custom-lists.spec.ts",
 ];
 
 const file = process.argv[2];

@@ -7,6 +7,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { UxCounter } from "./ux-counter";
+import { rxItemsOf } from "./cdci-fixtures";
 
 /** The combobox input of the Rx entry row inside `scope` (the `#prescription` section). */
 export const rxField = (scope: Locator | Page): Locator => scope.locator("[data-rx-search]");
@@ -80,4 +81,13 @@ async function press(field: Locator, key: string, target: string, ux?: UxCounter
 
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The visit's stored Rx lines, read once every change on its way has been answered (09E-08, R-11): an added, edited or removed line shows on screen BEFORE
+ * the database has it, so a spec that reads the database right after the screen shows a line must wait for the pending markers to clear first.
+ */
+export async function rxStored(page: Page, visitId: string) {
+  await expect(page.locator("[data-rx-line][data-pending]")).toHaveCount(0, { timeout: 15_000 });
+  return rxItemsOf(visitId);
 }

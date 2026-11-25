@@ -17,6 +17,7 @@ import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/ow
 import { storageStatePath, type RunUser } from "../support/run-data";
 import { logOffset, readLogFrom, SERVER_STDERR_LOG, SERVER_STDOUT_LOG } from "../support/server-log";
 import { psql } from "../../helpers/sql";
+import { SAVE_ROWS } from "../perf/latency-saves";
 
 test.use({ storageState: storageStatePath("doctor") });
 
@@ -124,6 +125,31 @@ test("real users: the beacons hold only closed words and numbers, and ops.rum_da
   expect(shape).toBe("t");
   const [columns] = psql("select string_agg(attname, ',' order by attnum) from pg_attribute where attrelid = 'ops.rum_daily'::regclass and attnum > 0 and not attisdropped");
   expect(columns).toBe("day,environment,release,screen,metric,device,net,bucket,count");
+});
+
+test("saves by risk class: an Rx line records save_reversible, an allergy save save_confirmed, sign and finish finish_confirmed; the beacons hold no id or text", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome", "the saves are the latency lane's, which runs on desktop-chrome");
+  test.slow();
+  const bodies: string[] = [];
+  page.on("request", (req) => {
+    if (req.method() === "POST" && new URL(req.url()).pathname === "/api/rum") bodies.push(req.postData() ?? "");
+  });
+  const gainedOf = (metric: string) => counts().get(`consult|${metric}|desktop`) ?? 0;
+  const before = { reversible: gainedOf("save_reversible"), confirmed: gainedOf("save_confirmed"), finish: gainedOf("finish_confirmed") };
+  for (const id of ["save.D.add-rx-line", "save.D.allergies", "save.D.sign-finish"]) {
+    const row = SAVE_ROWS.find((r) => r.id === id)!;
+    const state = await row.prepare(page);
+    await row.act(page, state);
+    // The batch leaves as a beacon when the page goes away.
+    await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  }
+  await expect.poll(() => gainedOf("save_reversible") - before.reversible, { timeout: 20_000, message: "the Rx line's real-user timing" }).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => gainedOf("save_confirmed") - before.confirmed, { timeout: 20_000, message: "the allergy save's real-user timing" }).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => gainedOf("finish_confirmed") - before.finish, { timeout: 20_000, message: "sign and finish's real-user timing" }).toBeGreaterThanOrEqual(1);
+  const wire = bodies.join("\n");
+  expect(wire, "no uuid in any beacon").not.toMatch(UUID);
+  expect(wire).not.toContain("/consultation");
+  expect(wire).not.toMatch(/Perfrx|PerfSign|PerfAllergy/i);
 });
 
 test("server timing: the route answers Server-Timing and its request.timing line matches Kong's count", async ({ page, context }, testInfo) => {

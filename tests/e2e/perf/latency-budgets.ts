@@ -46,6 +46,11 @@ export interface BudgetRow {
   byPath?: Record<string, number>;
   /** Part of the per-PR `@budget` subset (R-4). */
   pr?: boolean;
+  /**
+   * `save` rows (09E-08, B-7): the RSC page requests the save may cause (blocking, default 0). The Schedule is a server-rendered screen until 09E-12, so a
+   * save made there refreshes its route once; sign and finish reads the sealed record once (`router.refresh`); a start navigates to the consult.
+   */
+  maxRsc?: number;
 }
 
 const ONE_SECOND = { targetMs: 1_000, maxMs: 1_300, skeletonTargetMs: 150 };
@@ -95,18 +100,18 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
 
   // B-6, B-7, B-8: saves (click or Enter, the pending state, the server-confirmed state)
   { id: "save.R.check-in", kind: "save", budget: "B-7", label: "Receptionist: check in", ...SAVE_CONFIRMED, owner: "09E-08", pr: true },
-  { id: "save.R.register-book", kind: "save", budget: "B-7", label: "Receptionist: register and book", ...SAVE_CONFIRMED, owner: "09E-08" },
-  { id: "save.R.book", kind: "save", budget: "B-7", label: "Receptionist: book from Schedule", ...SAVE_CONFIRMED, owner: "09E-08" },
-  { id: "save.R.reschedule", kind: "save", budget: "B-7", label: "Receptionist: reschedule", ...SAVE_CONFIRMED, owner: "09E-08" },
-  { id: "save.R.cancel", kind: "save", budget: "B-7", label: "Receptionist: cancel", ...SAVE_CONFIRMED, owner: "09E-08" },
+  { id: "save.R.register-book", kind: "save", maxRsc: 1, budget: "B-7", label: "Receptionist: register and book", ...SAVE_CONFIRMED, owner: "09E-08" },
+  { id: "save.R.book", kind: "save", maxRsc: 1, budget: "B-7", label: "Receptionist: book from Schedule", ...SAVE_CONFIRMED, owner: "09E-08" },
+  { id: "save.R.reschedule", kind: "save", maxRsc: 1, budget: "B-7", label: "Receptionist: reschedule", ...SAVE_CONFIRMED, owner: "09E-08" },
+  { id: "save.R.cancel", kind: "save", maxRsc: 1, budget: "B-7", label: "Receptionist: cancel", ...SAVE_CONFIRMED, owner: "09E-08" },
   { id: "save.R.collect", kind: "save", budget: "B-7", label: "Receptionist: collect payment", ...SAVE_CONFIRMED, owner: "09E-08" },
-  { id: "save.D.start-consult", kind: "save", budget: "B-7", label: "Doctor: start consult", ...SAVE_CONFIRMED, owner: "09E-08" },
+  { id: "save.D.start-consult", kind: "save", maxRsc: 2, budget: "B-7", label: "Doctor: start consult", ...SAVE_CONFIRMED, owner: "09E-08" },
   { id: "save.D.draft-autosave", kind: "save", budget: "B-6", label: "Doctor: draft autosave", ...SAVE_REVERSIBLE, owner: "09E-08" },
   { id: "save.D.add-diagnosis", kind: "save", budget: "B-6", label: "Doctor: add a diagnosis", ...SAVE_REVERSIBLE, owner: "09E-08" },
   { id: "save.D.add-rx-line", kind: "save", budget: "B-6", label: "Doctor: add an Rx line by keyboard", ...SAVE_REVERSIBLE, owner: "09E-08", pr: true },
   { id: "save.D.edit-rx-line", kind: "save", budget: "B-6", label: "Doctor: edit an Rx line", ...SAVE_REVERSIBLE, owner: "09E-08" },
   { id: "save.D.allergies", kind: "save", budget: "B-7", label: "Doctor: record allergies", ...SAVE_CONFIRMED, owner: "09E-08" },
-  { id: "save.D.sign-finish", kind: "save", budget: "B-8", label: "Doctor: sign and finish", targetMs: 1_000, maxMs: 1_400, owner: "09E-08" },
+  { id: "save.D.sign-finish", kind: "save", maxRsc: 1, budget: "B-8", label: "Doctor: sign and finish", targetMs: 1_000, maxMs: 1_400, owner: "09E-08" },
 
   // B-11: a change made in another browser
   { id: "live.R.check-in-elsewhere", kind: "live", budget: "B-11", label: "Receptionist: a check-in made in a second browser moves the row", targetMs: 2_000, maxMs: 3_000, owner: "09E-04" },

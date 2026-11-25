@@ -18,9 +18,8 @@ import { awaitHydrated } from "../support/hydrated";
 import { run, seedPatient, seedVisit, signSeededVisit, testTag } from "../support/m0-data";
 import { storageStatePath, type RunUser } from "../support/run-data";
 import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
-import { rxItemsOf } from "../support/cdci-fixtures";
 import { settleAnimations } from "../support/settle";
-import { addCustomMedicine } from "../support/rx-entry";
+import { addCustomMedicine, rxStored } from "../support/rx-entry";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { PAGE_A4, PAGE_A5, pdfPageSizes, pdfText } from "../../helpers/pdf-text";
 
@@ -110,7 +109,7 @@ test.describe("the clinic's printing settings", () => {
       await page.goto(`/consultation/${afterVisit}`);
       await awaitHydrated(page);
       await addCustomMedicine(page.locator("#prescription"), `After Syrup ${testTag()}`);
-      expect((await rxItemsOf(afterVisit)).length).toBe(1);
+      expect((await rxStored(page, afterVisit)).length).toBe(1);
       expect((await admin.from("prescriptions").select("paper_size, letterhead_mode").eq("visit_id", afterVisit).single()).data).toEqual({ paper_size: "A5", letterhead_mode: "preprinted_letterhead" });
       await signSeededVisit(tenantA.id, afterVisit, own.email);
 
