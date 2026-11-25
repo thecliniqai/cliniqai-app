@@ -484,3 +484,41 @@ export function withMacros(
 ): ConsultQueryData {
   return { ...data, macros };
 }
+
+/**
+ * A medicine outside the catalogue joins the doctor's own list with the dose of the line just added (09E-08, R-11; the same upsert `change_prescription`
+ * does in SQL, 09C R-2: new row use_count 1, an existing one takes the line's values and counts one more use). The list keeps the database's order
+ * (use count, then name), so the query shows what a fresh read would.
+ */
+export function withCustomMedicine(
+  data: ConsultQueryData,
+  line: { medicine_name: string; generic_name: string | null; dose_form: string | null; dosage: string; timing: string | null; duration: string },
+): ConsultQueryData {
+  if (!data.lists) return data;
+  const name = line.medicine_name.trim();
+  const existing = data.lists.custom_medicines.find((m) => m.medicine_name === name);
+  const row = {
+    medicine_name: name,
+    generic_name: line.generic_name?.trim() || null,
+    dose_form: line.dose_form?.trim() || null,
+    default_dosage: line.dosage.trim(),
+    default_timing: line.timing?.trim() || null,
+    default_duration: line.duration.trim(),
+    use_count: (existing?.use_count ?? 0) + 1,
+  };
+  const custom_medicines = [...data.lists.custom_medicines.filter((m) => m.medicine_name !== name), row].sort(
+    (a, b) => b.use_count - a.use_count || (a.medicine_name < b.medicine_name ? -1 : a.medicine_name > b.medicine_name ? 1 : 0),
+  );
+  return { ...data, lists: { ...data.lists, custom_medicines } };
+}
+
+/** A custom diagnosis the doctor just added joins the doctor's own list (the same upsert the add action does: `use_count` is written as 1 on every add; 09E-08). */
+export function withCustomDiagnosis(data: ConsultQueryData, diagnosis: { diagnosis_name: string; specialty: string | null }): ConsultQueryData {
+  if (!data.lists) return data;
+  const name = diagnosis.diagnosis_name.trim();
+  const row = { diagnosis_name: name, specialty: diagnosis.specialty, use_count: 1 };
+  const custom_diagnoses = [...data.lists.custom_diagnoses.filter((d) => d.diagnosis_name !== name), row].sort(
+    (a, b) => b.use_count - a.use_count || (a.diagnosis_name < b.diagnosis_name ? -1 : a.diagnosis_name > b.diagnosis_name ? 1 : 0),
+  );
+  return { ...data, lists: { ...data.lists, custom_diagnoses } };
+}

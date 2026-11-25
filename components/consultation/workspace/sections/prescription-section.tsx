@@ -137,7 +137,13 @@ export function PrescriptionSection({
 }: PrescriptionSectionProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
+  const [listError, setListErrorText] = useState<string | null>(null);
+  // 09E-08 (R-11): a change that was refused or lost is taken back on screen and says so with Retry (the same change, the same request id).
+  const [retry, setRetry] = useState<(() => void) | null>(null);
+  const setListError = (text: string | null, again?: () => void) => {
+    setListErrorText(text);
+    setRetry(text && again ? () => again : null);
+  };
   const [repeating, setRepeating] = useState(false);
   // A-5: an editable record AND a role that may write prescriptions.
   const editable = !readOnly && canEdit;
@@ -185,12 +191,12 @@ export function PrescriptionSection({
     }
     const added: PrescriptionItem[] = [];
     if (safe.length > 0) {
-      const sent = await rx.add(safe.map((s) => s.line), reason, { unique: true });
+      const sent = await rx.add(safe.map((s) => s.line), reason, { unique: true, substanceIds: safe.map((s) => s.c.medicine.substanceIds ?? []) });
       if (sent.ok) {
         added.push(...(sent.added ?? []));
       } else if (sent.reason === "ALLERGY_MATCH") {
         for (const s of safe) {
-          const one = await rx.add([s.line], reason, { unique: true });
+          const one = await rx.add([s.line], reason, { unique: true, substanceIds: [s.c.medicine.substanceIds ?? []] });
           if (one.ok) added.push(...(one.added ?? []));
           else if (one.reason === "ALLERGY_MATCH") left.push({ key: s.c.key, medicine: s.c.medicine, allergy: DB_MATCH_TEXT });
           else return { ok: false, error: one.error, added, left };
@@ -242,7 +248,7 @@ export function PrescriptionSection({
 
   const addLine = async (line: RxLine, opts?: { allergyReason?: string }): Promise<RxAddResult> => {
     setListError(null);
-    const sent = await rx.add([lineToAdd(line)], opts?.allergyReason);
+    const sent = await rx.add([lineToAdd(line)], opts?.allergyReason, { substanceIds: [line.medicine.substanceIds ?? []] });
     if (sent.ok) return { ok: true };
     // The database refused a medicine the screen did not flag (a name the rule found there): the dose builder asks for the reason.
     return { ok: false, error: sent.error ?? "Failed to add the medicine.", needsReason: sent.reason === "ALLERGY_MATCH" };
@@ -251,8 +257,11 @@ export function PrescriptionSection({
   const confirmWithReason = async (item: PrescriptionItem, reason: string) => {
     setListError(null);
     const sent = await rx.send({ update: [{ id: item.id, dosage: item.dosage }], allergy_override_reason: reason });
-    if (!sent.ok) setListError(sent.error ?? "Failed to confirm the medicine.");
-    else rx.touch(item.id);
+    if (!sent.ok) setListError(sent.error ?? "Failed to confirm the medicine.", () => void confirmWithReason(item, reason));
+    else {
+      rx.touch(item.id);
+      rx.noteOverride(item.id, reason);
+    }
   };
 
   const saveEdit = async (item: PrescriptionItem) => {
@@ -269,19 +278,20 @@ export function PrescriptionSection({
       setEditing(null);
       return;
     }
-    const sent = await rx.update([update]);
-    if (sent.ok) {
-      rx.touch(item.id);
-      setEditing(null);
-    }
-    else setEditing({ ...editing, error: sent.error ?? "Failed to update the medicine." });
+    // R-11: the new dose shows at once and the builder closes; a refusal puts the old dose back and the builder returns with the doctor's draft.
+    const draft = editing;
+    const answer = rx.update([update]);
+    rx.touch(item.id);
+    setEditing(null);
+    const sent = await answer;
+    if (!sent.ok) setEditing({ ...draft, error: sent.error ?? "Failed to update the medicine." });
   };
 
   const removeItem = async (item: PrescriptionItem) => {
     setListError(null);
     const sent = await rx.remove([item.id]);
     if (!sent.ok) {
-      setListError(sent.error ?? "Failed to remove the medicine.");
+      setListError(sent.error ?? "Failed to remove the medicine.", () => void removeItem(item));
       return;
     }
     rx.touch(item.id);
@@ -418,7 +428,29 @@ export function PrescriptionSection({
           </Button>
         </div>
       )}
-      {listError && <Alert tone="danger">{listError}</Alert>}
+      {listError && (
+        <Alert
+          tone="danger"
+          action={
+            retry ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="danger-quiet"
+                onClick={() => {
+                  const again = retry;
+                  setListError(null);
+                  again();
+                }}
+              >
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
+          {listError}
+        </Alert>
+      )}
       {rx.items.length === 0 ? (
         <p data-rx-empty="" className="rounded-lg border border-dashed border-border p-6 text-center text-body-sm text-fg-muted">
           {!canView ? RX_HIDDEN_TEXT : editable ? RX_EMPTY_TEXT : "No medicines were prescribed."}
@@ -440,6 +472,7 @@ export function PrescriptionSection({
               <RxLineItem
                 key={item.id}
                 lineId={item.id}
+                pending={rx.pending.has(item.id)}
                 index={index + 1}
                 line={line}
                 readOnly={!editable}

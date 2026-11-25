@@ -48,6 +48,8 @@ export interface DiagnosisSectionProps {
   /** The calling doctor's learned order (null: the fixed specialty chips, no label). */
   context?: AssistContext | null;
   disabled?: boolean;
+  /** A diagnosis outside the catalogue the database accepted: it joins the doctor's own list in the consult's query (09E-08, R-11). */
+  onCustomAdded?: (diagnosis: { diagnosis_name: string; specialty: string | null }) => void;
 }
 
 export const DIAGNOSIS_DEBOUNCE_MS = 200;
@@ -66,7 +68,7 @@ interface DiagnosisInput {
   chronic?: boolean;
 }
 
-export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onDiagnosesChange, complaints, context = null, disabled = false }: DiagnosisSectionProps) {
+export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onDiagnosesChange, complaints, context = null, disabled = false, onCustomAdded }: DiagnosisSectionProps) {
   const [query, setQuery] = useState("");
   // The answer and the query it answers (results are never shown for another query).
   const [answer, setAnswer] = useState<{ query: string; hits: readonly DiagnosisHit[]; failed: boolean }>({ query: "", hits: [], failed: false });
@@ -74,6 +76,12 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 09E-08 (R-11, reversible): a refused or lost change is taken back on screen; the notice says so and Retry sends the same change again.
+  const [retry, setRetry] = useState<(() => void) | null>(null);
+  const fail = (text: string, again?: () => void) => {
+    setErrorMsg(text);
+    setRetry(again ? () => again : null);
+  };
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<AbortController | null>(null);
@@ -131,6 +139,7 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
   const handleAdd = async (input: DiagnosisInput) => {
     if (disabled) return;
     setErrorMsg(null);
+    const stop = rum.timer("save_reversible");
     const tempId = optimisticDiagnosisId();
     const added: ConsultationDiagnosisItem = {
       id: tempId,
@@ -145,6 +154,8 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
       created_at: new Date().toISOString(),
     };
     onDiagnosesChange((list) => [...list, added]);
+    // The diagnosis is in the list: the next frame is the first the doctor sees it in.
+    requestAnimationFrame(() => stop());
     setQuery("");
     run("");
     try {
@@ -159,42 +170,54 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
       });
       if (res.success) {
         onDiagnosesChange((list) => list.map((d) => (d.id === tempId ? { ...d, id: res.diagnosisId } : d)));
+        if (input.custom) onCustomAdded?.({ diagnosis_name: input.name, specialty: null });
       } else {
         onDiagnosesChange((list) => list.filter((d) => d.id !== tempId));
-        setErrorMsg(res.error || "Failed to add diagnosis.");
+        fail(res.error || "Failed to add diagnosis.", () => void handleAdd(input));
       }
     } catch (err: unknown) {
       onDiagnosesChange((list) => list.filter((d) => d.id !== tempId));
-      setErrorMsg(err instanceof Error ? err.message : "Failed to record diagnosis.");
+      fail(err instanceof Error ? err.message : "Failed to record diagnosis.", () => void handleAdd(input));
     }
   };
 
   const handleRemove = async (id: string) => {
     if (disabled) return;
     setErrorMsg(null);
+    const stop = rum.timer("save_reversible");
     const before = diagnoses;
     onDiagnosesChange((list) => list.filter((d) => d.id !== id));
+    requestAnimationFrame(() => stop());
     try {
       const res = await removeConsultationDiagnosis(id, visitId);
       if (!res.success) {
         onDiagnosesChange(before);
-        setErrorMsg(res.error || "Failed to remove diagnosis.");
+        fail(res.error || "Failed to remove diagnosis.", () => void handleRemove(id));
       }
     } catch (err: unknown) {
       onDiagnosesChange(before);
-      setErrorMsg(err instanceof Error ? err.message : "Failed to remove diagnosis.");
+      fail(err instanceof Error ? err.message : "Failed to remove diagnosis.", () => void handleRemove(id));
     }
   };
 
   const handleSaveNote = async (id: string, notes: string) => {
     if (disabled) return;
     const cleaned = notes.trim() || null;
+    const stop = rum.timer("save_reversible");
+    const previous = diagnoses.find((d) => d.id === id)?.notes ?? null;
     onDiagnosesChange((list) => list.map((d) => (d.id === id ? { ...d, notes: cleaned } : d)));
+    requestAnimationFrame(() => stop());
     setEditingNoteId(null);
     try {
-      await updateDiagnosisNote(id, visitId, cleaned);
+      const res = await updateDiagnosisNote(id, visitId, cleaned);
+      if (!res.success) {
+        onDiagnosesChange((list) => list.map((d) => (d.id === id ? { ...d, notes: previous } : d)));
+        fail(res.error || "Failed to save the note.", () => void handleSaveNote(id, notes));
+      }
     } catch (err) {
       reportClientError("terminology.diagnosis_note_update.failed", err);
+      onDiagnosesChange((list) => list.map((d) => (d.id === id ? { ...d, notes: previous } : d)));
+      fail("Failed to save the note.", () => void handleSaveNote(id, notes));
     }
   };
 
@@ -217,9 +240,26 @@ export function DiagnosisSection({ visitId, patientId, specialty, diagnoses, onD
       {errorMsg && (
         <div role="alert" className="flex items-center justify-between gap-2 rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger-fg">
           <span>{errorMsg}</span>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setErrorMsg(null)}>
-            Dismiss
-          </Button>
+          <span className="flex shrink-0 gap-1">
+            {retry && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const again = retry;
+                  setErrorMsg(null);
+                  setRetry(null);
+                  again();
+                }}
+              >
+                Retry
+              </Button>
+            )}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setErrorMsg(null)}>
+              Dismiss
+            </Button>
+          </span>
         </div>
       )}
 

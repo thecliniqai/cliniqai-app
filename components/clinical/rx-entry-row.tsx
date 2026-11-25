@@ -58,8 +58,10 @@ export interface RxEntryRowProps {
   search?: (query: string, signal: AbortSignal) => Promise<readonly Medicine[]>;
   searchDebounceMs?: number;
   /**
-   * Adds the line. A promise answers `{ ok: false, error }` to keep the line in the dose builder with that error (Enter sends it again); `ok: true` or no
-   * answer closes the builder and empties the field for the next medicine.
+   * Adds the line. The builder closes and the field empties at once (09E-08, R-11: the line is shown by the host as pending), and the field stays
+   * editable: keys typed while the line is being saved are kept (Q-6). A promise that answers `{ ok: false, error }` is a refusal: when the field is
+   * still empty the dose builder comes back with the line and the error (Enter sends it again), otherwise a notice under the field says it was not
+   * added and offers Retry. `ok: true` or no answer: nothing more to do.
    */
   onAdd: (line: RxLine, opts?: { allergyReason?: string }) => void | Promise<RxAddResult | void>;
   /** Called with each change of the line being built (the host starts a new request after an error). */
@@ -156,7 +158,8 @@ export function RxEntryRow({
   const [freqKey, setFreqKey] = useState<FrequencyKey | null>(null);
   const [durBuffer, setDurBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  // 09E-08 (Q-6): a line that was refused after the field moved on to the next medicine: the notice under the field, with Retry.
+  const [lost, setLost] = useState<{ error: string; retry: () => void } | null>(null);
   const [reason, setReason] = useState("");
   const [reasonOpen, setReasonOpen] = useState(false);
   // A match the host knows about and the screen's own rule may not (a line the repeat command left out): set by `prefill`, dropped when the builder closes.
@@ -176,6 +179,11 @@ export function RxEntryRow({
   const navigated = useRef(false);
   const [customHint, setCustomHint] = useState<string | null>(null);
   const mounted = useRef(true);
+  // The field as it is now, for a refusal that arrives after the doctor has moved on (read in a callback, never during render).
+  const fieldNow = useRef<{ query: string; pending: DoseDraft | null }>({ query: "", pending: null });
+  useEffect(() => {
+    fieldNow.current = { query, pending };
+  });
 
   useEffect(() => {
     mounted.current = true;
@@ -276,7 +284,7 @@ export function RxEntryRow({
    * is told what to choose; nothing is prefilled. The host may answer that the line could not be saved: it stays in the builder with that text.
    */
   async function commit(source: "key" | "tap") {
-    if (!pending || sending) return;
+    if (!pending) return;
     if (durBuffer) {
       setError(`Add the unit to ${durBuffer}: d, w or m (for example ${durBuffer}d)`);
       return;
@@ -326,22 +334,45 @@ export function RxEntryRow({
         return;
       }
     }
-    setSending(true);
-    setError(null);
-    let answered: RxAddResult | void = undefined;
-    try {
-      answered = await onAdd(line, asking ? { allergyReason: reason.trim() } : undefined);
-    } finally {
-      if (mounted.current) setSending(false);
-    }
-    if (!mounted.current) return;
-    if (answered && !answered.ok) {
-      setError(answered.error);
-      if (answered.needsReason) setReasonOpen(true);
-      if (!answered.needsReason) inputRef.current?.focus();
-      return;
-    }
+    // R-11: the builder closes and the field empties at once; the host shows the line as pending. The field stays editable while it is saved.
+    const draft = pending;
+    const reasonText = reason.trim();
+    const withReason = asking ? { allergyReason: reasonText } : undefined;
+    const forced = forcedAllergy;
     closeBuilder();
+    setLost(null);
+    const send = async (): Promise<void> => {
+      const answered = await onAdd(line, withReason);
+      if (!mounted.current || !answered || answered.ok) return;
+      const now = fieldNow.current;
+      if (now.query === "" && now.pending === null) {
+        // The field is still free: the line comes back into the dose builder as it was, with the reason of the refusal (Enter sends it again).
+        setForcedAllergy(forced);
+        setPending(draft);
+        setQuery(draft.medicine.name);
+        resetTyping();
+        setError(answered.error);
+        if (answered.needsReason || asking) {
+          setReasonOpen(true);
+          setReason(reasonText);
+        }
+        inputRef.current?.focus();
+        return;
+      }
+      // The doctor has started the next medicine: nothing of it is touched. The notice says what happened and Retry sends the line again.
+      setLost({
+        error: answered.error,
+        retry: () => {
+          setLost(null);
+          if (answered.needsReason) {
+            if (!fieldNow.current.pending) openBuilder(draft.medicine, forced);
+            return;
+          }
+          void send();
+        },
+      });
+    };
+    await send();
   }
 
   function patch(next: Partial<DoseDraft>) {
@@ -368,11 +399,6 @@ export function RxEntryRow({
 
   function onFieldKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.nativeEvent.isComposing) return;
-    if (sending) {
-      // The line is on its way: the field keeps focus and takes no key until the answer arrives.
-      if (event.key !== "Tab") event.preventDefault();
-      return;
-    }
     if (event.key === "Escape") {
       if (pending || query) {
         event.preventDefault();
@@ -476,6 +502,18 @@ export function RxEntryRow({
 
   return (
     <div data-rx-entry="" className={cn("flex flex-col gap-3", className)}>
+      {/* Above the field: the open list of the next medicine is drawn over what is below it. */}
+      {lost && (
+        <div role="alert" data-rx-add-failed="" className="flex flex-wrap items-center gap-2 rounded-md bg-danger-bg px-3 py-1.5 text-label text-danger-fg">
+          <span className="min-w-0 flex-1">{lost.error}</span>
+          <Button type="button" size="sm" variant="danger-quiet" onClick={lost.retry}>
+            Retry
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setLost(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
       <Command
         label={label}
         shouldFilter={false}
@@ -499,7 +537,6 @@ export function RxEntryRow({
           <CommandPrimitive.Input
             ref={inputRef}
             value={query}
-            readOnly={sending}
             onValueChange={(next) => {
               setQuery(next);
               navigated.current = false;
@@ -585,7 +622,6 @@ export function RxEntryRow({
           onCancel={closeBuilder}
           durationShown={durationShown}
           error={error}
-          busy={sending}
           notice={pendingAllergy ? `Matches allergy: ${pendingAllergy}` : null}
           submitLabel={pendingAllergy || reasonOpen ? (reasonOpen ? "Prescribe anyway" : "Prescribe anyway…") : undefined}
           extra={

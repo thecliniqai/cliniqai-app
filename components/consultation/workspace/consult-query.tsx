@@ -10,6 +10,8 @@ import {
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import {
+  withCustomDiagnosis,
+  withCustomMedicine,
   withMacros,
   withTemplate,
   type ConsultQueryData,
@@ -30,6 +32,10 @@ export interface ConsultQueryApi {
   addTemplate: (template: ConsultTemplate) => void;
   /** The macros after an edit in the macro list. */
   setMacros: (macros: DoctorMacro[]) => void;
+  /** Lines the database accepted: a medicine outside the catalogue joins the doctor's own list (09C R-2, mirrored here; 09E-08). */
+  addCustomMedicines: (lines: ReadonlyArray<Parameters<typeof withCustomMedicine>[1] & { cdci_brand_id: string | null }>) => void;
+  /** A diagnosis the doctor added that is outside the catalogue joins the doctor's own list. */
+  addCustomDiagnosis: (diagnosis: Parameters<typeof withCustomDiagnosis>[1]) => void;
 }
 
 const Context = createContext<ConsultQueryApi | null>(null);
@@ -81,5 +87,17 @@ export function useConsultQuery(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [client, tenantId, visitId, server]
   );
-  return { data, addTemplate, setMacros };
+  const addCustomMedicines = useCallback(
+    (lines: ReadonlyArray<Parameters<typeof withCustomMedicine>[1] & { cdci_brand_id: string | null }>) =>
+      client.setQueryData<ConsultQueryData>(key, (old) => lines.filter((l) => l.cdci_brand_id === null).reduce((acc, l) => withCustomMedicine(acc, l), old ?? server)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, tenantId, visitId, server]
+  );
+  const addCustomDiagnosis = useCallback(
+    (diagnosis: Parameters<typeof withCustomDiagnosis>[1]) =>
+      client.setQueryData<ConsultQueryData>(key, (old) => withCustomDiagnosis(old ?? server, diagnosis)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [client, tenantId, visitId, server]
+  );
+  return { data, addTemplate, setMacros, addCustomMedicines, addCustomDiagnosis };
 }

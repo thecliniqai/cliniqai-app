@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { changePrescriptionAction, getVisitPrescription, repeatVisitPlanAction } from "@/features/prescriptions/actions";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import {
@@ -11,8 +11,10 @@ import {
   type PrescriptionChanges,
 } from "@/features/prescriptions/lines";
 import type { PrescriptionItem } from "@/lib/db/types";
+import { overlay, type Op } from "@/features/prescriptions/rx-overlay";
 import { isOutcomeUnknownCode, OUTCOME_UNKNOWN_MESSAGE, useCommand } from "@/lib/commands/use-command";
 import { reportClientError } from "@/lib/log/client";
+import { rum } from "@/lib/observability/rum/collector";
 
 /**
  * The visit's prescription lines and the one way they change (V2-09c 09C-01, R-2, R-5; ADR-004, PWA-06a). Every change (add, edit, remove, a template, a
@@ -29,6 +31,10 @@ import { reportClientError } from "@/lib/log/client";
  *   landed and the send answers ok; otherwise it did not, and the doctor sees the stored list with a plain message. A line the database holds is never
  *   missing from the screen. `reconcile()` and `whenIdle()` let Finish wait for the queue and read the lines before the review (A-11).
  * - 09C-06a (A-12): `announcement` is a polite live-region text for adds and removes.
+ * - 09E-08 (R-11, reversible class): a change shows at once. `items` is the database's list (`confirmed`) with the changes still on their way laid over it
+ *   (`ops`, in the order they were made): an added line appears with a pending marker (`pending`), an edit shows its new dose, a removed line is gone. The
+ *   answer replaces the overlay with the database's list; a refusal or a failure takes the overlay back (the previous list returns) and the caller shows
+ *   the fixed error with Retry. Nothing here re-reads: no allergy context, no page.
  */
 export interface RxSendResult {
   ok: boolean;
@@ -53,7 +59,14 @@ export interface RepeatSendResult extends RxSendResult {
 export type RepeatPart = "diagnoses" | "prescription";
 
 export interface UseRxLines {
+  /** The lines as shown: the database's list with the changes still on their way laid over it. */
   items: PrescriptionItem[];
+  /** Ids of lines whose change has not been answered yet (an added line, an edited one): shown with a "Saving" marker and not editable. */
+  pending: ReadonlySet<string>;
+  /** What the allergy check needs of a line this session added or confirmed: its catalogue substance ids and the reason it was prescribed despite a match. */
+  allergyNote(id: string): { substanceIds: readonly string[]; reason: string | null } | undefined;
+  /** The doctor confirmed a flagged line with a reason (the screen's allergy picture follows without a re-read). */
+  noteOverride(id: string, reason: string): void;
   /** True while a command is in flight or queued. */
   busy: boolean;
   /** The last add or remove in words, for a polite live region ("Paracetamol 650 added"). A trailing space alternates so a repeat is announced again. */
@@ -73,11 +86,11 @@ export interface UseRxLines {
   /** "Same as last visit": one `repeat_visit_plan` command; the lines shown become the database's. */
   repeat(sourceVisitId: string, parts: readonly RepeatPart[]): Promise<RepeatSendResult>;
   /** `unique`: lines whose medicine is already on the Rx when the command starts are left out (a double tap adds once, A-4). */
-  add(lines: ChangeLine[], allergyReason?: string, opts?: { unique?: boolean }): Promise<RxSendResult>;
+  add(lines: ChangeLine[], allergyReason?: string, opts?: { unique?: boolean; substanceIds?: ReadonlyArray<readonly string[]> }): Promise<RxSendResult>;
   update(updates: ChangeUpdate[]): Promise<RxSendResult>;
   remove(ids: string[]): Promise<RxSendResult>;
   /** Several kinds in one command (a template apply, an Undo). */
-  send(changes: PrescriptionChanges, opts?: { unique?: boolean }): Promise<RxSendResult>;
+  send(changes: PrescriptionChanges, opts?: { unique?: boolean; substanceIds?: ReadonlyArray<readonly string[]> }): Promise<RxSendResult>;
 }
 
 /** Text of an outcome-unknown failure once the lines were read again and the change is not among them. */
@@ -115,13 +128,27 @@ export function useRxLines({
   visitId,
   initialItems,
   onItemsChange,
+  onAdded,
 }: {
   visitId: string;
   initialItems: PrescriptionItem[];
   onItemsChange?: (items: PrescriptionItem[]) => void;
+  /** The lines the database accepted (a custom medicine joins the doctor's own list: 09C R-2, mirrored in the consult's query). */
+  onAdded?: (lines: readonly ChangeLine[]) => void;
 }): UseRxLines {
   const command = useCommand();
-  const [items, setItems] = useState<PrescriptionItem[]>(initialItems);
+  const [confirmed, setConfirmed] = useState<PrescriptionItem[]>(initialItems);
+  const [ops, setOps] = useState<Op[]>([]);
+  const { items, pending } = useMemo(() => overlay(confirmed, ops), [confirmed, ops]);
+  // The changes on their way, kept in step with `ops` synchronously: a second tap decides "is this medicine already on the list" against these, not against
+  // the last render (an effect would be one commit late, and a refused first tap's line would still count).
+  const opsNow = useRef<Op[]>([]);
+  const updateOps = useCallback((change: (prev: Op[]) => Op[]) => {
+    opsNow.current = change(opsNow.current);
+    setOps(opsNow.current);
+  }, []);
+  const opSeq = useRef(0);
+  const [notes, setNotes] = useState<ReadonlyMap<string, { substanceIds: readonly string[]; reason: string | null }>>(new Map());
   const current = useRef<PrescriptionItem[]>(initialItems);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const lastKey = useRef<string | null>(null);
@@ -144,7 +171,7 @@ export function useRxLines({
   const commit = useCallback(
     (next: PrescriptionItem[]) => {
       current.current = next;
-      setItems(next);
+      setConfirmed(next);
       onItemsChange?.(next);
     },
     [onItemsChange],
@@ -232,15 +259,34 @@ export function useRxLines({
     [announce, command, commit, failure, queue, readLines, visitId],
   );
 
+  const announceAdded = useCallback((list: readonly PrescriptionItem[]) => announce(addedText(list)), [announce]);
+
   const send = useCallback(
-    (requested: PrescriptionChanges, opts?: { unique?: boolean }): Promise<RxSendResult> => {
+    (requested: PrescriptionChanges, opts?: { unique?: boolean; substanceIds?: ReadonlyArray<readonly string[]> }): Promise<RxSendResult> => {
+      let asked = requested;
+      if (opts?.unique && asked.add?.length) {
+        // A-4: a second tap on the same medicine adds nothing; decided against the lines as shown (the first tap's pending line counts).
+        const on = new Set(overlay(current.current, opsNow.current).items.map((i) => norm(i.medicine_name)));
+        const add = asked.add.filter((l) => !on.has(norm(l.medicine_name)));
+        if (add.length === 0 && !asked.update?.length && !asked.remove?.length) return Promise.resolve({ ok: true, added: [] });
+        asked = { ...asked, add };
+      }
+      // Shown at once (R-11): the change is laid over the lines, with a pending marker, before it is sent.
+      const opId = ++opSeq.current;
+      const ids = (asked.add ?? []).map((_, k) => `pending:${opId}:${k}`);
+      updateOps((prev) => [...prev, { opId, changes: asked, ids }]);
+      const dropOp = () => updateOps((prev) => prev.filter((o) => o.opId !== opId));
+
       const run = async (): Promise<RxSendResult> => {
-        let changes = requested;
+        let changes = asked;
         if (opts?.unique && changes.add?.length) {
-          // A-4: decided when the command starts, against the lines as they are then (a second tap queued behind the first sees its lines).
+          // A-4: decided again when the command starts, against the database's lines (a queued second tap sees the first one's).
           const on = new Set(current.current.map((i) => norm(i.medicine_name)));
           const add = changes.add.filter((l) => !on.has(norm(l.medicine_name)));
-          if (add.length === 0 && !changes.update?.length && !changes.remove?.length) return { ok: true, added: [] };
+          if (add.length === 0 && !changes.update?.length && !changes.remove?.length) {
+            dropOp();
+            return { ok: true, added: [] };
+          }
           changes = { ...changes, add };
         }
         const before = current.current;
@@ -248,21 +294,32 @@ export function useRxLines({
         // Other changes than the last failed send's are a new request; the same ones keep their id (an idempotent retry).
         if (lastKey.current !== key) command.reset();
         lastKey.current = key;
+        const stop = rum.timer("save_reversible");
+        // The pending line is on screen: the next frame is the first the doctor sees it in (the timing of a reversible save is the result shown).
+        if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => stop());
+        else stop();
         const result = await command.run((clientRequestId) =>
           changePrescriptionAction({ visit_id: visitId, changes, client_request_id: clientRequestId }),
         );
         if (!result.ok) {
           const failed = failure(result.error, "prescriptions.change.failed");
-          if (!isOutcomeUnknownCode(result.error.code)) return failed;
+          if (!isOutcomeUnknownCode(result.error.code)) {
+            dropOp();
+            return failed;
+          }
           // A-1: the outcome is unknown. Read the lines (after the stalled request, in the action queue), show them, and settle the request id.
           const read = await readLines();
-          if (!read) return failed;
+          if (!read) {
+            dropOp();
+            return failed;
+          }
           command.settle();
           lastKey.current = null;
           commit(read);
+          dropOp();
           const fresh = landed(changes, before, read);
           if (fresh) {
-            if (fresh.length > 0) announce(addedText(fresh));
+            if (fresh.length > 0) announceAdded(fresh);
             return { ok: true, added: fresh };
           }
           return { ok: false, error: RX_NOT_SAVED_TEXT, code: result.error.code };
@@ -294,8 +351,20 @@ export function useRxLines({
           });
           next = [...next, ...added];
         }
+        if (added.length > 0 || changes.allergy_override_reason) {
+          setNotes((prev) => {
+            const map = new Map(prev);
+            added.forEach((item, index) => {
+              const originalIndex = asked.add?.indexOf(changes.add![index]) ?? index;
+              map.set(item.id, { substanceIds: (originalIndex >= 0 ? opts?.substanceIds?.[originalIndex] : undefined) ?? [], reason: changes.allergy_override_reason ?? null });
+            });
+            return map;
+          });
+        }
         commit(next);
-        if (added.length > 0) announce(addedText(added));
+        dropOp();
+        if (changes.add?.length) onAdded?.(changes.add);
+        if (added.length > 0) announceAdded(added);
         else if (changes.remove?.length) {
           const gone = before.filter((i) => changes.remove!.includes(i.id));
           announce(gone.length === 1 ? `${gone[0].medicine_name} removed` : `${gone.length} medicines removed`);
@@ -304,7 +373,7 @@ export function useRxLines({
       };
       return queue(run);
     },
-    [announce, command, commit, failure, queue, readLines, visitId],
+    [announce, announceAdded, command, commit, failure, onAdded, queue, readLines, updateOps, visitId],
   );
 
   const reconcile = useCallback(async (): Promise<boolean> => {
@@ -316,8 +385,20 @@ export function useRxLines({
 
   const whenIdle = useCallback(() => chain.current.then(() => undefined), []);
 
+  const allergyNote = useCallback((id: string) => notes.get(id), [notes]);
+  const noteOverride = useCallback((id: string, reason: string) => {
+    setNotes((prev) => {
+      const map = new Map(prev);
+      map.set(id, { substanceIds: prev.get(id)?.substanceIds ?? [], reason });
+      return map;
+    });
+  }, []);
+
   return {
     items,
+    pending,
+    allergyNote,
+    noteOverride,
     busy: inFlight > 0,
     announcement,
     announce,

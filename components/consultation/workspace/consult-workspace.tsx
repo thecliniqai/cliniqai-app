@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, use, useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Vitals,
@@ -48,7 +48,7 @@ import { ConsultTopBar } from "./consult-top-bar";
 import { AllergyStrip } from "./allergy-strip";
 import { AllergyEditor } from "@/components/clinical/allergy-editor";
 import { getRxAllergyContextAction } from "@/features/prescriptions/actions";
-import type { RxAllergyContext } from "@/features/prescriptions/allergy";
+import { allergyMatches, type RxAllergyContext } from "@/features/prescriptions/allergy";
 import { AmendingBanner } from "./amending-banner";
 import { ConsultSection, sectionTitleId } from "./consult-section";
 import { SectionStrip, type StripSection } from "./section-strip";
@@ -317,14 +317,15 @@ export function ConsultWorkspace({
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
   // The Rx lines are the server's answer to one `change_prescription` command per change (V2-09c R-2); the hook holds them for the section, the strip,
   // the summary pane and Sign & Bill.
-  const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [] });
+  const rx = useRxLines({ visitId: visit.id, initialItems: visit.prescription_items ?? [], onAdded: consult.addCustomMedicines });
   const rxItems = rx.items;
   // The medicines "Same as last visit" or a tile left to the doctor (an allergy match), and the entry row's handle that opens the dose builder for one.
   const rxEntryRef = useRef<RxEntryHandle | null>(null);
   const [rxLeftOut, setRxLeftOut] = useState<readonly RxLeftOut[]>([]);
 
   // The allergies and what each line matches (V2-09c 09C-02, R-7, R-8). The strip draws the stored list; the editor saves it through one command and the
-  // context is read again (after a save and after every change of the lines) so the chips, the notices and the line states follow the database's rule.
+  // context is read again after that save (09E-08: not after a change of the lines; a line the database accepted is checked here with the TypeScript twin of
+  // its rule, `allergyView` below, and the database refuses a match on the next write whatever the screen says).
   const [allergies, setAllergies] = useState<string[] | null>(patient.allergies ?? null);
   const [allergyContext, setAllergyContext] = useState<RxAllergyContext | null>(initialAllergyContext);
   const [isAllergyEditorOpen, setIsAllergyEditorOpen] = useState(false);
@@ -347,7 +348,28 @@ export function ConsultWorkspace({
     return () => {
       alive = false;
     };
-  }, [visit.id, rxItems, allergyVersion]);
+  }, [visit.id, allergyVersion]);
+
+  // What each line matches (09E-08, R-11): the database's picture as read at load and after the allergy editor saved, and for a line this session added or
+  // confirmed, the answer of the TypeScript twin of the same rule (`allergyMatches`; one case table runs against both). Nothing is read after a change of lines.
+  const allergyItems = useMemo(() => {
+    if (!allergyContext) return [];
+    const known = new Map(allergyContext.items.map((i) => [i.id, i]));
+    const out: RxAllergyContext["items"] = [];
+    for (const item of rxItems) {
+      if (rx.pending.has(item.id)) continue;
+      const note = rx.allergyNote(item.id);
+      const server = known.get(item.id);
+      if (server) {
+        out.push(note?.reason && server.matches.length > 0 && !server.overridden ? { ...server, overridden: true, overrideReason: note.reason } : server);
+        continue;
+      }
+      const substanceIds = note?.substanceIds ?? [];
+      const matches = allergyMatches(allergyContext.allergies, { substanceIds, names: [item.medicine_name, item.generic_name] });
+      out.push({ id: item.id, matches, checkedBy: substanceIds.length > 0 ? "substance" : "name", overridden: matches.length > 0 && Boolean(note?.reason), overrideReason: matches.length > 0 ? (note?.reason ?? null) : null });
+    }
+    return out;
+  }, [allergyContext, rxItems, rx]);
 
   // Referral state
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -679,7 +701,7 @@ export function ConsultWorkspace({
   // The finish review (V2-09c 09C-05, R-13): the medicines that match a recorded allergy and have no reason block the sign-off until each is confirmed or removed.
   const allergyChecking = Boolean(allergyContext?.entitled) && assist?.["assist.allergy_check"] !== false;
   const unresolvedAllergies = allergyChecking
-    ? (allergyContext?.items ?? [])
+    ? allergyItems
         .filter((info) => info.matches.length > 0 && !info.overridden)
         .flatMap((info) => {
           const item = rxItems.find((i) => i.id === info.id);
@@ -997,6 +1019,7 @@ export function ConsultWorkspace({
                 complaints={chiefComplaints.map((c) => c.symptom)}
                 context={assistContext}
                 disabled={readOnly}
+                onCustomAdded={consult.addCustomDiagnosis}
               />
             </ConsultSection>
 
@@ -1016,7 +1039,7 @@ export function ConsultWorkspace({
                         state: allergyContext.state,
                         entitled: allergyContext.entitled && assist?.["assist.allergy_check"] !== false,
                         entries: allergyContext.allergies,
-                        items: Object.fromEntries(allergyContext.items.map((i) => [i.id, i])),
+                        items: Object.fromEntries(allergyItems.map((i) => [i.id, i])),
                         onRecord: canRecordAllergies ? () => setIsAllergyEditorOpen(true) : undefined,
                       }
                     : null
