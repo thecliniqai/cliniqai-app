@@ -94,7 +94,7 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   // B-4, B-5: typeahead (the last keystroke to the first option)
   { id: "type.D.medicine", kind: "typeahead", budget: "B-4", label: "Doctor: medicine search (Rx field)", ...TYPEAHEAD, owner: "09E-11" },
   { id: "type.D.diagnosis", kind: "typeahead", budget: "B-4", label: "Doctor: diagnosis search", ...TYPEAHEAD, owner: "09E-10" },
-  { id: "type.D.substance", kind: "typeahead", budget: "B-4", label: "Doctor: allergy substance search", ...TYPEAHEAD, owner: "09E-09" },
+  { id: "type.D.substance", kind: "typeahead", budget: "B-4", label: "Doctor: allergy substance search (on the device)", ...TYPEAHEAD, owner: "09E-09", pr: true },
   { id: "type.R.patient-today", kind: "typeahead", budget: "B-5", label: "Receptionist: patient search on Today (walk-in)", targetMs: 700, maxMs: 900, owner: "measured, not changed" },
   { id: "type.R.patient-register", kind: "typeahead", budget: "B-5", label: "Receptionist: patient search in the booking sheet", targetMs: 700, maxMs: 900, owner: "measured, not changed" },
 

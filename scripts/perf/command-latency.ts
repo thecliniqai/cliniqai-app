@@ -440,6 +440,8 @@ async function main(): Promise<void> {
     await measure("read: search_substances", "read", async (i) => () =>
       owner.client.rpc("search_substances", { p_tenant_id: t.tenantId, p_query: latencyWord(((i * 41) % 2000) + 1, 9).slice(0, 4).toLowerCase(), p_limit: 12 }),
     );
+    // V2-09e 09E-09 (R-5, R-16): the substance shard the device downloads (the whole catalogue in one call: the 2,000 synthetic substances above plus the stack's own).
+    await measure("read: reference_shard (substances)", "read", async () => () => owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "substances", p_shard: 0 }));
     // The context of one visit with an allergic patient and three prescription lines.
     const ctxVisit = await seedVisit(t, undefined, { status: "in_consultation" });
     await admin.from("patients").update({ allergies: ["Latency substance 7", "Latency allergen", "Penicillin"] }).eq("id", ctxVisit.patientId);

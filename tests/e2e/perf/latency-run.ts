@@ -8,7 +8,8 @@
  * request-response calls and are not delayed (the injection is HTTP only): they are counted apart (`realtime`), not in `calls`.
  *
  * Background requests are held while a window measures (the 09D-01a method): the `/api/health` liveness probe that gates every live refresh, and,
- * once the device holds its session-context cookie, the shell's `/api/session-status` check (its own row, `bg.session-status`).
+ * once the device holds its session-context cookie, the shell's `/api/session-status` check (its own row, `bg.session-status`) and the reference
+ * catalogue sync (`/api/reference/**`, 09E-09).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -99,6 +100,9 @@ export async function holdBackground(page: Page, opts: { health?: boolean } = {}
   const holds: Holds = { status: false };
   if (opts.health !== false) await page.route("**/api/health", (route) => route.fulfill({ status: 503, body: "" }));
   await page.route("**/api/session-status", (route) => (holds.status ? route.fulfill({ status: 503, body: "" }) : route.fallback()));
+  // V2-09e 09E-09 (R-5): the reference catalogue sync (after first paint, on resume) is the shell's own background work, not the step's: refused while a
+  // window measures, like the status check (the device then answers from what it already holds, or the search route).
+  await page.route("**/api/reference/**", (route) => (holds.status ? route.fulfill({ status: 503, body: "" }) : route.fallback()));
   return holds;
 }
 

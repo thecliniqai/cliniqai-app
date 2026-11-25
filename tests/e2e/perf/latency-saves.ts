@@ -631,6 +631,8 @@ export const TYPEAHEAD_ROWS: readonly TypeaheadRowDef[] = [
       await page.locator("[data-allergy-strip]").getByRole("button", { name: "Record now" }).click();
       const sheet = page.getByRole("dialog", { name: "Allergies" });
       await expect(sheet).toBeVisible();
+      // 09E-09 (B-4): the substance catalogue is on the device before the measured key (the shell's sync after first paint; the row measures the device path).
+      await expect(sheet.locator('[data-allergy-search][data-search-source="device"]')).toBeAttached({ timeout: 30_000 });
       const field = sheet.getByRole("combobox");
       const q = query("Perfsub");
       await field.click();
