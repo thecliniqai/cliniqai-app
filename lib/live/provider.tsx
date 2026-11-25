@@ -120,7 +120,10 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
       else if (event.type === "updated") {
         const action = event.action.type;
         if (action === "fetch") core.fetchStarted(id);
-        else if (action === "success") core.fetchEnded(id, true);
+        // 09E-14a (L2): a `setQueryData` (a save's answer written into the board) is a success action too, but no read ended: only a fetch's own success commits a basis.
+        else if (action === "success") {
+          if (!(event.action as { manual?: boolean }).manual) core.fetchEnded(id, true);
+        }
         else if (action === "error") core.fetchEnded(id, false);
       }
     });

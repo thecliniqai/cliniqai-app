@@ -10,14 +10,15 @@ import { queryKeys } from "@/lib/query/keys";
  * (`useLiveScreen`: the 12 s heartbeat of the live state runs while it is open and visible); its query carries its domains (`queryDomains.today`), so a
  * newer clinic version of one of them, from a signal or from a check, re-reads the board (one `GET /api/today/board`, coalesced 400 ms) and a version
  * that did not move re-reads nothing. The old 20 s full-board poll and its own channel are gone: the shell owns the one channel of the clinic
- * (`lib/live/provider.tsx`). `refreshNow` is for the user's own writes (a vitals save, a payment): it invalidates Today's query and a read already
- * in flight answers it.
+ * (`lib/live/provider.tsx`). `refreshNow` is for the user's own writes (a vitals save, a payment): it invalidates Today's query and replaces a read
+ * already in flight (it may predate the write).
  */
 export function useTodayLive(tenantId: string): { refreshNow: () => void } {
   const queryClient = useQueryClient();
   useLiveScreen();
   const refreshNow = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.todayAll(tenantId) }, { cancelRefetch: false });
+    // 09E-14a (L3): an own write: a read in flight may predate it, so it is replaced by one that starts after.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.todayAll(tenantId) }, { cancelRefetch: true });
   }, [queryClient, tenantId]);
   return { refreshNow };
 }

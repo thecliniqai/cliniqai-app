@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
   useCallback,
 } from "react";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,6 +54,12 @@ export function useConsultQuery(
 ): ConsultQueryApi {
   const client = useQueryClient();
   const key = queryKeys.consult(tenantId, visitId);
+  // 09E-14a (L4): coming back to a consult in the same tab (it stays cached for 5 minutes) must not show the lists as they were when it was left: the page that just
+  // rendered read them from the database, so it replaces what the cache holds, once, before the first paint of this mount. (`initialData` alone only seeds an empty cache.)
+  useState(() => {
+    if (client.getQueryData(key) !== undefined) client.setQueryData(key, server);
+    return true;
+  });
   const query = useQuery({
     queryKey: key,
     queryFn: skipToken,

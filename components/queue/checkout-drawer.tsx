@@ -375,10 +375,15 @@ export function CheckoutDrawer({
           // 4. Reload updated billing details
           getVisitBillingDetails(visit.id),
         ]);
-        if (!queueRes.ok) {
-          reportClientError("queue.checkout_transition.failed", null);
-        }
         setBillingData(updated);
+        if (!queueRes.ok) {
+          // 09E-14a (L5): the payment is recorded but the visit was not marked completed (for one, because the visit changed on another device). Never show the
+          // success text: say what is true, keep the drawer open and refresh the board.
+          reportClientError("queue.checkout_transition.failed", null);
+          setError(`Payment of ₹${amountToPay} was recorded, but the visit was not marked completed: ${queueRes.error.message} Check the visit, then mark it completed.`);
+          onSuccess();
+          return;
+        }
         setIsCompleted(true);
         setSuccessNotice(
           `Payment of ₹${amountToPay} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`

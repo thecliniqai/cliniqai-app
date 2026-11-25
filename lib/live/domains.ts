@@ -4,6 +4,15 @@
  */
 export const LIVE_DOMAINS = ["schedule", "queue", "billing", "settings"] as const;
 export type LiveDomain = (typeof LIVE_DOMAINS)[number];
+
+/**
+ * The order in which one transaction may raise the clinic's version rows (09E-14a, documented lock order). Each raise (`private.clinic_bump`) takes the row lock of one
+ * `clinic_versions` row until the transaction ends, so two transactions that raise two domains in opposite orders can deadlock. Every statement trigger and command raises
+ * in THIS order, whatever the statement: queue, then schedule, then billing, then settings (a visit insert: queue, schedule; a membership change: schedule, settings; a command
+ * that moves a visit and then bills it: queue/schedule rows first, invoice rows after). Within one `clinic_bump` call the clinics are locked in id order.
+ * `tests/live/version-lock-order.spec.ts` reads every migration and fails when one function raises out of this order.
+ */
+export const VERSION_LOCK_ORDER = ["queue", "schedule", "billing", "settings"] as const satisfies readonly LiveDomain[];
 export type Versions = Record<LiveDomain, number>;
 
 export interface LiveSnapshot {

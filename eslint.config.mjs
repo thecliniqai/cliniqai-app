@@ -372,8 +372,8 @@ const BOUNDARY_IMPORT_PATTERNS = {
   },
   // V2-09e 09E-03 (R-14): the client data layer is memory only. No persister (it would write patient data to storage) and no devtools.
   queryPersist: {
-    regex: String.raw`^@tanstack\/(?:[^/]*persist[^/]*|react-query-devtools|query-devtools)(?:\/|$)`,
-    message: "R-14: the client data layer (@tanstack/react-query) is memory only: no persister package and no devtools (a persister would put patient data into browser storage, PWA_STRATEGY D-4).",
+    regex: String.raw`^@tanstack\/(?:[^/]*persist[^/]*|react-query-devtools|query-devtools|query-broadcast-client-experimental)(?:\/|$)`,
+    message: "R-14: the client data layer (@tanstack/react-query) is memory only: no persister package, no devtools and no broadcast client (a persister would put patient data into browser storage, PWA_STRATEGY D-4; a broadcast client would share one tab's cache with the others, across a clinic switch).",
   },
   jobsInternal: {
     regex: JOBS_INTERNAL_MODULE,

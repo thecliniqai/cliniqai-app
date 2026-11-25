@@ -102,7 +102,20 @@ function useCommandMutation<V, T>(phase: Phase, options: CommandMutationOptions<
   });
 
   const { mutateAsync } = mutation;
-  const run = useCallback((vars: V): Promise<Result<T>> => mutateAsync(vars), [mutateAsync]);
+  // 09E-14a (L1): a second submit while one is in flight gets the first one's answer (as `command.run` does) and starts no second mutation: `onMutate` (the
+  // optimistic apply) and `onSuccess` (the answer's callbacks) run once per save, never twice.
+  const inFlight = useRef<Promise<Result<T>> | null>(null);
+  const run = useCallback(
+    (vars: V): Promise<Result<T>> => {
+      if (inFlight.current) return inFlight.current;
+      const started = mutateAsync(vars).finally(() => {
+        if (inFlight.current === started) inFlight.current = null;
+      });
+      inFlight.current = started;
+      return started;
+    },
+    [mutateAsync],
+  );
   return { run, pending: mutation.isPending, command };
 }
 

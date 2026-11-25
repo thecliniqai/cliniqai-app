@@ -23,6 +23,7 @@ import type {
 } from "./scheduling-service";
 import type { CancelVisitRequest, RescheduleVisitRequest } from "./schema";
 import { markAction } from "@/lib/observability/db-timing";
+import { expectedVersionError } from "@/lib/errors/expected-version";
 
 export type {
   AvailableSlot,
@@ -156,6 +157,8 @@ export async function rescheduleVisit(
   await markAction("visits_scheduling.reschedule_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(input?.expected_version);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.rescheduleVisit(resolved.ctx, input, clientRequestId);
   return result;
 }
@@ -172,6 +175,8 @@ export async function cancelVisit(
   await markAction("visits_scheduling.cancel_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(input?.expected_version);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.cancelVisit(resolved.ctx, input, clientRequestId);
   return result;
 }
@@ -181,6 +186,8 @@ export async function markNoShow(visitId: string, clientRequestId: string, expec
   await markAction("visits_scheduling.mark_no_show");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }
@@ -194,6 +201,8 @@ export async function confirmAppointment(
   await markAction("visits_scheduling.confirm_appointment");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }

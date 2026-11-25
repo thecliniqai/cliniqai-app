@@ -24,7 +24,8 @@ export function patchTodayBoards(queryClient: QueryClient, patch: (board: TodayB
 
 /** Marks every cached Today board stale and reads the active one (one GET). */
 export function staleToday(queryClient: QueryClient): void {
-  void queryClient.invalidateQueries({ predicate: (q) => isTodayQuery(q.queryKey) }, { cancelRefetch: false });
+  // 09E-14a (L3): the user's own write: a read already in flight may have started before it committed, so it is cancelled and read again after it (the live core's basis is taken at each fetch start, so no newer signal is lost).
+  void queryClient.invalidateQueries({ predicate: (q) => isTodayQuery(q.queryKey) }, { cancelRefetch: true });
 }
 
 export interface AfterSaveOptions {

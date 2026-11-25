@@ -13,6 +13,7 @@ import type {
   SendConsolidatedConsultationWhatsAppInput,
 } from "./service";
 import { markAction } from "@/lib/observability/db-timing";
+import { expectedVersionError } from "@/lib/errors/expected-version";
 
 export type {
   CreateInvoiceValue,
@@ -47,6 +48,8 @@ export async function recordPayment(input: RecordPaymentRequest): Promise<Record
   await markAction("billing.record_payment");
   const resolved = await resolveServiceContext("billing:collect", "full", { sensitive: "billing.payment.record" });
   if (!resolved.ok) return { success: false, error: resolved.error };
+  const invalid = expectedVersionError(input?.expected_invoice_version);
+  if (invalid) return { success: false, error: invalid.message };
   const result = await billingService.recordPayment(resolved.ctx, input);
   return result;
 }

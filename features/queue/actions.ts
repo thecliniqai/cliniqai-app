@@ -14,6 +14,7 @@ import type {
   CompleteVisitValue,
 } from "./service";
 import { markAction } from "@/lib/observability/db-timing";
+import { expectedVersionError } from "@/lib/errors/expected-version";
 
 export type { CheckInResult, PaletteQueueMatch } from "./service";
 
@@ -34,6 +35,8 @@ export async function checkInVisit(
   await markAction("queue.check_in_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
   const result = await queueService.checkInVisit(resolved.ctx, visitId, priority, clientRequestId, expectedVersion);
   return toCommandResult(result, (ok) => ({
     tokenNumber: ok.tokenNumber,
@@ -73,6 +76,8 @@ export async function startConsultation(
   await markAction("queue.start_consultation");
   const resolved = await resolveServiceContext("consultations:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
   const result = await queueService.startConsultation(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }
@@ -90,6 +95,8 @@ export async function completeVisit(
   await markAction("queue.complete_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
   const result = await queueService.completeVisit(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }
