@@ -137,10 +137,8 @@ test.describe("typeahead rows (B-4, B-5)", () => {
  * other row downloads it.
  */
 test.describe("medicines on the full-size synthetic catalogue (B-4, B-14)", () => {
-  // BLOCKED (09E-NOTES, 09E-11 H-1): at full size `public.reference_shard` (000128) answers the late brand shards in more than 30 s (the planner takes the
-  // OFFSET page for one row and joins it by nested loop; the API role's 8 s statement timeout answers 500). Its fix is a migration (the two CTEs
-  // MATERIALIZED: 130 ms for shard 8, measured in a rolled-back session) that 09E-11 may not add. These rows run again when it lands.
-  test.fixme(true, "reference_shard brand shards time out at 93,911 brands until the 000128 fix (09E-NOTES 09E-11 H-1)");
+  // H-1 (09E-NOTES): blocked until 000129 (the late brand shards of `public.reference_shard` timed out at full size under 000128); now run on every PR
+  // (`type.D.medicine` is in the @budget subset).
   test.use({ storageState: storageStatePath("doctor"), timezoneId: "Asia/Kolkata" });
   test.beforeAll(async () => {
     test.setTimeout(TEST_TIMEOUT_MS);

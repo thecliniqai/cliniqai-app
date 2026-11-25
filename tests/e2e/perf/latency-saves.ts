@@ -604,13 +604,14 @@ export const TYPEAHEAD_ROWS: readonly TypeaheadRowDef[] = [
       await openConsult(page, visitId);
       const field = rxField(page.locator("#prescription"));
       await expect(page.locator('#prescription [data-rx-search][data-search-source="device"]')).toBeAttached({ timeout: 60_000 });
-      // Two families of 20 brands: "Perfrow Alp" lists both (40 rows: the device fills the limit, no tail); the last key keeps one.
-      const lead = PERF_FAMILY.keep.toLowerCase().slice(0, -2);
-      const key = PERF_FAMILY.keep.toLowerCase().slice(-2, -1);
+      // Two families of 20 brands: "perfrow alp" matches both (40 rows: the device fills the limit of 15, no tail) and shows Alpha (name order); the
+      // last key, "i", keeps only Alpine (20 rows, the limit filled again, no tail), so the measured key replaces the list on screen.
+      const lead = PERF_FAMILY.keep.toLowerCase().slice(0, -3);
+      const key = PERF_FAMILY.keep.toLowerCase().slice(-3, -2);
       await field.click();
       await field.pressSequentially(lead);
       await expect(page.getByRole("option", { name: new RegExp(PERF_FAMILY.drop) }).first()).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByRole("option", { name: new RegExp(PERF_FAMILY.keep) }).first()).toBeVisible();
+      await expect(page.getByRole("option", { name: new RegExp(PERF_FAMILY.keep) })).toHaveCount(0);
       return {
         press: () => field.press(key),
         key,

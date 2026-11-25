@@ -95,7 +95,7 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   { id: "full.O.staff", kind: "page-full", budget: "B-3", label: "Owner: Staff, full load", ...FULL_LOAD, owner: "09E-06" },
 
   // B-4, B-5: typeahead (the last keystroke to the first option)
-  { id: "type.D.medicine", kind: "typeahead", budget: "B-4", label: "Doctor: medicine search (Rx field, on the device, full-size synthetic catalogue)", ...TYPEAHEAD, owner: "09E-11" },
+  { id: "type.D.medicine", kind: "typeahead", budget: "B-4", label: "Doctor: medicine search (Rx field, on the device, full-size synthetic catalogue)", ...TYPEAHEAD, owner: "09E-11", pr: true },
   { id: "type.D.diagnosis", kind: "typeahead", budget: "B-4", label: "Doctor: diagnosis search (on the device)", ...TYPEAHEAD, owner: "09E-10", pr: true },
   { id: "type.D.substance", kind: "typeahead", budget: "B-4", label: "Doctor: allergy substance search (on the device)", ...TYPEAHEAD, owner: "09E-09", pr: true },
   { id: "type.R.patient-today", kind: "typeahead", budget: "B-5", label: "Receptionist: patient search on Today (walk-in)", targetMs: 700, maxMs: 900, owner: "measured, not changed" },

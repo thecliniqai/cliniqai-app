@@ -13,7 +13,8 @@
  *
  * Target (R-4): p95 under 150 ms for every command on the local stack. Exit 1 when any command's p95 is 150 ms or more, or any
  * call failed (a failing call would time the error path): a miss is a finding to fix (an index, a lock), not a reason to move
- * the target. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
+ * the target. V2-09e R-16, H-1: the medicine catalogue's first and last brand shards on the full-size synthetic catalogue (93,911 brands, the lane's
+ * perf-* rows, upserted and deleted by this run) have their own target, p95 under 200 ms. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
  * count. No names, no ids, no data.
  *
  * Safety: follows scripts/seed-local-dev.ts. Reads `.env.test` and `npx supabase status` only (never `.env`), then refuses to run
@@ -31,6 +32,8 @@ const ROOT = path.resolve(__dirname, "../..");
 const TARGET_MS = 150;
 /** V2-09b R-18: the INVOKER Smart Assist reads (consult_assist_context, search_diagnoses, patient_snapshot) on the synthetic seed: p95 under 50 ms. */
 const READ_TARGET_MS = 50;
+/** V2-09e R-16, H-1: one brand shard of the medicine catalogue the device downloads (12,000 brands of the full-size 93,911): p95 under 200 ms. */
+const REFERENCE_TARGET_MS = 200;
 const WARMUP = 5;
 
 /** A pseudo-word of `length` letters from an MD5 digest (`translate(md5(n), '0123456789abcdef', 'ghijklmnopqrstuv')`), capitalised: a stand-in brand or generic name. */
@@ -46,7 +49,7 @@ function argValue(name: string): string | undefined {
 
 export interface LatencyRow {
   name: string;
-  kind: "command" | "baseline" | "read";
+  kind: "command" | "baseline" | "read" | "reference";
   calls: number;
   errors: number;
   p50_ms: number;
@@ -109,6 +112,7 @@ async function main(): Promise<void> {
   const rows: Array<Omit<LatencyRow, "p95_over_baseline">> = [];
   const catalogueIds: string[] = [];
   let failed = false;
+  let perfCatalogueLoaded = false;
 
   /** Prepares N calls (seeding outside the timed region), times them, and records one row. */
   async function measure(name: string, kind: LatencyRow["kind"], prepare: (i: number) => Promise<Call>): Promise<void> {
@@ -481,7 +485,29 @@ async function main(): Promise<void> {
     // V2-09e 09E-06 (R-9, R-12): Today's board in one read, on a busy day: every visit this run made today (walk-ins in every state, signed visits, invoices and payments,
     // follow-ups), the owner's role (every part: allergy flag, vitals, invoice, follow-up).
     await measure("read: today_board", "read", async () => () => owner.client.rpc("today_board", { p_tenant_id: t.tenantId, p_mode: "front" }));
+    // V2-09e H-1 (000129, R-16): the medicine shards the device downloads, on the full-size synthetic catalogue (93,911 brands, 10,305 generics; the lane's
+    // perf-* rows, deleted in `finally`). The first brand shard and the last one (OFFSET 84,000: the shard that timed out under 000128).
+    const { upsertPerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");
+    perfCatalogueLoaded = true;
+    await upsertPerfCatalogue(admin);
+    const shardOf = async (shard: number) => {
+      const { data, error } = await owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: shard });
+      if (error) throw new Error(`reference_shard ${shard}: ${error.message}`);
+      return data as { shards: number; rows: unknown[] };
+    };
+    const lastShard = (await shardOf(0)).shards - 1;
+    if (lastShard < 8) throw new Error(`the full-size catalogue should give at least 8 brand shards, got ${lastShard}`);
+    await measure("reference: reference_shard (medicines, first brand shard, full size)", "reference", async () => () =>
+      owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: 1 }),
+    );
+    await measure(`reference: reference_shard (medicines, last brand shard ${lastShard}, full size)`, "reference", async () => () =>
+      owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: lastShard }),
+    );
   } finally {
+    if (perfCatalogueLoaded) {
+      const { deletePerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");
+      await deletePerfCatalogue(admin).catch((error: unknown) => console.error(`[latency] cleanup: deleting the perf catalogue failed: ${error instanceof Error ? error.message : String(error)}`));
+    }
     // Remove what this run made (the catalogue rows; the clinic cascades; then the two users).
     for (let i = 0; i < catalogueIds.length; i += 100) {
       const { error } = await admin.from("opd_diagnoses").delete().in("id", catalogueIds.slice(i, i + 100));
@@ -504,12 +530,15 @@ async function main(): Promise<void> {
     ...r,
     p95_over_baseline: baseline && baseline.p95_ms > 0 ? round1(r.p95_ms / baseline.p95_ms) : null,
   }));
-  const over = result.filter((r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS));
+  const over = result.filter(
+    (r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS) || (r.kind === "reference" && r.p95_ms >= REFERENCE_TARGET_MS),
+  );
   const report = {
     description:
       "p50, p95 and p99 of one supabase-js round trip (PostgREST, local Supabase stack) per command, sequential calls with fresh request ids and prepared rows; the baselines are plain INVOKER reads on the same stack",
     target_p95_ms: TARGET_MS,
     read_target_p95_ms: READ_TARGET_MS,
+    reference_target_p95_ms: REFERENCE_TARGET_MS,
     calls_per_command: callsPerCommand,
     warmup_calls_not_counted: WARMUP,
     node: process.version,

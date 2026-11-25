@@ -23,7 +23,9 @@ const LENGTHS = {
 /** Substances per generic (same quantile points). */
 const SUBS_PER_GENERIC = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 7];
 
-export const PERF_FAMILY = { keep: "Perfrow Alpha", drop: "Perfrow Alpine", size: 20 } as const;
+/** H-1 (09E-NOTES): "perfrow alp" lists Alpha first (name order fills the limit of 15 with Alpha), the next key "i" keeps only Alpine, so the measured key
+ * changes what is on screen. (09E-11 had them the other way round: the dropped family was never on screen, found when the row first ran.) */
+export const PERF_FAMILY = { keep: "Perfrow Alpine", drop: "Perfrow Alpha", size: 20 } as const;
 
 function generator(seed: number) {
   let a = seed >>> 0;

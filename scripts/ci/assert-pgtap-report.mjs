@@ -159,6 +159,8 @@
  *   9739 — V2-09e 09E-09 (000128 reference_catalogues): 9559 + reference_catalogues 84 (new file, every one required) + authz_matrix 96 (6528 → 6624: the new
  *          global table reference_catalogues x 4 ops x 24 principals) = 9739 (76 files). definer_functions keeps its count (one classified trigger function);
  *          authz_completeness keeps its 6 (its lists gained the table).
+ *   9753 — V2-09e H-1 (000129 reference_shard_materialized): 9739 + reference_shard_full_size 14 (new file, every one required) = 9753 (77 files).
+ *          reference_catalogues keeps its 84 (the replaced function answers the same).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -170,7 +172,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9739;
+export const FLOOR = 9753;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -301,6 +303,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/review_fixes_09e.test.sql",
   // V2-09e 09E-09
   "supabase/tests/database/reference_catalogues.test.sql",
+  // V2-09e H-1
+  "supabase/tests/database/reference_shard_full_size.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

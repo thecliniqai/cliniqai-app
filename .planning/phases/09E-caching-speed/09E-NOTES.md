@@ -1072,9 +1072,9 @@ migration, outside this plan's scope.**
 | Synthetic (lane) | 9 | 104,216 | 7,231,316 | 1,394,472 | 1,126,849 | 1,038,709 | 226.3 ms |
 
 (Real CDCI substances add 34,934 B gzip to the same `cdci` version: 1,292,042 B gzip in all, under B-14's 1.6 MB.) The browser figures (bytes transferred,
-IndexedDB, build at 4× CPU, worker heap) are **not measured**: the lane row is blocked by H-1.
+IndexedDB, build at 4× CPU, worker heap) were blocked by H-1 here; measured after 000129 ("H-1 resolved" below).
 
-### H-1 (blocker): `reference_shard` brand shards time out at full size
+### H-1 (blocker, **resolved by 000129**, see "H-1 resolved" below): `reference_shard` brand shards time out at full size
 
 With the synthetic catalogue loaded (93,911 brands), the lane's sync answered shards 1..7 in about 0.5 s each and **shard 8 with a 500 after 8.3 s** (the API role's
 statement timeout). In a superuser psql session (catalogue copied in, `ANALYZE`d, everything rolled back; nothing committed), the 000128 brand-shard query at
@@ -1085,6 +1085,57 @@ route (the Rx field still works) and cost the database one 8 s statement per app
 because its offsets stay under the estimate. **Needs**: a migration replacing `reference_shard` with the CTEs materialized (or keyset by id), plus a pgTAP/latency
 case at 93,911 brands, before PR 2 merges; until then either accept the fallback or take `medicines` out of `DEVICE_CATALOGUES`. Then un-`fixme` the two lane rows
 and run them (`PERF_LATENCY_MERGE=evidence/09E-10/diagnosis-row-300ms.json ... --grep "type.D.medicine|ref.D.cdci-download"`, `latency-ceilings.mjs --write`).
+
+### H-1 resolved (migration `000129_reference_shard_materialized`)
+
+- **Cause, measured again before the fix** (psql, superuser, synthetic 93,911 brands and 10,305 generics loaded in a transaction, rolled back; nothing committed):
+  the 000128 brand-shard query takes the `OFFSET`/`LIMIT` page for **one row** and joins it by nested loop to `cdci_brands` and to the generics window (a
+  scan of all generics per brand). Two ways to get there: fresh statistics (ANALYZE after the load: a parallel-scan estimate below the offset) and stale
+  statistics (taken while the tables were small, as right after a reload before autovacuum). OFFSET 84,000: > 20 s (canceled) with fresh statistics; the
+  000128 function itself: shards 7 and 8 canceled at 15 s with fresh or stale statistics, 279 ms for both with no statistics at all.
+- **The first idea (both CTEs `AS MATERIALIZED`, the 09E-11 note) fixes only the fresh-statistics case**: 106 ms for shard 8 there, but with stale
+  statistics the materialized generics CTE is still scanned once per brand (> 15 s, canceled). Not shipped.
+- **Shipped**: `CREATE OR REPLACE public.reference_shard` from the 000128 body, the brand-shard branch only: the generics' 0-based positions (same order,
+  `id COLLATE "C"`) read once into a jsonb map, the page `AS MATERIALIZED`, only its 12,000 rows joined to `cdci_brands`, each brand's `generic_row` looked up
+  in the map (`JSON null` when the brand has no generic, as before). Signature, STABLE INVOKER, `search_path ''`, permissions, every NULL case, keys and row
+  shapes unchanged; grants and comment restated. Measured in psql: about 0.23 s for one brand shard with fresh, stale or no statistics (0.46 to 0.55 s for
+  shards 7 and 8 together). 000128 is not edited.
+- **pgTAP `reference_shard_full_size.test.sql` (14)**: 93,911 synthetic brands and 10,305 generics (`test-ref-129-*`), the stack's own CDCI rows deleted in
+  the transaction; the last shard read first with STALE statistics (taken at 300 brands and 30 generics), then again with FRESH ones, then 7 and 0..6, each
+  one top-level statement under a 5 s `statement_timeout` (a canceled read is kept as `error:57014`); every read answers, the stale and fresh answers are
+  equal, 9 shards, 10,305 generics, 9,911 rows in the last shard, every brand exactly once (distinct and all), the last id last, a late brand's `generic_row`,
+  and the function's contract (STABLE INVOKER, `search_path`, EXECUTE authenticated only). **Fails without**: run against the 000128 body (re-created in
+  place, then 000129 re-applied) it fails 9 of 14 (`error:57014` for shard 8 under stale and fresh statistics and for shard 7; the shapes NULL; 60,000 brands
+  instead of 93,911); with 000129: 14 of 14, and `reference_catalogues` 84 of 84 unchanged.
+- **Full-size latency case** (`scripts/perf/command-latency.ts`, kind `reference`, target p95 < 200 ms, R-16; the lane's perf catalogue upserted through
+  `upsertPerfCatalogue` and deleted in `finally`; tool output `evidence/H-1/command-latency.json`): first brand shard **p50 155.8, p95 255.1** ms; last brand
+  shard (shard 10: the run's other synthetic CDCI rows add to the 93,911, so 10 brand shards) **p50 140.4, p95 183.8** ms (100 calls each, 0 errors;
+  the 000128 function answered 500 after 8.3 s). The first shard's p95 is over the 200 ms target (the run measures it right after the 94,000-row upsert,
+  before autovacuum; p50 is under): reported, not hidden; the script exits 1 on it and on the five reads already over 50 ms since 09E-05/06
+  (consult_assist_context 55.5, search_diagnoses 170.2, search_medicines 98.6, consult_screen 97.5, today_board 157.5 on this run).
+- **Lane rows un-`fixme`d and run** (`PERF_LATENCY_MERGE=evidence/09E-10/diagnosis-row-300ms.json`, `--grep "type.D.medicine|ref.D.cdci-download"`,
+  `--retries=0`, after `stack:recycle`; tool output `evidence/H-1/medicine-row-300ms.{json,md}`, `evidence/H-1/reference-download.json`):
+  | Row | Before (calls / depth) | After |
+  | --- | --- | --- |
+  | `type.D.medicine` (B-4, now `@budget`) | 1 / 1 (ceiling never measured) | **0 / 0**, 38 ms median (max 51) |
+  | `ref.D.cdci-download` (B-14) | blocked | **1,417,467 B** transferred for one `cdci` version (substances + 9 medicine shards, gzip; max 1,600,000: within); IndexedDB 2,187,264 B (≤ 10 MB); index build **658.4 ms** in the worker at 4× CPU (≤ 1,500); worker heap **19,070,896 B** (≤ 40 MB) |
+
+  `latency-ceilings.mjs --write` lowered only `type.D.medicine` (1/1 → 0/0) and re-pointed every row's `source` at the merged file. Real CDCI: 1,292,042 B gzip
+  by the size script (above); the synthetic set compresses slightly worse, so the lane's bytes are an upper bound.
+- **Defect in the 09E-11 lane row, found on its first run and root-caused (not retried)**: its prepare waited for both brand families to be on screen after
+  "perfrow alp", but the device fills the limit of 15 with the first family in name order, so the other family is never shown (failed after 20 s on the first
+  run). The families are swapped (`PERF_FAMILY`: keep "Perfrow Alpine", drop "Perfrow Alpha"; the same 40 rows, names swapped between ids) and the measured key
+  is "i": "perfrow alp" shows Alpha, "perfrow alpi" replaces it with Alpine (20 rows, the limit filled, no tail). Passed on the next run with 0 calls.
+- `type.D.medicine` is in the `@budget` subset (`pr: true`): every PR now upserts the 94,000-row perf catalogue before it and deletes it after it (about 30 s
+  of the lane's setup on this VM).
+- Registries in the commit: `EXPECTED_MIGRATION` 000129, schema snapshot (one line: the function's body hash), pgTAP FLOOR **9753** (9739 + 14; 77 files; the
+  new file required). `types/database.ts` unchanged (same signature). No grant, table or policy change.
+- **Security-sensitive for the adversarial review**: `supabase/migrations/000129_reference_shard_materialized.sql` (a replaced INVOKER read: same permission per
+  catalogue, NULL cases, grants and output; the jsonb map holds catalogue ids and positions only), `supabase/tests/database/reference_shard_full_size.test.sql`.
+- **Tests run (local stack)**: pgTAP after `db reset --local`: **9,753 tests in 77 files, 0 failed**, gate PASS at floor 9,753. Vitest `tests/ci`,
+  `tests/api/readiness-probe-db.spec.ts`: 36 files, 449 passed. `npm run typecheck` clean; eslint on the touched files 0 problems. Lane (after `stack:recycle`,
+  `--retries=0`): the two medicine rows 10 passed (after the row fix; the first run 9 passed, 1 failed = the row defect above); `perf-latency --grep @budget`:
+  **17 passed** (`type.D.medicine` 0/0 28 ms, `type.D.diagnosis` 0/0 18 ms, `type.D.substance` 0/0 21 ms). `command-latency.ts`: above (exit 1 on the rows named).
 
 ### Specs
 
@@ -1137,7 +1188,7 @@ Cache audit green with the medicine shards stored (shapes already allowed in 09E
 
 ### For the PO
 
-1. **H-1** (above): fix `reference_shard` with a migration before PR 2 merges (recommended), or ship with medicines off the device until then.
+1. **H-1** (above): fixed by migration 000129 ("H-1 resolved" below); medicines stay on the device.
 2. The device matches the doctor's 500 most used custom medicines and diagnoses (the consult's list); a doctor with more sees the rest only through the route.
 
 ### Tests run (local stack, `stack:recycle` before each e2e and lane run)
