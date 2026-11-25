@@ -32,7 +32,10 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
   await awaitRegisterLinkHydrated(page);
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
   const sheet = page.getByRole("dialog", { name: "Register patient" });
-  await expect(sheet).toBeVisible();
+  // 09E-14a (F5): the sheet is a search-parameter route, so opening it is a client navigation that re-renders the Patients page, which lists EVERY patient (638 rows
+  // late in a full lane, no pagination). The trace of the failing run shows the two `?new=1` RSC requests answered in under 70 ms and the dialog still absent
+  // for 5 s: the commit waits for that re-render on emulated WebKit. Genuine slowness of the page, not a lost click (PO question 3).
+  await expect(sheet).toBeVisible({ timeout: 20_000 });
   await expect(sheet.getByRole("textbox", { name: "Mobile number" })).toBeFocused();
 
   // The sheet holds the interim AI notice with its checkbox, and passes axe at this width.

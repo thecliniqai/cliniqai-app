@@ -21,7 +21,8 @@ async function registerPatient(page: Page, ux: UxCounter, fullName: string, phon
   await awaitRegisterLinkHydrated(page);
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
   const sheet = page.getByRole("dialog", { name: "Register patient" });
-  await expect(sheet).toBeVisible();
+  // 09E-14a (F5): opening the sheet re-renders the Patients page, which lists every patient (no pagination): see journeys/journey-03-register-patient.spec.ts.
+  await expect(sheet).toBeVisible({ timeout: 20_000 });
 
   await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
   await ux.fill(sheet.getByRole("textbox", { name: "Full name" }), fullName, "Full name");
