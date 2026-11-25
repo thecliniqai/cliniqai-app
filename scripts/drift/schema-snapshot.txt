@@ -1614,6 +1614,7 @@ function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty t
 function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, kind text, medicine_name text, generic_name text, dose_form text, substance_ids text[], dosage text, timing text, duration text) lang=plpgsql security_definer=f volatility=s config=enable_seqscan=off,pg_trgm.similarity_threshold=0.3,search_path="" body_md5=8a17da377ee7438484566210a9e1cc58
 function public.search_patients(p_query text, p_limit integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=127c66d8a5f6775348e6d73e968f0087
 function public.search_substances(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, substance_name text) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=ffdc9f72a8c7b5b69ca4646373a26a73
+function public.session_bootstrap(p_tenant_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fa4cabe7b947e56defa4fed519ba52a8
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
 function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) returns tenant_ai_settings lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7c009b0d799d21424ac6d1ab43007484
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
@@ -1849,6 +1850,7 @@ grant function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_speci
 grant function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) EXECUTE to authenticated
 grant function public.search_patients(p_query text, p_limit integer) EXECUTE to authenticated
 grant function public.search_substances(p_tenant_id uuid, p_query text, p_limit integer) EXECUTE to authenticated
+grant function public.session_bootstrap(p_tenant_id uuid) EXECUTE to authenticated
 grant function public.session_is_live() EXECUTE to authenticated
 grant function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to authenticated

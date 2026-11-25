@@ -15,7 +15,7 @@
  * call failed (a failing call would time the error path): a miss is a finding to fix (an index, a lock), not a reason to move
  * the target. V2-09e R-16, H-1: the medicine catalogue's first and last brand shards on the full-size synthetic catalogue (93,911 brands, the lane's
  * perf-* rows, upserted and deleted by this run) have their own target, p95 under 200 ms; 09E-12: the Schedule's range read (42 days, 3 clinicians, 600 visits,
- * slots), p95 under 100 ms. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
+ * slots), p95 under 100 ms; 09E-13: the session bootstrap is a read (p95 under 50 ms). Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
  * count. No names, no ids, no data.
  *
  * Safety: follows scripts/seed-local-dev.ts. Reads `.env.test` and `npx supabase status` only (never `.env`), then refuses to run
@@ -516,6 +516,9 @@ async function main(): Promise<void> {
     await measure("range: schedule_range (42 days, 3 clinicians, 600 visits, slots)", "range", async () => () =>
       owner.client.rpc("schedule_range", { p_tenant_id: t.tenantId, p_from: RANGE_FROM, p_to: RANGE_TO, p_include_slots: true }),
     );
+    // V2-09e 09E-13 (R-13): the session bootstrap (profile, clinic, role, the doctor directory of the three clinicians above, the user's clinics, the Rx print
+    // display fields, the settings version). A read: p95 under 50 ms.
+    await measure("read: session_bootstrap", "read", async () => () => owner.client.rpc("session_bootstrap", { p_tenant_id: t.tenantId }));
     // V2-09e H-1 (000129, R-16): the medicine shards the device downloads, on the full-size synthetic catalogue (93,911 brands, 10,305 generics; the lane's
     // perf-* rows, deleted in `finally`). The first brand shard and the last one (OFFSET 84,000: the shard that timed out under 000128).
     const { upsertPerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");

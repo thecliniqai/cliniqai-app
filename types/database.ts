@@ -3990,6 +3990,7 @@ export type Database = {
           substance_name: string;
         }[];
       };
+      session_bootstrap: { Args: { p_tenant_id: string }; Returns: Json };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
       set_ai_opt_in: {
         Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };

@@ -162,6 +162,7 @@
  *   9753 — V2-09e H-1 (000129 reference_shard_materialized): 9739 + reference_shard_full_size 14 (new file, every one required) = 9753 (77 files).
  *          reference_catalogues keeps its 84 (the replaced function answers the same).
  *   9831 — V2-09e 09E-12 (000130 schedule_range): 9753 + schedule_range 78 (new file, every one required) = 9831 (78 files).
+ *   9861 — V2-09e 09E-13 (000131 session_bootstrap): 9831 + session_bootstrap 30 (new file, every one required) = 9861 (79 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -173,7 +174,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9831;
+export const FLOOR = 9861;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -308,6 +309,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/reference_shard_full_size.test.sql",
   // V2-09e 09E-12
   "supabase/tests/database/schedule_range.test.sql",
+  // V2-09e 09E-13
+  "supabase/tests/database/session_bootstrap.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */
