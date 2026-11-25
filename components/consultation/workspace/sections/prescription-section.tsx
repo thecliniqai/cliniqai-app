@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import { BookOpen, RotateCcw } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,10 @@ import { DoseBuilder, RxEntryRow, type DoseDraft, type RxAddResult, type RxEntry
 import { RxLineItem } from "@/components/clinical/rx-line-item";
 import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
 import { fetchMedicines } from "@/features/prescriptions/search";
+import { medicineFromSearch } from "@/features/prescriptions/lines";
+import { requestReferenceSync } from "@/lib/reference/store";
+import { searchMedicineCatalogue, useMedicineIndex } from "@/lib/reference/medicine-host";
+import { searchMedicinesOnDevice, type CustomMedicine } from "@/lib/reference/search-medicines";
 import { itemToAdd, itemToLine, lineToAdd, lineToUpdate, pastItemToMedicine, rxEntryToAdd, rxEntryToMedicine, type ChangeLine } from "@/features/prescriptions/lines";
 import { rxBundlesFor, rxFavouritesFor, type AssistContext, type RxAssistEntry } from "@/features/consultation/assist-ranking";
 import type { PrescriptionItem } from "@/lib/db/types";
@@ -85,6 +89,21 @@ export interface PrescriptionSectionProps {
   entryRef: RefObject<RxEntryHandle | null>;
   leftOut: readonly RxLeftOut[];
   onLeftOut: (next: readonly RxLeftOut[]) => void;
+  /**
+   * 09E-11 (R-7, R-8): the doctor's own custom medicines from the consult's query (memory only), first in the search on the device, with their stored
+   * dose.
+   */
+  customMedicines?: readonly CustomMedicine[];
+}
+
+const NO_CUSTOM: readonly CustomMedicine[] = [];
+
+/**
+ * 09E-11: a custom medicine has one id on the screen whichever side answered (`custom:<lower-cased name>`, as the device's twin names it; the route's is
+ * the row's uuid). The list keeps its highlighted row when the route's answer replaces the device's rows (cmdk tracks the highlight by value).
+ */
+function sameCustomId(m: Medicine): Medicine {
+  return m.kind === "custom" ? { ...m, id: `custom:${m.name.toLowerCase()}` } : m;
 }
 
 interface Editing {
@@ -134,7 +153,22 @@ export function PrescriptionSection({
   entryRef,
   leftOut,
   onLeftOut,
+  customMedicines = NO_CUSTOM,
 }: PrescriptionSectionProps) {
+  // 09E-11 (R-7, B-4): the medicine catalogue on the device (its index in a worker). Until it is ready, and whenever it is not, the route answers.
+  const medicineIndex = useMedicineIndex();
+  useEffect(() => {
+    // Before the first search: the catalogue is asked for now if this tab does not hold it yet (the shell's sync usually has).
+    requestReferenceSync("medicines");
+  }, []);
+  const deviceReady = medicineIndex.status === "ready";
+  const deviceSearch = useCallback(
+    async (query: string) => {
+      const answer = await searchMedicinesOnDevice(searchMedicineCatalogue, customMedicines, query);
+      return { hits: answer.rows.map(medicineFromSearch), complete: answer.complete };
+    },
+    [customMedicines],
+  );
   const [editing, setEditing] = useState<Editing | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [listError, setListErrorText] = useState<string | null>(null);
@@ -341,7 +375,8 @@ export function PrescriptionSection({
         <RxEntryRow
           label="Medicine"
           allergyOf={allergyOf}
-          search={(query, signal) => fetchMedicines(query, signal)}
+          search={(query, signal) => fetchMedicines(query, signal).then((list) => list.map(sameCustomId))}
+          deviceSearch={deviceReady ? deviceSearch : null}
           onAdd={addLine}
           handleRef={entryRef}
         />

@@ -952,3 +952,201 @@ service-role client, no PHI anywhere in the new paths, no cookie.
   `reference/*`, `consult/rx-allergy`, `consult/consult-screen`, `a11y/consult-screens` (the editor at 360, 820, 1280, axe), `shell/user-menu-keyboard` on the three projects:
   **102 passed, 2 skipped by design, 0 failed**. No design project was run (no markup changed: one data attribute), so no screenshots to discard.
 - Latency lane: the `type.D.substance` row (5 samples) and the `@budget` subset (15 passed), above. Not run: the full Vitest suite, the full PR lane, the nightly lane (CI).
+
+## 09E-10 Diagnoses on the device
+
+Branch `v2/phase-09e-pr2-search-schedule`, commit `bc2a49ec`. No migration, no new dependency.
+
+### What shipped
+
+- **`lib/reference/trigram.ts`**: pg_trgm `similarity()` twin (lower-case, words of letters, combining marks and decimal digits, two leading spaces and one trailing,
+  distinct trigrams, |A∩B| ÷ |A∪B| as a 4-byte float, `>= 0.3` compared as the database compares it). Combining marks count as word characters because glibc
+  does (a Devanagari virama or vowel sign stays inside the word; measured with `show_trgm`).
+- **`lib/reference/search-diagnoses.ts`**: twin of `search_diagnoses` (000114 body, 000128 tie-break): `p_terms[1:8]`, terms of 2+ characters after trimming
+  spaces, distinct and lower-cased; the caller's custom diagnoses (from the consult's query) first by `use_count`; catalogue ranks 1 to 6 (equal, prefix, synonym
+  equal or prefix, word, inside, trigram on the name or a synonym); the specialty filter on the catalogue only; one row per lower-cased name (custom wins, else the
+  best rank); `lower(name)` in code point order; limit `least(greatest(coalesce(limit,20),1),50)`. `diagnosisTermsOf` reproduces the server path
+  (`fetchDiagnosisHits` → route `cleanQuery` → service `expandQuery` when `assist.terminology`).
+- **Diagnosis section**: with the catalogue held (`useReferenceCatalogue("diagnoses")`), each keystroke is answered by the twin with no debounce, one search
+  per animation frame, RUM `search_device`; otherwise the route as before. `requestReferenceSync("diagnoses")` on mount. `data-diagnosis-input` and
+  `data-search-source` on the input; `data-diagnosis-hit` on a row's name (specs read the order). The workspace passes `customDiagnoses`
+  (`consult.data.lists?.custom_diagnoses`) and `expandTerms` (`assist["assist.terminology"]`, the same `my_entitlements` the route reads).
+- `DEVICE_CATALOGUES` += `diagnoses` (synced after first paint, cleared at sign-out/lock/switch, deleted at sign-out as 09E-09).
+
+### Specs
+
+- `tests/reference/trigram-parity.spec.ts` (53): 50 pairs against the database's `similarity()` (texts hex-encoded into psql; `extra_float_digits = 3`): short
+  words, one-letter words, digits, punctuation, repeated words, `%`, `_`, `\`, accents, ß, Devanagari, CJK, empty; plus the `show_trgm` set for ASCII.
+- `tests/reference/diagnosis-search-parity.spec.ts` (57): 44 cases (abbreviations on/off, synonyms, specialties incl. a row with none, custom first, custom and
+  catalogue with the same name, another doctor's custom never present, trigram-only on catalogue, custom and synonym, ties in C order, `%`/`_`/`\`, non-ASCII,
+  limits 0/5/12/null/default/60, ignored one-character term, the 8-term cut, duplicates, best rank over terms, btrim vs tab, 100-character cut, NULL term,
+  no terms, NULL terms, no match) against `public.search_diagnoses` through the doctor's JWT client, the shard re-read before each SQL call; 11 typed values
+  through the device path vs the route's service path.
+- `tests/e2e/reference/diagnoses-local.spec.ts` (`@golden`, 3 projects): 0 Supabase calls (Kong, server and browser) with 300 ms added while typing, the doctor's
+  own first in SQL order, a pick adds the catalogue row with its ICD-11 code; offline still answers; reference routes unreachable → the route answers.
+- `tests/e2e/observability/rum.spec.ts`: aborts `/api/reference/**` so its diagnosis search still measures `search_server` (the device path is covered above).
+
+### Budget rows (tool output `evidence/09E-10/diagnosis-row-300ms.{json,md}`, merged onto `evidence/09E-09/substance-row-300ms.json`; ceilings by `latency-ceilings.mjs --write`)
+
+| Row | Before (calls / depth, median ms) | After |
+| --- | --- | --- |
+| `type.D.diagnosis` (B-4, now `@budget`) | 2 / 2, 825.3 ms | **0 / 0**, 30.6 ms (max 35.4) |
+
+Only that row's ceiling changed (2/2 → 0/0); every row's `source` re-pointed at the merged file.
+
+### Decisions and deviations
+
+- **Custom rows carry `custom:<name>` as id on the device** (the consult's query holds no id; the section adds a diagnosis by name). The parity spec compares
+  custom rows by name, catalogue rows by id. The device knows the doctor's 500 most used custom diagnoses (the consult's list), the database all.
+- **Same lower-cased name, same group and rank**: the database's `DISTINCT ON` keeps an arbitrary one; the twin keeps the smaller id (no fixture relies on it).
+- **Parity fixtures use made-up words only** (`Qzxdx Pyrol`, not "Fever"): my first fixture names ("Qzxdx Hypertension", "Qzxdx Fever") reached the unscoped
+  queries of `tests/terminology/diagnosis-search.spec.ts` ("hypertension", "fever") and failed 6 of its cases while both files ran. Renamed; the two files and the
+  route spec pass together (224 of 224).
+- The plan's "learned order applied as today": today the learned order ranks the tiles, not the search rows; nothing changed there.
+- Affected-test grep (`terminology/diagnoses|Search diagnosis name|data-diagnosis-search|opd_diagnoses|search_diagnoses`): consult/{keyboard-golden,smart-assist,
+  save-classes}, m0/consult-rx-finish, perf/latency-saves, observability/rum (changed), tests/terminology/*.
+
+### Security-sensitive for the adversarial review
+
+`components/consultation/workspace/sections/diagnosis-section.tsx` (the device path; custom diagnoses come from the consult's own query, memory only, never written
+to the device store), `lib/reference/search-diagnoses.ts` and `trigram.ts` (pure). The device store still holds catalogue rows only (the cache audit and
+`referenceDbAudit` unchanged and green). No route, permission or SQL changed.
+
+### For the PO
+
+Nothing new to decide.
+
+### Tests run (local stack)
+
+- `npm run typecheck` clean; eslint on the touched trees 0 errors (14 warnings, all pre-existing in untouched lines); `npm run inventory` not affected (no action or route).
+- Vitest `tests/reference/{trigram,diagnosis-search,substance-search}-parity`, `reference-sync`, `tests/terminology`: **7 files, 224 passed**.
+- e2e (`--retries=0`, desktop-chrome + pixel-7 + iphone-15): `tests/e2e/reference`, `consult/smart-assist`, `consult/save-classes`, `observability/rum`,
+  `pwa/05-cache-audit`: **108 passed, 3 skipped by design, 0 failed**. No design project run (no visual change), so no screenshots to discard.
+- Lane: `type.D.diagnosis` (5 samples, above).
+
+## 09E-11 Medicines on the device
+
+Branch `v2/phase-09e-pr2-search-schedule`, two commits (the plan's split point after step 3). No migration, no new dependency (Web Worker, IndexedDB,
+`node:zlib` are platform). **One blocker found (H-1 below): the brand shards of `reference_shard` (000128) time out at the full catalogue size; the fix is a
+migration, outside this plan's scope.**
+
+### What shipped
+
+- **`lib/reference/medicine-index.ts`** (pure): the columnar index (brands sorted once by lower-cased name in code point order, then id; one U+0001-separated
+  string of the lower-cased brand names with their start offsets, the same for the generics; per brand its generic position, id, name, form; per generic its name
+  and substance ids). `searchMedicineIndex(term, need, exclude)` = ranks 1 to 4 of `search_medicines` by `indexOf` over the two strings plus one pass over the
+  brands in sort order (buckets per rank, early stop when rank 1 is full). `compareCodePointsFast` (UTF-16 with surrogates moved above the BMP = code point order,
+  no allocation).
+- **`lib/reference/worker.ts`** (messages `load`, `search` with a request id; `loaded` with the build time, `result`, `failed`) and **`lib/reference/medicine-host.ts`**
+  (starts `new Worker(new URL("./worker.ts", import.meta.url))`, bundled by Turbopack as a worker chunk; if no worker can start or it fails, builds the index on the
+  main thread in idle slices and searches there; `performance.measure("clinicos.medicine_index")`; `useMedicineIndex()`; ended by the store's cleanup).
+- **`lib/reference/store.ts`**: the medicine catalogue's shards go to the index (the tab keeps only the version; no 104k rows in React memory); cleanup also ends the
+  index (worker terminated). **`DEVICE_CATALOGUES` += `medicines`** (the layout already filters by `prescriptions:edit`). `sync.ts` needed no change (09E-09 already
+  learns the shard count from shard 0).
+- **`lib/reference/search-medicines.ts`**: the doctor's custom medicines (consult's query) matched as SQL does (name or generic contains the term, or trigram ≥ 0.3 on
+  the name), first by `use_count`, with their stored dose; a catalogue row whose lower-cased brand equals a matched custom name is dropped; ranks 1 to 4 from the
+  index; `complete` when the device's rows fill the limit (15). `medicineQueryOf` reproduces `fetchMedicines` → route → service.
+- **`RxEntryRow`** gains `deviceSearch`: each keystroke is answered by the device in the next animation frame (no debounce, RUM `search_device`); a `complete`
+  answer is final (no call); otherwise the device's rows are shown at once and the route is asked once the query settles (150 ms), its answer replacing the list.
+  While that tail is pending the "Add …" row waits (the list may still grow; see deviations). A failed tail (offline) keeps the device's rows. An empty partial
+  answer waits for the route (Enter never acts on "no match" too early). `data-search-source` and `data-rx-hit` attributes.
+- **`PrescriptionSection`** passes `deviceSearch` when the index is ready, `requestReferenceSync("medicines")` on mount; custom rows get the same id from either
+  side (`custom:<lower-cased name>`). The workspace passes `customMedicines` from the consult's query.
+- **`tests/e2e/support/cdci-fixtures.ts` `upsertCdciRows`** now also writes the brand's generic and `cdci_brands` link (consistent like the real load: the device's
+  generic comes from `cdci_brands`/`cdci_generics`, the search's from `cdci_medicines_search`).
+- **`tests/e2e/support/perf-catalogue.ts`**: the full-size synthetic catalogue (93,911 brands, 10,305 generics, 3,283 substances, 1,550 diagnoses; seeded generator;
+  name lengths from quantiles measured once from the real files; `perf-*` ids and `e11e…` uuids; two 20-brand families for the typeahead row), upserted/deleted
+  around the lane's medicine rows and deleted by the e2e global setup if a run died. Its vocabulary was calibrated so its medicine shards compress like (slightly
+  worse than) the real ones.
+- **Lane**: `type.D.medicine` measures the device path on the full-size catalogue (`Perfrow Alp` + `h`: 40 → 20 rows, no tail); new row `ref.D.cdci-download`
+  (kind `reference`, B-14, `maxBytes` 1,600,000 blocking: the bytes of one CDCI version through CDP `encodedDataLength`, HTTP cache off; IndexedDB usage, the index
+  build at 4× CPU and the worker heap reported into `test-results/perf-latency/reference-download.json`). Both rows are in one describe that is **`test.fixme`
+  until H-1 is fixed**, and `type.D.medicine` is not `@budget` (it would fail every PR).
+- **`scripts/perf/reference-size.ts`** also writes the synthetic set and the index build time in Node.
+
+### Size and index (tool output: `evidence/reference-size.json`)
+
+| Set | Medicine shards | Rows | Raw | gzip | brotli | Largest shard raw | Index build (Node, no throttling) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Real files | 9 | 104,216 | 7,522,178 | 1,257,108 | 969,515 | 941,118 | 201.5 ms |
+| Synthetic (lane) | 9 | 104,216 | 7,231,316 | 1,394,472 | 1,126,849 | 1,038,709 | 226.3 ms |
+
+(Real CDCI substances add 34,934 B gzip to the same `cdci` version: 1,292,042 B gzip in all, under B-14's 1.6 MB.) The browser figures (bytes transferred,
+IndexedDB, build at 4× CPU, worker heap) are **not measured**: the lane row is blocked by H-1.
+
+### H-1 (blocker): `reference_shard` brand shards time out at full size
+
+With the synthetic catalogue loaded (93,911 brands), the lane's sync answered shards 1..7 in about 0.5 s each and **shard 8 with a 500 after 8.3 s** (the API role's
+statement timeout). In a superuser psql session (catalogue copied in, `ANALYZE`d, everything rolled back; nothing committed), the 000128 brand-shard query at
+`OFFSET 84000` ran **> 30 s** (cancelled): the planner estimates the `OFFSET`/`LIMIT` page at one row and joins it to `cdci_brands` and the generics window by nested
+loop (a seq scan of the generics per brand). The same query with both CTEs `AS MATERIALIZED` answered shard 8 in **131 ms** and shard 1 in 103 ms. The real CDCI
+(93,911 brands) has the same shape, so on staging and production every device with `prescriptions:edit` would download shards 1..7, fail on 8, fall back to the
+route (the Rx field still works) and cost the database one 8 s statement per app start (and per resume, at most once a minute). pgTAP's 24,004-brand case passes
+because its offsets stay under the estimate. **Needs**: a migration replacing `reference_shard` with the CTEs materialized (or keyset by id), plus a pgTAP/latency
+case at 93,911 brands, before PR 2 merges; until then either accept the fallback or take `medicines` out of `DEVICE_CATALOGUES`. Then un-`fixme` the two lane rows
+and run them (`PERF_LATENCY_MERGE=evidence/09E-10/diagnosis-row-300ms.json ... --grep "type.D.medicine|ref.D.cdci-download"`, `latency-ceilings.mjs --write`).
+
+### Specs
+
+- `tests/reference/medicine-search-parity.spec.ts` (51): 36 cases (brand prefix and case, brand word, inside, generic prefix, generic word, inside the generic,
+  non-ASCII generic, `%`, `_`, `\`, non-ASCII, custom first by use count, a custom name equal to a brand, a custom matched by its generic, another doctor's custom never
+  present, ties in C order, identical names by id, a brand with no generic, limits 15/5/0/50/null, the trigram tail (catalogue only; custom similar), btrim vs tab,
+  the 60-character cut, empty/spaces/null, no match) against `public.search_medicines`: `complete` → the device's list equals SQL (ids, kinds, fields, dose,
+  substance ids); otherwise the device's rows are SQL's first rows; non-vacuous controls; the index's sort and `need`; 11 typed values device path vs the route's
+  service. Fixtures consistent across substances/generics/brands/search, made-up words only.
+- `tests/e2e/reference/medicines-local.spec.ts` (`@golden`, 3 projects): limit filled on the device → 0 Supabase calls (Kong) with 300 ms injected and no route
+  request, the custom row first and its stored dose in the builder; the tail → the device's 11 rows on screen while the route is held, exactly one route call for the
+  settled query, its answer replaces the list, a trigram-only query is answered by the route with one call; offline → the device's ranks, no error.
+- `tests/e2e/consult/rx-allergy.spec.ts` "Undo of a line prescribed despite an allergy": read the database with `expect.poll` (see flaky below).
+
+### Fails-without
+
+None required for this plan (the plan's High list has none for 09E-10/09E-11). The device-vs-route list-change defect below was caught by the existing specs.
+
+### Defects found and root-caused (no retries, no timeouts raised)
+
+- **The highlighted row jumped when the route's answer replaced the device's rows** (m0/consult-rx-finish, journey-06: 6 failures on 3 projects in the first run):
+  a custom medicine had id `custom:<name>` from the device and its uuid from the route, so cmdk lost the highlighted value when the list was replaced and
+  `ArrowDown` walked from nothing. Fix: one id for a custom row from either side, and the "Add …" row is shown only once the list is final. All 6 pass.
+- **`rx-allergy` "Undo … override is kept"** (desktop, once in 3 runs): the spec read the database right after the line reappeared, but since 09E-08 Undo is
+  reversible-class (shown before the command answers). Now polls the database; 32 of 32 in 3 repeats.
+
+### Decisions and deviations
+
+- **Worker host in a new file `lib/reference/medicine-host.ts`** (the plan lists store.ts and worker.ts; the host keeps the worker plumbing out of the generic
+  store). Main-thread fallback = idle-sliced build (generator steps), recorded, never seen in the runs.
+- **Custom medicine ids `custom:<lower-cased name>`** on the device and now for the route's custom rows on screen too (the consult's query carries no id; a custom
+  line is added by name; nothing else reads a custom id). Device knows 500 customs (the consult's list).
+- **"Add …" waits for the tail** (not in the plan): shown with a partial device list it let the keyboard walk a list that was about to change.
+- **Lane rows** in their own describe with the catalogue loaded only around them (not the whole lane: every other doctor row would download 1.4 MB);
+  `type.D.medicine` not `@budget`, both rows `fixme` (H-1). `type.D.medicine`'s ceiling stays at 1/1 (not measured, not lowered).
+- **Synthetic largest shard raw** is about 1.04 MB (real 941 kB): synthetic names run to the top of their length bands; under Vercel's 4.5 MB.
+- B-15 (`npm run ci:route-js`, report-only, on this build): `/consultation/[id]` 426.3 kB gz (route-specific 297.6), `/today` 357.1 kB gz; the worker is a separate
+  chunk loaded only when the medicine catalogue is in. (Not attributed per plan: no build of 51de9b71 was made.)
+- Affected-test grep (`api/prescriptions/medicines|fetchMedicines|data-rx-search|rxField|addCustomMedicine|cdci_medicines_search`): a11y/{amendment,consult}-screens,
+  consult/{keyboard-golden,rx-allergy,rx-assist,rx-keyboard,rx-print,save-classes,workspace-layout}, journeys/{06,08}, m0/consult-rx-finish, perf/latency-{pages,saves},
+  support/rx-entry; none intercepts the medicine route.
+
+### Security-sensitive for the adversarial review
+
+`lib/reference/{medicine-index,medicine-host,worker,search-medicines,store}.ts` (catalogue rows only reach the worker; custom medicines from the consult's query are
+matched in memory, never stored on the device; cleanup terminates the worker at sign-out/lock/switch), `components/clinical/rx-entry-row.tsx` and
+`prescription-section.tsx` (the route is still the authority for the tail and for every write; the allergy pre-check keeps using the row's `substance_ids`, now from
+the generics shard), `tests/e2e/global-setup.ts` (deletes `perf-%` rows and the `e11e0000-…` diagnosis range on the local stack). **H-1** for the SQL reviewer.
+Cache audit green with the medicine shards stored (shapes already allowed in 09E-09).
+
+### For the PO
+
+1. **H-1** (above): fix `reference_shard` with a migration before PR 2 merges (recommended), or ship with medicines off the device until then.
+2. The device matches the doctor's 500 most used custom medicines and diagnoses (the consult's list); a doctor with more sees the rest only through the route.
+
+### Tests run (local stack, `stack:recycle` before each e2e and lane run)
+
+- `npm run typecheck` clean; eslint on the touched trees 0 errors (pre-existing warnings only); inventory not affected (no action or route).
+- Vitest `tests/reference tests/prescriptions tests/terminology tests/pwa tests/perf tests/security tests/integration/cdci-search.spec.ts`: 73 files, 2,295 tests, 2,294 passed, 1 failed = my own parity control asserting the trigram query `zqvtyporaw` returns exactly one row while my e2e fixture `Zqvdevtyporow` is also trigram-similar (the control now asserts `toContain`; the file re-run: 51 of 51). The two `age`-binary files not in scope (known).
+- e2e (`--retries=0`, 3 projects) on the final build: `reference/*`, `consult/{rx-keyboard,rx-allergy,rx-assist,rx-print,keyboard-golden,save-classes}`,
+  `a11y/consult-screens` (the picker at 360/820/1280, axe), `pwa/05-cache-audit`, `m0/consult-rx-finish`, `journeys/journey-06-consult`: first run 197 passed,
+  23 skipped, 6 failed (the highlight defect); after the fix the failing files plus `medicines-local`, `rx-*`: 78 passed, 18 skipped, 1 failed (the rx-allergy
+  read, fixed), then `rx-allergy` ×3 on desktop: 32 passed.
+- Lane `perf-latency --grep @budget --retries=0` on the final tree: **16 passed** (incl. `type.D.diagnosis` 0/0 33 ms, `type.D.substance` 0/0 29 ms; the two medicine rows `fixme`, H-1).
+- Not run: the full PR lane, full Vitest, the nightly lane (CI).

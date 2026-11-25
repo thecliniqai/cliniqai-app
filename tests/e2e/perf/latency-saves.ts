@@ -14,6 +14,7 @@ import { seedBookedToday, seedWaitingToday, todayName } from "../support/today-d
 import { filterToday, openBill, openToday, rowInLane } from "../support/today-page";
 import { appointmentOf, bookingSheet, moveSheet, openSchedule, slotsLoaded } from "../support/schedule-page";
 import { rxField } from "../support/rx-entry";
+import { PERF_FAMILY } from "../support/perf-catalogue";
 import {
   armTimer,
   readTimer,
@@ -598,14 +599,23 @@ export const TYPEAHEAD_ROWS: readonly TypeaheadRowDef[] = [
     id: "type.D.medicine",
     role: "doctor",
     prepare: async (page) => {
+      // 09E-11 (B-4, R-7): the full-size synthetic catalogue is loaded (page-latency.spec.ts); the Rx field answers from the device before the measured key.
       const { visitId } = await seedConsult("PerfTypeMed");
       await openConsult(page, visitId);
       const field = rxField(page.locator("#prescription"));
-      const q = query("Perfmed");
+      await expect(page.locator('#prescription [data-rx-search][data-search-source="device"]')).toBeAttached({ timeout: 60_000 });
+      // Two families of 20 brands: "Perfrow Alp" lists both (40 rows: the device fills the limit, no tail); the last key keeps one.
+      const lead = PERF_FAMILY.keep.toLowerCase().slice(0, -2);
+      const key = PERF_FAMILY.keep.toLowerCase().slice(-2, -1);
       await field.click();
-      await field.pressSequentially(q.lead);
-      await expect(page.getByRole("option", { name: new RegExp(`^Add .${q.lead}.$`) })).toBeVisible({ timeout: 20_000 });
-      return { press: () => field.press(q.key), key: q.key, marks: { option: { selector: '[role="option"]', text: q.full } } };
+      await field.pressSequentially(lead);
+      await expect(page.getByRole("option", { name: new RegExp(PERF_FAMILY.drop) }).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("option", { name: new RegExp(PERF_FAMILY.keep) }).first()).toBeVisible();
+      return {
+        press: () => field.press(key),
+        key,
+        marks: { gone: { selector: '[role="option"]', text: PERF_FAMILY.drop, absent: true }, option: { selector: '[role="option"]', text: PERF_FAMILY.keep, after: "gone" } },
+      };
     },
   },
   {

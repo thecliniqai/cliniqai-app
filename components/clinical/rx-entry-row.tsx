@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import { focusBoxInput } from "@/lib/ui/focus-box";
+import { rum } from "@/lib/observability/rum/collector";
 import { allergyReasonError } from "@/features/prescriptions/allergy";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import {
@@ -57,6 +58,12 @@ export interface RxEntryRowProps {
    */
   search?: (query: string, signal: AbortSignal) => Promise<readonly Medicine[]>;
   searchDebounceMs?: number;
+  /**
+   * V2-09e 09E-11 (R-7, B-4): the search on the device, when the medicine catalogue is held there (null or absent: `search` only). Each keystroke is
+   * answered by it at once (no debounce, one search per animation frame, no database call). `complete: false` means its rows are not the whole answer
+   * (the trigram tail is the server's): they are shown, and `search` is asked once the query settles; its answer replaces the list.
+   */
+  deviceSearch?: ((query: string) => Promise<{ hits: readonly Medicine[]; complete: boolean }>) | null;
   /**
    * Adds the line. The builder closes and the field empties at once (09E-08, R-11: the line is shown by the host as pending), and the field stays
    * editable: keys typed while the line is being saved are kept (Q-6). A promise that answers `{ ok: false, error }` is a refusal: when the field is
@@ -143,6 +150,7 @@ export function RxEntryRow({
   medicines = [],
   search,
   searchDebounceMs = 150,
+  deviceSearch = null,
   onAdd,
   onEdit,
   label = "Medicine",
@@ -165,13 +173,15 @@ export function RxEntryRow({
   // A match the host knows about and the screen's own rule may not (a line the repeat command left out): set by `prefill`, dropped when the builder closes.
   const [forcedAllergy, setForcedAllergy] = useState<string | null>(null);
   // The remote answer and the query it answers (results are never shown for another query: Enter must not pick a stale top row).
-  const [answer, setAnswer] = useState<{ query: string; hits: readonly Medicine[]; failed: boolean }>({ query: "", hits: [], failed: false });
+  // `partial` (09E-11): rows from the device while the route is asked for the tail; the list may still change, so the "Add" row waits for the answer.
+  const [answer, setAnswer] = useState<{ query: string; hits: readonly Medicine[]; failed: boolean; partial?: boolean }>({ query: "", hits: [], failed: false });
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hintId = useId();
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<AbortController | null>(null);
+  const frame = useRef<number | null>(null);
   // Enter pressed while the answer is on its way picks the top row when it arrives (a fast typist never creates a custom medicine by accident).
   const pickWhenReady = useRef(false);
   // 09C-06a (A-10): with no catalogue row (a failed or empty search) Enter alone never creates a custom medicine from what was typed; the doctor chooses
@@ -191,6 +201,7 @@ export function RxEntryRow({
       mounted.current = false;
       seq.current += 1;
       if (timer.current) clearTimeout(timer.current);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
       inflight.current?.abort();
     };
   }, []);
@@ -207,6 +218,8 @@ export function RxEntryRow({
     if (!search) return;
     const n = ++seq.current;
     if (timer.current) clearTimeout(timer.current);
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
     inflight.current?.abort();
     const q = next.trim();
     if (q === "") {
@@ -215,25 +228,59 @@ export function RxEntryRow({
       return;
     }
     setLoading(true);
-    timer.current = setTimeout(async () => {
-      const controller = new AbortController();
-      inflight.current = controller;
-      try {
-        const hits = await search(q, controller.signal);
-        if (n !== seq.current || !mounted.current) return;
-        setAnswer({ query: q, hits, failed: false });
-        if (pickWhenReady.current) {
-          pickWhenReady.current = false;
-          if (hits.length > 0) openBuilder(hits[0]);
-        }
-      } catch {
-        if (n !== seq.current || !mounted.current) return;
+    const show = (hits: readonly Medicine[], partial = false) => {
+      setAnswer({ query: q, hits, failed: false, partial });
+      if (pickWhenReady.current && hits.length > 0) {
         pickWhenReady.current = false;
-        if (!controller.signal.aborted) setAnswer({ query: q, hits: [], failed: true });
-      } finally {
-        if (n === seq.current && mounted.current) setLoading(false);
+        openBuilder(hits[0]);
       }
-    }, searchDebounceMs);
+    };
+    // The route: after the query settles. With rows from the device already shown, a failed tail keeps them (offline shows the local ranks).
+    const askRoute = (shown: readonly Medicine[] | null) => {
+      timer.current = setTimeout(async () => {
+        const controller = new AbortController();
+        inflight.current = controller;
+        try {
+          const hits = await search(q, controller.signal);
+          if (n !== seq.current || !mounted.current) return;
+          show(hits);
+          if (pickWhenReady.current) pickWhenReady.current = false;
+        } catch {
+          if (n !== seq.current || !mounted.current) return;
+          pickWhenReady.current = false;
+          if (controller.signal.aborted) return;
+          // The tail failed (offline): the device's rows stay, now final; with none, the search failed.
+          setAnswer(shown === null ? { query: q, hits: [], failed: true } : { query: q, hits: shown, failed: false });
+        } finally {
+          if (n === seq.current && mounted.current) setLoading(false);
+        }
+      }, searchDebounceMs);
+    };
+    if (deviceSearch) {
+      const device = deviceSearch;
+      const stop = rum.timer("search_device");
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        if (n !== seq.current || !mounted.current) return;
+        void device(q).then(
+          (local) => {
+            if (n !== seq.current || !mounted.current) return;
+            // Rows from the device are shown at once; an empty partial answer waits for the route (Enter must not act on "no match" yet).
+            if (local.complete || local.hits.length > 0) {
+              show(local.hits, !local.complete);
+              stop();
+            }
+            if (local.complete) setLoading(false);
+            else askRoute(local.hits.length > 0 ? local.hits : null);
+          },
+          () => {
+            if (n === seq.current && mounted.current) askRoute(null);
+          },
+        );
+      });
+      return;
+    }
+    askRoute(null);
   }
 
   function resetTyping() {
@@ -554,6 +601,7 @@ export function RxEntryRow({
             enterKeyHint={pending ? "done" : "search"}
             autoCapitalize="none"
             data-rx-search=""
+            data-search-source={search ? (deviceSearch ? "device" : "server") : undefined}
             className={cn(CONTROL_BASE, "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 outline-none")}
           />
         </div>
@@ -579,7 +627,9 @@ export function RxEntryRow({
                 return (
                   <CommandItem key={m.id} value={m.id} onSelect={() => openBuilder(m)}>
                     <span className="flex min-w-0 flex-1 flex-col py-1 leading-tight">
-                      <span className="truncate font-medium text-fg">{m.name}</span>
+                      <span className="truncate font-medium text-fg" data-rx-hit="">
+                        {m.name}
+                      </span>
                       <span className="truncate text-label text-fg-muted">
                         {[m.form, m.generic].filter(Boolean).join(" · ")}
                         {m.kind === "custom" ? " · Yours" : ""}
@@ -594,7 +644,7 @@ export function RxEntryRow({
                 );
               })
             : null}
-          {trimmed && !exact && !waiting && (
+          {trimmed && !exact && !waiting && !(answer.partial && answer.query === trimmed) && (
             <CommandGroup heading={results.length === 0 ? `No medicine matches “${trimmed}”` : undefined}>
               <CommandItem
                 value={`create:${trimmed}`}

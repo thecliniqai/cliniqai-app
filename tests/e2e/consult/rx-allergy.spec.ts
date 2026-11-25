@@ -224,12 +224,12 @@ test("09C-06a A-3: Undo of a line prescribed despite an allergy puts it back wit
   await expect(rxList(page)).toHaveCount(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
   await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
-  const { data } = await admin
-    .from("prescription_items")
-    .select("medicine_name, allergy_override, prescriptions!inner(visit_id)")
-    .eq("prescriptions.visit_id", visitId);
-  expect(data).toHaveLength(1);
-  expect(data![0].allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
+  // 09E-08 (R-11): the line is back on screen at once (reversible class), before the command has answered: the database is read once it has.
+  const stored = async () =>
+    (await admin.from("prescription_items").select("medicine_name, allergy_override, prescriptions!inner(visit_id)").eq("prescriptions.visit_id", visitId)).data ?? [];
+  await expect.poll(async () => (await stored()).length, { timeout: 10_000 }).toBe(1);
+  const data = await stored();
+  expect(data[0]!.allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
 });
 
 // 09C-06a (A-8): the editor sends the list it opened on; a list recorded meanwhile (another tab, the nurse) is never overwritten by a stale screen.

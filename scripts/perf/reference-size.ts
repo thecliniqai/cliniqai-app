@@ -15,6 +15,8 @@ import path from "node:path";
 import { brotliCompressSync, gzipSync } from "node:zlib";
 import { parseGenericSubstanceIds } from "../seed/cdci-parse";
 import { MEDICINE_BRANDS_PER_SHARD } from "../../features/reference/catalogues";
+import { buildMedicineIndex } from "../../lib/reference/medicine-index";
+import { perfCatalogue } from "../../tests/e2e/support/perf-catalogue";
 
 const root = path.resolve(__dirname, "../..");
 const outArg = process.argv.indexOf("--out");
@@ -86,13 +88,58 @@ const shards = [
   ...measure("diagnoses", [diagnoses]),
   ...measure("medicines", [generics as unknown as unknown[][], ...brandShards]),
 ];
-const totals = Object.fromEntries(
-  ["substances", "diagnoses", "medicines"].map((c) => {
-    const of = shards.filter((s) => s.catalogue === c);
-    return [c, { shards: of.length, rows: of.reduce((n, s) => n + s.rows, 0), raw: of.reduce((n, s) => n + s.raw, 0), gzip: of.reduce((n, s) => n + s.gzip, 0), brotli: of.reduce((n, s) => n + s.brotli, 0) }];
-  }),
-);
-const result = { source: "supabase/seed-data (read only; no database, no network)", brandsPerShard: MEDICINE_BRANDS_PER_SHARD, largestShardRaw: Math.max(...shards.map((s) => s.raw)), totals, shards };
+function totalsOf(list: ShardSize[]) {
+  return Object.fromEntries(
+    ["substances", "diagnoses", "medicines"].map((c) => {
+      const of = list.filter((s) => s.catalogue === c);
+      return [c, { shards: of.length, rows: of.reduce((n, s) => n + s.rows, 0), raw: of.reduce((n, s) => n + s.raw, 0), gzip: of.reduce((n, s) => n + s.gzip, 0), brotli: of.reduce((n, s) => n + s.brotli, 0) }];
+    }),
+  );
+}
+const totals = totalsOf(shards);
+
+/** 09E-11 (B-14): the medicine index built from the shards in this process (Node, no CPU throttling; the lane measures it in the browser). */
+function indexBuild(medicineShards: unknown[][][]) {
+  const t0 = performance.now();
+  const index = buildMedicineIndex(VERSION, medicineShards as never);
+  return { brands: index.brands, buildMs: Math.round((performance.now() - t0) * 10) / 10 };
+}
+
+// 09E-11: the lane's synthetic full-size catalogue (tests/e2e/support/perf-catalogue.ts), serialized as reference_shard would answer it on the local stack.
+const perf = perfCatalogue();
+const perfById = <T extends { id: string }>(rows: T[]) => [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+const perfGenerics = perfById(perf.generics).map((g) => [g.id, g.generic_name, g.substance_ids]);
+const perfGenericPos = new Map(perfGenerics.map((g, i) => [g[0] as string, i]));
+const perfBrands = perfById(perf.brands).map((b) => [b.id, b.brand_name, b.generic_id ? (perfGenericPos.get(b.generic_id) ?? null) : null, null]);
+const perfBrandShards: unknown[][][] = [];
+for (let i = 0; i < perfBrands.length; i += MEDICINE_BRANDS_PER_SHARD) perfBrandShards.push(perfBrands.slice(i, i + MEDICINE_BRANDS_PER_SHARD));
+const perfShards = [
+  ...measure("substances", [perfById(perf.substances).map((s) => [s.id, s.substance_name])]),
+  ...measure("diagnoses", [perfById(perf.diagnoses).map((d) => [d.id, d.name, d.icd11_code, d.snomed_concept_id, d.is_chronic, d.specialties, d.synonyms])]),
+  ...measure("medicines", [perfGenerics, ...perfBrandShards]),
+];
+
+const result = {
+  source: "supabase/seed-data (read only; no database, no network)",
+  brandsPerShard: MEDICINE_BRANDS_PER_SHARD,
+  largestShardRaw: Math.max(...shards.map((s) => s.raw)),
+  totals,
+  medicineIndex: indexBuild([generics as unknown as unknown[][], ...brandShards]),
+  shards,
+  synthetic: {
+    source: "tests/e2e/support/perf-catalogue.ts (the latency lane's full-size synthetic catalogue)",
+    largestShardRaw: Math.max(...perfShards.map((s) => s.raw)),
+    totals: totalsOf(perfShards),
+    medicineIndex: indexBuild([perfGenerics, ...perfBrandShards]),
+    shards: perfShards,
+  },
+};
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, `${JSON.stringify(result, null, 2)}\n`);
-console.log(JSON.stringify({ totals, largestShardRaw: result.largestShardRaw }, null, 2));
+console.log(
+  JSON.stringify(
+    { totals, largestShardRaw: result.largestShardRaw, medicineIndex: result.medicineIndex, synthetic: { totals: result.synthetic.totals, largestShardRaw: result.synthetic.largestShardRaw, medicineIndex: result.synthetic.medicineIndex } },
+    null,
+    2,
+  ),
+);

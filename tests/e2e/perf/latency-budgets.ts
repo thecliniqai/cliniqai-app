@@ -20,6 +20,7 @@ export type BudgetKind =
   | "live" // a change in another browser, visible here (B-11)
   | "background" // a request the shell makes on its own
   | "request-budget" // the PR lane's per-path ceilings (V2-09d)
+  | "reference" // the reference catalogue download (B-14): bytes, blocking
   | "later";
 
 export interface CeilingSource {
@@ -51,6 +52,8 @@ export interface BudgetRow {
    * save made there refreshes its route once; sign and finish reads the sealed record once (`router.refresh`); a start navigates to the consult.
    */
   maxRsc?: number;
+  /** `reference` rows (09E-11, B-14): the most bytes the browser may transfer for one catalogue version (blocking). */
+  maxBytes?: number;
 }
 
 const ONE_SECOND = { targetMs: 1_000, maxMs: 1_300, skeletonTargetMs: 150 };
@@ -92,7 +95,7 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   { id: "full.O.staff", kind: "page-full", budget: "B-3", label: "Owner: Staff, full load", ...FULL_LOAD, owner: "09E-06" },
 
   // B-4, B-5: typeahead (the last keystroke to the first option)
-  { id: "type.D.medicine", kind: "typeahead", budget: "B-4", label: "Doctor: medicine search (Rx field)", ...TYPEAHEAD, owner: "09E-11" },
+  { id: "type.D.medicine", kind: "typeahead", budget: "B-4", label: "Doctor: medicine search (Rx field, on the device, full-size synthetic catalogue)", ...TYPEAHEAD, owner: "09E-11" },
   { id: "type.D.diagnosis", kind: "typeahead", budget: "B-4", label: "Doctor: diagnosis search (on the device)", ...TYPEAHEAD, owner: "09E-10", pr: true },
   { id: "type.D.substance", kind: "typeahead", budget: "B-4", label: "Doctor: allergy substance search (on the device)", ...TYPEAHEAD, owner: "09E-09", pr: true },
   { id: "type.R.patient-today", kind: "typeahead", budget: "B-5", label: "Receptionist: patient search on Today (walk-in)", targetMs: 700, maxMs: 900, owner: "measured, not changed" },
@@ -118,6 +121,18 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
 
   // B-11, the board's own re-read (09E-03): one `GET /api/today/board` into the board's query, at the current service's calls and depth until 09E-06 lowers it to 1 and 1.
   { id: "live.today.refresh", kind: "live", budget: "B-11", label: "Receptionist: Today's refresh (a signal or a resume) is one board read", owner: "09E-06" },
+
+  // B-14: the CDCI reference download (09E-11): bytes transferred per version block; IndexedDB bytes, the worker's index build at 4x CPU and its heap are
+  // reported. "0 calls during use" is the medicine typeahead row above.
+  {
+    id: "ref.D.cdci-download",
+    kind: "reference",
+    budget: "B-14",
+    label: "Doctor: CDCI reference download, one version (substances + medicines, full-size synthetic catalogue)",
+    targetMs: 1_500,
+    maxBytes: 1_600_000,
+    owner: "09E-11",
+  },
 
   // Background requests the shell makes on its own (held during every measured window, R-4)
   { id: "bg.session-status", kind: "background", budget: "R-4", label: "The shell's session status check (on load, resume, every 5 min)", owner: "09E-13" },
@@ -153,7 +168,6 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   { id: "later.schedule-range", kind: "later", budget: "B-10", label: "Schedule: any other range up to 42 days", targetMs: 600, maxMs: 800, owner: "09E-12" },
   { id: "later.live-dropped-signal", kind: "later", budget: "B-12", label: "A change with the signal dropped, recovered by the heartbeat", targetMs: 15_000, owner: "09E-04" },
   { id: "later.heartbeat", kind: "later", budget: "B-13", label: "Heartbeat: 1 call per 12 s while a live screen is visible, 0 while hidden", owner: "09E-04" },
-  { id: "later.reference-download", kind: "later", budget: "B-14", label: "CDCI reference download: 0 calls during use; 1.6 MB gzip per version", owner: "09E-11" },
   { id: "later.first-load-js", kind: "later", budget: "B-15", label: "First-load JS of /today and /consultation/[id]", owner: "09E-03" },
 ];
 

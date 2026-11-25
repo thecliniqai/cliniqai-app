@@ -18,6 +18,11 @@ import { endLane, holdBackground, resetLane, runRow, writeReport, LATENCY_MS } f
 import { FULL_ROWS, PAGE_ROWS, pageContext } from "./latency-pages";
 import { SAVE_ROWS, TYPEAHEAD_ROWS, typeaheadAct } from "./latency-saves";
 import { seedBookedToday, todayName } from "../support/today-data";
+import { deletePerfCatalogue, upsertPerfCatalogue } from "../support/perf-catalogue";
+import { getAdminClient } from "../../helpers/supabase-admin";
+import fs from "node:fs";
+import path from "node:path";
+import type { CDPSession, Page } from "@playwright/test";
 import { filterToday, openToday, rowInLane } from "../support/today-page";
 
 /** One row (warm-up and every sample) must finish inside this; a hung step fails the row instead of the whole job. */
@@ -102,7 +107,8 @@ test.describe("page rows, full load (B-3)", () => {
 });
 
 test.describe("typeahead rows (B-4, B-5)", () => {
-  for (const def of TYPEAHEAD_ROWS) {
+  // The medicine row runs on the full-size synthetic catalogue, below.
+  for (const def of TYPEAHEAD_ROWS.filter((r) => r.id !== "type.D.medicine")) {
     test.describe(def.role, () => {
       test.use({ storageState: storageStatePath(def.role), timezoneId: "Asia/Kolkata" });
       const row = budgetRow(def.id);
@@ -124,6 +130,160 @@ test.describe("typeahead rows (B-4, B-5)", () => {
     });
   }
 });
+
+/**
+ * 09E-11 (R-7, B-4, B-14): the medicine catalogue at real size. The synthetic catalogue (tests/e2e/support/perf-catalogue.ts: 93,911 brands, 10,305
+ * generics, 3,283 substances, 1,550 diagnoses) is upserted before these rows and deleted after them (and by the global setup if a run died), so no
+ * other row downloads it.
+ */
+test.describe("medicines on the full-size synthetic catalogue (B-4, B-14)", () => {
+  // BLOCKED (09E-NOTES, 09E-11 H-1): at full size `public.reference_shard` (000128) answers the late brand shards in more than 30 s (the planner takes the
+  // OFFSET page for one row and joins it by nested loop; the API role's 8 s statement timeout answers 500). Its fix is a migration (the two CTEs
+  // MATERIALIZED: 130 ms for shard 8, measured in a rolled-back session) that 09E-11 may not add. These rows run again when it lands.
+  test.fixme(true, "reference_shard brand shards time out at 93,911 brands until the 000128 fix (09E-NOTES 09E-11 H-1)");
+  test.use({ storageState: storageStatePath("doctor"), timezoneId: "Asia/Kolkata" });
+  test.beforeAll(async () => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const admin = getAdminClient();
+    await deletePerfCatalogue(admin);
+    await upsertPerfCatalogue(admin);
+  });
+  test.afterAll(async () => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    await deletePerfCatalogue(getAdminClient());
+  });
+
+  const medicineRow = TYPEAHEAD_ROWS.find((r) => r.id === "type.D.medicine")!;
+  const typeRow = budgetRow(medicineRow.id);
+  test(`${medicineRow.id}${typeRow.pr ? " @budget" : ""}: ${typeRow.label}`, async ({ page, context }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    const holds = await holdBackground(page);
+    const result = await runRow({
+      id: medicineRow.id,
+      main: "option",
+      page,
+      context,
+      holds,
+      prepare: () => medicineRow.prepare(page),
+      act: (state) => typeaheadAct(page, state),
+    });
+    expect(result.ms.median, medicineRow.id).not.toBeNull();
+    clearSupabaseLatency();
+  });
+
+  const refRow = budgetRow("ref.D.cdci-download");
+  test(`${refRow.id}${refRow.pr ? " @budget" : ""}: ${refRow.label}`, async ({ page }) => {
+    test.setTimeout(TEST_TIMEOUT_MS);
+    // A fresh device (empty IndexedDB, empty HTTP cache): the shell downloads the catalogues after first paint. 4x CPU for the build (R-4).
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable");
+    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+    const requests = new Map<string, { url: string; encoding: string; status: number }>();
+    const transferred = new Map<string, number>();
+    cdp.on("Network.responseReceived", (e) => {
+      if (/\/api\/reference\/(substances|medicines)\//.test(e.response.url)) {
+        const headers = Object.fromEntries(Object.entries(e.response.headers).map(([k, v]) => [k.toLowerCase(), String(v)]));
+        requests.set(e.requestId, { url: new URL(e.response.url).pathname, encoding: headers["content-encoding"] ?? "identity", status: e.response.status });
+      }
+    });
+    cdp.on("Network.loadingFinished", (e) => {
+      if (requests.has(e.requestId)) transferred.set(e.requestId, e.encodedDataLength);
+    });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    try {
+      await page.goto("/today");
+      await expect
+        .poll(() => page.evaluate(() => performance.getEntriesByName("clinicos.medicine_index").length), { timeout: 5 * 60_000, message: "the medicine index is built" })
+        .toBeGreaterThan(0);
+      const build = await page.evaluate(() => {
+        const m = performance.getEntriesByName("clinicos.medicine_index")[0] as PerformanceMeasure;
+        return { buildMs: Math.round(m.duration * 10) / 10, mode: (m.detail as { mode?: string } | null)?.mode ?? null };
+      });
+      const heap = await workerHeap(cdp);
+      await expect.poll(() => storedShards(page, "medicines"), { timeout: 60_000, message: "the medicine catalogue is stored" }).toBeGreaterThan(0);
+      const usage = await page.evaluate(async () => (await navigator.storage.estimate()).usage ?? null);
+
+      // One version: the medicine shards' version (substances share it: both are the `cdci` source).
+      const all = [...requests.entries()].filter(([id, r]) => r.status === 200 && transferred.has(id)).map(([id, r]) => ({ ...r, bytes: transferred.get(id)! }));
+      const version = all.filter((r) => r.url.startsWith("/api/reference/medicines/")).map((r) => r.url.split("/")[4]).pop();
+      const ofVersion = all.filter((r) => r.url.split("/")[4] === version);
+      const bytes = ofVersion.reduce((n, r) => n + r.bytes, 0);
+      const report = {
+        row: refRow.id,
+        budget: refRow.budget,
+        maxBytes: refRow.maxBytes,
+        transferredBytes: bytes,
+        verdict: bytes <= refRow.maxBytes! ? "within" : "over",
+        requests: ofVersion,
+        indexedDbUsageBytes: usage,
+        indexBuild: { ...build, cpuThrottling: 4 },
+        workerHeapUsedBytes: heap,
+        note: "bytes = encodedDataLength of each 200 shard response of one cdci version (substances + medicines), HTTP cache disabled; IndexedDB usage from navigator.storage.estimate(); build = the page's clinicos.medicine_index measure; heap = Runtime.getHeapUsage of the worker target (null when it could not be read)",
+      };
+      fs.mkdirSync(path.join(process.cwd(), "test-results/perf-latency"), { recursive: true });
+      fs.writeFileSync(path.join(process.cwd(), "test-results/perf-latency/reference-download.json"), `${JSON.stringify(report, null, 2)}\n`);
+      console.log(`[perf-latency] ${refRow.id}: ${bytes} bytes transferred (max ${refRow.maxBytes}), IndexedDB ${usage}, build ${build.buildMs} ms (${build.mode}), worker heap ${heap}`);
+      expect(ofVersion.some((r) => r.url.startsWith("/api/reference/medicines/")), "the medicine shards were downloaded").toBe(true);
+      expect(bytes, "B-14: bytes transferred for one CDCI version").toBeLessThanOrEqual(refRow.maxBytes!);
+    } finally {
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    }
+  });
+});
+
+/** Shard records of `catalogue` in the device store. */
+async function storedShards(page: Page, catalogue: string): Promise<number> {
+  return page.evaluate(
+    (name) =>
+      new Promise<number>((resolve) => {
+        const open = indexedDB.open("cliniq-reference");
+        open.onerror = () => resolve(0);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains("meta")) {
+            db.close();
+            resolve(0);
+            return;
+          }
+          const req = db.transaction("meta", "readonly").objectStore("meta").get(name);
+          req.onsuccess = () => {
+            db.close();
+            resolve((req.result as { shards?: number } | undefined)?.shards ?? 0);
+          };
+          req.onerror = () => {
+            db.close();
+            resolve(0);
+          };
+        };
+      }),
+    catalogue,
+  );
+}
+
+/** The used heap of the page's dedicated worker (Runtime.getHeapUsage through a non-flat CDP session to the worker target), or null. */
+async function workerHeap(cdp: CDPSession): Promise<number | null> {
+  try {
+    const { targetInfos } = (await cdp.send("Target.getTargets")) as { targetInfos: Array<{ targetId: string; type: string }> };
+    const target = targetInfos.find((t) => t.type === "worker");
+    if (!target) return null;
+    const { sessionId } = (await cdp.send("Target.attachToTarget", { targetId: target.targetId, flatten: false })) as { sessionId: string };
+    const answer = new Promise<number | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), 5_000);
+      cdp.on("Target.receivedMessageFromTarget", (e: { sessionId: string; message: string }) => {
+        if (e.sessionId !== sessionId) return;
+        const msg = JSON.parse(e.message) as { id?: number; result?: { usedSize?: number } };
+        if (msg.id === 1) {
+          clearTimeout(timer);
+          resolve(msg.result?.usedSize ?? null);
+        }
+      });
+    });
+    await cdp.send("Target.sendMessageToTarget", { sessionId, message: JSON.stringify({ id: 1, method: "Runtime.getHeapUsage" }) });
+    return await answer;
+  } catch {
+    return null;
+  }
+}
 
 test.describe("save rows (B-6, B-7, B-8)", () => {
   for (const def of SAVE_ROWS) {

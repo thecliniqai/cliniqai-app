@@ -1057,6 +1057,7 @@ export function ConsultWorkspace({
                 entryRef={rxEntryRef}
                 leftOut={rxLeftOut}
                 onLeftOut={setRxLeftOut}
+                customMedicines={consult.data.lists?.custom_medicines}
               />
             </ConsultSection>
 
