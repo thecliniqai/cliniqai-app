@@ -130,6 +130,20 @@ export type RouteGuard =
    * membership lookup is the one `clinic_live_state` call.
    */
   | { kind: "live-state"; keys: readonly string[]; domains: readonly string[] }
+  /**
+   * V2-09e 09E-09 (R-5, T-09E-09): the reference manifest `GET /api/reference/manifest`. No session 401 and no membership 403 (membership lookup only); a
+   * locked clinic 403 `SUBSCRIPTION_LOCKED`; every role of the clinic 200 with `private, no-cache` and an ETag, a body of exactly `keys` listing exactly
+   * the catalogues its permissions read (each `{ version, shards }`), no cookie; the same ETag answers 304; a forged `?tenant=` changes nothing; the only
+   * data access beyond the membership lookup is one `reference_catalogues` read; nothing of tenant B.
+   */
+  | { kind: "reference-manifest"; keys: readonly string[] }
+  /**
+   * V2-09e 09E-09 (R-5, T-09E-09): one catalogue shard `GET /api/reference/{catalogue}/{version}/{shard}`. No session 401, no membership 403, roles lacking
+   * the catalogue's permission 403 (membership lookup only), a locked clinic 403 `SUBSCRIPTION_LOCKED`; the least-privileged holder 200 with
+   * `private, max-age=31536000, immutable`, exactly `keys`, rows of the catalogue's shape and one `reference_shard` call; a stale version 409 `no-store`
+   * with a fixed body; an unknown catalogue, a malformed version or shard and a shard out of range 404; a forged `?tenant=` changes nothing; nothing of B.
+   */
+  | { kind: "reference-shard"; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -338,6 +352,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-09e 09E-04 (R-18): the clinic's versions and access level; any active member, numbers and one word, nothing identifying.
   "app/api/live/state/route.ts#GET": { kind: "live-state", keys: ["versions", "access"], domains: ["schedule", "queue", "billing", "settings"] },
   "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
+  "app/api/reference/manifest/route.ts#GET": { kind: "reference-manifest", keys: ["catalogues"] },
+  "app/api/reference/[catalogue]/[version]/[shard]/route.ts#GET": { kind: "reference-shard", keys: ["catalogue", "version", "shard", "shards", "rows"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
   "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,

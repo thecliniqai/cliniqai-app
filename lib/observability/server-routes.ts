@@ -18,6 +18,8 @@ export const SERVER_ROUTE_PATTERNS = [
   "/api/prescriptions/medicines",
   "/api/r/[token]",
   "/api/ready",
+  "/api/reference/[catalogue]/[version]/[shard]",
+  "/api/reference/manifest",
   "/api/reports/view",
   "/api/reschedule/[token]",
   "/api/rum",
