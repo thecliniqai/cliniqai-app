@@ -99,9 +99,19 @@ test.describe("the skeleton shows during a slow client navigation", () => {
     await expect(link).toBeVisible();
     await setSupabaseLatency(context, 300);
     try {
+      // 09E-14a (flake F3): the skeleton is on screen only while the page's own calls are pending (about 300 ms per call here), and a polling assertion can look
+      // between two frames. A MutationObserver on this document (a client navigation keeps it) records that the status appeared, whatever the polling does.
+      await page.evaluate(() => {
+        const w = window as unknown as { __sawLoading: boolean };
+        w.__sawLoading = false;
+        const look = () => {
+          if (document.querySelector('[role="status"][aria-label="Loading"]')) w.__sawLoading = true;
+        };
+        new MutationObserver(look).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+      });
       await link.click();
-      await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
       await page.waitForURL((url) => url.pathname === path);
+      await expect.poll(() => page.evaluate(() => (window as unknown as { __sawLoading: boolean }).__sawLoading), { message: "the skeleton showed after the click" }).toBe(true);
       await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });
     } finally {
       clearSupabaseLatency();

@@ -16,6 +16,7 @@ import { expect, test } from "../fixtures";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 import { settleAnimations } from "../support/settle";
+import { awaitRegisterLinkHydrated, fillAgeAndSettle } from "../support/register-sheet";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
@@ -28,6 +29,7 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
   const phoneDigits = syntheticPhoneDigits();
 
   await page.goto("/patients");
+  await awaitRegisterLinkHydrated(page);
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
   const sheet = page.getByRole("dialog", { name: "Register patient" });
   await expect(sheet).toBeVisible();
@@ -41,7 +43,7 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
 
   await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
   await ux.fill(sheet.getByRole("textbox", { name: "Full name" }), fullName, "Full name");
-  await ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age");
+  await fillAgeAndSettle(page, () => ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age"));
   await ux.click(sheet.getByRole("radio", { name: "Female" }), "Sex: Female");
   await ux.check(sheet.getByRole("checkbox", { name: "Patient objects to AI-assisted features" }), "AI objection");
   await ux.click(sheet.getByRole("button", { name: "Register patient" }), "Register patient");

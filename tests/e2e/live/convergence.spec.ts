@@ -18,6 +18,7 @@ import { uiSignIn } from "../support/password-journeys";
 import { ownClinic, visitStatusOf } from "../support/today-data";
 import { countBoardRequests, countStateRequests, dropBroadcastFrames, openToday, rowInLane, rowOf, showLane } from "../support/today-page";
 import { seededUserPassword } from "../../helpers/tenants";
+import { getAdminClient } from "../../helpers/supabase-admin";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -74,6 +75,27 @@ test("@golden delivered: B checks in and A shows it within 2 s with one board re
     await expect(rowInLane(p.a, "booked", p.name)).toBeVisible();
     // A phone shows one lane at a time: A watches Waiting, where the row will arrive.
     await showLane(p.a, "Waiting");
+    // 09E-14a (flake F6, the one unexplained iphone-15 failure of 09E-04): the first join after the stack was recycled (or after Realtime's idle shutdown) restarts the
+    // replication of realtime.messages, and a change committed in the first moments after the join is never broadcast (tests/realtime/today-signals.spec.ts `joined`);
+    // the heartbeat would find it within 12 s, which is not what this case measures. So first prove the path delivers: a harmless change to the visit (its length)
+    // must reach A as a board read, tried again every 3 s until it does. Only then is the measured change made.
+    const probe = countBoardRequests(p.a);
+    const admin = getAdminClient();
+    let minutes = 20;
+    await expect
+      .poll(
+        async () => {
+          if (probe.count() === 0) {
+            minutes = minutes === 20 ? 25 : 20;
+            await admin.from("visits").update({ estimated_duration_minutes: minutes }).eq("id", p.visitId);
+            await p.a.waitForTimeout(3_000);
+          }
+          return probe.count();
+        },
+        { timeout: 24_000, message: "a probe change reached A through Realtime" },
+      )
+      .toBeGreaterThan(0);
+    await p.a.waitForTimeout(1_000);
     // Everything A does from here is counted: the signal's board read, and any state read (there must be none).
     const boardReads = countBoardRequests(p.a);
     const stateReads = countStateRequests(p.a);

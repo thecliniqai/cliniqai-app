@@ -81,6 +81,15 @@ async function until(predicate: () => boolean, ms: number): Promise<boolean> {
  */
 const QUOTA_WINDOW = "65 seconds"; // the 60 s window plus the one 5 s bucket the counter may not have rolled yet
 
+/**
+ * 09E-14a (flake F6): messages stored for ONE clinic's topic since a database timestamp. The sliding-window count above is a level, not a counter: rows of the earlier
+ * cases of this file age out of it while a later case runs, so a difference of two window counts can go negative (seen once in a 225-file run). A count since a fixed
+ * instant only grows.
+ */
+function broadcastsSince(since: string, tenantId: string): number {
+  return Number(psql(`select count(*) from realtime.messages where topic = 'today:${tenantId}' and inserted_at >= '${since}'`)[0]);
+}
+
 function broadcastsInWindow(): number {
   return Number(psql(`select count(*) from realtime.messages where inserted_at > now() - interval '${QUOTA_WINDOW}'`)[0]);
 }
@@ -244,7 +253,7 @@ describe("today signals: delivery to the clinic's own members", () => {
     await joined(listener, tenantA);
     const queueBefore = versionOf(tenantA.tenantId, "queue");
     const seen = listener.signals.length;
-    const messagesBefore = broadcastsInWindow();
+    const since = psql("select clock_timestamp()")[0];
     // One psql -c is one statement in one transaction: 50 visits of the clinic.
     psql(
       `insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, created_by, is_overbooked, scheduled_at)
@@ -256,7 +265,7 @@ describe("today signals: delivery to the clinic's own members", () => {
     const got = listener.signals.slice(seen);
     expect(got.map((s) => s.domain).sort()).toEqual(["queue", "schedule"]);
     expect(got.find((s) => s.domain === "queue")?.version).toBe(queueBefore + 1);
-    expect(broadcastsInWindow() - messagesBefore).toBe(2);
+    expect(broadcastsSince(since, tenantA.tenantId)).toBe(2);
   });
 
   it("two transactions raise a version by two and deliver two signals", async () => {

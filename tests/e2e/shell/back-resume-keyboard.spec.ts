@@ -112,16 +112,26 @@ test("visibilitychange on Today asks for the live state (one call, no board read
   await page.goto("/today");
   await expect(page.getByRole("main")).toBeVisible();
   await page.waitForLoadState("networkidle");
-  // The page's own check on subscription is over.
-  await page.waitForTimeout(2_500);
+  // 09E-14a (flake F2): the page's own check on subscription is over only when the channel says so (the badge reads "Live" after the check that closes the gap
+  // answered): a fixed 2.5 s wait let that check, which on a loaded stack arrives late, fall inside the counted window.
+  await expect(page.locator("[data-live-status]")).toHaveText("Live", { timeout: 20_000 });
+  await page.waitForTimeout(500);
   const loadBoard = board();
   const loadState = state();
   expect(today()).toBe(0);
+  // The first state read is held for 1.2 s so that it is certainly in flight while the second resume (and any heartbeat) comes: a check made while one is out is
+  // answered by it, so nothing else can be asked in that time, however slow or fast the stack is.
+  await page.route("**/api/live/state", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+    await route.continue();
+  });
   await resume(page);
   await expect.poll(() => state() - loadState, { timeout: 5_000 }).toBe(1);
-  await resume(page); // within the coalescing window: no second request
-  await page.waitForTimeout(1_000);
-  expect(state() - loadState, "one state read for two resumes inside the coalescing window").toBe(1);
+  await resume(page); // while the first read is out: no second request
+  await page.waitForTimeout(600);
+  expect(state() - loadState, "one state read for two resumes while the first is in flight").toBe(1);
+  await page.waitForTimeout(800);
+  await page.unroute("**/api/live/state");
   expect(board() - loadBoard, "nothing moved: the board is not read").toBe(0);
   expect(today(), "a resume on Today is never a render (RSC) request").toBe(0);
 

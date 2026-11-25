@@ -22,6 +22,33 @@ async function openGallery(page: Page, testInfo: { project: { name: string } }, 
   await page.goto("/dev/ui");
   await expect(page.getByRole("heading", { level: 1, name: "Component gallery" })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
+  await settleLayout(page);
+}
+
+/**
+ * 09E-14a (flake F1: "the page scrolled 1,574 px", reproduced 2 of 12 under CPU load): the gallery is one long page and its sections above the one a case works
+ * in finish hydrating and measuring later on a loaded machine; the document then grows above the field while the case runs, the browser's scroll anchoring moves
+ * `scrollY` with it, and a `scrollY` taken before that no longer matches the one after. Not a product move (the field stays where it was on the screen). So a case
+ * starts only when the document's height has not changed for 600 ms (and two frames have passed), and its `startY` is read after that.
+ */
+async function settleLayout(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let last = -1;
+        let stableSince = performance.now();
+        const tick = () => {
+          const height = document.documentElement.scrollHeight;
+          if (height !== last) {
+            last = height;
+            stableSince = performance.now();
+          }
+          if (performance.now() - stableSince >= 600) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 }
 
 function group(page: Page, title: string): Locator {

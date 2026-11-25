@@ -19,14 +19,24 @@ export function localDbContainer(): string {
   return `supabase_db_${projectId}`;
 }
 
+/**
+ * 09E-14a (flake F6, the ~15-minute stalled Vitest run of 09E-07): `execFileSync` blocks the Node event loop, so Vitest's own 20 s test timeout can never fire
+ * while a `docker exec psql` is stuck (a statement waiting for a lock a crashed session still holds, or a paused container). Every call here therefore carries its own
+ * ceiling: the child is killed after {@link CALL_TIMEOUT_MS} (the test fails with ETIMEDOUT instead of hanging the run) and the session refuses to wait for a lock for
+ * more than {@link LOCK_TIMEOUT_MS}.
+ */
+export const CALL_TIMEOUT_MS = 120_000;
+export const LOCK_TIMEOUT_MS = 60_000;
+const SESSION_ENV = ["-e", `PGOPTIONS=-c lock_timeout=${LOCK_TIMEOUT_MS}`];
+
 function psqlArgs(sql: string): string[] {
-  return ["exec", localDbContainer(), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-Atc", sql];
+  return ["exec", ...SESSION_ENV, localDbContainer(), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-Atc", sql];
 }
 
 /** Runs `sql` as the local superuser and returns the unaligned, tuples-only output lines. Throws on any SQL error. */
 export function psql(sql: string): string[] {
   // stderr is captured (and part of the thrown error's message), not echoed into the test output.
-  const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: CALL_TIMEOUT_MS, killSignal: "SIGKILL" });
   return out.trim().split("\n").filter(Boolean);
 }
 
@@ -36,7 +46,7 @@ export function psql(sql: string): string[] {
  */
 export function psqlAsync(sql: string): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    execFile("docker", psqlArgs(sql), { encoding: "utf8" }, (err, stdout) => {
+    execFile("docker", psqlArgs(sql), { encoding: "utf8", timeout: CALL_TIMEOUT_MS, killSignal: "SIGKILL" }, (err, stdout) => {
       if (err) reject(err);
       else resolve(stdout.trim().split("\n").filter(Boolean));
     });
@@ -49,9 +59,9 @@ export function psqlAsync(sql: string): Promise<string[]> {
  * session ever sees. Returns the output lines of every statement; command tags are suppressed. Throws on any SQL error.
  */
 export function psqlSession(statements: string[]): string[] {
-  const args = ["exec", localDbContainer(), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"];
+  const args = ["exec", ...SESSION_ENV, localDbContainer(), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"];
   for (const s of statements) args.push("-c", s);
-  const out = execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const out = execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: CALL_TIMEOUT_MS, killSignal: "SIGKILL" });
   return out.trim().split("\n").filter(Boolean);
 }
 
@@ -91,6 +101,6 @@ export function psqlFile(file: string, vars: Record<string, string | number> = {
   for (const [name, value] of Object.entries(vars)) args.push("-v", `${name}=${value}`);
   for (const s of options.before ?? []) args.push("-c", s);
   args.push("-f", "-");
-  const r = spawnSync("docker", args, { input: fs.readFileSync(file), encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  const r = spawnSync("docker", args, { input: fs.readFileSync(file), encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 10 * CALL_TIMEOUT_MS, killSignal: "SIGKILL" });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
