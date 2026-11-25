@@ -6,6 +6,10 @@ import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import {
   changesKey,
   itemFromAdd,
+  pairAdded,
+  substancesOfAdded,
+  withoutPresent,
+  type AddedPair,
   type ChangeLine,
   type ChangeUpdate,
   type PrescriptionChanges,
@@ -264,12 +268,15 @@ export function useRxLines({
   const send = useCallback(
     (requested: PrescriptionChanges, opts?: { unique?: boolean; substanceIds?: ReadonlyArray<readonly string[]> }): Promise<RxSendResult> => {
       let asked = requested;
+      // 09E-14a (C): each added line carries its own substance ids (the allergy note of the saved line): the two are filtered together, never by position in the original list.
+      let askedPairs: AddedPair[] = pairAdded(requested.add ?? [], opts?.substanceIds);
       if (opts?.unique && asked.add?.length) {
         // A-4: a second tap on the same medicine adds nothing; decided against the lines as shown (the first tap's pending line counts).
         const on = new Set(overlay(current.current, opsNow.current).items.map((i) => norm(i.medicine_name)));
-        const add = asked.add.filter((l) => !on.has(norm(l.medicine_name)));
-        if (add.length === 0 && !asked.update?.length && !asked.remove?.length) return Promise.resolve({ ok: true, added: [] });
-        asked = { ...asked, add };
+        const kept = withoutPresent(askedPairs, on, norm);
+        if (kept.length === 0 && !asked.update?.length && !asked.remove?.length) return Promise.resolve({ ok: true, added: [] });
+        asked = { ...asked, add: kept.map((p) => p.line) };
+        askedPairs = kept;
       }
       // Shown at once (R-11): the change is laid over the lines, with a pending marker, before it is sent.
       const opId = ++opSeq.current;
@@ -279,15 +286,17 @@ export function useRxLines({
 
       const run = async (): Promise<RxSendResult> => {
         let changes = asked;
+        let pairs = askedPairs;
         if (opts?.unique && changes.add?.length) {
           // A-4: decided again when the command starts, against the database's lines (a queued second tap sees the first one's).
           const on = new Set(current.current.map((i) => norm(i.medicine_name)));
-          const add = changes.add.filter((l) => !on.has(norm(l.medicine_name)));
-          if (add.length === 0 && !changes.update?.length && !changes.remove?.length) {
+          const kept = withoutPresent(pairs, on, norm);
+          if (kept.length === 0 && !changes.update?.length && !changes.remove?.length) {
             dropOp();
             return { ok: true, added: [] };
           }
-          changes = { ...changes, add };
+          changes = { ...changes, add: kept.map((p) => p.line) };
+          pairs = kept;
         }
         const before = current.current;
         const key = changesKey(visitId, changes);
@@ -345,7 +354,7 @@ export function useRxLines({
         if (changes.add?.length) {
           let sort = next.reduce((max, i) => Math.max(max, i.sort_order), -1) + 1;
           changes.add.forEach((line, index) => {
-            const id = addedItemIds[index];
+            const id = addedItemIds?.[index];
             if (!id) return;
             added.push(itemFromAdd(line, id, prescriptionId, sort++));
           });
@@ -354,10 +363,9 @@ export function useRxLines({
         if (added.length > 0 || changes.allergy_override_reason) {
           setNotes((prev) => {
             const map = new Map(prev);
-            added.forEach((item, index) => {
-              const originalIndex = asked.add?.indexOf(changes.add![index]) ?? index;
-              map.set(item.id, { substanceIds: (originalIndex >= 0 ? opts?.substanceIds?.[originalIndex] : undefined) ?? [], reason: changes.allergy_override_reason ?? null });
-            });
+            for (const { id, substances } of substancesOfAdded(pairs, addedItemIds)) {
+              map.set(id, { substanceIds: substances, reason: changes.allergy_override_reason ?? null });
+            }
             return map;
           });
         }
