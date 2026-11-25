@@ -26,6 +26,8 @@ import { serverEnv } from "@/lib/env-server";
 import { QueryProvider } from "@/lib/query/provider";
 import { ResumeRefresh } from "@/components/shell/resume-refresh";
 import { LiveProvider } from "@/lib/live/provider";
+import { ReferenceSync } from "@/components/shell/reference-sync";
+import { CATALOGUE_PERMISSION, DEVICE_CATALOGUES } from "@/features/reference/catalogues";
 
 /**
  * V2-06 06-05: the worker never registers under `next dev`. 06-09a (IND L-5): an environment the schema refuses makes
@@ -105,6 +107,7 @@ export default async function DashboardLayout({
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
   // V2-09e 09E-03 (R-14): the tab's one client data layer (memory only, cleared at sign-out, lock and clinic switch) wraps the screens.
   // V2-09e 09E-04 (R-18): the live provider inside it owns the clinic's one Realtime channel, the heartbeat and the versions the screens converge on.
+  // V2-09e 09E-09 (R-5): the global reference catalogues the role may read are kept on the device (IndexedDB `cliniq-reference`, catalogue rows only).
   // V2-06 06-04b: the app shell. The navigation model is resolved HERE, from the session's role and the permission
   // matrix (`navForRole`, T-06-16); the client only renders it. The pages keep their own guards.
   return (
@@ -121,6 +124,7 @@ export default async function DashboardLayout({
         <QueryProvider>
           <LiveProvider tenantId={membership.tenantId}>
             <ResumeRefresh />
+            <ReferenceSync catalogues={DEVICE_CATALOGUES.filter((c) => hasPerm(membership.role, CATALOGUE_PERMISSION[c]))} />
             {children}
             <FrontDeskSheets
               canRegister={hasPerm(membership.role, "patients:edit")}

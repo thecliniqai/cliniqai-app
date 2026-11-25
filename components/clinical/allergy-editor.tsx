@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandItem, CommandList, CommandLoading } from "@/components/ui/command";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetFooter, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
 import { recordPatientAllergies } from "@/features/patients/actions";
-import { fetchSubstances, type SubstanceHit } from "@/features/terminology/substances";
+import { fetchSubstances, SUBSTANCE_SEARCH_LIMIT, type SubstanceHit } from "@/features/terminology/substances";
+import { cleanQuery } from "@/features/terminology/abbreviations";
+import { requestReferenceSync, useReferenceCatalogue } from "@/lib/reference/store";
+import { searchSubstancesLocal, substanceQueryOf } from "@/lib/reference/search-substances";
+import { rum } from "@/lib/observability/rum/collector";
 import { useConfirmedCall } from "@/lib/query/mutations";
 import { cn } from "@/lib/utils";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, TRANSITION } from "@/lib/ui/variants";
@@ -16,8 +20,10 @@ import { focusBoxInput } from "@/lib/ui/focus-box";
 
 /**
  * AllergyEditor (V2-09c 09C-02, R-6, R-8; SA-07 "coded to CDCI substances at entry, typeahead, free text kept"; DESIGN_SYSTEM §7.2): records a patient's
- * allergies in one command. A typeahead over the CDCI substances (`GET /api/terminology/substances`, aborted with each keystroke) stores the substance's
- * exact name; free text is allowed. Every entry says whether the medicine check can use it: "Checked against medicines" (the string is a substance name)
+ * allergies in one command. A typeahead over the CDCI substances stores the substance's exact name; free text is allowed. V2-09e 09E-09 (R-5, R-6, C-3):
+ * once the substance catalogue is on the device each keystroke is answered there (`searchSubstancesLocal`, the twin of `search_substances`), with no
+ * debounce and no database call (one search per animation frame); until then, and whenever it is not available, `GET /api/terminology/substances`
+ * (debounced, aborted with each keystroke) answers. The input says which answered (`data-search-source`). Every entry says whether the medicine check can use it: "Checked against medicines" (the string is a substance name)
  * or "Not a listed substance: checked by name only". "No known allergies" is an explicit choice (it stores `[]`); leaving the list empty and unchosen
  * leaves the allergies "not recorded". Save sends one `record_patient_allergies` command (`useCommand`: one request id per submit, kept after a failure).
  */
@@ -72,12 +78,18 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  const frame = useRef<number | null>(null);
+  const catalogue = useReferenceCatalogue("substances");
+  const device = catalogue.status === "ready";
 
   useEffect(() => {
     mounted.current = true;
+    // Before the first search: the catalogue is asked for now if this tab does not hold it yet (the shell's sync usually has).
+    requestReferenceSync("substances");
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
       inflight.current?.abort();
     };
   }, []);
@@ -90,6 +102,8 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
   function run(next: string) {
     const n = ++seq.current;
     if (timer.current) clearTimeout(timer.current);
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
     inflight.current?.abort();
     const q = next.trim();
     if (q === "") {
@@ -98,6 +112,19 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
       return;
     }
     setLoading(true);
+    if (device) {
+      const rows = catalogue.rows;
+      // On the device: no debounce (C-3), one search per frame; the twin answers what the route would.
+      const stop = rum.timer("search_device");
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        if (n !== seq.current || !mounted.current) return;
+        setAnswer({ query: q, hits: searchSubstancesLocal(rows, substanceQueryOf(q, cleanQuery), SUBSTANCE_SEARCH_LIMIT), failed: false });
+        setLoading(false);
+        stop();
+      });
+      return;
+    }
     timer.current = setTimeout(async () => {
       const controller = new AbortController();
       inflight.current = controller;
@@ -182,6 +209,7 @@ function EditorBody({ onOpenChange, patientId, initial, codedTexts = [], onSaved
               placeholder="Search a substance, or type an allergy"
               autoCapitalize="none"
               data-allergy-search=""
+              data-search-source={device ? "device" : "server"}
               className={cn(CONTROL_BASE, "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 outline-none")}
             />
           </div>

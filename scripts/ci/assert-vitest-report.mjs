@@ -560,6 +560,9 @@ const REQUIRED_FILES = [
   "tests/today/optimistic-moves.spec.ts",
   "tests/prescriptions/rx-overlay.spec.ts",
   "tests/consultation/custom-lists.spec.ts",
+  // V2-09e 09E-09: the reference catalogues on the device (the substance twin against SQL; the sync's rules and the shared shapes).
+  "tests/reference/substance-search-parity.spec.ts",
+  "tests/reference/reference-sync.spec.ts",
 ];
 
 const file = process.argv[2];
