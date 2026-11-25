@@ -309,7 +309,7 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
 
       {next &&
         (snapshotPanel && snapshotPanel.patientId === next.patientId ? (
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
             <NextPatientCard row={next} {...handlers} />
             <PatientSnapshotPanel name={next.name} data={snapshotPanel} />
           </div>
