@@ -137,6 +137,14 @@ export type RouteGuard =
    */
   | { kind: "live-state"; keys: readonly string[]; domains: readonly string[] }
   /**
+   * V2-09e 09E-13 (R-13, T-09E-10): the session bootstrap `GET /api/session/bootstrap`. No session 401 and no membership 403 (membership lookup only); a
+   * locked clinic 403 `SUBSCRIPTION_LOCKED`; every role of the clinic answers 200 with `no-store`, no cookie, a body of exactly `keys` whose `role` is the
+   * caller's own and whose nested objects hold exactly the allow-listed keys (`nested`), and no key anywhere that names a fee, price, invoice, payment,
+   * subscription, access level, entitlement or permission; the only data access beyond the membership lookup is the one `session_bootstrap` call; another
+   * clinic's header 409; a forged `?tenant=` changes nothing and nothing of tenant B is in the response.
+   */
+  | { kind: "session-bootstrap"; keys: readonly string[]; nested: Readonly<Record<string, readonly string[]>> }
+  /**
    * V2-09e 09E-09 (R-5, T-09E-09): the reference manifest `GET /api/reference/manifest`. No session 401 and no membership 403 (membership lookup only); a
    * locked clinic 403 `SUBSCRIPTION_LOCKED`; every role of the clinic 200 with `private, no-cache` and an ETag, a body of exactly `keys` listing exactly
    * the catalogues its permissions read (each `{ version, shards }`), no cookie; the same ETag answers 304; a forged `?tenant=` changes nothing; the only
@@ -358,6 +366,19 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-09e 09E-04 (R-18): the clinic's versions and access level; any active member, numbers and one word, nothing identifying.
   "app/api/live/state/route.ts#GET": { kind: "live-state", keys: ["versions", "access"], domains: ["schedule", "queue", "billing", "settings"] },
   "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
+  // V2-09e 09E-13 (R-13): the session bootstrap the shell holds in memory; any active member of a full clinic, display data only (allow-listed).
+  "app/api/session/bootstrap/route.ts#GET": {
+    kind: "session-bootstrap",
+    keys: ["profile", "clinic", "role", "doctors", "clinics", "rx_print", "versions"],
+    nested: {
+      profile: ["id", "full_name"],
+      clinic: ["id", "name", "zone"],
+      doctors: ["id", "full_name", "specialty"],
+      clinics: ["id", "name"],
+      rx_print: ["paper_size", "letterhead_mode", "top_margin", "bottom_margin"],
+      versions: ["settings"],
+    },
+  },
   "app/api/reference/manifest/route.ts#GET": { kind: "reference-manifest", keys: ["catalogues"] },
   "app/api/reference/[catalogue]/[version]/[shard]/route.ts#GET": { kind: "reference-shard", keys: ["catalogue", "version", "shard", "shards", "rows"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.

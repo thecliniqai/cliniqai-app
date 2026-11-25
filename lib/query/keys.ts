@@ -13,6 +13,8 @@ export const queryDomains = {
   today: ["queue", "schedule", "billing"],
   /** The Schedule's range (09E-12): visits, blocks, waitlist and slots (schedule) and visit statuses (queue). */
   schedule: ["schedule", "queue"],
+  /** The session bootstrap (09E-13, R-13): the clinic's name and zone, the doctor directory, the Rx print display fields, the user's role and name. */
+  bootstrap: ["settings"],
 } as const satisfies Record<string, readonly ("schedule" | "queue" | "billing" | "settings")[]>;
 
 export const queryKeys = {
@@ -28,6 +30,8 @@ export const queryKeys = {
   scheduleRange: (tenantId: string, from: string, to: string, withSlots: boolean) => [tenantId, "schedule", from, to, withSlots ? "slots" : "counts"] as const,
   /** Every Schedule range of the clinic. */
   scheduleAll: (tenantId: string) => [tenantId, "schedule"] as const,
+  /** The session bootstrap of the clinic (09E-13, R-13): `[tenantId, "bootstrap"]`. One per clinic, never shared between clinics. */
+  bootstrap: (tenantId: string) => [tenantId, "bootstrap"] as const,
 } satisfies Record<string, (...args: never[]) => QueryKey>;
 
 declare module "@tanstack/react-query" {

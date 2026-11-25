@@ -70,7 +70,7 @@ export function Sidebar({
           <ClinicSwitcher clinics={clinics} activeId={activeClinicId} clinicName={clinicName} />
         ) : (
           <div className="min-w-0">
-            <p className="truncate text-body-md font-semibold tracking-title text-fg" title={clinicName}>
+            <p data-shell-clinic-name="" className="truncate text-body-md font-semibold tracking-title text-fg" title={clinicName}>
               {clinicName}
             </p>
           </div>
@@ -93,7 +93,7 @@ export function Sidebar({
         </span>
         <div className="min-w-0">
           <p className="truncate text-body-sm text-fg">{user.email}</p>
-          <p className="text-label text-fg-muted">{ROLE_LABEL[user.role]}</p>
+          <p data-shell-role="" className="text-label text-fg-muted">{ROLE_LABEL[user.role]}</p>
         </div>
       </div>
     </nav>

@@ -541,6 +541,11 @@ export type GetVisitBillingResult =
       payments: Payment[];
       totalPaid: number;
       balanceDue: number;
+      /**
+       * V2-09e 09E-13 (R-13: fees are read with the bill, never held): the clinic's current default consultation fee, read from the database with a visit
+       * that has no invoice yet (the new bill's starting fee); null when the visit has an invoice or the clinic has none set.
+       */
+      clinicFee?: number | null;
     }
   | { success: false; error: string };
 
@@ -573,6 +578,14 @@ export async function getVisitBillingDetails(
     const invoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     if (!invoice) {
+      // V2-09e 09E-13 (R-13): the fee a new bill starts from is read here, with the bill, every time (never from the session bootstrap or another copy).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tenant, error: feeErr } = await (supabase.from("tenants") as any)
+        .select("default_consultation_fee")
+        .eq("id", session.tenantId)
+        .maybeSingle();
+      if (feeErr) log.warn({ event: "billing.clinic_fee_load.failed", code: errorTag(feeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      const fee = tenant?.default_consultation_fee;
       return {
         success: true,
         invoice: null,
@@ -580,6 +593,7 @@ export async function getVisitBillingDetails(
         payments: [],
         totalPaid: 0,
         balanceDue: 0,
+        clinicFee: fee === null || fee === undefined || !Number.isFinite(Number(fee)) ? null : Number(fee),
       };
     }
 

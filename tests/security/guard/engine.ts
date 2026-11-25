@@ -1235,6 +1235,83 @@ export async function liveStateRouteLegs(
 }
 
 /**
+ * `session-bootstrap` route (09E-13, R-13, T-09E-10): no session 401 and no membership 403, each touching nothing but the membership lookup; a locked clinic
+ * 403 `SUBSCRIPTION_LOCKED`; every role of the clinic answers 200 with `no-store`, no cookie, a body of exactly the guard's keys, its own role, every nested
+ * object (or array element) with exactly the allow-listed keys and no key anywhere naming a fee, price, invoice, payment, subscription, access level,
+ * entitlement or permission; one `session_bootstrap` call and nothing else beyond the membership lookup; another clinic's header 409; a forged `?tenant=`
+ * changes nothing and nothing of tenant B is in the response.
+ */
+export async function sessionBootstrapRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-bootstrap" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const allKeys = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.flatMap(allKeys);
+    if (value && typeof value === "object") return Object.entries(value).flatMap(([k, v]) => [k, ...allKeys(v)]);
+    return [];
+  };
+  const NEVER_HELD = /(fee|price|invoice|payment|bill|subscription|access|entitle|permission|plan|amount)/i;
+
+  const anon = await callRoute(slot, anonClient(), c, {});
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, {});
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes("SUBSCRIPTION_LOCKED")) out.push(routeV(c, "locked clinic", `not SUBSCRIPTION_LOCKED: ${brief(locked.body)}`));
+  if (locked.access.includes("rpc:session_bootstrap")) out.push(routeV(c, "locked clinic", "the bootstrap was read for a locked clinic"));
+
+  let plain: string | null = null;
+  for (const role of ROLES) {
+    const leg = `role ${role}`;
+    const r = await callRoute(slot, world.roles[role].client, c, {});
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    noStore(leg, r);
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+    const reads = r.access.filter((a) => a === "rpc:session_bootstrap").length;
+    if (reads !== 1) out.push(routeV(c, leg, `expected exactly one session_bootstrap call, saw ${reads}`));
+    const stray = r.access.filter((a) => a !== "rpc:session_bootstrap" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+    if (stray.length > 0) out.push(routeV(c, leg, `data access beyond the bootstrap read and the membership lookup: ${stray.join(", ")}`));
+    try {
+      const body = JSON.parse(r.body) as Record<string, unknown>;
+      const keys = Object.keys(body);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, leg, `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+      if (body.role !== role) out.push(routeV(c, leg, `role is ${String(body.role)}, not the caller's own`));
+      for (const [part, allowed] of Object.entries(guard.nested)) {
+        const value = body[part];
+        const objects = Array.isArray(value) ? value : [value];
+        for (const o of objects) {
+          const got = Object.keys((o ?? {}) as object);
+          if (got.length !== allowed.length || got.some((k, i) => k !== allowed[i])) out.push(routeV(c, leg, `${part} keys ${got.join(",")} are not exactly ${allowed.join(",")}`));
+        }
+      }
+      const held = allKeys(body).filter((k) => NEVER_HELD.test(k));
+      if (held.length > 0) out.push(routeV(c, leg, `never-held keys in the bootstrap: ${held.join(",")}`));
+      if (role === "receptionist") plain = r.body;
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
+
+  out.push(...(await clinicChangedLegs(slot, c, world, world.roles.receptionist.client, world.roles.receptionist.tenantId)));
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (plain !== null && forged.body !== plain) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
+/**
  * `session-search` route (08-02, T-08-02): the least-privileged holder of the permission searches tenant B's synthetic
  * patient by name and by mobile number and gets 200 with an empty list and nothing of B; searching tenant A's own patient
  * answers 200 with `no-store` and a list whose rows have exactly the projection keys and no full mobile number. The

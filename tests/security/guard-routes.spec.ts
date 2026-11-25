@@ -44,6 +44,7 @@ import {
   healthRouteLeg,
   publicAssetRouteLeg,
   liveStateRouteLegs,
+  sessionBootstrapRouteLegs,
   referenceManifestRouteLegs,
   referenceShardRouteLegs,
   rumIngestRouteLegs,
@@ -263,6 +264,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("live-state"))("live-state: %s", async (_k, c, guard) => {
         const violations = await liveStateRouteLegs(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("session-bootstrap"))("session-bootstrap: %s", async (_k, c, guard) => {
+        const violations = await sessionBootstrapRouteLegs(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

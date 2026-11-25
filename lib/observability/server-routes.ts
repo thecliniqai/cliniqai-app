@@ -25,6 +25,7 @@ export const SERVER_ROUTE_PATTERNS = [
   "/api/rum",
   "/api/schedule/range",
   "/api/session-status",
+  "/api/session/bootstrap",
   "/api/terminology/diagnoses",
   "/api/terminology/substances",
   "/api/today/board",

@@ -8,6 +8,8 @@
  *   the sign-out.
  * - V2-09e 09E-12: the same for the Schedule's ranges: after a clinic switch and after a sign-out, no appointment of the first clinic ever renders on the
  *   Schedule (its range queries are cleared with the rest).
+ * - V2-09e 09E-13: the same for the session bootstrap: after a clinic switch the shell never names the first clinic and the doctor picker never lists its
+ *   doctor (one bootstrap per clinic, never shared); after a sign-out and another user's sign-in, the shell never names the first user's clinic.
  * Synthetic data only; fresh clinics and users per test.
  */
 import type { Page } from "@playwright/test";
@@ -197,4 +199,54 @@ test("09E-12: the Schedule's ranges: after a clinic switch and after a sign-out,
   await page.goto("/schedule?view=agenda");
   await expect.poll(() => records.some((r) => r.origin > signedOutAt && r.text.includes(nameA))).toBe(true);
   expect(records.filter((r) => r.origin > signedOutAt && r.text.includes(nameB)), "no appointment of clinic B after the sign-out").toEqual([]);
+});
+
+const shellClinic = "[data-clinic-switcher], [data-shell-clinic-name]";
+
+test("09E-13: the session bootstrap: after a clinic switch and after a sign-out, the shell and the doctor picker never show the first clinic's", async ({ page }) => {
+  const tag = testTag();
+  const a = await seedTenantWithOwner(`E2E Synthetic ClearBoot Alpha ${tag}`);
+  const b = await seedTenantWithOwner(`E2E Synthetic ClearBoot Beta ${tag}`);
+  const dual = await createDualMembershipUser(a.tenantId, "receptionist", b.tenantId, "receptionist");
+  const admin = getAdminClient();
+  const doctorA = `E2E Synthetic ClearBootDocA ${tag}`;
+  const doctorB = `E2E Synthetic ClearBootDocB ${tag}`;
+  expect((await admin.from("memberships").update({ full_name: doctorA }).eq("tenant_id", a.tenantId).eq("user_id", a.userId)).error).toBeNull();
+  expect((await admin.from("memberships").update({ full_name: doctorB }).eq("tenant_id", b.tenantId).eq("user_id", b.userId)).error).toBeNull();
+  const patientB = await seedPatient(b.tenantId, b.userId, `E2E Synthetic ClearBootPatient ${tag}`);
+
+  const shells = await recordRows(page, shellClinic);
+  await uiSignIn(page, { email: dual.userEmail, password: seededUserPassword() });
+  await page.getByRole("button", { name: a.tenantName }).click();
+  await board(page).waitFor({ timeout: 30_000 });
+  await expect.poll(() => shells.some((r) => r.text.includes(a.tenantName)), { message: "the shell showed clinic A" }).toBe(true);
+
+  const switchedAt = Date.now();
+  await page.getByRole("button", { name: /^Account menu/ }).click();
+  await page.getByRole("menuitem", { name: `Switch to ${b.tenantName}` }).click();
+  await page.waitForURL((url) => url.pathname === "/today", { timeout: 30_000 });
+  await board(page).waitFor();
+  await expect.poll(() => shells.some((r) => r.origin > switchedAt && r.text.includes(b.tenantName))).toBe(true);
+  expect(shells.filter((r) => r.origin > switchedAt && r.text.includes(a.tenantName)), "no document after the switch named clinic A as the open clinic").toEqual([]);
+
+  // The doctor picker of B draws from B's bootstrap: B's doctor, never A's (one entry per clinic, never shared).
+  await page.locator("#main").getByRole("link", { name: "Add walk-in" }).filter({ visible: true }).first().click();
+  const sheet = page.getByRole("dialog", { name: "Add walk-in" });
+  await sheet.getByRole("combobox", { name: "Patient" }).fill(patientB.phone.slice(-10));
+  await sheet.getByRole("option").first().click();
+  const fields = sheet.locator("[data-walkin-visit-fields]");
+  await expect(fields).toBeVisible();
+  // One doctor in B: the select is not offered; the visit goes to B's doctor. Either way A's doctor is nowhere in the sheet.
+  await expect(sheet.getByText(doctorA)).toHaveCount(0);
+
+  await page.goto("/today");
+  await board(page).waitFor();
+  const signedOutAt = Date.now();
+  await page.getByRole("button", { name: /^Account menu/ }).click();
+  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+  await page.waitForURL((url) => url.pathname === "/login", { timeout: 30_000 });
+  await uiSignIn(page, { email: a.userEmail, password: seededUserPassword() });
+  await board(page).waitFor({ timeout: 30_000 });
+  await expect.poll(() => shells.some((r) => r.origin > signedOutAt && r.text.includes(a.tenantName))).toBe(true);
+  expect(shells.filter((r) => r.origin > signedOutAt && r.text.includes(b.tenantName)), "no document after the sign-out named clinic B").toEqual([]);
 });

@@ -13,17 +13,21 @@ import {
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
 import { redirectIfUnauthenticated } from "@/lib/auth/page";
-import { AppShell } from "@/components/shell/app-shell";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { SessionShell } from "@/components/shell/session-shell";
 import { FrontDeskSheets } from "@/components/front-desk/front-desk-sheets";
 import { hasPerm } from "@/lib/permissions";
 import { MembershipEnded } from "@/components/shell/membership-ended";
 import { ClinicPicker } from "@/components/shell/clinic-picker";
 import { listUserClinics } from "@/features/clinics/switch";
-import { navForRole } from "@/lib/nav/nav-for-role";
-import { resolveTimeZone } from "@/lib/datetime";
-import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
 import { serverEnv } from "@/lib/env-server";
-import { QueryProvider } from "@/lib/query/provider";
+import { QueryProvider, QueryScreens } from "@/lib/query/provider";
+import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
+import { queryKeys } from "@/lib/query/keys";
+import { createClient } from "@/lib/supabase/server";
+import { clinicLabel } from "@/features/session/bootstrap";
+import { readSessionBootstrap } from "@/features/session/queries";
+import { BootstrapLiveBasis, SessionBootstrapScope } from "@/lib/session/use-bootstrap";
 import { ResumeRefresh } from "@/components/shell/resume-refresh";
 import { LiveProvider } from "@/lib/live/provider";
 import { ReferenceSync } from "@/components/shell/reference-sync";
@@ -94,46 +98,59 @@ export default async function DashboardLayout({
     redirect(destination);
   }
 
-  // The user's clinics for the switcher (V2-08 08-05), with the active clinic's name and zone: one membership read per
-  // request, shared with the membership resolution when that read the database (V2-09d).
-  const clinics = await listUserClinics();
-  const activeClinic = clinics.find((c) => c.id.toLowerCase() === membership.tenantId.toLowerCase());
+  // V2-09e 09E-13 (R-13): the session bootstrap (the clinic's name and zone, the role for the navigation, the doctor directory, the user's clinics for the
+  // switcher, the Rx print display fields and the `settings` version of the same statement), one `session_bootstrap` call. It replaces the membership read
+  // this layout made for the switcher (V2-08 08-05), so a full load makes the same number of calls at the same depth. It is handed to the client's bootstrap
+  // query (`HydrationBoundary`), which the shell and the screens read for the rest of the session; a layout render after a refresh hands over a newer one.
+  // A failed read shows what the session knows (the role) and "Clinic", as the failed switcher read did, and the client reads it again.
+  const bootstrap = await readSessionBootstrap(await createClient(), membership.tenantId);
+  const queryClient = createRequestQueryClient();
+  if (bootstrap) queryClient.setQueryData(queryKeys.bootstrap(membership.tenantId), bootstrap);
 
   // 06-09d (M-REMOVED-R1): no clinic pinned on this device yet: the shell's first status check pins this one.
   const shellClinic = isClinicId(await readActiveClinicCookie()) ? null : membership.tenantId;
 
-  // Every client component below reads the clinic's zone from here (V2-03 03-05); the browser zone is never used.
+  // Every client component below reads the clinic's zone from the shell (V2-03 03-05; from the bootstrap since 09E-13); the browser zone is never used.
   // V2-06 06-05: the PWA runtime (service worker, offline banner) runs only in the signed-in shell; `next dev` never
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
-  // V2-09e 09E-03 (R-14): the tab's one client data layer (memory only, cleared at sign-out, lock and clinic switch) wraps the screens.
+  // V2-09e 09E-03 (R-14): the tab's one client data layer (memory only, cleared at sign-out, lock and clinic switch) wraps the shell (09E-13: the shell reads
+  // the bootstrap from it); the screens inside stop rendering once it is cleared (`QueryScreens`).
   // V2-09e 09E-04 (R-18): the live provider inside it owns the clinic's one Realtime channel, the heartbeat and the versions the screens converge on.
   // V2-09e 09E-09 (R-5): the global reference catalogues the role may read are kept on the device (IndexedDB `cliniq-reference`, catalogue rows only).
-  // V2-06 06-04b: the app shell. The navigation model is resolved HERE, from the session's role and the permission
-  // matrix (`navForRole`, T-06-16); the client only renders it. The pages keep their own guards.
+  // V2-06 06-04b: the app shell. The navigation model is derived from the role the server resolved (the session, then the bootstrap's read of the
+  // database: display and navigation only, R-13) and the permission matrix (`navForRole`, T-06-16). The pages keep their own guards.
   return (
-    <ClinicTimeZoneProvider timeZone={resolveTimeZone(activeClinic?.timeZone)}>
-      <AppShell
-        model={navForRole(membership.role)}
-        clinicName={activeClinic?.name || "Clinic"}
-        user={{ email: claims.email || "", role: membership.role }}
-        swEnabled={serviceWorkerEnabled()}
-        shellClinic={shellClinic}
-        clinics={clinics.map((c) => ({ id: c.id, name: c.name }))}
-        activeClinicId={membership.tenantId}
-      >
-        <QueryProvider>
-          <LiveProvider tenantId={membership.tenantId}>
-            <ResumeRefresh />
-            <ReferenceSync catalogues={DEVICE_CATALOGUES.filter((c) => hasPerm(membership.role, CATALOGUE_PERMISSION[c]))} />
-            {children}
-            <FrontDeskSheets
-              canRegister={hasPerm(membership.role, "patients:edit")}
-              canWalkIn={hasPerm(membership.role, "appointments:edit")}
-              canBook={hasPerm(membership.role, "appointments:edit")}
-            />
-          </LiveProvider>
-        </QueryProvider>
-      </AppShell>
-    </ClinicTimeZoneProvider>
+    <QueryProvider>
+      <HydrationBoundary state={dehydrateRequest(queryClient)}>
+        <SessionBootstrapScope tenantId={membership.tenantId}>
+          <SessionShell
+            fallback={{
+              clinicName: clinicLabel(null),
+              role: membership.role,
+              zone: null,
+              clinics: [],
+            }}
+            email={claims.email || ""}
+            swEnabled={serviceWorkerEnabled()}
+            shellClinic={shellClinic}
+            activeClinicId={membership.tenantId}
+          >
+            <QueryScreens>
+              <LiveProvider tenantId={membership.tenantId}>
+                <BootstrapLiveBasis settings={bootstrap?.versions.settings ?? null} />
+                <ResumeRefresh />
+                <ReferenceSync catalogues={DEVICE_CATALOGUES.filter((c) => hasPerm(membership.role, CATALOGUE_PERMISSION[c]))} />
+                {children}
+                <FrontDeskSheets
+                  canRegister={hasPerm(membership.role, "patients:edit")}
+                  canWalkIn={hasPerm(membership.role, "appointments:edit")}
+                  canBook={hasPerm(membership.role, "appointments:edit")}
+                />
+              </LiveProvider>
+            </QueryScreens>
+          </SessionShell>
+        </SessionBootstrapScope>
+      </HydrationBoundary>
+    </QueryProvider>
   );
 }

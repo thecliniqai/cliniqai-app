@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RadioGroup } from "@/components/ui/radio-group";
+import { useRefreshSessionBootstrap } from "@/lib/session/use-bootstrap";
 
 /**
  * "Prescription printing" (V2-09c 09C-04, R-12; DESIGN_SYSTEM §7.10): the clinic's default paper (A4 or A5) and letterhead (blank paper or pre-printed
@@ -28,6 +29,8 @@ const DEFAULT_BOTTOM_POINTS = 60;
 
 export function RxPrintCard({ initialTenant, onSaved }: RxPrintCardProps) {
   const [isPending, startTransition] = useTransition();
+  // V2-09e 09E-13 (R-13): the session bootstrap holds the print display fields; a confirmed save reads it again at once.
+  const refreshBootstrap = useRefreshSessionBootstrap();
   const [paper, setPaper] = useState<"A4" | "A5">(initialTenant.rx_paper_size === "A5" ? "A5" : "A4");
   const [mode, setMode] = useState<"blank_paper" | "preprinted_letterhead">(initialTenant.rx_letterhead_mode === "preprinted_letterhead" ? "preprinted_letterhead" : "blank_paper");
   const [top, setTop] = useState(String(pointsToMm(initialTenant.letterhead_top_margin ?? DEFAULT_TOP_POINTS)));
@@ -48,6 +51,7 @@ export function RxPrintCard({ initialTenant, onSaved }: RxPrintCardProps) {
       });
       if (res.success) {
         setStatus({ type: "success", text: "Saved. New prescriptions use this paper and letterhead; the margins apply to every print on pre-printed paper." });
+        refreshBootstrap();
         onSaved?.(res.tenant);
       } else {
         setFieldErrors(res.fieldErrors ?? {});

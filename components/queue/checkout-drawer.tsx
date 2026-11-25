@@ -138,7 +138,10 @@ export function CheckoutDrawer({
               setIsCompleted(true);
             }
           } else {
-            setAmountToPay(defaultFee);
+            // V2-09e 09E-13 (R-13): a new bill starts from the clinic's fee as the database has it now (read with the bill, never held).
+            const fee = res.success && typeof res.clinicFee === "number" ? res.clinicFee : defaultFee;
+            setConsultationFee(fee);
+            setAmountToPay(fee);
           }
         })
         .catch((err) => {

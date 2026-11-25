@@ -17,7 +17,7 @@ import { QuickRegisterForm, type QuickRegisterValues } from "@/components/clinic
 import { SaveStatus } from "@/components/clinical/save-status";
 import { maskPhone } from "@/components/clinical/patient-identity-header";
 import { enqueueWalkIn } from "@/features/queue/actions";
-import { getActiveClinicDoctors } from "@/features/visits/actions";
+import { useBootstrapDoctors } from "@/lib/session/use-bootstrap";
 import { quickRegisterToPatientInput } from "@/features/patients/register-input";
 import type { PatientHit } from "@/features/patients/search";
 import { saveStatusProps } from "@/lib/commands/save-state";
@@ -43,23 +43,12 @@ const PRIORITIES = [
 ] as const;
 type Priority = (typeof PRIORITIES)[number]["value"];
 
-interface DoctorChoice {
-  /** The doctor's user id (what a visit stores). */
-  id: string;
-  label: string;
-}
-
 /** The doctor picked last in this browser session (not stored: a preference key may not hold an identifier, D-3). */
 let lastDoctorId: string | null = null;
 const rememberDoctor = (id: string) => {
   lastDoctorId = id;
 };
 const recalledDoctor = () => lastDoctorId;
-
-const doctorLabel = (name: string, specialty: string | null) => {
-  const named = /^dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
-  return specialty ? `${named} (${specialty.replace(/_/g, " ")})` : named;
-};
 
 type Stage = { kind: "find" } | { kind: "confirm"; patient: PatientHit } | { kind: "register"; phone?: string; name?: string };
 
@@ -68,26 +57,13 @@ function WalkInBody({ onDone }: { onDone: () => void }) {
   const afterSave = useAfterSave();
   const findDuplicates = useDuplicateLookup();
   const [stage, setStage] = useState<Stage>({ kind: "find" });
-  const [doctors, setDoctors] = useState<DoctorChoice[] | null>(null);
-  const [doctorId, setDoctorId] = useState("");
+  // V2-09e 09E-13 (R-13): the doctors come from the session bootstrap the shell holds (no read when the sheet opens).
+  const doctors = useBootstrapDoctors();
+  const [pickedDoctorId, setDoctorId] = useState<string | null>(null);
+  const doctorId =
+    (doctors ?? []).find((c) => c.id === pickedDoctorId)?.id ?? (doctors ?? []).find((c) => c.id === recalledDoctor())?.id ?? doctors?.[0]?.id ?? "";
   const [priority, setPriority] = useState<Priority>("normal");
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    getActiveClinicDoctors()
-      .then((list) => {
-        if (!live) return;
-        const choices = list.map((d) => ({ id: d.user_id, label: doctorLabel(d.full_name, d.specialty ?? null) }));
-        setDoctors(choices);
-        setDoctorId(choices.find((c) => c.id === recalledDoctor())?.id ?? choices[0]?.id ?? "");
-        setLoadFailed(choices.length === 0);
-      })
-      .catch(() => live && setLoadFailed(true));
-    return () => {
-      live = false;
-    };
-  }, []);
+  const loadFailed = doctors !== null && doctors.length === 0;
 
   const edited = () => command.reset();
 

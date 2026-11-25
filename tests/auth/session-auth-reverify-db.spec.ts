@@ -64,6 +64,8 @@ import TodayPage from "@/app/(dashboard)/today/page";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { AuthUnavailableError } from "@/lib/auth/tenant";
 import { MembershipEnded } from "@/components/shell/membership-ended";
+import { SessionShell } from "@/components/shell/session-shell";
+import { findElement } from "../helpers/element-tree";
 import { STATUS_TIMEOUT_MS } from "@/lib/pwa/session-status";
 import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -480,10 +482,8 @@ async function receptionistOfA() {
 }
 
 function shellClinicOf(element: unknown): unknown {
-  // <ClinicTimeZoneProvider><AppShell …/></ClinicTimeZoneProvider>
-  if (!isValidElement(element)) return undefined;
-  const child = (element as ReactElement<{ children?: unknown }>).props.children;
-  return isValidElement(child) ? (child as ReactElement<{ shellClinic?: unknown }>).props.shellClinic : undefined;
+  // The shell inside the layout's providers (V2-09e 09E-13: <QueryProvider><HydrationBoundary><SessionBootstrapScope><SessionShell …/>).
+  return findElement<{ shellClinic?: unknown }>(element, SessionShell)?.props.shellClinic;
 }
 
 describe("M-REMOVED-R1: the device is pinned to the clinic it resolved", () => {

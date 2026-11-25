@@ -477,6 +477,8 @@ const REQUIRED_FILES = [
   "tests/schedule/schedule-model.spec.ts",
   // V2-09e 09E-12
   "tests/schedule/schedule-range.spec.ts",
+  // V2-09e 09E-13
+  "tests/session/bootstrap.spec.ts",
   // V2-08 08-05 (Smart Assist, the clinic switcher).
   "tests/visits/suggest-slots.spec.ts",
   "tests/visits/slot-suggestion-context-db.spec.ts",
