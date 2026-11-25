@@ -97,7 +97,13 @@ export type RouteGuard =
    * a role lacking `permission` 403, no membership refused); a member with the permission answers 200 with `no-store` and a body whose top-level keys are
    * exactly `keys`; a forged `?tenant=` (tenant B's id) changes nothing and nothing of tenant B is in the response.
    */
-  | { kind: "session-board"; permission: Permission; keys: readonly string[] }
+  | {
+      kind: "session-board";
+      permission: Permission;
+      keys: readonly string[];
+      /** V2-09e 09E-12: the route reads a range of clinic dates; every allowed call asks for the current week (`?from&to`, Asia/Kolkata). */
+      currentWeek?: true;
+    }
   /**
    * V2-09b 09B-04a (T-09B-06): the diagnosis typeahead `GET /api/terminology/diagnoses?q=`. The denial legs of session(P) (no session 401, a role
    * lacking `permission` 403, no membership refused); a member with the permission searching a catalogue row answers 200 with `no-store` and rows with
@@ -378,6 +384,13 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-board",
     permission: "appointments:view",
     keys: ["rows", "generatedAt", "today", "timeZone"],
+  },
+  // V2-09e 09E-12 (R-10, T-09E-02): the Schedule's range read for the client data layer; the same legs as the board, on the current week.
+  "app/api/schedule/range/route.ts#GET": {
+    kind: "session-board",
+    permission: "appointments:view",
+    keys: ["from", "to", "zone", "server_now", "versions", "clinicians", "blocks", "visits", "waitlist", "slots"],
+    currentWeek: true,
   },
   "app/api/prescriptions/medicines/route.ts#GET": {
     kind: "session-medicine-search",

@@ -1609,6 +1609,7 @@ function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgs
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ca7ce0b4227190877841fdaf065edb2b
 function public.rx_allergy_context(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=bbd185d754ecd5efc06576c30220f4ef
 function public.save_consultation_draft(p_tenant_id uuid, p_visit_id uuid, p_expected_version integer, p_patch jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=2a6fdb8e2fe4ed860c7fe836fbe460ad
+function public.schedule_range(p_tenant_id uuid, p_from date, p_to date, p_include_slots boolean) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=bbc6bb5c7c8799aedbd2fe9ef5d2958d
 function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) returns TABLE(id uuid, name text, icd11_code text, snomed_concept_id text, is_chronic boolean, is_custom boolean) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=85f7c957fd742080f037e343e4c14c75
 function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, kind text, medicine_name text, generic_name text, dose_form text, substance_ids text[], dosage text, timing text, duration text) lang=plpgsql security_definer=f volatility=s config=enable_seqscan=off,pg_trgm.similarity_threshold=0.3,search_path="" body_md5=8a17da377ee7438484566210a9e1cc58
 function public.search_patients(p_query text, p_limit integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=127c66d8a5f6775348e6d73e968f0087
@@ -1843,6 +1844,7 @@ grant function public.revoke_share_token(p_token_id uuid) EXECUTE to authenticat
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_role
 grant function public.rx_allergy_context(p_tenant_id uuid, p_visit_id uuid) EXECUTE to authenticated
 grant function public.save_consultation_draft(p_tenant_id uuid, p_visit_id uuid, p_expected_version integer, p_patch jsonb, p_client_request_id uuid) EXECUTE to authenticated
+grant function public.schedule_range(p_tenant_id uuid, p_from date, p_to date, p_include_slots boolean) EXECUTE to authenticated
 grant function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) EXECUTE to authenticated
 grant function public.search_patients(p_query text, p_limit integer) EXECUTE to authenticated

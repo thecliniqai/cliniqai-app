@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Ban, ChevronLeft, ChevronRight, Clock, UserPlus } from "lucide-react";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
@@ -10,13 +10,18 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { scheduleHref, type ScheduleData, type ScheduleView } from "@/features/schedule/schema";
 import { addDaysYmd } from "@/lib/datetime";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { LiveBadge } from "@/components/shell/live-badge";
+import { inPlace, useScheduleNavigate } from "./navigate";
 
 /**
  * The head of the Schedule (V2-08 08-04b; IA §3.4): the date with previous, next and Today (a week at a time in the week
  * view) and a "Go to date" field, the view switch (Day, Agenda, Week), the doctor filter (chips; one doctor is always chosen
  * in the week view), and the actions Book appointment (`?book=1`, a link, R-13), Waitlist and Block time. Every address
  * (`?date&view&doctor`) is a shareable link.
+ * V2-09e 09E-12 (R-10): every change of date, view or doctor moves the address with `history.pushState` and reads the range query (no page render; a
+ * held week shows with no call); the links stay real links (a new tab or a copied address opens the same view). The live badge shows (R-18).
  */
+
 export interface ScheduleHeadProps {
   data: ScheduleData;
   view: ScheduleView;
@@ -31,7 +36,7 @@ const VIEW_OPTIONS = [
 ] as const;
 
 export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: ScheduleHeadProps) {
-  const router = useRouter();
+  const navigate = useScheduleNavigate();
   const pathname = usePathname();
   const params = useSearchParams();
   const step = view === "week" ? 7 : 1;
@@ -56,25 +61,26 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
       <h1 className="sr-only">Schedule</h1>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
-          <Link href={href({ date: addDaysYmd(data.date, -step) })} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Previous week" : "Previous day"}>
+          <Link href={href({ date: addDaysYmd(data.date, -step) })} prefetch={false} onClick={inPlace(navigate, href({ date: addDaysYmd(data.date, -step) }))} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Previous week" : "Previous day"}>
             <ChevronLeft aria-hidden="true" className="size-4" />
           </Link>
-          <Link href={href({ date: data.today })} className={buttonClassName({ variant: "secondary" })}>
+          <Link href={href({ date: data.today })} prefetch={false} onClick={inPlace(navigate, href({ date: data.today }))} className={buttonClassName({ variant: "secondary" })}>
             Today
           </Link>
-          <Link href={href({ date: addDaysYmd(data.date, step) })} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Next week" : "Next day"}>
+          <Link href={href({ date: addDaysYmd(data.date, step) })} prefetch={false} onClick={inPlace(navigate, href({ date: addDaysYmd(data.date, step) }))} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Next week" : "Next day"}>
             <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         </div>
         <p className="text-body-md font-semibold text-fg" data-schedule-date="">
           {formatClinicDateWithWeekday(data.date)}
         </p>
+        <LiveBadge />
         <div className="w-40">
           <Input
             type="date"
             aria-label="Go to date"
             value={data.date}
-            onChange={(event) => event.target.value && router.push(href({ date: event.target.value }))}
+            onChange={(event) => event.target.value && navigate(href({ date: event.target.value }))}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 max-md:w-full md:ml-auto">
@@ -98,7 +104,7 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
         <SegmentedControl
           aria-label="View"
           value={view}
-          onValueChange={(next) => router.push(href({ view: next as ScheduleView }))}
+          onValueChange={(next) => navigate(href({ view: next as ScheduleView }))}
           options={VIEW_OPTIONS}
         />
         {data.doctors.length > 1 && (
@@ -106,7 +112,7 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
             type="single"
             aria-label="Doctor"
             value={doctorValue}
-            onValueChange={(next) => router.push(href({ doctor: next }))}
+            onValueChange={(next) => navigate(href({ doctor: next }))}
             items={doctorItems}
           />
         )}

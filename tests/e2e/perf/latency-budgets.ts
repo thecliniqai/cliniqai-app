@@ -54,6 +54,11 @@ export interface BudgetRow {
   maxRsc?: number;
   /** `reference` rows (09E-11, B-14): the most bytes the browser may transfer for one catalogue version (blocking). */
   maxBytes?: number;
+  /**
+   * A page row whose step needs no call by design (09E-12, B-9: the Schedule's view switch draws from the week the device already holds): the tracer's
+   * "the navigation waited for at least one call" acceptance does not apply; its ceiling (0 / 0) is the blocking check.
+   */
+  zeroCalls?: true;
 }
 
 const ONE_SECOND = { targetMs: 1_000, maxMs: 1_300, skeletonTargetMs: 150 };
@@ -67,7 +72,7 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   // B-1, B-2: in-app, link click to the first data element
   { id: "in-app.R.today", kind: "page-in-app", budget: "B-1", label: "Receptionist: Today (nav link)", ...ONE_SECOND, owner: "09E-06", pr: true },
   { id: "in-app.R.schedule-day", kind: "page-in-app", budget: "B-1", label: "Receptionist: Schedule, day (nav link)", ...ONE_SECOND, owner: "09E-12", pr: true },
-  { id: "in-app.R.schedule-week", kind: "page-in-app", budget: "B-1", label: "Receptionist: Schedule, week (view switch)", ...ONE_SECOND, owner: "09E-12" },
+  { id: "in-app.R.schedule-week", kind: "page-in-app", budget: "B-1", label: "Receptionist: Schedule, week (view switch)", ...ONE_SECOND, owner: "09E-12", zeroCalls: true },
   { id: "in-app.R.patients", kind: "page-in-app", budget: "B-1", label: "Receptionist: Patients (nav link)", ...ONE_SECOND, owner: "09E-06", pr: true },
   { id: "in-app.R.patient", kind: "page-in-app", budget: "B-1", label: "Receptionist: a patient (row link)", ...ONE_SECOND, owner: "09E-06" },
   { id: "in-app.R.visits", kind: "page-in-app", budget: "B-1", label: "Receptionist: Visits (nav link)", ...ONE_SECOND, owner: "09E-06" },

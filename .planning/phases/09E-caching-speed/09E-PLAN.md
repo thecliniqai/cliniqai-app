@@ -3,12 +3,12 @@ phase: "09E"
 roadmap_id: V2-09e
 name: Caching and speed
 revision: "2026-11-23, second revision: PO decisions 1 to 11 of 2026-11-23 applied (see 'Changes in this revision')"
-gate: "G4 (light, per PR): one isolated reviewer (Sonnet) over the latency lane and its call and depth budgets, the observability path (Server-Timing, the request timing line, real-user monitoring), the client data layer and its clearing, the live convergence (versions, one signal per transaction, heartbeat, badge, dropped-signal recovery), the single read per screen, skeletons at 360/820/1280, saves by risk class, the stale-write refusals, the on-device search parity tables, the schedule data layer and the session bootstrap; one adversarial security reviewer (Opus) over migrations 000122 to 000130 (RUM ingest, clinic versions with their triggers and row versions, consult_screen, today_board, the stale-write commands, the reference catalogues and shard read, schedule_range, session_bootstrap), every new route (RUM, live state, Today board, reference manifest and shards, schedule range, bootstrap), everything held on the device (the IndexedDB catalogues; the in-memory query cache and its clearing at sign-out, clinic switch and lock), proof that fees, billing, payments, subscription, access level, entitlements, roles and permissions are never held, and the confinement of the latency preload to the e2e lane; one fix round (09E-14a, lean process, VERIFICATION_LOG 2026-11-15). The PO approves the gate; if the PO delegates again, approved by delegation with the CI run recorded."
+gate: "G4 (light, per PR): one isolated reviewer (Sonnet) over the latency lane and its call and depth budgets, the observability path (Server-Timing, the request timing line, real-user monitoring), the client data layer and its clearing, the live convergence (versions, one signal per transaction, heartbeat, badge, dropped-signal recovery), the single read per screen, skeletons at 360/820/1280, saves by risk class, the stale-write refusals, the on-device search parity tables, the schedule data layer and the session bootstrap; one adversarial security reviewer (Opus) over migrations 000122 to 000131 (RUM ingest, clinic versions with their triggers and row versions, consult_screen, today_board, the stale-write commands, the reference catalogues and shard read, schedule_range, session_bootstrap), every new route (RUM, live state, Today board, reference manifest and shards, schedule range, bootstrap), everything held on the device (the IndexedDB catalogues; the in-memory query cache and its clearing at sign-out, clinic switch and lock), proof that fees, billing, payments, subscription, access level, entitlements, roles and permissions are never held, and the confinement of the latency preload to the e2e lane; one fix round (09E-14a, lean process, VERIFICATION_LOG 2026-11-15). The PO approves the gate; if the PO delegates again, approved by delegation with the CI run recorded."
 requirements: ["PO directive 2026-11-23: every click and page must feel instant on staging (300-450 ms per Supabase call, Vercel bom1 to Supabase Sydney; staging stays there, production will be Mumbai + Mumbai); the speed must come from the code", "PO priorities 2026-11-23, equal weight: (1) speed, every click instant; (2) real-time shared data across devices and logins: no device silently shows stale critical data and the database decides every write; nothing depends on a browser cookie for correctness (a public booking API with API keys comes later)", "PO decisions 2026-11-23 (second set) 1-11: no server cache and a session bootstrap; real-time convergence by clinic versions with a heartbeat; signals coalesced per transaction; TanStack Query; optimistic by risk class; stale-write refusal; slots only in SQL; blocking call-count and depth budgets with ms report-only; staging region unchanged; observability without a vendor outside India; calendar views next phase", "PO-approved strategy 2026-11-23 items 1, 2, 4-7 (item 3 replaced by decision 1); PO answers Q-2, Q-3, Q-4", "PRD 1-2 s core actions on 3G/4G (PWA_STRATEGY §1.14, §3.9)", "FE-9 performance budgets (report-only until V2-15; this phase adds call and depth budgets that block)", "DESIGN_SYSTEM §6.9 (layout-matching loading.tsx per route group, optimistic UI with rollback, no full-screen spinner)", "TARGET_ARCHITECTURE §3.8, roadmap P1-25, PO-12, C39 (observability; India-resident sink; no vendor outside India)", "TARGET_ARCHITECTURE §9 and ADR-019 (request-scoped caching only; unchanged)", "PWA_STRATEGY §4 D-3, D-4, D-5 (no PHI on the device, no-store PHI responses, purge at sign-out)", "FRONTEND_MIGRATION_PLAN M criterion 6 (Today realtime update visible within 2 s)", "V2-09d hand-offs: per-request memo, signed clinic_ctx cookie, Kong round-trip counter, PR-lane call ceilings, the batched available_slots calls, the remaining page-data duplicates (09D-NOTES)"]
 plans: ["09E-01", "09E-02", "09E-03", "09E-04", "09E-05", "09E-06", "09E-07", "09E-08", "09E-09", "09E-10", "09E-11", "09E-12", "09E-13", "09E-14a", "close"]
 order: "09E-01 -> 09E-02 (measure) -> 09E-03 -> 09E-04 (data layer, convergence) -> 09E-05 -> 09E-06 (one read per screen) -> 09E-07 -> 09E-08 (saves) -> 09E-09 -> 09E-10 -> 09E-11 (catalogues) -> 09E-12 (schedule) -> 09E-13 (bootstrap) -> reviews -> 09E-14a -> close (sequential; one local stack; one executor at a time)"
 preconditions: "V2-09d merged into feature/v2 (09E branches from that merge). Q-1 to Q-4 answered (2026-11-23). Q-5 answered: two PRs, split after 09E-08."
-migrations: {"09E-14a": "000127_review_fixes_09e", "09E-02": "000122_rum_daily", "09E-04": "000123_clinic_versions", "09E-05": "000124_consult_screen", "09E-06": "000125_today_board", "09E-07": "000126_stale_write_refusal", "09E-09": "000128_reference_catalogues", "09E-12": "000129_schedule_range", "09E-13": "000130_session_bootstrap"}
+migrations: {"09E-14a": "000127_review_fixes_09e", "09E-02": "000122_rum_daily", "09E-04": "000123_clinic_versions", "09E-05": "000124_consult_screen", "09E-06": "000125_today_board", "09E-07": "000126_stale_write_refusal", "09E-09": "000128_reference_catalogues", "H-1": "000129_reference_shard_materialized", "09E-12": "000130_schedule_range", "09E-13": "000131_session_bootstrap"}
 migrations_note: "000120_rx_review_fixes is the newest migration; 000121 stays unused (it was reserved for V2-09d, which added none); 09E numbers start at 000122 and run consecutively. Run `ls supabase/migrations | tail -3` at the start of each plan: if a number is taken, take the next free one, shift the later ones and record the numbers in 09E-NOTES.md. Every migration commit also bumps app/api/ready/expected-migration.ts, the schema snapshot, types/database.ts (npm run db:types) and scripts/ci/assert-pgtap-report.mjs (REQUIRED_FILES and FLOOR with the arithmetic in its header). No other plan adds a migration; 09E-14a takes the next free number only if a fix needs SQL."
 new_dependencies: {"@tanstack/react-query": "exact pin of the latest 5.x at install (5.108.4 on 2026-11-23); PO decision 4: one memory-only client data layer instead of four hand-built stores (R-14, 09E-03); legitimacy audit in 09E-RESEARCH-NOTES.md §3"}
 base_commit: "the V2-09d merge commit on feature/v2 (not merged at planning time; v2/phase-09d-request-speed was at 3db8b816)"
@@ -26,7 +26,7 @@ must_haves:
     - "No patient data is stored on the device: only the global drug, diagnosis and substance lists live in one IndexedDB database, deleted at sign-out; the query cache is memory only and cleared at sign-out, clinic switch and lock."
     - "A slow screen on staging can be diagnosed without a vendor: each request's database calls, depth and time in a log line (and Server-Timing on route handlers), real-user p50/p75/p95 per screen in an India-resident table with no PHI, and the top database queries."
   artifacts:
-    - "supabase/migrations/000122_rum_daily.sql, 000123_clinic_versions.sql, 000124_consult_screen.sql, 000125_today_board.sql, 000126_stale_write_refusal.sql, 000128_reference_catalogues.sql, 000129_schedule_range.sql, 000130_session_bootstrap.sql; supabase/tests/database/{rum_daily,clinic_versions,consult_screen,today_board,stale_write_refusal,reference_catalogues,schedule_range,session_bootstrap}.test.sql"
+    - "supabase/migrations/000122_rum_daily.sql, 000123_clinic_versions.sql, 000124_consult_screen.sql, 000125_today_board.sql, 000126_stale_write_refusal.sql, 000128_reference_catalogues.sql, 000129_reference_shard_materialized.sql (H-1), 000130_schedule_range.sql, 000131_session_bootstrap.sql; supabase/tests/database/{rum_daily,clinic_versions,consult_screen,today_board,stale_write_refusal,reference_catalogues,schedule_range,session_bootstrap}.test.sql"
     - "tests/e2e/support/{server-latency.cjs,latency.ts,perf-catalogue.ts}, tests/e2e/perf/{latency-budgets.ts,latency-pages.ts,page-latency.spec.ts}, playwright project perf-latency, npm run perf:latency, the CI budget step, the nightly latency report"
     - "lib/observability/{db-timing.ts,server-timing.ts,rum/catalog.ts,rum/collector.ts}, components/shell/{rum-reporter.tsx,data-ready.tsx}, app/api/rum/route.ts, scripts/perf/{db-top-queries.ts,top-queries.sql,staging-smoke.ts}"
     - "lib/query/{client.ts,provider.tsx,keys.ts,policy.ts,server.ts,mutations.ts}; lib/live/{live-core.ts,provider.tsx,use-live-screen.ts,use-changed-elsewhere.ts,domains.ts}; app/api/live/state/route.ts; components/shell/{live-badge.tsx,changed-elsewhere.tsx}"
@@ -85,7 +85,7 @@ own thinnest end-to-end slice and lowers its rows to their targets when they pas
 - **Slots only in SQL** (decision 7): the TypeScript slot twin is dropped; `schedule_range` returns the slots.
 - **Budgets** (decision 8): calls and depth block in CI; milliseconds are report-only.
 - **Observability** (decision 10): a new plan, 09E-02, right after the latency baseline.
-- Plans renumbered; migrations renumbered 000122 to 000130. The map from the previous numbers is in
+- Plans renumbered; migrations renumbered 000122 to 000130 (later 000131: H-1 added 000129_reference_shard_materialized on 2026-11-25, so schedule_range is 000130 and session_bootstrap 000131). The map from the previous numbers is in
   09E-RESEARCH-NOTES.md §4.
 
 ## Current state (inventory 2026-11-23; tree at 3db8b816 on v2/phase-09d-request-speed)
@@ -108,7 +108,7 @@ own thinnest end-to-end slice and lowers its rows to their targets when they pas
 | Server caching | None: 0 hits for `unstable_cache`, `"use cache"`, `revalidateTag`; Next 16.4.6 without `cacheComponents` | Stays none (PO) | n/a |
 
 Gate scripts today: pgTAP FLOOR 9025 (`scripts/ci/assert-pgtap-report.mjs:158`), Vitest FLOOR 6455 (`assert-vitest-report.mjs:143`,
-re-measured once at the close), `EXPECTED_MIGRATION = "000120"` (000130 at the end of the phase), the consult route's first-load
+re-measured once at the close), `EXPECTED_MIGRATION = "000120"` (000131 at the end of the phase), the consult route's first-load
 JS against the 200 kB report-only budget (`npm run ci:route-js`), e2e job timeout 95 minutes with the PR lane at about 85.
 
 ## Decisions recorded (formerly "Conflicts for the PO")
@@ -729,19 +729,19 @@ exactly 1 when the tail is needed; offline shows the local ranks; the 09C keyboa
 Run: Vitest `tests/reference tests/prescriptions`; e2e `tests/e2e/reference tests/e2e/consult/rx-*`, then the full PR lane once.
 Done: B-4 and B-14 met for medicines on the full-size synthetic catalogue, or R-7's fallback recorded and the PO told.
 
-### 09E-12 Schedule data layer: one range read with SQL slots, prefetch, live · L · migration 000129_schedule_range · split point after step 3
+### 09E-12 Schedule data layer: one range read with SQL slots, prefetch, live · L · migration 000130_schedule_range (renumbered from 000129: H-1 took 000129) · split point after step 3
 
 Goal: R-10. The schedule's day and week views read a range query; free slots come from SQL; adjacent ranges are ready; changes made elsewhere
 appear within 2 s, or within the heartbeat bound if the signal is dropped.
 
-Files: `supabase/migrations/000129_schedule_range.sql`; new `supabase/tests/database/schedule_range.test.sql`; `features/schedule/{queries.ts,schema.ts}`;
+Files: `supabase/migrations/000130_schedule_range.sql`; new `supabase/tests/database/schedule_range.test.sql`; `features/schedule/{queries.ts,schema.ts}`;
 new `app/api/schedule/range/route.ts`; `lib/query/keys.ts` (`keys.scheduleRange(tenantId, from, to, withSlots)`); `app/(dashboard)/schedule/page.tsx`;
 `components/schedule/{schedule-view.tsx,day-grid.tsx,week-overview.tsx,schedule-head.tsx,agenda.tsx}`;
 `components/front-desk/{slot-section.tsx,slot-adapter.ts,booking-sheet.tsx,reschedule-sheet.tsx}`; new `tests/e2e/schedule/schedule-live.spec.ts`;
 `tests/e2e/shell/query-clear.spec.ts`; `scripts/perf/command-latency.ts`; `tests/e2e/perf/latency-budgets.ts`; registries.
 
 1. Tracer: the day view from `schedule_range` (one call) with its slots for one doctor; row `nav.schedule.day` lowered to 1 call, depth 1.
-2. Migration 000129: `public.schedule_range(p_tenant_id uuid, p_from date, p_to date, p_include_slots boolean DEFAULT true) RETURNS jsonb`
+2. Migration 000130: `public.schedule_range(p_tenant_id uuid, p_from date, p_to date, p_include_slots boolean DEFAULT true) RETURNS jsonb`
    (STABLE INVOKER, `appointments:view`; NULL when the range is reversed or longer than 42 days): `zone`, `server_now`, `clinicians` (owners and
    doctors with `consultations:edit`, active: id, display name as `private.doctor_display_name` builds it, slot minutes floored at 5,
    `private.effective_schedule`), `blocks`, `visits` (the fields the cards and booking sheets use today, plus `row_version`; nothing more),
@@ -769,12 +769,12 @@ Run: Vitest `tests/schedule tests/realtime tests/visits`; full pgTAP; e2e `tests
 tests/e2e/journeys/journey-04-book-appointment.spec.ts`, then the full PR lane once.
 Done: B-1, B-9, B-10, B-11 met for the schedule; slots from SQL only; the range read serves 42 days.
 
-### 09E-13 Session bootstrap · S-M · migration 000130_session_bootstrap
+### 09E-13 Session bootstrap · S-M · migration 000131_session_bootstrap (renumbered from 000130: H-1 took 000129)
 
 Goal: R-13. Profile, clinic name and zone, display role, doctor directory names and Rx print display settings load once and stay in memory for
 the session; screens stop reading them per request; everything critical is still read fresh.
 
-Files: `supabase/migrations/000130_session_bootstrap.sql`; new `supabase/tests/database/session_bootstrap.test.sql`; new
+Files: `supabase/migrations/000131_session_bootstrap.sql`; new `supabase/tests/database/session_bootstrap.test.sql`; new
 `features/session/bootstrap.ts` (zod strict view model: the allow-list of fields); new `app/api/session/bootstrap/route.ts`;
 `app/(dashboard)/layout.tsx` (on a full load the bootstrap read runs beside the layout's existing read, depth unchanged, and hydrates
 `keys.bootstrap(tenantId)`); `lib/query/keys.ts`; new `lib/session/use-bootstrap.ts`; consumers: the shell (clinic name, user menu),
@@ -783,7 +783,7 @@ zone, the Rx preview's display settings; `features/staff/actions.ts` (the direct
 `tests/e2e/shell/bootstrap.spec.ts`; `tests/e2e/shell/query-clear.spec.ts`.
 
 1. Tracer: `session_bootstrap` with the clinic name and zone; the shell reads it; a settings signal from another device refreshes it.
-2. Migration 000130: `public.session_bootstrap(p_tenant_id uuid) RETURNS jsonb` (STABLE INVOKER; active member; NULL otherwise): `profile`
+2. Migration 000131: `public.session_bootstrap(p_tenant_id uuid) RETURNS jsonb` (STABLE INVOKER; active member; NULL otherwise): `profile`
    (own user id, display name), `clinic` (id, name, zone, `Asia/Kolkata` when unset), `role` (display only), `doctors` (ids and display names
    of the active owners and doctors with `consultations:edit`), `rx_print` (the display fields of the print settings), `versions.settings` from
    the same statement. No fee, price, invoice, payment, subscription, access, entitlement or permission field.
@@ -950,7 +950,7 @@ PO actions at the close: `09E-P1` the gate; `09E-P2` a 10-minute walkthrough on 
 search a drug and a diagnosis, add three Rx lines, book from Schedule, on a phone and a desktop, with a second device open on Today), then run
 `npm run perf:staging-smoke` (you sign in; it writes a timing report) and, after a day of use, paste the output of `ops.rum_report(7)` and of
 `scripts/perf/top-queries.sql` from the staging SQL editor (both read-only); the device checklist (low-end Android: catalogue download time,
-search speed, memory; iPad: the same); `09E-P3` staging migrate of 000122 to 000130 (not delegated); `09E-P4` read-only check on staging of
+search speed, memory; iPad: the same); `09E-P3` staging migrate of 000122 to 000131 (not delegated); `09E-P4` read-only check on staging of
 `lc_collate`, `lc_ctype`, the JWT signing algorithm and that `pg_stat_statements` is enabled; `09E-P5` answer Q-5 and confirm the doc
 amendments A-1 to A-14.
 

@@ -34,6 +34,8 @@ import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
 import { TENANT_HEADER } from "@/lib/live/clinic-header";
+import { rangeOfDate } from "@/features/schedule/range";
+import { todayInTz } from "@/lib/datetime";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -1311,9 +1313,12 @@ export async function sessionBoardRouteLegs(
   const role = leastPrivilegedHolding(guard.permission);
   const client = world.roles[role].client;
   await world.aRows({ userId: world.roles[role].userId, role });
+  // 09E-12: a range route is asked for the current clinic week (Asia/Kolkata), so the seeded rows of today are in it.
+  const week = guard.currentWeek ? rangeOfDate(todayInTz("Asia/Kolkata")) : null;
+  const base: Record<string, string> = week ? { from: week.from, to: week.to } : {};
   for (const [leg, query] of [
-    ["own clinic", {}],
-    ["forged tenant parameters", { tenant: world.b.tenant, tenantId: world.b.tenant }],
+    ["own clinic", base],
+    ["forged tenant parameters", { ...base, tenant: world.b.tenant, tenantId: world.b.tenant }],
   ] as const) {
     const r = await callRoute(slot, client, c, { query });
     out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
@@ -1327,8 +1332,8 @@ export async function sessionBoardRouteLegs(
       out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
     }
   }
-  out.push(...(await clinicChangedLegs(slot, c, world, client, world.roles[role].tenantId)));
-  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...(await clinicChangedLegs(slot, c, world, client, world.roles[role].tenantId, base)));
+  const locked = await callRoute(slot, world.lockedOwner.client, c, { query: base });
   out.push(...expectStatus(c, "locked clinic", locked, [403]));
   if (!locked.body.includes("SUBSCRIPTION_LOCKED")) out.push(routeV(c, "locked clinic", `no SUBSCRIPTION_LOCKED code: ${brief(locked.body)}`));
   return out;

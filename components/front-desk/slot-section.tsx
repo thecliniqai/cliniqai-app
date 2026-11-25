@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DayStrip } from "@/components/ui/day-strip";
@@ -11,6 +12,7 @@ import { ChipGroup } from "@/components/ui/chip-group";
 import { SlotPicker, type Slot } from "@/components/ui/slot-picker";
 import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
 import { getAvailableSlots } from "@/features/visits/scheduling";
+import { freeSlotsOf as rangeFreeSlots, serverNowOf, type ScheduleRange } from "@/features/schedule/range";
 import { suggestSlots, type FreeSlot, type TimeBand } from "@/features/visits/suggest-slots";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicTime } from "@/lib/datetime/format";
@@ -29,6 +31,9 @@ import { earliestSlot, slotLengths, toPickerSlots } from "./slot-adapter";
  * doctor's average consult, ranked by the patient's usual time of day and then the earliest, show above the picker as chips
  * labelled "Smart Assist", and `preselect` chooses the first of them instead of the earliest free slot. Without `assist` the
  * section behaves as before. `assistPending` holds the preselection back until the assist inputs have arrived.
+ * V2-09e 09E-12 (R-10): when the Schedule's range query holds the date and the doctor (a booking opened from the Schedule), the slots come from it (the
+ * same SQL list, read with the range; kept current by the live layer) with no call; otherwise, and always for a move (the visit's own slot must be listed
+ * again), `getAvailableSlots` as before.
  */
 export interface SlotPlan {
   doctorId: string;
@@ -63,6 +68,16 @@ interface Loaded {
   error: string | null;
 }
 
+/** The free slots of (doctor, date) from a Schedule range the device holds, or null when none holds them. */
+function slotsFromRanges(queryClient: QueryClient, doctorId: string, date: string, timeZone: string): { slots: Slot[]; minutes: Map<string, number> } | null {
+  for (const [, range] of queryClient.getQueriesData<ScheduleRange>({ predicate: (q) => q.queryKey[1] === "schedule" && q.queryKey[4] === "slots" })) {
+    if (!range?.slots || range.from > date || range.to < date || !range.clinicians.some((c) => c.id === doctorId)) continue;
+    const free = rangeFreeSlots(range, doctorId, date, timeZone, serverNowOf(range));
+    return { slots: free.map((f) => ({ time: f.time })), minutes: new Map(free.map((f) => [f.time, f.minutes])) };
+  }
+  return null;
+}
+
 /** Free grid slots (clinic `HH:mm` and length) for the suggestions. */
 function freeSlotsOf(minutes: ReadonlyMap<string, number>): FreeSlot[] {
   return [...minutes].map(([time, length]) => ({ time, minutes: length }));
@@ -80,6 +95,7 @@ export function SlotSection({
 }: SlotSectionProps) {
   const timeZone = useClinicTimeZone();
   const today = useClinicToday();
+  const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [otherTime, setOtherTime] = useState(false);
@@ -87,8 +103,13 @@ export function SlotSection({
   const preselected = useRef<string | null>(null);
   const assistLabelId = useId();
 
+  // The Schedule's range holds this day (a booking, not a move): no call. The first try only: "Try again" always asks the server.
+  const held = useMemo(
+    () => (plan.doctorId && !excludeVisitId && attempt === 0 ? slotsFromRanges(queryClient, plan.doctorId, plan.date, timeZone) : null),
+    [queryClient, plan.doctorId, plan.date, excludeVisitId, attempt, timeZone],
+  );
   useEffect(() => {
-    if (!plan.doctorId) return;
+    if (!plan.doctorId || held) return;
     let live = true;
     void getAvailableSlots(plan.doctorId, plan.date, excludeVisitId)
       .then((result) => {
@@ -109,9 +130,12 @@ export function SlotSection({
     };
     // `key` carries doctor, date, excluded visit and the retry counter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, timeZone]);
+  }, [key, timeZone, held]);
 
-  const current = loaded?.key === key ? loaded : null;
+  const current = useMemo<Loaded | null>(
+    () => (held ? { key, slots: held.slots, minutes: held.minutes, error: null } : loaded?.key === key ? loaded : null),
+    [held, key, loaded],
+  );
   const slots = current?.slots ?? [];
   const suggestions = useMemo(
     () =>

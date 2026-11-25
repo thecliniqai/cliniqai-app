@@ -1,13 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { buttonClassName } from "@/components/ui/button";
 import { scheduleHref, type ScheduleData } from "@/features/schedule/schema";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { inPlace, useScheduleNavigate } from "./navigate";
 
 /**
  * The week overview (V2-08 08-04b): one doctor, seven days from Monday, with the booked and free counts of each and a link to
  * the day. Free counts are the database's own slot list (`available_slots`). Days in the past show their bookings only.
  */
 export function WeekOverview({ data }: { data: ScheduleData }) {
+  const navigate = useScheduleNavigate();
   if (!data.week) {
     return <p className="text-body-sm text-fg-muted">Pick a doctor to see their week.</p>;
   }
@@ -29,6 +33,8 @@ export function WeekOverview({ data }: { data: ScheduleData }) {
               </span>
               <Link
                 href={scheduleHref({ date: day.date, view: "day", doctor: data.week!.doctorId, today: data.today })}
+                prefetch={false}
+                onClick={inPlace(navigate, scheduleHref({ date: day.date, view: "day", doctor: data.week!.doctorId, today: data.today }))}
                 className={buttonClassName({ size: "sm", variant: "secondary" })}
                 aria-label={`Open ${formatClinicDateWithWeekday(day.date)}`}
               >

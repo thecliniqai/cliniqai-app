@@ -1201,3 +1201,149 @@ Cache audit green with the medicine shards stored (shapes already allowed in 09E
   read, fixed), then `rx-allergy` ×3 on desktop: 32 passed.
 - Lane `perf-latency --grep @budget --retries=0` on the final tree: **16 passed** (incl. `type.D.diagnosis` 0/0 33 ms, `type.D.substance` 0/0 29 ms; the two medicine rows `fixme`, H-1).
 - Not run: the full PR lane, full Vitest, the nightly lane (CI).
+
+## 09E-12 Schedule data layer: one range read with SQL slots, prefetch, live
+
+Branch `v2/phase-09e-pr2-search-schedule`. Migration **`000130_schedule_range`** (planned as 000129; H-1 took 000129, so this is 000130 and 09E-13's
+`session_bootstrap` becomes **000131**; renumbered in `09E-PLAN.md`: front matter `migrations:`, the file list, the 09E-12 and 09E-13 headings and steps, the
+gate's and `09E-P3`'s ranges, `EXPECTED_MIGRATION` at the end of the phase). No new dependency. Steps 1 to 3 (the split point) and 4 to 5 shipped in one commit.
+**Sign and Bill `expectedVersion`** (the 09E-07 PO question 1, "09E-12 candidate"): **not included**: the plan's 09E-12 section does not list it (it would
+need `consult_screen` replaced); it stays a PO question.
+
+### What shipped
+
+- **000130** (`supabase/migrations/000130_schedule_range.sql`): `public.schedule_range(p_tenant_id, p_from, p_to, p_include_slots DEFAULT true) RETURNS jsonb`,
+  STABLE INVOKER, `search_path ''`, EXECUTE `authenticated` only. `appointments:view` (`public.has_permission`); NULL for no session, another clinic, a forged or
+  unknown tenant, a clinic that is not full, a NULL argument, a reversed range or more than 42 days. One statement answers `zone`, `server_now`, `versions`
+  {schedule, queue} (same snapshot), `clinicians` (active doctors and the practising owner: id, full_name, specialty, slot_minutes floored at 5, the effective
+  weekly schedule), `blocks` touching the range, the range's non-cancelled scheduled `visits` (the card's fields + `row_version`, patient name), the waiting
+  `waitlist` of the range, and `slots` (unless `p_include_slots` is false): per clinician and clinic date `[[start minute from local midnight, length], …]`
+  from **`public.available_slots`** (the definer wrapper of `private.available_slots_core`, the list the booking commands check). No slot rule in SQL or
+  TypeScript beyond that call.
+- **Server**: `features/schedule/queries.ts` is now `getScheduleRange` (one `rpc`, the user's JWT client; the 09D per-(doctor, date) `available_slots`
+  batching and the directory/zone/visits/blocks/waitlist reads of `getSchedule` are gone from the Schedule's path). **Route** `GET /api/schedule/range?from&to[&slots=0]`
+  (`resolveServiceContext("appointments:view")`; 401, 403, 403 `SUBSCRIPTION_LOCKED`, 503, 409 `CLINIC_CHANGED`, 400 `INVALID_RANGE` before any read,
+  500; `private, no-store`; `timedRoute`). Guard manifest entry (kind `session-board`, new `currentWeek` flag), `server-routes.ts` regenerated, inventory 0 flagged.
+- **Pure model** `features/schedule/range.ts`: the answer's parser, `rangeOfDate` (the Monday-to-Sunday week that holds a date), `adjacentRanges`, `isRangeOk`
+  (the route's check), `rangeVersions` (the live core's basis), `buildScheduleData` (day, agenda and week from one range: visits by clinic date, blocks clipped
+  to the day, waitlist of the date, week counts, the role's edit and block rights, names as the directory formats them), `freeSlotsOf` and `serverNowOf`
+  (slots that have started are hidden by the device clock corrected by its offset to `server_now`, taken when the range is first seen; display only).
+- **Client** (`components/schedule/use-schedule-range.ts`, `schedule-view.tsx`, `navigate.ts`, `schedule-head.tsx`, `week-overview.tsx`): one query per week,
+  key `queryKeys.scheduleRange(tenant, from, to, withSlots)` (ids and dates only), `meta {live, domains: [schedule, queue]}`, `staleTime: Infinity` (the live
+  core re-reads the visible range on a newer version and removes the others); the page reads the week of the date (or of the clinic's today: read in the
+  default zone, read again only if the clinic's own today falls in another week) and hydrates it with its versions as the basis; changing day, week, view or
+  doctor moves the address with `history.pushState` (links stay real links; modified clicks open new tabs) and reads the query; once the visible week settles
+  the weeks before and after are prefetched (`x-clinicos-prefetch: 1`); the Schedule is a live screen (`useLiveScreen`) and shows the `LiveBadge`; the
+  skeleton shows while a week not held is read.
+- **Booking sheet** (`components/front-desk/slot-section.tsx`): a booking whose doctor and date a held range covers takes its slots from the range (no call);
+  a move (`excludeVisitId`) and "Try again" still call `getAvailableSlots`.
+- **After a save** (`lib/query/after-save.ts`): the Schedule's ranges are invalidated (one range GET, no `router.refresh`); a sheet that closes by its URL still
+  renders the page once (it hands the fresh range over).
+- `scripts/perf/command-latency.ts`: `range: schedule_range (42 days, 3 clinicians, 600 visits, slots)`, target p95 < 100 ms.
+
+### Specs
+
+- **pgTAP `schedule_range.test.sql` (78)**: grants (INVOKER, `search_path`, EXECUTE authenticated only; anon and service_role refused); 10 NULL cases; 42 days
+  answer, 43 do not; every member role answers; exact key sets of the answer, a clinician, a visit, a block, a waitlist entry, a slot entry; no `slots` key with
+  `p_include_slots false`; versions equal `clinic_versions`; the rows (week's visits without the cancelled one, outside the range or B's; blocks touching the
+  week; waiting entries only; clinicians without admin, receptionist, nurse, removed doctor or a non-practising owner; a NULL schedule returned equal to
+  `private.effective_schedule(null)`); **slots equal `public.available_slots` in a 25-case table** (default hours, Saturday, Sunday off, two shifts, a disabled
+  day with shifts, a night shift whose UTC day differs, 5-minute slots under a 20-minute booking, 45-minute slots, clinic-wide block, own block, overbooked /
+  booked / cancelled / no-show / confirmed, a day blocked all day, a past day, today, New York on an ordinary Sunday and on the fall-back Sunday, a disabled
+  Monday, later weeks).
+- **Vitest `tests/schedule/schedule-range.spec.ts` (16)**: the range of a date and its neighbours, the route's check, the key, the parser, the basis, the builder
+  (visits by clinic date, past slots hidden by the server-corrected clock, doctor filter, block clipping, waitlist, week counts, role rights), the clock offset.
+  `tests/schedule/schedule-slot-round.spec.ts` **deleted** (it tested the 09D batching the Schedule no longer has).
+- **Guard legs** (`tests/security/guard-routes.spec.ts`, `session-board` on `app/api/schedule/range`): 401, 403, no membership, the holder 200 `no-store` with
+  exactly the keys, forged `?tenant=` changes nothing and nothing of B, 409 for another clinic's header, 200 for its own, locked 403.
+- **e2e `tests/e2e/schedule/schedule-live.spec.ts`** (3 projects): B-11 a booking committed elsewhere appears in the open day view within 2 s and its slot
+  disappears, 0 RSC; Realtime refused: it appears once the page clock passes 12 s; B-9 the next day (same week) and Monday of the next week show with no read
+  of their range (prefetched); B-10 a date three weeks away is one read of its week; the route serves 42 days with one `schedule_range` call (no per-part
+  read), refuses 43 (400), `slots=0` has no `slots`; a slot still shown that someone else booked is refused by the command (the existing "Slot Already Booked"
+  question; one visit in the database). **`tests/e2e/shell/query-clear.spec.ts`** + one case: after a clinic switch and after a sign-out, no appointment of the
+  other clinic ever renders on the Schedule.
+
+### Fails-without (High: `schedule_range` for another clinic)
+
+The function was re-created inside a rolled-back pgTAP transaction **without its `has_permission` check** and the 78 cases run against it: **1 failed**: the
+owner of a clinic that is not full got that clinic's schedule (clinicians, zone, versions) instead of NULL. The other-clinic and forged-tenant cases stayed NULL
+because RLS hides another clinic's `tenants` row (the function returns NULL when it cannot read its own clinic): defence in depth, so the plan's "another
+clinic's visits come back" does not happen; what the check uniquely enforces is the full-clinic (access) gate. Restored; the committed file passes 78 of 78.
+
+### Budget rows (tool output `evidence/09E-12/schedule-rows-300ms.{json,md}`, merged onto `evidence/H-1/medicine-row-300ms.json`; ceilings by `latency-ceilings.mjs --write`, none raised)
+
+| Row | Before (calls / depth) | After (calls / depth, median ms) |
+| --- | --- | --- |
+| `in-app.R.schedule-day` (B-1, `@budget`) | 8 / 7 | **1 / 1**, 479 ms |
+| `in-app.R.schedule-week` (B-1; now B-9-like: same week) | 15 / 8 | **0 / 0**, 40 ms |
+| `full.R.schedule-day` (B-3) | 11 / 7 | **4 / 3**, 1,524 ms |
+| `full.R.schedule-week` (B-3) | 18 / 8 | **4 / 3**, 807 ms |
+| `save.R.book` (B-7) | 9 / 8 | **4 / 3**, 903 ms |
+| `save.R.register-book` (B-7) | 9 / 8 | **4 / 4**, 937 ms |
+| `save.R.reschedule` (B-7) | 9 / 8 | **4 / 4**, 855 ms |
+| `save.R.cancel` (B-7) | 10 / 8 | **2 / 2**, 804 ms |
+
+(The full-load rows' other calls are the shell's: membership, notifications.) Lane: `--grep "schedule|save.R.(book|register-book|cancel)" --retries=0`
+after `stack:recycle`: **16 passed**. The first run counted the two prefetch reads inside the step's window (3 calls) and failed the week row's tracer check
+(0 calls: the view switch now draws from the held week); both root-caused, not retried: prefetches carry `x-clinicos-prefetch: 1` and the lane holds them
+like the shell's other background work (`holdBackground`); the row is flagged `zeroCalls` (its 0/0 ceiling is the blocking check).
+
+`command-latency.ts` (tool output `evidence/09E-12/command-latency.json`, 100 calls, 0 errors): **`schedule_range` 42 days, 3 clinicians, 600 visits, with
+slots: p50 305.0, p95 368.9 ms: over R-16's 100 ms target** (the script exits 1 on it, and on the reads already over target; this run was slower across the
+board: today_board 213.5, consult_screen 139.2). The cost is the slot list: 42 × 3 calls of `available_slots` (one per clinician and date, each re-checking the
+permission and scanning blocks and visits). The Schedule itself reads 7-day ranges (the lane's B-1 row: 1 call, 479 ms at 300 ms injected); 42 days serve the
+future month view. Not changed here (it would mean a set-based slot core: a change to `private.available_slots_core`, outside this plan): PO question 2.
+
+### Decisions and deviations
+
+- **One range = the Monday-to-Sunday week** of the date; the day, agenda and week views are all built from it, so a day change within a week and the view
+  switch need no call, and the prefetch of the weeks before and after covers B-9 at week edges. The page reads that week; the route serves any 1 to 42 days.
+- **`waitlist` added to the answer** (not in the plan's field list): the Schedule's head shows the waiting count and the sheet lists them; without it the page
+  needs a second read (depth 2). Patient name only, like the visits; `waitlist_entries` already moves the `schedule` domain (000123).
+- **Clinician names**: `schedule_range` returns `full_name`; the device formats it with `formatDoctorDisplayName` (as the screen did) instead of
+  `private.doctor_display_name`, which an INVOKER function cannot call (no EXECUTE for `authenticated` on `private.*`). For the same reason the slots come
+  through the public definer wrapper `available_slots` (same core), and the default weekly schedule is the same literal as `private.default_weekly_schedule`
+  (pgTAP asserts equality). Clinicians are the Schedule's directory (doctors, the owner when practising), ordered by membership creation (the old read had no order).
+- **Not in this plan**: the booking sheets' doctor list still comes from `useClinicDoctors` (09E-13 moves the directory to the bootstrap); a move keeps
+  `getAvailableSlots` (its own visit must be listed again, which the range's slots do not do); no lane rows were added for B-9 / B-10 (asserted by the e2e;
+  `in-app.R.schedule-week` is now a 0-call row); `staleTime: Infinity` on ranges (freshness is the live core's job: re-read the visible, remove the others).
+- **The lane holds the Schedule's prefetch** (`x-clinicos-prefetch: 1`) during a measured window, as it holds the status check and the catalogue sync.
+- **Finding, not changed (PO question 3)**: `private.available_slots_core` (000103) raises 22000 ("range lower bound must be less than or equal to range upper
+  bound") on a spring-forward day for a shift across the missing hour in a zone with daylight saving (slot 02:30 EST .. 03:00 EDT). `available_slots` fails
+  today; `schedule_range` fails the same way for a range containing that day (pgTAP case 19 records both). No effect in Asia/Kolkata.
+- Affected-test grep (`data-schedule|data-day-grid|data-week-overview|getSchedule|/schedule`): m0/{book,cancel}-appointment, consult/smart-assist,
+  today/review-fixes-08-06a, shell/{clinic-zone-hydration,loading-states,query-clear}, design/screens/{schedule,screenshot-set}, pwa/{13-idempotent-retry,
+  10-ipados,ui-checks-06-06}, perf/{latency-pages,latency-saves,page-roundtrips}, schedule/schedule, jobs/run-route, journeys/journey-04, support/app-env,
+  subscriptions/locked; Vitest `tests/schedule/schedule-slot-round` (deleted).
+
+### Security-sensitive for the adversarial review
+
+`supabase/migrations/000130_schedule_range.sql` (INVOKER, `appointments:view`, NULL cases, 42-day cap, fields beyond the screen, the call into the definer
+`available_slots`, waitlist names), `supabase/tests/database/schedule_range.test.sql`; `app/api/schedule/range/route.ts` (session, permission, tenant from the
+session, 409 before the read, 400 before the read, `no-store` for patient names); `features/schedule/{queries,range}.ts`; the query keys (`lib/query/keys.ts`:
+dates and ids only) and the range cache in memory (cleared with the client at sign-out, switch, lock; the query-clear case); `components/front-desk/slot-section.tsx`
+(slots from a held range: display only, the command re-checks); the guard manifest entry and engine change (`tests/security/guard-manifest.ts`,
+`tests/security/guard/engine.ts`); the lane's prefetch hold (`tests/e2e/perf/latency-run.ts`). No service-role client, no cookie, no PHI on the device beyond
+the in-memory query (as Today).
+
+### For the PO
+
+1. Sign and Bill with the visit's version (09E-07 question 1) is still open: not in 09E-12's plan.
+2. `schedule_range` for 42 days with slots is p95 369 ms locally (target 100 ms); the screen's 7-day reads are within budget. Accept until the month view is
+   built, or plan a set-based slot core then?
+3. The daylight-saving fault of the slot core (above): fix in a later migration (no Indian clinic is affected)?
+
+### Tests run (local stack, `stack:recycle` before each e2e and lane run, `--retries=0`)
+
+- `npm run typecheck` clean; eslint on the touched trees 0 problems; `npm run inventory` 0 flagged; `client-routes --check` PASS; `ci:ui-policy` PASS;
+  schema snapshot `--check` PASS after `db reset --local`.
+- pgTAP (after `db reset --local`): **9,831 tests in 78 files, 0 failed**, gate PASS at floor 9,831 (9,753 + 78). `schedule_range` 78 of 78.
+- Vitest `tests/schedule tests/query tests/observability tests/security/guard-routes.spec.ts tests/realtime tests/visits tests/live tests/ci
+  tests/api/readiness-probe-db.spec.ts`: 83 files, 1,280 tests: 1,279 passed, 1 failed = the new guard leg (the clinic-changed and locked legs called the
+  range route without its dates: 400; fixed in the engine) → `session-board` legs 4 of 4.
+- e2e (3 projects): `schedule/*` + `shell/query-clear`: 53 passed, 2 failed (the 42-day case counted the shell's background reads of an open page in its
+  Kong window; the window now runs with no page open and asserts one `schedule_range` call and no per-part read) → `schedule-live` 19 of 19. Affected:
+  `today/*`, `live/*`, `journeys/journey-04`, `m0/{book,cancel}-appointment`, `shell/{loading-states,clinic-zone-hydration}`, `pwa/13-idempotent-retry`,
+  `subscriptions/locked`: **185 passed, 61 skipped by design, 0 failed**.
+- Lane: the schedule rows (above), 16 passed. Not run: the full PR lane, the nightly lane, full Vitest, the design projects (no screenshot changed; the badge
+  in the head is checked by `schedule.spec` "no horizontal scroll and axe" on the three projects) (CI runs them).

@@ -66,7 +66,7 @@ test.describe("page rows, in-app (B-1, B-2)", () => {
         });
         expect(result.samples.length).toBeGreaterThan(0);
         // The tracer's own acceptance: a navigation made calls, waited for them (depth >= 1 above 0 ms) and took time.
-        if (LATENCY_MS > 0) expect(result.depth!.max, def.id).toBeGreaterThanOrEqual(1);
+        if (LATENCY_MS > 0 && !budgetRow(def.id).zeroCalls) expect(result.depth!.max, def.id).toBeGreaterThanOrEqual(1);
         expect(result.ms.median, def.id).not.toBeNull();
         clearSupabaseLatency();
       });

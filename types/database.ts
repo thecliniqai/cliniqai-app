@@ -3931,6 +3931,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      schedule_range: {
+        Args: {
+          p_from: string;
+          p_include_slots?: boolean;
+          p_tenant_id: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
       search_diagnoses: {
         Args: {
           p_limit?: number;

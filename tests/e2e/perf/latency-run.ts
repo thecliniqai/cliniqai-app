@@ -103,6 +103,11 @@ export async function holdBackground(page: Page, opts: { health?: boolean } = {}
   // V2-09e 09E-09 (R-5): the reference catalogue sync (after first paint, on resume) is the shell's own background work, not the step's: refused while a
   // window measures, like the status check (the device then answers from what it already holds, or the search route).
   await page.route("**/api/reference/**", (route) => (holds.status ? route.fulfill({ status: 503, body: "" }) : route.fallback()));
+  // V2-09e 09E-12 (R-10): the Schedule's prefetch of the adjacent weeks (marked `x-clinicos-prefetch: 1`) starts once the visible week has settled; it is the
+  // screen's read-ahead, not the step's cost: refused while a window measures (the week is then read when it is shown). The visible week's reads pass.
+  await page.route("**/api/schedule/range**", (route) =>
+    holds.status && route.request().headers()["x-clinicos-prefetch"] === "1" ? route.fulfill({ status: 503, body: "" }) : route.fallback(),
+  );
   return holds;
 }
 

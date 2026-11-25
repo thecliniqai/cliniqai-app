@@ -11,6 +11,8 @@ export type QueryKey = readonly [tenantId: string, ...rest: readonly string[]];
 export const queryDomains = {
   /** The board shows visits (schedule, status), queue tokens and vitals (queue) and invoices and payments (billing). */
   today: ["queue", "schedule", "billing"],
+  /** The Schedule's range (09E-12): visits, blocks, waitlist and slots (schedule) and visit statuses (queue). */
+  schedule: ["schedule", "queue"],
 } as const satisfies Record<string, readonly ("schedule" | "queue" | "billing" | "settings")[]>;
 
 export const queryKeys = {
@@ -22,6 +24,10 @@ export const queryKeys = {
   consult: (tenantId: string, visitId: string) => [tenantId, "consult", visitId] as const,
   /** Every Today query of the clinic (a signal or a resume invalidates this prefix). */
   todayAll: (tenantId: string) => [tenantId, "today"] as const,
+  /** The Schedule of a range of clinic dates (09E-12, R-10): `[tenantId, "schedule", from, to, "slots" | "counts"]`. Dates and a mode only. */
+  scheduleRange: (tenantId: string, from: string, to: string, withSlots: boolean) => [tenantId, "schedule", from, to, withSlots ? "slots" : "counts"] as const,
+  /** Every Schedule range of the clinic. */
+  scheduleAll: (tenantId: string) => [tenantId, "schedule"] as const,
 } satisfies Record<string, (...args: never[]) => QueryKey>;
 
 declare module "@tanstack/react-query" {

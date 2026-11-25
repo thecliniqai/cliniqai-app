@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { TodayBoard } from "@/features/today/schema";
 
@@ -12,10 +11,17 @@ import type { TodayBoard } from "@/features/today/schema";
  * - Today's boards (the query layer, `[clinic, "today", mode]`): a status change the answer fully describes is written with `setQueryData`
  *   (`patchTodayBoards`); a change that adds a row or moves one off the day (a walk-in, a booking, a reschedule, a payment) marks the boards stale, and
  *   the one `GET /api/today/board` read replaces them (`staleToday`; the same read a live signal makes). Other devices converge through the live layer.
- * - The Schedule is still a server-rendered screen until 09E-12 puts it on the query layer: while it is the screen on show, the save refreshes its route
- *   (one RSC request). That is the only place a save still re-renders a page.
+ * - The Schedule's ranges (09E-12, `[clinic, "schedule", from, to, mode]`): every confirmed save marks them stale; the visible one is read again (one
+ *   `GET /api/schedule/range`, no page render) and the others are read when shown. A sheet that closes by dropping its URL parameter renders the page
+ *   once anyway (`closing`): that render hands the page's fresh range to the query.
  */
 const isTodayQuery = (key: readonly unknown[]): boolean => key[1] === "today";
+const isScheduleQuery = (key: readonly unknown[]): boolean => key[1] === "schedule";
+
+/** Marks every cached Schedule range stale and reads the visible one (one GET). An own write: a read in flight may predate it, so it is replaced. */
+export function staleSchedule(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ predicate: (q) => isScheduleQuery(q.queryKey) }, { cancelRefetch: true });
+}
 
 /** Writes `patch` into every cached Today board of the clinic. */
 export function patchTodayBoards(queryClient: QueryClient, patch: (board: TodayBoard) => TodayBoard): void {
@@ -37,30 +43,27 @@ export interface AfterSaveOptions {
 }
 
 export interface AfterSave {
-  /** A status change the answer describes: written into the boards. On the Schedule the route is refreshed too (unless the caller closes by URL). */
+  /** A status change the answer describes: written into the boards; the Schedule's ranges are read again (unless the caller closes by URL). */
   patchToday: (patch: (board: TodayBoard) => TodayBoard, options?: AfterSaveOptions) => void;
-  /** A change that adds or moves rows: the boards are read again. On the Schedule the route is refreshed too (unless the caller closes by URL). */
+  /** A change that adds or moves rows: the boards and the Schedule's ranges are read again (the ranges unless the caller closes by URL). */
   refreshScreens: (options?: AfterSaveOptions) => void;
 }
 
 export function useAfterSave(): AfterSave {
   const queryClient = useQueryClient();
-  const router = useRouter();
-  const pathname = usePathname();
-  const onSchedule = pathname.startsWith("/schedule");
   const patchToday = useCallback(
     (patch: (board: TodayBoard) => TodayBoard, options?: AfterSaveOptions) => {
       patchTodayBoards(queryClient, patch);
-      if (onSchedule && !options?.closing) router.refresh();
+      if (!options?.closing) staleSchedule(queryClient);
     },
-    [queryClient, router, onSchedule],
+    [queryClient],
   );
   const refreshScreens = useCallback(
     (options?: AfterSaveOptions) => {
       staleToday(queryClient);
-      if (onSchedule && !options?.closing) router.refresh();
+      if (!options?.closing) staleSchedule(queryClient);
     },
-    [queryClient, router, onSchedule],
+    [queryClient],
   );
   return { patchToday, refreshScreens };
 }

@@ -14,7 +14,8 @@
  * Target (R-4): p95 under 150 ms for every command on the local stack. Exit 1 when any command's p95 is 150 ms or more, or any
  * call failed (a failing call would time the error path): a miss is a finding to fix (an index, a lock), not a reason to move
  * the target. V2-09e R-16, H-1: the medicine catalogue's first and last brand shards on the full-size synthetic catalogue (93,911 brands, the lane's
- * perf-* rows, upserted and deleted by this run) have their own target, p95 under 200 ms. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
+ * perf-* rows, upserted and deleted by this run) have their own target, p95 under 200 ms; 09E-12: the Schedule's range read (42 days, 3 clinicians, 600 visits,
+ * slots), p95 under 100 ms. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
  * count. No names, no ids, no data.
  *
  * Safety: follows scripts/seed-local-dev.ts. Reads `.env.test` and `npx supabase status` only (never `.env`), then refuses to run
@@ -34,6 +35,8 @@ const TARGET_MS = 150;
 const READ_TARGET_MS = 50;
 /** V2-09e R-16, H-1: one brand shard of the medicine catalogue the device downloads (12,000 brands of the full-size 93,911): p95 under 200 ms. */
 const REFERENCE_TARGET_MS = 200;
+/** V2-09e R-16, 09E-12: the Schedule's range read (42 days, 3 clinicians, 600 visits, with slots): p95 under 100 ms. */
+const RANGE_TARGET_MS = 100;
 const WARMUP = 5;
 
 /** A pseudo-word of `length` letters from an MD5 digest (`translate(md5(n), '0123456789abcdef', 'ghijklmnopqrstuv')`), capitalised: a stand-in brand or generic name. */
@@ -49,7 +52,7 @@ function argValue(name: string): string | undefined {
 
 export interface LatencyRow {
   name: string;
-  kind: "command" | "baseline" | "read" | "reference";
+  kind: "command" | "baseline" | "read" | "reference" | "range";
   calls: number;
   errors: number;
   p50_ms: number;
@@ -113,6 +116,7 @@ async function main(): Promise<void> {
   const catalogueIds: string[] = [];
   let failed = false;
   let perfCatalogueLoaded = false;
+  const extraUsers: string[] = [];
 
   /** Prepares N calls (seeding outside the timed region), times them, and records one row. */
   async function measure(name: string, kind: LatencyRow["kind"], prepare: (i: number) => Promise<Call>): Promise<void> {
@@ -485,6 +489,33 @@ async function main(): Promise<void> {
     // V2-09e 09E-06 (R-9, R-12): Today's board in one read, on a busy day: every visit this run made today (walk-ins in every state, signed visits, invoices and payments,
     // follow-ups), the owner's role (every part: allergy flag, vitals, invoice, follow-up).
     await measure("read: today_board", "read", async () => () => owner.client.rpc("today_board", { p_tenant_id: t.tenantId, p_mode: "front" }));
+    // V2-09e 09E-12 (R-10, R-16): the Schedule's range read at its largest: 42 days, 3 clinicians (the practising owner and two doctors), 600 booked visits
+    // in the range (200 each, on a 15-minute grid inside the default hours), with slots. Target: p95 under 100 ms.
+    const rangeDoctors = [t.userId, (await addMemberToTenant(owner.tenantId, "doctor")).userId, (await addMemberToTenant(owner.tenantId, "doctor")).userId];
+    extraUsers.push(rangeDoctors[1]!, rangeDoctors[2]!);
+    const RANGE_FROM = "2032-01-05"; // a Monday
+    const rangeVisits: Record<string, unknown>[] = [];
+    for (let i = 0; i < 600; i++) {
+      const doctorId = rangeDoctors[i % 3]!;
+      const n = Math.floor(i / 3); // 200 per doctor: 5 a day on 40 days, 10:00, 10:15, 10:30, 10:45, 11:00 IST
+      const day = new Date(Date.parse(`${RANGE_FROM}T00:00:00Z`) + Math.floor(n / 5) * 86_400_000).toISOString().slice(0, 10);
+      const minute = 600 + (n % 5) * 15;
+      const scheduledAt = new Date(Date.parse(`${day}T00:00:00Z`) + (minute - 330) * 60_000).toISOString();
+      rangeVisits.push({ tenant_id: t.tenantId, patient_id: pool[i % pool.length], doctor_id: doctorId, origin_type: "scheduled", status: "booked", created_by: t.userId, scheduled_at: scheduledAt, estimated_duration_minutes: 15 });
+    }
+    for (let i = 0; i < rangeVisits.length; i += 200) {
+      const { error } = await admin.from("visits").insert(rangeVisits.slice(i, i + 200) as never);
+      if (error) throw new Error(`schedule_range visit seed failed: ${error.message}`);
+    }
+    const RANGE_TO = new Date(Date.parse(`${RANGE_FROM}T00:00:00Z`) + 41 * 86_400_000).toISOString().slice(0, 10);
+    const probe = await owner.client.rpc("schedule_range", { p_tenant_id: t.tenantId, p_from: RANGE_FROM, p_to: RANGE_TO, p_include_slots: true });
+    const probed = probe.data as { visits?: unknown[]; clinicians?: unknown[]; slots?: unknown[] } | null;
+    if (probe.error || probed?.visits?.length !== 600 || probed?.clinicians?.length !== 3) {
+      throw new Error(`schedule_range probe: expected 600 visits and 3 clinicians, got ${probed?.visits?.length} and ${probed?.clinicians?.length} (${probe.error?.message ?? "no error"})`);
+    }
+    await measure("range: schedule_range (42 days, 3 clinicians, 600 visits, slots)", "range", async () => () =>
+      owner.client.rpc("schedule_range", { p_tenant_id: t.tenantId, p_from: RANGE_FROM, p_to: RANGE_TO, p_include_slots: true }),
+    );
     // V2-09e H-1 (000129, R-16): the medicine shards the device downloads, on the full-size synthetic catalogue (93,911 brands, 10,305 generics; the lane's
     // perf-* rows, deleted in `finally`). The first brand shard and the last one (OFFSET 84,000: the shard that timed out under 000128).
     const { upsertPerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");
@@ -519,7 +550,7 @@ async function main(): Promise<void> {
     if (cdci.error) console.error(`[latency] cleanup: deleting the synthetic CDCI rows failed: ${cdci.error.message}`);
     const { error: tenantError } = await admin.from("tenants").delete().eq("id", owner.tenantId);
     if (tenantError) console.error(`[latency] cleanup: deleting the synthetic clinic failed: ${tenantError.message}`);
-    for (const id of [owner.userId, receptionist.userId]) {
+    for (const id of [owner.userId, receptionist.userId, ...extraUsers]) {
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error) console.error(`[latency] cleanup: deleting a synthetic user failed: ${error.message}`);
     }
@@ -531,7 +562,7 @@ async function main(): Promise<void> {
     p95_over_baseline: baseline && baseline.p95_ms > 0 ? round1(r.p95_ms / baseline.p95_ms) : null,
   }));
   const over = result.filter(
-    (r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS) || (r.kind === "reference" && r.p95_ms >= REFERENCE_TARGET_MS),
+    (r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS) || (r.kind === "reference" && r.p95_ms >= REFERENCE_TARGET_MS) || (r.kind === "range" && r.p95_ms >= RANGE_TARGET_MS),
   );
   const report = {
     description:
@@ -539,6 +570,7 @@ async function main(): Promise<void> {
     target_p95_ms: TARGET_MS,
     read_target_p95_ms: READ_TARGET_MS,
     reference_target_p95_ms: REFERENCE_TARGET_MS,
+    range_target_p95_ms: RANGE_TARGET_MS,
     calls_per_command: callsPerCommand,
     warmup_calls_not_counted: WARMUP,
     node: process.version,
