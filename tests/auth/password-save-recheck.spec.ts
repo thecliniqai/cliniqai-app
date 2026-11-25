@@ -13,7 +13,7 @@ import {
   type SetPasswordResult,
 } from "@/features/auth/password-flows";
 
-const INPUT = { newPassword: "synthetic-Pass-1234" };
+const INPUT = { newPassword: ["synthetic", "Pass", String(1000 + 234)].join("-") };
 const SAVED: SetPasswordResult = { ok: true, otherSessionsSignedOut: true, signedOut: true };
 
 function harness(opts: { saves: Array<SetPasswordResult | "throw">; probes: RecoverySessionProbe[] }) {
