@@ -166,16 +166,14 @@ test.describe("every main screen shows its own skeleton while its calls are pend
         await setSupabaseLatency(context, def.kind === "patient-history" ? 1_800 : 700);
         await page.evaluate((href) => (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(href), path);
         const history = def.kind === "patient-history";
-        // 09E-14a (B): the record's first paint waits for its `patient.view` audit row again (fail-closed), beside the history's own chain, so the two finish about
-        // together and the history skeleton may never show on its own. What a person sees after the layout has answered is the patient's route skeleton, then the
-        // record (and the history's skeleton when the history is the slower of the two): either is a skeleton, and both are checked when they show.
-        const skeleton = history ? page.getByRole("status", { name: /^Loading/ }).first() : page.locator(`[data-route-skeleton="${def.kind}"]`);
+        const skeleton = history ? page.getByRole("status", { name: "Loading visit history" }) : page.locator(`[data-route-skeleton="${def.kind}"]`);
         await expect(skeleton).toBeVisible({ timeout: 10_000 });
         // The skeleton's own region (the shell around it has its own axe specs).
-        const axe = await new AxeBuilder({ page }).include(history ? '[role="status"][aria-label^="Loading"]' : '[role="status"][aria-label="Loading"]').analyze();
+        const axe = await new AxeBuilder({ page }).include(history ? '[role="status"][aria-label="Loading visit history"]' : '[role="status"][aria-label="Loading"]').analyze();
         expect(axe.violations.map((v) => `${v.id}: ${v.nodes.length}`), "axe on the skeleton").toEqual([]);
         await page.waitForURL((url) => url.pathname === path);
-        await expect(page.getByRole("status", { name: /^Loading/ })).toHaveCount(0, { timeout: 30_000 });
+        await expect(skeleton).toHaveCount(0, { timeout: 30_000 });
+        await expect(page.getByRole("status", { name: /^Loading/ })).toHaveCount(0);
       });
     }
   }

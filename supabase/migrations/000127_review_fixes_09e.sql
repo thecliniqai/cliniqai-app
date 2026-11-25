@@ -21,8 +21,13 @@
 --    as the route already requires); one account's accepted samples are capped at ops.rum_user_daily_cap() a day (the rest count as overflow, like the total cap). The
 --    per-account counter is ops.rum_user_daily(day, user_key bytea, samples): user_key is sha256(user id || day), so it names no one across days; rows of earlier days
 --    are deleted by the next call; no API role has any privilege on it and RLS is on with no policy (as ops.rum_daily).
+-- 3. The patient record's view and its audit row in ONE statement (finding B, the cheap single-statement variant). `public.view_patient_record(p_tenant_id, p_patient_id)` (VOLATILE
+--    INVOKER, search_path ''): patients:view in the clinic, the patient (not deleted), the audit row `patient.view` through `public.log_audit` (it raises when it cannot write, so
+--    no record is returned without its row: fail-closed) and the clinic's four versions, in one call. NULL for no session, another clinic, a role without patients:view or no such
+--    patient (and then nothing is written). The record page used to read the patient and then write the audit row (depth 2 before the first paint); one call brings the
+--    first paint back to where it was before the audit row had to be awaited. RLS applies to the patient read (INVOKER); log_audit derives the actor and role from the session.
 -- Per-migration checklist: three private definer functions (no API grant) with their triggers, one ops table (RLS on, no policy, no API grant), one ops function, one
--- replaced definer function with the same signature and grants (EXECUTE authenticated only). No change to a policy of a public table.
+-- replaced definer function with the same signature and grants (EXECUTE authenticated only), one new public INVOKER function (EXECUTE authenticated only). No change to a policy of a public table.
 
 -- 1. Triggers ---------------------------------------------------------------------------------------------------------------
 CREATE FUNCTION private.cv_patients_update()
@@ -235,3 +240,45 @@ COMMENT ON FUNCTION public.ops_ingest_rum(TEXT, TEXT, JSONB) IS
 
 REVOKE ALL ON FUNCTION public.ops_ingest_rum(TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.ops_ingest_rum(TEXT, TEXT, JSONB) TO authenticated;
+
+-- 3. view_patient_record --------------------------------------------------------------------------------------------------------
+CREATE FUNCTION public.view_patient_record(p_tenant_id uuid, p_patient_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+    v_patient jsonb;
+    v_versions jsonb;
+BEGIN
+    IF auth.uid() IS NULL OR p_tenant_id IS NULL OR p_patient_id IS NULL THEN
+        RETURN NULL;
+    END IF;
+    IF NOT public.has_permission(p_tenant_id, 'patients:view') THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT to_jsonb(p) INTO v_patient
+      FROM public.patients p
+     WHERE p.id = p_patient_id AND p.tenant_id = p_tenant_id AND NOT p.is_deleted;
+    IF v_patient IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    -- Fail-closed: log_audit raises when it cannot write, and the whole call fails with it.
+    PERFORM public.log_audit(p_tenant_id, 'patient.view', 'patient', p_patient_id, '{}'::jsonb);
+
+    SELECT coalesce(jsonb_agg(jsonb_build_object('domain', cv.domain, 'version', cv.version) ORDER BY cv.domain), '[]'::jsonb)
+      INTO v_versions
+      FROM public.clinic_versions cv
+     WHERE cv.tenant_id = p_tenant_id;
+
+    RETURN jsonb_build_object('patient', v_patient, 'versions', v_versions);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.view_patient_record(uuid, uuid) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.view_patient_record(uuid, uuid) TO authenticated;
+COMMENT ON FUNCTION public.view_patient_record(uuid, uuid) IS
+    'V2-09e 09E-14a (B): the patient record page''s read and its patient.view audit row in one call. INVOKER; patients:view in p_tenant_id; NULL for no session, another clinic, a role without the permission or no such (or deleted) patient, and then nothing is written. The audit row goes through public.log_audit, which raises when it cannot write: no record without its row. Returns {patient, versions:[{domain, version}]}.';

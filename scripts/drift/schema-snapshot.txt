@@ -1621,6 +1621,7 @@ function public.start_job(p_id uuid, p_lease_token uuid) returns integer lang=pl
 function public.tenant_access_for_system(p_tenant uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=21b8e3014c3091e4804cf3c71e11f875
 function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) returns date lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=37da67f026e0f7eb758481de0c10f21a
 function public.today_board(p_tenant_id uuid, p_mode text, p_doctor_id uuid, p_date date) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=923025d9715d451f07fe773763b1a631
+function public.view_patient_record(p_tenant_id uuid, p_patient_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=fbb1f9507d60b1daa4ea885a3b1d9b0d
 function public.visit_slot(p_at timestamp with time zone, p_mins integer) returns tstzrange lang=sql security_definer=f volatility=i config=search_path="" body_md5=e4a78976db24c3e25f52b7e407ede353
 function public.webhook_delivery_claim(p_id uuid) returns TABLE(id uuid, tenant_id uuid, subscription_id uuid, event_type text, payload text, retry_count integer, max_retries integer, subscription_tenant_id uuid, endpoint_url text, signing_secret text, is_active boolean) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e478b0593cdc926c110d41ce14d2e526
 function public.webhook_delivery_finish(p_id uuid, p_success boolean, p_status_code integer, p_error_code text, p_duration_ms integer, p_retryable boolean) returns TABLE(new_status text, next_retry_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=cdd25042f6bc5f0539b0ca8d7d361f3f
@@ -1855,6 +1856,7 @@ grant function public.tenant_access_for_system(p_tenant uuid) EXECUTE to service
 grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to authenticated
 grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to service_role
 grant function public.today_board(p_tenant_id uuid, p_mode text, p_doctor_id uuid, p_date date) EXECUTE to authenticated
+grant function public.view_patient_record(p_tenant_id uuid, p_patient_id uuid) EXECUTE to authenticated
 grant function public.visit_slot(p_at timestamp with time zone, p_mins integer) EXECUTE to authenticated
 grant function public.visit_slot(p_at timestamp with time zone, p_mins integer) EXECUTE to service_role
 grant function public.webhook_delivery_claim(p_id uuid) EXECUTE to service_role

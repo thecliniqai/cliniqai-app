@@ -4,7 +4,7 @@ import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { requestMemo } from "@/lib/auth/request-memo";
-import { VERSIONS_VIA_TENANT_EMBED, versionsOfTenantEmbed, type Versions } from "@/lib/live/domains";
+import { VERSIONS_VIA_TENANT_EMBED, parseVersionRows, versionsOfTenantEmbed, type Versions } from "@/lib/live/domains";
 import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
 import { Patient } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
@@ -188,7 +188,7 @@ export type PatientRecordRead =
 /**
  * One read of a patient's record with the clinic versions of the same statement (V2-09e 09E-06, R-9, R-18), shared inside a request: the record's layout
  * (which decides 404 before the page streams) and the page both ask for it and the database is asked once (the in-flight read is the one answer). It writes no
- * audit row: the view is written (awaited, fail-closed) by `getPatientWithVersions`, once, by the page. `error` is a read that failed (not "no such record").
+ * audit row: the view is written (fail-closed, in the same call as the page's read: `view_patient_record`) by `getPatientWithVersions`, once, by the page. `error` is a read that failed (not "no such record").
  */
 export async function readPatientRecord(ctx: ServiceContext, patientId: string): Promise<PatientRecordRead> {
   assertPerm(ctx.role, "patients:view");
@@ -214,26 +214,35 @@ async function readPatient(
   withVersions: boolean
 ): Promise<{ patient: Patient; versions: Versions | null } | null> {
   assertPerm(ctx.role, "patients:view");
-  let found: { patient: Patient; versions: Versions | null };
-  if (withVersions && !includeErased) {
-    const read = await readPatientRecord(ctx, patientId);
-    if (read.status !== "ok") return null;
-    found = { patient: read.patient, versions: read.versions };
-  } else {
+  if (withVersions && !includeErased && ctx.actorType !== "api_key") {
+    // The record page (09E-14a, B): the read and the `patient.view` audit row are ONE call (`view_patient_record`), so the record is never returned without its row
+    // (the function raises when the row cannot be written: fail-closed) and the page's first paint does not wait for a second round trip.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (ctx.db.from("patients") as any).select("*").eq("id", patientId).eq("tenant_id", ctx.tenantId);
-    if (!includeErased) query = query.eq("is_deleted", false);
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) return null;
-    found = { patient: data as Patient, versions: null };
+    const { data, error } = await (ctx.db as any).rpc("view_patient_record", { p_tenant_id: ctx.tenantId, p_patient_id: patientId });
+    if (error) await failViewAudit(ctx, error);
+    if (!data) return null;
+    const body = data as { patient?: unknown; versions?: unknown };
+    if (typeof body.patient !== "object" || body.patient === null) return null;
+    return { patient: body.patient as Patient, versions: parseVersionRows(body.versions) };
   }
 
-  // Record view access in the audit log, once per opening. Fail-closed (09E-14a, B): the write is awaited before the record is returned and a failure throws (`recordAudit`
-  // never swallows one), so a record is never shown without its view row. It costs no extra depth on the record page: by now the record is read (the layout's
-  // shared read) and the page runs this beside its consents, role and history reads.
-  await recordAudit(ctx, { action: "patient.view", entityType: "patient", entityId: patientId });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (ctx.db.from("patients") as any).select("*").eq("id", patientId).eq("tenant_id", ctx.tenantId);
+  if (!includeErased) query = query.eq("is_deleted", false);
+  const { data, error } = await query.maybeSingle();
+  if (error || !data) return null;
+  const found = { patient: data as Patient, versions: null as Versions | null };
 
+  // Record view access in the audit log, once per opening. Fail-closed: the write is awaited before the record is returned and a failure throws (`recordAudit` never
+  // swallows one), so a record is never returned without its view row.
+  await recordAudit(ctx, { action: "patient.view", entityType: "patient", entityId: patientId });
   return found;
+}
+
+/** The audited read could not be made: the failure is the audit's (it raises), never "no such record". Class name only is logged. */
+async function failViewAudit(ctx: ServiceContext, error: unknown): Promise<never> {
+  log.error({ event: "patients.view_audit.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+  throw new Error("patient view could not be read");
 }
 
 /**

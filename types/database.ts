@@ -4044,6 +4044,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      view_patient_record: {
+        Args: { p_patient_id: string; p_tenant_id: string };
+        Returns: Json;
+      };
       visit_slot: { Args: { p_at: string; p_mins: number }; Returns: unknown };
       webhook_delivery_claim: {
         Args: { p_id: string };

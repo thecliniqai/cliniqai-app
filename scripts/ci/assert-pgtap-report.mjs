@@ -154,7 +154,7 @@
  *          or definer function, so the authz files and definer_functions keep their counts.
  *   9505 — V2-09e 09E-07 (000126 stale_write_refusal): 9426 + stale_write_refusal 79 (new file, every one required) = 9505 (74 files). Ten definer commands are replaced
  *          with the same name, checks and grants (one parameter more); the signature pins in staff_scheduling, visit_state_machine and billing_rpc_only changed text, not count.
- *   9546 — V2-09e 09E-14a (000127 review_fixes_09e): 9505 + review_fixes_09e 41 (new file, every one required) = 9546 (75 files). rum_daily keeps its 63 (its caller
+ *   9559 — V2-09e 09E-14a (000127 review_fixes_09e): 9505 + review_fixes_09e 54 (new file, every one required) = 9559 (75 files). rum_daily keeps its 63 (its caller
  *          now has a membership); definer_functions and today_signals keep their counts (four classified functions; 22 statement triggers became 27).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
@@ -167,7 +167,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9546;
+export const FLOOR = 9559;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
