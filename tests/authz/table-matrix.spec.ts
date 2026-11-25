@@ -213,6 +213,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.cdci_substances": "rpc_only",
   "public.cdci_suppliers": "rpc_only",
   "public.opd_diagnoses": "rpc_only",
+  "public.reference_catalogues": "rpc_only",
   "ops.jobs": "rpc_only",
   "ops.error_events": "rpc_only",
 };

@@ -586,6 +586,9 @@ column public.queue_tokens.priority text not_null=t default='normal'::text ident
 column public.queue_tokens.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.queue_tokens.token_number integer not_null=t default=- identity=- generated=-
 column public.queue_tokens.visit_id uuid not_null=t default=- identity=- generated=-
+column public.reference_catalogues.catalogue text not_null=t default=- identity=- generated=-
+column public.reference_catalogues.changed_at timestamp with time zone not_null=t default=- identity=- generated=-
+column public.reference_catalogues.version uuid not_null=t default=- identity=- generated=-
 column public.referrals.acknowledged_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.referrals.active_medications_snapshot jsonb not_null=f default='[]'::jsonb identity=- generated=-
 column public.referrals.clinical_summary text not_null=f default=- identity=- generated=-
@@ -1172,6 +1175,8 @@ constraint public.queue_tokens.queue_tokens_tenant_visit_fkey FOREIGN KEY (tenan
 constraint public.queue_tokens.queue_tokens_token_range CHECK (((token_number >= 1) AND (token_number <= 9999)))
 constraint public.queue_tokens.queue_tokens_visit_id_key UNIQUE (visit_id)
 constraint public.queue_tokens.uq_tenant_date_token UNIQUE (tenant_id, date, token_number)
+constraint public.reference_catalogues.reference_catalogues_catalogue_check CHECK ((catalogue = ANY (ARRAY['cdci'::text, 'diagnoses'::text])))
+constraint public.reference_catalogues.reference_catalogues_pkey PRIMARY KEY (catalogue)
 constraint public.referrals.referrals_closed_by_fkey FOREIGN KEY (closed_by) REFERENCES auth.users(id)
 constraint public.referrals.referrals_letterhead_mode_check CHECK ((letterhead_mode = ANY (ARRAY['blank_paper'::text, 'preprinted_letterhead'::text])))
 constraint public.referrals.referrals_pdf_storage_path_shape CHECK (((pdf_storage_path IS NULL) OR (share_object_path('referral'::text, tenant_id, id, pdf_storage_path) IS NOT NULL)))
@@ -1471,6 +1476,7 @@ function private.prescription_items_integrity_guard() returns trigger lang=plpgs
 function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5de3efbd0ebc582e2bbddc558aa2eb52
 function private.prescriptions_seal_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5a8ffa66359066ee1e0070433b5af5db
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
+function private.reference_catalogue_bump() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ec01309363595d07b2122e897ccc9b65
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3647a19f356dc8d41fdd2ea236d17cfe
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
 function private.rx_allergy_matches(p_allergies text[], p_substance_ids text[], p_names text[]) returns text[] lang=sql security_definer=f volatility=s config=search_path="" body_md5=a877d6049481e6667927dd4e3b6a4956
@@ -1585,6 +1591,7 @@ function public.promote_waitlist_entry(p_tenant_id uuid, p_entry_id uuid, p_sche
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
 function public.record_patient_allergies(p_tenant_id uuid, p_patient_id uuid, p_allergies jsonb, p_expected jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=93a2da37f906c10842adbef24192b31b
 function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text, p_expected_invoice_version bigint) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6d985bebc0b48b2c1bbf42fa69adc638
+function public.reference_shard(p_tenant_id uuid, p_catalogue text, p_shard integer) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=c8c9ade7a575f30df531b1ecc4852a65
 function public.referral_directory_search(p_query text) returns TABLE(id uuid, name text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=783421be63887859903f9dba77ee449f
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=09808d6285a2365415daca842756abd2
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
@@ -1602,10 +1609,10 @@ function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgs
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ca7ce0b4227190877841fdaf065edb2b
 function public.rx_allergy_context(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=bbd185d754ecd5efc06576c30220f4ef
 function public.save_consultation_draft(p_tenant_id uuid, p_visit_id uuid, p_expected_version integer, p_patch jsonb, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=2a6fdb8e2fe4ed860c7fe836fbe460ad
-function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) returns TABLE(id uuid, name text, icd11_code text, snomed_concept_id text, is_chronic boolean, is_custom boolean) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=fc21a2c9e8d04022c17b0aaa5a3a28cf
-function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, kind text, medicine_name text, generic_name text, dose_form text, substance_ids text[], dosage text, timing text, duration text) lang=plpgsql security_definer=f volatility=s config=enable_seqscan=off,pg_trgm.similarity_threshold=0.3,search_path="" body_md5=9d0532a72a3d48e845028847be4063e6
+function public.search_diagnoses(p_tenant_id uuid, p_terms text[], p_specialty text, p_limit integer) returns TABLE(id uuid, name text, icd11_code text, snomed_concept_id text, is_chronic boolean, is_custom boolean) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=85f7c957fd742080f037e343e4c14c75
+function public.search_medicines(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, kind text, medicine_name text, generic_name text, dose_form text, substance_ids text[], dosage text, timing text, duration text) lang=plpgsql security_definer=f volatility=s config=enable_seqscan=off,pg_trgm.similarity_threshold=0.3,search_path="" body_md5=8a17da377ee7438484566210a9e1cc58
 function public.search_patients(p_query text, p_limit integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, rank integer) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=127c66d8a5f6775348e6d73e968f0087
-function public.search_substances(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, substance_name text) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c3f219cd9271f5f41ab6e7c76110179
+function public.search_substances(p_tenant_id uuid, p_query text, p_limit integer) returns TABLE(id text, substance_name text) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=ffdc9f72a8c7b5b69ca4646373a26a73
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
 function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) returns tenant_ai_settings lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7c009b0d799d21424ac6d1ab43007484
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
@@ -1815,6 +1822,7 @@ grant function public.readiness_probe(p_expected_migration text) EXECUTE to anon
 grant function public.record_patient_allergies(p_tenant_id uuid, p_patient_id uuid, p_allergies jsonb, p_expected jsonb, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text, p_expected_invoice_version bigint) EXECUTE to authenticated
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text, p_expected_invoice_version bigint) EXECUTE to service_role
+grant function public.reference_shard(p_tenant_id uuid, p_catalogue text, p_shard integer) EXECUTE to authenticated
 grant function public.referral_directory_search(p_query text) EXECUTE to authenticated
 grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authenticated
 grant function public.referrals_target_update_guard() EXECUTE to service_role
@@ -2273,6 +2281,7 @@ grant table public.queue_tokens SELECT to service_role
 grant table public.queue_tokens TRIGGER to service_role
 grant table public.queue_tokens TRUNCATE to service_role
 grant table public.queue_tokens UPDATE to service_role
+grant table public.reference_catalogues SELECT to authenticated
 grant table public.referrals DELETE to service_role
 grant table public.referrals INSERT to authenticated
 grant table public.referrals INSERT to service_role
@@ -2651,6 +2660,7 @@ index public.queue_token_counters_pkey CREATE UNIQUE INDEX queue_token_counters_
 index public.queue_tokens_pkey CREATE UNIQUE INDEX queue_tokens_pkey ON public.queue_tokens USING btree (id)
 index public.queue_tokens_tenant_location_idx CREATE INDEX queue_tokens_tenant_location_idx ON public.queue_tokens USING btree (tenant_id, location_id)
 index public.queue_tokens_visit_id_key CREATE UNIQUE INDEX queue_tokens_visit_id_key ON public.queue_tokens USING btree (visit_id)
+index public.reference_catalogues_pkey CREATE UNIQUE INDEX reference_catalogues_pkey ON public.reference_catalogues USING btree (catalogue)
 index public.referrals_pkey CREATE UNIQUE INDEX referrals_pkey ON public.referrals USING btree (id)
 index public.referrals_tenant_id_id_key CREATE UNIQUE INDEX referrals_tenant_id_id_key ON public.referrals USING btree (tenant_id, id)
 index public.schedule_blocks_pkey CREATE UNIQUE INDEX schedule_blocks_pkey ON public.schedule_blocks USING btree (id)
@@ -2763,6 +2773,7 @@ policy public.prescriptions.prescriptions_select cmd=r permissive=t roles=authen
 policy public.prescriptions.prescriptions_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('prescriptions:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('prescriptions:edit'::text) AS tenant_ids_with))
 policy public.queue_tokens.queue_tokens_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.queue_tokens.queue_tokens_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
+policy public.reference_catalogues.reference_catalogues_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.referrals.referrals_originating_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))
 policy public.referrals.referrals_originating_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.referrals.referrals_originating_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))
@@ -2874,6 +2885,7 @@ relation public.prescription_items kind=r rls=t force_rls=f
 relation public.prescriptions kind=r rls=t force_rls=f
 relation public.queue_token_counters kind=r rls=t force_rls=f
 relation public.queue_tokens kind=r rls=t force_rls=f
+relation public.reference_catalogues kind=r rls=t force_rls=f
 relation public.referrals kind=r rls=t force_rls=f
 relation public.schedule_blocks kind=r rls=t force_rls=f
 relation public.subscription_events kind=r rls=t force_rls=f
@@ -2893,6 +2905,10 @@ trigger ops.jobs.jobs_reply_unmatched_redact CREATE TRIGGER jobs_reply_unmatched
 trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'webhook.deliver'::text))) EXECUTE FUNCTION ops.webhook_job_dead()
 trigger public.api_keys.api_keys_scope_guard CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
+trigger public.cdci_brands.cdci_brands_reference_bump CREATE TRIGGER cdci_brands_reference_bump AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.cdci_brands FOR EACH STATEMENT EXECUTE FUNCTION private.reference_catalogue_bump('cdci')
+trigger public.cdci_generics.cdci_generics_reference_bump CREATE TRIGGER cdci_generics_reference_bump AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.cdci_generics FOR EACH STATEMENT EXECUTE FUNCTION private.reference_catalogue_bump('cdci')
+trigger public.cdci_medicines_search.cdci_medicines_search_reference_bump CREATE TRIGGER cdci_medicines_search_reference_bump AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.cdci_medicines_search FOR EACH STATEMENT EXECUTE FUNCTION private.reference_catalogue_bump('cdci')
+trigger public.cdci_substances.cdci_substances_reference_bump CREATE TRIGGER cdci_substances_reference_bump AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.cdci_substances FOR EACH STATEMENT EXECUTE FUNCTION private.reference_catalogue_bump('cdci')
 trigger public.clinical_notes.clinical_notes_clinic_version_update CREATE TRIGGER clinical_notes_clinic_version_update AFTER UPDATE ON public.clinical_notes REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_clinical_notes_update()
 trigger public.clinical_notes.clinical_notes_delete_guard CREATE TRIGGER clinical_notes_delete_guard BEFORE DELETE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
 trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
@@ -2922,6 +2938,7 @@ trigger public.memberships.memberships_clinic_version_delete CREATE TRIGGER memb
 trigger public.memberships.memberships_clinic_version_insert CREATE TRIGGER memberships_clinic_version_insert AFTER INSERT ON public.memberships REFERENCING NEW TABLE AS changed_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_memberships_change()
 trigger public.memberships.memberships_clinic_version_update CREATE TRIGGER memberships_clinic_version_update AFTER UPDATE ON public.memberships REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION private.cv_memberships_update()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
+trigger public.opd_diagnoses.opd_diagnoses_reference_bump CREATE TRIGGER opd_diagnoses_reference_bump AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.opd_diagnoses FOR EACH STATEMENT EXECUTE FUNCTION private.reference_catalogue_bump('diagnoses')
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
 trigger public.patient_documents.patient_documents_no_delete CREATE TRIGGER patient_documents_no_delete BEFORE DELETE ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_no_delete()
 trigger public.patient_documents.patient_documents_visit_open CREATE TRIGGER patient_documents_visit_open BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_visit_open()

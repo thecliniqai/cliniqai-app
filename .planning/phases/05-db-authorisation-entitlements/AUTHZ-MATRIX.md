@@ -280,6 +280,10 @@ Principals:
 | `public.opd_diagnoses` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.opd_diagnoses` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.opd_diagnoses` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| `public.reference_catalogues` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -371,6 +375,7 @@ Notes:
 - `public.cdci_substances`: global reference data: SELECT for every signed-in user
 - `public.cdci_suppliers`: global reference data: SELECT for every signed-in user
 - `public.opd_diagnoses`: global reference data: SELECT for every signed-in user
+- `public.reference_catalogues`: the version of each global reference catalogue (09E-09, R-5): SELECT for every signed-in user (no PHI, no tenant); raised only by the statement triggers on the catalogue tables (private.reference_catalogue_bump); no API role writes
 - `ops.jobs`: no API role holds USAGE on schema ops
 - `ops.error_events`: no API role holds USAGE on schema ops
 - `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE

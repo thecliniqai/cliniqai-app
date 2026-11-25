@@ -156,6 +156,9 @@
  *          with the same name, checks and grants (one parameter more); the signature pins in staff_scheduling, visit_state_machine and billing_rpc_only changed text, not count.
  *   9559 — V2-09e 09E-14a (000127 review_fixes_09e): 9505 + review_fixes_09e 54 (new file, every one required) = 9559 (75 files). rum_daily keeps its 63 (its caller
  *          now has a membership); definer_functions and today_signals keep their counts (four classified functions; 22 statement triggers became 27).
+ *   9739 — V2-09e 09E-09 (000128 reference_catalogues): 9559 + reference_catalogues 84 (new file, every one required) + authz_matrix 96 (6528 → 6624: the new
+ *          global table reference_catalogues x 4 ops x 24 principals) = 9739 (76 files). definer_functions keeps its count (one classified trigger function);
+ *          authz_completeness keeps its 6 (its lists gained the table).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -167,7 +170,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9559;
+export const FLOOR = 9739;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -296,6 +299,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/stale_write_refusal.test.sql",
   // V2-09e 09E-14a
   "supabase/tests/database/review_fixes_09e.test.sql",
+  // V2-09e 09E-09
+  "supabase/tests/database/reference_catalogues.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

@@ -2282,6 +2282,25 @@ export type Database = {
           },
         ];
       };
+      reference_catalogues: {
+        Row: {
+          catalogue: string;
+          changed_at: string;
+          version: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          catalogue: string;
+          changed_at: string;
+          version: string;
+        };
+        Update: {
+          catalogue?: string;
+          changed_at?: string;
+          version?: string;
+        };
+        Relationships: [];
+      };
       referrals: {
         Row: {
           acknowledged_at: string | null;
@@ -3802,6 +3821,10 @@ export type Database = {
           p_system_actor?: string;
           p_tenant_id: string;
         };
+        Returns: Json;
+      };
+      reference_shard: {
+        Args: { p_catalogue: string; p_shard: number; p_tenant_id: string };
         Returns: Json;
       };
       referral_directory_search: {
