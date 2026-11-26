@@ -7,7 +7,9 @@
  * - B-9: the next day and the next week show with no read of their range (the adjacent weeks were prefetched once the visible one settled);
  * - B-10: a date three weeks away is one range read (one `rpc/schedule_range` call);
  * - the range route serves 42 days in one call, and `slots=0` leaves the slots out (the month grid of the calendar views reads counts);
- * - a slot the screen still shows that someone else has just booked is refused by the booking command (the existing conflict question), never booked twice.
+ * - a slot the screen still shows that someone else has just booked is refused by the booking command (the existing conflict question), never booked twice;
+ * - (PR 2 review I-2) a week whose read fails shows "could not be loaded" with Try again (which reads it and shows it), never an endless skeleton; a week
+ *   asked for offline says so and loads by itself on reconnect.
  * Each test has its own clinic (the owner practises with the default hours). Synthetic data only.
  */
 import type { Page } from "@playwright/test";
@@ -222,4 +224,35 @@ test("a slot the screen still shows that someone else has just booked is refused
   await expect(conflictDialog(page, "Slot Already Booked")).toBeVisible({ timeout: 15_000 });
   const { data } = await getAdminClient().from("visits").select("id").eq("tenant_id", clinic.tenantId).eq("scheduled_at", istInstant(date, "11:00")).neq("status", "cancelled");
   expect((data ?? []).map((v) => v.id)).toEqual([other.visitId]);
+});
+
+test("I-2: a week whose read fails says so and Try again shows it; a week asked for offline says so and loads on reconnect", async ({ page, context }) => {
+  const clinic = await ownClinic();
+  const date = weekday(3);
+  await signIn(page, clinic);
+  await openDay(page, date);
+
+  // A week far from the held ones: its read answers 500 (both tries of the query) until the route is released.
+  const far = addDays(date, 35);
+  const farWeek = mondayOf(far);
+  let failing = true;
+  await page.route(`**/api/schedule/range?from=${farWeek}*`, (route) =>
+    failing ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "The schedule could not be loaded." }) }) : route.fallback(),
+  );
+  await page.getByLabel("Go to date").fill(far);
+  const failed = page.locator('[data-schedule-unavailable="failed"]');
+  await expect(failed, "a failed read is said, not an endless skeleton").toBeVisible({ timeout: 15_000 });
+  await expect(failed).toContainText("The schedule could not be loaded");
+  failing = false;
+  await failed.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(SCHEDULE)).toHaveAttribute("data-schedule-range", `${farWeek}..${addDays(farWeek, 6)}`, { timeout: 15_000 });
+
+  // Offline: a week the device does not hold waits for the network and says so; reconnecting reads it with no click.
+  const away = addDays(date, 70);
+  const awayWeek = mondayOf(away);
+  await context.setOffline(true);
+  await page.getByLabel("Go to date").fill(away);
+  await expect(page.locator('[data-schedule-unavailable="offline"]')).toContainText("You're offline", { timeout: 15_000 });
+  await context.setOffline(false);
+  await expect(page.locator(SCHEDULE)).toHaveAttribute("data-schedule-range", `${awayWeek}..${addDays(awayWeek, 6)}`, { timeout: 15_000 });
 });
