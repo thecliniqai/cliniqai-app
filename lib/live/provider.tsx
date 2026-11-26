@@ -5,7 +5,7 @@ import { useQueryClient, type Query, type QueryClient } from "@tanstack/react-qu
 import { onAccessLevel } from "@/lib/pwa/lock";
 import { registerCleanup } from "@/lib/pwa/cleanup";
 import { rum } from "@/lib/observability/rum/collector";
-import { parseSignal, parseSnapshot, type LiveDomain, type Versions } from "./domains";
+import { LIVE_DOMAINS, parseSignal, parseSnapshot, type LiveDomain, type Versions } from "./domains";
 import { clinicHeaders, isClinicChanged, onClinicChanged } from "./clinic-changed";
 import { createLiveCore, type Dependent, type LiveCore, type LiveCoreDeps } from "./live-core";
 
@@ -36,6 +36,18 @@ const LiveContext = createContext<LiveStore | null>(null);
 
 function isLiveQuery(q: Query): boolean {
   return (q.meta?.domains?.length ?? 0) > 0;
+}
+
+/** The versions an answer carries from the statement that read it (`versions` of a range, the bootstrap, the board), when it has them. */
+function carriedVersions(data: unknown): Partial<Versions> | undefined {
+  if (data === null || typeof data !== "object") return undefined;
+  const versions = (data as { versions?: unknown }).versions;
+  if (versions === null || typeof versions !== "object") return undefined;
+  const out: Partial<Versions> = {};
+  for (const [domain, value] of Object.entries(versions as Record<string, unknown>)) {
+    if ((LIVE_DOMAINS as readonly string[]).includes(domain) && typeof value === "number") out[domain as LiveDomain] = value;
+  }
+  return out;
 }
 
 function dependentsOf(client: QueryClient): Dependent[] {
@@ -122,7 +134,7 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
         if (action === "fetch") core.fetchStarted(id);
         // 09E-14a (L2): a `setQueryData` (a save's answer written into the board) is a success action too, but no read ended: only a fetch's own success commits a basis.
         else if (action === "success") {
-          if (!(event.action as { manual?: boolean }).manual) core.fetchEnded(id, true);
+          if (!(event.action as { manual?: boolean }).manual) core.fetchEnded(id, true, carriedVersions(event.query.state.data));
         }
         else if (action === "error") core.fetchEnded(id, false);
       }

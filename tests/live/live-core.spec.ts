@@ -250,6 +250,32 @@ describe("checks", () => {
     expect(h.calls.state, "owed once: a later screen asks nothing more").toBe(1);
   });
 
+  it("PR 2 review N1: a check during a prefetch does not remove (abort) the prefetched week; its answer's own versions make it current, so it is kept", async () => {
+    const week: Dependent = { id: "next-week", domains: ["schedule", "queue"], active: false };
+    const h = harness({ dependents: [week] });
+    h.core.registerScreen();
+    h.core.fetchStarted("next-week"); // started before any version was known: its basis would be all zeros
+    h.setAnswer(h.state({ schedule: 5, queue: 3 }));
+    h.core.wake();
+    await flush();
+    expect(h.calls.remove, "in flight: left to its read").toEqual([]);
+    h.core.fetchEnded("next-week", true, { schedule: 5, queue: 3 });
+    expect(h.calls.remove, "its answer carries the versions the check saw: current, kept").toEqual([]);
+    expect(h.core.basisOf("next-week")).toMatchObject({ schedule: 5, queue: 3 });
+  });
+
+  it("PR 2 review N1: an inactive read that ends behind what the device has seen is still removed", async () => {
+    const week: Dependent = { id: "old-week", domains: ["schedule"], active: false };
+    const h = harness({ dependents: [week] });
+    h.core.registerScreen();
+    h.core.fetchStarted("old-week");
+    h.setAnswer(h.state({ schedule: 7 }));
+    h.core.wake();
+    await flush();
+    h.core.fetchEnded("old-week", true, { schedule: 6 });
+    expect(h.calls.remove).toEqual(["old-week"]);
+  });
+
   it("PR 2 review N1: a join check owed is dropped when the channel leaves before a screen registers", async () => {
     const h = harness();
     h.core.channel(true);

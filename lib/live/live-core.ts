@@ -74,8 +74,11 @@ export interface LiveCore {
   wake(): void;
   /** A fetch of a dependent started / ended (the data layer's cache events). */
   fetchStarted(id: string): void;
-  /** `ok` false: the read failed; the query keeps its old basis (its data is as old as before) and is tried again on the next confirmed check. */
-  fetchEnded(id: string, ok: boolean): void;
+  /**
+   * `ok` false: the read failed; the query keeps its old basis (its data is as old as before) and is tried again on the next confirmed check.
+   * `carried`: the versions the answer itself carries from the statement that read it (a range, the bootstrap, the board): the basis is at least those.
+   */
+  fetchEnded(id: string, ok: boolean, carried?: Partial<Versions>): void;
   /** The query left the cache. */
   forget(id: string): void;
   /** The versions the page read before the data it handed over (hydration); only used while the query has no basis yet. */
@@ -148,6 +151,10 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
       if (d.active) {
         anyActive = true;
         if (!learnedAt.has(d.id)) learnedAt.set(d.id, deps.now());
+      } else if (started.has(d.id)) {
+        // PR 2 review N1 follow-up: an inactive query whose read is in flight (a prefetched week) is left to its read: removing it would abort the read, and
+        // its end evaluates it again with the versions the answer carries. (A join check now lands within a second of the page, inside the prefetch.)
+        continue;
       } else {
         basis.delete(d.id);
         started.delete(d.id);
@@ -244,11 +251,16 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
     fetchStarted(id) {
       started.set(id, { ...seen });
     },
-    fetchEnded(id, ok) {
+    fetchEnded(id, ok, carried) {
       const from = started.get(id);
       started.delete(id);
       if (!ok || !from) return;
-      basis.set(id, from);
+      const next = { ...from };
+      for (const domain of LIVE_DOMAINS) {
+        const v = carried?.[domain];
+        if (typeof v === "number" && Number.isFinite(v) && v > next[domain]) next[domain] = v;
+      }
+      basis.set(id, next);
       const at = learnedAt.get(id);
       if (at !== undefined) {
         learnedAt.delete(id);

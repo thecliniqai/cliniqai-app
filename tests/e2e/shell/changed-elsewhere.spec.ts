@@ -54,6 +54,9 @@ test("a booking for the open patient made elsewhere shows the notice; nothing re
   // Fail-closed (09E-14a): the row is written before the record is shown, so it is there as soon as the page is, with no waiting.
   expect(await viewRows(patient.id), "the opening wrote one patient.view row").toBe(1);
   await expect(notice(page)).toHaveCount(0);
+  // PR 2 review N1: the channel now joins about 1 s after the page (it was refused and rejoined after ~6 s), before Next's idle-time prefetch of the
+  // navigation links; the count starts once the page's own load traffic has settled, so it measures what the change causes, every RSC request included.
+  await page.waitForLoadState("networkidle");
   page.on("request", (request) => {
     if (request.headers()["rsc"] === "1") renders.push(request.url());
   });
