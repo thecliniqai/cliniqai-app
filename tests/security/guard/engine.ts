@@ -1652,12 +1652,29 @@ export async function referenceShardRouteLegs(
   guard: Extract<RouteGuard, { kind: "reference-shard" }>,
   world: GuardWorld
 ): Promise<Violation[]> {
-  const out: Violation[] = [];
   const admin = getAdminClient();
   const id = `test-ref-sub-guard-${randomBytes(4).toString("hex")}`;
   const name = `Guardcanary reference ${randomBytes(4).toString("hex")}`;
   const inserted = await admin.from("cdci_substances").upsert({ id, substance_name: name }, { onConflict: "id" });
   if (inserted.error) return [routeV(c, "control", `could not seed the substance: ${inserted.error.message}`)];
+  // PR 2 review N8: the synthetic substance never outlives the leg (it is a global catalogue row: left behind it would stay in every later run's shard).
+  try {
+    return await referenceShardSeededLegs(slot, c, guard, world, id, name);
+  } finally {
+    const removed = await admin.from("cdci_substances").delete().eq("id", id);
+    if (removed.error) console.warn(`guard: could not remove the synthetic substance ${id}: ${removed.error.message}`);
+  }
+}
+
+async function referenceShardSeededLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "reference-shard" }>,
+  world: GuardWorld,
+  id: string,
+  name: string
+): Promise<Violation[]> {
+  const out: Violation[] = [];
   // The versions are readable by any signed-in user (and by no service role): read as the holder, as the manifest would give it.
   const current = await world.roles[leastPrivilegedHolding("consultations:view")].client.from("reference_catalogues").select("version").eq("catalogue", "cdci").single();
   if (current.error || !current.data) return [routeV(c, "control", "could not read the cdci version")];
@@ -1676,10 +1693,14 @@ export async function referenceShardRouteLegs(
   const locked = await callRoute(slot, world.lockedOwner.client, c, { params: ok });
   out.push(...expectStatus(c, "locked clinic", locked, [403]));
   if (!locked.body.includes('"SUBSCRIPTION_LOCKED"')) out.push(routeV(c, "locked clinic", `not SUBSCRIPTION_LOCKED: ${brief(locked.body)}`));
-  for (const [catalogue, permission] of [["substances", "consultations:view"], ["medicines", "prescriptions:edit"]] as const) {
+  // PR 2 review N9: diagnoses too (its own catalogue version), not only substances and medicines.
+  const diagnoses = await world.roles[leastPrivilegedHolding("consultations:view")].client.from("reference_catalogues").select("version").eq("catalogue", "diagnoses").single();
+  if (diagnoses.error || !diagnoses.data) return [routeV(c, "control", "could not read the diagnoses version")];
+  const versionOf = { substances: version, medicines: version, diagnoses: (diagnoses.data as { version: string }).version };
+  for (const [catalogue, permission] of [["substances", "consultations:view"], ["medicines", "prescriptions:edit"], ["diagnoses", "consultations:view"]] as const) {
     for (const role of ROLES.filter((r) => !hasPerm(r, permission))) {
       const leg = `role ${role} lacks ${permission} (${catalogue})`;
-      const r = await callRoute(slot, world.roles[role].client, c, { params: params(catalogue, version, catalogue === "medicines" ? "1" : "0") });
+      const r = await callRoute(slot, world.roles[role].client, c, { params: params(catalogue, versionOf[catalogue], catalogue === "medicines" ? "1" : "0") });
       out.push(...expectStatus(c, leg, r, [403]), ...expectNoAccess(c, leg, r, ["from:memberships", "rpc:my_tenant_access", "rpc:session_is_live"]));
       if (r.body.includes(name)) out.push(routeV(c, leg, "the body holds a catalogue row"));
     }
