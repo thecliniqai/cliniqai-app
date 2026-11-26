@@ -31,6 +31,14 @@ $$;
 CREATE OR REPLACE FUNCTION private.cv_tenants_update()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
+    -- The owner's place among the Schedule's clinicians (schedule_range) follows owner_is_practicing_doctor. Raised BEFORE settings: the version rows are
+    -- always raised in VERSION_LOCK_ORDER (queue, schedule, billing, settings; 09E-14a E, tests/live/version-lock-order.spec.ts), so two transactions never
+    -- wait on each other's rows.
+    PERFORM private.clinic_bump(
+        (SELECT array_agg(DISTINCT n.id ORDER BY n.id)
+           FROM new_rows n JOIN old_rows o ON o.id = n.id
+          WHERE o.owner_is_practicing_doctor IS DISTINCT FROM n.owner_is_practicing_doctor),
+        'schedule');
     PERFORM private.clinic_bump(
         (SELECT array_agg(DISTINCT n.id ORDER BY n.id)
            FROM new_rows n JOIN old_rows o ON o.id = n.id
@@ -51,12 +59,6 @@ BEGIN
              OR o.drug_license_no IS DISTINCT FROM n.drug_license_no
              OR o.gstin IS DISTINCT FROM n.gstin),
         'settings');
-    -- The owner's place among the Schedule's clinicians (schedule_range) follows the same column.
-    PERFORM private.clinic_bump(
-        (SELECT array_agg(DISTINCT n.id ORDER BY n.id)
-           FROM new_rows n JOIN old_rows o ON o.id = n.id
-          WHERE o.owner_is_practicing_doctor IS DISTINCT FROM n.owner_is_practicing_doctor),
-        'schedule');
     RETURN NULL;
 END;
 $$;

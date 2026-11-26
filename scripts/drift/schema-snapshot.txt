@@ -1428,7 +1428,7 @@ function private.cv_patients_update() returns trigger lang=plpgsql security_defi
 function private.cv_payments() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_queue_tokens() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
 function private.cv_schedule_blocks() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
-function private.cv_tenants_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ac6a128acda02f688eb1c946077026ed
+function private.cv_tenants_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=97f92bf642c1c378dc6077ec669da15c
 function private.cv_visits_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e28ee3a2033a603b9bd57a1fdad05d1f
 function private.cv_visits_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=994894291720e5dbe618c3960c1865ca
 function private.cv_waitlist_entries() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
