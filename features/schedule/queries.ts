@@ -17,7 +17,7 @@ import { isRangeOk, parseScheduleRange, type ScheduleRange } from "./range";
 export async function getScheduleRange(
   ctx: ServiceContext,
   range: { from: string; to: string; withSlots?: boolean },
-): Promise<{ ok: true; range: ScheduleRange } | { ok: false; reason: "invalid" | "failed" }> {
+): Promise<{ ok: true; range: ScheduleRange } | { ok: false; reason: "invalid" | "refused" | "failed" }> {
   assertPerm(ctx.role, "appointments:view");
   if (!isRangeOk(range.from, range.to)) return { ok: false, reason: "invalid" };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,10 +31,16 @@ export async function getScheduleRange(
     log.error({ event: "schedule.range.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return { ok: false, reason: "failed" };
   }
+  if (data === null) {
+    // PR 2 review N5: NULL is the database's refusal (the permission, the clinic's access or the active clinic changed after the session check, or the
+    // header did not reach PostgREST): an answer, not an outage. Logged at info by tag, never as an error.
+    log.info({ event: "schedule.range.refused", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, reason: "refused" };
+  }
   const parsed = parseScheduleRange(data, range.from, range.to);
   if (!parsed) {
-    // NULL: the database refused (no permission, not a member of a full clinic), or the answer was not the documented shape.
-    log.error({ event: "schedule.range.failed", code: "empty", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    // An answer that is not the documented shape: a defect.
+    log.error({ event: "schedule.range.failed", code: "shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
     return { ok: false, reason: "failed" };
   }
   return { ok: true, range: parsed };

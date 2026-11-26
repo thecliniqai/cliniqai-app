@@ -69,7 +69,8 @@ export default async function DashboardLayout({
   // for an active member (NULL otherwise), and it is used only when the session resolves to that same clinic.
   const pinned = await readActiveClinicCookie();
   const bootstrapDb = await createClient();
-  const pinnedBootstrap = isClinicId(pinned) ? readSessionBootstrap(bootstrapDb, pinned.toLowerCase()) : null;
+  // PR 2 review N5: speculative: a refusal (a pinned clinic the user left, a locked clinic) is not logged; a failed call still is.
+  const pinnedBootstrap = isClinicId(pinned) ? readSessionBootstrap(bootstrapDb, pinned.toLowerCase(), { speculative: true }) : null;
 
   let membership;
   try {
@@ -104,7 +105,8 @@ export default async function DashboardLayout({
     pinnedBootstrap && isClinicId(pinned) && pinned.toLowerCase() === membership.tenantId.toLowerCase()
       ? pinnedBootstrap
       : readSessionBootstrap(bootstrapDb, membership.tenantId);
-  const [accessLevel, bootstrap] = await Promise.all([getTenantAccessLevel(membership.tenantId), bootstrapRead]);
+  const [accessLevel, bootstrapResult] = await Promise.all([getTenantAccessLevel(membership.tenantId), bootstrapRead]);
+  const bootstrap = bootstrapResult.ok ? bootstrapResult.bootstrap : null;
   const destination = accessRedirect(membership.role, accessLevel);
   if (destination) {
     redirect(destination);

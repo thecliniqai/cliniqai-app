@@ -15,7 +15,8 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  * - `from` and `to` are clinic dates, in order, at most 42 days (400 `INVALID_RANGE` otherwise, fixed body, before any read); `slots=0` leaves the free
  *   slots out (a month grid needs counts, not slots); anything else includes them.
  * - 401 unauthenticated, 403 without the permission or a membership, 403 `SUBSCRIPTION_LOCKED` for a locked or onboarding clinic, 503 when Auth could not
- *   answer (never a sign-out), 500 when the database could not answer. 409 `CLINIC_CHANGED` when the client's `x-clinicos-tenant` names another clinic than
+ *   answer (never a sign-out), 500 when the database could not answer. 403 `ACCESS_REFUSED` when the database refused the read after the session check
+ *   (a permission, access or active-clinic change in between; PR 2 review N5: not an outage, logged at info). 409 `CLINIC_CHANGED` when the client's `x-clinicos-tenant` names another clinic than
  *   the session's (after the permission check, before any read). Error bodies are fixed strings.
  * - 200 the range `{ from, to, zone, server_now, versions, clinicians, blocks, visits, waitlist, slots? }`. `Cache-Control: private, no-store` (patient
  *   names); `Server-Timing` through `timedRoute`.
@@ -46,6 +47,9 @@ async function handleGet(request: NextRequest) {
   }
   const result = await getScheduleRange(ctx, { from, to, withSlots: params.get("slots") !== "0" });
   if (!result.ok) {
+    if (result.reason === "refused") {
+      return NextResponse.json({ error: "Forbidden", code: "ACCESS_REFUSED" }, { status: 403, headers: NO_STORE });
+    }
     return NextResponse.json({ error: "The schedule could not be loaded." }, { status: 500, headers: NO_STORE });
   }
   return NextResponse.json(result.range, { status: 200, headers: NO_STORE });

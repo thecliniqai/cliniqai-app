@@ -16,7 +16,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  *   are on the locked pages, outside the shell). The clinic comes from the session, never from the request (a `tenant` parameter is ignored); the read is
  *   `public.session_bootstrap` on the user's own JWT client (RLS applies, no service-role client).
  * - 401 unauthenticated, 403 no membership, 403 `SUBSCRIPTION_LOCKED`, 503 when Auth could not answer (never a sign-out), 500 when the database could not
- *   answer, 409 `CLINIC_CHANGED` when `x-clinicos-tenant` names another clinic than the session's (before the read). Fixed error bodies.
+ *   answer, 403 `ACCESS_REFUSED` when the database refused the read after the session check (PR 2 review N5: logged at info, not an error), 409 `CLINIC_CHANGED` when `x-clinicos-tenant` names another clinic than the session's (before the read). Fixed error bodies.
  * - 200 the allow-listed bootstrap `{ profile, clinic, role, doctors, clinics, rx_print, versions }` (zod strict: nothing else is ever answered).
  *   `private, no-store`; `Server-Timing` through `timedRoute`.
  */
@@ -32,9 +32,12 @@ async function handleGet(request: NextRequest) {
   }
   const changed = clinicChangedResponse(request, resolved.ctx.tenantId, NO_STORE);
   if (changed) return changed;
-  const bootstrap = await readSessionBootstrap(resolved.ctx.db, resolved.ctx.tenantId);
-  if (!bootstrap) return NextResponse.json({ error: "The session could not be loaded." }, { status: 500, headers: NO_STORE });
-  return NextResponse.json(bootstrap, { status: 200, headers: NO_STORE });
+  const read = await readSessionBootstrap(resolved.ctx.db, resolved.ctx.tenantId);
+  if (!read.ok) {
+    if (read.reason === "refused") return NextResponse.json({ error: "Forbidden", code: "ACCESS_REFUSED" }, { status: 403, headers: NO_STORE });
+    return NextResponse.json({ error: "The session could not be loaded." }, { status: 500, headers: NO_STORE });
+  }
+  return NextResponse.json(read.bootstrap, { status: 200, headers: NO_STORE });
 }
 
 export const GET = timedRoute(handleGet);
