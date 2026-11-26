@@ -1516,3 +1516,149 @@ own checks), `lib/live/{live-core,provider}.ts` (`passive`); `features/billing/s
 - Lane: above. Not run: full Vitest, the design projects (no screenshot tracked file changed), the nightly device matrix (CI and the close run them).
 - **Phase-level exit check (decision 1, "0 hits at the close")**: `grep -rnE 'unstable_cache|"use cache"|revalidateTag' app components features lib` →
   **0** (tool output `evidence/09E-13/no-server-cache.txt`, at `3aa9c500`).
+
+## 09E PR 2 review fixes
+
+Branch `v2/phase-09e-pr2-search-schedule`, the single fix round of PR 2 (independent review `review-pr2-independent.md`: I-1..I-3, N-1..N-13; adversarial
+review `review-pr2-adversarial.md`: no important finding, N1..N9). First `origin/v2/phase-09e-caching-speed` (PR 1's tip `29fb0b04`, its CI evidence
+commit) was merged in (`ffcb878d`, merge commit, no conflict), so it is an ancestor. Two new migrations: **`000132_doctor_directory_versions`** and
+**`000133_review_fixes_09e_pr2`**. No new dependency. Commits, in order: `22df46de` + `833747ae` (I-1), `5985e451` (I-2), `b0ff55a5` (I-3), `38dc55cd`
+(N1), `f5f51698` (N5), `f7cea7a6` (N4, N-7), `92412816` (N8, N9), `2f31d277` (N-3), `e5bd7384` and `ba406480` (N1 follow-ups found by the affected e2e run and the lane), `d0d09ba2`
+(a spec timing defect found by the run), then this notes commit.
+
+### What changed
+
+- **I-1 (000132)**: `private.cv_tenants_update` moves `schedule` and `settings` when `owner_is_practicing_doctor` changes (the bootstrap's doctors and
+  `schedule_range`'s clinicians both filter on it); `private.cv_memberships_update` watches `default_specialty` too (→ `schedule`, `settings`, the picker
+  label). Same signatures, the triggers unchanged. `schedule` is raised before `settings`: the first version raised them the other way and
+  `tests/live/version-lock-order.spec.ts` refused it (VERSION_LOCK_ORDER, deadlock safety); the file was corrected in `833747ae` before it was pushed or
+  applied anywhere but the local stack.
+- **I-2**: `schedule-view` reads the range query's `isError` and `fetchStatus`: a week the device does not hold whose read failed shows "The schedule could not
+  be loaded" with **Try again** (a re-read); a read paused for the network shows "You're offline" and loads by itself on reconnect. A held week whose re-read
+  failed keeps its data.
+- **I-3**: the booking picker takes slots only from a Schedule range whose query is **active** (a mounted Schedule, kept current by the live layer and its
+  heartbeat). A range in memory that no screen shows is never used: the sheet asks the server (`getAvailableSlots`). The section subscribes to the query cache
+  (`useSyncExternalStore` on the range's hash and `dataUpdatedAt`), so a re-read of the shown range, or the Schedule leaving the screen, updates the open picker.
+- **N1 (adversarial; the refused first join, 09E-13 finding 1)**: root cause: `realtimeClient()` gives supabase-js an `accessToken` callback, which it applies
+  to Realtime asynchronously; `subscribe()` ran first and the join carried the publishable key, the private channel refused it, and realtime-js rejoined about
+  6 s later. Fix: `await client.realtime.setAuth()` before `subscribe`, and again on visible and `online` (realtime-js also re-reads the callback on every
+  25 s heartbeat and pushes a changed token to the joined channel, so a cookie the proxy refreshed reaches the channel without a rejoin). **Why three live
+  specs broke when this was tried in 09E-13**: with the join accepted, SUBSCRIBED lands before Today's screen effect registers, so `channel(true)` saw no screen
+  and made no check, and nothing confirmed the versions until the 12 s heartbeat (never, under a paused page clock): the badge stayed Reconnecting and
+  `convergence` "dropped" and `today-live` "within 2 s" timed out waiting for Live. The refusal had hidden this ordering bug (the rejoin always came after the
+  screen). Fix in the core: a join that had nothing to check **owes** its check to the first screen that registers (once; dropped when the channel leaves).
+  The specs were not changed. A traced load now joins about 1 s after sign-in with no refusal and is Live about 1.2 s later (before: Reconnecting for about
+  6 s on every page). The passive bootstrap stays passive (a non-live page still pays no call on a join).
+  **Follow-up found by the affected e2e run** (`schedule-live` B-9, desktop-chrome): the trace showed both adjacent-week prefetches `ERR_ABORTED` at the
+  moment the join check answered: the check now lands about 1 s into the page, inside the prefetch, and the core removed the in-flight inactive queries as
+  stale (their basis was the all-zero versions at their start), which cancels the read. The 6 s refusal had hidden this too. The core now leaves an
+  inactive query with a read in flight to that read, and `fetchEnded` takes the versions the answer carries from its own statement (a range, the
+  bootstrap, the board): a current read is kept, one that is behind is still removed. `shell/changed-elsewhere` counted Next's idle-time prefetch of the
+  navigation links as renders because its count began at the join (once ~6 s in, now ~1 s): it now begins once the page's load traffic is idle
+  (`networkidle`); every RSC request is still counted.
+  **Second follow-up, from the `@budget` lane** (`ba406480`): `in-app.R.today` counted one extra `clinic_live_state`: a non-live page joined (owing its
+  check) and the measured in-app navigation to Today took it, although that board was read after the channel was listening. The owed check now goes
+  only to a screen of the page the document loaded with (`useLiveScreen` compares the path with the navigation entry's); an in-app Today behaves as
+  before N1. The row passes.
+- **N5**: a NULL answer of `schedule_range` / `session_bootstrap` after the route's session check (the database refused) is told from a failed call:
+  the routes answer **403 `{error: "Forbidden", code: "ACCESS_REFUSED"}`**, logged at info (`schedule.range.refused`, `session.bootstrap.refused`); a failed
+  call stays 500 with its error line, a wrong shape is an error. The layout's early read for the pinned clinic is `speculative`: its refusal logs nothing.
+- **N4 (000133)**: `session_bootstrap` requires `p_tenant_id IN authz.full_tenant_ids()` (the gate of `has_permission`: the session's active clinic, full
+  access). This reverses the 09E-13 decision "the SQL answers any active member of a locked clinic": the route already refused it, now the database does too.
+- **N-7 (000133)**: the five catalogue tables have four statement triggers each (INSERT / UPDATE / DELETE with transition tables, TRUNCATE) on the replaced
+  `private.reference_catalogue_bump`: an insert or delete moves the version only when it touched a row, an update only when a row's value differs (whole rows
+  compared as jsonb), a truncate always.
+- **N8 / N9**: the shard guard deletes its canary substance in a `finally` (one left by an earlier run was removed; 0 remain after a guard run); the
+  denial loop covers `diagnoses` (`consultations:view`, its own version).
+- **N-3 (independent nit)**: `getVisitBillingDetails` refuses with a fixed text when the clinic's fee cannot be read for a new bill; the checkout drawer
+  treats any failed load as "nothing can be collected" (no amount, no Collect button, the error and Try again) instead of the hard-coded ₹500.
+
+### Fails-without (the Important items)
+
+- **I-1, database** (`000123`'s trigger bodies restored inside a rolled-back transaction, the new pgTAP file run against them): **3 of 16 failed** (the
+  toggle off, the toggle on, the specialty: each moved nothing). **I-1, browser** (the same bodies restored on the local stack, the two-device spec run on
+  desktop-chrome, then 000132 re-applied): **failed** at "B's open picker no longer offers the owner" (`toHaveCount(0)`, received 1).
+- **I-3** (the previous `slot-section.tsx` built and run on desktop-chrome, then restored and rebuilt): **both specs failed**: "the slot booked elsewhere is
+  not offered" (the range left behind offered 10:00) and "the open picker drops the slot booked elsewhere" (10:30 stayed).
+- **I-2** has no fails-without run (the state's markup did not exist before; the spec cannot find it on the old build).
+- **N4 / N-7**: before 000133 was applied, `session_bootstrap` failed its two new refusals (13, 24) and `reference_catalogues` its trigger shape and the
+  no-op assertions (12, 28, 30).
+
+### New and changed tests
+
+- pgTAP: `doctor_directory_versions` (new, 16); `reference_catalogues` 84 → 88; `session_bootstrap` 30 (three assertions now expect the gate; clinic B is
+  full and not practising); `clinic_versions` 107 (the "not listed" assertion no longer names `default_specialty`). FLOOR 9,861 → **9,881** (80 files).
+- Vitest: `tests/live/live-core.spec.ts` +5 (the owed join check; dropped on leave; an in-flight prefetch is kept when its answer is current, removed
+  when behind); `tests/schedule/range-refusal-route.spec.ts` (new, 6);
+  `tests/billing/clinic-fee-unavailable.spec.ts` (new, 2); `tests/clinics/switch-clinic-db.spec.ts` (its mocked server client now sends the cookie's clinic
+  as `x-clinicos-tenant` on RPCs, as the real one does: 000133 refused the dual member otherwise); the guard engine (N8, N9).
+- e2e: `shell/bootstrap` +2 (I-1 two devices: the owner toggles "practising" in Settings in a second browser context, B's open walk-in picker drops and
+  regains the owner, 0 RSC on B; N-3 the bill that cannot be read); `schedule/schedule-live` +3 (I-2; I-3 left-behind range with frames dropped; I-3 the
+  open picker follows a booking elsewhere).
+
+### Deferred nits (independent review; not changed in this round)
+
+- N-1 `serverNowOf` takes the clock offset when a range is first shown, not when it arrived (display only, prefetched weeks).
+- N-2 `schedule_range.zone` is the stored text while slot minutes use the database-resolved zone (return `v_zone` as `session_bootstrap` does).
+- N-3 (second half) Sign & Bill (doctor) still starts at ₹500 and reads no clinic fee (09E-13 PO question 2).
+- N-4 the layout's early pinned read is wasted when the cookie names another clinic, and its promise floats when `getActiveMembership` redirects (the log
+  noise part is fixed by N5).
+- N-5 a failed bootstrap read leaves the switcher empty and the pickers "no doctors" with no retry until the client re-read.
+- N-6 the bootstrap's `clinics` list refreshes only on this clinic's `settings` version (another clinic's rename or a new membership elsewhere waits for a
+  reload).
+- N-8 `search_substances` / `search_medicines` tie-break on the id without `COLLATE "C"` (CDCI ids are digits today).
+- N-9 one catalogue row of an unexpected shape (a NULL inside an array) fails the whole shard (500) and the device stays on the route.
+- N-10 a worker error after a build leaves the medicine index idle while the store still marks it held (no rebuild for the tab).
+- N-11 a 42-day range includes slots unless `slots=0` (about 400 definer calls; adversarial N2 is the same cost): cap slots to a week or two.
+- N-12 shards are `immutable` in the HTTP cache: after a demotion without sign-out the cached URL still serves (global, non-PHI data).
+- N-13 slots that pass while the Schedule sits open stay listed until the next re-read (as before 09E-12).
+- Adversarial N3 (`pg_timezone_names` scanned on every bootstrap and range call, ~30 ms), N6 (the shard permission is a download limit, not a secrecy
+  boundary), N7 (a DST gap fails the whole range read): recorded, not changed.
+
+### Security-sensitive files (for the PO's gate)
+
+`supabase/migrations/000132_doctor_directory_versions.sql` (two definer trigger functions, no grant change), `supabase/migrations/000133_review_fixes_09e_pr2.sql`
+(`session_bootstrap` gate; the catalogue bump function and its 20 triggers), their pgTAP files; `lib/live/{provider.tsx,live-core.ts,use-live-screen.ts}` (the Realtime token
+before the join and on visible/online; the owed join check); `app/api/schedule/range/route.ts`, `app/api/session/bootstrap/route.ts`,
+`features/{schedule,session}/queries.ts`, `app/(dashboard)/layout.tsx` (refusal status and logging; tenant still from the session only);
+`features/billing/service.ts` + `components/queue/checkout-drawer.tsx` (no default fee); `components/front-desk/slot-section.tsx` (which cached range may
+answer); `tests/security/guard/engine.ts`. No service-role client, no new grant, no PHI in logs (tags and tenant ids only).
+
+### For the PO
+
+1. **Lane row `save.R.check-in` now measures 2 calls (ceiling 1)**: `check_in_visit` plus a `today_board` re-read caused by the receptionist's OWN
+   check-in signal (no `clinic_live_state` in the window: the signal, not a check). The ceiling was measured while every page's first join was refused
+   (N1), so no signal could arrive inside the row; in real use after the first ~6 s the re-read already happened on every check-in. Not raised (only
+   the PO raises). Choose: re-baseline the row at 2, or have command answers carry the clinic version so a device's own save does not re-read
+   (09E-14a candidate; other save rows of the full lane may show the same once measured).
+2. N4 reverses a 09E-13 decision: `session_bootstrap` now answers only the session's active, full clinic (a locked clinic's member gets NULL from the
+   database as well as the route). Agreed?
+3. The two routes now answer **403 `ACCESS_REFUSED`** when the database refuses after the session check (was 500). The client shows the same "could not be
+   loaded" state; should a 403 there also trigger the session-status check (the lock or removal pages) at once?
+4. The deferred nits above (N-11 slot cap and adversarial N2/N3 cost items are the ones with user-visible effect at scale): schedule them in 09E-14a or V2-14?
+
+### Tests run (local stack, `--retries=0`)
+
+- `npm run typecheck` clean; `npx eslint .` **0 errors** (391 warnings, pre-existing; none new in the touched files beyond the existing
+  `checkout-drawer` and `billing/service` ones); `npm run inventory` exit 0; schema snapshot `--check` PASS (3,006 lines) after `db reset --local`.
+- pgTAP after `db reset --local`: **9,881 tests in 80 files, 0 failed**, gate PASS at FLOOR 9,881 (`assert-pgtap-report.mjs`).
+- Vitest (affected: `tests/live tests/session tests/schedule tests/billing tests/query tests/clinics tests/security/guard-routes.spec.ts
+  tests/api/readiness-probe-db.spec.ts tests/reference tests/realtime tests/visits tests/staff tests/settings tests/integration/per-visit-billing.spec.ts
+  tests/queue tests/observability`): **79 files, 1,487 passed, 0 failed** (before the two late live-core changes); after them `tests/live` 54/54.
+  `guard-routes` 75/75, and 0 synthetic guard substances remain after it.
+- e2e (`stack:recycle` before, `--retries=0`, desktop-chrome + pixel-7 + iphone-15): `tests/e2e/{shell,schedule,live,today,reference}`,
+  `m0/{book-appointment,cancel-appointment,checkout-collect,walk-in-token}`, `journeys/journey-0{4,5}`, `pwa/{04-offline,05-cache-audit,13-idempotent-retry}`:
+  first run stopped after 2 failures on desktop (`schedule-live` B-9, `changed-elsewhere` "booking": both root-caused above, `e5bd7384`); full rerun:
+  **618 tests: 452 passed, 165 skipped by design, 1 failed** (pixel-7 `reference-routes` "manifest and shard": the proxy refreshed the stored session on
+  that very request ~35 min after the setup, so its Cache-Control carried `no-store, must-revalidate` and the trace shows `Set-Cookie sb-...-auth-token`;
+  the spec now takes any refresh on a warm-up request first; 3 projects 14/14). After the last live-core change: `live/*`, `today-live`, `schedule-live`,
+  `changed-elsewhere` on desktop-chrome + iphone-15: one run **38 passed, 1 failed** (`changed-elsewhere` "Staff and clinic settings": the notice did
+  not show within 10 s; its artifacts were overwritten by the repeat run before I read them), then **39/39**, the case alone **4/4**, the file
+  `--repeat-each=8` **40/40**. **Not reproduced**; candidate: the run followed a ~10 min idle stack (Realtime closes idle transports and restarts its
+  replication on the next join, the 09E-14a F6 shape), and Staff and Settings have no heartbeat, so one lost broadcast is never caught there. Recorded as
+  an open item, not hidden; no retry was counted as a pass.
+- Latency `@budget` lane (`npm run perf:latency -- --grep @budget --retries=0`, after `stack:recycle`): first run 15 passed, 2 failed (`in-app.R.today`
+  root-caused and fixed; `save.R.check-in`); final run **16 passed, 1 failed** (`save.R.check-in` 2 calls > 1: PO question 1). No ceiling raised or
+  lowered.
+- Not run: the full PR lane, the nightly matrix, the design projects (no screen layout or tracked screenshot changed; the new Schedule and drawer
+  states use existing components), full Vitest. CI runs them on the push.
