@@ -15,6 +15,10 @@ const IMMUTABLE = "private, max-age=31536000, immutable";
 const SERVER_TIMING = /^db;dur=\d+(\.\d)?;desc="calls=\d+ depth=\d+", app;dur=\d+(\.\d)?$/;
 
 test("manifest and shard: keys, cache headers, ETag, stale version, out of range", async ({ page }) => {
+  // PR 2 review run: a stored session near its expiry is refreshed by the proxy on the next request, and a response that sets the session cookie is made
+  // `no-store, must-revalidate` (correctly). In a long run (pixel-7, ~35 min after the setup) that was the manifest's response, and its exact Cache-Control
+  // no longer matched. One request first takes any refresh, so the asserted responses are the routes' own.
+  expect((await page.request.get("/api/session-status")).ok()).toBe(true);
   const manifest = await page.request.get("/api/reference/manifest");
   expect(manifest.status()).toBe(200);
   expect(manifest.headers()["cache-control"]).toBe("private, no-cache");
