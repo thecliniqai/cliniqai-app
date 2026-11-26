@@ -163,6 +163,8 @@
  *          reference_catalogues keeps its 84 (the replaced function answers the same).
  *   9831 — V2-09e 09E-12 (000130 schedule_range): 9753 + schedule_range 78 (new file, every one required) = 9831 (78 files).
  *   9861 — V2-09e 09E-13 (000131 session_bootstrap): 9831 + session_bootstrap 30 (new file, every one required) = 9861 (79 files).
+ *   9877 — V2-09e PR 2 review fix I-1 (000132 doctor_directory_versions): 9861 + doctor_directory_versions 16 (new file, every one required) = 9877
+ *          (80 files). clinic_versions keeps its 107 (one assertion narrowed: default_specialty is listed now).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -174,7 +176,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9861;
+export const FLOOR = 9877;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -311,6 +313,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/schedule_range.test.sql",
   // V2-09e 09E-13
   "supabase/tests/database/session_bootstrap.test.sql",
+  // V2-09e PR 2 review fixes
+  "supabase/tests/database/doctor_directory_versions.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

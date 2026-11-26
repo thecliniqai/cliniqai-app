@@ -1422,13 +1422,13 @@ function private.cv_invoice_items() returns trigger lang=plpgsql security_define
 function private.cv_invoices_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_invoices_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=1949978583a3218c84db022c68981f92
 function private.cv_memberships_change() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=226cf783b206dfb32d5921fd0bced67a
-function private.cv_memberships_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4050b0e184dd4512a9a83e88530599fa
+function private.cv_memberships_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=d60aecd45cb4208b4582cf86c7232167
 function private.cv_patients_delete() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
 function private.cv_patients_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0fa040d292d1b0aecd1b40bba405ca5c
 function private.cv_payments() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=903392ca009f717945a527a77e8dba4c
 function private.cv_queue_tokens() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b8fa5b46d7aa610242675aec59ef652
 function private.cv_schedule_blocks() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e
-function private.cv_tenants_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=16a82ce744842074df808fa794aaaf8e
+function private.cv_tenants_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ac6a128acda02f688eb1c946077026ed
 function private.cv_visits_insert() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e28ee3a2033a603b9bd57a1fdad05d1f
 function private.cv_visits_update() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=994894291720e5dbe618c3960c1865ca
 function private.cv_waitlist_entries() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bb2d6958bfb1bfdcc9e024d11bd61d2e

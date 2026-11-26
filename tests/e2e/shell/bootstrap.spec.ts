@@ -10,10 +10,13 @@
  *   invoice is written with it, with no refresh in between (the fee is read with the bill, not from the bootstrap);
  * - a role changed elsewhere: B's next command is refused at once whatever B's bootstrap still says (frames dropped, state reads held: the shell still says
  *   Receptionist), and nothing is written; without the drop, B's navigation follows on the settings signal (role label, Schedule moves to the secondary group).
+ * - (PR 2 review I-1) two devices: the owner turns "practising" off and on in Settings on device A (a second browser context, the real form); B's open
+ *   walk-in doctor picker drops the owner, then lists the owner again, with no page render on B (000132 moves `settings` and `schedule` on that column).
  * Each test has its own clinic. Synthetic data only. 0 retries: a case that only passes on retry is a defect.
  */
 import type { Page } from "@playwright/test";
-import { expect, test } from "../fixtures";
+import { expect, routeLoopbackOnly, test } from "../fixtures";
+import { E2E_BASE_URL } from "../support/app-env";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, seededUserPassword } from "../../helpers/tenants";
 import { countKongCalls } from "../support/kong-calls";
@@ -29,6 +32,7 @@ interface Clinic {
   tenantId: string;
   tenantName: string;
   ownerId: string;
+  ownerEmail: string;
   doctorId: string;
   doctorName: string;
   receptionist: { userId: string; userEmail: string };
@@ -43,7 +47,7 @@ async function ownClinic(): Promise<Clinic> {
   const doctorName = `E2E Synthetic BootDoc ${tag}`;
   const { error } = await getAdminClient().from("memberships").update({ full_name: doctorName }).eq("tenant_id", owner.tenantId).eq("user_id", doctor.userId);
   if (error) throw new Error(`bootstrap seed: ${error.message}`);
-  return { tenantId: owner.tenantId, tenantName: owner.tenantName, ownerId: owner.userId, doctorId: doctor.userId, doctorName, receptionist };
+  return { tenantId: owner.tenantId, tenantName: owner.tenantName, ownerId: owner.userId, ownerEmail: owner.userEmail, doctorId: doctor.userId, doctorName, receptionist };
 }
 
 /** A's write (another device): a committed update of the clinic's name. */
@@ -271,4 +275,64 @@ test("a role changed elsewhere: B's navigation follows on the settings signal wi
   await expect(shellRole(page)).toHaveText("Nurse", { timeout: 2_000 });
   await expect.poll(() => scheduleIsPrimary(page), { message: "a nurse's Schedule is secondary (IA §3.2)" }).toBe(false);
   expect(rsc()).toBe(0);
+});
+
+test("two devices: the owner stops practising in Settings on A; B's open doctor picker drops the owner, then lists them again, with no page render", async ({ page, browser }) => {
+  // Two UI sign-ins and two Realtime joins before the case measures anything (as live/convergence.spec.ts).
+  test.setTimeout(120_000);
+  const clinic = await ownClinic();
+  const tag = testTag();
+  const ownerName = `E2E Synthetic BootOwner ${tag}`;
+  const admin = getAdminClient();
+  // A second doctor: with the owner gone B still has two doctors, so the picker stays a select whose options can be read.
+  const second = await addMemberToTenant(clinic.tenantId, "doctor");
+  for (const [userId, name] of [
+    [clinic.ownerId, ownerName],
+    [second.userId, `E2E Synthetic BootDocTwo ${tag}`],
+  ] as const) {
+    const { error } = await admin.from("memberships").update({ full_name: name }).eq("tenant_id", clinic.tenantId).eq("user_id", userId);
+    expect(error).toBeNull();
+  }
+  const patient = await seedPatient(clinic.tenantId, clinic.ownerId, `E2E Synthetic BootPick ${tag}`);
+
+  // Device A: the owner, on the clinic settings form.
+  const blocked: string[] = [];
+  const other = await browser.newContext({ baseURL: E2E_BASE_URL, serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
+  await routeLoopbackOnly(other, blocked);
+  try {
+    const a = await other.newPage();
+    await uiSignIn(a, { email: clinic.ownerEmail, password: seededUserPassword() });
+    await a.goto("/settings/clinic");
+    const practising = a
+      .getByText("Is Clinic Owner a practicing doctor?")
+      .locator("xpath=ancestor::div[contains(@class,'justify-between')][1]")
+      .locator('input[type="checkbox"]');
+    const save = async (on: boolean) => {
+      await practising.setChecked(on, { force: true });
+      await a.getByRole("button", { name: "Save Clinic Settings" }).click();
+      await expect(a.getByText(/saved successfully/i)).toBeVisible({ timeout: 15_000 });
+    };
+
+    // Device B: the receptionist on Today with the walk-in sheet open on the doctor picker.
+    await signInB(page, clinic);
+    await openToday(page);
+    await expect(liveStatus(page)).toHaveAttribute("data-live-status", "live", { timeout: 20_000 });
+    const sheet = await openWalkIn(page, patient.phone);
+    const picker = sheet.getByRole("combobox", { name: "Doctor" });
+    await expect(picker.locator("option", { hasText: ownerName })).toHaveCount(1);
+    const rsc = countRscRequests(page);
+
+    await save(false);
+    await expect.poll(async () => (await admin.from("tenants").select("owner_is_practicing_doctor").eq("id", clinic.tenantId).single()).data?.owner_is_practicing_doctor).toBe(false);
+    // The signal moves B within about 2 s; the 12 s heartbeat of Today is the bound when a frame is lost (the first join after a recycle, 09E-14a F6).
+    await expect(picker.locator("option", { hasText: ownerName }), "B's open picker no longer offers the owner").toHaveCount(0, { timeout: 15_000 });
+    await expect(picker.locator("option", { hasText: clinic.doctorName })).toHaveCount(1);
+
+    await save(true);
+    await expect(picker.locator("option", { hasText: ownerName }), "the owner practises again: B's picker lists them again").toHaveCount(1, { timeout: 15_000 });
+    expect(rsc(), "no page render on B: the bootstrap query was read again").toBe(0);
+    expect(blocked).toEqual([]);
+  } finally {
+    await other.close();
+  }
 });
