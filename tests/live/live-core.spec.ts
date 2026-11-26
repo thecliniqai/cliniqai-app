@@ -240,14 +240,22 @@ describe("checks", () => {
     await flush();
     expect(h.calls.state, "no screen yet: the join asks nothing").toBe(0);
     expect(h.core.badge().live).toBe(false);
-    const off = h.core.registerScreen();
+    const off = h.core.registerScreen(true);
     await flush();
-    expect(h.calls.state, "the screen that registers after the join gets the join's check").toBe(1);
+    expect(h.calls.state, "the screen of the document's own page, registering after the join, gets the join's check").toBe(1);
     expect(h.core.badge().live).toBe(true);
     off();
-    h.core.registerScreen();
+    h.core.registerScreen(true);
     await flush();
     expect(h.calls.state, "owed once: a later screen asks nothing more").toBe(1);
+  });
+
+  it("PR 2 review N1: a screen reached by in-app navigation (its data read after the join) does not take the owed check", async () => {
+    const h = harness();
+    h.core.channel(true);
+    h.core.registerScreen(false);
+    await flush();
+    expect(h.calls.state).toBe(0);
   });
 
   it("PR 2 review N1: a check during a prefetch does not remove (abort) the prefetched week; its answer's own versions make it current, so it is kept", async () => {
@@ -280,7 +288,7 @@ describe("checks", () => {
     const h = harness();
     h.core.channel(true);
     h.core.channel(false);
-    h.core.registerScreen();
+    h.core.registerScreen(true);
     await flush();
     expect(h.calls.state).toBe(0);
   });

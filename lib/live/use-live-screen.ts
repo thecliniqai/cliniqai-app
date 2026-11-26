@@ -10,5 +10,18 @@ import { useLiveCore } from "./provider";
  */
 export function useLiveScreen(): void {
   const core = useLiveCore();
-  useEffect(() => core?.registerScreen(), [core]);
+  useEffect(() => core?.registerScreen(isDocumentLoadPage()), [core]);
+}
+
+/**
+ * PR 2 review N1: whether the page on screen is the one this document loaded with (its path equals the navigation entry's), rather than one reached by
+ * in-app navigation. Only such a screen takes the check a join made before any screen owed (`registerScreen`).
+ */
+function isDocumentLoadPage(): boolean {
+  try {
+    const entry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    return new URL(entry?.name ?? window.location.href).pathname === window.location.pathname;
+  } catch {
+    return false;
+  }
 }

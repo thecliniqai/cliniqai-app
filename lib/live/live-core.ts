@@ -60,8 +60,12 @@ export interface LiveCoreDeps {
 export type LiveBadge = { live: true } | { live: false; secondsAgo: number | null };
 
 export interface LiveCore {
-  /** A live screen (Today, Schedule) is open; returns the unregister function. The heartbeat runs while at least one is. */
-  registerScreen(): () => void;
+  /**
+   * A live screen (Today, Schedule) is open; returns the unregister function. The heartbeat runs while at least one is. `fromDocumentLoad`: the screen
+   * belongs to the page this document loaded with (its data is the server render that preceded the channel's join), not to an in-app navigation (whose
+   * data was read after the channel was listening): only such a screen takes a join check that was owed.
+   */
+  registerScreen(fromDocumentLoad?: boolean): () => void;
   /** The Realtime channel's own state (SUBSCRIBED or not). */
   channel(subscribed: boolean): void;
   /** A signal arrived on the channel. */
@@ -104,8 +108,9 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
   let everSubscribed = false;
   /**
    * PR 2 review N1: the channel joined while no live screen (and no active, non-passive query) existed yet, so the join asked nothing. The first screen to
-   * register then makes that check: its data (the page's server read) is older than the moment the channel started listening, and a change in between
-   * reached no one. Once the join stopped being refused (the token is applied before it), the join usually lands before the screen's effect registers.
+   * register, if it is the page the document loaded with, then makes that check: its data (the page's server read) is older than the moment the channel
+   * started listening, and a change in between reached no one. A screen reached by in-app navigation read its data after the join: no check (a lane row
+   * counts it). Once the join stopped being refused (the token is applied before it), the join usually lands before the screen's effect registers.
    */
   let joinCheckOwed = false;
   let lastConfirmed: number | null = null;
@@ -204,10 +209,10 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
   }
 
   return {
-    registerScreen() {
+    registerScreen(fromDocumentLoad = false) {
       screens += 1;
       syncHeartbeat();
-      if (subscribed && joinCheckOwed) void check();
+      if (subscribed && joinCheckOwed && fromDocumentLoad) void check();
       let done = false;
       return () => {
         if (done) return;
