@@ -99,6 +99,12 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
   let screens = 0;
   let subscribed = false;
   let everSubscribed = false;
+  /**
+   * PR 2 review N1: the channel joined while no live screen (and no active, non-passive query) existed yet, so the join asked nothing. The first screen to
+   * register then makes that check: its data (the page's server read) is older than the moment the channel started listening, and a change in between
+   * reached no one. Once the join stopped being refused (the token is applied before it), the join usually lands before the screen's effect registers.
+   */
+  let joinCheckOwed = false;
   let lastConfirmed: number | null = null;
   let stopped = false;
   let beat: (() => void) | null = null;
@@ -170,6 +176,7 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
     // One state call at a time: a trigger that arrives while one is out is answered by it (a signal carries its own version).
     if (inFlight) return;
     inFlight = true;
+    joinCheckOwed = false;
     let snapshot: LiveSnapshot | null = null;
     try {
       snapshot = await deps.readState();
@@ -193,6 +200,7 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
     registerScreen() {
       screens += 1;
       syncHeartbeat();
+      if (subscribed && joinCheckOwed) void check();
       let done = false;
       return () => {
         if (done) return;
@@ -212,7 +220,9 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
         // The check closes the gap between what a screen read and the moment the channel started listening. With no live screen and no query that
         // depends on a domain there is nothing to catch up (the first one to appear carries its own basis), so a page of another kind pays no call.
         if (screens > 0 || deps.dependents().some((d) => d.active && !d.passive)) void check();
+        else joinCheckOwed = true;
       }
+      if (!isSubscribed) joinCheckOwed = false;
     },
     signal(domain, version) {
       if (stopped) return;

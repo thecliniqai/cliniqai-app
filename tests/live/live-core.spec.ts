@@ -234,6 +234,31 @@ describe("checks", () => {
     expect(h.calls.reread).toEqual(["bootstrap", "bootstrap"]);
   });
 
+  it("PR 2 review N1: a join before any screen owes its check to the first screen that registers (once), and the badge goes live without a beat", async () => {
+    const h = harness();
+    h.core.channel(true);
+    await flush();
+    expect(h.calls.state, "no screen yet: the join asks nothing").toBe(0);
+    expect(h.core.badge().live).toBe(false);
+    const off = h.core.registerScreen();
+    await flush();
+    expect(h.calls.state, "the screen that registers after the join gets the join's check").toBe(1);
+    expect(h.core.badge().live).toBe(true);
+    off();
+    h.core.registerScreen();
+    await flush();
+    expect(h.calls.state, "owed once: a later screen asks nothing more").toBe(1);
+  });
+
+  it("PR 2 review N1: a join check owed is dropped when the channel leaves before a screen registers", async () => {
+    const h = harness();
+    h.core.channel(true);
+    h.core.channel(false);
+    h.core.registerScreen();
+    await flush();
+    expect(h.calls.state).toBe(0);
+  });
+
   it("a subscription that is not a change (SUBSCRIBED again with no drop between) checks nothing more", async () => {
     const h = harness();
     h.core.registerScreen();

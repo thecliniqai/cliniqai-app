@@ -129,14 +129,26 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
     });
 
     let closeChannel: (() => void) | null = null;
+    let refreshAuth: (() => void) | null = null;
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
     const openChannel = () => {
       if (closeChannel) return;
       let closed = false;
       let removeChannel: (() => void) | null = null;
-      void import("@/lib/supabase/client").then(({ realtimeClient }) => {
+      void import("@/lib/supabase/client").then(async ({ realtimeClient }) => {
         if (closed) return;
         const client = realtimeClient();
+        // PR 2 review N1: the user's token before the join. realtime-js applies the `accessToken` callback asynchronously, and a `subscribe` made before it
+        // resolved joined with the publishable key: the private channel refused it and realtime-js rejoined about 6 s later (signals of that window lost).
+        // realtime-js reads the callback again on every heartbeat (25 s) and pushes a changed token to the joined channel, so a refreshed session cookie
+        // reaches the channel without a rejoin; `refreshAuth` below also does it at once when the tab is visible again or back online.
+        try {
+          await client.realtime.setAuth();
+        } catch {
+          // No token (signed out mid-load): the join is refused and the core's checks keep the screen current, as before.
+        }
+        if (closed) return;
+        refreshAuth = () => void client.realtime.setAuth().catch(() => undefined);
         const channel = client.channel(`today:${tenantId}`, { config: { private: true } });
         channel.on("broadcast", { event: "today" }, (message) => {
           const signal = parseSignal(message.payload);
@@ -159,6 +171,7 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
         if (closeTimer) clearTimeout(closeTimer);
         closeTimer = null;
         openChannel();
+        refreshAuth?.();
       } else if (!closeTimer) {
         closeTimer = setTimeout(() => {
           closeTimer = null;
@@ -167,7 +180,10 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
       }
       core.visibilityChanged();
     };
-    const onOnline = () => core.wake();
+    const onOnline = () => {
+      refreshAuth?.();
+      core.wake();
+    };
 
     if (document.visibilityState === "visible") openChannel();
     document.addEventListener("visibilitychange", onVisibility);
