@@ -76,6 +76,9 @@ export function CheckoutDrawer({
   const [isPending, startTransition] = useTransition();
   const [billingData, setBillingData] = useState<GetVisitBillingResult | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  // PR 2 review N-3: the bill's details (with the clinic's fee for a new bill) could not be read: nothing can be collected until a re-read succeeds.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloads, setReloads] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -128,31 +131,39 @@ export function CheckoutDrawer({
       setWhatsAppStatus(null);
       setIsCompleted(false);
       setLoadingBilling(true);
+      setLoadFailed(false);
 
       getVisitBillingDetails(visit.id)
         .then((res) => {
           setBillingData(res);
-          if (res.success && res.invoice) {
+          if (!res.success) {
+            // Never a made-up amount (the old ₹500 default): the drawer says why and offers Try again.
+            setLoadFailed(true);
+            setError(res.error);
+            return;
+          }
+          if (res.invoice) {
             setAmountToPay(res.balanceDue);
             if (res.balanceDue === 0 && res.invoice.status === "paid") {
               setIsCompleted(true);
             }
           } else {
             // V2-09e 09E-13 (R-13): a new bill starts from the clinic's fee as the database has it now (read with the bill, never held).
-            const fee = res.success && typeof res.clinicFee === "number" ? res.clinicFee : defaultFee;
+            const fee = typeof res.clinicFee === "number" ? res.clinicFee : defaultFee;
             setConsultationFee(fee);
             setAmountToPay(fee);
           }
         })
         .catch((err) => {
           reportClientError("billing.visit_billing_load.failed", err);
+          setLoadFailed(true);
           setError("Failed to load visit billing details.");
         })
         .finally(() => {
           setLoadingBilling(false);
         });
     }
-  }, [isOpen, visit?.id, defaultFee, startOverCommand]);
+  }, [isOpen, visit?.id, defaultFee, startOverCommand, reloads]);
 
   // A changed bill or payment after an error is a new request, not a retry of the failed one.
   useEffect(() => {
@@ -530,6 +541,13 @@ export function CheckoutDrawer({
             <div className="p-8 text-center space-y-3">
               <Loader2 className="w-6 h-6 animate-spin text-accent mx-auto" />
               <p className="text-xs text-gray-500">Loading billing encounter details...</p>
+            </div>
+          ) : loadFailed ? (
+            <div className="p-8 text-center space-y-3" data-billing-unavailable="">
+              <p className="text-body-sm text-fg-muted">Nothing can be collected until the bill loads. Nothing was charged.</p>
+              <Button type="button" variant="secondary" onClick={() => setReloads((n) => n + 1)}>
+                Try again
+              </Button>
             </div>
           ) : isCompleted || (invoice && balanceDue === 0 && invoice.status === "paid") ? (
             /* Post-Checkout / Fully Paid Receipt View */

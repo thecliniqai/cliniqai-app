@@ -533,6 +533,9 @@ export async function recordPayment(
   };
 }
 
+/** The fixed text when the clinic's fee could not be read for a new bill (PR 2 review N-3). */
+export const CLINIC_FEE_UNAVAILABLE = "The clinic's consultation fee could not be loaded, so the bill was not started. Try again.";
+
 export type GetVisitBillingResult =
   | {
       success: true;
@@ -584,7 +587,11 @@ export async function getVisitBillingDetails(
         .select("default_consultation_fee")
         .eq("id", session.tenantId)
         .maybeSingle();
-      if (feeErr) log.warn({ event: "billing.clinic_fee_load.failed", code: errorTag(feeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      if (feeErr) {
+        // PR 2 review N-3: a bill never starts from a made-up amount. Without the clinic's fee the drawer says so and offers Try again (no ₹500 default).
+        log.error({ event: "billing.clinic_fee_load.failed", code: errorTag(feeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: CLINIC_FEE_UNAVAILABLE };
+      }
       const fee = tenant?.default_consultation_fee;
       return {
         success: true,

@@ -10,6 +10,8 @@
  *   invoice is written with it, with no refresh in between (the fee is read with the bill, not from the bootstrap);
  * - a role changed elsewhere: B's next command is refused at once whatever B's bootstrap still says (frames dropped, state reads held: the shell still says
  *   Receptionist), and nothing is written; without the drop, B's navigation follows on the settings signal (role label, Schedule moves to the secondary group).
+ * - (PR 2 review N-3) a bill whose details (with the clinic's fee) could not be read offers no amount and no Collect button, only Try again, which loads
+ *   the clinic's fee; never the old hard-coded ₹500;
  * - (PR 2 review I-1) two devices: the owner turns "practising" off and on in Settings on device A (a second browser context, the real form); B's open
  *   walk-in doctor picker drops the owner, then lists the owner again, with no page render on B (000132 moves `settings` and `schedule` on that column).
  * Each test has its own clinic. Synthetic data only. 0 retries: a case that only passes on retry is a defect.
@@ -218,6 +220,30 @@ test("@golden fees are never held: a fee changed elsewhere is B's next bill's fe
   const { data: items } = await getAdminClient().from("invoice_items").select("item_type, unit_price").eq("invoice_id", invoices[0]!.id);
   expect(items, "the bill was written with the fee the database had").toEqual([{ item_type: "consultation", unit_price: 735 }]);
   expect(invoices[0]!.payments).toEqual([{ amount: 735, payment_method: "cash", reference_number: null }]);
+});
+
+test("N-3: a bill that could not be read offers nothing to collect (no made-up ₹500), and Try again loads the clinic's fee", async ({ page }) => {
+  const clinic = await ownClinic();
+  const { name } = await seedBillable(clinic, "BootFeeFail");
+  const { error } = await getAdminClient().from("tenants").update({ default_consultation_fee: 640 }).eq("id", clinic.tenantId);
+  expect(error).toBeNull();
+  await signInB(page, clinic);
+  await openToday(page);
+  // The bill's read (a Server Action POST) fails while the drawer opens.
+  let failing = true;
+  await page.route("**/*", (route) =>
+    failing && route.request().method() === "POST" && route.request().headers()["next-action"] ? route.abort() : route.fallback(),
+  );
+  await openBill(page, name);
+  const drawer = drawerOf(page);
+  await expect(drawer.locator("[data-billing-unavailable]")).toBeVisible({ timeout: 15_000 });
+  await expect(drawer.getByRole("button", { name: /^Collect ₹/ }), "nothing can be collected").toHaveCount(0);
+  await expect(drawer.getByLabel(/^Amount to Collect/)).toHaveCount(0);
+
+  failing = false;
+  await drawer.locator("[data-billing-unavailable]").getByRole("button", { name: "Try again" }).click();
+  await expect(drawer.getByLabel(/^OPD Consultation Fee/)).toHaveValue("640", { timeout: 15_000 });
+  await expect(drawer.getByRole("button", { name: "Collect ₹640 & Checkout" })).toBeVisible();
 });
 
 test("a role changed elsewhere: B's next command is refused at once whatever B's bootstrap says, and nothing is written", async ({ page }) => {
