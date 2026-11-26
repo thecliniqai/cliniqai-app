@@ -1347,3 +1347,172 @@ the in-memory query (as Today).
   `subscriptions/locked`: **185 passed, 61 skipped by design, 0 failed**.
 - Lane: the schedule rows (above), 16 passed. Not run: the full PR lane, the nightly lane, full Vitest, the design projects (no screenshot changed; the badge
   in the head is checked by `schedule.spec` "no horizontal scroll and axe" on the three projects) (CI runs them).
+
+## 09E-13 Session bootstrap
+
+Branch `v2/phase-09e-pr2-search-schedule`. Migration **`000131_session_bootstrap`** (renumbered from 000130 by 09E-12, already in `09E-PLAN.md`). No new
+dependency. Commits: `2e077095` (migration, pgTAP, registries), `3aa9c500` (route, client, consumers, fees with the bill, specs), `c9f04836` (lane root causes:
+passive bootstrap, parallel read, zod-free shell), then this notes commit.
+
+### What shipped
+
+- **000131** `public.session_bootstrap(p_tenant_id) RETURNS jsonb` (STABLE INVOKER, `search_path ''`, EXECUTE `authenticated` only; NULL unless the caller
+  is an ACTIVE member of the clinic; no session, NULL, another clinic, a forged tenant, a removed member → NULL). Keys, exactly: `profile {id, full_name}`,
+  `clinic {id, name, zone}` (zone resolved case-insensitively against `pg_timezone_names`, `Asia/Kolkata` fallback), `role` (display/navigation only),
+  `doctors [{id, full_name, specialty}]` (the bookable directory exactly as the pickers listed it: active doctors + the owner when practising, by membership
+  creation, "Doctor"/"Clinic Doctor" for a blank name), `clinics [{id, name}]` (the caller's own active clinics: the switcher), `rx_print {paper_size,
+  letterhead_mode, top_margin, bottom_margin}`, `versions {settings}` from the same statement. No fee, price, invoice, payment, subscription, access,
+  entitlement or permission field.
+- **Allow-list in TypeScript**: `features/session/bootstrap.ts` (zod, every object `.strict()`; `parseSessionBootstrap` returns null for anything else);
+  `features/session/view.ts` (zod-free helpers for the shell); `features/session/queries.ts` (`readSessionBootstrap`, user JWT client, logs by tag only).
+- **Route** `GET /api/session/bootstrap` (`resolveServiceContext()`: any active member of a full clinic; 401, 403, 403 `SUBSCRIPTION_LOCKED`, 503, 500, 409
+  `CLINIC_CHANGED` before the read; `private, no-store`; `timedRoute`). Guard manifest kind `session-bootstrap` + engine legs; `server-routes.ts` regenerated;
+  inventory 0 flagged.
+- **Layout** (`app/(dashboard)/layout.tsx`): the bootstrap read **replaces** the layout's membership read for the switcher (`listUserClinics`; still used by
+  the clinic picker), starts for the device's pinned clinic before the membership resolution and is awaited together with the access level, then hydrates
+  `queryKeys.bootstrap(tenantId)` (`HydrationBoundary`). `QueryProvider` now wraps the shell; the old "render nothing once cleared" gate is `QueryScreens`
+  around the screens (the shell stays mounted so its query does not read again during an exit).
+- **Client** `lib/session/use-bootstrap.ts`: one query per clinic, `staleTime: Infinity`, `meta {live, passive, domains: ["settings"]}`: re-read on a newer
+  `settings` version (signal, heartbeat of a live screen, the check on resume/visible/`online`/rejoin) and by a layout render (`router.refresh` after a
+  settings save); a confirmed Rx-print save re-reads it at once; cleared with the client at sign-out, lock and switch (R-14). `BootstrapLiveBasis` gives the
+  hydrated query its exact basis. **Consumers**: `components/shell/session-shell.tsx` (clinic name, zone for `ClinicTimeZoneProvider`, role label and
+  `navForRole` navigation, switcher list); `components/front-desk/use-doctors.ts` (booking, reschedule, waitlist sheets) and `walk-in-sheet.tsx` take the doctors
+  from it (no `getActiveClinicDoctors` call when a sheet opens). Sidebar gained `data-shell-clinic-name` / `data-shell-role` (test hooks, no visual change).
+- **Fees read with the bill** (R-13): `getVisitBillingDetails` returns `clinicFee` (the clinic's `default_consultation_fee`, read from the database) when the
+  visit has no invoice yet; the checkout drawer starts a new bill from it. Before, the drawer always pre-filled a hard-coded 500 and the clinic's fee setting
+  was not used anywhere in the UI (finding; see PO questions).
+- **Live core** (`lib/live/live-core.ts`, `provider.tsx`): `Dependent.passive`: a passive query converges like any other but never makes the channel's join
+  ask the server on its own (so the bootstrap, active on every page, does not add a `clinic_live_state` call to pages that are not live screens).
+- `scripts/perf/command-latency.ts`: `read: session_bootstrap` (target p95 < 50 ms).
+- Directory read off the screens' paths: `features/staff/actions.ts` directory actions have no app/component caller (grep), so nothing changed there;
+  `features/visits/actions.ts#getActiveClinicDoctors` stays for the Visits page's server-side filter (one read in its `Promise.all`).
+
+### Kong counts, before and after (tool output `evidence/09E-13/sheet-calls-{before,after}.txt`, desktop-chrome; before = the 09E-12 build)
+
+| Window | Before | After |
+| --- | --- | --- |
+| Open the walk-in sheet (Today) | `rpc/today_board` 1, `tenants` 1, `memberships` 1 | `rpc/today_board` 1 |
+| Open the booking sheet (Schedule free slot) | `rpc/schedule_range` 1, `tenants` 1, `memberships` 1 | `rpc/schedule_range` 1 |
+
+(The board/range call is the page's own soft navigation to `?walkin=1` / `?book=1`.) A full load: the layout's `GET memberships` became
+`rpc/session_bootstrap` (same count). In-app navigations make no bootstrap, directory or settings read (the layout does not re-render; lane in-app rows below).
+
+### Specs
+
+- **pgTAP `session_bootstrap.test.sql` (30)**: grants and shape; 9 refusal/answer cases (another clinic both ways, forged tenant, no membership, removed
+  member, no session, NULL tenant, every role answers, a clinic that is not full answers); **every key path at every level equals the allow-list**; the
+  owner sees the same paths as the receptionist; no fee/price/invoice/payment/subscription/access/entitlement/permission/plan/amount key at any level;
+  `versions.settings` = `clinic_versions`, also after a rename in the same transaction; values (profile, clinic and zone per clinic, role, the doctor
+  directory with the practising owner and a blank name, a non-practising owner absent, a dual member's own two clinics only, rx_print).
+- **Vitest `tests/session/bootstrap.spec.ts` (17)**: the strict schema refuses an extra key at the top, in the clinic, profile, a doctor, a switcher clinic,
+  rx_print and versions (10 cases), malformed answers (4), null; switcher order. `tests/live/live-core.spec.ts` +1 (passive dependent). Guard leg
+  `session-bootstrap` (401, 403, locked 403 with no read, every role 200 no-store no cookie with exact top/nested keys and its own role, no never-held key,
+  one `session_bootstrap` call, another clinic's header 409, forged `?tenant=` identical). `tests/clinics/switch-clinic-db.spec.ts` and
+  `tests/auth/session-auth-reverify-db.spec.ts` find the shell by type (`tests/helpers/element-tree.ts`) and read the switcher's clinics from the hydrated bootstrap.
+- **e2e `tests/e2e/shell/bootstrap.spec.ts`** (desktop-chrome, pixel-7, iphone-15): signal (clinic and doctor renamed by another device → B's shell name
+  within 2 s, B's walk-in doctor picker shows the new name, opening it reads no `memberships`/`tenants`, 1–2 bootstrap reads, 0 RSC); dropped frames on Today
+  → the rename shows only after the page clock passes 12 s (one bootstrap read); resume on Patients with the socket refused → shows after hidden→visible
+  (one read); **fees never held** (fee changed elsewhere → B's drawer shows 735, the invoice item is written at 735, 0 RSC between); role changed elsewhere with
+  B deaf (frames dropped, state reads held, shell still "Receptionist") → B's collect is refused ("do not have permission"), nothing billed; role changed
+  with signals → role label "Nurse" and Schedule moves to the secondary group within 2 s, 0 RSC. **`query-clear.spec.ts`** +1: after a clinic switch no
+  document names clinic A in the shell and B's walk-in sheet never lists A's doctor; after sign-out and another user's sign-in no document names clinic B.
+
+### Fails-without (High: fees never held; tool output `evidence/09E-13/fees-fails-without.txt`)
+
+The fee was put into the bootstrap (`session_bootstrap` re-created with `clinic.fee` on the local stack, the schema and the drawer reading it), rebuilt, and
+the fee spec run on desktop-chrome: **failed, `Expected: "735"`, `Received: "500"`** (B billed the fee its bootstrap held; `default_consultation_fee` is not a
+`settings`-domain column, so no signal ever refreshed it). Restored (source by `git checkout`, the function from the migration file; `session_bootstrap`
+pgTAP 30/30 and the schema snapshot `--check` PASS after the restore), rebuilt.
+
+### Lane rows (300 ms; root causes, no retries)
+
+Full lane `npm run perf:latency -- --retries=0` on `c9f04836` after `stack:recycle` (tool output `evidence/09E-13/lane-300ms-rows.txt`,
+`lane-300ms-failures.txt`, `lane-300ms.{json,md}`): **51 passed, 5 failed**. No ceiling raised; none lowered here (09E-13 owns only `bg.session-status`:
+3 / 3, unchanged; `latency-ceilings.mjs` on this summary would lower `live.R.check-in-elsewhere` 11/8 → 3/2, `save.D.sign-finish` 58/34 → 57/33 and
+`save.R.collect` 10/9 → 10/8, but the script rebuilds the file from one summary, which holds only 13 rows: left for the close's merged evidence run).
+
+Root causes found on the way (each run with `--retries=0`; no ceiling touched):
+- **The bootstrap made the channel's join ask on every page** (first full lane: `save.D.draft-autosave` and `save.D.edit-rx-line` 2 > 1 calls,
+  `in-app.D.consult-sealed` 19 > 18, each with one `rpc/clinic_live_state`): fixed by `passive` (`c9f04836`); these rows pass.
+- **Full-load depth +1** (`full.R.patient` 4 > 3, `full.D.patient` 5 > 4, `full.R.billing-reports` 4 > 3; earlier also `full.D.today` 5 > 4): the same rows
+  fail identically on the **09E-12 build** (`114c1ec0`, built in a scratch worktree, same stack, same grep: `full.R.patient` 4, `full.D.today` 5): the chain
+  is the page's two reads followed by the shell's notification actions, which start at hydration; pre-existing and timing-dependent (finding 3). The
+  bootstrap read itself starts with the membership checks (calls equal: `GET memberships` → `rpc/session_bootstrap`).
+- **`save.R.book` depth 4 > 3** (calls 4, unchanged): traced with a temporary log in both builds: on every new page the Realtime join is refused (finding 1)
+  and the socket rejoins about 6 s after the page opened. Before 09E-13 the booking sheet waited for its `getActiveClinicDoctors` action, so the save
+  committed after the rejoin and its signal arrived; now the sheet has its doctors at once, the save commits inside the refused window, its signal is lost,
+  and the range re-read waits for the rejoin check (`register_and_book` → `schedule_range` → `clinic_live_state` → `schedule_range`). With the token applied
+  before the join the row passed (`9 passed`, no `Unauthorized` in the Realtime log), but that change broke three live specs and was reverted (finding 1).
+- **`full.D.consult-sealed` 23 > 22** (sample 3 only): a `POST /auth/v1/token` (the lane user's session refreshed inside the window, 35 minutes into the
+  run); the other 22 calls are the row's own. Lane artifact, recorded.
+
+`command-latency.ts` (tool output `evidence/09E-13/command-latency.json`, 100 calls): **`read: session_bootstrap` p50 39.0, p95 48.4 ms** (target < 50). The
+script exits 1 on the reads already over target before this plan (`consult_screen` 261.6, `today_board` 188.2, `schedule_range` 435.2, the reference shards).
+
+### Decisions and deviations
+
+- **`clinics` (the switcher list) added to the bootstrap** (not in the plan's field list): the plan's "beside the layout's existing read" adds one call to
+  every full load and every `router.refresh`, which the call ceilings forbid (raising is a PO question). The bootstrap replaces that read instead (same
+  count, same depth). When the device has no context cookie the layout still reads `memberships` for the membership itself, so such a load makes one more
+  call than before (the lane's rows run with the cookie).
+- **`doctors` = the bookable directory** (doctors + the practising owner, as `getActiveClinicDoctors` and `schedule_range` list them) with `specialty` (the
+  picker label), instead of "owners and doctors with `consultations:edit`" (a non-practising owner holds that permission but is never bookable).
+- **No server-side consumer of `rx_print` yet**: the Rx print view and PDF are built from the database at print time (the frozen prescription values plus the
+  margins); they stay so. The bootstrap holds the display fields; the Rx print card re-reads the bootstrap after a confirmed save.
+- **Locked clinics**: the SQL answers any active member (plan); the route refuses a clinic that is not full (its users are on the locked pages).
+- **`passive` dependents** (live core) and **pinned-clinic early read** in the layout: both from lane root causes (below).
+- **Display name** (`profile.full_name`) is held but the shell keeps showing the e-mail (no design change in this plan).
+- Affected-test grep (`getActiveClinicDoctors|useClinicDoctors|listUserClinics|ClinicTimeZoneProvider|AppShell|QueryProvider|getVisitBillingDetails|...`):
+  `tests/auth/session-auth-reverify-db`, `tests/clinics/switch-clinic-db` (updated), `tests/billing/*`, `tests/integration/per-visit-billing`,
+  `tests/queue/stale-write-services`, `tests/staff/doctor-picker`, `tests/visits/clinic-visits-register`, `tests/pwa/hard-sign-out`,
+  `tests/subscriptions/lock-enforcement`; e2e `journeys/journey-05-walk-in`, `m0/walk-in-token`, `pwa/{04-offline,13-idempotent-retry}`,
+  `shell/clinic-switcher`, `today/front-desk`, `perf/latency-saves`.
+
+### Findings (not changed here)
+
+1. **The Realtime channel joins with the publishable key on every new page** (pre-existing since 09E-04; same in the 09E-12 build, A/B traced): Realtime logs
+   `Unauthorized: You do not have permissions to read from this Channel topic: today:<tenant>` (token `iss=supabase-demo`) at each page open; realtime-js
+   rejoins after its backoff, so a freshly loaded page has no live channel for about 6 s (the badge says Reconnecting; signals of that time are lost; the
+   heartbeat and the rejoin check catch up). Tried: `await client.realtime.setAuth()` before `subscribe` removed the refusals and fixed the lane's book row,
+   but `convergence.spec` "dropped" (desktop, pixel-7) and `today-live` "a check-in ... within 2 s" (desktop) then timed out: reverted, needs its own
+   investigation (09E-14a candidate).
+2. **The clinic's default consultation fee was never used by the UI** (both bills pre-filled a hard-coded ₹500): the checkout drawer now starts from it (read
+   with the bill); **Sign & Bill (doctor) still pre-fills ₹500** (it makes no read when it opens).
+3. **Full-load depth rows are timing-dependent** (pre-existing): `full.R.patient`, `full.D.today`, `full.D.patient`, `full.R.billing-reports` fail their depth
+   ceiling by 1 **on the 09E-12 build too** on this machine today (A/B: `full.R.patient` 4 > 3, `full.D.today` 5 > 4 with the 09E-12 build and stack): the
+   shell's notification actions start at hydration and count as a link of the chain when they start after the page's second read ends. Not raised.
+
+### Security-sensitive for the adversarial review
+
+`supabase/migrations/000131_session_bootstrap.sql` (INVOKER, active-member gate, NULL cases, the allow-list, `clinics` across the caller's memberships, RLS
+on other members' rows), `supabase/tests/database/session_bootstrap.test.sql`; `app/api/session/bootstrap/route.ts` (session, tenant from the session, locked,
+409 before the read, `no-store`); `features/session/{bootstrap,queries,view}.ts` (strict parse, no field outside the list reaches the device);
+`app/(dashboard)/layout.tsx` (the bootstrap read for the pinned clinic before the membership resolves: used only when the session resolves to that clinic;
+the role it carries is display/navigation only; the layout's guards unchanged); `lib/session/use-bootstrap.ts`, `lib/query/{provider,keys}.ts` (memory only,
+cleared on exit, `QueryScreens`, one key per clinic), `components/shell/session-shell.tsx` (navigation from the bootstrap role: pages and commands keep their
+own checks), `lib/live/{live-core,provider}.ts` (`passive`); `features/billing/service.ts` + `components/queue/checkout-drawer.tsx` (fee read with the bill);
+`tests/security/{guard-manifest.ts,guard/engine.ts,guard-routes.spec.ts}`. No service-role client, no cookie, no server cache, no PHI in the bootstrap.
+
+### For the PO
+
+1. The bootstrap also carries your clinics list for the switcher (so a page load makes no extra call). Acceptable?
+2. Sign & Bill still starts at ₹500 instead of the clinic's fee (the desk drawer now uses the clinic's fee). Fix it in 09E-14a (one read when the dialog opens)?
+3. The live channel's first join on every page is refused (finding 1): fix in 09E-14a?
+4. The four full-load depth rows that fail by one on the unchanged 09E-12 build: re-baseline them at the close's evidence run, or treat the notification
+   calls as background work in the lane?
+
+### Tests run (local stack, `stack:recycle` before each e2e and lane run, `--retries=0`)
+
+- `npm run typecheck` clean; eslint on every touched tree 0 errors (pre-existing warnings in `features/billing/service.ts` only); `npm run inventory` 0
+  flagged; `server-routes.mjs --write`, `client-routes.mjs --check` PASS; `ci:ui-policy` PASS; `ci:ai-l1` PASS; schema snapshot `--check` PASS.
+- pgTAP after `db reset --local`: **9,861 tests in 79 files, 0 failed**, gate PASS at FLOOR 9,861 (9,831 + 30). `session_bootstrap` 30/30 (again after the
+  fails-without restore).
+- Vitest: `tests/session tests/security/guard-routes.spec.ts tests/observability tests/query tests/live` 29 files, 578 passed; `tests/settings tests/staff
+  tests/billing tests/clinics tests/visits tests/ci ...` 73 files, 1,058 tests: 1,056 passed, 2 failed (the two layout-tree tests, updated) → both files 70/70;
+  `tests/live tests/session tests/query` 80/80 after `passive`.
+- e2e (3 projects): affected set `tests/e2e/{shell,settings,today,schedule,live}` + `m0/walk-in-token`, `journeys/journey-0{4,5}`,
+  `pwa/{04-offline,13-idempotent-retry}`: **371 passed, 165 skipped by design, 0 failed** (on `3aa9c500`); after `c9f04836`: `live/*`,
+  `shell/{bootstrap,query-clear}`, `today/today-live`, `schedule/schedule-live`: **71 passed, 0 failed**.
+- Lane: above. Not run: full Vitest, the design projects (no screenshot tracked file changed), the nightly device matrix (CI and the close run them).
+- **Phase-level exit check (decision 1, "0 hits at the close")**: `grep -rnE 'unstable_cache|"use cache"|revalidateTag' app components features lib` →
+  **0** (tool output `evidence/09E-13/no-server-cache.txt`, at `3aa9c500`).
