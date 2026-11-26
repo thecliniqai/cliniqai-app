@@ -23,7 +23,20 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/supabase/server")>();
-  return { ...actual, createClient: async () => state.client };
+  // As the real server client: the device's active clinic (the cookie) goes with every RPC as `x-clinicos-tenant`, so the database's active clinic is the
+  // session's (PR 2 review N4, 000133: session_bootstrap answers only for the session's active, full clinic).
+  const withActiveClinic = (client: unknown) => {
+    const tenant = state.cookies.get(actual.ACTIVE_TENANT_COOKIE);
+    if (!client || !tenant) return client;
+    return new Proxy(client as object, {
+      get(target, prop, receiver) {
+        if (prop !== "rpc") return Reflect.get(target, prop, receiver);
+        return (...args: unknown[]) =>
+          (Reflect.get(target, prop, receiver) as (...a: unknown[]) => { setHeader: (n: string, v: string) => unknown }).apply(target, args).setHeader("x-clinicos-tenant", tenant);
+      },
+    });
+  };
+  return { ...actual, createClient: async () => withActiveClinic(state.client) };
 });
 
 vi.mock("next/headers", async (importOriginal) => {

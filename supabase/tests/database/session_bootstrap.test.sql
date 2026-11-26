@@ -2,8 +2,9 @@
 -- allow-list (a fee, an invoice, the access level, a permission) held in the browser for the session, a version that is not the data's).
 -- public.session_bootstrap(tenant): what the shell holds in memory for the session, in one STABLE INVOKER read.
 --   1. grants and shape: INVOKER, STABLE, search_path pinned, EXECUTE for authenticated only;
---   2. refusals (NULL): another clinic, a forged or unknown tenant, no membership, a removed member, no session, a NULL tenant; every member role answers,
---      and the member of a clinic that is not full too (the shell's redirect decides that, from the database, on each request);
+--   2. refusals (NULL): another clinic, a forged or unknown tenant, no membership, a removed member, no session, a NULL tenant; every member role answers;
+--      since 000133 (adversarial N4) the gate of has_permission too: a clinic that is not full, or another of the caller's clinics than the session's
+--      active one (the x-clinicos-tenant header), gets NULL;
 --   3. the exact allow-list: every key path of the answer (at every level, arrays included) is exactly the listed set; no fee, price, invoice, payment,
 --      subscription, access, entitlement or permission key at any level;
 --   4. versions.settings equals clinic_versions, also after a settings change in the same transaction;
@@ -27,15 +28,15 @@ insert into auth.users (id, email) values
   ('c1310000-0000-4000-8000-000000000401', 'c131-owner-c@example.test');
 insert into public.tenants (id, name, timezone, owner_is_practicing_doctor, rx_paper_size, rx_letterhead_mode, letterhead_top_margin, letterhead_bottom_margin) values
   ('c1310000-0000-4000-8000-00000000000a', 'Synthetic 000131 Clinic A', 'asia/kolkata', true, 'A5', 'preprinted_letterhead', 120, 70),
-  ('c1310000-0000-4000-8000-00000000000b', 'Synthetic 000131 Clinic B', 'America/New_York', true, 'A4', 'blank_paper', null, null),
+  ('c1310000-0000-4000-8000-00000000000b', 'Synthetic 000131 Clinic B', 'America/New_York', false, 'A4', 'blank_paper', null, null),
   ('c1310000-0000-4000-8000-00000000000c', 'Synthetic 000131 Clinic C', 'Europe/London', false, 'A4', 'blank_paper', null, null);
--- A's subscription is full (trialing); B and C stay incomplete (not full).
+-- A's and B's subscriptions are full (trialing); C stays incomplete (not full).
 update public.tenant_subscriptions s
    set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
        access_ends_at = now() + interval '15 days', trial_consumed = true,
        plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
                          where p.code = 'standard' order by pp.active_from limit 1)
- where s.tenant_id = 'c1310000-0000-4000-8000-00000000000a' and s.status = 'incomplete';
+ where s.tenant_id in ('c1310000-0000-4000-8000-00000000000a', 'c1310000-0000-4000-8000-00000000000b') and s.status = 'incomplete';
 -- Created in this order (the directory's order is membership creation): the owner, doctor 1, doctor 2 (no name), then the others.
 insert into public.memberships (user_id, tenant_id, role, full_name, default_specialty, created_at) values
   ('c1310000-0000-4000-8000-000000000101', 'c1310000-0000-4000-8000-00000000000a', 'owner', 'Synthetic Owner A', null, now() - interval '9 minutes'),
@@ -51,11 +52,12 @@ insert into public.memberships (user_id, tenant_id, role, full_name, default_spe
 insert into public.memberships (user_id, tenant_id, role, full_name, status, removed_at) values
   ('c1310000-0000-4000-8000-000000000107', 'c1310000-0000-4000-8000-00000000000a', 'doctor', 'Synthetic Removed Doctor', 'removed', now());
 
-create function pg_temp.as_user(p_user uuid, p_sql text) returns text language plpgsql as $f$
+-- p_active: the session's active clinic (the x-clinicos-tenant header the app sends), none by default.
+create function pg_temp.as_user(p_user uuid, p_sql text, p_active uuid default null) returns text language plpgsql as $f$
 declare v_out text;
 begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
-  perform set_config('request.headers', '', true);
+  perform set_config('request.headers', case when p_active is null then '' else json_build_object('x-clinicos-tenant', p_active)::text end, true);
   begin
     set local role authenticated;
     execute p_sql into v_out;
@@ -69,9 +71,9 @@ end;
 $f$;
 create function pg_temp.uid(p_user text) returns uuid language sql as $f$ select ('c1310000-0000-4000-8000-000000000' || p_user)::uuid $f$;
 create function pg_temp.tid(p_tenant text) returns uuid language sql as $f$ select ('c1310000-0000-4000-8000-00000000000' || p_tenant)::uuid $f$;
--- The bootstrap as a user: the jsonb text, or 'NULL'.
+-- The bootstrap as a user whose session's active clinic is the one asked for (as the app calls it): the jsonb text, or 'NULL'.
 create function pg_temp.boot(p_user text, p_tenant text default 'a') returns text language sql as $f$
-  select pg_temp.as_user(pg_temp.uid(p_user), format($q$ select coalesce(public.session_bootstrap(%L)::text, 'NULL') $q$, pg_temp.tid(p_tenant)))
+  select pg_temp.as_user(pg_temp.uid(p_user), format($q$ select coalesce(public.session_bootstrap(%L)::text, 'NULL') $q$, pg_temp.tid(p_tenant)), pg_temp.tid(p_tenant))
 $f$;
 -- Every key path of a jsonb value: `a`, `a.b`, `list[].c` (array elements share one path).
 create function pg_temp.paths(j jsonb, prefix text default '') returns setof text language plpgsql as $f$
@@ -112,7 +114,7 @@ select is((select coalesce(public.session_bootstrap('c1310000-0000-4000-8000-000
 select is(pg_temp.as_user(pg_temp.uid('101'), $q$ select coalesce(public.session_bootstrap(null)::text, 'NULL') $q$), 'NULL', 'a NULL tenant gets NULL');
 select is((select string_agg(r, ',' order by r) from unnest(array['101', '102', '103', '104', '105', '106', '108']) r where pg_temp.boot(r, 'a') <> 'NULL'),
   '101,102,103,104,105,106,108', 'every active member of A answers, whatever the role (owner, doctors, receptionist, nurse, admin)');
-select isnt(pg_temp.boot('401', 'c'), 'NULL', 'the owner of a clinic that is not full answers (display data; the shell''s redirect is decided by the database per request)');
+select is(pg_temp.boot('401', 'c'), 'NULL', 'the owner of a clinic that is not full gets NULL (000133: the gate of has_permission, as the route)');
 
 -- 3. The exact allow-list -------------------------------------------------------------------------------------------------------
 select is(pg_temp.path_set(pg_temp.boot('104', 'a')),
@@ -140,8 +142,9 @@ select is(pg_temp.boot('104', 'a')::jsonb -> 'profile',
 select is(pg_temp.boot('105', 'a')::jsonb #>> '{profile,full_name}', null, 'profile: a member with no display name answers null');
 select is(pg_temp.boot('104', 'a')::jsonb -> 'clinic',
   jsonb_build_object('id', pg_temp.tid('a'), 'name', 'Synthetic 000131 Clinic A Renamed', 'zone', 'Asia/Kolkata'), 'clinic: id, name and the zone resolved case-insensitively');
-select is(pg_temp.boot('401', 'c')::jsonb #>> '{clinic,zone}', 'Europe/London', 'clinic: each clinic answers its own zone (tenants.timezone is NOT NULL and IANA-checked; Asia/Kolkata is only the function''s fallback)');
-select is(pg_temp.boot('201', 'b')::jsonb #>> '{clinic,zone}', 'America/New_York', 'clinic: the zone stays per clinic');
+select is(pg_temp.as_user(pg_temp.uid('108'), $q$ select coalesce(public.session_bootstrap('c1310000-0000-4000-8000-00000000000a')::text, 'NULL') $q$, pg_temp.tid('b')), 'NULL',
+  'a member asking for one of their clinics that is not the session''s active one gets NULL (000133)');
+select is(pg_temp.boot('201', 'b')::jsonb #>> '{clinic,zone}', 'America/New_York', 'clinic: each clinic answers its own zone (tenants.timezone is NOT NULL and IANA-checked; Asia/Kolkata is only the function''s fallback)');
 select is((select string_agg(r || ':' || (pg_temp.boot(r, 'a')::jsonb ->> 'role'), ',' order by r) from unnest(array['101', '102', '104', '105', '106']) r),
   '101:owner,102:doctor,104:receptionist,105:nurse,106:admin', 'role: the caller''s role in the clinic');
 select is(pg_temp.boot('104', 'a')::jsonb -> 'doctors',
@@ -150,7 +153,7 @@ select is(pg_temp.boot('104', 'a')::jsonb -> 'doctors',
     jsonb_build_object('id', pg_temp.uid('102'), 'full_name', 'Synthetic Doctor One', 'specialty', 'general_medicine'),
     jsonb_build_object('id', pg_temp.uid('103'), 'full_name', 'Doctor', 'specialty', null)),
   'doctors: the practising owner and the active doctors by membership creation ("Doctor" for a missing name); no admin, receptionist, nurse or removed doctor');
-select is(pg_temp.boot('401', 'c')::jsonb -> 'doctors', '[]'::jsonb, 'doctors: an owner who does not practise is not listed');
+select is(pg_temp.boot('201', 'b')::jsonb -> 'doctors', '[]'::jsonb, 'doctors: an owner who does not practise is not listed');
 select is(pg_temp.boot('108', 'a')::jsonb -> 'clinics',
   (select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name) order by t.id) from public.tenants t where t.id in (pg_temp.tid('a'), pg_temp.tid('b'))),
   'clinics: the dual member''s own two clinics (the switcher), and no other');

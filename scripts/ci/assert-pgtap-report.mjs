@@ -165,6 +165,8 @@
  *   9861 — V2-09e 09E-13 (000131 session_bootstrap): 9831 + session_bootstrap 30 (new file, every one required) = 9861 (79 files).
  *   9877 — V2-09e PR 2 review fix I-1 (000132 doctor_directory_versions): 9861 + doctor_directory_versions 16 (new file, every one required) = 9877
  *          (80 files). clinic_versions keeps its 107 (one assertion narrowed: default_specialty is listed now).
+ *   9881 — V2-09e PR 2 review fixes N4, N-7 (000133): 9877 + reference_catalogues 4 (84 -> 88: statements that change no row move nothing) = 9881
+ *          (80 files). session_bootstrap keeps its 30 (three assertions now expect the has_permission gate).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -176,7 +178,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9877;
+export const FLOOR = 9881;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.

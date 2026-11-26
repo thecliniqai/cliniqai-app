@@ -1,15 +1,17 @@
 -- reference_catalogues.test.sql — V2-09e 09E-09 (R-5, R-6; migration 000128; threats: a catalogue read past its permission or for another clinic,
 -- a stale catalogue on the device because a reload did not change its version, the device's search order drifting from SQL).
 --   1. public.reference_catalogues: RLS on, SELECT for authenticated only, no write for any API role, both rows seeded, the CHECK;
---   2. private.reference_catalogue_bump: definer, search_path pinned, no API grant; the five statement triggers;
---   3. each trigger moves ITS catalogue's version on insert, update, delete and truncate and leaves the other one alone;
+--   2. private.reference_catalogue_bump: definer, search_path pinned, no API grant; per table four statement triggers (insert, update, delete with their
+--      transition rows, and truncate; 000133 N-7);
+--   3. each trigger moves ITS catalogue's version on insert, update, delete and truncate and leaves the other one alone; since 000133 a statement that
+--      changed no row (an update of no row or to the same values, an identical upsert, a delete of no row) moves nothing;
 --   4. public.reference_shard: STABLE INVOKER, EXECUTE authenticated only; NULL without the catalogue's permission, for another clinic, a forged or
 --      unknown tenant, a clinic that is not full, no session, an unknown catalogue, a negative or out-of-range shard;
 --   5. the shard shapes (exact keys, the version of the same snapshot, row arrays by id, the 12,000-brand shards and the generic position);
 --   6. the three searches order equal-ranked names by lower(name) COLLATE "C" (a name the database's default collation would order otherwise).
 -- Every read runs under the real principal. The file rolls back. Synthetic data only.
 begin;
-select plan(84);
+select plan(88);
 
 insert into auth.users (id, email) values
   ('c1280000-0000-4000-8000-000000000101', 'c128-owner-a@example.test'),
@@ -91,12 +93,17 @@ select is((select p.prosecdef::text || ':' || array_to_string(p.proconfig, ',') 
 select is((select count(*)::int from pg_proc p cross join lateral aclexplode(p.proacl) a
             where p.oid = 'private.reference_catalogue_bump()'::regprocedure and a.grantee::regrole::text in ('anon', 'authenticated', 'service_role', '-')), 0,
   'the bump has no API grant');
-select is((select string_agg(c.relname || ':' || replace(encode(t.tgargs, 'escape'), '\000', ''), ',' order by c.relname)
-             from pg_trigger t join pg_class c on c.oid = t.tgrelid
-            where not t.tgisinternal and t.tgfoid = 'private.reference_catalogue_bump()'::regprocedure
-              and (t.tgtype & 1) = 0 and (t.tgtype & 2) = 0 and (t.tgtype & 60) = 60),
-  'cdci_brands:cdci,cdci_generics:cdci,cdci_medicines_search:cdci,cdci_substances:cdci,opd_diagnoses:diagnoses',
-  'five AFTER statement triggers on insert, update, delete and truncate, each naming its catalogue');
+-- Per table: AFTER (tgtype bit 2 clear) statement (bit 1 clear) triggers whose events together are insert (4), delete (8), update (16) and truncate (32),
+-- one event each, the three row events with their transition tables (000133 N-7), each naming the table's catalogue.
+select is((select string_agg(x, ',' order by x) from (
+             select c.relname || ':' || min(replace(encode(t.tgargs, 'escape'), '\000', '')) || ':' || bit_or(t.tgtype & 60) || ':' || count(*)
+                    || ':' || count(*) filter (where t.tgoldtable is not null or t.tgnewtable is not null) as x
+               from pg_trigger t join pg_class c on c.oid = t.tgrelid
+              where not t.tgisinternal and t.tgfoid = 'private.reference_catalogue_bump()'::regprocedure
+                and (t.tgtype & 1) = 0 and (t.tgtype & 2) = 0
+              group by c.relname) q),
+  'cdci_brands:cdci:60:4:3,cdci_generics:cdci:60:4:3,cdci_medicines_search:cdci:60:4:3,cdci_substances:cdci:60:4:3,opd_diagnoses:diagnoses:60:4:3',
+  'four AFTER statement triggers per table (insert, update, delete with transition rows; truncate), each naming its catalogue');
 
 -- 3. Each trigger moves its catalogue only -----------------------------------------------------------------------------------------------
 select is(pg_temp.bumped($$ insert into public.cdci_substances (id, substance_name) values ('test-ref-sub-128-a', 'Qzxrefsubstance') $$), 'cdci', 'cdci_substances insert moves cdci only');
@@ -114,7 +121,12 @@ select is(pg_temp.bumped($$ delete from public.cdci_medicines_search where id = 
 select is(pg_temp.bumped($$ insert into public.opd_diagnoses (id, name) values ('c1280000-0000-4000-8000-00000000d001', 'Qzxrefdiagnosis') $$), 'diagnoses', 'opd_diagnoses insert moves diagnoses only');
 select is(pg_temp.bumped($$ update public.opd_diagnoses set name = 'Qzxrefdiagnosis one' where id = 'c1280000-0000-4000-8000-00000000d001' $$), 'diagnoses', 'opd_diagnoses update moves diagnoses only');
 select is(pg_temp.bumped($$ delete from public.opd_diagnoses where id = 'c1280000-0000-4000-8000-00000000d001' $$), 'diagnoses', 'opd_diagnoses delete moves diagnoses only');
-select is(pg_temp.bumped($$ update public.cdci_substances set substance_name = substance_name where false $$), 'cdci', 'a statement that touches no row still moves its catalogue (statement level: the version never lags a write)');
+select is(pg_temp.bumped($$ update public.cdci_substances set substance_name = substance_name where false $$), 'none', 'an update of no row moves nothing (000133 N-7: no device downloads the catalogue again for it)');
+select is(pg_temp.bumped($$ insert into public.cdci_substances (id, substance_name) values ('test-ref-sub-128-b', 'Qzxrefsame') $$), 'cdci', 'an insert of a row moves cdci');
+select is(pg_temp.bumped($$ update public.cdci_substances set substance_name = 'Qzxrefsame' where id = 'test-ref-sub-128-b' $$), 'none', 'an update to the values already there moves nothing');
+select is(pg_temp.bumped($$ insert into public.cdci_substances (id, substance_name) values ('test-ref-sub-128-b', 'Qzxrefsame') on conflict (id) do update set substance_name = excluded.substance_name $$), 'none',
+  'an upsert of an identical row (a reload that changed nothing) moves nothing');
+select is(pg_temp.bumped($$ delete from public.cdci_substances where id = 'test-ref-sub-128-none' $$), 'none', 'a delete of no row moves nothing');
 -- TRUNCATE (rolled back with the file): the reload path of a seed.
 select is(pg_temp.bumped($$ truncate public.cdci_substances $$), 'cdci', 'cdci_substances truncate moves cdci only');
 select is(pg_temp.bumped($$ truncate public.cdci_generics $$), 'cdci', 'cdci_generics truncate moves cdci only');
@@ -203,7 +215,9 @@ select cmp_ok(octet_length(pg_temp.shard('102', 'medicines', 1)), '<', 1048576, 
 select is(pg_temp.as_user('c1280000-0000-4000-8000-000000000102', $$ select (public.reference_shard('c1280000-0000-4000-8000-00000000000a', 'substances', 0) ->> 'version') = (select version::text from public.reference_catalogues where catalogue = 'cdci')::text $$),
   'true', 'under the caller''s own JWT the version equals the readable reference_catalogues row');
 -- The bump during a transaction: the next shard read carries the new version.
-select is(pg_temp.bumped($$ update public.cdci_substances set substance_name = 'Qzxtiea' where id = 'test-ref-sub-128-2' $$), 'cdci', 'an edit of a substance moves cdci');
+-- (A real edit: since 000133 writing the value already there moves nothing. The name is put back at once; the searches below read it.)
+select is(pg_temp.bumped($$ update public.cdci_substances set substance_name = 'Qzxtiea edited' where id = 'test-ref-sub-128-2' $$), 'cdci', 'an edit of a substance moves cdci');
+update public.cdci_substances set substance_name = 'Qzxtiea' where id = 'test-ref-sub-128-2';
 select is((pg_temp.shard('102', 'substances')::jsonb ->> 'version')::uuid, (select version from public.reference_catalogues where catalogue = 'cdci'), 'the shard read after the edit carries the new version');
 
 -- 6. The tie-breaks: lower(name) COLLATE "C" (en_US puts 'qzxtiea' before 'qzxtie-b'; byte order puts '-' first) ------------------------------------------------
