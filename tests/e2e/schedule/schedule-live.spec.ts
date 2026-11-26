@@ -9,7 +9,10 @@
  * - the range route serves 42 days in one call, and `slots=0` leaves the slots out (the month grid of the calendar views reads counts);
  * - a slot the screen still shows that someone else has just booked is refused by the booking command (the existing conflict question), never booked twice;
  * - (PR 2 review I-2) a week whose read fails shows "could not be loaded" with Try again (which reads it and shows it), never an endless skeleton; a week
- *   asked for offline says so and loads by itself on reconnect.
+ *   asked for offline says so and loads by itself on reconnect;
+ * - (PR 2 review I-3) the booking picker never takes slots from a range no screen shows: with B's frames dropped, B leaves the Schedule, a slot is booked
+ *   elsewhere, and the booking sheet opened from Patients does not offer it (it asked the server); and the picker of a sheet open on the Schedule follows a
+ *   booking made elsewhere while it is open.
  * Each test has its own clinic (the owner practises with the default hours). Synthetic data only.
  */
 import type { Page } from "@playwright/test";
@@ -19,8 +22,8 @@ import { seedTenantWithOwner, seededUserPassword, type SeededTenant } from "../.
 import { countKongCalls } from "../support/kong-calls";
 import { istDate, istInstant, seedPatient, testTag } from "../support/m0-data";
 import { uiSignIn } from "../support/password-journeys";
-import { bookingSheet, chooseExistingPatient, conflictDialog, scheduleHydrated } from "../support/schedule-page";
-import { countRscRequests } from "../support/today-page";
+import { bookingSheet, chooseExistingPatient, conflictDialog, scheduleHydrated, slotsLoaded } from "../support/schedule-page";
+import { countRscRequests, dropBroadcastFrames } from "../support/today-page";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -255,4 +258,60 @@ test("I-2: a week whose read fails says so and Try again shows it; a week asked 
   await expect(page.locator('[data-schedule-unavailable="offline"]')).toContainText("You're offline", { timeout: 15_000 });
   await context.setOffline(false);
   await expect(page.locator(SCHEDULE)).toHaveAttribute("data-schedule-range", `${awayWeek}..${addDays(awayWeek, 6)}`, { timeout: 15_000 });
+});
+
+const chip = (sheet: ReturnType<typeof bookingSheet>, label: string) => sheet.getByRole("radio", { name: label, exact: true });
+
+test("I-3: a booking sheet opened away from the Schedule never offers a slot from the range it left behind (frames dropped): it asks the server", async ({ page, ux }) => {
+  const clinic = await ownClinic();
+  const date = weekday(3);
+  const patientName = `E2E Synthetic Picker ${testTag()}`;
+  await seedPatient(clinic.tenantId, clinic.userId, patientName);
+  await dropBroadcastFrames(page);
+  await signIn(page, clinic);
+  await openDay(page, date);
+  await expect(column(page, clinic.userId).locator('[data-free-slot="10:00"]')).toBeVisible();
+
+  // B leaves the Schedule in the app (the range stays in memory, shown by no screen; Patients has no heartbeat), then the slot is booked elsewhere.
+  await page.locator('a[href="/patients"]').filter({ visible: true }).first().click();
+  await expect(page).toHaveURL(/\/patients/);
+  await bookElsewhere(clinic, date, "10:00", "Behind");
+
+  let slotReads = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.headers()["next-action"] && new URL(r.url()).pathname.startsWith("/patients")) slotReads += 1;
+  });
+  // The global booking sheet, opened in the app (no page load: the cache is the one the Schedule filled).
+  await page.evaluate(
+    ({ date, doctor }) => window.history.pushState(null, "", `/patients?book=1&date=${date}&doctor=${doctor}`),
+    { date, doctor: clinic.userId },
+  );
+  const sheet = bookingSheet(page);
+  await expect(sheet).toBeVisible();
+  await chooseExistingPatient(sheet, ux, patientName);
+  await slotsLoaded(sheet);
+  await expect(chip(sheet, "10:15 am"), "the day's slots are listed").toBeVisible();
+  await expect(chip(sheet, "10:00 am"), "the slot booked elsewhere is not offered: the range left behind was not used").toHaveCount(0);
+  expect(slotReads, "the free slots were read from the server").toBeGreaterThan(0);
+});
+
+test("I-3: the picker of a booking sheet open on the Schedule follows a booking made elsewhere while it is open", async ({ page, ux }) => {
+  const clinic = await ownClinic();
+  const date = weekday(3);
+  const patientName = `E2E Synthetic Follow ${testTag()}`;
+  await seedPatient(clinic.tenantId, clinic.userId, patientName);
+  await signIn(page, clinic);
+  await openDay(page, date);
+  await expect(liveStatus(page)).toHaveText("Live", { timeout: 20_000 });
+  await column(page, clinic.userId).locator('[data-free-slot="11:00"]').click();
+  const sheet = bookingSheet(page);
+  await expect(sheet).toBeVisible();
+  await chooseExistingPatient(sheet, ux, patientName);
+  await slotsLoaded(sheet);
+  await expect(chip(sheet, "10:30 am")).toBeVisible();
+
+  await bookElsewhere(clinic, date, "10:30", "WhileOpen");
+  // The signal moves the range within about 2 s; the 12 s heartbeat of the Schedule bounds a lost frame.
+  await expect(chip(sheet, "10:30 am"), "the open picker drops the slot booked elsewhere").toHaveCount(0, { timeout: 15_000 });
+  await expect(chip(sheet, "10:45 am")).toBeVisible();
 });
