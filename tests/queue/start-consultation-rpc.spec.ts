@@ -58,7 +58,11 @@ describe("start_consultation: one transaction", () => {
     const { data, error } = await callStartConsultation(members.doctor.client, args);
     expect(error).toBeNull();
     const [token] = await tokensOfVisit(visitId);
-    expect(data).toEqual({ visit_id: visitId, token_number: token.token_number, already_started: false, replayed: false, row_version: expect.any(Number) });
+    expect(data).toEqual({
+      visit_id: visitId, token_number: token.token_number, already_started: false, replayed: false, row_version: expect.any(Number),
+      // 000134: the clinic versions this transaction raised (check-in and start: queue and schedule).
+      versions: { queue: expect.any(Number), schedule: expect.any(Number) },
+    });
     expect((await visitRow(visitId)).status).toBe("in_consultation");
     expect(token.called_at).not.toBeNull();
     expect(token.completed_at).toBeNull();

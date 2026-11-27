@@ -75,7 +75,7 @@ describe("reschedule_visit: one transaction", () => {
     const args = rescheduleArgs(tenantA, visitId, to, { p_duration_minutes: 20, p_notify: true });
     const { data, error } = await callReschedule(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, is_overbooked: false, message_enqueued: true, replayed: false, row_version: expect.any(Number) });
+    expect(data).toEqual({ visit_id: visitId, is_overbooked: false, message_enqueued: true, replayed: false, row_version: expect.any(Number), versions: { schedule: expect.any(Number) } });
 
     const row = await schedRow(visitId);
     expect(row).toMatchObject({ status: "booked", doctor_id: tenantA.userId, estimated_duration_minutes: 20, is_overbooked: false });

@@ -63,7 +63,7 @@ describe("record_patient_allergies", () => {
     const req = randomUUID();
     const res = await call(members.doctor.client, p, [AL_SUBSTANCES.amox.name, "Penicillin"], { p_client_request_id: req });
     expect(res.error).toBeNull();
-    expect(res.data).toEqual({ patient_id: p, allergies_count: 2, replayed: false });
+    expect(res.data).toEqual({ patient_id: p, allergies_count: 2, replayed: false, versions: { queue: expect.any(Number) } });
     expect(await stored(p)).toEqual([AL_SUBSTANCES.amox.name, "Penicillin"]);
     const rows = await auditRows(tenantA.tenantId, "patient.allergies_record", p);
     expect(rows).toEqual([expect.objectContaining({ actor_id: members.doctor.userId, entity_type: "patient", metadata: { allergies_count: 2, coded_count: 1 } })]);

@@ -6,6 +6,7 @@
  * the way a command does: in one psql transaction as the `authenticated` role with the user's JWT claims and the
  * active-clinic header (or as `service_role` with a system actor). Real outcomes only: the stored rows, the replayed
  * result, the refusals, the lock wait of a concurrent duplicate, the rollback.
+ * 000134: `command_complete` adds `versions` (the clinic versions the transaction raised; {} here, the helpers write no clinic table).
  * Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
@@ -82,9 +83,9 @@ describe("command_claim / command_complete", () => {
       complete(tenantA.tenantId, id, { invoice_id: "x", paid_total: 100 }),
       "commit",
     ]);
-    expect(out.slice(-2)).toEqual(["NULL", '{"invoice_id": "x", "paid_total": 100}']);
+    expect(out.slice(-2)).toEqual(["NULL", '{"versions": {}, "invoice_id": "x", "paid_total": 100}']);
     expect(rowsOf(tenantA.tenantId, id)).toEqual([
-      `billing.collect_payment|${tenantA.userId}|-|hash-a|{"invoice_id": "x", "paid_total": 100}`,
+      `billing.collect_payment|${tenantA.userId}|-|hash-a|{"versions": {}, "invoice_id": "x", "paid_total": 100}`,
     ]);
   });
 
@@ -92,9 +93,9 @@ describe("command_claim / command_complete", () => {
     const id = randomUUID();
     psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { n: 1 }), "commit"]);
     const replay = psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), "commit"]);
-    expect(JSON.parse(lastLine(replay))).toEqual({ n: 1, replayed: true });
+    expect(JSON.parse(lastLine(replay))).toEqual({ n: 1, replayed: true, versions: {} });
     // The stored result itself never carries the flag, and there is still exactly one row.
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1}`]);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1, "versions": {}}`]);
     expect(psql(`select count(*) from private.command_results where client_request_id = '${id}'`)).toEqual(["1"]);
   });
 
@@ -103,7 +104,7 @@ describe("command_claim / command_complete", () => {
     psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { n: 7 }), "commit"]);
     for (let i = 0; i < 3; i++) {
       const out = psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), "commit"]);
-      expect(JSON.parse(lastLine(out))).toEqual({ n: 7, replayed: true });
+      expect(JSON.parse(lastLine(out))).toEqual({ n: 7, replayed: true, versions: {} });
     }
   });
 
@@ -114,7 +115,7 @@ describe("command_claim / command_complete", () => {
     const id = randomUUID();
     psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { n: 1 }), "commit"]);
     expect(() => psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, command, hash), "rollback"])).toThrow(/IDEMPOTENCY_MISMATCH/);
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1}`]);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1, "versions": {}}`]);
   });
 
   it("IDEMPOTENCY_MISMATCH: another user of the same clinic cannot replay (or read) someone else's command", () => {
@@ -134,11 +135,11 @@ describe("command_claim / command_complete", () => {
     const id = randomUUID();
     const actor = "system:payment_webhook";
     const first = psqlSession([...asSystem(), claim(tenantA.tenantId, id, "billing.record_payment", "hs", actor), complete(tenantA.tenantId, id, { ok: true }), "commit"]);
-    expect(first.slice(-2)).toEqual(["NULL", '{"ok": true}']);
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`billing.record_payment|-|${actor}|hs|{"ok": true}`]);
+    expect(first.slice(-2)).toEqual(["NULL", '{"ok": true, "versions": {}}']);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`billing.record_payment|-|${actor}|hs|{"ok": true, "versions": {}}`]);
 
     const replay = psqlSession([...asSystem(), claim(tenantA.tenantId, id, "billing.record_payment", "hs", actor), "commit"]);
-    expect(JSON.parse(lastLine(replay))).toEqual({ ok: true, replayed: true });
+    expect(JSON.parse(lastLine(replay))).toEqual({ ok: true, replayed: true, versions: {} });
 
     expect(() => psqlSession([...asSystem(), claim(tenantA.tenantId, id, "billing.record_payment", "hs", "system:other"), "rollback"])).toThrow(/IDEMPOTENCY_MISMATCH/);
     expect(() => psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "billing.record_payment", "hs"), "rollback"])).toThrow(/IDEMPOTENCY_MISMATCH/);
@@ -158,7 +159,7 @@ describe("command_claim / command_complete", () => {
   it("a rolled-back command leaves no claim: the same id then runs fresh", () => {
     const id = randomUUID();
     const out = psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { n: 1 }), "rollback"]);
-    expect(out.slice(-2)).toEqual(["NULL", '{"n": 1}']);
+    expect(out.slice(-2)).toEqual(["NULL", '{"n": 1, "versions": {}}']);
     expect(rowsOf(tenantA.tenantId, id)).toEqual([]);
     const retry = psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h9"), "rollback"]);
     expect(lastLine(retry)).toBe("NULL");
@@ -184,7 +185,7 @@ describe("command_claim / command_complete", () => {
     expect(() => psqlSession([...asUser(tenantA), complete(tenantA.tenantId, id, { n: 1 }), "rollback"])).toThrow(/COMMAND_NOT_CLAIMED/);
     psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { n: 1 }), "commit"]);
     expect(() => psqlSession([...asUser(tenantA), complete(tenantA.tenantId, id, { n: 2 }), "rollback"])).toThrow(/COMMAND_NOT_CLAIMED/);
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1}`]);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1, "versions": {}}`]);
   });
 
   it("a user claims only in the active clinic: another clinic's id is NOT_FOUND and writes nothing, in either clinic", () => {
@@ -200,9 +201,9 @@ describe("command_claim / command_complete", () => {
     const id = randomUUID();
     psqlSession([...asUser(tenantA), claim(tenantA.tenantId, id, "cmd.one", "h1"), complete(tenantA.tenantId, id, { clinic: "A" }), "commit"]);
     const b = psqlSession([...asUser(tenantB), claim(tenantB.tenantId, id, "cmd.one", "h1"), complete(tenantB.tenantId, id, { clinic: "B" }), "commit"]);
-    expect(b.slice(-2)).toEqual(["NULL", '{"clinic": "B"}']);
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"clinic": "A"}`]);
-    expect(rowsOf(tenantB.tenantId, id)).toEqual([`cmd.one|${tenantB.userId}|-|h1|{"clinic": "B"}`]);
+    expect(b.slice(-2)).toEqual(["NULL", '{"clinic": "B", "versions": {}}']);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"clinic": "A", "versions": {}}`]);
+    expect(rowsOf(tenantB.tenantId, id)).toEqual([`cmd.one|${tenantB.userId}|-|h1|{"clinic": "B", "versions": {}}`]);
   });
 });
 
@@ -260,8 +261,8 @@ describe("concurrent duplicate claims", () => {
     const id = randomUUID();
     const { first, second } = await duplicate("commit", id, "h1");
     expect(first).toContain("NULL");
-    expect(JSON.parse(second[second.length - 1])).toEqual({ n: 1, replayed: true });
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1}`]);
+    expect(JSON.parse(second[second.length - 1])).toEqual({ n: 1, replayed: true, versions: {} });
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1, "versions": {}}`]);
   });
 
   it("if the first session rolls back, the waiting duplicate claims fresh (nothing stale)", async () => {
@@ -275,7 +276,7 @@ describe("concurrent duplicate claims", () => {
   it("a duplicate with a different request hash waits, then is refused (IDEMPOTENCY_MISMATCH)", async () => {
     const id = randomUUID();
     await expect(duplicate("commit", id, "h-different")).rejects.toThrow(/IDEMPOTENCY_MISMATCH/);
-    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1}`]);
+    expect(rowsOf(tenantA.tenantId, id)).toEqual([`cmd.one|${tenantA.userId}|-|h1|{"n": 1, "versions": {}}`]);
   });
 });
 

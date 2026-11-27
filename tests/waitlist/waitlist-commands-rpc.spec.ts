@@ -79,7 +79,7 @@ describe("add_to_waitlist", () => {
     const { data, error } = await callAddToWaitlist(members.receptionist.client, args);
     expect(error).toBeNull();
     const { entry_id } = data as { entry_id: string };
-    expect(data).toEqual({ entry_id, replayed: false });
+    expect(data).toEqual({ entry_id, replayed: false, versions: expect.any(Object) });
     expect(await waitlistRow(entry_id)).toMatchObject({
       status: "waiting",
       patient_id: patient,
@@ -216,7 +216,7 @@ describe("promote_waitlist_entry", () => {
     const { data, error } = await callPromote(members.receptionist.client, args);
     expect(error).toBeNull();
     const { visit_id } = data as { visit_id: string };
-    expect(data).toEqual({ entry_id: entry, visit_id, replayed: false });
+    expect(data).toEqual({ entry_id: entry, visit_id, replayed: false, versions: expect.any(Object) });
     expect(await waitlistRow(entry)).toMatchObject({ status: "promoted", promoted_visit_id: visit_id });
     const [visit] = await visitsOfPatient(patient);
     expect(visit).toMatchObject({

@@ -175,7 +175,7 @@ describe("50 parallel check-ins (05-08, acceptance 7)", () => {
     const { data: vNow, error: vNowErr } = await admin.from("visits").select("row_version").eq("id", visit.id as string).single();
     if (vNowErr || !vNow) throw new Error(`Failed to read the visit: ${vNowErr?.message}`);
     // 09E-07: the command answers with the visit's current row version (a re-check-in does not change the visit, so it is the stored one).
-    expect(again).toEqual({ success: true, tokenNumber: a.tokenNumber, queueTokenId: a.queueTokenId, replayed: false, rowVersion: Number(vNow.row_version) });
+    expect(again).toEqual({ success: true, tokenNumber: a.tokenNumber, queueTokenId: a.queueTokenId, replayed: false, rowVersion: Number(vNow.row_version), versions: {} });
     expect(counterOf()).toBe(before + 1);
   }, 60_000);
 });

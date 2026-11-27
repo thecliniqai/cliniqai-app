@@ -1411,7 +1411,7 @@ function private.clinic_bump(p_tenant_ids uuid[], p_domain text) returns void la
 function private.clinic_versions_seed() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=11c71c16a14a789c6789c5cd2d4166f7
 function private.clinical_notes_version_bump() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7aefc63484c949a0d8320c7ffa8f900a
 function private.command_claim(p_tenant_id uuid, p_client_request_id uuid, p_command text, p_request_hash text, p_system_actor text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=0878fa043910b81ac20b7e2993173f12
-function private.command_complete(p_tenant_id uuid, p_client_request_id uuid, p_result jsonb) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=707e89686aebb7b944cbd5a1ab9be4d1
+function private.command_complete(p_tenant_id uuid, p_client_request_id uuid, p_result jsonb) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d66d78fab31e1d5380570850f95b09c2
 function private.command_request_hash(p_payload jsonb) returns text lang=sql security_definer=t volatility=s config=search_path="" body_md5=93e7e89121f5ba6123d566e487f56b2a
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
 function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=83a1f436a12194681628f55d54c5ddcf

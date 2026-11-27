@@ -178,8 +178,9 @@ select is((select has_function_privilege('authenticated', 'private.step_start_co
 
 -- 5. The command: behaviour -------------------------------------------------------------------------------------------------------
 -- D is at version 4 after section 2; start from a clean visit for the version arithmetic.
+-- (000134: every claimed command's answer also carries `versions`, the clinic versions its transaction raised; command_versions.test.sql covers it.)
 select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 4, '{"clinical_notes": "first note", "advice": ["Steam inhalation"]}'::jsonb))
-  - 'replayed', '{"visit_id": "c1120000-0000-4000-8000-000000002001", "draft_version": 5, "started": false}'::jsonb,
+  - 'replayed' - 'versions', '{"visit_id": "c1120000-0000-4000-8000-000000002001", "draft_version": 5, "started": false}'::jsonb,
   'the doctor saves the note and the advice at the version they read: version + 1, nothing started');
 select is((select clinical_notes || '|' || advice[1] from public.clinical_notes where visit_id = 'c1120000-0000-4000-8000-000000002001'), 'first note|Steam inhalation', 'the keys are written');
 select is((select metadata from public.audit_logs where tenant_id = 'c1120000-0000-4000-8000-00000000000a' and action = 'consultation.draft_save'
@@ -198,7 +199,7 @@ select is((select clinical_notes || '|' || advice[1] || '|' || investigations_ad
 select ok(set_config('c112.req', gen_random_uuid()::text, true) is not null, 'fixture: a request id for the replay cases');
 select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 6, '{"clinical_notes": "replayed"}'::jsonb, current_setting('c112.req')::uuid))->>'draft_version', '7',
   'a fresh request id saves (version 7)');
-select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 6, '{"clinical_notes": "replayed"}'::jsonb, current_setting('c112.req')::uuid)),
+select is(pg_temp.jres(pg_temp.save('c1120000-0000-4000-8000-000000000102', 'c1120000-0000-4000-8000-000000002001', 6, '{"clinical_notes": "replayed"}'::jsonb, current_setting('c112.req')::uuid)) - 'versions',
   '{"started": false, "visit_id": "c1120000-0000-4000-8000-000000002001", "replayed": true, "draft_version": 7}'::jsonb,
   'the same id with the same input replays the first result and changes nothing');
 select is((select draft_version from public.clinical_notes where visit_id = 'c1120000-0000-4000-8000-000000002001') || '|' ||

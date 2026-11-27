@@ -96,7 +96,7 @@ describe("save_consultation_draft: one transaction", () => {
     });
     const { data, error } = await call(members.doctor.client, a);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: v.visitId, draft_version: 1, started: false, replayed: false });
+    expect(data).toEqual({ visit_id: v.visitId, draft_version: 1, started: false, replayed: false, versions: { queue: expect.any(Number) } });
 
     expect(await notesRow(v.visitId)).toMatchObject({
       clinical_notes: "Synthetic note, first line",
