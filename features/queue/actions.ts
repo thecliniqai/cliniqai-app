@@ -15,6 +15,7 @@ import type {
 } from "./service";
 import { markAction } from "@/lib/observability/db-timing";
 import { expectedVersionError } from "@/lib/errors/expected-version";
+import type { CommandVersions } from "@/lib/commands/command-versions";
 
 export type { CheckInResult, PaletteQueueMatch } from "./service";
 
@@ -31,7 +32,7 @@ export async function checkInVisit(
   priority: QueuePriority,
   clientRequestId: string,
   expectedVersion: number
-): Promise<CommandResult<{ tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number }>> {
+): Promise<CommandResult<{ tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number; versions?: CommandVersions }>> {
   await markAction("queue.check_in_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
@@ -43,6 +44,7 @@ export async function checkInVisit(
     queueTokenId: ok.queueTokenId,
     replayed: ok.replayed,
     rowVersion: ok.rowVersion,
+    versions: ok.versions,
   }));
 }
 

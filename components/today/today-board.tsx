@@ -8,8 +8,9 @@ import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clockOf } from "@/lib/datetime";
 import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
 import { queryDomains, queryKeys } from "@/lib/query/keys";
-import { useLiveCore } from "@/lib/live/provider";
+import { useLiveCore, useOwnWrite } from "@/lib/live/provider";
 import type { Versions } from "@/lib/live/domains";
+import type { CommandVersions } from "@/lib/commands/command-versions";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { buttonClassName } from "@/components/ui/button";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
@@ -147,6 +148,7 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
   const pathname = usePathname();
   const params = useSearchParams();
   const live = useTodayLive(tenantId);
+  const ownWrite = useOwnWrite();
   const queryClient = useQueryClient();
   const twoPane = useTwoPane();
 
@@ -245,14 +247,17 @@ function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult,
       setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status, to }]),
     onRollback: (id: string) => setPending((p) => p.filter((x) => x.visitId !== id)),
     // A check-in's answer is written into the board (09E-08, R-11: no read-back); a refused stale version re-reads it. Other devices converge through the live layer.
-    onChanged: (result?: { visitId: string; tokenNumber: number; rowVersion?: number }) => {
+    // The versions the command produced go to the live core with the board they were written into: this device's own signal re-reads nothing (PO option A).
+    onChanged: (result?: { visitId: string; tokenNumber: number; rowVersion?: number; versions?: CommandVersions }) => {
       if (!result) {
         live.refreshNow();
         return;
       }
       const { hour, minute } = clockOf(new Date(), board.timeZone);
       const arrivedAt = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-      queryClient.setQueryData<TodayBoard>(queryKeys.today(tenantId, mode), (old) => (old ? withCheckedIn(old, result.visitId, result, arrivedAt) : old));
+      const key = queryKeys.today(tenantId, mode);
+      queryClient.setQueryData<TodayBoard>(key, (old) => (old ? withCheckedIn(old, result.visitId, result, arrivedAt) : old));
+      ownWrite(result, [key]);
       setPending((p) => p.filter((x) => x.visitId !== result.visitId));
     },
     onRecordVitals: setVitalsRow,

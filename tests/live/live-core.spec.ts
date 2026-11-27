@@ -544,6 +544,120 @@ describe("metrics", () => {
   });
 });
 
+describe("own writes (09E PR 2, PO option A: a command's answer carries the versions it produced)", () => {
+  /** The board as read at `versions` (a hydrated basis), shown on screen. */
+  const held = (versions: Partial<Versions>, dependents: Dependent[] = [board()]) => {
+    const h = harness({ dependents });
+    for (const d of dependents) h.core.setBasis(d.id, V(versions));
+    return h;
+  };
+
+  it("the device's own signal re-reads nothing once the answer was written into the board", async () => {
+    const h = held({ queue: 4, schedule: 7 });
+    h.core.ownWrite({ queue: 5, schedule: 8 }, ["today"]);
+    expect(h.core.basisOf("today")).toEqual(V({ queue: 5, schedule: 8 }));
+    h.core.signal("queue", 5);
+    h.core.signal("schedule", 8);
+    await h.advance(COALESCE_MS * 3);
+    expect(h.calls.reread).toEqual([]);
+    expect(h.calls.remove).toEqual([]);
+  });
+
+  it("a signal that arrives before the answer is answered by it inside the coalescing window: no re-read, no re-read timing", async () => {
+    const h = held({ queue: 4 });
+    h.core.signal("queue", 5);
+    await h.advance(COALESCE_MS / 2);
+    h.core.ownWrite({ queue: 5 }, ["today"]);
+    await h.advance(COALESCE_MS * 3);
+    expect(h.calls.reread).toEqual([]);
+    // A later re-read for another reason records no timing that began with the own signal.
+    h.core.signal("billing", 1);
+    await h.advance(COALESCE_MS);
+    h.core.fetchStarted("today");
+    await h.advance(100);
+    h.core.fetchEnded("today", true);
+    expect(h.metrics.filter(([m]) => m === "live_reread")).toEqual([["live_reread", COALESCE_MS + 100]]);
+  });
+
+  it("another device's write that came between (its version not in the data) is never swallowed: the basis stays and the board is read", async () => {
+    // B wrote queue 5; this device's own write is 6. The board holds 4: it has neither of B's change nor (before the patch) its own.
+    const h = held({ queue: 4 });
+    h.core.ownWrite({ queue: 6 }, ["today"]);
+    expect(h.core.basisOf("today")?.queue).toBe(4);
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today"]);
+  });
+
+  it("B's signal first, then the own answer: still read (the board is behind B), in either order", async () => {
+    const h = held({ queue: 4 });
+    h.core.signal("queue", 5);
+    h.core.ownWrite({ queue: 6 }, ["today"]);
+    h.core.signal("queue", 6);
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today"]);
+    expect(h.core.basisOf("today")?.queue).toBe(4);
+  });
+
+  it("a newer version from another device after the own write is read (strictly greater than what the device holds)", async () => {
+    const h = held({ queue: 4 });
+    h.core.ownWrite({ queue: 5 }, ["today"]);
+    h.core.signal("queue", 5);
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual([]);
+    h.core.signal("queue", 6);
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today"]);
+  });
+
+  it("an older or equal version (a replayed answer) never lowers the basis or moves anything", async () => {
+    const h = held({ queue: 9, schedule: 3 });
+    h.core.ownWrite({ queue: 5, schedule: 3 }, ["today"]);
+    expect(h.core.basisOf("today")).toEqual(V({ queue: 9, schedule: 3 }));
+    expect(h.core.seenVersions()).toEqual(V({ queue: 5, schedule: 3 }));
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual([]);
+  });
+
+  it("each domain on its own: the one with a gap is read, the one without is not raised past what it held", async () => {
+    const h = held({ queue: 4, schedule: 2 });
+    h.core.ownWrite({ queue: 5, schedule: 4 }, ["today"]);
+    expect(h.core.basisOf("today")).toEqual(V({ queue: 5, schedule: 2 }));
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today"]);
+  });
+
+  it("only the queries the answer was written into are raised: another query of the same domain is read (or removed when not shown)", async () => {
+    const other = board({ id: "today-doctor", active: true });
+    const hidden = board({ id: "today-mine", active: false });
+    const h = held({ queue: 4 }, [board(), other, hidden]);
+    h.core.ownWrite({ queue: 5 }, ["today"]);
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today-doctor"]);
+    expect(h.calls.remove).toEqual(["today-mine"]);
+  });
+
+  it("a query whose read is in flight is left to that read: a read that began before the write is read again", async () => {
+    const h = held({ queue: 4 });
+    h.core.fetchStarted("today");
+    h.core.ownWrite({ queue: 5 }, ["today"]);
+    h.core.fetchEnded("today", true, { queue: 4 });
+    await h.advance(COALESCE_MS);
+    expect(h.calls.reread).toEqual(["today"]);
+  });
+
+  it("a query with no basis yet, versions that are not counters, and a stopped core change nothing", async () => {
+    const h = harness({ dependents: [board()] });
+    h.core.ownWrite({ queue: 1 }, ["today"]);
+    expect(h.core.basisOf("today")).toBeUndefined();
+    h.core.setBasis("today", V({ queue: 1 }));
+    h.core.ownWrite({ queue: 2.5, schedule: -1, billing: Number.NaN } as Partial<Versions>, ["today"]);
+    expect(h.core.basisOf("today")).toEqual(V({ queue: 1 }));
+    h.core.stop();
+    h.core.ownWrite({ queue: 2 }, ["today"]);
+    expect(h.core.basisOf("today")).toEqual(V({ queue: 1 }));
+  });
+});
+
 describe("stop", () => {
   it("clears the heartbeat and every pending timer, and ignores everything after", async () => {
     const h = harness({ dependents: [board()] });

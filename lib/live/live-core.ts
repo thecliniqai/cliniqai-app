@@ -11,6 +11,8 @@ import { emptyVersions, LIVE_DOMAINS, type LiveDomain, type LiveSnapshot, type V
  *   - an ACTIVE query (a screen shows it) is re-read, coalesced {@link COALESCE_MS};
  *   - an INACTIVE one is removed, so it is never shown once behind.
  * A fetch that ends while `seen` moved past its basis is re-read again (a signal during a read is never lost).
+ * An own save whose answer was written into a query raises that query's basis by its own versions only where nothing else came between (`ownWrite`):
+ * the device's own signal then costs no read, another device's write still does.
  *
  * When it asks the server (`readState`): every {@link HEARTBEAT_MS} while a live screen is registered and the tab is visible (also while the
  * channel is SUBSCRIBED: a signal Realtime refused or dropped is caught within one beat), at once when the channel is (re)subscribed (when a live
@@ -85,6 +87,14 @@ export interface LiveCore {
   fetchEnded(id: string, ok: boolean, carried?: Partial<Versions>): void;
   /** The query left the cache. */
   forget(id: string): void;
+  /**
+   * 09E PR 2 (PO option A): this device's own save answered. `versions` are the clinic versions the command's transaction produced (its answer's
+   * `versions`), and the caller has written that answer into the queries `ids`. They are folded into `seen` (the signal of the same commit then moves
+   * nothing), and each named query's basis rises for a domain only from exactly `version - 1` to `version`: the data held every write up to the one
+   * before and now holds this one. A basis further behind means another device's write is not in the data: it is left, and the query is read as for
+   * any newer version. A query whose read is in flight is left to that read (its answer replaces what was written).
+   */
+  ownWrite(versions: Partial<Versions>, ids: readonly string[]): void;
   /** The versions the page read before the data it handed over (hydration); only used while the query has no basis yet. */
   setBasis(id: string, versions: Versions): void;
   /** The basis of a query, for tests and the changed-elsewhere flag. */
@@ -278,6 +288,30 @@ export function createLiveCore(deps: LiveCoreDeps): LiveCore {
       basis.delete(id);
       started.delete(id);
       learnedAt.delete(id);
+    },
+    ownWrite(versions, ids) {
+      if (stopped) return;
+      const own: Partial<Versions> = {};
+      for (const domain of LIVE_DOMAINS) {
+        const v = versions[domain];
+        if (typeof v === "number" && Number.isSafeInteger(v) && v > 0) own[domain] = v;
+      }
+      for (const id of ids) {
+        const b = basis.get(id);
+        if (!b || started.has(id)) continue;
+        const next = { ...b };
+        for (const domain of LIVE_DOMAINS) {
+          const v = own[domain];
+          if (v !== undefined && next[domain] === v - 1) next[domain] = v;
+        }
+        basis.set(id, next);
+      }
+      learn(own);
+      // A query this write made current needs no re-read for it (a signal that came first already counted it): no re-read timing either.
+      for (const d of deps.dependents()) {
+        if (ids.includes(d.id) && !staleDomains(d)) learnedAt.delete(d.id);
+      }
+      evaluate();
     },
     setBasis(id, versions) {
       if (!basis.has(id)) basis.set(id, { ...versions });

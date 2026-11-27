@@ -11,6 +11,7 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import { versionArg } from "@/lib/errors/row-changed";
 import { callCommand } from "@/lib/commands/call-command";
 import { clientRequestIdSchema } from "@/lib/commands/request-id";
+import { commandVersionsSchema, type CommandVersions } from "@/lib/commands/command-versions";
 import { appError, type AppError, type Result } from "@/lib/errors/app-error";
 import type { DbErrorMessages } from "@/lib/db/errors";
 import { z } from "zod";
@@ -42,10 +43,12 @@ const checkInRpcResultSchema = z.object({
   replayed: z.boolean(),
   /** 09E-07: the visit's new `row_version` (absent in a result stored before migration 000126). */
   row_version: z.number().int().optional(),
+  /** 000134: the clinic versions this command's transaction produced (absent in a result stored before it). */
+  versions: commandVersionsSchema,
 });
 
 export type CheckInResult =
-  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number }
+  | { success: true; tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number; versions?: CommandVersions }
   | { success: false; error: string; code?: AppError["code"]; reason?: string };
 
 /**
@@ -95,6 +98,7 @@ export async function checkInVisit(
     queueTokenId: outcome.value.queue_token_id,
     replayed: outcome.value.replayed,
     rowVersion: outcome.value.row_version,
+    versions: outcome.value.versions,
   };
 }
 

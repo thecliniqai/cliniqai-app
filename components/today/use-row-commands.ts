@@ -6,6 +6,7 @@ import { useRowChanged } from "@/lib/live/use-row-changed";
 import { useReversibleCommand } from "@/lib/query/mutations";
 import { checkInVisit, startConsultation } from "@/features/queue/actions";
 import type { TodayRow } from "@/features/today/schema";
+import type { CommandVersions } from "@/lib/commands/command-versions";
 
 /**
  * The commands a Today row sends (V2-08 08-03b, R-1, R-6): Check in (`check_in_visit`) and Start consultation / Call in
@@ -19,7 +20,7 @@ export interface CheckInHooks {
   /** The server refused or could not be reached: the row moves back. */
   onRollback: (visitId: string) => void;
   /** The command answered: its result goes into the board (no re-read). After a refused stale version it is called with no result and the board is re-read. */
-  onDone: (result?: { visitId: string; tokenNumber: number; rowVersion?: number }) => void;
+  onDone: (result?: { visitId: string; tokenNumber: number; rowVersion?: number; versions?: CommandVersions }) => void;
 }
 
 /**
@@ -29,7 +30,7 @@ export interface CheckInHooks {
  */
 export function useCheckIn(row: TodayRow, hooks: CheckInHooks) {
   const rowChanged = useRowChanged();
-  const mutation = useReversibleCommand<TodayRow, { tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number }>({
+  const mutation = useReversibleCommand<TodayRow, { tokenNumber: number; queueTokenId: string; replayed: boolean; rowVersion?: number; versions?: CommandVersions }>({
     // The version is the one the row shows (09E-07, R-19).
     call: (r, clientRequestId) => checkInVisit(r.visitId, "normal", clientRequestId, r.rowVersion),
     keyOf: (r) => `${r.visitId}:${r.rowVersion}`,
@@ -37,7 +38,7 @@ export function useCheckIn(row: TodayRow, hooks: CheckInHooks) {
       hooks.onOptimistic(r);
       return () => hooks.onRollback(r.visitId);
     },
-    onValue: (value, r) => hooks.onDone({ visitId: r.visitId, tokenNumber: value.tokenNumber, rowVersion: value.rowVersion }),
+    onValue: (value, r) => hooks.onDone({ visitId: r.visitId, tokenNumber: value.tokenNumber, rowVersion: value.rowVersion, versions: value.versions }),
     onFailure: (error, r, retry) => {
       // A visit that moved on elsewhere: the row went back, the board is re-read, the fixed message says why. No Retry.
       if (rowChanged(error)) {

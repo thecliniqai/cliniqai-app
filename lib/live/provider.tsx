@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useQueryClient, type Query, type QueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useQueryClient, type Query, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { onAccessLevel } from "@/lib/pwa/lock";
 import { registerCleanup } from "@/lib/pwa/cleanup";
 import { rum } from "@/lib/observability/rum/collector";
@@ -38,8 +38,11 @@ function isLiveQuery(q: Query): boolean {
   return (q.meta?.domains?.length ?? 0) > 0;
 }
 
-/** The versions an answer carries from the statement that read it (`versions` of a range, the bootstrap, the board), when it has them. */
-function carriedVersions(data: unknown): Partial<Versions> | undefined {
+/**
+ * The versions an answer carries from the statement that read it (`versions` of a range, the bootstrap, the board), or that a command's transaction
+ * produced (`versions` of its answer, 000134), when it has them.
+ */
+export function carriedVersions(data: unknown): Partial<Versions> | undefined {
   if (data === null || typeof data !== "object") return undefined;
   const versions = (data as { versions?: unknown }).versions;
   if (versions === null || typeof versions !== "object") return undefined;
@@ -219,6 +222,26 @@ export function LiveProvider({ tenantId, children }: { tenantId: string; childre
   }, [core, queryClient, store, tenantId]);
 
   return <LiveContext.Provider value={store}>{children}</LiveContext.Provider>;
+}
+
+/**
+ * 09E PR 2 (PO option A): after an own save whose answer was written into the queries `queryKeys` (`setQueryData`), hands the versions the command
+ * produced (the answer's `versions`) to the live core, so this device's own signal re-reads nothing while another device's newer write still does
+ * ({@link LiveCore.ownWrite}). Outside the provider, or with no versions in the answer, it does nothing (the signal then re-reads, as before).
+ */
+export function useOwnWrite(): (answer: unknown, queryKeys: readonly QueryKey[]) => void {
+  const store = useContext(LiveContext);
+  const queryClient = useQueryClient();
+  return useCallback(
+    (answer: unknown, queryKeys: readonly QueryKey[]) => {
+      const versions = carriedVersions(answer);
+      if (!store || !versions || Object.keys(versions).length === 0) return;
+      const cache = queryClient.getQueryCache();
+      const ids = queryKeys.flatMap((queryKey) => cache.findAll({ queryKey, exact: true }).map((q) => q.queryHash));
+      store.core.ownWrite(versions, ids);
+    },
+    [store, queryClient],
+  );
 }
 
 /** The live core of the shell; null outside the dashboard (a test, the locked pages). */
