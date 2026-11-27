@@ -7,7 +7,7 @@
  * (owner and doctor). Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { mapDbError } from "@/lib/db/errors";
@@ -23,6 +23,7 @@ import { leftoverFaults, withFault } from "../helpers/fault";
 import { expectCommandCatalog } from "../helpers/command-catalog";
 import { auditRows, commandResultRows, expectDataOnlyStoredResult, seedVisit } from "../helpers/billing-commands";
 import { callCheckIn, callStartConsultation, checkInArgs, startConsultationArgs, tokensOfVisit, visitFlags, visitRow } from "../helpers/clinical-commands";
+import { clearOfClinicMidnight, earlierToday } from "../helpers/clinic-day";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 const HOUR = 3_600_000;
@@ -42,6 +43,10 @@ beforeAll(async () => {
 afterAll(() => {
   expect(leftoverFaults()).toBe(0);
 });
+
+// A visit seeded "today" (`at(0)`) must still be today when the RPC reads it; a late no-show is seeded with `earlierToday`, never
+// `at(-x)`, which is the previous clinic day just after midnight (CI 46049011705).
+beforeEach(() => clearOfClinicMidnight());
 
 const startAudit = (visitId: string) => auditRows(tenantA.tenantId, "visit.consultation_start", visitId);
 
@@ -95,7 +100,7 @@ describe("start_consultation: one transaction", () => {
   });
 
   it("a no-show that arrives late is started: waiting, a token marked late_arrival, then in_consultation", async () => {
-    const { visitId } = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: at(-HOUR / 4), overbooked: true });
+    const { visitId } = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: earlierToday(HOUR / 4), overbooked: true });
     expect((await callStartConsultation(tenantA.client, startConsultationArgs(tenantA, visitId))).error).toBeNull();
     expect((await visitRow(visitId)).status).toBe("in_consultation");
     const [token] = await tokensOfVisit(visitId);
@@ -105,7 +110,7 @@ describe("start_consultation: one transaction", () => {
   });
 
   it("A-3: a late no-show whose slot was rebooked is started as an overbooked visit (before: CONFLICT 23P01 on the slot rule)", async () => {
-    const slot = at(-HOUR / 4);
+    const slot = earlierToday(HOUR / 4);
     const late = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: slot });
     const holder = await seedVisit(tenantA, undefined, { status: "booked", scheduledAt: slot });
     const { data, error } = await callStartConsultation(tenantA.client, startConsultationArgs(tenantA, late.visitId));

@@ -1733,3 +1733,19 @@ Base run: 9 failed (8 full-load rows + `save.R.check-in`). New run: 7 failed, al
 - e2e (`stack:recycle`, desktop-chrome + pixel-7 + iphone-15): `live/*`, `today/*`, `shell/changed-elsewhere`: **89 passed, 15 skipped, 0 failed**
   (iphone-15 runs the `@golden` cases only, by the config; `own-write` is not `@golden`).
 - Full latency lane after `stack:recycle`: base 47 passed / 9 failed; new **49 passed / 7 failed** (the full-load rows above); every `@budget` row passes.
+
+## CI fixes (PR 2)
+
+- **CI run 46049011705, Vitest `test`: 5 failed with `VISIT_NOT_TODAY`** (check-in-rpc: late no-show, A-3, A-3 control; start-consultation-rpc: late
+  no-show, A-3). Test defect, not product: the vitest-report artifact shows the files ran at 18:36:29Z and 18:38:05Z = 00:06 and 00:08 IST, so the
+  fixtures' `at(-15 min)` / `at(-30 min)` were 23:51 / 23:36 of the previous clinic day, and `private.step_check_in` (000106, R-8) rightly refused
+  them (`public.tenant_local_date` of those instants vs of now, run with psql on the local stack: 2026-11-27 vs 2026-11-28). The product rule is unchanged.
+- Fix: `tests/helpers/clinic-day.ts` `earlierToday(ms)` (now minus `ms`, clamped to the clinic-local midnight of now) replaces `at(-x)` for the late
+  seeds; `clearOfClinicMidnight()` (a `beforeEach`) waits out the last 10 s of the clinic day so an `at(0)` seed and the RPC share one day. No other
+  `tests/` file seeds a "today" visit with a negative offset into a day-checked RPC (`today/*` anchor at 12:00 of today; `e2e/schedule` uses the seed's own date).
+- Regression: `tests/queue/clinic-day-boundary.spec.ts` (6 tests) judges seeds with an injected now (00:05 IST and the two CI instants) by the database's
+  own day rule, sweeps every minute of a clinic day, and runs the real check-in on both sides of midnight (last second of yesterday: VISIT_NOT_TODAY;
+  midnight: late arrival). Fails-without: with `earlierToday` reverted to `now - ms`, 4 of 6 fail (`15 min before: expected true to be false`).
+- Run: typecheck clean, eslint on the 4 touched files clean; after `stack:recycle`, the 3 files 60/60 passed.
+- For the PO: by the approved R-8 rule a no-show booked for 23:50 who arrives at 00:05 is refused as "another day". Correct as
+  specified; noted only because late-night clinics would see it.
