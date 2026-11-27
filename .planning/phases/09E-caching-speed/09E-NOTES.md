@@ -1662,3 +1662,74 @@ answer); `tests/security/guard/engine.ts`. No service-role client, no new grant,
   lowered.
 - Not run: the full PR lane, the nightly matrix, the design projects (no screen layout or tracked screenshot changed; the new Schedule and drawer
   states use existing components), full Vitest. CI runs them on the push.
+
+## 09E PR 2: command answers carry the clinic versions (PO option A, CI run 45742707020)
+
+CI failed only `save.R.check-in` (2 calls > ceiling 1: `check_in_visit` + a `today_board` re-read caused by the receptionist's own check-in signal, now
+that Realtime joins succeed after N1). PO chose option A; the ceiling is not raised or re-baselined. One new migration: **`000134_command_versions`**.
+
+### What changed
+
+- **000134**: `private.command_complete` (the step every claimed command ends with; it stores the result for replay) adds `versions` to the result: the
+  `clinic_versions` rows of `p_tenant_id` whose `last_xact` is this transaction (the ones `private.clinic_bump` raised, +1 each, locked until commit), as
+  `{domain: version}`, `{}` when none moved. One function replaced (same signature, definer, `search_path ''`, `lock_timeout 2s`, no API grant); every
+  claimed command (check-in, start, complete, no-show, cancel, reschedule, confirm, bill, collect, draft, Rx, allergies, amendments, waitlist...) gains the key
+  without its own body changing. A replay answers the stored versions (older numbers: never skips a newer write).
+- **Live core** (`lib/live/live-core.ts`, `ownWrite(versions, ids)`): the versions are folded into `seen`, and each named query's basis rises for a domain
+  only from exactly `version - 1` to `version` (the data held every write before this one, and now holds this one). A basis further behind means another
+  device's write is not in the data: nothing is raised and the query is read as for any newer version. A query with a read in flight is left to that read;
+  one with no basis is left. `learnedAt` of a query the write made current is dropped (no false `live_reread` timing). A signal strictly greater than what
+  the device holds still triggers a read.
+- **Wiring**: `useOwnWrite()` (`lib/live/provider.tsx`) maps query keys to hashes and calls the core; `checkInVisit` (service + action) passes `versions`
+  through (`lib/commands/command-versions.ts`, zod, unknown domains dropped); Today's `onChanged` calls it after `setQueryData` on the board it patched.
+  Only check-in is wired: it is the only save row that patches a live query without a read; the others either re-read (their read carries its own
+  statement's versions, so the own signal already costs nothing) or navigate away.
+
+### Fails-without (tool output `evidence/09E-PR2-own-write/lane-{base,new}.txt`)
+
+- Unchanged tree (HEAD `68d2d864`, e2e build of it, `stack:recycle`, full lane `--retries=0`): `save.R.check-in` **2 / 2 calls, depth 2**
+  (`check_in_visit x1; today_board x1`) → fails. With the change: **1 / 1, depth 1** (`check_in_visit x1`) → passes. `live.R.check-in-elsewhere` 3 → 2.
+
+### Tests
+
+- pgTAP `command_versions` (new, 11): exactly the domains raised, each one past the version before, equal to `clinic_versions` after; another clinic raised
+  in the same transaction is not named; a replay answers the stored versions and raises nothing; a no-op check-in answers `{}`; the function's shape.
+  `consult_draft_save` (2) and `rx_assist` (1) compared whole results: they subtract `versions` now. FLOOR 9,881 → **9,892** (81 files).
+- Vitest `live-core.spec.ts` +10 (own signal re-reads nothing; signal before the answer inside the coalescing window; a write between is never swallowed, in
+  either order; a strictly newer version after the own write is read; an older or equal version never lowers a basis; per-domain gaps; only the named queries;
+  a read in flight; no basis / non-counters / stopped). DB specs that compared whole command results gained `versions` (real values: `{queue, schedule}` for
+  status moves, `{schedule}` for a reschedule, `{queue}` for a draft and allergies, `{}` for no-ops); `expectDataOnlyStoredResult` accepts `versions`
+  only as domain → counter.
+- e2e `live/own-write.spec.ts` (new): own signal (the check-in's two signals reach the page, counted on the socket; 0 board reads); interleaved, two
+  devices (the owner checks Y in while A's broadcasts are dropped and its state checks refused; A checks X in; A reads its board and shows Y in Waiting).
+
+### Lane rows failing on the unchanged tree too (not this change; not `@budget`, so CI does not run them)
+
+Base run: 9 failed (8 full-load rows + `save.R.check-in`). New run: 7 failed, all full-load: `full.R.today`, `full.R.schedule-day`, `full.R.schedule-week`
+(5 calls > 4, depth 4 > 3: one `clinic_live_state`, the N1 owed join check on a document load), `full.D.today` (8 > 7, 5 > 4, same call), `full.R.patient`
+(depth 4 > 3), `full.D.patient` (depth 5 > 4), `full.R.billing-reports` (depth 4 > 3). `full.D.consult-draft` failed in the base run on its max sample
+(8 calls, depth 5) and passed in the new one (5 / 3). No ceiling was raised or lowered.
+
+### Security-sensitive files
+
+`supabase/migrations/000134_command_versions.sql` (definer function replaced; reads only the authorised clinic's version counters, no PHI),
+`supabase/tests/database/command_versions.test.sql`, `lib/live/live-core.ts`, `lib/live/provider.tsx`.
+
+### For the PO
+
+1. The 7 full-load rows above exceed their ceilings on the unchanged tree (most by the N1 owed check or +1 depth). Re-baseline them, or treat the owed join
+   check on a full load as a cost to remove?
+2. The board now keeps the device's own patched check-in (arrival time from the device clock, token from the answer) instead of re-reading it right after.
+   Other screens' patched saves (cancel, no-show from Today) could take the same path; not wired since no lane row needed it.
+
+### Tests run (local stack, `--retries=0`)
+
+- `npm run typecheck` clean; eslint on the touched trees 0 errors; `npm run inventory` exit 0; schema snapshot `--check` PASS after `db reset --local`
+  (one line: `command_complete` body md5).
+- pgTAP after `db reset --local`: **9,892 in 81 files, 0 failed**, gate PASS at FLOOR 9,892.
+- Vitest: `tests/commands tests/consultation tests/patients tests/visits tests/queue tests/billing tests/prescriptions tests/waitlist tests/integration
+  tests/live tests/query tests/today tests/realtime tests/schedule tests/front-desk tests/clinical tests/api/readiness-probe-db.spec.ts
+  tests/security/guard-routes.spec.ts`: 139 files, 2,182 passed, 2 failed (`command-results`, fixed; the file then 24/24).
+- e2e (`stack:recycle`, desktop-chrome + pixel-7 + iphone-15): `live/*`, `today/*`, `shell/changed-elsewhere`: **89 passed, 15 skipped, 0 failed**
+  (iphone-15 runs the `@golden` cases only, by the config; `own-write` is not `@golden`).
+- Full latency lane after `stack:recycle`: base 47 passed / 9 failed; new **49 passed / 7 failed** (the full-load rows above); every `@budget` row passes.

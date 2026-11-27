@@ -1,0 +1,3522 @@
+{
+  "latencyMs": 300,
+  "samples": 5,
+  "note": "Realtime socket upgrades are not delayed and are counted apart (realtime), not in calls",
+  "rows": [
+    {
+      "id": "bg.session-status",
+      "kind": "background",
+      "budget": "R-4",
+      "label": "The shell's session status check (on load, resume, every 5 min)",
+      "owner": "09E-13",
+      "main": "data",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "data": 1077.1
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "data": 1065.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "shortestMs": 313,
+          "marks": {
+            "data": 1082.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "data": 1064.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "shortestMs": 311,
+          "marks": {
+            "data": 1052.5
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /auth/v1/user": 1,
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 3
+      },
+      "depth": {
+        "median": 3,
+        "max": 3
+      },
+      "ms": {
+        "median": 1065.3,
+        "max": 1082.7
+      },
+      "targetMs": null,
+      "verdict": "no target",
+      "ceiling": {
+        "maxCalls": 3,
+        "maxDepth": 3,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#bg.session-status"
+      }
+    },
+    {
+      "id": "live.R.check-in-elsewhere",
+      "kind": "live",
+      "budget": "B-11",
+      "label": "Receptionist: a check-in made in a second browser moves the row",
+      "owner": "09E-04",
+      "main": "visible",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 320,
+          "marks": {
+            "visible": 1161.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 320,
+          "marks": {
+            "visible": 1197.5
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 321,
+          "marks": {
+            "visible": 1178.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 314,
+          "marks": {
+            "visible": 1200.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 325,
+          "marks": {
+            "visible": 1228.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1,
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 2,
+        "max": 2
+      },
+      "depth": {
+        "median": 2,
+        "max": 2
+      },
+      "ms": {
+        "median": 1197.5,
+        "max": 1228.8
+      },
+      "targetMs": 2000,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 11,
+        "maxDepth": 8,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#live.R.check-in-elsewhere"
+      }
+    },
+    {
+      "id": "live.today.refresh",
+      "kind": "live",
+      "budget": "B-11",
+      "label": "Receptionist: Today's refresh (a signal or a resume) is one board read",
+      "owner": "09E-06",
+      "main": "refresh",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 365,
+          "marks": {
+            "refresh": 959
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 384,
+          "marks": {
+            "refresh": 993
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 374,
+          "marks": {
+            "refresh": 1001
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 379,
+          "marks": {
+            "refresh": 1002
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "shortestMs": 378,
+          "marks": {
+            "refresh": 976
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/today_board": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 993,
+        "max": 1002
+      },
+      "targetMs": null,
+      "verdict": "no target",
+      "ceiling": {
+        "maxCalls": 2,
+        "maxDepth": 2,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#live.today.refresh"
+      }
+    },
+    {
+      "id": "save.D.add-diagnosis",
+      "kind": "save",
+      "budget": "B-6",
+      "label": "Doctor: add a diagnosis",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 4,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "confirmed": 1314.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 4,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "shortestMs": 311,
+          "marks": {
+            "confirmed": 1313.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 4,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "confirmed": 1337.4
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 4,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "shortestMs": 310,
+          "marks": {
+            "confirmed": 1328
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 4,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "shortestMs": 312,
+          "marks": {
+            "confirmed": 1354
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/consultation_diagnoses": 1,
+            "POST /rest/v1/doctor_custom_diagnoses": 1,
+            "POST /rest/v1/rpc/log_audit": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 4,
+        "max": 4
+      },
+      "depth": {
+        "median": 4,
+        "max": 4
+      },
+      "ms": {
+        "median": 1328,
+        "max": 1354
+      },
+      "targetMs": 100,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 4,
+        "maxDepth": 4,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.add-diagnosis"
+      }
+    },
+    {
+      "id": "save.D.add-rx-line",
+      "kind": "save",
+      "budget": "B-6",
+      "label": "Doctor: add an Rx line by keyboard",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 323,
+          "marks": {
+            "pending": 35.6,
+            "confirmed": 399.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 321,
+          "marks": {
+            "pending": 34.1,
+            "confirmed": 405.9
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 316,
+          "marks": {
+            "pending": 24.3,
+            "confirmed": 383.5
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 324,
+          "marks": {
+            "pending": 31.3,
+            "confirmed": 398.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 332,
+          "marks": {
+            "pending": 28.9,
+            "confirmed": 409.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 399.2,
+        "max": 409.2
+      },
+      "targetMs": 100,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.add-rx-line"
+      }
+    },
+    {
+      "id": "save.D.allergies",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Doctor: record allergies",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "shortestMs": 316,
+          "marks": {
+            "shown": 417.4,
+            "response": 393.6,
+            "confirmed": 417.4
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "shown": 391.3,
+            "response": 371,
+            "confirmed": 391.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "shortestMs": 314,
+          "marks": {
+            "shown": 385.2,
+            "response": 366.3,
+            "confirmed": 385.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "shown": 418.9,
+            "response": 390.1,
+            "confirmed": 418.9
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "shortestMs": 316,
+          "marks": {
+            "shown": 410.5,
+            "response": 382.4,
+            "confirmed": 410.5
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/record_patient_allergies": 1,
+            "POST /rest/v1/rpc/rx_allergy_context": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 2,
+        "max": 2
+      },
+      "depth": {
+        "median": 2,
+        "max": 2
+      },
+      "ms": {
+        "median": 410.5,
+        "max": 418.9
+      },
+      "targetMs": 500,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 2,
+        "maxDepth": 2,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.allergies"
+      }
+    },
+    {
+      "id": "save.D.draft-autosave",
+      "kind": "save",
+      "budget": "B-6",
+      "label": "Doctor: draft autosave",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "shortestMs": 343,
+          "marks": {
+            "pending": 5042.5,
+            "confirmed": 5411.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "shortestMs": 343,
+          "marks": {
+            "pending": 5041.4,
+            "confirmed": 5422.4
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "shortestMs": 336,
+          "marks": {
+            "pending": 5042.1,
+            "confirmed": 5408.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "shortestMs": 348,
+          "marks": {
+            "pending": 5040.1,
+            "confirmed": 5420.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "shortestMs": 335,
+          "marks": {
+            "pending": 5047.3,
+            "confirmed": 5414.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/save_consultation_draft": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 5414.2,
+        "max": 5422.4
+      },
+      "targetMs": 100,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.draft-autosave"
+      }
+    },
+    {
+      "id": "save.D.edit-rx-line",
+      "kind": "save",
+      "budget": "B-6",
+      "label": "Doctor: edit an Rx line",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 336,
+          "marks": {
+            "pending": 22.2,
+            "confirmed": 407.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 319,
+          "marks": {
+            "pending": 22.3,
+            "confirmed": 386.5
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 334,
+          "marks": {
+            "pending": 20.2,
+            "confirmed": 392.1
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 316,
+          "marks": {
+            "pending": 33,
+            "confirmed": 397.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "shortestMs": 338,
+          "marks": {
+            "pending": 32.4,
+            "confirmed": 424.1
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/change_prescription": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 397.6,
+        "max": 424.1
+      },
+      "targetMs": 100,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.edit-rx-line"
+      }
+    },
+    {
+      "id": "save.D.sign-finish",
+      "kind": "save",
+      "budget": "B-8",
+      "label": "Doctor: sign and finish",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 57,
+          "server": 57,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 33,
+          "recordedServer": 57,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "shortestMs": 306,
+          "marks": {
+            "shown": 7581.1,
+            "response": 7562,
+            "confirmed": 7581.1
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 57,
+          "server": 57,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 33,
+          "recordedServer": 57,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "shown": 7600.1,
+            "response": 7579.1,
+            "confirmed": 7600.1
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 57,
+          "server": 57,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 33,
+          "recordedServer": 57,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "shortestMs": 306,
+          "marks": {
+            "shown": 7578.5,
+            "response": 7563.5,
+            "confirmed": 7578.5
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 57,
+          "server": 57,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 33,
+          "recordedServer": 57,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "shortestMs": 305,
+          "marks": {
+            "shown": 7584.1,
+            "response": 7562.3,
+            "confirmed": 7584.1
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 57,
+          "server": 57,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 33,
+          "recordedServer": 57,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "shortestMs": 306,
+          "marks": {
+            "shown": 7535.8,
+            "response": 7515.3,
+            "confirmed": 7535.8
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 6,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 7,
+            "POST /rest/v1/rpc/complete_and_bill": 1,
+            "GET /rest/v1/prescriptions": 6,
+            "GET /rest/v1/tenants": 5,
+            "GET /rest/v1/follow_ups": 4,
+            "GET /rest/v1/consultation_diagnoses": 4,
+            "GET /rest/v1/patients": 5,
+            "GET /rest/v1/prescription_items": 4,
+            "POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 1,
+            "PATCH /rest/v1/prescriptions": 1,
+            "POST /rest/v1/rpc/log_audit": 2,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/invoice_items": 1,
+            "GET /rest/v1/payments": 1,
+            "POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf": 1,
+            "POST /rest/v1/rpc/session_bootstrap": 1,
+            "POST /rest/v1/rpc/consult_screen": 1,
+            "GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 57,
+        "max": 57
+      },
+      "depth": {
+        "median": 33,
+        "max": 33
+      },
+      "ms": {
+        "median": 7581.1,
+        "max": 7600.1
+      },
+      "targetMs": 1000,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 58,
+        "maxDepth": 34,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.sign-finish"
+      }
+    },
+    {
+      "id": "save.D.start-consult",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Doctor: start consult",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "shortestMs": 311,
+          "marks": {
+            "shown": 810.7,
+            "response": 379.8,
+            "confirmed": 810.7
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "shown": 866.7,
+            "response": 384.3,
+            "confirmed": 866.7
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "shortestMs": 313,
+          "marks": {
+            "shown": 855.2,
+            "response": 382.6,
+            "confirmed": 855.2
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/visits": 2,
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "shortestMs": 312,
+          "marks": {
+            "shown": 857.4,
+            "response": 385.4,
+            "confirmed": 857.4
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/visits": 2,
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 4,
+          "server": 4,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 4,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 2,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "shortestMs": 314,
+          "marks": {
+            "shown": 1079.6,
+            "response": 385.1,
+            "confirmed": 1079.6
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/start_consultation": 1,
+            "GET /rest/v1/visits": 2,
+            "POST /rest/v1/rpc/consult_screen": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 4
+      },
+      "depth": {
+        "median": 2,
+        "max": 2
+      },
+      "ms": {
+        "median": 857.4,
+        "max": 1079.6
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 4,
+        "maxDepth": 2,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.start-consult"
+      }
+    },
+    {
+      "id": "save.R.book",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: book from Schedule",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 324,
+          "marks": {
+            "shown": 896.1,
+            "response": 374.7,
+            "confirmed": 896.1
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 325,
+          "marks": {
+            "shown": 941.2,
+            "response": 385.2,
+            "confirmed": 941.2
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 345,
+          "marks": {
+            "shown": 906.5,
+            "response": 398.4,
+            "confirmed": 906.5
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 328,
+          "marks": {
+            "shown": 944,
+            "response": 385.7,
+            "confirmed": 944
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 326,
+          "marks": {
+            "shown": 907.9,
+            "response": 379.8,
+            "confirmed": 907.9
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 3
+      },
+      "depth": {
+        "median": 3,
+        "max": 3
+      },
+      "ms": {
+        "median": 907.9,
+        "max": 944
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 4,
+        "maxDepth": 3,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.book"
+      }
+    },
+    {
+      "id": "save.R.cancel",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: cancel",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "shortestMs": 331,
+          "marks": {
+            "shown": 815.8,
+            "response": 378.3,
+            "confirmed": 815.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "shortestMs": 326,
+          "marks": {
+            "shown": 823.6,
+            "response": 382.3,
+            "confirmed": 823.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "shortestMs": 322,
+          "marks": {
+            "shown": 827.1,
+            "response": 380.6,
+            "confirmed": 827.1
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "shortestMs": 322,
+          "marks": {
+            "shown": 802.4,
+            "response": 369.6,
+            "confirmed": 802.4
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 2,
+          "server": 2,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 2,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "shortestMs": 322,
+          "marks": {
+            "shown": 772,
+            "response": 363.7,
+            "confirmed": 772
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/cancel_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 2,
+        "max": 2
+      },
+      "depth": {
+        "median": 2,
+        "max": 2
+      },
+      "ms": {
+        "median": 815.8,
+        "max": 827.1
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 2,
+        "maxDepth": 2,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.cancel"
+      }
+    },
+    {
+      "id": "save.R.check-in",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: check in",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "shortestMs": 355,
+          "marks": {
+            "shown": 16.2,
+            "response": null,
+            "confirmed": 16.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "shortestMs": 326,
+          "marks": {
+            "shown": 18.8,
+            "response": null,
+            "confirmed": 18.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "shortestMs": 318,
+          "marks": {
+            "shown": 15.9,
+            "response": null,
+            "confirmed": 15.9
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "shortestMs": 332,
+          "marks": {
+            "shown": 12.7,
+            "response": null,
+            "confirmed": 12.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "shortestMs": 322,
+          "marks": {
+            "shown": 12.8,
+            "response": null,
+            "confirmed": 12.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/check_in_visit": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 15.9,
+        "max": 18.8
+      },
+      "targetMs": 500,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.check-in"
+      }
+    },
+    {
+      "id": "save.R.collect",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: collect payment",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 310,
+          "marks": {
+            "shown": 2044.2,
+            "response": 1321.5,
+            "confirmed": 2044.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 308,
+          "marks": {
+            "shown": 2044.6,
+            "response": 1331,
+            "confirmed": 2044.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 310,
+          "marks": {
+            "shown": 2040.2,
+            "response": 1340.3,
+            "confirmed": 2040.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 309,
+          "marks": {
+            "shown": 2023.7,
+            "response": 1323.2,
+            "confirmed": 2023.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 309,
+          "marks": {
+            "shown": 2018.1,
+            "response": 1309.7,
+            "confirmed": 2018.1
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 9,
+        "max": 9
+      },
+      "depth": {
+        "median": 7,
+        "max": 7
+      },
+      "ms": {
+        "median": 2040.2,
+        "max": 2044.6
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 10,
+        "maxDepth": 9,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.collect"
+      }
+    },
+    {
+      "id": "save.R.register-book",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: register and book",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 331,
+          "marks": {
+            "shown": 939.9,
+            "response": 380.4,
+            "confirmed": 939.9
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 351,
+          "marks": {
+            "shown": 966.7,
+            "response": 405.3,
+            "confirmed": 966.7
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 351,
+          "marks": {
+            "shown": 967.2,
+            "response": 412.9,
+            "confirmed": 967.2
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 353,
+          "marks": {
+            "shown": 1043.4,
+            "response": 432.6,
+            "confirmed": 1043.4
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 340,
+          "marks": {
+            "shown": 976.4,
+            "response": 409.7,
+            "confirmed": 976.4
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/register_and_book": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 3
+      },
+      "depth": {
+        "median": 3,
+        "max": 3
+      },
+      "ms": {
+        "median": 967.2,
+        "max": 1043.4
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 4,
+        "maxDepth": 4,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.register-book"
+      }
+    },
+    {
+      "id": "save.R.reschedule",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: reschedule",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 332,
+          "marks": {
+            "shown": 840.4,
+            "response": 384,
+            "confirmed": 840.4
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 353,
+          "marks": {
+            "shown": 890.7,
+            "response": 417,
+            "confirmed": 890.7
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 330,
+          "marks": {
+            "shown": 845.2,
+            "response": 379.7,
+            "confirmed": 845.2
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 342,
+          "marks": {
+            "shown": 822,
+            "response": 382.1,
+            "confirmed": 822
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 3,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "shortestMs": 320,
+          "marks": {
+            "shown": 844.1,
+            "response": 377.9,
+            "confirmed": 844.1
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "POST /rest/v1/rpc/reschedule_visit": 1,
+            "POST /rest/v1/rpc/schedule_range": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 3
+      },
+      "depth": {
+        "median": 3,
+        "max": 3
+      },
+      "ms": {
+        "median": 844.1,
+        "max": 890.7
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 4,
+        "maxDepth": 4,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.reschedule"
+      }
+    },
+    {
+      "id": "type.D.diagnosis",
+      "kind": "typeahead",
+      "budget": "B-4",
+      "label": "Doctor: diagnosis search (on the device)",
+      "owner": "09E-10",
+      "main": "option",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 50
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 17.6
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 14.8
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 39.6
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 38.9
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 0,
+        "max": 0
+      },
+      "depth": {
+        "median": 0,
+        "max": 0
+      },
+      "ms": {
+        "median": 38.9,
+        "max": 50
+      },
+      "targetMs": 100,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 0,
+        "maxDepth": 0,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#type.D.diagnosis"
+      }
+    },
+    {
+      "id": "type.D.medicine",
+      "kind": "typeahead",
+      "budget": "B-4",
+      "label": "Doctor: medicine search (Rx field, on the device, full-size synthetic catalogue)",
+      "owner": "09E-11",
+      "main": "option",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "gone": 6.8,
+            "option": 30.9
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "gone": 8.2,
+            "option": 29
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "gone": 5,
+            "option": 17.8
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "gone": 6.2,
+            "option": 27.5
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "gone": 6.2,
+            "option": 23
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 0,
+        "max": 0
+      },
+      "depth": {
+        "median": 0,
+        "max": 0
+      },
+      "ms": {
+        "median": 27.5,
+        "max": 30.9
+      },
+      "targetMs": 100,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 0,
+        "maxDepth": 0,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#type.D.medicine"
+      }
+    },
+    {
+      "id": "type.D.substance",
+      "kind": "typeahead",
+      "budget": "B-4",
+      "label": "Doctor: allergy substance search (on the device)",
+      "owner": "09E-09",
+      "main": "option",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 33.1
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 42.5
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 44.1
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 48.6
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        },
+        {
+          "calls": 0,
+          "server": 0,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 0,
+          "recordedServer": 0,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {},
+          "shortestMs": null,
+          "marks": {
+            "option": 15.5
+          },
+          "rsc": 0,
+          "serverByPath": {},
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 0,
+        "max": 0
+      },
+      "depth": {
+        "median": 0,
+        "max": 0
+      },
+      "ms": {
+        "median": 42.5,
+        "max": 48.6
+      },
+      "targetMs": 100,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 0,
+        "maxDepth": 0,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#type.D.substance"
+      }
+    },
+    {
+      "id": "type.R.patient-register",
+      "kind": "typeahead",
+      "budget": "B-5",
+      "label": "Receptionist: patient search in the booking sheet",
+      "owner": "measured, not changed",
+      "main": "option",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "gone": 6.2,
+            "option": 548.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 313,
+          "marks": {
+            "gone": 8.4,
+            "option": 546.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 313,
+          "marks": {
+            "gone": 7,
+            "option": 560.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 319,
+          "marks": {
+            "gone": 6.2,
+            "option": 564.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "gone": 8.4,
+            "option": 555.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 555.8,
+        "max": 564.8
+      },
+      "targetMs": 700,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#type.R.patient-register"
+      }
+    },
+    {
+      "id": "type.R.patient-today",
+      "kind": "typeahead",
+      "budget": "B-5",
+      "label": "Receptionist: patient search on Today (walk-in)",
+      "owner": "measured, not changed",
+      "main": "option",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "gone": 5.7,
+            "option": 555.4
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 318,
+          "marks": {
+            "gone": 5.9,
+            "option": 552.7
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 316,
+          "marks": {
+            "gone": 5.1,
+            "option": 558.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 315,
+          "marks": {
+            "gone": 4.7,
+            "option": 554.8
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 1,
+          "server": 1,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 1,
+          "recordedServer": 1,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "shortestMs": 333,
+          "marks": {
+            "gone": 4.3,
+            "option": 571.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "POST /rest/v1/rpc/search_patients": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 1,
+        "max": 1
+      },
+      "depth": {
+        "median": 1,
+        "max": 1
+      },
+      "ms": {
+        "median": 555.4,
+        "max": 571.6
+      },
+      "targetMs": 700,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 1,
+        "maxDepth": 1,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#type.R.patient-today"
+      }
+    }
+  ]
+}

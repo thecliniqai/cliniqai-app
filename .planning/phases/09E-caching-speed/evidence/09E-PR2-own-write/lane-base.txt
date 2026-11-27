@@ -1,0 +1,89 @@
+# grep of 'npm run perf:latency -- --retries=0' output (base tree; base = HEAD 68d2d864 before this change, new = with 000134 + ownWrite); WebServer lines removed
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.R.today | B-3 | 5 / 5 | 4 / 4 | 587 / 885 | 1500 | within target | n/a | 0 | 09E-06 | POST /rest/v1/rpc/session_bootstrap x1; POST /rest/v1/rpc/today_board x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1; POST /rest/v1/rpc/clinic_live_state x1 |
+| in-app.D.consult-draft | B-1 | 1 / 1 | 1 / 1 | 532 / 565 | 1000 | within target | 61 | 1 | 09E-05 | POST /rest/v1/rpc/consult_screen x1 |
+| in-app.D.consult-sealed | B-1 | 18 / 18 | 10 / 10 | 532 / 555 | 1000 | within target | 75 | 1 | 09E-05 | GET /rest/v1/visits x2; GET /rest/v1/prescriptions x2; GET /rest/v1/follow_ups x2; GET /rest/v1/tenants x2; GET /rest/v1/patients x2; GET /rest/v1/memberships x2; GET /rest/v1/consultation_diagnoses x2; GET /rest/v1/prescription_items x2; POST /rest/v1/rpc/consult_screen x1; GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf x1 |
+| in-app.D.patient | B-1 | 11 / 11 | 3 / 3 | 462 / 518 | 1000 | within target | 431 | 1 | 09E-06 | GET /rest/v1/consent_records x2; GET /rest/v1/visits x2; GET /rest/v1/patients x1; POST /rest/v1/rpc/view_patient_record x1; GET /rest/v1/queue_tokens x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/memberships x1; GET /rest/v1/invoices x1; GET /rest/v1/prescriptions x1 |
+| in-app.D.today | B-1 | 4 / 4 | 4 / 4 | 1102 / 1151 | 1000 | over target | 39 | 1 | 09E-06 | GET /rest/v1/visits x2; POST /rest/v1/rpc/today_board x1; POST /rest/v1/rpc/my_entitlements x1 |
+| in-app.O.billing-reports | B-1 | 3 / 3 | 2 / 2 | 707 / 743 | 1000 | within target | 38 | 1 | 09E-06 | GET /rest/v1/tenants x1; GET /rest/v1/invoices x1; GET /rest/v1/payments x1 |
+| in-app.O.settings-clinic | B-1 | 3 / 3 | 2 / 2 | 462 / 496 | 1000 | within target | 70 | 1 | 09E-06 | GET /rest/v1/memberships x1; GET /rest/v1/tenants x1; GET /rest/v1/schedule_blocks x1 |
+| in-app.O.staff | B-1 | 2 / 2 | 1 / 1 | 47 / 64 | 1000 | within target | 47 | 1 | 09E-06 | GET /rest/v1/invitations x1; GET /rest/v1/memberships x1 |
+| in-app.R.patient | B-1 | 10 / 10 | 2 / 2 | 464 / 507 | 1000 | within target | n/a | 1 | 09E-06 | GET /rest/v1/consent_records x2; GET /rest/v1/patients x1; GET /rest/v1/visits x1; POST /rest/v1/rpc/view_patient_record x1; GET /rest/v1/memberships x1; GET /rest/v1/prescriptions x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/queue_tokens x1; GET /rest/v1/invoices x1 |
+| in-app.R.patients | B-1 | 1 / 1 | 1 / 1 | 403 / 424 | 1000 | within target | 47 | 1 | 09E-06 | GET /rest/v1/patients x1 |
+| in-app.R.schedule-day | B-1 | 1 / 1 | 1 / 1 | 481 / 537 | 1000 | within target | 38 | 1 | 09E-12 | POST /rest/v1/rpc/schedule_range x1 |
+| in-app.R.schedule-week | B-1 | 0 / 0 | 0 / 0 | 25 / 32 | 1000 | within target | n/a | 0 | 09E-12 |  |
+| in-app.R.today | B-1 | 1 / 1 | 1 / 1 | 483 / 616 | 1000 | within target | 42 | 1 | 09E-06 | POST /rest/v1/rpc/today_board x1 |
+| in-app.R.visits | B-1 | 11 / 11 | 3 / 3 | 1077 / 1088 | 1000 | over target | 54 | 1 | 09E-06 | GET /rest/v1/tenants x2; GET /rest/v1/memberships x2; GET /rest/v1/invoices x2; GET /rest/v1/visits x1; GET /rest/v1/queue_tokens x1; GET /rest/v1/patients x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/prescriptions x1 |
+  ✘  22 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › receptionist › full.R.today: Receptionist: Today, full load (36.8s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.R.schedule-day | B-3 | 5 / 5 | 4 / 4 | 1448 / 2055 | 1500 | within target | n/a | 0 | 09E-12 | POST /rest/v1/rpc/session_bootstrap x1; POST /rest/v1/rpc/schedule_range x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1; POST /rest/v1/rpc/clinic_live_state x1 |
+  ✘  23 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › receptionist › full.R.schedule-day: Receptionist: Schedule, day, full load (35.5s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.R.schedule-week | B-3 | 5 / 5 | 4 / 4 | 692 / 854 | 1500 | within target | n/a | 0 | 09E-12 | POST /rest/v1/rpc/session_bootstrap x1; POST /rest/v1/rpc/schedule_range x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1; POST /rest/v1/rpc/clinic_live_state x1 |
+  ✘  24 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › receptionist › full.R.schedule-week: Receptionist: Schedule, week, full load (36.8s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.R.patient | B-3 | 13 / 13 | 4 / 4 | 821 / 953 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/consent_records x2; POST /rest/v1/rpc/view_patient_record x1; GET /rest/v1/patients x1; GET /rest/v1/visits x1; POST /rest/v1/rpc/session_bootstrap x1; GET /rest/v1/queue_tokens x1; GET /rest/v1/memberships x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/prescriptions x1; GET /rest/v1/invoices x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+| full.R.patients | B-3 | 4 / 4 | 3 / 3 | 625 / 918 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/patients x1; POST /rest/v1/rpc/session_bootstrap x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+  ✘  26 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › receptionist › full.R.patient: Receptionist: a patient, full load (33.3s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.D.today | B-3 | 8 / 8 | 5 / 5 | 1108 / 1152 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/visits x2; POST /rest/v1/rpc/session_bootstrap x1; POST /rest/v1/rpc/today_board x1; HEAD /rest/v1/in_app_notifications x1; POST /rest/v1/rpc/my_entitlements x1; GET /rest/v1/in_app_notifications x1; POST /rest/v1/rpc/clinic_live_state x1 |
+| full.R.visits | B-3 | 14 / 14 | 4 / 4 | 1047 / 1117 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/tenants x2; GET /rest/v1/memberships x2; GET /rest/v1/invoices x2; POST /rest/v1/rpc/session_bootstrap x1; GET /rest/v1/visits x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/patients x1; GET /rest/v1/prescriptions x1; GET /rest/v1/queue_tokens x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+  ✘  28 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › doctor › full.D.today: Doctor: Today, full load (37.7s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.D.consult-draft | B-3 | 5 / 8 | 3 / 5 | 685 / 1227 | 1500 | within target | n/a | 0 | 09E-05 | GET /rest/v1/visits x1; POST /rest/v1/rpc/session_bootstrap x1; POST /rest/v1/rpc/consult_screen x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+  ✘  29 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › doctor › full.D.consult-draft: Doctor: a consult in draft, full load (33.0s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.D.consult-sealed | B-3 | 22 / 22 | 10 / 10 | 717 / 1038 | 1500 | within target | n/a | 0 | 09E-05 | GET /rest/v1/visits x3; GET /rest/v1/prescriptions x2; GET /rest/v1/follow_ups x2; GET /rest/v1/tenants x2; GET /rest/v1/consultation_diagnoses x2; GET /rest/v1/memberships x2; GET /rest/v1/patients x2; GET /rest/v1/prescription_items x2; POST /rest/v1/rpc/consult_screen x1; POST /rest/v1/rpc/session_bootstrap x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1; GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf x1 |
+| full.D.patient | B-3 | 14 / 14 | 5 / 5 | 913 / 959 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/consent_records x2; GET /rest/v1/visits x2; GET /rest/v1/patients x1; POST /rest/v1/rpc/view_patient_record x1; POST /rest/v1/rpc/session_bootstrap x1; GET /rest/v1/consultation_diagnoses x1; GET /rest/v1/invoices x1; GET /rest/v1/memberships x1; GET /rest/v1/prescriptions x1; GET /rest/v1/queue_tokens x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+  ✘  31 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › doctor › full.D.patient: Doctor: a patient, full load (37.0s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| full.O.settings-clinic | B-3 | 6 / 6 | 4 / 4 | 724 / 757 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/memberships x1; GET /rest/v1/tenants x1; POST /rest/v1/rpc/session_bootstrap x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1; GET /rest/v1/schedule_blocks x1 |
+| full.O.staff | B-3 | 5 / 5 | 3 / 3 | 632 / 669 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/invitations x1; GET /rest/v1/memberships x1; POST /rest/v1/rpc/session_bootstrap x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+| full.R.billing-reports | B-3 | 6 / 6 | 4 / 4 | 876 / 921 | 1500 | within target | n/a | 0 | 09E-06 | GET /rest/v1/tenants x1; POST /rest/v1/rpc/session_bootstrap x1; GET /rest/v1/invoices x1; GET /rest/v1/payments x1; HEAD /rest/v1/in_app_notifications x1; GET /rest/v1/in_app_notifications x1 |
+  ✘  34 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:82:11 › page rows, full load (B-3) › receptionist › full.R.billing-reports: Receptionist: Billing reports, full load (35.4s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| save.R.check-in | B-7 | 2 / 2 | 2 / 2 | 20 / 27 | 500 | within target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/check_in_visit x1; POST /rest/v1/rpc/today_board x1 |
+| type.D.diagnosis | B-4 | 0 / 0 | 0 / 0 | 29 / 56 | 100 | within target | n/a | 0 | 09E-10 |  |
+| type.D.medicine | B-4 | 0 / 0 | 0 / 0 | 28 / 42 | 100 | within target | n/a | 0 | 09E-11 |  |
+| type.D.substance | B-4 | 0 / 0 | 0 / 0 | 19 / 45 | 100 | within target | n/a | 0 | 09E-09 |  |
+| type.R.patient-register | B-5 | 1 / 1 | 1 / 1 | 564 / 572 | 700 | within target | n/a | 0 | measured, not changed | POST /rest/v1/rpc/search_patients x1 |
+| type.R.patient-today | B-5 | 1 / 1 | 1 / 1 | 561 / 579 | 700 | within target | n/a | 0 | measured, not changed | POST /rest/v1/rpc/search_patients x1 |
+  ✘  41 [perf-latency] › tests/e2e/perf/page-latency.spec.ts:291:11 › save rows (B-6, B-7, B-8) › receptionist › save.R.check-in @budget: Receptionist: check in (32.8s)
+| Row | Budget | Calls (median / max) | Depth (median / max) | ms (median / max) | Target ms | Verdict | Skeleton ms | RSC | Owner | Server calls by path (last sample) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| bg.session-status | R-4 | 3 / 3 | 3 / 3 | 1070 / 1074 | n/a | no target | n/a | 0 | 09E-13 | GET /auth/v1/user x1; GET /rest/v1/memberships x1; POST /rest/v1/rpc/my_tenant_access x1 |
+| live.R.check-in-elsewhere | B-11 | 3 / 3 | 2 / 2 | 1222 / 1229 | 2000 | within target | n/a | 0 | 09E-04 | POST /rest/v1/rpc/today_board x2; POST /rest/v1/rpc/check_in_visit x1 |
+| live.today.refresh | B-11 | 1 / 1 | 1 / 1 | 987 / 1022 | n/a | no target | n/a | 0 | 09E-06 | POST /rest/v1/rpc/today_board x1 |
+| save.D.add-diagnosis | B-6 | 4 / 4 | 4 / 4 | 1338 / 1355 | 100 | over target | n/a | 0 | 09E-08 | GET /rest/v1/visits x1; POST /rest/v1/consultation_diagnoses x1; POST /rest/v1/doctor_custom_diagnoses x1; POST /rest/v1/rpc/log_audit x1 |
+| save.D.add-rx-line | B-6 | 1 / 1 | 1 / 1 | 425 / 449 | 100 | over target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/change_prescription x1 |
+| save.D.allergies | B-7 | 2 / 2 | 2 / 2 | 419 / 431 | 500 | within target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/record_patient_allergies x1; POST /rest/v1/rpc/rx_allergy_context x1 |
+| save.D.draft-autosave | B-6 | 1 / 1 | 1 / 1 | 5441 / 5453 | 100 | over target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/save_consultation_draft x1 |
+| save.D.edit-rx-line | B-6 | 1 / 1 | 1 / 1 | 413 / 450 | 100 | over target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/change_prescription x1 |
+| save.D.sign-finish | B-8 | 57 / 57 | 33 / 33 | 7643 / 7700 | 1000 | over target | n/a | 1 | 09E-08 | GET /rest/v1/visits x7; GET /rest/v1/memberships x6; GET /rest/v1/prescriptions x6; GET /rest/v1/tenants x5; GET /rest/v1/patients x5; GET /rest/v1/follow_ups x4; GET /rest/v1/consultation_diagnoses x4; GET /rest/v1/prescription_items x4; POST /rest/v1/rpc/log_audit x2; GET /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf x2; POST /rest/v1/rpc/session_is_live x1; POST /rest/v1/rpc/my_tenant_access x1; POST /rest/v1/rpc/complete_and_bill x1; POST /storage/v1/object/prescriptions/:id/:id/rx_v1.pdf x1; PATCH /rest/v1/prescriptions x1; GET /rest/v1/invoices x1; GET /rest/v1/invoice_items x1; GET /rest/v1/payments x1; POST /storage/v1/object/prescriptions/:id/receipts/inv_:id.pdf x1; POST /storage/v1/object/sign/prescriptions/:id/receipts/inv_:id.pdf x1; POST /rest/v1/rpc/consult_screen x1; POST /rest/v1/rpc/session_bootstrap x1 |
+| save.D.start-consult | B-7 | 4 / 4 | 2 / 2 | 865 / 889 | 500 | over target | n/a | 1 | 09E-08 | GET /rest/v1/visits x2; POST /rest/v1/rpc/start_consultation x1; POST /rest/v1/rpc/consult_screen x1 |
+| save.R.book | B-7 | 3 / 3 | 2 / 3 | 939 / 981 | 500 | over target | n/a | 1 | 09E-08 | POST /rest/v1/rpc/schedule_range x2; POST /rest/v1/rpc/register_and_book x1 |
+| save.R.cancel | B-7 | 2 / 2 | 2 / 2 | 855 / 890 | 500 | over target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/cancel_visit x1; POST /rest/v1/rpc/schedule_range x1 |
+| save.R.collect | B-7 | 9 / 9 | 7 / 7 | 2063 / 2071 | 500 | over target | n/a | 0 | 09E-08 | POST /rest/v1/rpc/today_board x2; GET /rest/v1/memberships x1; POST /rest/v1/rpc/session_is_live x1; POST /rest/v1/rpc/my_tenant_access x1; GET /rest/v1/visits x1; POST /rest/v1/rpc/collect_payment x1; POST /rest/v1/rpc/complete_visit x1; GET /rest/v1/invoices x1 |
+| save.R.register-book | B-7 | 3 / 3 | 3 / 3 | 1000 / 1014 | 500 | over target | n/a | 1 | 09E-08 | POST /rest/v1/rpc/schedule_range x2; POST /rest/v1/rpc/register_and_book x1 |
+| save.R.reschedule | B-7 | 3 / 3 | 3 / 3 | 844 / 931 | 500 | over target | n/a | 1 | 09E-08 | POST /rest/v1/rpc/schedule_range x2; POST /rest/v1/rpc/reschedule_visit x1 |
+    test-results/perf-page-latency-page-row-6dcc7-eceptionist-Today-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-5284a-nist-Schedule-day-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-d7c87-ist-Schedule-week-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-5983e-tionist-a-patient-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-cb939-oday-Doctor-Today-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-bc682--consult-in-draft-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-aca04--Doctor-a-patient-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-page-row-19638-t-Billing-reports-full-load-perf-latency/test-failed-1.png
+    test-results/perf-page-latency-save-row-de89a-udget-Receptionist-check-in-perf-latency/test-failed-1.png
+  9 failed
+  47 passed (36.8m)
+EXIT 1
