@@ -43,7 +43,14 @@ const COMPLAINT = "Acidity";
 const DIAGNOSIS = "Gastritis E2E J6";
 const admin = getAdminClient();
 
+/**
+ * 09F step 0 (CI run 45663357580, desktop-chrome, attempt 1 failed with `document-title: html` on "the amending record"): every `router.refresh()`
+ * (Reopen for amendment, Sign) re-renders Next 16's streamed metadata, which REPLACES the `<title>` element (a MutationObserver sees it removed and added
+ * again 1 to 2 ms apart, also under 8x CPU throttling). The scan must start on a page whose title is back, so it waits for a non-empty title first: a
+ * page that never gets one still fails (the poll times out), and axe still checks it.
+ */
 async function expectAxeClean(page: Page, screen: string): Promise<void> {
+  await expect(page, `the page title before axe on ${screen}`).toHaveTitle(/\S/);
   await settleAnimations(page);
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
