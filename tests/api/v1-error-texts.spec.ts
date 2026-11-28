@@ -251,6 +251,14 @@ describe("real database errors on the local stack (05-11c, INT L-4)", () => {
     expect(text).not.toContain("SENTINEL_NOT_A_DATE");
   });
 
+  it("V2-14 (SEC-14-001): GET /visits?start_date=<PostgREST filter syntax> → 422 before any query, the input not echoed", async () => {
+    const res = await getVisits(realReq("/api/v1/visits?start_date=2026-11-28,tenant_id.neq.SENTINEL_FILTER"));
+    const text = await res.text();
+    expect(res.status).toBe(422);
+    expect(JSON.parse(text).error).toEqual({ code: "VALIDATION_ERROR", message: API_DB_MESSAGES.VALIDATION_FAILED });
+    expect(text).not.toContain("SENTINEL_FILTER");
+  });
+
   it.each([
     ["GET /patients/:id", (id: string) => getPatient(realReq(`/api/v1/patients/${id}`), { params: Promise.resolve({ id }) })],
     ["GET /visits/:id", (id: string) => getVisit(realReq(`/api/v1/visits/${id}`), { params: Promise.resolve({ id }) })],

@@ -4,7 +4,7 @@
  *
  * Input: the JSON report of `osv-scanner scan source --lockfile package-lock.json --format json` and package-lock.json.
  * Fails (exit 1) when
- *   1. a PRODUCTION dependency (a package-lock entry without `dev`/`devOptional`, the scope of `npm audit --omit=dev`)
+ *   1. a PRODUCTION dependency (a package-lock entry without `dev: true`; `devOptional` counts as production, as in `npm audit --omit=dev`)
  *      has a high or critical advisory with a fixed version published, and the advisory is not waived in
  *      .github/audit-allowlist.json (the npm audit gate's expiring allowlist: same id + package + severity; that gate
  *      owns expiry and staleness, so an expired waiver already fails the job there);
@@ -62,7 +62,9 @@ function devOnlyIndex(lock) {
     if (!key.includes("node_modules/")) continue;
     const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
     const id = `${name}@${entry?.version}`;
-    const dev = entry?.dev === true || entry?.devOptional === true;
+    // `devOptional` = a dev dependency that is also an optional dependency of a production package: installed in
+    // production (npm audit --omit=dev keeps it), so it counts as production (review M3).
+    const dev = entry?.dev === true;
     index.set(id, (index.get(id) ?? true) && dev);
   }
   return index;
@@ -84,18 +86,27 @@ function main() {
       const name = pkg?.package?.name;
       const version = pkg?.package?.version;
       const vulns = new Map((pkg?.vulnerabilities ?? []).map((v) => [v.id, v]));
+      // Review L4: vulnerabilities without groups is a report shape this gate does not know: fail closed.
+      if (vulns.size > 0 && !(pkg?.groups ?? []).length) fail(2, `${name}@${version} has vulnerabilities but no groups; failing closed`);
       for (const group of pkg?.groups ?? []) {
         const ids = group?.ids ?? [];
-        const vuln = ids.map((id) => vulns.get(id)).find(Boolean);
+        const members = ids.map((id) => vulns.get(id)).filter(Boolean);
         const id = ids.find((x) => /^GHSA-/.test(x)) ?? ids[0];
         if (!id) continue;
+        // The worst rating of any member advisory, and the CVSS score when it is worse than every rating (review L4).
+        const ratings = (members.length ? members : [undefined]).map((v) => severityOf(v, undefined));
+        const byScore = severityOf(undefined, group?.max_severity);
+        const scored = Number.isFinite(Number.parseFloat(group?.max_severity));
+        const rated = members.some((v) => RANK[String(v?.database_specific?.severity ?? "").toLowerCase()]);
+        let severity = ratings.reduce((a, b) => (RANK[b] > RANK[a] ? b : a));
+        if (!rated && scored) severity = byScore;
         findings.push({
           id,
           ids,
           name,
           version,
-          severity: severityOf(vuln, group?.max_severity),
-          fix: hasFix(vuln),
+          severity,
+          fix: members.some(hasFix),
           dev: devOnly.get(`${name}@${version}`) ?? false,
           malicious: ids.some((x) => /^MAL-/.test(x)),
         });

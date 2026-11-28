@@ -56,13 +56,12 @@ export function isBillingPage(pathname: string): boolean {
 
 /**
  * True for a request the page headers apply to: everything the proxy sees except `/api` (route handlers: JSON, PDFs,
- * the RUM beacon; their own headers) and `/sw.js` (its own script CSP in next.config.ts). Case-folded, so `/API/x` and
- * `/SW.JS` (Next routes are case-sensitive: those are 404 pages) are judged like the routes they spell.
+ * the RUM beacon; their own headers) and `/sw.js` (its own script CSP in next.config.ts). Compared case-sensitively, as
+ * Next matches routes: `/API/x` and `/SW.JS` are 404 or sign-in pages (HTML), so they get the page policy (review M1).
  */
 export function isPagePath(pathname: string): boolean {
-  const lower = pathname.toLowerCase();
-  if (lower === "/api" || lower.startsWith("/api/")) return false;
-  if (lower === "/sw.js") return false;
+  if (pathname === "/api" || pathname.startsWith("/api/")) return false;
+  if (pathname === "/sw.js") return false;
   return true;
 }
 

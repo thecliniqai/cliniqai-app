@@ -14,6 +14,7 @@ rules:
         - "/features/*/system.ts"
         - "/app/api/jobs/**"
         - "/app/api/webhooks/**"
+        - "/app/api/v1/**"
         - "/lint-fixtures/semgrep/admin-query-without-tenant.ts"
     patterns:
       - pattern: $DB.from($T).select(...)

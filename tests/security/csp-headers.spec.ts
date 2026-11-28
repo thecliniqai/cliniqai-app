@@ -107,11 +107,11 @@ describe("pageSecurityHeaders", () => {
     expect(billing["cross-origin-opener-policy"]).toBe("same-origin-allow-popups");
   });
 
-  it("isPagePath: /api and the worker script are not pages, in any letter case", () => {
+  it("isPagePath: /api and the worker script are not pages; their case variants are (Next serves them as HTML pages)", () => {
     expect(isPagePath("/api/health")).toBe(false);
-    expect(isPagePath("/API/v1/x")).toBe(false);
     expect(isPagePath("/sw.js")).toBe(false);
-    expect(isPagePath("/SW.JS")).toBe(false);
+    expect(isPagePath("/API/v1/x")).toBe(true);
+    expect(isPagePath("/SW.JS")).toBe(true);
     expect(isPagePath("/apix")).toBe(true);
     expect(isPagePath("/login")).toBe(true);
   });

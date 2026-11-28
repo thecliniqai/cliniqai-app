@@ -26,6 +26,30 @@ Small decisions taken in lane 14a. Each one is reversible in a follow-up PR.
 | D-14a-14 | Upload hardening (plan D-8): a declared `content-length` above 4.5 MB on an upload page is refused (413) before any session work, signed in or not. Unsized bodies there still need a session (09B-06a). | Closes the "buffered towards the 4 MB action limit" residual for requests that cannot succeed. |
 | D-14a-15 | P2-06 filter inputs: `/api/v1/visits` `start_date`/`end_date` must be ISO dates or instants (`isIsoDateParam`) before they reach `.or()`; the receipt lookup checks its id inside `compileReceiptPayload` (both the route and the public share path). Every remaining interpolated `.or()` carries a `nosemgrep` naming its validation. | The Semgrep rule found the v1 dates unvalidated (tenant-scoped by `.eq("tenant_id")`, so no cross-tenant read: Low). |
 
+## Adversarial review (lane 14a, one fix round)
+
+Opus reviewer, fresh context, read-only, on dfbf7550: 0 Critical, 0 High, 5 Medium, 11 Low, 5 Info.
+
+| Finding | Disposition |
+|---|---|
+| M1 `/SW.JS` case variant: unit spec and e2e spec disagreed | Fixed: `/api` and `/sw.js` compared case-sensitively (as Next routes); case variants are HTML pages and get the page policy |
+| M2 `/api/v1/docs` HTML under `/api` with no CSP, CDN script without SRI | Fixed: SRI `integrity` + its own CSP and `X-Frame-Options: DENY` (route off by default, PO-16) |
+| M3 OSV gate treated `devOptional` (installed in production) as dev | Fixed + fixture test |
+| M4 `admin-query-without-tenant` scope missed `/api/v1/**`; id-keyed exemption broad; no update/delete | `/api/v1/**` added (0 findings). The id exemption stays (D-14a-8); update/delete/upsert patterns and the rest of the ADR-0005 list → F-6 |
+| M5 Semgrep gate: only `ERROR` blocked; scan errors ignored | Fixed: blocks ERROR/CRITICAL/HIGH, prints scan errors, fails under 500 scanned files |
+| L4 OSV gate fail-open edges | Fixed: no-groups report exits 2; worst rating across a group's advisories; fix if any advisory has one |
+| L5 SW offline copy had no CSP | Fixed: `script-src 'none'` CSP, XFO, nosniff on the stored copy |
+| L7 `/api` PDFs frameable by any origin | Fixed: `X-Frame-Options: SAMEORIGIN` on `/api/:path*` |
+| L10 no route-level test for the v1 date check | Fixed: tests/api/v1-error-texts.spec.ts case |
+| I3 stray indent | Fixed |
+| ZAP 10037 `X-Powered-By` | Fixed: `poweredByHeader: false` |
+| L1, L2, L3 Semgrep rules narrower than their targets (variable `.or()` args, `tenantId` params, variable RPC names) | F-6 |
+| L6 404 HTML of matcher-excluded paths has no page CSP | Accepted (no reflection; static, PHI-free); F-5 |
+| L8 community packs unpinned | Accepted: blocking stays (they found 0 today); a red PR from a pack update is triaged like any finding; vendoring → F-7 |
+| L9 ZAP gate "reached the server" check weak; job not required | F-2 |
+| L11 violation collector only on the fixture context | F-5 |
+| I1, I2, I4, I5 | I4 verified in CI (11/11 rule tests); I5 (HSTS preload) is PO-action 14-P3; I1 → F-4 |
+
 ## Forward items (not in lane 14a)
 
 | # | Item | Owner |
@@ -34,4 +58,6 @@ Small decisions taken in lane 14a. Each one is reversible in a follow-up PR.
 | F-2 | ZAP authenticated baselines (receptionist, owner contexts) and the nightly run blocking on High; `tests/fixtures/security-seed.ts` | 14-03 |
 | F-3 | 1-year retention of scanner reports: copy SARIF/JSON into the phase evidence at close | 14 close |
 | F-4 | The Razorpay checkout is not wired into the client yet; when it is, re-check `script-src` (strict-dynamic loader) and the popup flow under COOP on the billing pages | V2-13 owner |
-| F-5 | Header spec over the full guard-manifest route list (today: page, token page, `/api`, worker variants, signed-in pages) | 14-03 |
+| F-5 | Header spec over the full guard-manifest route list (today: page, token page, `/api`, worker variants, signed-in pages); CSP collector on contexts made outside the fixture | 14-03 |
+| F-6 | Semgrep rule widening: `.or($VAR)` with taint, destructured/`tenantId` action params, variable RPC names and table writes for billing, update/delete in service-role modules | 14-05 |
+| F-7 | Vendor a reviewed snapshot of the Semgrep community packs | 14-05 |

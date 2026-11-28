@@ -329,7 +329,7 @@ export async function checkSlotAvailability(
     const { data: blocks, error: blocksErr } = await (supabase.from("schedule_blocks") as any) // nosemgrep: postgrest-or-interpolation -- doctorId is isUuid-checked above
       .select("*")
       .eq("tenant_id", session.tenantId)
-        .or(`doctor_id.eq.${doctorId},doctor_id.is.null`)
+      .or(`doctor_id.eq.${doctorId},doctor_id.is.null`)
       .lte("start_time", targetEndISO)
       .gte("end_time", targetStartISO);
 

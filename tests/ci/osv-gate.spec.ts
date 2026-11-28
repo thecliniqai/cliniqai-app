@@ -43,6 +43,16 @@ describe("osv gate", () => {
     expect(r.stderr).toContain("MAL-2026-1 in fixture-evil@6.0.0");
   });
 
+  it("a devOptional package is installed in production: its fixable high blocks (review M3)", () => {
+    const r = gate("report-devoptional");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FAIL high GHSA-sss-ttt-uuu in fixture-devoptional@7.0.0");
+  });
+
+  it("vulnerabilities without groups fail closed (review L4)", () => {
+    expect(gate("report-no-groups").status).toBe(2);
+  });
+
   it("fails closed on a report that is not an OSV-Scanner report, or a missing one", () => {
     expect(gate("report-broken").status).toBe(2);
     expect(gate("does-not-exist").status).toBe(2);

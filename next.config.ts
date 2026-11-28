@@ -20,6 +20,8 @@ const BUILD_STAMP = (process.env.VERCEL_DEPLOYMENT_ID ?? randomUUID()).replace(/
 const DEPLOYMENT_ID = deploymentIdFrom(process.env) ?? undefined;
 
 const nextConfig: NextConfig = {
+  // V2-14 14-02 (ZAP 10037): no `X-Powered-By: Next.js`.
+  poweredByHeader: false,
   serverExternalPackages: ["@react-pdf/renderer"],
   deploymentId: DEPLOYMENT_ID,
   // With a deploymentId Next uses one constant BUILD_ID for every build; null keeps Next's random id per build, which
@@ -58,6 +60,8 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
         ],
       },
+      // Review L7: route handlers (the receipt, Rx and export PDFs) may be framed by the app itself only.
+      { source: "/api/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       {
         source: "/sw.js",
         headers: [

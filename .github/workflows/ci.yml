@@ -134,8 +134,12 @@ jobs:
             --config p/typescript --config p/react --config p/nextjs --config p/secrets --config p/owasp-top-ten \
             --sarif-output=semgrep.sarif --json-output=semgrep.json --quiet
           jq -r '.results[] | "\(.extra.severity) \(.check_id) \(.path):\(.start.line)"' semgrep.json | sort | tee semgrep-findings.txt
-          if jq -e '[.results[] | select(.extra.severity == "ERROR")] | length > 0' semgrep.json > /dev/null; then
-            echo "Semgrep: ERROR findings above block (fix, or a reviewed nosemgrep with the reason)" >&2
+          echo "scanned files: $(jq '.paths.scanned | length' semgrep.json); scan errors: $(jq '.errors | length' semgrep.json)"
+          jq -r '.errors[] | "scan error (\(.level // "?")): \(.type | tostring | .[0:80]) \(.path // "")"' semgrep.json
+          # Review M5: fail closed when (almost) nothing was scanned; block on ERROR and the newer CRITICAL/HIGH levels.
+          if [ "$(jq '.paths.scanned | length' semgrep.json)" -lt 500 ]; then echo "Semgrep scanned too few files" >&2; exit 1; fi
+          if jq -e '[.results[] | select(.extra.severity | IN("ERROR", "CRITICAL", "HIGH"))] | length > 0' semgrep.json > /dev/null; then
+            echo "Semgrep: ERROR/CRITICAL/HIGH findings above block (fix, or a reviewed nosemgrep with the reason)" >&2
             exit 1
           fi
         env:
