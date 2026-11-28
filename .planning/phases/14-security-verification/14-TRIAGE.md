@@ -18,6 +18,7 @@ Severity is the finding's in this application, not the scanner's label. Lane 14a
 | SEC-14-011 | ZAP baseline | 10202 Absence of anti-CSRF tokens on /login, /forgot-password | Info | Verified | Forms submit by Server Action (Next's Origin check) or script; no cookie-authenticated form POST | — |
 | SEC-14-012 | ZAP baseline | 10037 `X-Powered-By: Next.js` | Low | Fixed | `poweredByHeader: false` | lane 14a |
 | SEC-14-013 | Review M2 | `/api/v1/docs` HTML without CSP, CDN script without SRI | Medium | Fixed | SRI + route CSP | lane 14a |
-
-ZAP baseline and `supabase db lint` / `db advisors` rows are added from the first CI run of lane 14a (artefacts
-`zap-baseline`, job logs).
+| SEC-14-014 | `supabase db advisors` security (CI 46113861359) | WARN 0011 `public.normalize_indian_phone_e164` has a mutable `search_path` | Low | Open | Needs a migration (`SET search_path = ''`): 14-05 (000200/000201) | — |
+| SEC-14-015 | `supabase db advisors` security | WARN 0014 `pg_trgm` installed in `public` | Low | Open | Move needs a migration and index rebuild: 14-05 triage (accept or move) | — |
+| SEC-14-016 | `supabase db lint` (plpgsql_check), all schemas | No errors | — | Verified | CI 46113861359 `test` job | — |
+| — | ZAP baseline (CI 46113861359, after the review fixes) | 0 High; Medium/Low as SEC-14-010..012 | — | Verified | `zap` job, artefact `zap-baseline` | — |

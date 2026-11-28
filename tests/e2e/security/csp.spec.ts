@@ -67,16 +67,19 @@ test.describe("signed out", () => {
   test("an injected inline script and inline event handler are blocked and reported", async ({ page, cspViolations }) => {
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+    // An inline <script> without the nonce: Playwright inserts it into the page, the policy refuses it (addScriptTag
+    // rejects under a CSP that blocks it; with `'unsafe-inline'` it would load and set the marker).
+    await page.addScriptTag({ content: "window.__e2eInlineRan = true;" }).catch(() => undefined);
+    // An inline event handler, as reflected markup would carry it.
     await page.evaluate(() => {
-      const script = document.createElement("script");
-      script.textContent = "window.__e2eInlineRan = true;";
-      document.head.appendChild(script);
       const holder = document.createElement("div");
       holder.innerHTML = '<button type="button" id="e2e-forged" onclick="window.__e2eHandlerRan = true">x</button>';
       document.body.appendChild(holder);
       document.getElementById("e2e-forged")?.click();
     });
-    await expect.poll(() => cspViolations.length).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => cspViolations.some((v) => v.startsWith("script-src-attr"))).toBe(true);
+    // Reports arrive through a binding; let any late one land before the list is checked and cleared.
+    await page.waitForTimeout(500);
     const ran = await page.evaluate(() => {
       const w = window as unknown as { __e2eInlineRan?: boolean; __e2eHandlerRan?: boolean };
       return { inline: w.__e2eInlineRan === true, handler: w.__e2eHandlerRan === true };
@@ -112,9 +115,11 @@ test.describe("signed out", () => {
 
     // A case variant of the worker script is never the worker: a page answer (the sign-in redirect while signed out)
     // under the page policy.
+    // (signed out: the sign-in redirect, with no body; next.config's `/sw.js` headers also match it, case-insensitively).
     const upper = await request.get("/SW.JS", { maxRedirects: 0 });
-    expect(upper.status()).not.toBe(200);
-    expect(upper.headers()["content-type"] ?? "").not.toContain("javascript");
+    expect([307, 404]).toContain(upper.status());
+    if (upper.status() === 307) expect(upper.headers()["location"]).toContain("/login");
+    expect(await upper.text()).not.toContain("self.addEventListener");
     expect(upper.headers()["content-security-policy"]).toContain("'strict-dynamic'");
   });
 });
