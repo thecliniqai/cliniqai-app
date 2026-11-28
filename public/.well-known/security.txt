@@ -1,0 +1,8 @@
+# security.txt (RFC 9116), V2-15 15-03, decision D-9.
+# PLACEHOLDER: the PO replaces Contact and Expires before UAT start. The production readiness check
+# (scripts/prod/check-readiness.mjs, 15-01) fails while "REPLACE-ME" is present.
+Contact: mailto:REPLACE-ME-security-contact@example.invalid
+Expires: 2027-06-30T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://REPLACE-ME-production-domain/.well-known/security.txt
+Policy: https://REPLACE-ME-production-domain/security
