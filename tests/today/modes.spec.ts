@@ -58,6 +58,8 @@ function row(over: Partial<TodayRow>): TodayRow {
     balanceDue: null,
     billed: null,
     followUp: null,
+    rowVersion: 0,
+    invoiceVersion: null,
     actions: [],
     ...over,
   };
@@ -207,7 +209,7 @@ describe("Collect opens the checkout drawer for the row's visit", () => {
   it("builds the drawer's visit from a Today row", () => {
     const target = toCheckoutTarget(row({ visitId: "v9", patientId: "p9", status: "completed", token: 7, age: "42 y", sex: "M" }));
     expect(target).toEqual({
-      visit: { id: "v9", status: "completed" },
+      visit: { id: "v9", status: "completed", rowVersion: 0 },
       patient: { id: "p9", full_name: "Meena Pawar", sex: "male", age: 42, phone: "+919000000101" },
       queueToken: { token_number: 7 },
       doctorName: "Dr A Rao",

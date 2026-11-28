@@ -23,7 +23,20 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/supabase/server")>();
-  return { ...actual, createClient: async () => state.client };
+  // As the real server client: the device's active clinic (the cookie) goes with every RPC as `x-clinicos-tenant`, so the database's active clinic is the
+  // session's (PR 2 review N4, 000133: session_bootstrap answers only for the session's active, full clinic).
+  const withActiveClinic = (client: unknown) => {
+    const tenant = state.cookies.get(actual.ACTIVE_TENANT_COOKIE);
+    if (!client || !tenant) return client;
+    return new Proxy(client as object, {
+      get(target, prop, receiver) {
+        if (prop !== "rpc") return Reflect.get(target, prop, receiver);
+        return (...args: unknown[]) =>
+          (Reflect.get(target, prop, receiver) as (...a: unknown[]) => { setHeader: (n: string, v: string) => unknown }).apply(target, args).setHeader("x-clinicos-tenant", tenant);
+      },
+    });
+  };
+  return { ...actual, createClient: async () => withActiveClinic(state.client) };
 });
 
 vi.mock("next/headers", async (importOriginal) => {
@@ -49,7 +62,11 @@ import { activeClinicCookieSecure, CLINIC_SWITCH_MESSAGES, listUserClinics, reso
 import { ActiveClinicMembershipEndedError, getActiveMembership } from "@/lib/auth/tenant";
 import { ACTIVE_TENANT_COOKIE, ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS } from "@/lib/supabase/server";
 import { ClinicPicker } from "@/components/shell/clinic-picker";
-import { AppShell } from "@/components/shell/app-shell";
+import { HydrationBoundary } from "@tanstack/react-query";
+import { SessionShell } from "@/components/shell/session-shell";
+import type { SessionBootstrap } from "@/features/session/bootstrap";
+import { switcherClinics } from "@/features/session/view";
+import { findElement } from "../helpers/element-tree";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { createClient as createSupabase } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
@@ -203,12 +220,15 @@ describe("the clinic switcher (local stack)", () => {
       clinicName: string;
     }>;
     expect(out.type).not.toBe(ClinicPicker);
-    // The layout wraps the shell in the clinic time-zone provider.
-    const shell = (out.props as unknown as { children: ReactElement<{ clinics: unknown[]; activeClinicId: string; clinicName: string }> }).children;
-    expect(shell.type).toBe(AppShell);
-    expect(shell.props.activeClinicId).toBe(b.tenantId);
-    expect(shell.props.clinicName).toBe(b.tenantName);
-    expect(shell.props.clinics).toHaveLength(2);
+    // The layout wraps the shell in the data layer's providers (V2-09e 09E-13); the shell takes the clinic's name and the switcher's clinics from the
+    // session bootstrap the layout read and handed to the client (HydrationBoundary).
+    const shell = findElement<{ activeClinicId: string }>(out, SessionShell);
+    expect(shell?.props.activeClinicId).toBe(b.tenantId);
+    const hydration = findElement<{ state: { queries: Array<{ queryKey: unknown[]; state: { data: SessionBootstrap } }> } }>(out, HydrationBoundary);
+    const held = hydration?.props.state.queries.find((q) => q.queryKey[1] === "bootstrap");
+    expect(held?.queryKey[0]).toBe(b.tenantId);
+    expect(held?.state.data.clinic.name).toBe(b.tenantName);
+    expect(switcherClinics(held!.state.data)).toHaveLength(2);
   });
 });
 

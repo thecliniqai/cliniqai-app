@@ -85,6 +85,12 @@ export const collectPaymentSchema = z.object({
   reference_number: z.string().max(100).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
   client_request_id: z.string().uuid("Invalid request ID"),
+  /**
+   * The live invoice's `row_version` the screen shows (09E-07, R-19; `null` = the screen shows no invoice yet). The command refuses with `ROW_CHANGED` and writes
+   * nothing when the invoice moved on, or when a version is given and the visit has no live invoice. The server action requires the key (`CollectPaymentRequest`);
+   * left out of the object, nothing is compared.
+   */
+  expected_invoice_version: z.number().int().nonnegative().nullable().optional(),
 });
 
 export const recordPaymentSchema = z.object({
@@ -95,6 +101,8 @@ export const recordPaymentSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
   /** Client-generated idempotency key of one payment (V2-03 03-07): a resubmitted payment replays, never pays twice. */
   commandId: z.string().uuid("Invalid command ID").optional(),
+  /** The invoice's `row_version` the screen shows (09E-07, R-19). The server action requires it (`RecordPaymentRequest`); left out, nothing is compared. */
+  expected_invoice_version: z.number().int().nonnegative().nullable().optional(),
 });
 
 export const completeAndBillSchema = z.object({
@@ -115,6 +123,11 @@ export const completeAndBillSchema = z.object({
    * links) once the sign-off has committed. Never on by default (absent means no): without it nothing is sent, and the success screen offers the manual send.
    */
   send_whatsapp: z.boolean().optional(),
+  /**
+   * The visit's `row_version` the screen shows (09E-07, R-19). The consult screen's read (000124) does not carry one yet, so the Sign & Bill modal sends none
+   * and nothing is compared; the command supports it (09E-NOTES, deviations).
+   */
+  expected_version: z.number().int().nonnegative().nullable().optional(),
   /** One id per logical submit (V2-07 07-03, PWA-06a): the same id replays the first result and writes nothing new. */
   client_request_id: z.string().uuid("Invalid request ID"),
 });
@@ -131,6 +144,9 @@ export type InvoiceItemInput = z.infer<typeof invoiceItemSchema>;
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 export type CollectPaymentInput = z.infer<typeof collectPaymentSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+/** What a screen sends (09E-07, R-19): the input with the invoice version it shows (`null`: it shows no invoice yet). */
+export type CollectPaymentRequest = CollectPaymentInput & { expected_invoice_version: number | null };
+export type RecordPaymentRequest = RecordPaymentInput & { expected_invoice_version: number };
 export type CompleteAndBillInput = z.infer<typeof completeAndBillSchema>;
 export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;
 

@@ -358,6 +358,7 @@ export function ReferralsRegister({
                     <td className="py-3.5 px-4">
                       <Link
                         href={`/patients/${item.patient_id}`}
+                        prefetch={false}
                         className="font-bold text-gray-900 hover:text-accent transition-colors"
                       >
                         {item.patient?.full_name || "Patient"}
@@ -525,6 +526,7 @@ export function ReferralsRegister({
                   <div>
                     <Link
                       href={`/patients/${item.patient_id}`}
+                        prefetch={false}
                       className="font-bold text-sm text-gray-900 hover:text-accent"
                     >
                       {item.patient?.full_name || "Patient"}

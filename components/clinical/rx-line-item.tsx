@@ -36,6 +36,8 @@ export interface RxLineItemProps {
   readOnly?: boolean;
   /** The stored line's id (`data-rx-line-id`): the finish review links back to the line by it. */
   lineId?: string;
+  /** 09E-08 (R-11): the change is on its way and the database has not answered. The line shows at once with a "Saving" marker and cannot be changed until it does. */
+  pending?: boolean;
   className?: string;
 }
 
@@ -45,7 +47,7 @@ const PILL = cn(
   FOCUS_RING,
 );
 
-export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, note, readOnly = false, lineId, className }: RxLineItemProps) {
+export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, allergyMatch, onOverride, note, readOnly = false, lineId, pending = false, className }: RxLineItemProps) {
   const [overriding, setOverriding] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -59,7 +61,10 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
       data-rx-line=""
       data-rx-line-id={lineId}
       data-flagged={flagged || undefined}
+      data-pending={pending || undefined}
+      aria-busy={pending || undefined}
       className={cn(
+        pending && "opacity-80",
         "grid min-h-10 grid-cols-[1.25rem_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1.5 border-b border-border py-2 last:border-b-0 md:grid-cols-[1.25rem_minmax(0,1fr)_auto_auto] md:items-center",
         flagged && "rounded-md border-b-0 bg-danger-bg px-2",
         className,
@@ -71,6 +76,11 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
       <div className="min-w-0">
         <p className="text-body-md font-medium text-fg">
           {name} <span className="text-label font-normal text-fg-muted">{line.medicine.form}</span>
+          {pending && (
+            <span data-rx-saving="" className="ml-1.5 inline-flex h-4.5 items-center rounded-pill border border-border px-1.5 align-middle text-caption font-medium text-fg-muted">
+              Saving…
+            </span>
+          )}
           {repeated && (
             <span className="ml-1.5 inline-flex h-4.5 items-center rounded-pill border border-border-strong px-1.5 align-middle text-caption font-semibold text-fg-secondary">
               Repeated
@@ -91,15 +101,15 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
       ) : (
         <>
           <div className="col-start-2 row-start-2 flex flex-wrap gap-1 md:col-start-3 md:row-start-1" data-rx-how="">
-            <button type="button" onClick={onEdit} aria-label={`${line.frequency}, ${frequencyWords(line.frequency)}. Edit dose of ${name}`} className={cn(PILL, "font-semibold tracking-[0.04em] text-fg normal-nums")}>
+            <button type="button" disabled={pending} onClick={onEdit} aria-label={`${line.frequency}, ${frequencyWords(line.frequency)}. Edit dose of ${name}`} className={cn(PILL, "font-semibold tracking-[0.04em] text-fg normal-nums")}>
               {line.frequency}
             </button>
             {line.timing ? (
-              <button type="button" onClick={onEdit} aria-label={`${line.timing}. Edit dose of ${name}`} className={PILL}>
+              <button type="button" disabled={pending} onClick={onEdit} aria-label={`${line.timing}. Edit dose of ${name}`} className={PILL}>
                 {line.timing}
               </button>
             ) : null}
-            <button type="button" onClick={onEdit} aria-label={`${duration}. Edit dose of ${name}`} className={cn(PILL, "tabular-nums")}>
+            <button type="button" disabled={pending} onClick={onEdit} aria-label={`${duration}. Edit dose of ${name}`} className={cn(PILL, "tabular-nums")}>
               {duration}
             </button>
           </div>
@@ -108,6 +118,7 @@ export function RxLineItem({ index, line, onEdit, onRemove, repeated = false, al
             label={`Remove ${name}`}
             icon={<X className="size-3.5" />}
             onClick={onRemove}
+            disabled={pending}
             className="col-start-3 row-start-1 md:col-start-4"
           />
         </>

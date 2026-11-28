@@ -370,6 +370,11 @@ const BOUNDARY_IMPORT_PATTERNS = {
     allowTypeImports: true,
     message: `${P012} a request path never delivers a webhook; enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent). The webhook deliverer and its pinned transport are importable only from ${WEBHOOK_DELIVER_WHERE} (R-33).`,
   },
+  // V2-09e 09E-03 (R-14): the client data layer is memory only. No persister (it would write patient data to storage) and no devtools.
+  queryPersist: {
+    regex: String.raw`^@tanstack\/(?:[^/]*persist[^/]*|react-query-devtools|query-devtools|query-broadcast-client-experimental)(?:\/|$)`,
+    message: "R-14: the client data layer (@tanstack/react-query) is memory only: no persister package, no devtools and no broadcast client (a persister would put patient data into browser storage, PWA_STRATEGY D-4; a broadcast client would share one tab's cache with the others, across a clinic switch).",
+  },
   jobsInternal: {
     regex: JOBS_INTERNAL_MODULE,
     message: `${P134} lib/jobs/internal (claim, handlers, runner) is importable only from app/api/jobs/** and lib/jobs/internal/**; request paths use the lib/jobs enqueue surface (ADR-0005 D2).`,

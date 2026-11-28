@@ -3,6 +3,7 @@ import { isPlausibleToken, REPORT_LINK_KINDS, resolveShareToken } from "@/featur
 import { signSharedObject } from "@/features/sharing/system";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 // Public lab-report link (P0-04, ADR-0005 D3): patient_document tokens only, resolved by `resolve_share_token`
 // (bound to the token's tenant). Every "no such link" answer is the same 404; the response carries no ids.
@@ -10,7 +11,7 @@ import { getRequestId } from "@/lib/log/request-id";
 const NOT_FOUND_MESSAGE =
   "This document link has expired or is invalid. Please contact your clinic for a new link.";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
@@ -81,3 +82,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

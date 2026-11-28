@@ -15,7 +15,9 @@ import { SaveStatus } from "@/components/clinical/save-status";
 import { getRescheduleTarget, rescheduleVisit, type RescheduleTarget } from "@/features/visits/scheduling";
 import { isSlotConflictReason } from "@/features/visits/slot-conflicts";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicDateWithWeekday, formatClinicTime } from "@/lib/datetime/format";
 import { slotInstant } from "./slot-adapter";
@@ -33,7 +35,9 @@ import { useClinicDoctors } from "./use-doctors";
 const MOVABLE = ["booked", "confirmed", "no_show"];
 
 function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => void }) {
-  const command = useCommand();
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
+  const rowChanged = useRowChanged();
   const timeZone = useClinicTimeZone();
   const today = useClinicToday();
   const doctors = useClinicDoctors();
@@ -68,7 +72,7 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
     if (!target || !plan?.time) return;
     lastSend.current = () => send(flags);
     const time = plan.time;
-    const result = await command.run((clientRequestId) =>
+    const result = await run((clientRequestId) =>
       rescheduleVisit(
         {
           visit_id: target.visitId,
@@ -81,13 +85,21 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
           override_off_duty: flags.offDuty,
           override_block: flags.block,
           notify: notifyPatient,
+          // The visit as this sheet read it when it opened (09E-07, R-19).
+          expected_version: target.rowVersion,
         },
         clientRequestId,
       ),
     );
     if (result.ok) {
+      afterSave.refreshScreens({ closing: true });
       notify.success(`${target.patientName} moved to ${formatClinicDateWithWeekday(plan.date)}, ${formatClinicTime(time)}`);
       onDone();
+      return;
+    }
+    if (rowChanged(result.error)) {
+      // The visit moved on elsewhere: nothing was written. The fixed message stays; the appointment is read again, so the sheet shows the latest and the next move carries its version.
+      void getRescheduleTarget(target.visitId).then((latest) => latest.ok && setTarget(latest.value)).catch(() => undefined);
       return;
     }
     if (isSlotConflictReason(result.error.reason)) {

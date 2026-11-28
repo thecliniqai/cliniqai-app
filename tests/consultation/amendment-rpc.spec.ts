@@ -109,9 +109,9 @@ describe("reopen_visit_for_amendment: one transaction", () => {
     const args = reopenArgs(tenantA, v.visitId, { p_reason: `  ${reason}  ` });
     const { data, error } = await callReopen(members.doctor.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false });
+    expect(data).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false, versions: expect.any(Object) });
     // F-5: the amendment reason is not in the stored result.
-    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false });
+    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, revision_number: 1, replayed: false, versions: expect.any(Object) });
 
     expect(await visitRow(v.visitId)).toMatchObject({ status: "in_consultation", signed_at: signedBefore, current_revision: 2 });
     const [revision] = await revisionsOfVisit(v.visitId);
@@ -187,8 +187,8 @@ describe("finalize_visit_amendment: one transaction", () => {
     const { data, error } = await callFinalize(members.doctor.client, args);
     expect(error).toBeNull();
     // F-5 (07-04a): the result carries no free text; the reason is in the prescription and the revision row.
-    expect(data).toEqual({ visit_id: v.visitId, version: 2, replayed: false });
-    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, version: 2, replayed: false });
+    expect(data).toEqual({ visit_id: v.visitId, version: 2, replayed: false, versions: expect.any(Object) });
+    expect(expectDataOnlyStoredResult(tenantA.tenantId, args.p_client_request_id)).toEqual({ visit_id: v.visitId, version: 2, replayed: false, versions: expect.any(Object) });
 
     const [rx] = await prescriptionsOfVisit(v.visitId);
     expect(rx).toMatchObject({ id: v.prescriptionIds[0], version: 2, amendment_reason: "Corrected the dosage after the review" });
@@ -221,7 +221,7 @@ describe("finalize_visit_amendment: one transaction", () => {
     await archiveRxAs(members.doctor, v.visitId);
     expect((await callReopen(members.doctor.client, reopenArgs(tenantA, v.visitId, { p_reason: "Second correction for the audit" }))).data).toMatchObject({ revision_number: 2 });
     const third = await callFinalize(members.doctor.client, finalizeArgs(tenantA, v.visitId));
-    expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false });
+    expect(third.data).toEqual({ visit_id: v.visitId, version: 3, replayed: false, versions: expect.any(Object) });
     expect((await prescriptionsOfVisit(v.visitId))[0]).toMatchObject({ version: 3, amendment_reason: "Second correction for the audit" });
     // One prescription.issued per version: the keys of version 1, 2 and 3 differ.
     const keys = (await outboxRows(tenantA.tenantId, "prescription.issued", v.prescriptionIds[0])).map((r) => r.event_key).sort();

@@ -13,7 +13,9 @@
  *
  * Target (R-4): p95 under 150 ms for every command on the local stack. Exit 1 when any command's p95 is 150 ms or more, or any
  * call failed (a failing call would time the error path): a miss is a finding to fix (an index, a lock), not a reason to move
- * the target. Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
+ * the target. V2-09e R-16, H-1: the medicine catalogue's first and last brand shards on the full-size synthetic catalogue (93,911 brands, the lane's
+ * perf-* rows, upserted and deleted by this run) have their own target, p95 under 200 ms; 09E-12: the Schedule's range read (42 days, 3 clinicians, 600 visits,
+ * slots), p95 under 100 ms; 09E-13: the session bootstrap is a read (p95 under 50 ms). Output: p50, p95, p99 per call, the ratio of the command's p95 to the baseline's, the node version and the CPU
  * count. No names, no ids, no data.
  *
  * Safety: follows scripts/seed-local-dev.ts. Reads `.env.test` and `npx supabase status` only (never `.env`), then refuses to run
@@ -31,6 +33,10 @@ const ROOT = path.resolve(__dirname, "../..");
 const TARGET_MS = 150;
 /** V2-09b R-18: the INVOKER Smart Assist reads (consult_assist_context, search_diagnoses, patient_snapshot) on the synthetic seed: p95 under 50 ms. */
 const READ_TARGET_MS = 50;
+/** V2-09e R-16, H-1: one brand shard of the medicine catalogue the device downloads (12,000 brands of the full-size 93,911): p95 under 200 ms. */
+const REFERENCE_TARGET_MS = 200;
+/** V2-09e R-16, 09E-12: the Schedule's range read (42 days, 3 clinicians, 600 visits, with slots): p95 under 100 ms. */
+const RANGE_TARGET_MS = 100;
 const WARMUP = 5;
 
 /** A pseudo-word of `length` letters from an MD5 digest (`translate(md5(n), '0123456789abcdef', 'ghijklmnopqrstuv')`), capitalised: a stand-in brand or generic name. */
@@ -46,7 +52,7 @@ function argValue(name: string): string | undefined {
 
 export interface LatencyRow {
   name: string;
-  kind: "command" | "baseline" | "read";
+  kind: "command" | "baseline" | "read" | "reference" | "range";
   calls: number;
   errors: number;
   p50_ms: number;
@@ -109,6 +115,8 @@ async function main(): Promise<void> {
   const rows: Array<Omit<LatencyRow, "p95_over_baseline">> = [];
   const catalogueIds: string[] = [];
   let failed = false;
+  let perfCatalogueLoaded = false;
+  const extraUsers: string[] = [];
 
   /** Prepares N calls (seeding outside the timed region), times them, and records one row. */
   async function measure(name: string, kind: LatencyRow["kind"], prepare: (i: number) => Promise<Call>): Promise<void> {
@@ -440,6 +448,8 @@ async function main(): Promise<void> {
     await measure("read: search_substances", "read", async (i) => () =>
       owner.client.rpc("search_substances", { p_tenant_id: t.tenantId, p_query: latencyWord(((i * 41) % 2000) + 1, 9).slice(0, 4).toLowerCase(), p_limit: 12 }),
     );
+    // V2-09e 09E-09 (R-5, R-16): the substance shard the device downloads (the whole catalogue in one call: the 2,000 synthetic substances above plus the stack's own).
+    await measure("read: reference_shard (substances)", "read", async () => () => owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "substances", p_shard: 0 }));
     // The context of one visit with an allergic patient and three prescription lines.
     const ctxVisit = await seedVisit(t, undefined, { status: "in_consultation" });
     await admin.from("patients").update({ allergies: ["Latency substance 7", "Latency allergen", "Penicillin"] }).eq("id", ctxVisit.patientId);
@@ -454,7 +464,84 @@ async function main(): Promise<void> {
     await measure("read: patient_snapshot", "read", async () => () =>
       owner.client.rpc("patient_snapshot", { p_tenant_id: t.tenantId, p_patient_id: hotPatient }),
     );
+    // V2-09e 09E-05 (R-8, R-9): the consult in one read, on the heaviest draft: the hot patient's 50 signed visits (history), the doctor's learned order from 300
+    // signed visits, three prescription lines, and the doctor's own lists at their caps (500 custom medicines, 500 custom diagnoses, 100 templates, 200 macros).
+    const screenVisit = await seedVisit(t, undefined, { status: "in_consultation" });
+    await admin.from("visits").update({ patient_id: hotPatient }).eq("id", screenVisit.visitId);
+    const screenAdd = await owner.client.rpc("change_prescription", {
+      p_tenant_id: t.tenantId,
+      p_visit_id: screenVisit.visitId,
+      p_changes: { add: [1, 2, 3].map((n) => ({ medicine_name: `Latency screen line ${n}`, dosage: "1-0-1", duration: "5 days" })) },
+      p_client_request_id: randomUUID(),
+    });
+    if (screenAdd.error) throw new Error(`consult_screen seed failed: ${screenAdd.error.message}`);
+    const listRows = (n: number, make: (i: number) => Record<string, unknown>) => Array.from({ length: n }, (_, i) => ({ tenant_id: t.tenantId, doctor_id: t.userId, ...make(i + 1) }));
+    for (const [table, rows] of [
+      ["doctor_custom_medicines", listRows(500, (i) => ({ medicine_name: `Latency custom medicine ${i}`, default_dosage: "1-0-1", use_count: 1 + (i % 17) }))],
+      ["doctor_custom_diagnoses", listRows(500, (i) => ({ diagnosis_name: `Latency custom diagnosis ${i}`, use_count: 1 + (i % 11) }))],
+      ["doctor_prescription_templates", listRows(100, (i) => ({ template_name: `Latency template ${i}`, items: [1, 2, 3].map((n) => ({ medicine_name: `Latency template line ${n}`, dosage: "1-0-1", duration: "5 days", sort_order: n - 1 })) }))],
+      ["doctor_text_macros", listRows(200, (i) => ({ shortcut: `.lat${i}`, expansion: `Latency macro expansion ${i}` }))],
+    ] as const) {
+      const { error } = await admin.from(table).insert(rows as never);
+      if (error) throw new Error(`consult_screen list seed (${table}) failed: ${error.message}`);
+    }
+    await measure("read: consult_screen", "read", async () => () => owner.client.rpc("consult_screen", { p_tenant_id: t.tenantId, p_visit_id: screenVisit.visitId }));
+    // V2-09e 09E-06 (R-9, R-12): Today's board in one read, on a busy day: every visit this run made today (walk-ins in every state, signed visits, invoices and payments,
+    // follow-ups), the owner's role (every part: allergy flag, vitals, invoice, follow-up).
+    await measure("read: today_board", "read", async () => () => owner.client.rpc("today_board", { p_tenant_id: t.tenantId, p_mode: "front" }));
+    // V2-09e 09E-12 (R-10, R-16): the Schedule's range read at its largest: 42 days, 3 clinicians (the practising owner and two doctors), 600 booked visits
+    // in the range (200 each, on a 15-minute grid inside the default hours), with slots. Target: p95 under 100 ms.
+    const rangeDoctors = [t.userId, (await addMemberToTenant(owner.tenantId, "doctor")).userId, (await addMemberToTenant(owner.tenantId, "doctor")).userId];
+    extraUsers.push(rangeDoctors[1]!, rangeDoctors[2]!);
+    const RANGE_FROM = "2032-01-05"; // a Monday
+    const rangeVisits: Record<string, unknown>[] = [];
+    for (let i = 0; i < 600; i++) {
+      const doctorId = rangeDoctors[i % 3]!;
+      const n = Math.floor(i / 3); // 200 per doctor: 5 a day on 40 days, 10:00, 10:15, 10:30, 10:45, 11:00 IST
+      const day = new Date(Date.parse(`${RANGE_FROM}T00:00:00Z`) + Math.floor(n / 5) * 86_400_000).toISOString().slice(0, 10);
+      const minute = 600 + (n % 5) * 15;
+      const scheduledAt = new Date(Date.parse(`${day}T00:00:00Z`) + (minute - 330) * 60_000).toISOString();
+      rangeVisits.push({ tenant_id: t.tenantId, patient_id: pool[i % pool.length], doctor_id: doctorId, origin_type: "scheduled", status: "booked", created_by: t.userId, scheduled_at: scheduledAt, estimated_duration_minutes: 15 });
+    }
+    for (let i = 0; i < rangeVisits.length; i += 200) {
+      const { error } = await admin.from("visits").insert(rangeVisits.slice(i, i + 200) as never);
+      if (error) throw new Error(`schedule_range visit seed failed: ${error.message}`);
+    }
+    const RANGE_TO = new Date(Date.parse(`${RANGE_FROM}T00:00:00Z`) + 41 * 86_400_000).toISOString().slice(0, 10);
+    const probe = await owner.client.rpc("schedule_range", { p_tenant_id: t.tenantId, p_from: RANGE_FROM, p_to: RANGE_TO, p_include_slots: true });
+    const probed = probe.data as { visits?: unknown[]; clinicians?: unknown[]; slots?: unknown[] } | null;
+    if (probe.error || probed?.visits?.length !== 600 || probed?.clinicians?.length !== 3) {
+      throw new Error(`schedule_range probe: expected 600 visits and 3 clinicians, got ${probed?.visits?.length} and ${probed?.clinicians?.length} (${probe.error?.message ?? "no error"})`);
+    }
+    await measure("range: schedule_range (42 days, 3 clinicians, 600 visits, slots)", "range", async () => () =>
+      owner.client.rpc("schedule_range", { p_tenant_id: t.tenantId, p_from: RANGE_FROM, p_to: RANGE_TO, p_include_slots: true }),
+    );
+    // V2-09e 09E-13 (R-13): the session bootstrap (profile, clinic, role, the doctor directory of the three clinicians above, the user's clinics, the Rx print
+    // display fields, the settings version). A read: p95 under 50 ms.
+    await measure("read: session_bootstrap", "read", async () => () => owner.client.rpc("session_bootstrap", { p_tenant_id: t.tenantId }));
+    // V2-09e H-1 (000129, R-16): the medicine shards the device downloads, on the full-size synthetic catalogue (93,911 brands, 10,305 generics; the lane's
+    // perf-* rows, deleted in `finally`). The first brand shard and the last one (OFFSET 84,000: the shard that timed out under 000128).
+    const { upsertPerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");
+    perfCatalogueLoaded = true;
+    await upsertPerfCatalogue(admin);
+    const shardOf = async (shard: number) => {
+      const { data, error } = await owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: shard });
+      if (error) throw new Error(`reference_shard ${shard}: ${error.message}`);
+      return data as { shards: number; rows: unknown[] };
+    };
+    const lastShard = (await shardOf(0)).shards - 1;
+    if (lastShard < 8) throw new Error(`the full-size catalogue should give at least 8 brand shards, got ${lastShard}`);
+    await measure("reference: reference_shard (medicines, first brand shard, full size)", "reference", async () => () =>
+      owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: 1 }),
+    );
+    await measure(`reference: reference_shard (medicines, last brand shard ${lastShard}, full size)`, "reference", async () => () =>
+      owner.client.rpc("reference_shard", { p_tenant_id: t.tenantId, p_catalogue: "medicines", p_shard: lastShard }),
+    );
   } finally {
+    if (perfCatalogueLoaded) {
+      const { deletePerfCatalogue } = await import("../../tests/e2e/support/perf-catalogue");
+      await deletePerfCatalogue(admin).catch((error: unknown) => console.error(`[latency] cleanup: deleting the perf catalogue failed: ${error instanceof Error ? error.message : String(error)}`));
+    }
     // Remove what this run made (the catalogue rows; the clinic cascades; then the two users).
     for (let i = 0; i < catalogueIds.length; i += 100) {
       const { error } = await admin.from("opd_diagnoses").delete().in("id", catalogueIds.slice(i, i + 100));
@@ -466,7 +553,7 @@ async function main(): Promise<void> {
     if (cdci.error) console.error(`[latency] cleanup: deleting the synthetic CDCI rows failed: ${cdci.error.message}`);
     const { error: tenantError } = await admin.from("tenants").delete().eq("id", owner.tenantId);
     if (tenantError) console.error(`[latency] cleanup: deleting the synthetic clinic failed: ${tenantError.message}`);
-    for (const id of [owner.userId, receptionist.userId]) {
+    for (const id of [owner.userId, receptionist.userId, ...extraUsers]) {
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error) console.error(`[latency] cleanup: deleting a synthetic user failed: ${error.message}`);
     }
@@ -477,12 +564,16 @@ async function main(): Promise<void> {
     ...r,
     p95_over_baseline: baseline && baseline.p95_ms > 0 ? round1(r.p95_ms / baseline.p95_ms) : null,
   }));
-  const over = result.filter((r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS));
+  const over = result.filter(
+    (r) => (r.kind === "command" && r.p95_ms >= TARGET_MS) || (r.kind === "read" && r.p95_ms >= READ_TARGET_MS) || (r.kind === "reference" && r.p95_ms >= REFERENCE_TARGET_MS) || (r.kind === "range" && r.p95_ms >= RANGE_TARGET_MS),
+  );
   const report = {
     description:
       "p50, p95 and p99 of one supabase-js round trip (PostgREST, local Supabase stack) per command, sequential calls with fresh request ids and prepared rows; the baselines are plain INVOKER reads on the same stack",
     target_p95_ms: TARGET_MS,
     read_target_p95_ms: READ_TARGET_MS,
+    reference_target_p95_ms: REFERENCE_TARGET_MS,
+    range_target_p95_ms: RANGE_TARGET_MS,
     calls_per_command: callsPerCommand,
     warmup_calls_not_counted: WARMUP,
     node: process.version,

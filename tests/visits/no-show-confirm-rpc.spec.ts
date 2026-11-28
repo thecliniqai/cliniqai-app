@@ -56,8 +56,8 @@ afterAll(() => {
 
 describe("mark_no_show / confirm_appointment: catalog", () => {
   it("are DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.mark_no_show(uuid, uuid, uuid)", definer: true });
-    expectCommandCatalog({ signature: "public.confirm_appointment(uuid, uuid, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.mark_no_show(uuid, uuid, uuid, bigint)", definer: true });
+    expectCommandCatalog({ signature: "public.confirm_appointment(uuid, uuid, uuid, bigint)", definer: true });
   });
 });
 
@@ -67,7 +67,7 @@ describe("mark_no_show", () => {
     const args = markNoShowArgs(tenantA, visitId);
     const { data, error } = await callMarkNoShow(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, replayed: false });
+    expect(data).toEqual({ visit_id: visitId, replayed: false, row_version: expect.any(Number), versions: { queue: expect.any(Number), schedule: expect.any(Number) } });
     expect((await schedRow(visitId)).status).toBe("no_show");
     expect(await auditRows(tenantA.tenantId, "visit.no_show", visitId)).toEqual([
       expect.objectContaining({
@@ -177,7 +177,7 @@ describe("confirm_appointment", () => {
     const args = confirmArgs(tenantA, visitId);
     const { data, error } = await callConfirm(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, already_confirmed: false, replayed: false });
+    expect(data).toEqual({ visit_id: visitId, already_confirmed: false, replayed: false, row_version: expect.any(Number), versions: { queue: expect.any(Number), schedule: expect.any(Number) } });
     const row = await schedRow(visitId);
     expect(row.status).toBe("confirmed");
     expect(row.metadata).toMatchObject({ note: "keep", clinic_confirmed: true, confirmed_by: members.receptionist.userId, confirmed_via: "staff_calendar" });
@@ -196,7 +196,7 @@ describe("confirm_appointment", () => {
   it("an already confirmed visit answers already_confirmed and writes no second audit row", async () => {
     const visitId = await visitAt(future(), { status: "confirmed" });
     const res = await callConfirm(tenantA.client, confirmArgs(tenantA, visitId));
-    expect(res.data).toEqual({ visit_id: visitId, already_confirmed: true, replayed: false });
+    expect(res.data).toEqual({ visit_id: visitId, already_confirmed: true, replayed: false, row_version: expect.any(Number), versions: {} });
     expect(await auditRows(tenantA.tenantId, "visit.confirm", visitId)).toEqual([]);
   });
 

@@ -21,7 +21,7 @@ import { unstable_rethrow } from "next/navigation";
  */
 const MEMO = new WeakMap<object, Map<string, Promise<unknown>>>();
 
-async function requestScope(): Promise<object | null> {
+export async function requestScope(): Promise<object | null> {
   try {
     const scope: unknown = await headers();
     return typeof scope === "object" && scope !== null ? scope : null;

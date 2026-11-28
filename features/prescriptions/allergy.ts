@@ -9,6 +9,8 @@
  *   order, as whole words of the medicine or generic name (case-insensitive; non-alphanumerics split words): substance OR name (09C-06a, S-1).
  * - No class table, no salt relations (D-9, v2.1): a penicillin allergy does not flag amoxicillin unless the allergy is written as amoxicillin.
  */
+import { z } from "zod";
+
 export interface AllergyEntry {
   text: string;
   /** The CDCI substance ids the string codes to; empty = not a substance name. */
@@ -51,6 +53,31 @@ export type AllergyState = "not_recorded" | "none" | "known";
 export function allergyStateOf(allergies: readonly string[] | null | undefined): AllergyState {
   if (allergies == null) return "not_recorded";
   return allergies.length === 0 ? "none" : "known";
+}
+
+const allergyContextSchema = z.object({
+  state: z.enum(["not_recorded", "none", "known"]),
+  entitled: z.boolean(),
+  allergies: z.array(z.object({ text: z.string(), substance_ids: z.array(z.string()) })),
+  items: z.array(
+    z.object({ id: z.string().uuid(), matches: z.array(z.string()), checked_by: z.enum(["substance", "name"]), overridden: z.boolean(), override_reason: z.string().nullable() }),
+  ),
+});
+
+/**
+ * `public.rx_allergy_context`'s answer (09C-02; also the `allergy_context` part of `consult_screen`, 09E-05) as the screen uses it: parsed and mapped to
+ * camel case, or null when it is not the documented shape (the caller decides whether that is an error). A SQL NULL (not readable) is not this function's
+ * business: pass only a non-null answer.
+ */
+export function parseRxAllergyContext(raw: unknown): RxAllergyContext | null {
+  const parsed = allergyContextSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return {
+    state: parsed.data.state,
+    entitled: parsed.data.entitled,
+    allergies: parsed.data.allergies.map((a) => ({ text: a.text, substanceIds: a.substance_ids })),
+    items: parsed.data.items.map((i) => ({ id: i.id, matches: i.matches, checkedBy: i.checked_by, overridden: i.overridden, overrideReason: i.override_reason })),
+  };
 }
 
 /** What `public.rx_allergy_context` answers (parsed by the service). */

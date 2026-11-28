@@ -29,9 +29,11 @@ import {
   type SeededTenant,
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { deletePerfCatalogue } from "./support/perf-catalogue";
 import { ROOT } from "./support/app-env";
 import { startPwnedRangeServer, type PwnedRangeServer } from "./support/pwned-range-server";
 import { startTurnstileVerifyServer, type TurnstileVerifyServer } from "./support/turnstile-verify-server";
+import { LATENCY_RULE_FILE } from "./support/latency";
 import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } from "./support/run-data";
 
 /**
@@ -173,6 +175,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     siteverify = await startTurnstileVerifyServer({ port: E2E_TURNSTILE_VERIFY_PORT, hostname: "127.0.0.1" });
     const run = await seed(randomUUID().slice(0, 8));
     fs.mkdirSync(AUTH_DIR, { recursive: true });
+    // V2-09e 09E-01: a latency rule file left by a run that did not finish would delay this run's server calls.
+    fs.rmSync(LATENCY_RULE_FILE, { force: true });
+    // V2-09e 09E-11: the latency lane's full-size synthetic catalogue, if a run that loaded it did not finish (every device would download it).
+    await deletePerfCatalogue(getAdminClient());
     fs.writeFileSync(RUN_FILE, `${JSON.stringify(run, null, 2)}\n`);
     process.env[RUN_PASSWORD_VAR] = seededUserPassword();
   } catch (error) {

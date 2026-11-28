@@ -33,7 +33,7 @@ import { signInActingIn } from "../helpers/active-tenant";
 import { psql, psqlAsync } from "../helpers/sql";
 import { installScopedFault, leftoverFaults } from "../helpers/fault";
 
-const RPC_SIGNATURE = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)";
+const RPC_SIGNATURE = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text, bigint)";
 const HELPER_SIGNATURE = "private.outbox_payment_recorded(uuid)";
 
 type RpcArgs = {

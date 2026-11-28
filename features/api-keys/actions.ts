@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import * as apiKeysService from "./service";
 import type { CreateApiKeyResult, ListApiKeysResult } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { ApiKeyItem, CreateApiKeyResult, ListApiKeysResult } from "./service";
 
@@ -19,12 +20,14 @@ function revalidate() {
 }
 
 export async function listApiKeys(): Promise<ListApiKeysResult> {
+  await markAction("api_keys.list_api_keys");
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, keys: [], error: resolved.error };
   return apiKeysService.listApiKeys(resolved.ctx);
 }
 
 export async function createApiKey(name: string): Promise<CreateApiKeyResult> {
+  await markAction("api_keys.create_api_key");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "api_keys.create" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await apiKeysService.createApiKey(resolved.ctx, name);
@@ -33,6 +36,7 @@ export async function createApiKey(name: string): Promise<CreateApiKeyResult> {
 }
 
 export async function revokeApiKey(keyId: string): Promise<{ success: boolean; error?: string }> {
+  await markAction("api_keys.revoke_api_key");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "api_keys.revoke" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await apiKeysService.revokeApiKey(resolved.ctx, keyId);

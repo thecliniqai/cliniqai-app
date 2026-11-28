@@ -6,8 +6,9 @@ import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
-export async function GET(
+async function handleGet(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -194,3 +195,6 @@ export async function GET(
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

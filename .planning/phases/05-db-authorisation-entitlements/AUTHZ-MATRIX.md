@@ -224,6 +224,10 @@ Principals:
 | `public.tenant_ai_settings` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.tenant_ai_settings` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.tenant_ai_settings` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_versions` | S | member | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| `public.clinic_versions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_versions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinic_versions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.ai_usage_monthly` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.ai_usage_monthly` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.ai_usage_monthly` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -276,6 +280,10 @@ Principals:
 | `public.opd_diagnoses` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.opd_diagnoses` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.opd_diagnoses` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| `public.reference_catalogues` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
+| `public.reference_catalogues` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `ops.jobs` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X | X |
@@ -353,6 +361,7 @@ Notes:
 - `public.subscription_events`: append-only by grants (Pitfall 5): SELECT for owner/admin of the active clinic; no API role writes
 - `public.platform_settings`: the single settings row (seeded by 000084): no tenant access
 - `public.tenant_ai_settings`: the owner's AI opt-in (05-10c): SELECT clinic:view of the active clinic; written only by set_ai_opt_in (owner of the active, full clinic, R-33)
+- `public.clinic_versions`: one version per clinic and domain (09E-04, R-18): SELECT for every active member of the clinic (no PHI); raised only by private.clinic_bump from statement triggers; no API role writes; rows created by the tenants trigger
 - `public.ai_usage_monthly`: AI units per clinic, period and feature (05-10c): no tenant access; written only by ai_reserve/ai_commit (definer)
 - `public.ai_quota_reservations`: in-flight AI calls (05-10c): no tenant access; written only by ai_reserve/ai_commit/ai_release (definer)
 - `public.platform_admins`: platform admins (SUB §9.2, 05-09b): not a tenant role; no API-role access (granted and revoked in SQL, audited by trigger); read through is_platform_admin()
@@ -366,6 +375,7 @@ Notes:
 - `public.cdci_substances`: global reference data: SELECT for every signed-in user
 - `public.cdci_suppliers`: global reference data: SELECT for every signed-in user
 - `public.opd_diagnoses`: global reference data: SELECT for every signed-in user
+- `public.reference_catalogues`: the version of each global reference catalogue (09E-09, R-5): SELECT for every signed-in user (no PHI, no tenant); raised only by the statement triggers on the catalogue tables (private.reference_catalogue_bump); no API role writes
 - `ops.jobs`: no API role holds USAGE on schema ops
 - `ops.error_events`: no API role holds USAGE on schema ops
 - `storage:prescriptions/rx`: `<tenant>/<visit>/rx_v<n>.pdf` (features/prescriptions/pdf/generator.ts); write-once since 000109: INSERT needs prescriptions:edit AND a signed header with no archived PDF on a sealed visit at that version (the matrix fixture is a draft: refused for everyone), no UPDATE, no DELETE

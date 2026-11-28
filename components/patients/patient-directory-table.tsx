@@ -176,8 +176,10 @@ export function PatientDirectoryTable({
                 {displayedPatients.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell>
+                      {/* 09E-06 (R-9): no prefetch. The record's layout decides 404 with a read of the patient, so a prefetch made one read per row in view. */}
                       <Link
                         href={`/patients/${p.id}`}
+                        prefetch={false}
                         className="font-semibold text-gray-900 hover:text-accent transition-colors flex items-center gap-2 group"
                       >
                         <span>{p.full_name}</span>
@@ -219,7 +221,7 @@ export function PatientDirectoryTable({
                       </span>
                     </TableCell>
                     <TableCell className="text-end">
-                      <Link href={`/patients/${p.id}`}>
+                      <Link href={`/patients/${p.id}`} prefetch={false}>
                         <Button variant="ghost" size="sm">
                           View Profile
                         </Button>

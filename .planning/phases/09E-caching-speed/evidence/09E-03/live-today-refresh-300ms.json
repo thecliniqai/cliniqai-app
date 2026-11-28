@@ -1,0 +1,168 @@
+{
+  "latencyMs": 300,
+  "samples": 5,
+  "note": "Realtime socket upgrades are not delayed and are counted apart (realtime), not in calls",
+  "rows": [
+    {
+      "id": "live.today.refresh",
+      "kind": "live",
+      "budget": "B-11",
+      "label": "Receptionist: Today's refresh (a signal or a resume) is one board read",
+      "owner": "09E-06",
+      "main": "refresh",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 8,
+          "server": 8,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 8,
+          "recordedServer": 8,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "refresh": 1319
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 8,
+          "server": 8,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 8,
+          "recordedServer": 8,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "refresh": 1318
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 8,
+          "server": 8,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 8,
+          "recordedServer": 8,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "shortestMs": 306,
+          "marks": {
+            "refresh": 1308
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 8,
+          "server": 8,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 8,
+          "recordedServer": 8,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "shortestMs": 308,
+          "marks": {
+            "refresh": 1319
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 8,
+          "server": 8,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 8,
+          "recordedServer": 8,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "refresh": 1303
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 4,
+            "GET /rest/v1/visits": 2,
+            "GET /rest/v1/memberships": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 8,
+        "max": 8
+      },
+      "depth": {
+        "median": 8,
+        "max": 8
+      },
+      "ms": {
+        "median": 1318,
+        "max": 1319
+      },
+      "targetMs": null,
+      "verdict": "no target",
+      "ceiling": null
+    }
+  ]
+}

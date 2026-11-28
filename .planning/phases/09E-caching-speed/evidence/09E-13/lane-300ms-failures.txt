@@ -1,0 +1,10 @@
+Error: full.R.billing-reports sample 1 (ceiling from .planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#full.R.billing-reports): round-trip depth Expected: <= 3 Received:    4 
+
+Error: full.R.patient sample 1 (ceiling from .planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#full.R.patient): round-trip depth Expected: <= 3 Received:    4 
+
+Error: full.D.consult-sealed sample 3 (ceiling from .planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#full.D.consult-sealed): Supabase calls {"server":{"POST /auth/v1/token":1,"GET /rest/v1/visits":3,"POST /rest/v1/rpc/consult_screen":1,"POST /rest/v1/rpc/session_bootstrap":1,"GET /rest/v1/prescriptions":2,"HEAD /rest/v1/in_app_notifications":1,"GET /rest/v1/consultation_diagnoses":2,"GET /rest/v1/follow_ups":2,"GET /rest/v1/tenants":2,"GET /rest/v1/memberships":2,"GET /rest/v1/patients":2,"GET /rest/v1/in_app_notifications":1,"GET /rest/v1/prescription_items":2,"GET 
+
+Error: full.D.patient sample 3 (ceiling from .planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#full.D.patient): round-trip depth Expected: <= 4 Received:    5 
+
+Error: save.R.book sample 1 (ceiling from .planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.book): round-trip depth Expected: <= 3 Received:    4 
+

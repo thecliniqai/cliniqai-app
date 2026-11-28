@@ -29,7 +29,7 @@ import { messagesOfVisit, seedBlock, seedBookedVisit, seedPatient, visitsOfPatie
 import { callCancel, cancelArgs, ist, schedRow, seedWaitlistEntry, subscribeAppointmentEvents, waitlistRow } from "../helpers/scheduling-commands";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
-const SIGNATURE = "public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean)";
+const SIGNATURE = "public.cancel_visit(uuid, uuid, text, uuid, text, boolean, boolean, bigint)";
 
 let tenantA: SeededTenant;
 let tenantB: SeededTenant;
@@ -73,7 +73,7 @@ describe("cancel_visit: one transaction", () => {
     const args = cancelArgs(tenantA, visitId, { p_reason_code: "doctor_unavailable", p_reason_note: "Synthetic: doctor away", p_notify: true });
     const { data, error } = await callCancel(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, promoted: false, replacement_visit_id: null, promoted_patient_id: null, message_enqueued: true, replayed: false });
+    expect(data).toEqual({ visit_id: visitId, promoted: false, replacement_visit_id: null, promoted_patient_id: null, message_enqueued: true, replayed: false, row_version: expect.any(Number), versions: { queue: expect.any(Number), schedule: expect.any(Number) } });
 
     const row = await schedRow(visitId);
     expect(row.status).toBe("cancelled");

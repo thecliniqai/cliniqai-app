@@ -11,7 +11,7 @@ import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/ow
 import { RX_EDIT_ROWS, RX_KEYBOARD_ROWS, RX_TRACER_ROW, rxItemsOf, upsertCdciRows } from "../support/cdci-fixtures";
 import { commitThenAbort } from "../support/commit-then-abort";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { addCustomMedicine, rxField } from "../support/rx-entry";
+import { addCustomMedicine, rxField, rxStored } from "../support/rx-entry";
 
 test.use({ storageState: storageStatePath("doctor") });
 
@@ -68,7 +68,7 @@ test("@golden tracer: one medicine by keyboard (M, four letters, Enter, 2, 5d, E
 
   await page.reload();
   await expect(page.getByRole("list", { name: "Prescribed medicines" }).getByRole("listitem")).toHaveCount(1);
-  const items = await rxItemsOf(visitId);
+  const items = await rxStored(page, visitId);
   expect(items).toHaveLength(1);
   expect(items[0]).toMatchObject({
     medicine_name: RX_TRACER_ROW.brand_name,
@@ -137,7 +137,7 @@ test("a custom medicine's stored dose is taken with Enter, Enter: nothing else i
   await expect(page.locator("[data-dose-summary]")).toHaveText("1-1-1 · With food · 3 days");
   await rxField(page).press("Enter");
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
-  const items = await rxItemsOf(visitId);
+  const items = await rxStored(page, visitId);
   expect(items).toHaveLength(1);
   expect(items[0]).toMatchObject({ medicine_name: name, dosage: "1-1-1", timing: "With food", duration: "3 days", cdci_brand_id: null });
 });
@@ -158,14 +158,14 @@ test("a catalogue medicine has no usual dose: Enter after the pick says what to 
   await rxField(page).press("Enter");
   await expect(page.getByRole("alert").filter({ hasText: "Choose a frequency (1 to 5) and a duration such as 5d" })).toBeVisible();
   await page.waitForTimeout(500);
-  expect(await rxItemsOf(visitId)).toEqual([]);
+  expect(await rxStored(page, visitId)).toEqual([]);
   // The doctor chooses: only a frequency is still not enough, then the duration completes the line.
   await rxField(page).press("2");
   await rxField(page).press("Enter");
   await expect(page.getByRole("alert").filter({ hasText: /Type the duration/ })).toBeVisible();
   for (const key of ["7", "d", "Enter"]) await rxField(page).press(key);
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
-  expect((await rxItemsOf(visitId))[0]).toMatchObject({ dosage: "1-0-0", duration: "7 days", timing: null });
+  expect((await rxStored(page, visitId))[0]).toMatchObject({ dosage: "1-0-0", duration: "7 days", timing: null });
 });
 
 test("a committed line's duration is edited in 3 taps: the pill, the duration tile, Update line; the row keeps its id", async ({ page, ux }, testInfo) => {
@@ -177,7 +177,7 @@ test("a committed line's duration is edited in 3 taps: the pill, the duration ti
   await expect(page.getByRole("option", { name: /Qzredit Alpha/ })).toBeVisible({ timeout: 8_000 });
   for (const key of ["Enter", "1", "5", "d", "Enter"]) await rxField(page).press(key);
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
-  const before = (await rxItemsOf(visitId))[0];
+  const before = (await rxStored(page, visitId))[0];
 
   ux.flow("consult-rx-edit", "Edit a committed line's duration: pill, tile, Update line");
   await ux.click(page.getByRole("button", { name: /5 days\. Edit dose of Qzredit Alpha 100/ }), "Duration pill");
@@ -187,7 +187,7 @@ test("a committed line's duration is edited in 3 taps: the pill, the duration ti
   ux.done();
   expect(ux.counts()).toMatchObject({ clicks: 3, keystrokes: 0 });
 
-  const after = await rxItemsOf(visitId);
+  const after = await rxStored(page, visitId);
   expect(after).toHaveLength(1);
   expect(after[0]).toMatchObject({ id: before.id, medicine_name: before.medicine_name, dosage: "1-0-1", duration: "10 days" });
 });
@@ -201,7 +201,7 @@ test("remove, then Undo within the toast: one row with the same values", async (
   await expect(page.getByRole("option", { name: /Qzredit Alpha/ })).toBeVisible({ timeout: 8_000 });
   for (const key of ["Enter", "4", "7", "d", "Enter"]) await rxField(page).press(key);
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
-  const before = (await rxItemsOf(visitId))[0];
+  const before = (await rxStored(page, visitId))[0];
 
   await page.getByRole("button", { name: "Remove Qzredit Alpha 100" }).click();
   await expect(rxList(page)).toHaveCount(0);
@@ -210,7 +210,7 @@ test("remove, then Undo within the toast: one row with the same values", async (
   await expect(rxList(page)).toHaveCount(1, { timeout: 8_000 });
   // 09C-06a: Undo puts back the doctor's own line, not a suggestion: no "Repeated" marker.
   await expect(rxList(page).first()).not.toContainText("Repeated");
-  const after = await rxItemsOf(visitId);
+  const after = await rxStored(page, visitId);
   expect(after).toHaveLength(1);
   expect(after[0]).toMatchObject({ medicine_name: before.medicine_name, dosage: before.dosage, duration: before.duration, timing: before.timing, cdci_brand_id: before.cdci_brand_id });
 });
@@ -261,13 +261,13 @@ test("09C-06a A-10: Enter on a search with no listed medicine creates nothing; t
   await expect(rx.locator("[data-dose-builder]")).toHaveCount(0);
   for (const key of ["1", "5", "d", "Enter"]) await rxField(rx).press(key);
   await page.waitForTimeout(400);
-  expect(await rxItemsOf(visitId)).toEqual([]);
+  expect(await rxStored(page, visitId)).toEqual([]);
   // The explicit choice: down to the Add row, then Enter.
   await rxField(rx).fill(typed);
   await expect(rx.getByRole("option", { name: new RegExp(`^Add .${typed}.$`) })).toBeVisible({ timeout: 10_000 });
   for (const key of ["ArrowDown", "Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
   await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
-  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([typed]);
+  expect((await rxStored(page, visitId)).map((i) => i.medicine_name)).toEqual([typed]);
 });
 
 test("09C-06a A-11: Finish waits for an Rx command still queued: a remove sent behind a slow add is on the signed prescription's side, not lost", async ({ page }, testInfo) => {
@@ -334,7 +334,7 @@ test("a sealed consult shows the lines with no entry row, no pills and no remove
   await expect(rx.getByText(name)).toBeVisible();
   await expect(rxField(rx)).toHaveCount(0);
   await expect(rx.getByRole("button")).toHaveCount(0);
-  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([name]);
+  expect((await rxStored(page, visitId)).map((i) => i.medicine_name)).toEqual([name]);
 });
 
 test("@golden at 360 px the entry row and the dose builder fit with no horizontal scroll, and a phone adds a line by tapping", async ({ page }, testInfo) => {

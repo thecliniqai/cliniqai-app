@@ -11,6 +11,7 @@ import {
 } from "@/lib/ai";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { markAction } from "@/lib/observability/db-timing";
 
 /** Typed "AI unavailable" result (AI-01): no draft, no reason detail beyond the code. */
 export interface AiUnavailableResult {
@@ -39,6 +40,7 @@ export async function generateSoapAction(input: {
   shorthand: string;
   patientContext?: AnonymizedPatientContext;
 }): Promise<GenerateSoapActionResult> {
+  await markAction("ai.generate_soap_action");
   try {
     await requirePermission(undefined, "consultations:edit", "full", { sensitive: "ai.soap.generate" });
     const draft = await generateSoapFromShorthand({

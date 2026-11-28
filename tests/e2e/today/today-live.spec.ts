@@ -4,25 +4,27 @@
  * - check-in is exactly ONE user action (the `ux` count), the row moves to Waiting at once and the database has the
  *   waiting visit and its token;
  * - a check-in on one screen reaches another browser of the clinic through the private Realtime channel within 2 s;
- * - with the Realtime socket refused (`page.routeWebSocket`) the board still updates, by polling every 20 s;
- * - the screen is never replaced when the connection drops (carried from the V2-07 merge): offline, or with the server
- *   unreachable while the browser still says it is online, a refresh is not attempted, the rows stay and no navigation
- *   happens; once the server answers again the board catches up.
+ * - with the Realtime socket refused (`page.routeWebSocket`) the badge says Reconnecting and the board still updates, by the 12 s heartbeat of the live
+ *   state (09E-04, R-18; it replaced the 20 s full-board poll);
+ * - 09E-03 (R-14): the refresh is one `GET /api/today/board` into the board's query and no RSC request; the answer carries `Server-Timing`;
+ *   09E-04: the signal carries its version, so the refresh needs no state read;
+ * - the screen is never replaced when the connection drops (carried from the V2-07 merge): offline, or with the board read failing
+ *   while the browser still says it is online, no navigation happens and the rows stay; once the server answers again the board catches up.
  * Synthetic data only; tenant A is shared, so every row is found by its own unique name. The 2 s case has its own clinic (see {@link ownClinic}).
  */
 import type { Page } from "@playwright/test";
 import { expect, test, routeLoopbackOnly } from "../fixtures";
 import { E2E_BASE_URL } from "../support/app-env";
+import { countKongCalls } from "../support/kong-calls";
 import { storageStatePath } from "../support/run-data";
-import { seedBookedToday, seedWaitingToday, tokensOfVisit, todayName, visitStatusOf } from "../support/today-data";
-import { countRscRequests, openToday, rowInLane, rowOf, showLane } from "../support/today-page";
+import { ownClinic, seedBookedToday, seedWaitingToday, tokensOfVisit, todayName, visitStatusOf } from "../support/today-data";
+import { countBoardRequests, countRscRequests, countStateRequests, openToday, rowInLane, rowOf, showLane } from "../support/today-page";
 import { uiSignIn } from "../support/password-journeys";
-import { testTag } from "../support/m0-data";
-import { addMemberToTenant, seedTenantWithOwner, seededUserPassword } from "../../helpers/tenants";
+import { seededUserPassword } from "../../helpers/tenants";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
-const POLL_MS = 20_000;
+const HEARTBEAT_MS = 12_000;
 const liveStatus = (page: Page) => page.locator("[data-live-status]");
 
 /**
@@ -64,23 +66,6 @@ test("@golden check-in is one action: the row moves to Waiting at once; the data
   await expect(rowInLane(page, "booked", name)).toHaveCount(0);
 });
 
-/**
- * A clinic of the test's own: an owner (the observer, a practicing doctor) and a receptionist (the screen that checks in), both signed in through the login
- * UI. A signal makes a screen re-read and re-render the whole clinic day, and clinic A's day grows with every spec of every project. CI 44942218223: iphone-15
- * runs last (about an hour in); the day held 397 visits, and the 1280 px observer received the signal and the refreshed day in time but had not drawn it
- * within 2 s on the runner's WebKit. The 2 s is measured on a clinic day the test controls, not on what the run has left in clinic A.
- */
-async function ownClinic(): Promise<{ owner: { email: string }; receptionist: { email: string }; seed: () => ReturnType<typeof seedBookedToday> }> {
-  const owner = await seedTenantWithOwner(`E2E Synthetic Clinic Live ${testTag()}`);
-  const receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
-  const clinic = { tenantId: owner.tenantId, ownerId: owner.userId, doctorId: owner.userId, createdBy: receptionist.userId };
-  return {
-    owner: { email: owner.userEmail },
-    receptionist: { email: receptionist.userEmail },
-    seed: () => seedBookedToday(todayName("Booked"), "10:00", clinic),
-  };
-}
-
 test("@golden a check-in on one screen reaches another browser of the clinic within 2 s (private Realtime channel)", async ({ page, browser }) => {
   const clinic = await ownClinic();
   const { visitId, name } = await clinic.seed();
@@ -104,11 +89,31 @@ test("@golden a check-in on one screen reaches another browser of the clinic wit
     await expect(rowInLane(observer, "booked", name)).toBeVisible();
 
     await showLane(page, "Booked");
-    await rowOf(page, name).getByRole("button", { name: `Check in ${name}` }).click();
-    await expect.poll(() => visitStatusOf(visitId), { timeout: 20_000 }).toBe("waiting");
+    // The observer's refresh is one board read into its query and no render request (09E-03).
+    const rsc = countRscRequests(observer);
+    const boardReads = countBoardRequests(observer);
+    const stateReads = countStateRequests(observer);
+    const ownBoardReads = countBoardRequests(page);
+    // 09E-06 (R-9, R-12): every board read, the observer's and the actor's own, is ONE Supabase call (`rpc/today_board`); the invoices, payments, follow-ups and
+    // directory reads of the old board are gone.
+    const window = await countKongCalls(async () => {
+      await rowOf(page, name).getByRole("button", { name: `Check in ${name}` }).click();
+      await expect.poll(() => visitStatusOf(visitId), { timeout: 20_000 }).toBe("waiting");
 
-    // The change is committed: the other screen shows it in Waiting within 2 s, with no reload of its own.
-    await expect(rowInLane(observer, "waiting", name)).toBeVisible({ timeout: 2_000 });
+      // The change is committed: the other screen shows it in Waiting within 2 s, with no reload of its own.
+      await expect(rowInLane(observer, "waiting", name)).toBeVisible({ timeout: 2_000 });
+    });
+    const callsOf = (re: RegExp) => Object.entries(window.serverByPath).reduce((n, [key, c]) => (re.test(key) ? n + c : n), 0);
+    expect(boardReads.count(), "the signal's refresh is one board read").toBe(1);
+    // Each board read is one call. The actor's own Server Action also re-renders its page once (09E-08 owns that), which is one more `today_board` and no other read.
+    const boards = callsOf(/rpc\/today_board/);
+    const reads = boardReads.count() + ownBoardReads.count();
+    expect(boards, `one today_board call per board read (observer ${boardReads.count()}, actor ${ownBoardReads.count()}; ${JSON.stringify(window.serverByPath)})`).toBeGreaterThanOrEqual(reads);
+    expect(boards, "at most one more: the actor's page render after its own action").toBeLessThanOrEqual(reads + 1);
+    expect(callsOf(/\/rest\/v1\/(invoices|payments|follow_ups|queue_tokens)\b/), "no table read of the old board").toBe(0);
+    expect(boardReads.serverTimings()[0], "the data route reports its timing").toMatch(/db;dur=[\d.]+/);
+    expect(rsc(), "no render (RSC) request for a refresh").toBe(0);
+    expect(stateReads.count(), "the signal carries its version: no state read is needed").toBe(0);
     await expect(rowInLane(observer, "booked", name)).toHaveCount(0);
     await expect(observer.locator("[data-today-announcer]")).toContainText(`${name}, checked in`, { timeout: 7_000 });
   } finally {
@@ -117,25 +122,26 @@ test("@golden a check-in on one screen reaches another browser of the clinic wit
   expect(blocked).toEqual([]);
 });
 
-test("Realtime refused: the board says so and still updates, by polling every 20 s", async ({ page }) => {
+test("Realtime refused: the badge says Reconnecting and the board still updates, by the 12 s heartbeat", async ({ page }) => {
   await page.clock.install();
   const { started } = await refuseRealtime(page);
   await openToday(page);
   await expect(page.locator("[data-today-board]").filter({ visible: true })).toBeVisible();
   await started;
+  await expect(liveStatus(page)).toHaveAttribute("data-live-status", "reconnecting");
 
   const walkIn = await seedWaitingToday(todayName("Polled"));
   await showLane(page, "Waiting");
   await expect(rowOf(page, walkIn.name)).toHaveCount(0);
 
-  // The channel never joins: after its 10 s join timeout the board reports polling, and a poll tick brings the new row.
-  await page.clock.runFor(POLL_MS + 1_000);
-  await expect(liveStatus(page)).toHaveText("Updating every 20 s", { timeout: 10_000 });
+  // The channel never joins; a heartbeat tick reads the versions, sees the queue moved and re-reads the board once.
+  await page.clock.runFor(HEARTBEAT_MS + 1_000);
   await expect(rowInLane(page, "waiting", walkIn.name)).toBeVisible({ timeout: 15_000 });
+  await expect(liveStatus(page)).toContainText(/Reconnecting · Updated \d+ s ago/);
 });
 
 test.describe("the screen is never replaced when the connection drops", () => {
-  test("offline: the poll does not refresh, the rows stay, nothing navigates; back online the board catches up", async ({ page, context }) => {
+  test("offline: the heartbeat does not refresh, the rows stay, nothing navigates; back online the board catches up", async ({ page, context }) => {
     await page.clock.install();
     const { started } = await refuseRealtime(page);
     const visit = await seedWaitingToday(todayName("Offline"));
@@ -149,24 +155,26 @@ test.describe("the screen is never replaced when the connection drops", () => {
     let navigations = 0;
     page.on("framenavigated", () => (navigations += 1));
     const rsc = countRscRequests(page);
+    const boardReads = countBoardRequests(page);
     await context.setOffline(true);
     await expect(page.locator("[data-offline-banner] p")).toBeVisible();
-    await page.clock.runFor(POLL_MS * 2 + 1_000);
+    await page.clock.runFor(HEARTBEAT_MS * 2 + 1_000);
 
     expect(rsc(), "no render request was sent while offline").toBe(0);
+    expect(boardReads.count(), "no board read was sent while offline").toBe(0);
     expect(navigations, "no navigation").toBe(0);
     await expect(page.getByRole("heading", { name: "You're offline" })).toHaveCount(0);
     await expect(rowOf(page, visit.name)).toBeVisible();
     expect(await rowsText(), "the rows on screen are the same").toEqual(before);
 
-    // Back online the next poll catches up with what changed meanwhile.
+    // Back online (the `online` event asks at once, and the next heartbeat would) the board catches up with what changed meanwhile.
     const late = await seedWaitingToday(todayName("Late"));
     await context.setOffline(false);
-    await page.clock.runFor(POLL_MS + 1_000);
+    await page.clock.runFor(HEARTBEAT_MS + 1_000);
     await expect(rowInLane(page, "waiting", late.name)).toBeVisible({ timeout: 15_000 });
   });
 
-  test("the server unreachable while the browser says online: the poll's probe fails, no refresh is attempted, the rows stay", async ({ page }) => {
+  test("the board read failing while the browser says online: the rows stay, nothing navigates; the next confirmed beat catches up", async ({ page }) => {
     await page.clock.install();
     const { started } = await refuseRealtime(page);
     const visit = await seedWaitingToday(todayName("Probe"));
@@ -175,20 +183,20 @@ test.describe("the screen is never replaced when the connection drops", () => {
     await showLane(page, "Waiting");
     await expect(rowOf(page, visit.name)).toBeVisible();
 
-    await page.route("**/api/health", (route) => route.abort("connectionreset"));
+    await page.route("**/api/today/board**", (route) => route.abort("connectionreset"));
     let navigations = 0;
     page.on("framenavigated", () => (navigations += 1));
     const rsc = countRscRequests(page);
-    await page.clock.runFor(POLL_MS * 2 + 1_000);
-    expect(rsc(), "the failed probe stopped the refresh").toBe(0);
+    await page.clock.runFor(HEARTBEAT_MS * 2 + 1_000);
+    expect(rsc(), "a failed board read never becomes a render request").toBe(0);
     expect(navigations).toBe(0);
     await expect(rowOf(page, visit.name)).toBeVisible();
 
-    // The server answers again: the next tick refreshes (the control that the guard is the only thing stopping it).
+    // The server answers again: the next confirmed beat re-reads (the control that the failure alone was stopping it).
     const late = await seedWaitingToday(todayName("Back"));
-    await page.unroute("**/api/health");
-    await page.clock.runFor(POLL_MS + 1_000);
+    await page.unroute("**/api/today/board**");
+    await page.clock.runFor(HEARTBEAT_MS + 1_000);
     await expect(rowInLane(page, "waiting", late.name)).toBeVisible({ timeout: 15_000 });
-    expect(rsc()).toBeGreaterThan(0);
+    expect(rsc(), "the catch-up is a board read, not a render").toBe(0);
   });
 });

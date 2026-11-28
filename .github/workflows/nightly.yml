@@ -147,6 +147,47 @@ jobs:
         if: ${{ always() }}
         run: npx supabase stop --no-backup
 
+  # V2-09e 09E-01 (R-4): the full latency lane (`npm run perf:latency`, project perf-latency): every page, typeahead and save row of
+  # tests/e2e/perf/latency-budgets.ts with 300 ms added to every Supabase call, in the guarded e2e run. Calls and depth block
+  # a rise over the baseline ceilings; milliseconds (medians of 5) go to the job summary and to the artifact, never blocking.
+  latency:
+    name: latency
+    if: ${{ (inputs.lane || 'nightly') == 'nightly' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start the local Supabase stack
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: e2e build
+        run: npm run e2e:build
+      - name: Latency lane (300 ms per Supabase call; calls and depth block, milliseconds reported)
+        run: npm run perf:latency
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('test-results/perf-latency/summary.json') != '' }}
+        with:
+          name: latency
+          path: |
+            test-results/perf-latency/summary.json
+            test-results/perf-latency/summary.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup
+
   # V2-06 06-08 (design lane on the nightly matrix; roadmap V2-06 evidence "the screenshot set"): `npm run e2e:design`
   # runs every design spec in the design-360/820/1180/1280 projects, the G3 screenshot set included (axe in each
   # screen's scope, no horizontal scroll); `screenshot-index.mjs` then fails on a missing capture and writes the index
@@ -305,7 +346,7 @@ jobs:
   # One open "Nightly failing" issue opened by this bot: created on the first failure, commented on every later one.
   report-failure:
     name: report-failure
-    needs: [e2e-nightly, lhci, design, sw-update, audit-full, backup-roundtrip]
+    needs: [e2e-nightly, lhci, latency, design, sw-update, audit-full, backup-roundtrip]
     if: ${{ failure() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5

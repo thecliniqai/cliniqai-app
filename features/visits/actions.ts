@@ -1,11 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption } from "./schema";
 import type { RecordVitalsInput } from "@/features/consultation/schema";
 import * as visitsService from "./service";
 import type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
 
@@ -15,15 +15,8 @@ export type { GetVisitsResult, RecordVisitVitalsResult } from "./service";
 // promote_waitlist_entry and the cancel promotion); their status, time and doctor change only through the commands
 // (reschedule, cancel, no-show, confirm in `scheduling.ts`; check-in, start and complete in the queue actions).
 
-function revalidate(...paths: string[]) {
-  try {
-    for (const path of paths) revalidatePath(path);
-  } catch {
-    // Outside a Next.js request (tests) revalidation is a no-op
-  }
-}
-
 export async function getVisitsForDate(dateStr: string, doctorId?: string): Promise<GetVisitsResult> {
+  await markAction("visits.get_visits_for_date");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return visitsService.getVisitsForDate(resolved.ctx, dateStr, doctorId);
@@ -34,6 +27,7 @@ export async function getVisitsForDate(dateStr: string, doctorId?: string): Prom
  * An unauthenticated or unauthorised caller gets an empty list, as before.
  */
 export async function getActiveClinicDoctors(): Promise<ActiveDoctorOption[]> {
+  await markAction("visits.get_active_clinic_doctors");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return [];
   return visitsService.getActiveClinicDoctors(resolved.ctx);
@@ -51,6 +45,7 @@ export type GetClinicVisitsRegisterActionResult =
 export async function getClinicVisitsRegister(
   input: Partial<VisitsFilterInput> = {}
 ): Promise<GetClinicVisitsRegisterActionResult> {
+  await markAction("visits.get_clinic_visits_register");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const register = await visitsService.getClinicVisitsRegister(resolved.ctx, input);
@@ -65,9 +60,9 @@ export async function recordVisitVitals(
   visitId: string,
   vitalsInput: RecordVitalsInput
 ): Promise<RecordVisitVitalsResult> {
+  await markAction("visits.record_visit_vitals");
   const resolved = await resolveServiceContext("vitals:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await visitsService.recordVisitVitals(resolved.ctx, visitId, vitalsInput);
-  if (result.success) revalidate("/today", "/visits", `/consultation/${visitId}`);
   return result;
 }

@@ -82,6 +82,7 @@ export function PatientSearch({ actionLabel, onPick, onCreate, label, placeholde
 
   return (
     <PatientPicker
+      measureServerSearch
       search={search}
       actionLabel={actionLabel}
       onPick={(picked) => {

@@ -33,6 +33,9 @@ import { getAdminClient } from "../../helpers/supabase-admin";
 import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
+import { TENANT_HEADER } from "@/lib/live/clinic-header";
+import { rangeOfDate } from "@/features/schedule/range";
+import { todayInTz } from "@/lib/datetime";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -691,7 +694,7 @@ function expectNoAccess(c: RouteCase, leg: string, r: RouteResult, allowed: stri
 export async function sessionRouteDenialLegs(
   slot: RequestSlot,
   c: RouteCase,
-  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-diagnosis-search" | "session-medicine-search" | "session-substance-search" }>,
+  guard: Extract<RouteGuard, { kind: "session" | "session-search" | "session-board" | "session-diagnosis-search" | "session-medicine-search" | "session-substance-search" }>,
   world: GuardWorld | null,
   idFor: string,
   roleClients?: Partial<Record<UserRole, object>>
@@ -1084,6 +1087,231 @@ export async function sessionStatusRouteLegs(
 }
 
 /**
+ * `rum-ingest` route (09E-02, T-09E-14, T-09E-15): a cross-origin call 403 with no data access; no session 401 and no membership 403, each touching nothing
+ * but the membership lookup; a member's valid batch 204 with `no-store`, no body and no cookie whose only data access beyond the membership lookup is the
+ * one `ops_ingest_rum` call; a body that names a tenant (tenant B's id), carries a uuid as the screen, is not JSON, or is over 8 kB is refused (400/413)
+ * with no `ops_ingest_rum` call. Nothing of tenant B is ever answered.
+ */
+export async function rumIngestRouteLegs(slot: RequestSlot, c: RouteCase, world: GuardWorld): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const sample = { screen: "today", metric: "lcp", device: "desktop", net: "4g", value: 1800 };
+  const sameOrigin = { origin: "http://localhost:3000", "sec-fetch-site": "same-origin" };
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const ingestCalls = (r: RouteResult) => r.access.filter((a) => a === "rpc:ops_ingest_rum");
+
+  const cross = await callRoute(slot, world.roles.receptionist.client, c, {
+    body: { samples: [sample] },
+    headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+  });
+  out.push(...expectStatus(c, "cross-origin", cross, [403]), ...expectNoAccess(c, "cross-origin", cross));
+
+  const anon = await callRoute(slot, anonClient(), c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  const member = await callRoute(slot, world.roles.receptionist.client, c, { body: { samples: [sample] }, headers: sameOrigin });
+  out.push(...expectStatus(c, "member", member, [204]), ...expectNoB(c, "member", member, world));
+  noStore("member", member);
+  if (member.body !== "") out.push(routeV(c, "member", `a 204 with a body: ${brief(member.body)}`));
+  if (member.headers.get("set-cookie")) out.push(routeV(c, "member", "sets a cookie"));
+  if (ingestCalls(member).length !== 1) out.push(routeV(c, "member", `expected exactly one ops_ingest_rum call, saw ${ingestCalls(member).length}`));
+  const stray = member.access.filter((a) => a !== "rpc:ops_ingest_rum" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+  if (stray.length > 0) out.push(routeV(c, "member", `data access beyond the ingest and the membership lookup: ${stray.join(", ")}`));
+
+  const refusals: Array<[string, { body?: unknown; headers?: Record<string, string> }]> = [
+    ["a body naming tenant B", { body: { samples: [sample], tenantId: world.b.tenant } }],
+    ["a sample naming tenant B", { body: { samples: [{ ...sample, tenantId: world.b.tenant }] } }],
+    ["a uuid as the screen", { body: { samples: [{ ...sample, screen: world.b.tenant }] } }],
+    ["a path as the screen", { body: { samples: [{ ...sample, screen: "/patients/x" }] } }],
+    ["an oversize body", { body: { samples: [sample], pad: "x".repeat(9000) } }],
+  ];
+  for (const [leg, call] of refusals) {
+    const r = await callRoute(slot, world.roles.receptionist.client, c, { ...call, headers: sameOrigin });
+    out.push(...expectStatus(c, leg, r, [400, 413]), ...expectNoB(c, leg, r, world));
+    if (ingestCalls(r).length > 0) out.push(routeV(c, leg, "reached ops_ingest_rum"));
+  }
+  return out;
+}
+
+
+/**
+ * 09E-14a (finding A): a read made for another clinic than the session's (the `x-clinicos-tenant` header names tenant B, a tab left open across a
+ * switch) answers 409 CLINIC_CHANGED with the fixed body, no cookie, no data and no id, and touches nothing but the membership lookup; the header
+ * naming the session's own clinic is the plain call.
+ */
+async function clinicChangedLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  world: GuardWorld,
+  client: object,
+  ownTenant: string,
+  query: Record<string, string> = {},
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const other = await callRoute(slot, client, c, { query, headers: { [TENANT_HEADER]: world.b.tenant } });
+  out.push(...expectStatus(c, "another clinic's header", other, [409]), ...expectNoB(c, "another clinic's header", other, world));
+  if (other.body !== '{"error":"The clinic changed.","code":"CLINIC_CHANGED"}') out.push(routeV(c, "another clinic's header", `body is not the fixed text: ${brief(other.body)}`));
+  if (!/\bno-store\b/.test(other.headers.get("cache-control") ?? "")) out.push(routeV(c, "another clinic's header", "no Cache-Control: no-store"));
+  const stray = other.access.filter((a) => !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+  if (stray.length > 0) out.push(routeV(c, "another clinic's header", `data access after a clinic change: ${stray.join(", ")}`));
+  const own = await callRoute(slot, client, c, { query, headers: { [TENANT_HEADER]: ownTenant } });
+  out.push(...expectStatus(c, "the session's own clinic header", own, [200]));
+  return out;
+}
+
+/**
+ * `live-state` route (09E-04, T-09E-05): no session 401 and no membership 403, each touching nothing but the membership lookup; every role of the clinic
+ * answers 200 with `no-store`, a body of exactly the guard's keys whose `versions` hold exactly the four domains as numbers, and no cookie; a forged
+ * `?tenant=` / `?tenantId=` naming tenant B changes nothing (the answer is the plain call's) and nothing of B is in the response; the only data access
+ * beyond the membership lookup is the one `clinic_live_state` call.
+ */
+export async function liveStateRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "live-state" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const stateCalls = (r: RouteResult) => r.access.filter((a) => a === "rpc:clinic_live_state");
+
+  const anon = await callRoute(slot, anonClient(), c, {});
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, {});
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+
+  let plain: string | null = null;
+  for (const role of ROLES) {
+    const leg = `role ${role}`;
+    const r = await callRoute(slot, world.roles[role].client, c, {});
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    noStore(leg, r);
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+    if (stateCalls(r).length !== 1) out.push(routeV(c, leg, `expected exactly one clinic_live_state call, saw ${stateCalls(r).length}`));
+    const stray = r.access.filter((a) => a !== "rpc:clinic_live_state" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+    if (stray.length > 0) out.push(routeV(c, leg, `data access beyond the state read and the membership lookup: ${stray.join(", ")}`));
+    try {
+      const body = JSON.parse(r.body) as { versions?: Record<string, unknown>; access?: unknown };
+      const keys = Object.keys(body);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+      const domains = Object.keys(body.versions ?? {}).sort();
+      if (domains.join(",") !== [...guard.domains].sort().join(",")) out.push(routeV(c, "projection", `versions hold ${domains.join(",")}`));
+      if (Object.values(body.versions ?? {}).some((v) => typeof v !== "number")) out.push(routeV(c, "projection", "a version is not a number"));
+      if (typeof body.access !== "string") out.push(routeV(c, "projection", "access is not a word"));
+      plain ??= r.body;
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
+
+  out.push(...(await clinicChangedLegs(slot, c, world, world.roles.receptionist.client, world.roles.receptionist.tenantId)));
+  // A locked clinic's device must still learn it: 200 and an access level that is not `full` (never a 403).
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [200]));
+  try {
+    const access = (JSON.parse(locked.body) as { access?: unknown }).access;
+    if (access === "full" || typeof access !== "string") out.push(routeV(c, "locked clinic", `access is ${String(access)}, expected a level other than full`));
+  } catch {
+    out.push(routeV(c, "locked clinic", `body is not JSON: ${brief(locked.body)}`));
+  }
+
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (plain !== null && forged.body !== plain) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
+/**
+ * `session-bootstrap` route (09E-13, R-13, T-09E-10): no session 401 and no membership 403, each touching nothing but the membership lookup; a locked clinic
+ * 403 `SUBSCRIPTION_LOCKED`; every role of the clinic answers 200 with `no-store`, no cookie, a body of exactly the guard's keys, its own role, every nested
+ * object (or array element) with exactly the allow-listed keys and no key anywhere naming a fee, price, invoice, payment, subscription, access level,
+ * entitlement or permission; one `session_bootstrap` call and nothing else beyond the membership lookup; another clinic's header 409; a forged `?tenant=`
+ * changes nothing and nothing of tenant B is in the response.
+ */
+export async function sessionBootstrapRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-bootstrap" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const allKeys = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.flatMap(allKeys);
+    if (value && typeof value === "object") return Object.entries(value).flatMap(([k, v]) => [k, ...allKeys(v)]);
+    return [];
+  };
+  const NEVER_HELD = /(fee|price|invoice|payment|bill|subscription|access|entitle|permission|plan|amount)/i;
+
+  const anon = await callRoute(slot, anonClient(), c, {});
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, {});
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoIds(c, "no membership", none));
+  out.push(...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes("SUBSCRIPTION_LOCKED")) out.push(routeV(c, "locked clinic", `not SUBSCRIPTION_LOCKED: ${brief(locked.body)}`));
+  if (locked.access.includes("rpc:session_bootstrap")) out.push(routeV(c, "locked clinic", "the bootstrap was read for a locked clinic"));
+
+  let plain: string | null = null;
+  for (const role of ROLES) {
+    const leg = `role ${role}`;
+    const r = await callRoute(slot, world.roles[role].client, c, {});
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    noStore(leg, r);
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+    const reads = r.access.filter((a) => a === "rpc:session_bootstrap").length;
+    if (reads !== 1) out.push(routeV(c, leg, `expected exactly one session_bootstrap call, saw ${reads}`));
+    const stray = r.access.filter((a) => a !== "rpc:session_bootstrap" && !/^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/.test(a));
+    if (stray.length > 0) out.push(routeV(c, leg, `data access beyond the bootstrap read and the membership lookup: ${stray.join(", ")}`));
+    try {
+      const body = JSON.parse(r.body) as Record<string, unknown>;
+      const keys = Object.keys(body);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, leg, `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+      if (body.role !== role) out.push(routeV(c, leg, `role is ${String(body.role)}, not the caller's own`));
+      for (const [part, allowed] of Object.entries(guard.nested)) {
+        const value = body[part];
+        const objects = Array.isArray(value) ? value : [value];
+        for (const o of objects) {
+          const got = Object.keys((o ?? {}) as object);
+          if (got.length !== allowed.length || got.some((k, i) => k !== allowed[i])) out.push(routeV(c, leg, `${part} keys ${got.join(",")} are not exactly ${allowed.join(",")}`));
+        }
+      }
+      const held = allKeys(body).filter((k) => NEVER_HELD.test(k));
+      if (held.length > 0) out.push(routeV(c, leg, `never-held keys in the bootstrap: ${held.join(",")}`));
+      if (role === "receptionist") plain = r.body;
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
+
+  out.push(...(await clinicChangedLegs(slot, c, world, world.roles.receptionist.client, world.roles.receptionist.tenantId)));
+  const forged = await callRoute(slot, world.roles.receptionist.client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (plain !== null && forged.body !== plain) out.push(routeV(c, "forged ?tenant=", `answer differs from the plain call: ${brief(forged.body)}`));
+  return out;
+}
+
+/**
  * `session-search` route (08-02, T-08-02): the least-privileged holder of the permission searches tenant B's synthetic
  * patient by name and by mobile number and gets 200 with an empty list and nothing of B; searching tenant A's own patient
  * answers 200 with `no-store` and a list whose rows have exactly the projection keys and no full mobile number. The
@@ -1144,6 +1372,47 @@ export async function sessionSearchRouteLegs(
   }
   const digits = a.phone.replace(/\D/g, "").slice(-10);
   if (r.body.includes(digits)) out.push(routeV(c, "projection", "the full mobile number is in the response"));
+  return out;
+}
+
+/**
+ * `session-board` route (09E-03, T-09E-02, T-09E-04): the least-privileged holder of the permission reads the board and gets 200 with `no-store` and a body
+ * whose top-level keys are exactly the guard's; a forged `?tenant=` and `?tenantId=` naming tenant B change nothing and nothing of B is in the response.
+ * The denial legs (401, 403, no membership) are `sessionRouteDenialLegs`.
+ */
+export async function sessionBoardRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "session-board" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const role = leastPrivilegedHolding(guard.permission);
+  const client = world.roles[role].client;
+  await world.aRows({ userId: world.roles[role].userId, role });
+  // 09E-12: a range route is asked for the current clinic week (Asia/Kolkata), so the seeded rows of today are in it.
+  const week = guard.currentWeek ? rangeOfDate(todayInTz("Asia/Kolkata")) : null;
+  const base: Record<string, string> = week ? { from: week.from, to: week.to } : {};
+  for (const [leg, query] of [
+    ["own clinic", base],
+    ["forged tenant parameters", { ...base, tenant: world.b.tenant, tenantId: world.b.tenant }],
+  ] as const) {
+    const r = await callRoute(slot, client, c, { query });
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+    try {
+      const keys = Object.keys(JSON.parse(r.body) as Record<string, unknown>);
+      if (keys.length !== guard.keys.length || keys.some((k, i) => k !== guard.keys[i])) {
+        out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      }
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+    }
+  }
+  out.push(...(await clinicChangedLegs(slot, c, world, client, world.roles[role].tenantId, base)));
+  const locked = await callRoute(slot, world.lockedOwner.client, c, { query: base });
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes("SUBSCRIPTION_LOCKED")) out.push(routeV(c, "locked clinic", `no SUBSCRIPTION_LOCKED code: ${brief(locked.body)}`));
   return out;
 }
 
@@ -1299,4 +1568,184 @@ export async function sessionSubstanceSearchRouteLegs(
 /** Formats violations for an assertion message (one per line). */
 export function report(violations: Violation[]): string {
   return violations.map((v) => `${v.key} [${v.leg}] ${v.detail}`).join("\n");
+}
+
+const MEMBERSHIP_LOOKUP = /^(from:memberships|rpc:my_tenant_access|rpc:session_is_live)$/;
+
+/**
+ * `reference-manifest` route (09E-09, R-5, T-09E-09): see the guard kind in guard-manifest.ts. The catalogues each role must see are computed here from
+ * the permission matrix (substances and diagnoses: consultations:view; medicines: prescriptions:edit), independently of the route's own table.
+ */
+export async function referenceManifestRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "reference-manifest" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+  const anon = await callRoute(slot, anonClient(), c, {});
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, {});
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  noStore("no membership", none);
+  const locked = await callRoute(slot, world.lockedOwner.client, c, {});
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes('"SUBSCRIPTION_LOCKED"')) out.push(routeV(c, "locked clinic", `not SUBSCRIPTION_LOCKED: ${brief(locked.body)}`));
+
+  const expected: Record<UserRole, string[]> = Object.fromEntries(
+    ROLES.map((role) => [
+      role,
+      [
+        ...(hasPerm(role, "consultations:view") ? ["substances", "diagnoses"] : []),
+        ...(hasPerm(role, "prescriptions:edit") ? ["medicines"] : []),
+      ].sort(),
+    ])
+  ) as Record<UserRole, string[]>;
+  for (const role of ROLES) {
+    const leg = `role ${role}`;
+    const r = await callRoute(slot, world.roles[role].client, c, {});
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoB(c, leg, r, world));
+    if (r.headers.get("cache-control") !== "private, no-cache") out.push(routeV(c, leg, `Cache-Control is ${r.headers.get("cache-control")}`));
+    const etag = r.headers.get("etag");
+    if (!etag) out.push(routeV(c, leg, "no ETag"));
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+    const reads = r.access.filter((a) => a === "from:reference_catalogues").length;
+    if (reads !== 1) out.push(routeV(c, leg, `expected one reference_catalogues read, saw ${reads}`));
+    const stray = r.access.filter((a) => a !== "from:reference_catalogues" && !MEMBERSHIP_LOOKUP.test(a));
+    if (stray.length > 0) out.push(routeV(c, leg, `data access beyond the manifest read: ${stray.join(", ")}`));
+    try {
+      const body = JSON.parse(r.body) as { catalogues?: Record<string, Record<string, unknown>> };
+      const keys = Object.keys(body);
+      if (keys.join(",") !== guard.keys.join(",")) out.push(routeV(c, leg, `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+      const names = Object.keys(body.catalogues ?? {}).sort();
+      if (names.join(",") !== expected[role].join(",")) out.push(routeV(c, leg, `lists ${names.join(",")}, expected ${expected[role].join(",")}`));
+      for (const [name, entry] of Object.entries(body.catalogues ?? {})) {
+        if (Object.keys(entry).join(",") !== "version,shards") out.push(routeV(c, leg, `${name} entry keys ${Object.keys(entry).join(",")}`));
+      }
+    } catch {
+      out.push(routeV(c, leg, `body is not JSON: ${brief(r.body)}`));
+      continue;
+    }
+    if (etag) {
+      const again = await callRoute(slot, world.roles[role].client, c, { headers: { "if-none-match": etag } });
+      out.push(...expectStatus(c, `${leg}, If-None-Match`, again, [304]));
+      if (again.body !== "") out.push(routeV(c, `${leg}, If-None-Match`, "a 304 with a body"));
+    }
+    const forged = await callRoute(slot, world.roles[role].client, c, { query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+    out.push(...expectStatus(c, `${leg}, forged ?tenant=`, forged, [200]), ...expectNoB(c, `${leg}, forged ?tenant=`, forged, world));
+    if (forged.body !== r.body) out.push(routeV(c, `${leg}, forged ?tenant=`, `answer differs from the plain call: ${brief(forged.body)}`));
+  }
+  return out;
+}
+
+/**
+ * `reference-shard` route (09E-09, R-5, T-09E-09): see the guard kind in guard-manifest.ts. A synthetic substance (global reference data; no tenant row)
+ * is upserted for the control; the current version is read as the holder reads it.
+ */
+export async function referenceShardRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "reference-shard" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const admin = getAdminClient();
+  const id = `test-ref-sub-guard-${randomBytes(4).toString("hex")}`;
+  const name = `Guardcanary reference ${randomBytes(4).toString("hex")}`;
+  const inserted = await admin.from("cdci_substances").upsert({ id, substance_name: name }, { onConflict: "id" });
+  if (inserted.error) return [routeV(c, "control", `could not seed the substance: ${inserted.error.message}`)];
+  // PR 2 review N8: the synthetic substance never outlives the leg (it is a global catalogue row: left behind it would stay in every later run's shard).
+  try {
+    return await referenceShardSeededLegs(slot, c, guard, world, id, name);
+  } finally {
+    const removed = await admin.from("cdci_substances").delete().eq("id", id);
+    if (removed.error) console.warn(`guard: could not remove the synthetic substance ${id}: ${removed.error.message}`);
+  }
+}
+
+async function referenceShardSeededLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "reference-shard" }>,
+  world: GuardWorld,
+  id: string,
+  name: string
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  // The versions are readable by any signed-in user (and by no service role): read as the holder, as the manifest would give it.
+  const current = await world.roles[leastPrivilegedHolding("consultations:view")].client.from("reference_catalogues").select("version").eq("catalogue", "cdci").single();
+  if (current.error || !current.data) return [routeV(c, "control", "could not read the cdci version")];
+  const version = (current.data as { version: string }).version;
+  const params = (catalogue: string, v: string, shard: string) => ({ catalogue, version: v, shard });
+  const ok = params("substances", version, "0");
+  const noStore = (leg: string, r: RouteResult) => {
+    if (!/\bno-store\b/.test(r.headers.get("cache-control") ?? "")) out.push(routeV(c, leg, "no Cache-Control: no-store"));
+  };
+
+  const anon = await callRoute(slot, anonClient(), c, { params: ok });
+  out.push(...expectStatus(c, "unauthenticated", anon, [401]), ...expectNoIds(c, "unauthenticated", anon), ...expectNoAccess(c, "unauthenticated", anon));
+  noStore("unauthenticated", anon);
+  const none = await callRoute(slot, world.noMember.client, c, { params: ok });
+  out.push(...expectStatus(c, "no membership", none, [403]), ...expectNoAccess(c, "no membership", none, ["from:memberships"]));
+  const locked = await callRoute(slot, world.lockedOwner.client, c, { params: ok });
+  out.push(...expectStatus(c, "locked clinic", locked, [403]));
+  if (!locked.body.includes('"SUBSCRIPTION_LOCKED"')) out.push(routeV(c, "locked clinic", `not SUBSCRIPTION_LOCKED: ${brief(locked.body)}`));
+  // PR 2 review N9: diagnoses too (its own catalogue version), not only substances and medicines.
+  const diagnoses = await world.roles[leastPrivilegedHolding("consultations:view")].client.from("reference_catalogues").select("version").eq("catalogue", "diagnoses").single();
+  if (diagnoses.error || !diagnoses.data) return [routeV(c, "control", "could not read the diagnoses version")];
+  const versionOf = { substances: version, medicines: version, diagnoses: (diagnoses.data as { version: string }).version };
+  for (const [catalogue, permission] of [["substances", "consultations:view"], ["medicines", "prescriptions:edit"], ["diagnoses", "consultations:view"]] as const) {
+    for (const role of ROLES.filter((r) => !hasPerm(r, permission))) {
+      const leg = `role ${role} lacks ${permission} (${catalogue})`;
+      const r = await callRoute(slot, world.roles[role].client, c, { params: params(catalogue, versionOf[catalogue], catalogue === "medicines" ? "1" : "0") });
+      out.push(...expectStatus(c, leg, r, [403]), ...expectNoAccess(c, leg, r, ["from:memberships", "rpc:my_tenant_access", "rpc:session_is_live"]));
+      if (r.body.includes(name)) out.push(routeV(c, leg, "the body holds a catalogue row"));
+    }
+  }
+
+  const role = leastPrivilegedHolding("consultations:view");
+  const client = world.roles[role].client;
+  const r = await callRoute(slot, client, c, { params: ok });
+  out.push(...expectStatus(c, `role ${role}`, r, [200]), ...expectNoB(c, `role ${role}`, r, world));
+  if (r.headers.get("cache-control") !== "private, max-age=31536000, immutable") out.push(routeV(c, `role ${role}`, `Cache-Control is ${r.headers.get("cache-control")}`));
+  if (r.headers.get("set-cookie")) out.push(routeV(c, `role ${role}`, "sets a cookie"));
+  const shardCalls = r.access.filter((a) => a === "rpc:reference_shard").length;
+  if (shardCalls !== 1) out.push(routeV(c, `role ${role}`, `expected one reference_shard call, saw ${shardCalls}`));
+  const stray = r.access.filter((a) => a !== "rpc:reference_shard" && !MEMBERSHIP_LOOKUP.test(a));
+  if (stray.length > 0) out.push(routeV(c, `role ${role}`, `data access beyond the shard read: ${stray.join(", ")}`));
+  try {
+    const body = JSON.parse(r.body) as { rows?: unknown[]; version?: string };
+    const keys = Object.keys(body);
+    if (keys.join(",") !== guard.keys.join(",")) out.push(routeV(c, "projection", `keys ${keys.join(",")} are not exactly ${guard.keys.join(",")}`));
+    if (body.version !== version) out.push(routeV(c, "projection", "the shard is not at the version asked for"));
+    const rows = body.rows ?? [];
+    if (!rows.every((row) => Array.isArray(row) && row.length === 2 && row.every((v) => typeof v === "string"))) out.push(routeV(c, "projection", "a row is not [id, name]"));
+    if (!rows.some((row) => Array.isArray(row) && row[0] === id && row[1] === name)) out.push(routeV(c, "projection", "the control row is missing"));
+  } catch {
+    out.push(routeV(c, `role ${role}`, `body is not JSON: ${brief(r.body)}`));
+  }
+
+  const stale = await callRoute(slot, client, c, { params: params("substances", "00000000-0000-4000-8000-000000000000", "0") });
+  out.push(...expectStatus(c, "a version that is not current", stale, [409]));
+  noStore("a version that is not current", stale);
+  if (stale.body !== '{"error":"The catalogue changed.","code":"CATALOGUE_CHANGED"}') out.push(routeV(c, "a version that is not current", `body is not the fixed text: ${brief(stale.body)}`));
+  for (const [leg, p] of [
+    ["a shard out of range", params("substances", version, "1")],
+    ["an unknown catalogue", params("patients", version, "0")],
+    ["a malformed version", params("substances", "not-a-version", "0")],
+    ["a malformed shard", params("substances", version, "-1")],
+    ["a shard with a leading zero", params("substances", version, "00")],
+  ] as const) {
+    const x = await callRoute(slot, client, c, { params: p });
+    out.push(...expectStatus(c, leg, x, [404]), ...expectNoB(c, leg, x, world));
+    noStore(leg, x);
+    if (x.body.includes(name)) out.push(routeV(c, leg, "the body holds a catalogue row"));
+  }
+  const forged = await callRoute(slot, client, c, { params: ok, query: { tenant: world.b.tenant, tenantId: world.b.tenant } });
+  out.push(...expectStatus(c, "forged ?tenant=", forged, [200]), ...expectNoB(c, "forged ?tenant=", forged, world));
+  if (forged.body !== r.body) out.push(routeV(c, "forged ?tenant=", "answer differs from the plain call"));
+  return out;
 }

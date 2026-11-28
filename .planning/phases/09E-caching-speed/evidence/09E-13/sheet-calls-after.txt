@@ -1,0 +1,3 @@
+[09E-13 after] walk-in sheet open: {"POST /rest/v1/rpc/today_board":1}
+[09E-13 after] booking sheet open: {"POST /rest/v1/rpc/schedule_range":1}
+  9 passed (30.2s)

@@ -93,6 +93,18 @@ export type RouteGuard =
    */
   | { kind: "session-search"; permission: Permission; keys: readonly string[] }
   /**
+   * V2-09e 09E-03 (T-09E-02, T-09E-04): Today's board for the client data layer `GET /api/today/board?mode=`. The denial legs of session(P) (no session 401,
+   * a role lacking `permission` 403, no membership refused); a member with the permission answers 200 with `no-store` and a body whose top-level keys are
+   * exactly `keys`; a forged `?tenant=` (tenant B's id) changes nothing and nothing of tenant B is in the response.
+   */
+  | {
+      kind: "session-board";
+      permission: Permission;
+      keys: readonly string[];
+      /** V2-09e 09E-12: the route reads a range of clinic dates; every allowed call asks for the current week (`?from&to`, Asia/Kolkata). */
+      currentWeek?: true;
+    }
+  /**
    * V2-09b 09B-04a (T-09B-06): the diagnosis typeahead `GET /api/terminology/diagnoses?q=`. The denial legs of session(P) (no session 401, a role
    * lacking `permission` 403, no membership refused); a member with the permission searching a catalogue row answers 200 with `no-store` and rows with
    * exactly `keys`, nothing of tenant B in the response, and a hostile query (SQL text, array syntax, a NUL, wildcards) is data (200, never a 500).
@@ -110,6 +122,42 @@ export type RouteGuard =
    * permission searching a synthetic substance answers 200 with `no-store` and rows with exactly `keys`, nothing of tenant B, and hostile queries are data.
    */
   | { kind: "session-substance-search"; permission: Permission; keys: readonly string[] }
+  /**
+   * V2-09e 09E-02 (T-09E-14, T-09E-15): the real-user timing ingest `POST /api/rum`. A cross-origin call 403 before any session work; no session 401; a
+   * signed-in user with no membership 403 (membership lookup only); a member's valid batch answers 204 with `no-store`, no body and no cookie, and its only
+   * data access is the one `ops_ingest_rum` call; a body naming a tenant or any other key (a forged `tenantId`, a uuid as the screen), a malformed one and an
+   * oversize one are refused (400, 413) before any data access. Nothing of tenant B is answered and no tenant table row is written.
+   */
+  | { kind: "rum-ingest" }
+  /**
+   * V2-09e 09E-04 (T-09E-05): the live state `GET /api/live/state`. No session 401; a signed-in user with no membership 403 (membership lookup only); any
+   * active member of the clinic, whatever the role, answers 200 with `no-store` and a body of exactly `versions` (the four domains, numbers) and `access`;
+   * a forged `?tenant=` / `?tenantId=` naming tenant B changes nothing and nothing of tenant B is in the response; its only data access beyond the
+   * membership lookup is the one `clinic_live_state` call.
+   */
+  | { kind: "live-state"; keys: readonly string[]; domains: readonly string[] }
+  /**
+   * V2-09e 09E-13 (R-13, T-09E-10): the session bootstrap `GET /api/session/bootstrap`. No session 401 and no membership 403 (membership lookup only); a
+   * locked clinic 403 `SUBSCRIPTION_LOCKED`; every role of the clinic answers 200 with `no-store`, no cookie, a body of exactly `keys` whose `role` is the
+   * caller's own and whose nested objects hold exactly the allow-listed keys (`nested`), and no key anywhere that names a fee, price, invoice, payment,
+   * subscription, access level, entitlement or permission; the only data access beyond the membership lookup is the one `session_bootstrap` call; another
+   * clinic's header 409; a forged `?tenant=` changes nothing and nothing of tenant B is in the response.
+   */
+  | { kind: "session-bootstrap"; keys: readonly string[]; nested: Readonly<Record<string, readonly string[]>> }
+  /**
+   * V2-09e 09E-09 (R-5, T-09E-09): the reference manifest `GET /api/reference/manifest`. No session 401 and no membership 403 (membership lookup only); a
+   * locked clinic 403 `SUBSCRIPTION_LOCKED`; every role of the clinic 200 with `private, no-cache` and an ETag, a body of exactly `keys` listing exactly
+   * the catalogues its permissions read (each `{ version, shards }`), no cookie; the same ETag answers 304; a forged `?tenant=` changes nothing; the only
+   * data access beyond the membership lookup is one `reference_catalogues` read; nothing of tenant B.
+   */
+  | { kind: "reference-manifest"; keys: readonly string[] }
+  /**
+   * V2-09e 09E-09 (R-5, T-09E-09): one catalogue shard `GET /api/reference/{catalogue}/{version}/{shard}`. No session 401, no membership 403, roles lacking
+   * the catalogue's permission 403 (membership lookup only), a locked clinic 403 `SUBSCRIPTION_LOCKED`; the least-privileged holder 200 with
+   * `private, max-age=31536000, immutable`, exactly `keys`, rows of the catalogue's shape and one `reference_shard` call; a stale version 409 `no-store`
+   * with a fixed body; an unknown catalogue, a malformed version or shard and a shard out of range 404; a forged `?tenant=` changes nothing; nothing of B.
+   */
+  | { kind: "reference-shard"; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -313,7 +361,26 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // browser fetches it with no session on the login page and on every update check.
   "app/sw.js/route.ts#GET": { kind: "public-asset", contentType: "application/javascript" },
   // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
+  // V2-09e 09E-02 (R-20): real-user timings; any active member of a clinic, closed-list samples only, nothing identifying stored.
+  "app/api/rum/route.ts#POST": { kind: "rum-ingest" },
+  // V2-09e 09E-04 (R-18): the clinic's versions and access level; any active member, numbers and one word, nothing identifying.
+  "app/api/live/state/route.ts#GET": { kind: "live-state", keys: ["versions", "access"], domains: ["schedule", "queue", "billing", "settings"] },
   "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
+  // V2-09e 09E-13 (R-13): the session bootstrap the shell holds in memory; any active member of a full clinic, display data only (allow-listed).
+  "app/api/session/bootstrap/route.ts#GET": {
+    kind: "session-bootstrap",
+    keys: ["profile", "clinic", "role", "doctors", "clinics", "rx_print", "versions"],
+    nested: {
+      profile: ["id", "full_name"],
+      clinic: ["id", "name", "zone"],
+      doctors: ["id", "full_name", "specialty"],
+      clinics: ["id", "name"],
+      rx_print: ["paper_size", "letterhead_mode", "top_margin", "bottom_margin"],
+      versions: ["settings"],
+    },
+  },
+  "app/api/reference/manifest/route.ts#GET": { kind: "reference-manifest", keys: ["catalogues"] },
+  "app/api/reference/[catalogue]/[version]/[shard]/route.ts#GET": { kind: "reference-shard", keys: ["catalogue", "version", "shard", "shards", "rows"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
   "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,
@@ -333,6 +400,18 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
     kind: "session-search",
     permission: "patients:view",
     keys: ["id", "name", "ageSex", "phoneLast4", "lastVisit"],
+  },
+  "app/api/today/board/route.ts#GET": {
+    kind: "session-board",
+    permission: "appointments:view",
+    keys: ["rows", "generatedAt", "today", "timeZone"],
+  },
+  // V2-09e 09E-12 (R-10, T-09E-02): the Schedule's range read for the client data layer; the same legs as the board, on the current week.
+  "app/api/schedule/range/route.ts#GET": {
+    kind: "session-board",
+    permission: "appointments:view",
+    keys: ["from", "to", "zone", "server_now", "versions", "clinicians", "blocks", "visits", "waitlist", "slots"],
+    currentWeek: true,
   },
   "app/api/prescriptions/medicines/route.ts#GET": {
     kind: "session-medicine-search",

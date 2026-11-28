@@ -17,6 +17,7 @@ import { SHELL_CLINIC_HEADER } from "@/lib/pwa/session-status";
 import { deploymentInfo } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 /**
  * `GET /api/session-status` (V2-06 06-06; PWA_STRATEGY §3.7 step 2, §6.6; R-16, R-21). The installed app's version and
@@ -59,7 +60,7 @@ async function refuse(status: 401 | 403 | 409 | 503, error: string, code: string
   return NextResponse.json({ error }, { status, headers: NO_STORE });
 }
 
-export async function GET(request?: NextRequest) {
+async function handleGet(request?: NextRequest) {
   const pinned = isClinicId(await readActiveClinicCookie());
   const shellClinic = pinned ? null : (request?.headers.get(SHELL_CLINIC_HEADER) ?? null);
   let membership;
@@ -113,3 +114,6 @@ export async function GET(request?: NextRequest) {
   }
   return response;
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

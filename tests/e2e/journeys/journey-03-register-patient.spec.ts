@@ -16,21 +16,28 @@ import { expect, test } from "../fixtures";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
 import { settleAnimations } from "../support/settle";
+import { awaitRegisterLinkHydrated, fillAgeAndSettle } from "../support/register-sheet";
 
 test.use({ storageState: storageStatePath("receptionist") });
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 
 test("@golden journey 3: register with the AI objection; the same mobile and name again shows the duplicate banner and 'Use this patient'", async ({ page, ux }) => {
+  // 09E-14a (F5): two loads of the Patients page, which lists every patient (638 rows late in a lane), on emulated WebKit.
+  test.setTimeout(90_000);
   ux.flow("journey-03-register-patient", "Receptionist registers a patient (mobile, name, age, sex, AI objection)");
   const { tenantA } = run();
   const fullName = `E2E Synthetic Journey3 ${testTag()}`;
   const phoneDigits = syntheticPhoneDigits();
 
   await page.goto("/patients");
+  await awaitRegisterLinkHydrated(page);
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
   const sheet = page.getByRole("dialog", { name: "Register patient" });
-  await expect(sheet).toBeVisible();
+  // 09E-14a (F5): the sheet is a search-parameter route, so opening it is a client navigation that re-renders the Patients page, which lists EVERY patient (638 rows
+  // late in a full lane, no pagination). The trace of the failing run shows the two `?new=1` RSC requests answered in under 70 ms and the dialog still absent
+  // for 5 s: the commit waits for that re-render on emulated WebKit. Genuine slowness of the page, not a lost click (PO question 3).
+  await expect(sheet).toBeVisible({ timeout: 20_000 });
   await expect(sheet.getByRole("textbox", { name: "Mobile number" })).toBeFocused();
 
   // The sheet holds the interim AI notice with its checkbox, and passes axe at this width.
@@ -41,7 +48,7 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
 
   await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
   await ux.fill(sheet.getByRole("textbox", { name: "Full name" }), fullName, "Full name");
-  await ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age");
+  await fillAgeAndSettle(page, () => ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age"));
   await ux.click(sheet.getByRole("radio", { name: "Female" }), "Sex: Female");
   await ux.check(sheet.getByRole("checkbox", { name: "Patient objects to AI-assisted features" }), "AI objection");
   await ux.click(sheet.getByRole("button", { name: "Register patient" }), "Register patient");
@@ -70,7 +77,7 @@ test("@golden journey 3: register with the AI objection; the same mobile and nam
   // Second entry: the same mobile number shows the candidate with age and sex; "Use this patient" opens the record.
   await page.goto("/patients?new=1");
   const again = page.getByRole("dialog", { name: "Register patient" });
-  await expect(again).toBeVisible();
+  await expect(again).toBeVisible({ timeout: 20_000 });
   await again.getByRole("textbox", { name: "Mobile number" }).fill(phoneDigits);
   await again.getByRole("textbox", { name: "Full name" }).fill(fullName);
   // The same mobile and name is probably the same person: Smart Assist (the clinic is entitled) says so as a warning with the

@@ -19,6 +19,7 @@ import type {
   UpdateDoctorSlotDurationInput,
   UpdateDoctorSlotDurationResult,
 } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   UpdateClinicSettingsResult,
@@ -44,12 +45,12 @@ function revalidate(...paths: string[]) {
 }
 
 export async function updateClinicSettings(input: ClinicSettingsInput): Promise<UpdateClinicSettingsResult> {
+  await markAction("settings.update_clinic_settings");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.update" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateClinicSettings(resolved.ctx, input);
   // V2-09d: the clinic's name or zone may have changed: the shell re-reads them (and the session context) in the render that follows.
   if (result.success) await forgetSessionContext();
-  if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/today");
   return result;
 }
 
@@ -58,10 +59,10 @@ export async function updateClinicSettings(input: ClinicSettingsInput): Promise<
  * to public.tenants with full compliance audit logging under DPDP/NMC regulations (D-16).
  */
 export async function updateStatutorySettings(input: StatutorySettingsInput): Promise<UpdateStatutorySettingsResult> {
+  await markAction("settings.update_statutory_settings");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.statutory" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStatutorySettings(resolved.ctx, input);
-  if (result.success) revalidate("/settings/clinic");
   return result;
 }
 
@@ -70,32 +71,33 @@ export async function updateStatutorySettings(input: StatutorySettingsInput): Pr
  * `clinic:manage`; the tenant is the session's.
  */
 export async function updateRxPrintSettings(input: RxPrintSettingsInput): Promise<UpdateRxPrintSettingsResult> {
+  await markAction("settings.update_rx_print_settings");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "clinic_settings.rx_print" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateRxPrintSettings(resolved.ctx, input);
-  if (result.success) revalidate("/settings/clinic");
   return result;
 }
 
 export async function updateUserProfile(input: UserProfileInput): Promise<UpdateUserProfileResult> {
+  await markAction("settings.update_user_profile");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateUserProfile(resolved.ctx, input);
-  if (result.success) revalidate("/profile", "/settings/clinic", "/staff", "/today");
   return result;
 }
 
 export async function updateStaffMember(input: StaffEditInput): Promise<UpdateStaffMemberResult> {
+  await markAction("settings.update_staff_member");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "staff.role_edit" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateStaffMember(resolved.ctx, input);
   // V2-09d: a role may have changed (the caller's own included): this device's session context is read again.
   if (result.success) await forgetSessionContext();
-  if (result.success) revalidate("/staff", "/settings/clinic", "/today");
   return result;
 }
 
 export async function getMyProfile() {
+  await markAction("settings.get_my_profile");
   const supabase = await createClient();
   const membership = await getActiveMembership();
   // V2-09d: the verified session claims (no Auth round trip): email, phone and metadata are in the access token.
@@ -111,18 +113,17 @@ export async function getMyProfile() {
     },
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: member } = await (supabase.from("memberships") as any)
-    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, default_slot_duration_minutes, availability_schedule, created_at")
-    .eq("tenant_id", membership.tenantId)
-    .eq("user_id", membership.userId)
-    .single();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tenant } = await (supabase.from("tenants") as any)
-    .select("id, name")
-    .eq("id", membership.tenantId)
-    .single();
+  // V2-09e 09E-06 (R-9): the caller's membership row and the clinic's name are independent: one round trip.
+  const [{ data: member }, { data: tenant }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, default_slot_duration_minutes, availability_schedule, created_at")
+      .eq("tenant_id", membership.tenantId)
+      .eq("user_id", membership.userId)
+      .single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("tenants") as any).select("id, name").eq("id", membership.tenantId).single(),
+  ]);
 
   return {
     user: {
@@ -145,6 +146,7 @@ export async function getMyProfile() {
 export async function updateDoctorAvailability(
   input: UpdateDoctorAvailabilityInput
 ): Promise<UpdateDoctorAvailabilityResult> {
+  await markAction("settings.update_doctor_availability");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateDoctorAvailability(resolved.ctx, input);
@@ -155,6 +157,7 @@ export async function updateDoctorAvailability(
 export async function updateDoctorSlotDuration(
   input: UpdateDoctorSlotDurationInput
 ): Promise<UpdateDoctorSlotDurationResult> {
+  await markAction("settings.update_doctor_slot_duration");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await settingsService.updateDoctorSlotDuration(resolved.ctx, input);
@@ -164,6 +167,7 @@ export async function updateDoctorSlotDuration(
 
 /** An unauthenticated caller gets an empty list, as before. */
 export async function getDoctorScheduleBlocks(doctorId?: string): Promise<ScheduleBlock[]> {
+  await markAction("settings.get_doctor_schedule_blocks");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return [];
   return settingsService.getDoctorScheduleBlocks(resolved.ctx, doctorId);
@@ -171,6 +175,7 @@ export async function getDoctorScheduleBlocks(doctorId?: string): Promise<Schedu
 
 /** Deletes a schedule block from the profile screen (same rules as the calendar's delete). */
 export async function deleteDoctorScheduleBlock(blockId: string): Promise<{ success: boolean; error?: string }> {
+  await markAction("settings.delete_doctor_schedule_block");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.deleteScheduleBlock(resolved.ctx, blockId);

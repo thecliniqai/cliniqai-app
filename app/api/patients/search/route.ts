@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { searchPatients } from "@/features/patients/service";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -17,7 +18,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" };
  *   or full mobile number (`tests/patients/search-route.spec.ts` pins the keys). `Cache-Control: private, no-store`.
  * Rate limiting is V2-12 (accepted until then, T-08-02).
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const resolved = await resolveServiceContext("patients:view");
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") {
@@ -43,3 +44,6 @@ export async function GET(request: NextRequest) {
   }
   return NextResponse.json({ patients: result.patients }, { status: 200, headers: NO_STORE });
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

@@ -1,0 +1,243 @@
+{
+  "source": "supabase/seed-data (read only; no database, no network)",
+  "brandsPerShard": 12000,
+  "largestShardRaw": 941118,
+  "totals": {
+    "substances": {
+      "shards": 1,
+      "rows": 3283,
+      "raw": 107446,
+      "gzip": 34934,
+      "brotli": 29471
+    },
+    "diagnoses": {
+      "shards": 1,
+      "rows": 1550,
+      "raw": 256879,
+      "gzip": 25477,
+      "brotli": 14918
+    },
+    "medicines": {
+      "shards": 9,
+      "rows": 104216,
+      "raw": 7522178,
+      "gzip": 1257108,
+      "brotli": 969515
+    }
+  },
+  "medicineIndex": {
+    "brands": 93911,
+    "buildMs": 201.5
+  },
+  "shards": [
+    {
+      "catalogue": "substances",
+      "shard": 0,
+      "rows": 3283,
+      "raw": 107446,
+      "gzip": 34934,
+      "brotli": 29471
+    },
+    {
+      "catalogue": "diagnoses",
+      "shard": 0,
+      "rows": 1550,
+      "raw": 256879,
+      "gzip": 25477,
+      "brotli": 14918
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 0,
+      "rows": 10305,
+      "raw": 941118,
+      "gzip": 185386,
+      "brotli": 125905
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 1,
+      "rows": 12000,
+      "raw": 787208,
+      "gzip": 133537,
+      "brotli": 104743
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 2,
+      "rows": 12000,
+      "raw": 818051,
+      "gzip": 139447,
+      "brotli": 111098
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 3,
+      "rows": 12000,
+      "raw": 856901,
+      "gzip": 133991,
+      "brotli": 107412
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 4,
+      "rows": 12000,
+      "raw": 930940,
+      "gzip": 130726,
+      "brotli": 105728
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 5,
+      "rows": 12000,
+      "raw": 894729,
+      "gzip": 139228,
+      "brotli": 111699
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 6,
+      "rows": 12000,
+      "raw": 889156,
+      "gzip": 147710,
+      "brotli": 116679
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 7,
+      "rows": 12000,
+      "raw": 776353,
+      "gzip": 138702,
+      "brotli": 104741
+    },
+    {
+      "catalogue": "medicines",
+      "shard": 8,
+      "rows": 9911,
+      "raw": 627722,
+      "gzip": 108381,
+      "brotli": 81510
+    }
+  ],
+  "synthetic": {
+    "source": "tests/e2e/support/perf-catalogue.ts (the latency lane's full-size synthetic catalogue)",
+    "largestShardRaw": 1038709,
+    "totals": {
+      "substances": {
+        "shards": 1,
+        "rows": 3283,
+        "raw": 107836,
+        "gzip": 17194,
+        "brotli": 14516
+      },
+      "diagnoses": {
+        "shards": 1,
+        "rows": 1550,
+        "raw": 204472,
+        "gzip": 23060,
+        "brotli": 19002
+      },
+      "medicines": {
+        "shards": 9,
+        "rows": 104216,
+        "raw": 7231316,
+        "gzip": 1394472,
+        "brotli": 1126849
+      }
+    },
+    "medicineIndex": {
+      "brands": 93911,
+      "buildMs": 226.3
+    },
+    "shards": [
+      {
+        "catalogue": "substances",
+        "shard": 0,
+        "rows": 3283,
+        "raw": 107836,
+        "gzip": 17194,
+        "brotli": 14516
+      },
+      {
+        "catalogue": "diagnoses",
+        "shard": 0,
+        "rows": 1550,
+        "raw": 204472,
+        "gzip": 23060,
+        "brotli": 19002
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 0,
+        "rows": 10305,
+        "raw": 1038709,
+        "gzip": 181497,
+        "brotli": 145735
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 1,
+        "rows": 12000,
+        "raw": 789320,
+        "gzip": 154665,
+        "brotli": 125010
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 2,
+        "rows": 12000,
+        "raw": 791029,
+        "gzip": 154812,
+        "brotli": 125075
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 3,
+        "rows": 12000,
+        "raw": 790999,
+        "gzip": 155133,
+        "brotli": 125354
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 4,
+        "rows": 12000,
+        "raw": 792111,
+        "gzip": 155662,
+        "brotli": 125978
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 5,
+        "rows": 12000,
+        "raw": 790774,
+        "gzip": 154521,
+        "brotli": 124740
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 6,
+        "rows": 12000,
+        "raw": 791321,
+        "gzip": 154817,
+        "brotli": 125150
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 7,
+        "rows": 12000,
+        "raw": 792928,
+        "gzip": 155183,
+        "brotli": 125716
+      },
+      {
+        "catalogue": "medicines",
+        "shard": 8,
+        "rows": 9911,
+        "raw": 654125,
+        "gzip": 128182,
+        "brotli": 104091
+      }
+    ]
+  }
+}

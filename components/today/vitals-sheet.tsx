@@ -24,8 +24,8 @@ import type { TodayRow } from "@/features/today/schema";
 export interface VitalsSheetProps {
   row: TodayRow | null;
   onOpenChange: (open: boolean) => void;
-  /** The vitals were saved: the board refreshes. */
-  onSaved: () => void;
+  /** The vitals were saved: the readings the database holds now (the command's answer), for the board. */
+  onSaved: (vitals: unknown) => void;
 }
 
 function Body({ row, onOpenChange, onSaved }: VitalsSheetProps & { row: TodayRow }) {
@@ -38,7 +38,7 @@ function Body({ row, onOpenChange, onSaved }: VitalsSheetProps & { row: TodayRow
       return false;
     }
     notify.success(`Vitals recorded for ${row.name}`);
-    onSaved();
+    onSaved(result.vitals);
     onOpenChange(false);
     return true;
   };

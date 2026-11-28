@@ -44,7 +44,7 @@ const completeAudit = (visitId: string) => auditRows(tenantA.tenantId, "visit.co
 
 describe("complete_visit: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.complete_visit(uuid, uuid, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.complete_visit(uuid, uuid, uuid, bigint)", definer: true });
   });
 });
 
@@ -57,7 +57,8 @@ describe("complete_visit: one transaction", () => {
     const args = completeVisitArgs(tenantA, visitId);
     const { data, error } = await callCompleteVisit(members.receptionist.client, args);
     expect(error).toBeNull();
-    expect(data).toEqual({ visit_id: visitId, already_completed: false, replayed: false });
+    // 000134: the answer carries the clinic versions this transaction raised (the visit's status: queue and schedule).
+    expect(data).toEqual({ visit_id: visitId, already_completed: false, replayed: false, row_version: expect.any(Number), versions: { queue: expect.any(Number), schedule: expect.any(Number) } });
     expect((await visitRow(visitId)).status).toBe("completed");
     expect((await tokensOfVisit(visitId))[0].completed_at).not.toBeNull();
     expect(await completeAudit(visitId)).toEqual([
@@ -76,7 +77,8 @@ describe("complete_visit: one transaction", () => {
     const { visitId } = await seedVisit(tenantA, undefined, { status: "completed" });
     const first = await callCompleteVisit(tenantA.client, completeVisitArgs(tenantA, visitId));
     expect(first.error).toBeNull();
-    expect(first.data).toEqual({ visit_id: visitId, already_completed: true, replayed: false });
+    // 000134: the no-op raised no clinic version (the token's completion time moves none), so the answer names none.
+    expect(first.data).toEqual({ visit_id: visitId, already_completed: true, replayed: false, row_version: expect.any(Number), versions: {} });
     expect(await completeAudit(visitId)).toEqual([]);
     expect((await visitRow(visitId)).status).toBe("completed");
 

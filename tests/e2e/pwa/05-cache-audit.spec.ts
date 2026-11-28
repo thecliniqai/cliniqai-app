@@ -4,7 +4,7 @@
  *
  * Browse: signed in as the owner with the worker active, open Today, the seeded patient, the seeded consult, the billing
  * reports and fetch an invoice's receipt PDF; then every URL in every cache is on the D-2 allowlist (and the static
- * cache really is in use), IndexedDB is empty, local/session storage keys are D-3 preferences only, the patient page's
+ * cache really is in use), IndexedDB holds only `cliniq-reference` with catalogue records of a known shape (V2-09e 09E-09, C-2), local/session storage keys are D-3 preferences only, the patient page's
  * title does not carry the patient's name (D-7), and authenticated HTML and an RSC fetch are `private`/`no-store` (D-4).
  *
  * Exit paths (each with a fresh synthetic nurse, so the shared seeded sessions are never ended): sign out, sign out of
@@ -44,7 +44,7 @@ import { addMemberToTenant, seededUserPassword } from "../../helpers/tenants";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { logOffset, readLogFrom, SERVER_STDOUT_LOG } from "../support/server-log";
-import { storageDump } from "../support/storage-dump";
+import { referenceDbAudit, storageDump } from "../support/storage-dump";
 
 const NO_STORE = /^(?=.*\bprivate\b)(?=.*\bno-store\b)/;
 
@@ -113,11 +113,19 @@ test.describe("browse as owner", () => {
     expect(rsc.status()).toBe(200);
     expect(rsc.headers()["cache-control"]).toMatch(NO_STORE);
 
+    // V2-09e 09E-09 (C-2, A-4): the one database allowed during a session is `cliniq-reference` (the owner reads the substance catalogue): stores `meta`
+    // and `rows`, every record a catalogue record of a known shape. Waited for, so the audit is never vacuous.
+    await expect.poll(async () => (await referenceDbAudit(page)).records, { timeout: 20_000, message: "the reference catalogue reached the device" }).toBeGreaterThan(0);
+    const reference = await referenceDbAudit(page);
+    expect(reference.databases).toEqual(["cliniq-reference"]);
+    expect(reference.stores).toEqual(["meta", "rows"]);
+    expect(reference.problems, "records outside the catalogue shapes").toEqual([]);
+
     const state = await deviceState(page);
     expectAllowlistedOnly(state.cacheUrls);
     expect(state.cacheUrls.some((u) => u.startsWith("static-v1:/_next/static/")), "the static cache is in use").toBe(true);
     expect(state.cacheUrls.filter((u) => SHELL_URLS.some((s) => /^shell-[^:]+:/.test(u) && u.endsWith(`:${s}`)))).toHaveLength(5);
-    expect(state.indexedDbNames).toEqual([]);
+    expect(state.indexedDbNames).toEqual(["cliniq-reference"]);
     expect(state.localKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
     expect(state.sessionKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
     expect(await authCookies(context), "still signed in (browsing only)").not.toEqual([]);

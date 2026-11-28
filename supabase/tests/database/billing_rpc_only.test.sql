@@ -195,7 +195,7 @@ select is(pg_temp.invoice_state(), '650.00/650.00/paid', 'it stays paid with its
 select ok(not has_table_privilege('authenticated', 'public.invoices', 'UPDATE')
           and not has_any_column_privilege('authenticated', 'public.invoices', 'UPDATE')
           and not has_any_column_privilege('authenticated', 'public.payments', 'INSERT')
-          and (select prosecdef from pg_proc where oid = 'public.record_payment(uuid,uuid,numeric,text,text,uuid,text,text)'::regprocedure),
+          and (select prosecdef from pg_proc where oid = 'public.record_payment(uuid,uuid,numeric,text,text,uuid,text,text,bigint)'::regprocedure),
   'catalogue: no UPDATE on invoices, no INSERT on payments for authenticated; record_payment is SECURITY DEFINER');
 
 select * from finish();

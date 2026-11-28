@@ -132,7 +132,7 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     }],
   },
   "features/billing/actions.ts#recordPayment": {
-    args: (a) => [{ invoice_id: a.invoice, amount: 1, payment_method: "cash", reference_number: null, notes: null, ...acting(a) }],
+    args: (a) => [{ invoice_id: a.invoice, amount: 1, payment_method: "cash", reference_number: null, notes: null, expected_invoice_version: 0, ...acting(a) }],
   },
   "features/clinics/profile.ts#updateClinicProfile": {
     args: (a) => [{ name: "Synthetic Guard Clinic A", address: null, specialties: ["general_physician"], timezone: "Asia/Kolkata", working_hours: {}, ...acting(a) }],
@@ -199,9 +199,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
   // V2-08 08-01b: a booking checks in only on its own day (R-8), so the controls use queued walk-ins.
-  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.waitingVisit, "normal", randomUUID()] },
-  "features/queue/actions.ts#startConsultation": { args: (a) => [a.startableVisit, randomUUID()] },
-  "features/queue/actions.ts#completeVisit": { args: (a) => [a.completableVisit, randomUUID()] },
+  "features/queue/actions.ts#checkInVisit": { args: (a) => [a.waitingVisit, "normal", randomUUID(), 0] },
+  "features/queue/actions.ts#startConsultation": { args: (a) => [a.startableVisit, randomUUID(), 0] },
+  "features/queue/actions.ts#completeVisit": { args: (a) => [a.completableVisit, randomUUID(), 0] },
   "features/queue/actions.ts#enqueueWalkIn": {
     args: (a) => [{
       patient_id: a.patient,
@@ -288,13 +288,13 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   // Each of the four staff scheduling commands gets a fresh booked visit from the world (a control may change it); the move is
   // an overbooking (no slot to collide with) and the cancel is "other" without a message (V2-08 08-04a).
   "features/visits/scheduling.ts#rescheduleVisit": {
-    args: (a) => [{ visit_id: a.visit, new_scheduled_at: futureIso(40), is_overbooked: true, ...acting(a) }, randomUUID()],
+    args: (a) => [{ visit_id: a.visit, new_scheduled_at: futureIso(40), is_overbooked: true, expected_version: 0, ...acting(a) }, randomUUID()],
   },
   "features/visits/scheduling.ts#cancelVisit": {
-    args: (a) => [{ visit_id: a.visit, reason_code: "other", reason_note: "Synthetic note", ...acting(a) }, randomUUID()],
+    args: (a) => [{ visit_id: a.visit, reason_code: "other", reason_note: "Synthetic note", expected_version: 0, ...acting(a) }, randomUUID()],
   },
-  "features/visits/scheduling.ts#markNoShow": { args: (a) => [a.noShowableVisit, randomUUID()] },
-  "features/visits/scheduling.ts#confirmAppointment": { args: (a) => [a.visit, randomUUID()] },
+  "features/visits/scheduling.ts#markNoShow": { args: (a) => [a.noShowableVisit, randomUUID(), 0] },
+  "features/visits/scheduling.ts#confirmAppointment": { args: (a) => [a.visit, randomUUID(), 0] },
   "features/visits/scheduling.ts#registerAndBook": {
     args: (a) => [{
       patient_id: a.patient,

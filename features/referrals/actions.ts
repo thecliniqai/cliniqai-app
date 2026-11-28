@@ -5,6 +5,7 @@ import { requireServiceContext, resolveServiceContext } from "@/lib/auth/context
 import { Referral } from "@/lib/db/types";
 import * as referralsService from "./service";
 import { ReferralItem, CreateReferralInput, CloseReferralLoopInput } from "./types";
+import { markAction } from "@/lib/observability/db-timing";
 
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Actions that threw on an authentication or
@@ -27,6 +28,7 @@ function revalidate(path: string, type?: "page") {
 export async function createReferral(
   input: CreateReferralInput
 ): Promise<{ success: boolean; referral?: Referral; signedUrl?: string; error?: string }> {
+  await markAction("referrals.create_referral");
   const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.createReferral(ctx, input);
   if (result.success) {
@@ -40,6 +42,7 @@ export async function createReferral(
  * Retrieves all outbound referrals initiated by the active clinic.
  */
 export async function getOutboundReferrals(): Promise<{ success: boolean; referrals: ReferralItem[]; error?: string }> {
+  await markAction("referrals.get_outbound_referrals");
   const ctx = await requireServiceContext("patients:view");
   return referralsService.getOutboundReferrals(ctx);
 }
@@ -48,6 +51,7 @@ export async function getOutboundReferrals(): Promise<{ success: boolean; referr
  * Retrieves all inbound referrals targeted at the active clinic.
  */
 export async function getInboundReferrals(): Promise<{ success: boolean; referrals: ReferralItem[]; error?: string }> {
+  await markAction("referrals.get_inbound_referrals");
   const ctx = await requireServiceContext("patients:view");
   return referralsService.getInboundReferrals(ctx);
 }
@@ -56,6 +60,7 @@ export async function getInboundReferrals(): Promise<{ success: boolean; referra
  * Marks an inbound referral as acknowledged by the receiving clinic.
  */
 export async function acknowledgeReferral(referralId: string): Promise<{ success: boolean; error?: string }> {
+  await markAction("referrals.acknowledge_referral");
   const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.acknowledgeReferral(ctx, referralId);
   if (result.success) revalidate("/referrals");
@@ -66,6 +71,7 @@ export async function acknowledgeReferral(referralId: string): Promise<{ success
  * Closes the referral loop with the receiving clinic's notes.
  */
 export async function closeReferralLoop(input: CloseReferralLoopInput): Promise<{ success: boolean; error?: string }> {
+  await markAction("referrals.close_referral_loop");
   const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.closeReferralLoop(ctx, input);
   if (result.success) {
@@ -81,6 +87,7 @@ export async function closeReferralLoop(input: CloseReferralLoopInput): Promise<
 export async function getReferralSignedUrl(
   referralId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
+  await markAction("referrals.get_referral_signed_url");
   const ctx = await requireServiceContext("consultations:view");
   return referralsService.getReferralSignedUrl(ctx, referralId);
 }
@@ -91,6 +98,7 @@ export async function getReferralSignedUrl(
 export async function getPatientReferrals(
   patientId: string
 ): Promise<{ success: boolean; referrals: Referral[]; error?: string }> {
+  await markAction("referrals.get_patient_referrals");
   const ctx = await requireServiceContext("patients:view");
   return referralsService.getPatientReferrals(ctx, patientId);
 }
@@ -101,6 +109,7 @@ export async function getPatientReferrals(
 export async function shareReferralLetterViaWhatsApp(
   referralId: string
 ): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  await markAction("referrals.share_referral_letter_via_whats_app");
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return referralsService.shareReferralLetterViaWhatsApp(resolved.ctx, referralId);

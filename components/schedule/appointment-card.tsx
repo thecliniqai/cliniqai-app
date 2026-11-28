@@ -8,7 +8,9 @@ import { StatusChip } from "@/components/clinical/status-chip";
 import { RowMenu } from "@/components/front-desk/row-menu";
 import { confirmAppointment } from "@/features/visits/scheduling";
 import type { ScheduleAppointment } from "@/features/schedule/schema";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 import { formatClinicTime } from "@/lib/datetime/format";
 
 /**
@@ -18,10 +20,19 @@ import { formatClinicTime } from "@/lib/datetime/format";
  * and the agenda.
  */
 export function AppointmentCard({ appointment: a, showDoctor = false }: { appointment: ScheduleAppointment; showDoctor?: boolean }) {
-  const confirm = useCommand();
+  const confirm = useConfirmedCall();
+  const afterSave = useAfterSave();
+  const rowChanged = useRowChanged();
   const onConfirm = async () => {
-    const result = await confirm.run((id) => confirmAppointment(a.visitId, id));
-    if (!result.ok) notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`, { retry: () => void onConfirm() });
+    const result = await confirm.run((id) => confirmAppointment(a.visitId, id, a.rowVersion));
+    // The Schedule is a server-rendered screen until 09E-12: the saved confirmation refreshes its route (no action revalidates a path any more).
+    if (result.ok) {
+      afterSave.refreshScreens();
+      return;
+    }
+    // A visit that moved on elsewhere (09E-07, R-19): the day is re-read and the message says why; a Retry with the same version would be refused again.
+    if (rowChanged(result.error)) notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`);
+    else notify.error(`Couldn't confirm ${a.name}. ${result.error.message}`, { retry: () => void onConfirm() });
   };
   return (
     <li
@@ -34,7 +45,7 @@ export function AppointmentCard({ appointment: a, showDoctor = false }: { appoin
           <p className="text-label font-medium text-fg-muted tabular-nums">
             {formatClinicTime(a.time)} – {formatClinicTime(a.endTime)}
           </p>
-          <Link href={`/patients/${a.patientId}`} className="block truncate text-body-md font-medium text-fg underline-offset-2 hover:underline" data-patient-name="">
+          <Link href={`/patients/${a.patientId}`} prefetch={false} className="block truncate text-body-md font-medium text-fg underline-offset-2 hover:underline" data-patient-name="">
             {a.name}
           </Link>
           {showDoctor && <p className="truncate text-label text-fg-muted">{a.doctorName}</p>}
@@ -72,7 +83,7 @@ export function AppointmentCard({ appointment: a, showDoctor = false }: { appoin
               Confirm
             </Button>
           )}
-          <RowMenu visitId={a.visitId} name={a.name} actions={a.actions} />
+          <RowMenu visitId={a.visitId} name={a.name} actions={a.actions} rowVersion={a.rowVersion} />
         </div>
       </div>
     </li>

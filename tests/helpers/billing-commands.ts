@@ -132,6 +132,15 @@ export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: st
     }
   };
   for (const [key, value] of Object.entries(result)) {
+    // 000134: `versions` is the clinic versions the command raised, an object of the four domain names to counters and nothing else.
+    if (key === "versions" && value !== null && typeof value === "object" && !Array.isArray(value)) {
+      for (const [domain, version] of Object.entries(value)) {
+        if (!["schedule", "queue", "billing", "settings"].includes(domain) || !Number.isSafeInteger(version) || (version as number) < 0) {
+          throw new Error(`stored result key versions holds something other than domain counters (${domain})`);
+        }
+      }
+      continue;
+    }
     // V2-09c: a list of ids (added_item_ids) is allowed; every element must be a token like any other value.
     if (Array.isArray(value)) for (const element of value) token(key, element);
     else token(key, value);

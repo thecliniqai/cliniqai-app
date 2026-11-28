@@ -31,12 +31,13 @@ for (const role of ROLES_CHECKED) {
   test.describe(role, () => {
     test.use({ storageState: storageStatePath(role) });
 
+    // 09E-14a (flake F4): one test per screen and width. One test used to walk all five screens (about 20 s of the 30 s limit for the owner, measured on an idle
+    // stack, so any load pushed it over): each screen now has its own limit and its own result; the checks are the same.
     for (const w of DESIGN_WIDTHS) {
-      test(`${role} at ${w.width}px: the shell on Today, Patients, a patient, the consult and Settings`, async ({ page }, testInfo) => {
-        await page.setViewportSize({ width: w.width, height: w.height });
-        const whole: Record<string, Array<{ id: string; impact: string | null | undefined }>> = {};
-        // The consult needs consultations:view (V2-08 08-01a, P1-07): the receptionist is redirected away from it.
-        for (const screen of SCREENS.filter((s) => !s.needs || hasPerm(role, s.needs))) {
+      // The consult needs consultations:view (V2-08 08-01a, P1-07): the receptionist is redirected away from it.
+      for (const screen of SCREENS.filter((s) => !s.needs || hasPerm(role, s.needs))) {
+        test(`${role} at ${w.width}px: the shell on ${screen.slug}`, async ({ page }, testInfo) => {
+          await page.setViewportSize({ width: w.width, height: w.height });
           await page.goto(screen.url());
           await expect(page.getByRole("main")).toBeVisible();
           await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
@@ -55,14 +56,14 @@ for (const role of ROLES_CHECKED) {
           const label = `${role}-${screen.slug}-${w.width}`;
           expect(await axeShell(page, testInfo, label), `${label}: axe on the shell`).toEqual([]);
           await axeShell(page, testInfo, `${label}-whole-page`, { wholePage: true });
-          whole[screen.slug] = JSON.parse(fs.readFileSync(path.join(OUT, "axe", `${label}-whole-page.json`), "utf8")).violations;
+          const whole = JSON.parse(fs.readFileSync(path.join(OUT, "axe", `${label}-whole-page.json`), "utf8")).violations;
 
           const dir = path.join(OUT, "ui-checks");
           fs.mkdirSync(dir, { recursive: true });
           await page.screenshot({ path: path.join(dir, `${label}.png`), animations: "disabled", caret: "hide" });
-        }
-        await testInfo.attach("whole-page-axe.json", { body: JSON.stringify(whole, null, 2), contentType: "application/json" });
-      });
+          await testInfo.attach("whole-page-axe.json", { body: JSON.stringify({ [screen.slug]: whole }, null, 2), contentType: "application/json" });
+        });
+      }
     }
   });
 }

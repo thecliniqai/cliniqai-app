@@ -9,7 +9,7 @@ import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
 import { chipBalance, formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
 import { RowMenu, rowMenuItems } from "@/components/front-desk/row-menu";
-import { startLabel, useCheckIn, useStart } from "./use-row-commands";
+import { startLabel, useCheckIn, useStart, type CheckInHooks } from "./use-row-commands";
 
 /**
  * One Today row (V2-08 08-03a, 08-03b; 06-UI-SPEC §7): the V2-06 `QueueRow` fed from a {@link TodayRow}. The buttons come
@@ -31,9 +31,10 @@ export interface TodayRowViewProps {
   /** The wait ticks from these two clocks (`waitNow`). */
   clock: { received: number; now: number } | null;
   onOpen: (visitId: string) => void;
-  onOptimistic: (row: TodayRow) => void;
+  onOptimistic: (row: TodayRow, to?: "waiting" | "in_consultation") => void;
   onRollback: (visitId: string) => void;
-  onChanged: () => void;
+  /** A check-in's answer goes into the board; with no result (a refused stale version) the board is read again. */
+  onChanged: CheckInHooks["onDone"];
   onRecordVitals: (row: TodayRow) => void;
   onCollect: (row: TodayRow) => void;
 }
@@ -86,7 +87,7 @@ export function RowButtons({
   buttons: readonly RowButton[];
 }) {
   const checkIn = useCheckIn(row, { onOptimistic, onRollback, onDone: onChanged });
-  const start = useStart(row, onChanged);
+  const start = useStart(row, { onOptimistic, onRollback });
   const variant = (b: RowButton) => (b.primary ? "primary" : "secondary");
   return (
     <>
@@ -237,7 +238,7 @@ export function TodayRowView(props: TodayRowViewProps) {
                 Book follow-up
               </Link>
             )}
-            {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} />}
+            {menu && <RowMenu visitId={row.visitId} name={row.name} actions={row.actions} rowVersion={row.rowVersion} />}
           </>
         ) : undefined
       }

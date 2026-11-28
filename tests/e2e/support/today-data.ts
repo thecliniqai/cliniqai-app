@@ -5,6 +5,7 @@
  * most status updates), through the service role.
  */
 import { getAdminClient } from "../../helpers/supabase-admin";
+import { addMemberToTenant, seedTenantWithOwner } from "../../helpers/tenants";
 import { appToday, istInstant, run, seedPatient, testTag } from "./m0-data";
 
 export interface TodayVisit {
@@ -169,4 +170,21 @@ export async function seedFullDay(): Promise<{ booked: string; waiting: string; 
     }
   }
   return names;
+}
+
+/**
+ * A clinic of the test's own: an owner (the observer, a practicing doctor) and a receptionist (the screen that checks in), both signed in through the login
+ * UI by the spec. A signal makes a screen re-read and re-render the whole clinic day, and clinic A's day grows with every spec of every project. CI
+ * 44942218223: iphone-15 runs last (about an hour in); the day held 397 visits, and the 1280 px observer received the signal and the refreshed day in time
+ * but had not drawn it within 2 s on the runner's WebKit. The 2 s is measured on a clinic day the test controls, not on what the run has left in clinic A.
+ */
+export async function ownClinic(): Promise<{ owner: { email: string }; receptionist: { email: string }; seed: () => ReturnType<typeof seedBookedToday> }> {
+  const owner = await seedTenantWithOwner(`E2E Synthetic Clinic Live ${testTag()}`);
+  const receptionist = await addMemberToTenant(owner.tenantId, "receptionist");
+  const clinic = { tenantId: owner.tenantId, ownerId: owner.userId, doctorId: owner.userId, createdBy: receptionist.userId };
+  return {
+    owner: { email: owner.userEmail },
+    receptionist: { email: receptionist.userEmail },
+    seed: () => seedBookedToday(todayName("Booked"), "10:00", clinic),
+  };
 }

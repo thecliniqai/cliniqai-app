@@ -4,6 +4,7 @@ import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive, recordDpdpExportAudit
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -22,7 +23,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  *   id). Error bodies are fixed strings; nothing from the database reaches the caller.
  * Same formats and headers as the `/api/v1` export (which stays on the API-key path, behind the switch).
  */
-export async function GET(req: NextRequest, { params }: RouteContext) {
+async function handleGet(req: NextRequest, { params }: RouteContext) {
   const resolved = await resolveServiceContext(DPDP_EXPORT_PERMISSION, "full", { sensitive: "dpdp.export" });
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") {
@@ -88,3 +89,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     },
   });
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

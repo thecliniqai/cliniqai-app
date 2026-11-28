@@ -1,0 +1,359 @@
+{
+  "description": "p50, p95 and p99 of one supabase-js round trip (PostgREST, local Supabase stack) per command, sequential calls with fresh request ids and prepared rows; the baselines are plain INVOKER reads on the same stack",
+  "target_p95_ms": 150,
+  "read_target_p95_ms": 50,
+  "calls_per_command": 100,
+  "warmup_calls_not_counted": 5,
+  "node": "v24.22.3",
+  "cpu_count": 8,
+  "passed": false,
+  "commands_over_target": [
+    "read: consult_assist_context",
+    "read: search_diagnoses",
+    "read: search_medicines",
+    "read: consult_screen",
+    "read: today_board"
+  ],
+  "results": [
+    {
+      "name": "create_invoice",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 17,
+      "p95_ms": 19.7,
+      "p99_ms": 22.2,
+      "p95_over_baseline": 2.6
+    },
+    {
+      "name": "collect_payment",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 18.5,
+      "p95_ms": 21.3,
+      "p99_ms": 23.4,
+      "p95_over_baseline": 2.8
+    },
+    {
+      "name": "sign_consultation",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 16.5,
+      "p95_ms": 19.5,
+      "p99_ms": 20.4,
+      "p95_over_baseline": 2.6
+    },
+    {
+      "name": "reopen_visit_for_amendment",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 19.6,
+      "p95_ms": 27.3,
+      "p99_ms": 33.7,
+      "p95_over_baseline": 3.6
+    },
+    {
+      "name": "finalize_visit_amendment",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 15.6,
+      "p95_ms": 17.5,
+      "p99_ms": 19.7,
+      "p95_over_baseline": 2.3
+    },
+    {
+      "name": "check_in_visit",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 13.1,
+      "p95_ms": 15.3,
+      "p99_ms": 18.1,
+      "p95_over_baseline": 2
+    },
+    {
+      "name": "enqueue_walk_in",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 13.2,
+      "p95_ms": 14.5,
+      "p99_ms": 16.7,
+      "p95_over_baseline": 1.9
+    },
+    {
+      "name": "register_and_book",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 16.8,
+      "p95_ms": 19.8,
+      "p99_ms": 20.8,
+      "p95_over_baseline": 2.6
+    },
+    {
+      "name": "complete_and_bill",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 24.4,
+      "p95_ms": 29.8,
+      "p99_ms": 32.9,
+      "p95_over_baseline": 3.9
+    },
+    {
+      "name": "start_consultation",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 15.1,
+      "p95_ms": 18.5,
+      "p99_ms": 19.9,
+      "p95_over_baseline": 2.4
+    },
+    {
+      "name": "complete_visit",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 11.2,
+      "p95_ms": 12.5,
+      "p99_ms": 12.6,
+      "p95_over_baseline": 1.6
+    },
+    {
+      "name": "save_consultation_draft",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 12.7,
+      "p95_ms": 14.5,
+      "p99_ms": 15.5,
+      "p95_over_baseline": 1.9
+    },
+    {
+      "name": "change_prescription",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 14.9,
+      "p95_ms": 17.8,
+      "p99_ms": 19.8,
+      "p95_over_baseline": 2.3
+    },
+    {
+      "name": "record_patient_allergies",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 14.4,
+      "p95_ms": 17.4,
+      "p99_ms": 20.3,
+      "p95_over_baseline": 2.3
+    },
+    {
+      "name": "register_patient",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 11.3,
+      "p95_ms": 13.1,
+      "p99_ms": 17.8,
+      "p95_over_baseline": 1.7
+    },
+    {
+      "name": "reschedule_visit",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 12.9,
+      "p95_ms": 15.5,
+      "p99_ms": 15.8,
+      "p95_over_baseline": 2
+    },
+    {
+      "name": "cancel_visit",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 14.1,
+      "p95_ms": 20.4,
+      "p99_ms": 24.8,
+      "p95_over_baseline": 2.7
+    },
+    {
+      "name": "mark_no_show",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 10.9,
+      "p95_ms": 12.3,
+      "p99_ms": 12.9,
+      "p95_over_baseline": 1.6
+    },
+    {
+      "name": "confirm_appointment",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 11.5,
+      "p95_ms": 13,
+      "p99_ms": 13.4,
+      "p95_over_baseline": 1.7
+    },
+    {
+      "name": "add_to_waitlist",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 10.4,
+      "p95_ms": 11.8,
+      "p99_ms": 12.8,
+      "p95_over_baseline": 1.6
+    },
+    {
+      "name": "promote_waitlist_entry",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 12.8,
+      "p95_ms": 14.6,
+      "p99_ms": 15.8,
+      "p95_over_baseline": 1.9
+    },
+    {
+      "name": "baseline: visits select",
+      "kind": "baseline",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 6.5,
+      "p95_ms": 7.6,
+      "p99_ms": 8.2,
+      "p95_over_baseline": 1
+    },
+    {
+      "name": "baseline: search_patients",
+      "kind": "baseline",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 14.3,
+      "p95_ms": 17.8,
+      "p99_ms": 19.1,
+      "p95_over_baseline": 2.3
+    },
+    {
+      "name": "baseline: available_slots",
+      "kind": "baseline",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 7.5,
+      "p95_ms": 8.6,
+      "p99_ms": 9.2,
+      "p95_over_baseline": 1.1
+    },
+    {
+      "name": "repeat_visit_plan",
+      "kind": "command",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 27.7,
+      "p95_ms": 39.7,
+      "p99_ms": 41.4,
+      "p95_over_baseline": 5.2
+    },
+    {
+      "name": "read: consult_assist_context",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 43.5,
+      "p95_ms": 62.8,
+      "p99_ms": 66.8,
+      "p95_over_baseline": 8.3
+    },
+    {
+      "name": "read: search_diagnoses",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 103.8,
+      "p95_ms": 131.2,
+      "p99_ms": 163.4,
+      "p95_over_baseline": 17.3
+    },
+    {
+      "name": "read: search_medicines",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 42.5,
+      "p95_ms": 108.9,
+      "p99_ms": 139.8,
+      "p95_over_baseline": 14.3
+    },
+    {
+      "name": "read: search_substances",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 8,
+      "p95_ms": 8.8,
+      "p99_ms": 9.3,
+      "p95_over_baseline": 1.2
+    },
+    {
+      "name": "read: reference_shard (substances)",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 12.3,
+      "p95_ms": 15.4,
+      "p99_ms": 20.5,
+      "p95_over_baseline": 2
+    },
+    {
+      "name": "read: rx_allergy_context",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 30.3,
+      "p95_ms": 47,
+      "p99_ms": 48,
+      "p95_over_baseline": 6.2
+    },
+    {
+      "name": "read: patient_snapshot",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 14.9,
+      "p95_ms": 17.8,
+      "p99_ms": 19,
+      "p95_over_baseline": 2.3
+    },
+    {
+      "name": "read: consult_screen",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 81.7,
+      "p95_ms": 105.1,
+      "p99_ms": 119.9,
+      "p95_over_baseline": 13.8
+    },
+    {
+      "name": "read: today_board",
+      "kind": "read",
+      "calls": 100,
+      "errors": 0,
+      "p50_ms": 132.2,
+      "p95_ms": 184.8,
+      "p99_ms": 191.5,
+      "p95_over_baseline": 24.3
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import * as webhooksService from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { WebhookSubscriptionItem, WebhookDeliveryLogItem, AllowedWebhookEvent } from "./service";
 
@@ -20,6 +21,7 @@ function revalidate() {
 }
 
 export async function listWebhookSubscriptions(): Promise<Result<typeof webhooksService.listWebhookSubscriptions>> {
+  await markAction("webhooks.list_webhook_subscriptions");
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, subscriptions: [], error: resolved.error };
   return webhooksService.listWebhookSubscriptions(resolved.ctx);
@@ -29,6 +31,7 @@ export async function createWebhookSubscription(data: {
   endpointUrl: string;
   eventTypes: string[];
 }): Promise<Result<typeof webhooksService.createWebhookSubscription>> {
+  await markAction("webhooks.create_webhook_subscription");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "webhooks.create" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await webhooksService.createWebhookSubscription(resolved.ctx, data);
@@ -39,6 +42,7 @@ export async function createWebhookSubscription(data: {
 export async function deleteWebhookSubscription(
   subscriptionId: string
 ): Promise<Result<typeof webhooksService.deleteWebhookSubscription>> {
+  await markAction("webhooks.delete_webhook_subscription");
   const resolved = await resolveServiceContext("clinic:manage", "full", { sensitive: "webhooks.delete" });
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await webhooksService.deleteWebhookSubscription(resolved.ctx, subscriptionId);
@@ -47,12 +51,14 @@ export async function deleteWebhookSubscription(
 }
 
 export async function testPingWebhook(subscriptionId: string): Promise<Result<typeof webhooksService.testPingWebhook>> {
+  await markAction("webhooks.test_ping_webhook");
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return webhooksService.testPingWebhook(resolved.ctx, subscriptionId);
 }
 
 export async function listDeliveryLogs(subscriptionId: string): Promise<Result<typeof webhooksService.listDeliveryLogs>> {
+  await markAction("webhooks.list_delivery_logs");
   const resolved = await resolveServiceContext("clinic:manage");
   if (!resolved.ok) return { success: false, logs: [], error: resolved.error };
   return webhooksService.listDeliveryLogs(resolved.ctx, subscriptionId);

@@ -187,9 +187,13 @@ export const rescheduleVisitSchema = z.object({
   override_off_duty: z.boolean().default(false),
   override_block: z.boolean().default(false),
   notify: z.boolean().default(false),
+  /** The visit's `row_version` the screen shows (09E-07, R-19). The server actions require it (`RescheduleVisitRequest`); absent, nothing is compared. */
+  expected_version: z.number().int().nonnegative().nullable().optional(),
 });
 
 export type RescheduleVisitInput = z.input<typeof rescheduleVisitSchema>;
+/** What a screen sends: the input with the version it shows. */
+export type RescheduleVisitRequest = RescheduleVisitInput & { expected_version: number };
 
 /** What a staff member sends to `cancel_visit`. The note is free text that stays on the visit (never in a message or a result). */
 export const cancelVisitSchema = z.object({
@@ -198,9 +202,13 @@ export const cancelVisitSchema = z.object({
   reason_note: z.string().max(500).nullable().optional(),
   notify: z.boolean().default(false),
   promote_waitlist: z.boolean().default(true),
+  /** The visit's `row_version` the screen shows (09E-07, R-19). The server actions require it (`CancelVisitRequest`); absent, nothing is compared. */
+  expected_version: z.number().int().nonnegative().nullable().optional(),
 });
 
 export type CancelVisitInput = z.input<typeof cancelVisitSchema>;
+/** What a screen sends: the input with the version it shows. */
+export type CancelVisitRequest = CancelVisitInput & { expected_version: number };
 
 export const createScheduleBlockSchema = z.object({
   doctor_id: z.string().uuid("Invalid doctor ID").nullable().optional(),

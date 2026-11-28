@@ -281,19 +281,22 @@ export async function getClinicVisitsRegister(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allVisitIds = allVisits.map((v: any) => v.id);
 
-    // Query invoices for revenue calculation
-    let totalBilledRevenue = 0;
-    if (allVisitIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: periodInvoices } = await (supabase.from("invoices") as any)
-        .select("total_amount")
-        .eq("tenant_id", session.tenantId)
-        .in("visit_id", allVisitIds);
-
-      for (const inv of periodInvoices || []) {
-        totalBilledRevenue += Number(inv.total_amount) || 0;
-      }
-    }
+    // Invoices of the whole period for the revenue figure: started here and awaited where the figure is used, so it runs beside the page's own reads below
+    // (V2-09e 09E-06, R-9: independent reads in one round trip, not one after the other).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const periodInvoicesRead: Promise<{ data: any[] | null }> | null =
+      allVisitIds.length > 0
+        ? // `Promise.resolve` starts the request now (a PostgREST builder runs only when it is awaited).
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          Promise.resolve((supabase.from("invoices") as any).select("total_amount").eq("tenant_id", session.tenantId).in("visit_id", allVisitIds))
+        : null;
+    const billedRevenue = async (): Promise<number> => {
+      if (!periodInvoicesRead) return 0;
+      const { data: periodInvoices } = await periodInvoicesRead;
+      let total = 0;
+      for (const inv of periodInvoices || []) total += Number(inv.total_amount) || 0;
+      return total;
+    };
 
     // 5. Paginate for current page
     const totalCount = allVisits.length;
@@ -302,6 +305,7 @@ export async function getClinicVisitsRegister(
     const paginatedRows = allVisits.slice(startIndex, startIndex + parsed.pageSize);
 
     if (paginatedRows.length === 0) {
+      const totalBilledRevenue = await billedRevenue();
       return {
         visits: [],
         metrics: {
@@ -525,6 +529,7 @@ export async function getClinicVisitsRegister(
       };
     });
 
+    const totalBilledRevenue = await billedRevenue();
     return {
       visits: mappedVisits,
       metrics: {

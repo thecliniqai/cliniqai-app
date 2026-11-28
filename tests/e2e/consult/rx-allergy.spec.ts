@@ -10,8 +10,7 @@ import { awaitHydrated } from "../support/hydrated";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
 import { storageStatePath, type RunUser } from "../support/run-data";
 import { retireOwnDoctor, seedOwnDoctor, signInAsOwnDoctor } from "../support/own-doctor";
-import { rxItemsOf } from "../support/cdci-fixtures";
-import { addCustomMedicine, rxField } from "../support/rx-entry";
+import { addCustomMedicine, rxField, rxStored } from "../support/rx-entry";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { AL_BRANDS, AL_SUBSTANCES, seedAllergyCatalogue } from "../../helpers/cdci-allergy";
 
@@ -68,7 +67,7 @@ test("@golden a known allergen is flagged before it is added, stored only with a
   await reasonField.press("Enter");
   await expect(rx.getByRole("alert").filter({ hasText: /reason of at least 5 characters/ })).toBeVisible();
   await page.waitForTimeout(400);
-  expect(await rxItemsOf(visitId)).toEqual([]);
+  expect(await rxStored(page, visitId)).toEqual([]);
   // "Prescribe anyway" with a reason stores the line and its override.
   await reasonField.fill("Tolerated before, patient informed");
   await rx.getByRole("button", { name: "Prescribe anyway" }).click();
@@ -104,7 +103,7 @@ test("a free-text allergy flags a custom line by name, and a line with no substa
   // Another custom medicine with no match: the line says it was checked by name only (the allergies are known).
   await addCustomMedicine(rx, `E2E Plain Tablet ${testTag()}`);
   await expect(rx.locator("[data-rx-note]").filter({ hasText: "Checked by name only" })).toHaveCount(1, { timeout: 10_000 });
-  expect((await rxItemsOf(visitId)).length).toBe(2);
+  expect((await rxStored(page, visitId)).length).toBe(2);
 });
 
 test("an allergy recorded after a line was added flags it, and 'Prescribe anyway' with a reason confirms it", async ({ page }) => {
@@ -190,6 +189,11 @@ test("09C-06a A-3: a template with an allergen line adds the safe line and leave
       ],
     })
     .throwOnError();
+  // The doctor's templates come with the consult (09E-05, R-8) and the Templates sheet reads nothing when it opens: a template written after the page
+  // was served is on the next load.
+  await page.reload();
+  await expect(page.getByLabel("History of Present Illness & Clinical Notes")).toBeVisible();
+  await awaitHydrated(page);
   const rx = page.locator("#prescription");
   await rx.getByRole("button", { name: "Templates" }).click();
   const sheet = page.getByRole("dialog", { name: "Templates" });
@@ -202,7 +206,7 @@ test("09C-06a A-3: a template with an allergen line adds the safe line and leave
   await expect(builder).toContainText(AL_BRANDS.amoxBrand.brand);
   await expect(rx.locator("[data-dose-notice]")).toHaveText("Matches allergy: a recorded allergy (see the allergy strip)");
   await expect(builder.getByRole("button", { name: "Prescribe anyway…" })).toBeVisible();
-  expect((await rxItemsOf(visitId)).map((i) => i.medicine_name)).toEqual([safe]);
+  expect((await rxStored(page, visitId)).map((i) => i.medicine_name)).toEqual([safe]);
 });
 
 test("09C-06a A-3: Undo of a line prescribed despite an allergy puts it back with its reason (the override is kept)", async ({ page }, testInfo) => {
@@ -220,12 +224,12 @@ test("09C-06a A-3: Undo of a line prescribed despite an allergy puts it back wit
   await expect(rxList(page)).toHaveCount(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
   await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
-  const { data } = await admin
-    .from("prescription_items")
-    .select("medicine_name, allergy_override, prescriptions!inner(visit_id)")
-    .eq("prescriptions.visit_id", visitId);
-  expect(data).toHaveLength(1);
-  expect(data![0].allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
+  // 09E-08 (R-11): the line is back on screen at once (reversible class), before the command has answered: the database is read once it has.
+  const stored = async () =>
+    (await admin.from("prescription_items").select("medicine_name, allergy_override, prescriptions!inner(visit_id)").eq("prescriptions.visit_id", visitId)).data ?? [];
+  await expect.poll(async () => (await stored()).length, { timeout: 10_000 }).toBe(1);
+  const data = await stored();
+  expect(data[0]!.allergy_override).toMatchObject({ reason: "Tolerated before, patient informed", allergens: [AL_SUBSTANCES.amox.name] });
 });
 
 // 09C-06a (A-8): the editor sends the list it opened on; a list recorded meanwhile (another tab, the nurse) is never overwritten by a stale screen.

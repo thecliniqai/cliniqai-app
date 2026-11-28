@@ -2,9 +2,11 @@ import { getClinicProfileWithMembership } from "@/features/clinics/profile";
 import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { withPageAuth } from "@/lib/auth/page";
+import { ChangedElsewhere } from "@/components/shell/changed-elsewhere";
 
 async function ClinicSettingsPage() {
-  const { tenant: profile, membership } = await getClinicProfileWithMembership();
+  // The versions this form is read at (R-9, R-18) ride on the clinic row's statement: no call of their own.
+  const { tenant: profile, membership, versions: basis } = await getClinicProfileWithMembership();
 
   if (!profile) {
     return (
@@ -21,6 +23,7 @@ async function ClinicSettingsPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <ChangedElsewhere domains={["settings"]} basis={basis ?? undefined} />
       {/* Header */}
       <div className="pb-2 border-b border-gray-200">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">

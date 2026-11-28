@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   activeDestination,
   allDestinations,
@@ -13,14 +13,13 @@ import {
 } from "@/lib/nav/nav-for-role";
 import { visit, type BackStack } from "@/lib/nav/back-stack";
 import { barsHidden, useKeyboardState } from "@/lib/pwa/keyboard-aware";
-import { browserResumeListen, startResumeRefresh } from "@/lib/pwa/resume";
-import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
 import { cn } from "@/lib/utils";
 import { BottomBar } from "./bottom-bar";
 import { CommandPalette } from "./command-palette";
 import { MoreSheet } from "./more-sheet";
 import { PwaRuntime } from "./pwa-runtime";
 import { Rail } from "./rail";
+import { RumReporter } from "./rum-reporter";
 import { Sidebar } from "./sidebar";
 import { ShellToaster } from "./toaster";
 import { TopBar } from "./top-bar";
@@ -71,7 +70,6 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/";
-  const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const keyboard = useKeyboardState();
@@ -98,19 +96,6 @@ export function AppShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  useEffect(
-    () =>
-      startResumeRefresh({
-        pathname: () => currentPath.current,
-        // Only while the server answers: a refresh that fails mid-flight becomes a full navigation and loses the screen.
-        refresh: () => void refreshWhenReachable(() => router.refresh()),
-        isVisible: () => document.visibilityState === "visible",
-        listen: browserResumeListen,
-        now: () => Date.now(),
-      }),
-    [router],
-  );
 
   const getStack = useCallback(() => stack.current, []);
 
@@ -186,6 +171,7 @@ export function AppShell({
       <MoreSheet open={moreOpen} onOpenChange={setMoreOpen} destinations={moreDestinations} activeId={active?.id ?? null} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} model={model} />
       <PwaRuntime swEnabled={swEnabled} shellClinic={shellClinic} />
+      <RumReporter />
       <ShellToaster aboveBottomBar={bottomBarShown} />
     </div>
   );

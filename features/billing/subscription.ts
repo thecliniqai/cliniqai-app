@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/permissions/guards";
 import { getTenantAccessLevel } from "@/lib/auth/tenant";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { markAction } from "@/lib/observability/db-timing";
 
 /** `tenant_subscriptions.status` (SUB §6.1). */
 export type SubscriptionStatus =
@@ -43,6 +44,7 @@ const LEVELS = new Set<string>(["full", "locked", "onboarding", "none"]);
  * access level comes from the caller-bound wrapper `my_tenant_access` (no time parameter, own clinics only).
  */
 export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
+  await markAction("billing_subscription.get_subscription_overview");
   const supabase = await createClient();
   // SUB §6.2 (05-10a): the owner of a locked or onboarding clinic must still see the subscription.
   const session = await requirePermission(supabase, "clinic:manage", "billing");

@@ -12,6 +12,7 @@ import type {
   PromoteWaitlistInput,
   PromoteWaitlistValue,
 } from "./service";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type {
   AddToWaitlistInput,
@@ -41,6 +42,7 @@ export async function addToWaitlist(
   input: AddToWaitlistInput,
   clientRequestId: string
 ): Promise<CommandResult<AddToWaitlistValue>> {
+  await markAction("waitlist.add_to_waitlist");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await waitlistService.addToWaitlist(resolved.ctx, input, clientRequestId);
@@ -52,6 +54,7 @@ export async function addToWaitlist(
  * Retrieves active waitlist entries for a specified date and optional doctor.
  */
 export async function getWaitlistForDate(targetDate: string, doctorId?: string): Promise<GetWaitlistResult> {
+  await markAction("waitlist.get_waitlist_for_date");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return waitlistService.getWaitlistForDate(resolved.ctx, targetDate, doctorId);
@@ -65,9 +68,9 @@ export async function promoteWaitlistEntry(
   input: PromoteWaitlistInput,
   clientRequestId: string
 ): Promise<CommandResult<PromoteWaitlistValue>> {
+  await markAction("waitlist.promote_waitlist_entry");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await waitlistService.promoteWaitlistEntry(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }

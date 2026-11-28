@@ -430,6 +430,39 @@ export type Database = {
           },
         ];
       };
+      clinic_versions: {
+        Row: {
+          changed_at: string;
+          domain: string;
+          last_xact: unknown;
+          tenant_id: string;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          changed_at?: string;
+          domain: string;
+          last_xact?: unknown;
+          tenant_id: string;
+          version?: number;
+        };
+        Update: {
+          changed_at?: string;
+          domain?: string;
+          last_xact?: unknown;
+          tenant_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinic_versions_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clinical_notes: {
         Row: {
           advice: string[];
@@ -1310,6 +1343,7 @@ export type Database = {
           invoice_number: string;
           location_id: string;
           patient_id: string;
+          row_version: number;
           status: string;
           subtotal: number;
           tax: number;
@@ -1326,6 +1360,7 @@ export type Database = {
           invoice_number: string;
           location_id?: string;
           patient_id: string;
+          row_version?: number;
           status?: string;
           subtotal?: number;
           tax?: number;
@@ -1341,6 +1376,7 @@ export type Database = {
           invoice_number?: string;
           location_id?: string;
           patient_id?: string;
+          row_version?: number;
           status?: string;
           subtotal?: number;
           tax?: number;
@@ -2246,6 +2282,25 @@ export type Database = {
           },
         ];
       };
+      reference_catalogues: {
+        Row: {
+          catalogue: string;
+          changed_at: string;
+          version: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          catalogue: string;
+          changed_at: string;
+          version: string;
+        };
+        Update: {
+          catalogue?: string;
+          changed_at?: string;
+          version?: string;
+        };
+        Relationships: [];
+      };
       referrals: {
         Row: {
           acknowledged_at: string | null;
@@ -2914,6 +2969,7 @@ export type Database = {
           origin_type: string;
           patient_id: string;
           reason_for_visit: string | null;
+          row_version: number;
           scheduled_at: string | null;
           signed_at: string | null;
           signed_by: string | null;
@@ -2936,6 +2992,7 @@ export type Database = {
           origin_type: string;
           patient_id: string;
           reason_for_visit?: string | null;
+          row_version?: number;
           scheduled_at?: string | null;
           signed_at?: string | null;
           signed_by?: string | null;
@@ -2957,6 +3014,7 @@ export type Database = {
           origin_type?: string;
           patient_id?: string;
           reason_for_visit?: string | null;
+          row_version?: number;
           scheduled_at?: string | null;
           signed_at?: string | null;
           signed_by?: string | null;
@@ -3238,6 +3296,7 @@ export type Database = {
       cancel_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_notify?: boolean;
           p_promote_waitlist?: boolean;
           p_reason_code: string;
@@ -3286,6 +3345,7 @@ export type Database = {
       check_in_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_priority: string;
           p_tenant_id: string;
           p_visit_id: string;
@@ -3312,11 +3372,13 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      clinic_live_state: { Args: { p_tenant_id: string }; Returns: Json };
       collect_payment: {
         Args: {
           p_amount: number;
           p_client_request_id: string;
           p_discount?: number;
+          p_expected_invoice_version?: number;
           p_items: Json;
           p_method: string;
           p_notes: string;
@@ -3391,6 +3453,7 @@ export type Database = {
         Args: {
           p_client_request_id: string;
           p_discount: number;
+          p_expected_version?: number;
           p_items: Json;
           p_payment: Json;
           p_tax: number;
@@ -3406,6 +3469,7 @@ export type Database = {
       complete_visit: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3414,12 +3478,17 @@ export type Database = {
       confirm_appointment: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
         Returns: Json;
       };
       consult_assist_context: { Args: { p_tenant_id: string }; Returns: Json };
+      consult_screen: {
+        Args: { p_tenant_id: string; p_visit_id: string };
+        Returns: Json;
+      };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_invitation_for: {
         Args: { p_token_hash: string; p_user_id: string };
@@ -3662,6 +3731,7 @@ export type Database = {
       mark_no_show: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3691,6 +3761,10 @@ export type Database = {
       ops_alert_payload: { Args: { p_alert_id: string }; Returns: Json };
       ops_ingest_error: {
         Args: { p_event: Json; p_ingest_key: string };
+        Returns: undefined;
+      };
+      ops_ingest_rum: {
+        Args: { p_environment: string; p_release: string; p_samples: Json };
         Returns: undefined;
       };
       patient_snapshot: {
@@ -3739,6 +3813,7 @@ export type Database = {
         Args: {
           p_amount: number;
           p_command_id: string;
+          p_expected_invoice_version?: number;
           p_invoice_id: string;
           p_method: string;
           p_notes?: string;
@@ -3746,6 +3821,10 @@ export type Database = {
           p_system_actor?: string;
           p_tenant_id: string;
         };
+        Returns: Json;
+      };
+      reference_shard: {
+        Args: { p_catalogue: string; p_shard: number; p_tenant_id: string };
         Returns: Json;
       };
       referral_directory_search: {
@@ -3820,6 +3899,7 @@ export type Database = {
           p_client_request_id: string;
           p_doctor_id?: string;
           p_duration_minutes?: number;
+          p_expected_version?: number;
           p_new_scheduled_at: string;
           p_notify?: boolean;
           p_overbook?: boolean;
@@ -3848,6 +3928,15 @@ export type Database = {
           p_patch: Json;
           p_tenant_id: string;
           p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      schedule_range: {
+        Args: {
+          p_from: string;
+          p_include_slots?: boolean;
+          p_tenant_id: string;
+          p_to: string;
         };
         Returns: Json;
       };
@@ -3901,6 +3990,7 @@ export type Database = {
           substance_name: string;
         }[];
       };
+      session_bootstrap: { Args: { p_tenant_id: string }; Returns: Json };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
       set_ai_opt_in: {
         Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };
@@ -3963,6 +4053,7 @@ export type Database = {
       start_consultation: {
         Args: {
           p_client_request_id: string;
+          p_expected_version?: number;
           p_tenant_id: string;
           p_visit_id: string;
         };
@@ -3976,6 +4067,19 @@ export type Database = {
       tenant_local_date: {
         Args: { p_at: string; p_tenant: string };
         Returns: string;
+      };
+      today_board: {
+        Args: {
+          p_date?: string;
+          p_doctor_id?: string;
+          p_mode: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
+      view_patient_record: {
+        Args: { p_patient_id: string; p_tenant_id: string };
+        Returns: Json;
       };
       visit_slot: { Args: { p_at: string; p_mins: number }; Returns: unknown };
       webhook_delivery_claim: {

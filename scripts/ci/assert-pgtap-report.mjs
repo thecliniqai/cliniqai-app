@@ -144,6 +144,30 @@
  *   9025 — V2-09c 09C-06a (000120 rx_review_fixes): 8986 + rx_review_fixes 39 (new file, every one required) = 9025 (69 files). The changed files keep their
  *          counts: rx_allergy_check (record_patient_allergies takes p_expected), definer_functions (one registry row, the allergy audit trigger),
  *          authz_matrix and access_lock_rls (regenerated: the doctor_custom_medicines select cells follow the caller's own rows, S-7).
+ *   9088 — V2-09e 09E-02 (000122 rum_daily): 9025 + rum_daily 63 (new file, every one required) = 9088 (70 files). definer_functions keeps its count (three
+ *          registry rows for the one new function, ops_ingest_rum); no table or policy of `public` changed (the new tables are in `ops`, unserved).
+ *   9291 — V2-09e 09E-04 (000123 clinic_versions): 9088 + clinic_versions 107 (new file, every one required) + the regenerated authz files (the new table's cells in
+ *          authz_matrix, access_lock_rls and authz_completeness) + today_signals (+0) and front_desk_review_fixes (+0, A-5 reworded) = 9291 (71 files).
+ *   9364 — V2-09e 09E-05 (000124 consult_screen): 9291 + consult_screen 73 (new file, every one required) = 9364 (72 files). No table, policy or definer function
+ *          changed, so the authz files and definer_functions keep their counts.
+ *   9426 — V2-09e 09E-06 (000125 today_board): 9364 + today_board 62 (new file, every one required) = 9426 (73 files). One new INVOKER function and no table, policy
+ *          or definer function, so the authz files and definer_functions keep their counts.
+ *   9505 — V2-09e 09E-07 (000126 stale_write_refusal): 9426 + stale_write_refusal 79 (new file, every one required) = 9505 (74 files). Ten definer commands are replaced
+ *          with the same name, checks and grants (one parameter more); the signature pins in staff_scheduling, visit_state_machine and billing_rpc_only changed text, not count.
+ *   9559 — V2-09e 09E-14a (000127 review_fixes_09e): 9505 + review_fixes_09e 54 (new file, every one required) = 9559 (75 files). rum_daily keeps its 63 (its caller
+ *          now has a membership); definer_functions and today_signals keep their counts (four classified functions; 22 statement triggers became 27).
+ *   9739 — V2-09e 09E-09 (000128 reference_catalogues): 9559 + reference_catalogues 84 (new file, every one required) + authz_matrix 96 (6528 → 6624: the new
+ *          global table reference_catalogues x 4 ops x 24 principals) = 9739 (76 files). definer_functions keeps its count (one classified trigger function);
+ *          authz_completeness keeps its 6 (its lists gained the table).
+ *   9753 — V2-09e H-1 (000129 reference_shard_materialized): 9739 + reference_shard_full_size 14 (new file, every one required) = 9753 (77 files).
+ *          reference_catalogues keeps its 84 (the replaced function answers the same).
+ *   9831 — V2-09e 09E-12 (000130 schedule_range): 9753 + schedule_range 78 (new file, every one required) = 9831 (78 files).
+ *   9861 — V2-09e 09E-13 (000131 session_bootstrap): 9831 + session_bootstrap 30 (new file, every one required) = 9861 (79 files).
+ *   9877 — V2-09e PR 2 review fix I-1 (000132 doctor_directory_versions): 9861 + doctor_directory_versions 16 (new file, every one required) = 9877
+ *          (80 files). clinic_versions keeps its 107 (one assertion narrowed: default_specialty is listed now).
+ *   9881 — V2-09e PR 2 review fixes N4, N-7 (000133): 9877 + reference_catalogues 4 (84 -> 88: statements that change no row move nothing) = 9881
+ *          (80 files). session_bootstrap keeps its 30 (three assertions now expect the has_permission gate).
+ *   9892 — V2-09e PR 2, PO option A (000134 command_versions): 9881 + command_versions 11 (new file, every one required) = 9892 (81 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -155,7 +179,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9025;
+export const FLOOR = 9892;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -273,6 +297,29 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/rx_assist.test.sql",
   // V2-09c 09C-06a
   "supabase/tests/database/rx_review_fixes.test.sql",
+  // 09E-02
+  "supabase/tests/database/rum_daily.test.sql",
+  // 09E-04
+  "supabase/tests/database/clinic_versions.test.sql",
+  // V2-09e 09E-05
+  "supabase/tests/database/consult_screen.test.sql",
+  // V2-09e 09E-06
+  "supabase/tests/database/today_board.test.sql",
+  "supabase/tests/database/stale_write_refusal.test.sql",
+  // V2-09e 09E-14a
+  "supabase/tests/database/review_fixes_09e.test.sql",
+  // V2-09e 09E-09
+  "supabase/tests/database/reference_catalogues.test.sql",
+  // V2-09e H-1
+  "supabase/tests/database/reference_shard_full_size.test.sql",
+  // V2-09e 09E-12
+  "supabase/tests/database/schedule_range.test.sql",
+  // V2-09e 09E-13
+  "supabase/tests/database/session_bootstrap.test.sql",
+  // V2-09e PR 2 review fixes
+  "supabase/tests/database/doctor_directory_versions.test.sql",
+  // V2-09e PR 2, PO option A (000134)
+  "supabase/tests/database/command_versions.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

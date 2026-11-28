@@ -3,6 +3,7 @@
 import type { SetPasswordResult } from "./password-flows";
 import { changePassword, setNewPassword } from "./service";
 import { acceptInviteWithPassword, type AcceptInviteWithPasswordResult } from "./invite-flows";
+import { markAction } from "@/lib/observability/db-timing";
 
 /**
  * Password server actions (V2-03 03-12a: AUTH-04b, FT-05, A00-5). Guard kind `self` (tests/security/guard-manifest.ts):
@@ -15,11 +16,13 @@ export async function changePasswordAction(input: {
   currentPassword: string;
   newPassword: string;
 }): Promise<SetPasswordResult> {
+  await markAction("auth.change_password_action");
   return changePassword(input);
 }
 
 /** Forgot-password final step, on the recovery session the browser just established with the emailed code (R-5). */
 export async function setNewPasswordAction(input: { newPassword: string }): Promise<SetPasswordResult> {
+  await markAction("auth.set_new_password_action");
   return setNewPassword(input);
 }
 
@@ -34,5 +37,6 @@ export async function acceptInviteWithPasswordAction(input: {
   password: string;
   turnstileToken: string;
 }): Promise<AcceptInviteWithPasswordResult> {
+  await markAction("auth.accept_invite_with_password_action");
   return acceptInviteWithPassword(input);
 }

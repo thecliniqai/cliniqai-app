@@ -21,7 +21,7 @@ import {
   type RepeatVisitPlanInput,
 } from "./schema";
 import { callCommand } from "@/lib/commands/call-command";
-import { ALLERGY_MATCH_MESSAGE, type RxAllergyContext } from "./allergy";
+import { ALLERGY_MATCH_MESSAGE, parseRxAllergyContext, type RxAllergyContext } from "./allergy";
 import type { AppError } from "@/lib/errors/app-error";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -262,7 +262,7 @@ export async function repeatVisitPlan(ctx: ServiceContext, input: RepeatVisitPla
 }
 
 export type SaveDoctorProtocolTemplateResult =
-  | { success: true; templateId: string }
+  | { success: true; templateId: string; template: DoctorProtocolTemplate }
   | { success: false; error: string };
 
 /**
@@ -297,7 +297,7 @@ export async function saveDoctorProtocolTemplate(
         specialty: data.specialty || null,
         items: data.items,
       })
-      .select("id")
+      .select("id, template_name, specialty, items, created_at")
       .single();
 
     if (error || !inserted) {
@@ -315,7 +315,7 @@ export async function saveDoctorProtocolTemplate(
       },
     });
 
-    return { success: true, templateId: inserted.id };
+    return { success: true, templateId: inserted.id, template: inserted as DoctorProtocolTemplate };
   } catch (err: unknown) {
     return {
       success: false,
@@ -570,13 +570,6 @@ export async function sharePrescriptionViaWhatsApp(
   }
 }
 
-const allergyContextSchema = z.object({
-  state: z.enum(["not_recorded", "none", "known"]),
-  entitled: z.boolean(),
-  allergies: z.array(z.object({ text: z.string(), substance_ids: z.array(z.string()) })),
-  items: z.array(z.object({ id: z.string().uuid(), matches: z.array(z.string()), checked_by: z.enum(["substance", "name"]), overridden: z.boolean(), override_reason: z.string().nullable() })),
-});
-
 export type GetRxAllergyContextResult = { success: true; context: RxAllergyContext | null } | { success: false; error: string };
 
 /**
@@ -591,17 +584,9 @@ export async function getRxAllergyContext(ctx: ServiceContext, visitId: string):
     const { data, error } = await (ctx.db as any).rpc("rx_allergy_context", { p_tenant_id: ctx.tenantId, p_visit_id: visitId });
     if (error) throw error;
     if (data == null) return { success: true, context: null };
-    const parsed = allergyContextSchema.safeParse(data);
-    if (!parsed.success) throw new Error("rx_allergy_context returned an unexpected shape");
-    return {
-      success: true,
-      context: {
-        state: parsed.data.state,
-        entitled: parsed.data.entitled,
-        allergies: parsed.data.allergies.map((a) => ({ text: a.text, substanceIds: a.substance_ids })),
-        items: parsed.data.items.map((i) => ({ id: i.id, matches: i.matches, checkedBy: i.checked_by, overridden: i.overridden, overrideReason: i.override_reason })),
-      },
-    };
+    const context = parseRxAllergyContext(data);
+    if (!context) throw new Error("rx_allergy_context returned an unexpected shape");
+    return { success: true, context };
   } catch (err: unknown) {
     return { success: false, error: clientErrorMessage(err, "Failed to load the allergy check.", "prescriptions.allergy_context.failed") };
   }

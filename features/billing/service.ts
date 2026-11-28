@@ -34,6 +34,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type AppErrorCode, type Result } from "@/lib/errors/app-error";
+import { ROW_CHANGED_MESSAGE, versionArg } from "@/lib/errors/row-changed";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
@@ -155,6 +156,8 @@ export interface CollectPaymentValue {
   balanceDue: number;
   /** True when this client_request_id was already collected: nothing new was written. */
   replayed: boolean;
+  /** The invoice's new `row_version` (09E-07). */
+  invoiceVersion?: number;
 }
 
 /** What `create_invoice` returns to the checkout (V2-07 07-04a F-10). */
@@ -335,6 +338,7 @@ export async function collectPayment(
       p_discount: toPaise(data.discount),
       p_tax: toPaise(data.tax),
       p_client_request_id: data.client_request_id,
+      ...versionArg("p_expected_invoice_version", data.expected_invoice_version),
     },
     collectPaymentRpcResultSchema,
     { ...INVOICE_COMMAND_MESSAGES, INTERNAL: RECORD_PAYMENT_MESSAGES.INTERNAL },
@@ -354,6 +358,7 @@ export async function collectPayment(
       totalPaid: v.paid_total,
       balanceDue: v.balance_due,
       replayed: v.replayed ?? false,
+      invoiceVersion: v.invoice_version,
     },
   };
 }
@@ -367,6 +372,8 @@ export type RecordPaymentResult =
       balanceDue: number;
       /** True when this command id was already recorded: nothing new was written (V2-03 03-07). */
       replayed?: boolean;
+      /** The invoice's new `row_version` (09E-07). */
+      invoiceVersion?: number;
     }
   | { success: false; error: string };
 
@@ -378,6 +385,8 @@ export const recordPaymentRpcResultSchema = z.object({
   total_amount: z.number(),
   balance_due: z.number(),
   replayed: z.boolean(),
+  /** 09E-07: the invoice's `row_version` after the call (absent from the system path of an older database). */
+  invoice_version: z.number().int().optional(),
 });
 export type RecordPaymentRpcResult = z.infer<typeof recordPaymentRpcResultSchema>;
 
@@ -386,6 +395,8 @@ const collectPaymentRpcResultSchema = recordPaymentRpcResultSchema.omit({ replay
   invoice_number: z.string(),
   invoice_created: z.boolean(),
   replayed: z.boolean().optional(),
+  /** 09E-07: the invoice's new `row_version` (absent in a result stored before migration 000126). */
+  invoice_version: z.number().int().optional(),
 });
 
 /** Fixed, data-free texts by reason or code. The driver message never reaches the caller (AD-7). */
@@ -414,6 +425,8 @@ export interface RecordPaymentRpcArgs {
   reference?: string | null;
   notes?: string | null;
   commandId: string;
+  /** The invoice's `row_version` the screen shows (09E-07, R-19); absent: nothing is compared (the system path). */
+  expectedInvoiceVersion?: number | null;
 }
 
 /**
@@ -437,10 +450,11 @@ export async function callRecordPayment(
     p_notes: args.notes ?? undefined,
     p_command_id: args.commandId,
     p_system_actor: systemActor,
+    ...versionArg("p_expected_invoice_version", args.expectedInvoiceVersion),
   });
 
   if (error) {
-    const mapped = mapDbError(error, RECORD_PAYMENT_MESSAGES);
+    const mapped = mapDbError(error, { ROW_CHANGED: ROW_CHANGED_MESSAGE, ...RECORD_PAYMENT_MESSAGES });
     if (mapped.code === "INTERNAL") {
       log.error({ event: failure.event, code: errorTag(error), requestId: await getRequestId(), tenantId: args.tenantId });
     }
@@ -496,6 +510,7 @@ export async function recordPayment(
         notes: data.notes,
         // A caller without a per-attempt id still gets a unique command; only the id the client resends replays.
         commandId: data.commandId ?? randomUUID(),
+        expectedInvoiceVersion: data.expected_invoice_version,
       },
       { event: "billing.payment_record.failed" }
     );
@@ -514,8 +529,12 @@ export async function recordPayment(
     totalPaid: result.paid_total,
     balanceDue: result.balance_due,
     replayed: result.replayed,
+    invoiceVersion: result.invoice_version,
   };
 }
+
+/** The fixed text when the clinic's fee could not be read for a new bill (PR 2 review N-3). */
+export const CLINIC_FEE_UNAVAILABLE = "The clinic's consultation fee could not be loaded, so the bill was not started. Try again.";
 
 export type GetVisitBillingResult =
   | {
@@ -525,6 +544,11 @@ export type GetVisitBillingResult =
       payments: Payment[];
       totalPaid: number;
       balanceDue: number;
+      /**
+       * V2-09e 09E-13 (R-13: fees are read with the bill, never held): the clinic's current default consultation fee, read from the database with a visit
+       * that has no invoice yet (the new bill's starting fee); null when the visit has an invoice or the clinic has none set.
+       */
+      clinicFee?: number | null;
     }
   | { success: false; error: string };
 
@@ -557,6 +581,18 @@ export async function getVisitBillingDetails(
     const invoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     if (!invoice) {
+      // V2-09e 09E-13 (R-13): the fee a new bill starts from is read here, with the bill, every time (never from the session bootstrap or another copy).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tenant, error: feeErr } = await (supabase.from("tenants") as any)
+        .select("default_consultation_fee")
+        .eq("id", session.tenantId)
+        .maybeSingle();
+      if (feeErr) {
+        // PR 2 review N-3: a bill never starts from a made-up amount. Without the clinic's fee the drawer says so and offers Try again (no ₹500 default).
+        log.error({ event: "billing.clinic_fee_load.failed", code: errorTag(feeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: CLINIC_FEE_UNAVAILABLE };
+      }
+      const fee = tenant?.default_consultation_fee;
       return {
         success: true,
         invoice: null,
@@ -564,6 +600,7 @@ export async function getVisitBillingDetails(
         payments: [],
         totalPaid: 0,
         balanceDue: 0,
+        clinicFee: fee === null || fee === undefined || !Number.isFinite(Number(fee)) ? null : Number(fee),
       };
     }
 
@@ -596,6 +633,8 @@ export async function getVisitBillingDetails(
         tax: Number(invoice.tax),
         total_amount: Number(invoice.total_amount),
         status: invoice.status,
+        // The version the drawer shows (09E-07, R-19): the payment sends it back.
+        row_version: typeof invoice.row_version === "number" ? invoice.row_version : undefined,
         created_at: invoice.created_at,
         updated_at: invoice.updated_at,
       },
@@ -890,6 +929,7 @@ export async function completeAndBillConsultation(
           ? { method: data.payment_method, reference: data.reference_number ?? null }
           : null,
         p_client_request_id: data.client_request_id,
+        ...versionArg("p_expected_version", data.expected_version),
       },
       completeAndBillRpcResultSchema,
       COMPLETE_AND_BILL_MESSAGES,

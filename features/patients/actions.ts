@@ -10,6 +10,7 @@ import { recordPatientAllergies as recordPatientAllergiesService, type RecordAll
 import type { UpdatePatientResult } from "./service";
 import type { NewPatientInput, PatientInput, PatientVisitHistoryItem } from "./schema";
 import type { Patient } from "@/lib/db/types";
+import { markAction } from "@/lib/observability/db-timing";
 
 export type { UpdatePatientResult } from "./service";
 
@@ -32,10 +33,10 @@ export async function registerPatient(
   input: NewPatientInput,
   clientRequestId: string
 ): Promise<CommandResult<RegisterPatientValue>> {
+  await markAction("patients.register_patient");
   const resolved = await resolveServiceContext("patients:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await registerPatientService(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/patients");
   return result;
 }
 
@@ -44,15 +45,16 @@ export async function registerPatient(
  * replays the first result. `patients:edit` and `consultations:view` (the front desk cannot); the tenant is the session's.
  */
 export async function recordPatientAllergies(input: RecordAllergiesInput): Promise<CommandResult<RecordAllergiesValue>> {
+  await markAction("patients.record_patient_allergies");
   // The gate here is consultations:view (the roles that read allergies); the service and the command also require patients:edit (the 000055 rule).
   const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await recordPatientAllergiesService(resolved.ctx, input);
-  if (result.ok) revalidate(`/patients/${input.patient_id}`);
   return result;
 }
 
 export async function updatePatient(patientId: string, input: PatientInput): Promise<UpdatePatientResult> {
+  await markAction("patients.update_patient");
   const resolved = await resolveServiceContext("patients:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await patientsService.updatePatient(resolved.ctx, patientId, input);
@@ -62,12 +64,14 @@ export async function updatePatient(patientId: string, input: PatientInput): Pro
 
 /** Throws when unauthenticated or not permitted, as before. */
 export async function getPatient(patientId: string, includeErased = false): Promise<Patient | null> {
+  await markAction("patients.get_patient");
   const ctx = await requireServiceContext("patients:view");
   return patientsService.getPatient(ctx, patientId, includeErased);
 }
 
 /** Throws when unauthenticated or not permitted, as before. */
 export async function getPatients(): Promise<Patient[]> {
+  await markAction("patients.get_patients");
   const ctx = await requireServiceContext("patients:view");
   return patientsService.getPatients(ctx);
 }
@@ -77,6 +81,7 @@ export async function getPatients(): Promise<Patient[]> {
  * An unauthenticated or unauthorised caller gets an empty history, as before.
  */
 export async function getPatientVisitHistory(patientId: string): Promise<PatientVisitHistoryItem[]> {
+  await markAction("patients.get_patient_visit_history");
   const resolved = await resolveServiceContext("patients:view");
   if (!resolved.ok) return [];
   return patientsService.getPatientVisitHistory(resolved.ctx, patientId);

@@ -5,11 +5,12 @@ import { loadPrescriptionPdfSource } from "@/features/prescriptions/pdf/payload"
 import { rxFileName } from "@/features/prescriptions/pdf/content";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { timedRoute } from "@/lib/observability/server-timing";
 
 /** 09C-06a (S-9): every answer of this route, an error included, is private and never stored by a cache. */
 const NO_STORE = { "Cache-Control": "private, no-store" } as const;
 
-export async function GET(
+async function handleGet(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -80,3 +81,6 @@ export async function GET(
     return new NextResponse("Internal Server Error", { status: 500, headers: NO_STORE });
   }
 }
+
+/** V2-09e 09E-02 (R-20): the answer carries `Server-Timing` and the request writes its `request.timing` line. */
+export const GET = timedRoute(handleGet);

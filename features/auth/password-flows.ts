@@ -69,6 +69,7 @@ export const AUTH_MESSAGES = {
   sign_in_failed: en.auth.flows.sign_in_failed,
   reset_request_failed: en.auth.flows.reset_request_failed,
   reset_failed: en.auth.flows.reset_failed,
+  reset_unconfirmed: en.auth.flows.reset_unconfirmed,
   reset_send_limited: en.auth.flows.reset_send_limited,
 } as const;
 
@@ -214,6 +215,74 @@ export async function completeReset(
   }
   if (!updated.ok) return { ...updated, stage: "update" };
   return updated;
+}
+
+/** What the browser learned about the recovery session after a save whose answer did not arrive. */
+export type RecoverySessionProbe = "alive" | "gone" | "unknown";
+
+/**
+ * Asks Supabase Auth whether the recovery session the browser holds still exists (`auth.getUser()`: GoTrue checks the session, not just the
+ * token). A successful reset revokes every session of the user, this one included (ruling R-35), so a session that GoTrue answers 401/403 or
+ * `session_not_found` for was ended by the save; a user is a session that is still open (nothing saved); any other answer (a network error,
+ * a timeout, 5xx, 429) tells nothing. Never reads an error message.
+ */
+export async function probeRecoverySession(client: AuthClient): Promise<RecoverySessionProbe> {
+  try {
+    const { data, error } = await client.auth.getUser();
+    if (!error && data?.user) return "alive";
+    if (!error) return "gone";
+    const code = authErrorCodeOf(error);
+    const status = (error as { status?: unknown }).status;
+    const name = (error as { name?: unknown }).name;
+    if (code === "session_not_found" || name === "AuthSessionMissingError" || status === 401 || status === 403) return "gone";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+export interface SaveRecheckDeps {
+  /** The save (the server action). A throw is "no answer": the function ran or not, nobody knows. */
+  save: (input: { newPassword: string }) => Promise<SetPasswordResult>;
+  probe: () => Promise<RecoverySessionProbe>;
+  /** Called once when the answer did not arrive and the page starts checking ("Checking whether your password was saved…"). */
+  onChecking?: () => void;
+}
+
+/** The result of a save that went through although its answer was lost: the session is gone, as a reset leaves it. */
+const SAVED_UNSEEN: SetPasswordResult = { ok: true, otherSessionsSignedOut: false, signedOut: true };
+const UNCONFIRMED: SetPasswordResult = { ok: false, code: "unknown", message: AUTH_MESSAGES.reset_unconfirmed };
+
+/**
+ * The reset page's save, safe against a lost answer (staging finding of 2026-11-23: the first save stalled about 30 s, the page said "We
+ * couldn't reset your password", and the password had in fact been saved). An answer that arrives is the outcome, success or failure. When the
+ * call throws (a network failure, a function timeout) the outcome is unknown, so it is looked up before anything is claimed:
+ *  1. the recovery session is gone  → the save went through (a reset ends signed out): success;
+ *  2. the session is still open     → the save did not happen: it is tried once more, and a second silence is looked up the same way
+ *     (a "session not found" answer to the retry means the first call finished meanwhile: success);
+ *  3. the session check itself gave no answer (twice) → "We couldn't confirm that your password was changed ..." (never "failed").
+ */
+export async function saveWithRecheck(input: { newPassword: string }, deps: SaveRecheckDeps): Promise<SetPasswordResult> {
+  try {
+    return await deps.save(input);
+  } catch {
+    // no answer: fall through to the check
+  }
+  deps.onChecking?.();
+  let state = await deps.probe();
+  if (state === "unknown") state = await deps.probe();
+  if (state === "gone") return SAVED_UNSEEN;
+  if (state === "unknown") return UNCONFIRMED;
+  try {
+    const retried = await deps.save(input);
+    // The first call was still running on the server and finished between our check and this call: its save ended the session.
+    if (!retried.ok && retried.code === "session_not_found") return SAVED_UNSEEN;
+    return retried;
+  } catch {
+    // a second silence
+  }
+  const after = await deps.probe();
+  return after === "gone" ? SAVED_UNSEEN : after === "alive" ? { ok: false, code: "unknown", message: AUTH_MESSAGES.reset_failed } : UNCONFIRMED;
 }
 
 /**

@@ -4,15 +4,25 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
+import { clockOf } from "@/lib/datetime";
+import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { queryDomains, queryKeys } from "@/lib/query/keys";
+import { useLiveCore, useOwnWrite } from "@/lib/live/provider";
+import type { Versions } from "@/lib/live/domains";
+import type { CommandVersions } from "@/lib/commands/command-versions";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { buttonClassName } from "@/components/ui/button";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
 import { registerHref } from "@/components/front-desk/patient-search";
+import { ClinicChangedError, clinicHeaders, isClinicChanged, onClinicChanged } from "@/lib/live/clinic-changed";
 import {
   groupIntoLanes,
   lanesOf,
   matchesQuery,
   nextUp,
+  withCheckedIn,
+  withVitals,
   withPendingCheckIns,
   type PendingCheckIn,
   type TodayBoard,
@@ -20,6 +30,7 @@ import {
   type TodayMode,
   type TodayRow,
 } from "@/features/today/schema";
+import { toVitalsReading } from "@/features/today/board-model";
 import { createAnnouncer, announcementsFor, type Announcer } from "./announcer";
 import { toCheckoutTarget } from "./checkout-target";
 import { Lane } from "./lane";
@@ -29,6 +40,7 @@ import { OpenAmendments } from "./open-amendments";
 import type { OpenAmendment } from "@/features/today/queries";
 import { TodayHead } from "./today-head";
 import { TodayRowView } from "./today-row";
+import { refreshWhenReachable } from "@/lib/pwa/safe-refresh";
 import { useTodayLive } from "./use-today-live";
 import { VisitDetail } from "./visit-detail";
 
@@ -75,7 +87,6 @@ function useTwoPane(): boolean {
 }
 
 export interface TodayBoardViewProps {
-  board: TodayBoard;
   tenantId: string;
   canRegister: boolean;
   canWalkIn: boolean;
@@ -84,20 +95,72 @@ export interface TodayBoardViewProps {
   mode: TodayMode;
   /** The modes the role may open (an owner has two). */
   modes: readonly TodayMode[];
-  /** "Fri, 13 Nov 2026 · clinic time (IST)". */
-  dateLine: string;
   /** Doctor mode (V2-09b 09B-04a): the snapshot of the patient the server saw as Next (`assist.snapshot`), shown beside the Next card at 768 px and up. */
   snapshotPanel?: SnapshotPanelData | null;
   /** Doctor mode: the doctor's own signed visits that are reopened and not finalized. */
   openAmendments?: readonly OpenAmendment[];
+  /** 09E-04 (R-18): the clinic versions the page read BEFORE it read the board (a lower bound of what the board holds); absent when that read failed. */
+  versions?: Versions;
 }
 
-export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, dateLine, snapshotPanel = null, openAmendments = [] }: TodayBoardViewProps) {
+/** The error of a refused or failed board read; the fixed text only, never a body. */
+class BoardReadError extends Error {}
+
+/** One `GET /api/today/board` (09E-03, R-14): the query's read. No RSC request, no page render. */
+async function fetchBoard(tenantId: string, mode: TodayMode, signal: AbortSignal): Promise<TodayBoard> {
+  const response = await fetch(`/api/today/board?mode=${mode}`, { cache: "no-store", credentials: "same-origin", signal, headers: clinicHeaders(tenantId) });
+  // 09E-14a: this tab shows a clinic the session left (a switch in another tab): never store the answer under this clinic's key.
+  if (await isClinicChanged(response)) {
+    onClinicChanged();
+    throw new ClinicChangedError();
+  }
+  if (!response.ok) throw new BoardReadError("Today could not be refreshed.");
+  return (await response.json()) as TodayBoard;
+}
+
+/**
+ * Today's board from the client data layer (09E-03, R-14): the page hydrates `[tenantId, "today", mode]` with the board it read, a
+ * live signal, a resume or a mutation invalidates it, and the re-read is one board GET into the same key. A failed re-read keeps the
+ * rows on screen. After the client was cleared (sign-out, lock, clinic switch) the provider renders nothing, so no stale rows show.
+ */
+export function TodayBoardView(props: TodayBoardViewProps) {
+  const { tenantId, mode, versions } = props;
+  const key = queryKeys.today(tenantId, mode);
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: ({ signal }) => fetchBoard(tenantId, mode, signal),
+    meta: { live: true, domains: queryDomains.today },
+  });
+  // The page's own read is the board's basis until a re-read replaces it (a later page render never raises it: that data may not have been taken).
+  const core = useLiveCore();
+  const hash = hashKey(key);
+  useEffect(() => {
+    if (core && versions) core.setBasis(hash, versions);
+  }, [core, hash, versions]);
+  if (!data) return null;
+  return <TodayBoardLoaded {...props} board={data} />;
+}
+
+function TodayBoardLoaded({ board, tenantId, canRegister, canWalkIn, canConsult, mode, modes, snapshotPanel = null, openAmendments = [] }: TodayBoardViewProps & { board: TodayBoard }) {
   const router = useRouter();
+  const zone = board.timeZone === "Asia/Kolkata" ? "IST" : board.timeZone;
+  const dateLine = `${formatClinicDateWithWeekday(board.today)} · clinic time (${zone})`;
   const pathname = usePathname();
   const params = useSearchParams();
   const live = useTodayLive(tenantId);
+  const ownWrite = useOwnWrite();
+  const queryClient = useQueryClient();
   const twoPane = useTwoPane();
+
+  // Doctor mode: the snapshot panel and the amendments are server-rendered for the Next patient the page saw. The board's live refresh no
+  // longer re-renders the page, so when Next becomes someone else the page is refreshed once (09E-03), as the old refresh always did.
+  const nextPatientId = mode === "doctor" ? (nextUp(groupIntoLanes(board.rows, "doctor"))?.patientId ?? null) : null;
+  const renderedNext = useRef(nextPatientId);
+  useEffect(() => {
+    if (nextPatientId === renderedNext.current) return;
+    renderedNext.current = nextPatientId;
+    void refreshWhenReachable(() => router.refresh());
+  }, [nextPatientId, router]);
 
   const [query, setQuery] = useState("");
   const [doctorId, setDoctorId] = useState("all");
@@ -180,9 +243,23 @@ export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canCon
   const laneOptions = laneDefs.map((l) => ({ value: l.id, label: l.short, count: counts[l.id].length }));
 
   const handlers = {
-    onOptimistic: (r: TodayRow) => setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status }]),
+    onOptimistic: (r: TodayRow, to: "waiting" | "in_consultation" = "waiting") =>
+      setPending((p) => [...p.filter((x) => x.visitId !== r.visitId), { visitId: r.visitId, from: r.status, to }]),
     onRollback: (id: string) => setPending((p) => p.filter((x) => x.visitId !== id)),
-    onChanged: live.refreshNow,
+    // A check-in's answer is written into the board (09E-08, R-11: no read-back); a refused stale version re-reads it. Other devices converge through the live layer.
+    // The versions the command produced go to the live core with the board they were written into: this device's own signal re-reads nothing (PO option A).
+    onChanged: (result?: { visitId: string; tokenNumber: number; rowVersion?: number; versions?: CommandVersions }) => {
+      if (!result) {
+        live.refreshNow();
+        return;
+      }
+      const { hour, minute } = clockOf(new Date(), board.timeZone);
+      const arrivedAt = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      const key = queryKeys.today(tenantId, mode);
+      queryClient.setQueryData<TodayBoard>(key, (old) => (old ? withCheckedIn(old, result.visitId, result, arrivedAt) : old));
+      ownWrite(result, [key]);
+      setPending((p) => p.filter((x) => x.visitId !== result.visitId));
+    },
     onRecordVitals: setVitalsRow,
     onCollect: setCollectRow,
   };
@@ -208,7 +285,6 @@ export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canCon
     <div data-today-board="" className="flex flex-col gap-3">
       <TodayHead
         dateLine={dateLine}
-        live={live.state}
         query={query}
         onQueryChange={setQuery}
         doctors={doctors}
@@ -244,7 +320,7 @@ export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canCon
 
       {next &&
         (snapshotPanel && snapshotPanel.patientId === next.patientId ? (
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
             <NextPatientCard row={next} {...handlers} />
             <PatientSnapshotPanel name={next.name} data={snapshotPanel} />
           </div>
@@ -324,7 +400,10 @@ export function TodayBoardView({ board, tenantId, canRegister, canWalkIn, canCon
         </div>
       )}
 
-      {vitalsRow && <VitalsSheet row={vitalsRow} onOpenChange={(open) => !open && setVitalsRow(null)} onSaved={live.refreshNow} />}
+      {vitalsRow && <VitalsSheet row={vitalsRow} onOpenChange={(open) => !open && setVitalsRow(null)} onSaved={(vitals) => {
+          const reading = toVitalsReading(vitals);
+          if (reading) queryClient.setQueryData<TodayBoard>(queryKeys.today(tenantId, mode), (old) => (old ? withVitals(old, vitalsRow.visitId, reading) : old));
+        }} />}
       {collectRow && (
         <CheckoutDrawer isOpen onClose={() => setCollectRow(null)} onSuccess={live.refreshNow} queueItem={toCheckoutTarget(collectRow)} />
       )}

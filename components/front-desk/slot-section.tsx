@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useQueryClient, type Query, type QueryClient } from "@tanstack/react-query";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DayStrip } from "@/components/ui/day-strip";
@@ -11,6 +12,7 @@ import { ChipGroup } from "@/components/ui/chip-group";
 import { SlotPicker, type Slot } from "@/components/ui/slot-picker";
 import { SmartAssistLabel } from "@/components/clinical/smart-assist-label";
 import { getAvailableSlots } from "@/features/visits/scheduling";
+import { freeSlotsOf as rangeFreeSlots, serverNowOf, type ScheduleRange } from "@/features/schedule/range";
 import { suggestSlots, type FreeSlot, type TimeBand } from "@/features/visits/suggest-slots";
 import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 import { formatClinicTime } from "@/lib/datetime/format";
@@ -29,6 +31,12 @@ import { earliestSlot, slotLengths, toPickerSlots } from "./slot-adapter";
  * doctor's average consult, ranked by the patient's usual time of day and then the earliest, show above the picker as chips
  * labelled "Smart Assist", and `preselect` chooses the first of them instead of the earliest free slot. Without `assist` the
  * section behaves as before. `assistPending` holds the preselection back until the assist inputs have arrived.
+ * V2-09e 09E-12 (R-10): when the Schedule's range query holds the date and the doctor (a booking opened from the Schedule), the slots come from it (the
+ * same SQL list, read with the range; kept current by the live layer) with no call; otherwise, and always for a move (the visit's own slot must be listed
+ * again), `getAvailableSlots` as before.
+ * PR 2 review I-3: only a range a screen is showing counts (an ACTIVE query: the Schedule is mounted, so the live layer and its heartbeat keep it current).
+ * A range held in the cache that no screen shows (the user left the Schedule; it may be minutes behind when a signal was lost) is never used: the sheet
+ * asks the server. The section subscribes to that range, so a booking or a block made elsewhere while the sheet is open updates the picker.
  */
 export interface SlotPlan {
   doctorId: string;
@@ -63,6 +71,41 @@ interface Loaded {
   error: string | null;
 }
 
+/** The Schedule range query a screen is showing that holds (doctor, date) with its slots, or undefined. Inactive (unobserved) ranges never count. */
+function shownRange(queryClient: QueryClient, doctorId: string, date: string): { query: Query; range: ScheduleRange } | undefined {
+  for (const query of queryClient.getQueryCache().findAll({ predicate: (q) => q.queryKey[1] === "schedule" && q.queryKey[4] === "slots" })) {
+    const range = query.state.data as ScheduleRange | undefined;
+    if (query.isActive() && range?.slots && range.from <= date && range.to >= date && range.clinicians.some((c) => c.id === doctorId)) return { query, range };
+  }
+  return undefined;
+}
+
+/**
+ * The free slots of (doctor, date) from the range a screen is showing, or null when none shows them. Subscribed to the query cache: a re-read of that range
+ * (a live signal or the heartbeat) or the Schedule leaving the screen gives a new answer while the sheet is open.
+ */
+function useShownRangeSlots(doctorId: string, date: string, enabled: boolean, timeZone: string): { slots: Slot[]; minutes: Map<string, number> } | null {
+  const queryClient = useQueryClient();
+  const subscribe = useCallback((onChange: () => void) => queryClient.getQueryCache().subscribe(onChange), [queryClient]);
+  // A primitive snapshot (stable between renders): which range, and when its data last changed.
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () => {
+      if (!enabled || !doctorId) return "";
+      const shown = shownRange(queryClient, doctorId, date);
+      return shown ? `${shown.query.queryHash}@${shown.query.state.dataUpdatedAt}` : "";
+    },
+    () => "",
+  );
+  return useMemo(() => {
+    if (!snapshot) return null;
+    const range = shownRange(queryClient, doctorId, date)?.range;
+    if (!range) return null;
+    const free = rangeFreeSlots(range, doctorId, date, timeZone, serverNowOf(range));
+    return { slots: free.map((f) => ({ time: f.time })), minutes: new Map(free.map((f) => [f.time, f.minutes])) };
+  }, [snapshot, queryClient, doctorId, date, timeZone]);
+}
+
 /** Free grid slots (clinic `HH:mm` and length) for the suggestions. */
 function freeSlotsOf(minutes: ReadonlyMap<string, number>): FreeSlot[] {
   return [...minutes].map(([time, length]) => ({ time, minutes: length }));
@@ -87,8 +130,11 @@ export function SlotSection({
   const preselected = useRef<string | null>(null);
   const assistLabelId = useId();
 
+  // The Schedule on screen holds this day (a booking, not a move): no call, and the picker follows its live updates. The first try only: "Try again"
+  // always asks the server.
+  const held = useShownRangeSlots(plan.doctorId, plan.date, !excludeVisitId && attempt === 0, timeZone);
   useEffect(() => {
-    if (!plan.doctorId) return;
+    if (!plan.doctorId || held) return;
     let live = true;
     void getAvailableSlots(plan.doctorId, plan.date, excludeVisitId)
       .then((result) => {
@@ -109,9 +155,12 @@ export function SlotSection({
     };
     // `key` carries doctor, date, excluded visit and the retry counter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, timeZone]);
+  }, [key, timeZone, held]);
 
-  const current = loaded?.key === key ? loaded : null;
+  const current = useMemo<Loaded | null>(
+    () => (held ? { key, slots: held.slots, minutes: held.minutes, error: null } : loaded?.key === key ? loaded : null),
+    [held, key, loaded],
+  );
   const slots = current?.slots ?? [];
   const suggestions = useMemo(
     () =>

@@ -8,6 +8,9 @@ import { emptyVisitsRegister } from "@/features/visits/service";
 import { DatePreset } from "@/features/visits/schema";
 import { VisitsRegisterView } from "@/components/visits/visits-register-view";
 import { withPageAuth } from "@/lib/auth/page";
+import { createClient } from "@/lib/supabase/server";
+import { getTenantTimeZoneAndVersions } from "@/lib/datetime/server";
+import { ChangedElsewhere } from "@/components/shell/changed-elsewhere";
 
 interface VisitsPageProps {
   searchParams: Promise<{
@@ -46,6 +49,9 @@ async function VisitsPage(props: VisitsPageProps) {
   const startDate = searchParams.start || null;
   const endDate = searchParams.end || null;
 
+  // The clinic's zone and versions in one statement (R-9, R-18), BEFORE the register is read: the versions are a lower bound of what it shows, and the
+  // zone is then known to the register's own reads (no second `tenants` read in this request).
+  const { versions: basis } = await getTenantTimeZoneAndVersions(await createClient(), membership.tenantId);
   const [registerResponse, activeDoctors] = await Promise.all([
     getClinicVisitsRegister({
       datePreset,
@@ -68,6 +74,8 @@ async function VisitsPage(props: VisitsPageProps) {
     : emptyVisitsRegister(currentPage, 25);
 
   return (
+    <div className="space-y-4">
+    <ChangedElsewhere domains={["schedule", "queue"]} basis={basis ?? undefined} />
     <VisitsRegisterView
       initialVisits={registerResult.visits}
       metrics={registerResult.metrics}
@@ -87,6 +95,7 @@ async function VisitsPage(props: VisitsPageProps) {
         searchQuery,
       }}
     />
+    </div>
   );
 }
 

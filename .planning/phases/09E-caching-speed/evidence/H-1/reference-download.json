@@ -1,0 +1,77 @@
+{
+  "row": "ref.D.cdci-download",
+  "budget": "B-14",
+  "maxBytes": 1600000,
+  "transferredBytes": 1417467,
+  "verdict": "within",
+  "requests": [
+    {
+      "url": "/api/reference/substances/7ddd2b63-ed60-4abe-aa80-262c52ec1681/0",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 17709
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/0",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 182099
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/1",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155256
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/2",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155396
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/3",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155722
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/4",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 156248
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/5",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155107
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/6",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155404
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/7",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 155772
+    },
+    {
+      "url": "/api/reference/medicines/7ddd2b63-ed60-4abe-aa80-262c52ec1681/8",
+      "encoding": "gzip",
+      "status": 200,
+      "bytes": 128754
+    }
+  ],
+  "indexedDbUsageBytes": 2187264,
+  "indexBuild": {
+    "buildMs": 658.4,
+    "mode": "worker",
+    "cpuThrottling": 4
+  },
+  "workerHeapUsedBytes": 19070896,
+  "note": "bytes = encodedDataLength of each 200 shard response of one cdci version (substances + medicines), HTTP cache disabled; IndexedDB usage from navigator.storage.estimate(); build = the page's clinicos.medicine_index measure; heap = Runtime.getHeapUsage of the worker target (null when it could not be read)"
+}

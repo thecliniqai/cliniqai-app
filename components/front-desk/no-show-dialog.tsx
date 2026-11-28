@@ -8,19 +8,30 @@ import { notify } from "@/components/ui/toast";
 import { SaveStatus } from "@/components/clinical/save-status";
 import { markNoShow } from "@/features/visits/scheduling";
 import { saveStatusProps } from "@/lib/commands/save-state";
-import { useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
+import { useAfterSave } from "@/lib/query/after-save";
+import { withStatus } from "@/features/today/schema";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 
 /**
  * NoShowDialog (V2-08 08-04b, R-15): marks an appointment whose time has passed as a no-show with `mark_no_show` (one
  * command). A no-show who arrives later is checked in from Today (R-8) or moved to a new time (Move appointment).
  */
-function NoShowBody({ visitId, name, onDone }: { visitId: string; name: string; onDone: () => void }) {
-  const command = useCommand();
+function NoShowBody({ visitId, name, rowVersion, onDone }: { visitId: string; name: string; rowVersion: number; onDone: () => void }) {
+  const { command, run } = useConfirmedCall();
+  const afterSave = useAfterSave();
+  const rowChanged = useRowChanged();
   const lastSend = useRef<(() => Promise<unknown>) | null>(null);
   const send = async () => {
     lastSend.current = send;
-    const result = await command.run((clientRequestId) => markNoShow(visitId, clientRequestId));
-    if (!result.ok) return;
+    const result = await run((clientRequestId) => markNoShow(visitId, clientRequestId, rowVersion));
+    if (!result.ok) {
+      // The visit moved on elsewhere (09E-07, R-19): the screen behind re-reads, the fixed message stays in the dialog, nothing was written.
+      rowChanged(result.error);
+      return;
+    }
+    // The answer is written into Today's board (no re-read); the Schedule refreshes its route.
+    afterSave.patchToday((board) => withStatus(board, visitId, "no_show", result.value.rowVersion));
     notify.success(`${name} marked as a no-show.`);
     onDone();
   };
@@ -48,13 +59,15 @@ export interface NoShowDialogProps {
   onOpenChange: (open: boolean) => void;
   visitId: string;
   name: string;
+  /** The visit's `row_version` the screen shows (09E-07, R-19). */
+  rowVersion: number;
 }
 
-export function NoShowDialog({ open, onOpenChange, visitId, name }: NoShowDialogProps) {
+export function NoShowDialog({ open, onOpenChange, visitId, name, rowVersion }: NoShowDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent data-no-show-dialog="">
-        {open && <NoShowBody visitId={visitId} name={name} onDone={() => onOpenChange(false)} />}
+        {open && <NoShowBody visitId={visitId} name={name} rowVersion={rowVersion} onDone={() => onOpenChange(false)} />}
       </AlertDialogContent>
     </AlertDialog>
   );

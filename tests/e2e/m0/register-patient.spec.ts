@@ -13,17 +13,20 @@ import { expect, test } from "../fixtures";
 import type { UxCounter } from "../support/ux-counter";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { awaitRegisterLinkHydrated, fillAgeAndSettle } from "../support/register-sheet";
 
 /** V2-08 08-02: registration is the `?new=1` sheet (R-13); the outcomes asserted below are unchanged from the v1 page. */
 async function registerPatient(page: Page, ux: UxCounter, fullName: string, phoneDigits: string): Promise<void> {
   await page.goto("/patients");
+  await awaitRegisterLinkHydrated(page);
   await ux.click(page.getByRole("link", { name: /Register Patient/ }).first(), "Register Patient");
   const sheet = page.getByRole("dialog", { name: "Register patient" });
-  await expect(sheet).toBeVisible();
+  // 09E-14a (F5): opening the sheet re-renders the Patients page, which lists every patient (no pagination): see journeys/journey-03-register-patient.spec.ts.
+  await expect(sheet).toBeVisible({ timeout: 20_000 });
 
   await ux.fill(sheet.getByRole("textbox", { name: "Mobile number" }), phoneDigits, "Mobile number");
   await ux.fill(sheet.getByRole("textbox", { name: "Full name" }), fullName, "Full name");
-  await ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age");
+  await fillAgeAndSettle(page, () => ux.fill(sheet.getByRole("textbox", { name: "Age" }), "34", "Age"));
   await ux.click(sheet.getByRole("radio", { name: "Female" }), "Sex: Female");
   await ux.click(sheet.getByRole("button", { name: "Register patient" }), "Register patient");
 }

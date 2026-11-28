@@ -23,9 +23,24 @@ export const RX_EDIT_ROWS: readonly CdciFixture[] = [
   { id: "test-cdci-09c-edit-1", brand_name: "Qzredit Alpha 100", generic_name: "Qzreditol 100 mg", dose_form: "Tablet" },
 ];
 
-/** Upserts the rows into `cdci_medicines_search` as the service role (the local stack only; the e2e server's database). */
+/**
+ * Upserts the rows as the service role (the local stack only; the e2e server's database): each brand's generic (`cdci_generics`, id `<brand id>-gen`), the
+ * brand (`cdci_brands`, linked to it) and the search row, consistent with each other as the real load is (09E-11: the device's medicine shards take a
+ * brand's generic from `cdci_brands` and `cdci_generics`, the search from `cdci_medicines_search`).
+ */
 export async function upsertCdciRows(rows: readonly CdciFixture[]): Promise<void> {
-  const { error } = await getAdminClient()
+  const admin = getAdminClient();
+  const generics = await admin.from("cdci_generics").upsert(
+    rows.map((r) => ({ id: `${r.id}-gen`, generic_name: r.generic_name, substance_ids: [] })),
+    { onConflict: "id" },
+  );
+  if (generics.error) throw new Error(`CDCI fixture upsert failed (generics): ${generics.error.message}`);
+  const brands = await admin.from("cdci_brands").upsert(
+    rows.map((r) => ({ id: r.id, brand_name: r.brand_name, generic_id: `${r.id}-gen` })),
+    { onConflict: "id" },
+  );
+  if (brands.error) throw new Error(`CDCI fixture upsert failed (brands): ${brands.error.message}`);
+  const { error } = await admin
     .from("cdci_medicines_search")
     .upsert(
       rows.map((r) => ({ id: r.id, brand_name: r.brand_name, generic_name: r.generic_name, dose_form: r.dose_form, product_name: r.brand_name, supplier_name: "Synthetic Labs" })),

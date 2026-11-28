@@ -3,6 +3,8 @@ import "server-only";
 import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { requestMemo } from "@/lib/auth/request-memo";
+import { VERSIONS_VIA_TENANT_EMBED, parseVersionRows, versionsOfTenantEmbed, type Versions } from "@/lib/live/domains";
 import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
 import { Patient } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
@@ -167,30 +169,80 @@ export async function getPatient(
   patientId: string,
   includeErased = false
 ): Promise<Patient | null> {
-  const supabase = ctx.db;
+  return (await readPatient(ctx, patientId, includeErased, false))?.patient ?? null;
+}
+
+/**
+ * The record page's read (V2-09e 09E-06, R-9, R-18): the patient AND the clinic versions of the same statement (an embed on the patient's clinic: no call of
+ * its own), the basis of the "Changed on another device" notice. The row handed back is the patient only.
+ */
+export async function getPatientWithVersions(ctx: ServiceContext, patientId: string): Promise<{ patient: Patient; versions: Versions | null } | null> {
+  return readPatient(ctx, patientId, false, true);
+}
+
+export type PatientRecordRead =
+  | { status: "ok"; patient: Patient; versions: Versions | null }
+  | { status: "missing" }
+  | { status: "error" };
+
+/**
+ * One read of a patient's record with the clinic versions of the same statement (V2-09e 09E-06, R-9, R-18), shared inside a request: the record's layout
+ * (which decides 404 before the page streams) and the page both ask for it and the database is asked once (the in-flight read is the one answer). It writes no
+ * audit row: the view is written (fail-closed, in the same call as the page's read: `view_patient_record`) by `getPatientWithVersions`, once, by the page. `error` is a read that failed (not "no such record").
+ */
+export async function readPatientRecord(ctx: ServiceContext, patientId: string): Promise<PatientRecordRead> {
   assertPerm(ctx.role, "patients:view");
-  const session = ctx;
+  return requestMemo(`patient-record:${ctx.tenantId.toLowerCase()}:${patientId.toLowerCase()}`, async (): Promise<PatientRecordRead> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (ctx.db.from("patients") as any)
+      .select(`*, ${VERSIONS_VIA_TENANT_EMBED}`)
+      .eq("id", patientId)
+      .eq("tenant_id", ctx.tenantId)
+      .eq("is_deleted", false)
+      .maybeSingle();
+    if (error) return { status: "error" };
+    if (!data) return { status: "missing" };
+    const { tenants: embedded, ...patient } = data as Record<string, unknown>;
+    return { status: "ok", patient: patient as unknown as Patient, versions: versionsOfTenantEmbed({ tenants: embedded }) };
+  }, { keep: (r) => r.status !== "error" });
+}
 
-  let query = (supabase.from("patients") as any).select("*").eq("id", patientId).eq("tenant_id", session.tenantId);
-
-  if (!includeErased) {
-    query = query.eq("is_deleted", false);
+async function readPatient(
+  ctx: ServiceContext,
+  patientId: string,
+  includeErased: boolean,
+  withVersions: boolean
+): Promise<{ patient: Patient; versions: Versions | null } | null> {
+  assertPerm(ctx.role, "patients:view");
+  if (withVersions && !includeErased && ctx.actorType !== "api_key") {
+    // The record page (09E-14a, B): the read and the `patient.view` audit row are ONE call (`view_patient_record`), so the record is never returned without its row
+    // (the function raises when the row cannot be written: fail-closed) and the page's first paint does not wait for a second round trip.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (ctx.db as any).rpc("view_patient_record", { p_tenant_id: ctx.tenantId, p_patient_id: patientId });
+    if (error) await failViewAudit(ctx, error);
+    if (!data) return null;
+    const body = data as { patient?: unknown; versions?: unknown };
+    if (typeof body.patient !== "object" || body.patient === null) return null;
+    return { patient: body.patient as Patient, versions: parseVersionRows(body.versions) };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (ctx.db.from("patients") as any).select("*").eq("id", patientId).eq("tenant_id", ctx.tenantId);
+  if (!includeErased) query = query.eq("is_deleted", false);
   const { data, error } = await query.maybeSingle();
+  if (error || !data) return null;
+  const found = { patient: data as Patient, versions: null as Versions | null };
 
-  if (error || !data) {
-    return null;
-  }
+  // Record view access in the audit log, once per opening. Fail-closed: the write is awaited before the record is returned and a failure throws (`recordAudit` never
+  // swallows one), so a record is never returned without its view row.
+  await recordAudit(ctx, { action: "patient.view", entityType: "patient", entityId: patientId });
+  return found;
+}
 
-  // Record view access in audit log
-  await recordAudit(ctx, {
-    action: "patient.view",
-    entityType: "patient",
-    entityId: patientId,
-  });
-
-  return data as Patient;
+/** The audited read could not be made: the failure is the audit's (it raises), never "no such record". Class name only is logged. */
+async function failViewAudit(ctx: ServiceContext, error: unknown): Promise<never> {
+  log.error({ event: "patients.view_audit.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+  throw new Error("patient view could not be read");
 }
 
 /**
@@ -414,13 +466,17 @@ export async function getPatientVisitHistory(
         .in("visit_id", visitIds),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from("prescriptions") as any)
-        .select("id, visit_id, version, status, signed_at, created_at")
+        // The lines and the payments ride on the same statements (V2-09e 09E-06, R-9: the history is two round trips, the visits and then everything that hangs on them).
+        .select(
+          "id, visit_id, version, status, signed_at, created_at, prescription_items(id, prescription_id, medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order)"
+        )
         .eq("tenant_id", session.tenantId)
         .in("visit_id", visitIds)
-        .order("version", { ascending: false }),
+        .order("version", { ascending: false })
+        .order("sort_order", { ascending: true, referencedTable: "prescription_items" }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from("invoices") as any)
-        .select("id, visit_id, invoice_number, total_amount, status")
+        .select("id, visit_id, invoice_number, total_amount, status, payments(amount)")
         .eq("tenant_id", session.tenantId)
         .in("visit_id", visitIds),
     ]);
@@ -471,36 +527,16 @@ export async function getPatientVisitHistory(
       }
     }
 
-    const rxIds = Array.from(latestRxPerVisit.values()).map((rx: { id: string }) => rx.id);
+    // The lines of each prescription came with it (an embed), in their own order.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemsByRx: Record<string, any[]> = {};
-    if (rxIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: itemRows } = await (supabase.from("prescription_items") as any)
-        .select(
-          "id, prescription_id, medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order"
-        )
-        .in("prescription_id", rxIds)
-        .order("sort_order", { ascending: true });
-      for (const item of itemRows || []) {
-        itemsByRx[item.prescription_id] = itemsByRx[item.prescription_id] || [];
-        itemsByRx[item.prescription_id].push(item);
-      }
-    }
+    for (const rx of latestRxPerVisit.values()) itemsByRx[rx.id] = rx.prescription_items || [];
 
-    // Process invoices & fetch payments
+    // Invoices and what was paid on them (the payments came with the invoice).
     const invoiceList = invRes.data || [];
-    const invoiceIds = invoiceList.map((inv: { id: string }) => inv.id);
     const paymentsByInvoice: Record<string, number> = {};
-    if (invoiceIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: paymentRows } = await (supabase.from("payments") as any)
-        .select("invoice_id, amount")
-        .eq("tenant_id", session.tenantId)
-        .in("invoice_id", invoiceIds);
-      for (const p of paymentRows || []) {
-        paymentsByInvoice[p.invoice_id] = (paymentsByInvoice[p.invoice_id] || 0) + Number(p.amount);
-      }
+    for (const inv of invoiceList as Array<{ id: string; payments?: Array<{ amount: number | string }> | null }>) {
+      for (const p of inv.payments || []) paymentsByInvoice[inv.id] = (paymentsByInvoice[inv.id] || 0) + Number(p.amount);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

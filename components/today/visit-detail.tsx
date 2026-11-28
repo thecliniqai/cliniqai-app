@@ -116,7 +116,7 @@ export function VisitDetail({ row, headingLevel = 2 }: { row: TodayRow; headingL
         </Section>
       )}
       <div className="border-t border-border px-3.5 py-2.5">
-        <Link href={`/patients/${row.patientId}`} className="text-body-sm font-medium text-accent underline-offset-2 hover:underline">
+        <Link href={`/patients/${row.patientId}`} prefetch={false} className="text-body-sm font-medium text-accent underline-offset-2 hover:underline">
           Open patient record
         </Link>
       </div>

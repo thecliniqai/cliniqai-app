@@ -34,14 +34,17 @@ import {
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
 import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
+import { useConfirmedCall } from "@/lib/query/mutations";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
+import { useRowChanged } from "@/lib/live/use-row-changed";
 
 /**
  * What the drawer needs of a visit (V2-08 08-03b: the v1 queue card's `QueueItem` left with that screen). Today's To-bill row
  * builds it with `toCheckoutTarget` (`components/today/checkout-target.ts`).
  */
 export interface CheckoutTarget {
-  visit: { id: string; status: string };
+  /** `rowVersion`: the visit's `row_version` the board shows (09E-07, R-19); the desk completion sends it. */
+  visit: { id: string; status: string; rowVersion: number };
   patient: { id: string; full_name: string; sex?: string | null; age?: number | null; phone?: string | null };
   queueToken?: { token_number: number } | null;
   doctorName?: string | null;
@@ -73,6 +76,9 @@ export function CheckoutDrawer({
   const [isPending, startTransition] = useTransition();
   const [billingData, setBillingData] = useState<GetVisitBillingResult | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  // PR 2 review N-3: the bill's details (with the clinic's fee for a new bill) could not be read: nothing can be collected until a re-read succeeds.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloads, setReloads] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -99,9 +105,13 @@ export function CheckoutDrawer({
   // succeeds, reset when the drawer opens again or the user changes what is being collected. After a failure whose
   // outcome is unknown (network, timeout, INTERNAL) the id is kept and changing the form does not rotate it until the
   // billing details have been reloaded (V2-07 07-04a F-13): a committed-but-lost payment must not become a second one.
-  const { run: runCommand, reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = useCommand();
+  // 09E-08 (R-11, confirm class): the payment shows a pending state only; the success text comes after the answer.
+  const confirmedPayment = useConfirmedCall();
+  const { run: runCommand } = confirmedPayment;
+  const { reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = confirmedPayment.command;
   // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
   const completeCommand = useCommand();
+  const rowChanged = useRowChanged();
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -121,28 +131,39 @@ export function CheckoutDrawer({
       setWhatsAppStatus(null);
       setIsCompleted(false);
       setLoadingBilling(true);
+      setLoadFailed(false);
 
       getVisitBillingDetails(visit.id)
         .then((res) => {
           setBillingData(res);
-          if (res.success && res.invoice) {
+          if (!res.success) {
+            // Never a made-up amount (the old ₹500 default): the drawer says why and offers Try again.
+            setLoadFailed(true);
+            setError(res.error);
+            return;
+          }
+          if (res.invoice) {
             setAmountToPay(res.balanceDue);
             if (res.balanceDue === 0 && res.invoice.status === "paid") {
               setIsCompleted(true);
             }
           } else {
-            setAmountToPay(defaultFee);
+            // V2-09e 09E-13 (R-13): a new bill starts from the clinic's fee as the database has it now (read with the bill, never held).
+            const fee = typeof res.clinicFee === "number" ? res.clinicFee : defaultFee;
+            setConsultationFee(fee);
+            setAmountToPay(fee);
           }
         })
         .catch((err) => {
           reportClientError("billing.visit_billing_load.failed", err);
+          setLoadFailed(true);
           setError("Failed to load visit billing details.");
         })
         .finally(() => {
           setLoadingBilling(false);
         });
     }
-  }, [isOpen, visit?.id, defaultFee, startOverCommand]);
+  }, [isOpen, visit?.id, defaultFee, startOverCommand, reloads]);
 
   // A changed bill or payment after an error is a new request, not a retry of the failed one.
   useEffect(() => {
@@ -279,6 +300,18 @@ export function CheckoutDrawer({
     }
   };
 
+  // A payment refused because the invoice moved on (another device added an item, 09E-07, R-19): nothing was written. The drawer shows the latest
+  // invoice and its balance, the fixed message stays, and the next attempt carries the new version.
+  const showLatestInvoice = async (): Promise<void> => {
+    try {
+      const updated = await getVisitBillingDetails(visit.id);
+      setBillingData(updated);
+      if (updated.success && updated.invoice) setAmountToPay(updated.balanceDue);
+    } catch (err: unknown) {
+      reportClientError("billing.visit_billing_reload.failed", err);
+    }
+  };
+
   // Handler for checkout and collecting payment
   const handleCheckoutAndPay = (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,11 +352,14 @@ export function CheckoutDrawer({
               reference_number: referenceNumber.trim() || undefined,
               notes: paymentNotes.trim() || undefined,
               client_request_id: clientRequestId,
+              // The invoice as this drawer shows it (read when it opened, and again after each of the user's own item changes); null: it shows none yet (09E-07, R-19).
+              expected_invoice_version: invoice?.row_version ?? null,
             })
           );
           if (!res.ok) {
             setError(res.error.message || "Failed to record payment.");
             if (isOutcomeUnknownCode(res.error.code)) await reloadAfterUnknownOutcome();
+            else if (rowChanged(res.error)) await showLatestInvoice();
             return;
           }
         } else if (!invoice) {
@@ -347,14 +383,21 @@ export function CheckoutDrawer({
         }
 
         // 3. Complete queue encounter
-        const queueRes = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
-        if (!queueRes.ok) {
-          reportClientError("queue.checkout_transition.failed", null);
-        }
-
-        // 4. Reload updated billing details
-        const updated = await getVisitBillingDetails(visit.id);
+        // The completion stamp and the billing read do not depend on each other: they go together (09E-08: the path is one round trip shorter).
+        const [queueRes, updated] = await Promise.all([
+          completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion)),
+          // 4. Reload updated billing details
+          getVisitBillingDetails(visit.id),
+        ]);
         setBillingData(updated);
+        if (!queueRes.ok) {
+          // 09E-14a (L5): the payment is recorded but the visit was not marked completed (for one, because the visit changed on another device). Never show the
+          // success text: say what is true, keep the drawer open and refresh the board.
+          reportClientError("queue.checkout_transition.failed", null);
+          setError(`Payment of ₹${amountToPay} was recorded, but the visit was not marked completed: ${queueRes.error.message} Check the visit, then mark it completed.`);
+          onSuccess();
+          return;
+        }
         setIsCompleted(true);
         setSuccessNotice(
           `Payment of ₹${amountToPay} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`
@@ -498,6 +541,13 @@ export function CheckoutDrawer({
             <div className="p-8 text-center space-y-3">
               <Loader2 className="w-6 h-6 animate-spin text-accent mx-auto" />
               <p className="text-xs text-gray-500">Loading billing encounter details...</p>
+            </div>
+          ) : loadFailed ? (
+            <div className="p-8 text-center space-y-3" data-billing-unavailable="">
+              <p className="text-body-sm text-fg-muted">Nothing can be collected until the bill loads. Nothing was charged.</p>
+              <Button type="button" variant="secondary" onClick={() => setReloads((n) => n + 1)}>
+                Try again
+              </Button>
             </div>
           ) : isCompleted || (invoice && balanceDue === 0 && invoice.status === "paid") ? (
             /* Post-Checkout / Fully Paid Receipt View */
@@ -1092,7 +1142,7 @@ export function CheckoutDrawer({
                   <Button
                     type="button"
                     onClick={async () => {
-                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId));
+                      const done = await completeCommand.run((clientRequestId) => completeVisit(visit.id, clientRequestId, visit.rowVersion));
                       if (!done.ok) {
                         setError(done.error.message);
                         return;

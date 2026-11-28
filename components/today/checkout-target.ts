@@ -7,7 +7,7 @@ const SEX: Record<string, string> = { M: "male", F: "female", O: "other" };
 export function toCheckoutTarget(row: TodayRow): CheckoutTarget {
   const years = /^(\d+) y$/.exec(row.age ?? "");
   return {
-    visit: { id: row.visitId, status: row.status },
+    visit: { id: row.visitId, status: row.status, rowVersion: row.rowVersion },
     patient: {
       id: row.patientId,
       full_name: row.name,

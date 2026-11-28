@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createElement, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import {
   ActiveClinicMembershipEndedError,
@@ -11,6 +11,7 @@ import {
   UnauthenticatedError,
 } from "@/lib/auth/tenant";
 import { MembershipEnded } from "@/components/shell/membership-ended";
+import { DataReady } from "@/components/shell/data-ready";
 import { accessRedirect, LOCKED_STAFF_PATH } from "@/lib/auth/access-redirect";
 import type { UserRole } from "@/lib/db/types";
 
@@ -103,7 +104,9 @@ export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props:
   return async function AuthenticatedPage(props: P): Promise<ReactNode> {
     try {
       await assertPageClinicFull();
-      return await page(props);
+      const content = await page(props);
+      // V2-09e 09E-02 (R-20): the screen's first-data marker, after its content (every page this wraps is a main screen).
+      return createElement(Fragment, null, content, createElement(DataReady));
     } catch (err) {
       redirectIfUnauthenticated(err);
       await redirectIfTenantLocked(err);

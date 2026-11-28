@@ -261,3 +261,34 @@ export function pastItemToMedicine(item: {
     usual: { dosage: item.dosage, timing: item.timing ?? null, duration: item.duration },
   });
 }
+
+/**
+ * 09E-14a (C): an added line and the catalogue substance ids its allergy note will hold travel as one pair, so no filter can leave the second list out of step with
+ * the first. `substances` is parallel to `add` (a missing entry is none).
+ */
+export interface AddedPair {
+  line: ChangeLine;
+  substances: readonly string[];
+}
+
+export function pairAdded(add: readonly ChangeLine[], substances: ReadonlyArray<readonly string[]> | undefined): AddedPair[] {
+  return add.map((line, i) => ({ line, substances: substances?.[i] ?? [] }));
+}
+
+/** The pairs whose medicine is not in `present` (normalised names), lines and substances filtered together. */
+export function withoutPresent(pairs: readonly AddedPair[], present: ReadonlySet<string>, norm: (s: string | null | undefined) => string): AddedPair[] {
+  return pairs.filter((p) => !present.has(norm(p.line.medicine_name)));
+}
+
+/** The substance ids of the lines the command really added: `addedItemIds[i]` is the id of the pair `i`; an index with no id (a line the command did not add) has none to hold. */
+export function substancesOfAdded(
+  pairs: readonly AddedPair[],
+  addedItemIds: ReadonlyArray<string | undefined> | undefined,
+): Array<{ id: string; substances: readonly string[] }> {
+  const out: Array<{ id: string; substances: readonly string[] }> = [];
+  pairs.forEach((pair, i) => {
+    const id = addedItemIds?.[i];
+    if (id) out.push({ id, substances: pair.substances });
+  });
+  return out;
+}

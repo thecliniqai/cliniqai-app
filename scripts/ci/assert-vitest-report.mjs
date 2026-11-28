@@ -459,7 +459,6 @@ const REQUIRED_FILES = [
   // V2-08 08-03a (Today's read model, live updates, the Realtime isolation spec, the safe refresh).
   "tests/realtime/today-signals.spec.ts",
   "tests/today/get-today-board.spec.ts",
-  "tests/today/live.spec.ts",
   "tests/today/announcer.spec.ts",
   "tests/today/schema.spec.ts",
   "tests/today/modes.spec.ts",
@@ -476,6 +475,10 @@ const REQUIRED_FILES = [
   // V2-08 08-04b (the Schedule and the booking UIs).
   "tests/schedule/slot-adapter.spec.ts",
   "tests/schedule/schedule-model.spec.ts",
+  // V2-09e 09E-12
+  "tests/schedule/schedule-range.spec.ts",
+  // V2-09e 09E-13
+  "tests/session/bootstrap.spec.ts",
   // V2-08 08-05 (Smart Assist, the clinic switcher).
   "tests/visits/suggest-slots.spec.ts",
   "tests/visits/slot-suggestion-context-db.spec.ts",
@@ -540,6 +543,30 @@ const REQUIRED_FILES = [
   "tests/files/compress-image.spec.ts",
   // V2-09c 09C-06a
   "tests/prescriptions/rx-review-fixes-db.spec.ts",
+  // V2-09e 09E-01 (the two perf specs the lane added) and 09E-02 (000122: observability); the floor is re-measured at the phase gate, it only rises.
+  "tests/perf/depth.spec.ts",
+  "tests/perf/server-latency.spec.ts",
+  "tests/observability/db-timing.spec.ts",
+  "tests/observability/server-timing.spec.ts",
+  "tests/observability/server-routes.spec.ts",
+  "tests/observability/action-names.spec.ts",
+  "tests/observability/rum-collector.spec.ts",
+  "tests/observability/rum-route.spec.ts",
+  "tests/auth/password-save-recheck.spec.ts",
+  // V2-09e 09E-03: the client data layer and the board route.
+  "tests/query/keys.spec.ts",
+  "tests/query/cleanup.spec.ts",
+  "tests/api/today-board-route.spec.ts",
+  // V2-09e 09E-04: the live core replaces tests/today/live.spec.ts (the old 20 s poll and its channel are gone).
+  "tests/live/live-core.spec.ts",
+  "tests/live/tenant-zone-and-versions.spec.ts",
+  // V2-09e 09E-08: saves by risk class (the board's own writes, the Rx overlay, the consult's custom lists).
+  "tests/today/optimistic-moves.spec.ts",
+  "tests/prescriptions/rx-overlay.spec.ts",
+  "tests/consultation/custom-lists.spec.ts",
+  // V2-09e 09E-09: the reference catalogues on the device (the substance twin against SQL; the sync's rules and the shared shapes).
+  "tests/reference/substance-search-parity.spec.ts",
+  "tests/reference/reference-sync.spec.ts",
 ];
 
 const file = process.argv[2];

@@ -14,6 +14,7 @@ import { UserRole } from "@/lib/db/types";
 import { errorTag, log, logWord } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
+import { markAction } from "@/lib/observability/db-timing";
 
 const inviteStaffSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
@@ -51,6 +52,7 @@ const INVITE_STAFF_MESSAGES: DbErrorMessages = {
 export async function inviteStaff(
   input: FormData | { email: string; role: string }
 ): Promise<InviteStaffResult> {
+  await markAction("staff.invite_staff");
   const rawEmail = input instanceof FormData ? input.get("email") : input.email;
   const rawRole = input instanceof FormData ? input.get("role") : input.role;
 
@@ -144,6 +146,7 @@ export type { AcceptInviteResult } from "@/features/auth/invite-flows";
  * features/auth/invite-flows.ts (05-07b); this action keeps its manifest entry.
  */
 export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult> {
+  await markAction("staff.accept_invite");
   return acceptInviteFlow(rawToken);
 }
 
@@ -207,6 +210,7 @@ async function manageInvitation(
 
 /** AUTH-06 (05-07b): sends the invitation again with a new link (the previous link stops working at once). */
 export async function resendInvite(input: { invitationId: string }): Promise<InvitationActionResult> {
+  await markAction("staff.resend_invite");
   const result = await manageInvitation("resend_invitation", input);
   if (!result.ok) return { success: false, error: result.error };
   const { id, expires_at: expiresAt } = result.data;
@@ -218,6 +222,7 @@ export async function resendInvite(input: { invitationId: string }): Promise<Inv
 
 /** AUTH-06 (05-07b): withdraws a pending invitation (its link stops working at once). */
 export async function revokeInvite(input: { invitationId: string }): Promise<RevokeInvitationActionResult> {
+  await markAction("staff.revoke_invite");
   const result = await manageInvitation("revoke_invitation", input);
   if (!result.ok) return { success: false, error: result.error };
   const { id, revoked_at: revokedAt } = result.data;
@@ -237,6 +242,7 @@ export type RemoveStaffActionResult = { success: true; result: RemoveStaffResult
  * target row and binds it to the active clinic). Backend only: the staff UI and journey J-A6 are V2-11's (R-31).
  */
 export async function removeStaff(input: { membershipId: string; reason: string }): Promise<RemoveStaffActionResult> {
+  await markAction("staff.remove_staff");
   let resolved = await resolveServiceContext("staff:invite", "full", { sensitive: "staff.remove" });
   if (!resolved.ok && resolved.reason === "locked") {
     // V2-05 05-12 (IND L-5): the OWNER of a locked or onboarding clinic may still remove staff, so a dismissed member
@@ -262,18 +268,21 @@ export async function removeStaff(input: { membershipId: string; reason: string 
 // The acting tenant comes only from the session (ADR-0005 D1). A caller without a membership gets an empty
 // directory, as before.
 export async function getTenantDoctorDirectory(): Promise<TenantDoctorInfo[]> {
+  await markAction("staff.get_tenant_doctor_directory");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return [];
   return staffService.getTenantDoctorDirectory(resolved.ctx);
 }
 
 export async function getTenantStaffDirectory(): Promise<TenantStaffInfo[]> {
+  await markAction("staff.get_tenant_staff_directory");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return [];
   return staffService.getTenantStaffDirectory(resolved.ctx);
 }
 
 export async function getTenantDoctorMap(): Promise<Record<string, string>> {
+  await markAction("staff.get_tenant_doctor_map");
   const resolved = await resolveServiceContext();
   if (!resolved.ok) return {};
   return staffService.getTenantDoctorMap(resolved.ctx);

@@ -29,6 +29,7 @@ import { clientRequestIdSchema } from "@/lib/commands/request-id";
 import { patientSchema, newPatientPayload } from "@/features/patients/schema";
 import { SLOT_TAKEN_MESSAGE } from "./service";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { versionArg } from "@/lib/errors/row-changed";
 import { appError, type Result } from "@/lib/errors/app-error";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
@@ -640,6 +641,8 @@ export interface RescheduleTarget {
   time: string;
   durationMinutes: number;
   status: Visit["status"];
+  /** The visit's `row_version` as read now: the sheet sends it with the move (09E-07, R-19). */
+  rowVersion: number;
 }
 
 export const RESCHEDULE_TARGET_MESSAGES = {
@@ -660,7 +663,7 @@ export async function getRescheduleTarget(ctx: ServiceContext, visitId: string):
   if (!isUuid(visitId)) return { ok: false, error: appError("NOT_FOUND", { message: RESCHEDULE_TARGET_MESSAGES.NOT_FOUND }) };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (ctx.db.from("visits") as any)
-    .select("id, doctor_id, status, scheduled_at, estimated_duration_minutes, patients(full_name)")
+    .select("id, doctor_id, status, scheduled_at, estimated_duration_minutes, row_version, patients(full_name)")
     .eq("tenant_id", ctx.tenantId)
     .eq("id", visitId)
     .not("scheduled_at", "is", null)
@@ -683,6 +686,7 @@ export async function getRescheduleTarget(ctx: ServiceContext, visitId: string):
       time: `${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}`,
       durationMinutes: (data.estimated_duration_minutes as number | null) ?? 15,
       status: data.status as Visit["status"],
+      rowVersion: data.row_version as number,
     },
   };
 }
@@ -712,6 +716,8 @@ const rescheduleResultSchema = z.object({
   is_overbooked: z.boolean(),
   message_enqueued: z.boolean(),
   replayed: z.boolean(),
+  /** 09E-07: the visit's new `row_version` (absent in a result stored before migration 000126). */
+  row_version: z.number().int().optional(),
 });
 
 export interface RescheduleVisitValue {
@@ -719,6 +725,8 @@ export interface RescheduleVisitValue {
   isOverbooked: boolean;
   messageEnqueued: boolean;
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 function invalidInput(error: z.ZodError): Result<never> {
@@ -757,6 +765,7 @@ export async function rescheduleVisit(
       p_override_off_duty: data.override_off_duty,
       p_override_block: data.override_block,
       p_notify: data.notify,
+      ...versionArg("p_expected_version", data.expected_version),
     },
     rescheduleResultSchema,
     SCHEDULING_COMMAND_MESSAGES,
@@ -764,7 +773,10 @@ export async function rescheduleVisit(
   );
   if (!outcome.ok) return outcome;
   const v = outcome.value;
-  return { ok: true, value: { visitId: v.visit_id, isOverbooked: v.is_overbooked, messageEnqueued: v.message_enqueued, replayed: v.replayed } };
+  return {
+    ok: true,
+    value: { visitId: v.visit_id, isOverbooked: v.is_overbooked, messageEnqueued: v.message_enqueued, replayed: v.replayed, rowVersion: v.row_version },
+  };
 }
 
 const cancelResultSchema = z.object({
@@ -774,6 +786,7 @@ const cancelResultSchema = z.object({
   promoted_patient_id: z.string().uuid().nullable(),
   message_enqueued: z.boolean(),
   replayed: z.boolean(),
+  row_version: z.number().int().optional(),
 });
 
 export interface CancelVisitValue {
@@ -784,6 +797,8 @@ export interface CancelVisitValue {
   promotedPatientId: string | null;
   messageEnqueued: boolean;
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 /**
@@ -814,6 +829,7 @@ export async function cancelVisit(
       p_reason_note: data.reason_note ?? null,
       p_notify: data.notify,
       p_promote_waitlist: data.promote_waitlist,
+      ...versionArg("p_expected_version", data.expected_version),
     },
     cancelResultSchema,
     SCHEDULING_COMMAND_MESSAGES,
@@ -830,19 +846,27 @@ export async function cancelVisit(
       promotedPatientId: v.promoted_patient_id,
       messageEnqueued: v.message_enqueued,
       replayed: v.replayed,
+      rowVersion: v.row_version,
     },
   };
 }
 
-const markNoShowResultSchema = z.object({ visit_id: z.string().uuid(), replayed: z.boolean() });
+const markNoShowResultSchema = z.object({ visit_id: z.string().uuid(), replayed: z.boolean(), row_version: z.number().int().optional() });
 
 export interface MarkNoShowValue {
   visitId: string;
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 /** Marks a booked or confirmed appointment whose time has passed as a no-show (`public.mark_no_show`, V2-08 08-04a). `appointments:edit`. */
-export async function markNoShow(ctx: ServiceContext, visitId: string, clientRequestId: string): Promise<Result<MarkNoShowValue>> {
+export async function markNoShow(
+  ctx: ServiceContext,
+  visitId: string,
+  clientRequestId: string,
+  expectedVersion?: number | null
+): Promise<Result<MarkNoShowValue>> {
   const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
   if (!input.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
   if (!hasPerm(ctx.role, "appointments:edit")) {
@@ -851,29 +875,37 @@ export async function markNoShow(ctx: ServiceContext, visitId: string, clientReq
   const outcome = await callCommand(
     ctx,
     "mark_no_show",
-    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    { p_visit_id: visitId, p_client_request_id: clientRequestId, ...versionArg("p_expected_version", expectedVersion) },
     markNoShowResultSchema,
     SCHEDULING_COMMAND_MESSAGES,
     { event: "visits.mark_no_show.failed" }
   );
   if (!outcome.ok) return outcome;
-  return { ok: true, value: { visitId: outcome.value.visit_id, replayed: outcome.value.replayed } };
+  return { ok: true, value: { visitId: outcome.value.visit_id, replayed: outcome.value.replayed, rowVersion: outcome.value.row_version } };
 }
 
-const confirmResultSchema = z.object({ visit_id: z.string().uuid(), already_confirmed: z.boolean(), replayed: z.boolean() });
+const confirmResultSchema = z.object({
+  visit_id: z.string().uuid(),
+  already_confirmed: z.boolean(),
+  replayed: z.boolean(),
+  row_version: z.number().int().optional(),
+});
 
 export interface ConfirmAppointmentValue {
   visitId: string;
   /** True when the visit was already confirmed: nothing was changed. */
   alreadyConfirmed: boolean;
   replayed: boolean;
+  /** The visit's new `row_version` (09E-07). */
+  rowVersion?: number;
 }
 
 /** Confirms a booked appointment (`public.confirm_appointment`, V2-08 08-04a). `appointments:edit`. */
 export async function confirmAppointment(
   ctx: ServiceContext,
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion?: number | null
 ): Promise<Result<ConfirmAppointmentValue>> {
   const input = z.object({ visit: z.string().uuid(), request: clientRequestIdSchema }).safeParse({ visit: visitId, request: clientRequestId });
   if (!input.success) return { ok: false, error: appError("VALIDATION_FAILED", { message: SCHEDULING_COMMAND_MESSAGES.VALIDATION_FAILED }) };
@@ -883,12 +915,12 @@ export async function confirmAppointment(
   const outcome = await callCommand(
     ctx,
     "confirm_appointment",
-    { p_visit_id: visitId, p_client_request_id: clientRequestId },
+    { p_visit_id: visitId, p_client_request_id: clientRequestId, ...versionArg("p_expected_version", expectedVersion) },
     confirmResultSchema,
     SCHEDULING_COMMAND_MESSAGES,
     { event: "visits.confirm_appointment.failed" }
   );
   if (!outcome.ok) return outcome;
   const v = outcome.value;
-  return { ok: true, value: { visitId: v.visit_id, alreadyConfirmed: v.already_confirmed, replayed: v.replayed } };
+  return { ok: true, value: { visitId: v.visit_id, alreadyConfirmed: v.already_confirmed, replayed: v.replayed, rowVersion: v.row_version } };
 }

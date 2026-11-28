@@ -6,7 +6,7 @@
  * repaired. SECURITY DEFINER; appointments:edit (every staff role). Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { publicEnv } from "@/lib/env";
 import { mapDbError } from "@/lib/db/errors";
@@ -23,6 +23,7 @@ import { expectCommandCatalog } from "../helpers/command-catalog";
 import { psql } from "../helpers/sql";
 import { auditRows, commandResultRows, seedVisit, expectDataOnlyStoredResult } from "../helpers/billing-commands";
 import { callCheckIn, checkInArgs, tokensOfVisit, visitFlags, visitRow } from "../helpers/clinical-commands";
+import { clearOfClinicMidnight, earlierToday } from "../helpers/clinic-day";
 
 const ROLES: UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
 
@@ -44,12 +45,13 @@ afterAll(() => {
 });
 
 const HOUR = 3_600_000;
-/** A scheduled visit `offsetMs` from now: today in the clinic's zone for 0, another clinic-local day for +-36 h. */
+/** A scheduled visit `offsetMs` from now: today in the clinic's zone for 0, another clinic-local day for +-36 h. A late
+ * appointment of today is `earlierToday` (tests/helpers/clinic-day.ts), never `at(-x)`, which is yesterday just after midnight. */
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
 
 describe("check_in_visit: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.check_in_visit(uuid, uuid, text, uuid)", definer: true });
+    expectCommandCatalog({ signature: "public.check_in_visit(uuid, uuid, text, uuid, bigint)", definer: true });
   });
 
   it("the shared step has no API grant", () => {
@@ -163,6 +165,9 @@ describe("check_in_visit: one transaction", () => {
 });
 
 describe("check_in_visit: the booking's own day (R-8) and the late arrival", () => {
+  // A visit seeded "today" must still be today when the RPC reads it (CI 46049011705).
+  beforeEach(() => clearOfClinicMidnight());
+
   it("a booking of another clinic-local day is VISIT_NOT_TODAY (tomorrow and yesterday): no token, status unchanged", async () => {
     for (const [status, when] of [["booked", at(36 * HOUR)], ["confirmed", at(-36 * HOUR)], ["no_show", at(36 * HOUR)]] as const) {
       const { visitId } = await seedVisit(tenantA, undefined, { status, scheduledAt: when, overbooked: true });
@@ -187,7 +192,7 @@ describe("check_in_visit: the booking's own day (R-8) and the late arrival", () 
   });
 
   it("a no-show that arrives late is checked in: waiting, a token, and one audit row marked late_arrival", async () => {
-    const { visitId } = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: at(-HOUR / 4), overbooked: true });
+    const { visitId } = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: earlierToday(HOUR / 4), overbooked: true });
     const { data, error } = await callCheckIn(members.receptionist.client, checkInArgs(tenantA, visitId));
     expect(error).toBeNull();
     const result = data as { queue_token_id: string; token_number: number };
@@ -200,7 +205,7 @@ describe("check_in_visit: the booking's own day (R-8) and the late arrival", () 
   // V2-08 08-06a (A-3): a no-show frees its slot (visits_no_double_booking skips no_show rows), the desk rebooks it, and the patient
   // then arrives. Before, the move back to waiting re-entered the constraint and the check-in failed with a generic CONFLICT (23P01).
   it("A-3: a late no-show whose slot was rebooked is checked in as an overbooked visit; the audit row says so; the slot's holder is untouched", async () => {
-    const slot = at(-HOUR / 4);
+    const slot = earlierToday(HOUR / 4);
     const late = await seedVisit(tenantA, undefined, { status: "no_show", scheduledAt: slot });
     const holder = await seedVisit(tenantA, undefined, { status: "booked", scheduledAt: slot });
     const { data, error } = await callCheckIn(members.receptionist.client, checkInArgs(tenantA, late.visitId));
@@ -215,8 +220,9 @@ describe("check_in_visit: the booking's own day (R-8) and the late arrival", () 
   });
 
   it("A-3 control: a late no-show whose slot is still free is not marked overbooked (and says nothing about it)", async () => {
-    // Another doctor than the A-3 case above, so that case's holder (the same moment, a few milliseconds apart) is not this slot's.
-    const late = await seedVisit(tenantA, members.doctor.userId, { status: "no_show", scheduledAt: at(-HOUR / 2) });
+    // Another doctor than the A-3 case above, so that case's holder (the same moment just after midnight, when both are clamped to
+    // it) is not this slot's.
+    const late = await seedVisit(tenantA, members.doctor.userId, { status: "no_show", scheduledAt: earlierToday(HOUR / 2) });
     const { data, error } = await callCheckIn(tenantA.client, checkInArgs(tenantA, late.visitId));
     expect(error).toBeNull();
     expect(await visitFlags(late.visitId)).toEqual({ status: "waiting", is_overbooked: false });

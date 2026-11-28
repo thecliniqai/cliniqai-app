@@ -266,7 +266,7 @@ select is(pg_temp.res(pg_temp.repeat('102', 61, 2, $$array['diagnoses','prescrip
   'the same request id replays the first result');
 select is((select count(*)::int from public.prescription_items i join public.prescriptions p on p.id = i.prescription_id where p.visit_id = 'c1190000-0000-4000-8000-000000000061'), 4,
   'a replay writes nothing new');
-select is(pg_temp.res(pg_temp.repeat('102', 61, 2, $$array['diagnoses','prescription']$$)) - 'prescription_id' - 'added_item_ids' - 'replayed',
+select is(pg_temp.res(pg_temp.repeat('102', 61, 2, $$array['diagnoses','prescription']$$)) - 'prescription_id' - 'added_item_ids' - 'replayed' - 'versions',
   '{"diagnoses_added": 0, "skipped_item_ids": []}'::jsonb, 'a second run with a new id copies nothing (a medicine or diagnosis already there is skipped)');
 select is((select metadata::text from public.audit_logs where action = 'visit.repeat_plan' and entity_id = 'c1190000-0000-4000-8000-000000000061' order by id limit 1),
   '{"added": 4, "skipped": 0, "diagnoses_added": 1}', 'the audit row carries counts only');

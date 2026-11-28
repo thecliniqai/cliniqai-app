@@ -68,6 +68,17 @@ export async function getDailyCollectionReport(
       await getTenantTimeZone(supabase, session.tenantId)
     );
 
+    // `Promise.resolve` starts the request now (a PostgREST builder runs only when it is awaited).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const periodInvoicesRead: Promise<{ data: any[] | null }> = Promise.resolve(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("invoices") as any)
+        .select("id, total_amount, status")
+        .eq("tenant_id", session.tenantId)
+        .gte("created_at", startIso)
+        .lt("created_at", endIso)
+    );
+
     // 1. Fetch payments within date range for this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rawPayments, error: payErr } = await (supabase.from("payments") as any)
@@ -143,13 +154,8 @@ export async function getDailyCollectionReport(
       }
     );
 
-    // 3. Query invoices created in this period to calculate outstanding receivables
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: periodInvoices } = await (supabase.from("invoices") as any)
-      .select("id, total_amount, status")
-      .eq("tenant_id", session.tenantId)
-      .gte("created_at", startIso)
-      .lt("created_at", endIso);
+    // 3. The invoices created in this period (outstanding receivables): independent of the payments, so read beside them (V2-09e 09E-06, R-9).
+    const { data: periodInvoices } = await periodInvoicesRead;
 
     let periodInvoiceTotal = 0;
     let outstandingReceivables = 0;

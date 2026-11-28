@@ -11,35 +11,41 @@ import { StaffList } from "@/components/staff/staff-list";
 import { Membership } from "@/lib/db/types";
 import { Users, UserPlus, Mail, ShieldCheck } from "lucide-react";
 import { withPageAuth } from "@/lib/auth/page";
+import { VERSIONS_VIA_TENANT_EMBED, versionsOfTenantEmbed } from "@/lib/live/domains";
+import { ChangedElsewhere } from "@/components/shell/changed-elsewhere";
 
 async function StaffPage() {
   const supabase = await createClient();
   const membership = await getActiveMembership();
   const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
 
-  // Fetch current memberships with full doctor profile credentials
-  const { data: members } = await supabase
+  // V2-09e 09E-06 (R-9): the members and the pending invitations are independent: one round trip, not two.
+  const membersRead = supabase
     .from("memberships")
-    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at")
+    .select(`id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at, ${VERSIONS_VIA_TENANT_EMBED}`)
     .eq("tenant_id", membership.tenantId)
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .returns<Membership[]>();
-
-  // Fetch pending invitations if owner/admin
-  let invitations: Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }> = [];
-  if (isOwnerOrAdmin) {
-    const { data: invites } = await supabase
-      .from("invitations")
-      .select("id, invited_address, role, expires_at, consumed_at")
-      .eq("tenant_id", membership.tenantId)
-      .is("consumed_at", null)
-      .is("revoked_at", null)
-      .order("created_at", { ascending: false })
-      .returns<Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }>>();
-
-    invitations = invites || [];
-  }
+  const invitesRead = isOwnerOrAdmin
+    ? supabase
+        .from("invitations")
+        .select("id, invited_address, role, expires_at, consumed_at")
+        .eq("tenant_id", membership.tenantId)
+        .is("consumed_at", null)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false })
+        .returns<Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }>>()
+    : null;
+  const [{ data: memberRows }, invites] = await Promise.all([membersRead, invitesRead]);
+  // The clinic's versions ride on the members statement (an embed on its tenant: no call of their own); the rows handed to the list are the members only.
+  const basis = versionsOfTenantEmbed(memberRows?.[0]) ?? undefined;
+  const members = memberRows?.map((row) => {
+    const { tenants: _tenants, ...member } = row as Membership & { tenants?: unknown };
+    void _tenants;
+    return member as Membership;
+  });
+  const invitations: Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }> = invites?.data ?? [];
 
   const getRoleBadge = (role: string) => {
     switch (role.toLowerCase()) {
@@ -60,6 +66,7 @@ async function StaffPage() {
 
   return (
     <div className="space-y-6">
+      <ChangedElsewhere domains={["settings"]} basis={basis} />
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
         <div>

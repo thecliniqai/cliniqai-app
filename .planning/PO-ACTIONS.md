@@ -39,7 +39,7 @@ access off, schema and grants match the snapshot (Drift `schema` job passed). `/
     `SEND_EMAIL_HOOK_SECRET`. Redeploy.
   - Request a password reset on staging for your own address and tell Claude it arrived.
 
-- [ ] **2.3 Bot check (Turnstile)**: Supabase side done (23 Nov); Vercel `TURNSTILE_SECRET_KEY` missing (invite acceptance refuses).
+- [x] **2.3 Bot check (Turnstile)**: done 23 Nov (Supabase side, then Vercel `TURNSTILE_SECRET_KEY`; an invite was accepted on staging).
   - Cloudflare → Turnstile → Add widget `clinicos-staging`, hostname `staging.thecliniqai.com`, mode Managed.
   - Site key → Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
   - Secret key → Vercel `TURNSTILE_SECRET_KEY`, and also Supabase → Authentication → Bot and Abuse Protection →

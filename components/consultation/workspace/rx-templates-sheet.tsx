@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveSheet, ResponsiveSheetBody, ResponsiveSheetContent, ResponsiveSheetHeader } from "@/components/ui/responsive-sheet";
-import { getDoctorProtocolTemplates, saveDoctorProtocolTemplate, type DoctorProtocolTemplate } from "@/features/prescriptions/actions";
+import { saveDoctorProtocolTemplate, type DoctorProtocolTemplate } from "@/features/prescriptions/actions";
+import { useConsultQueryApi } from "./consult-query";
 import { templateItemToAdd, type ChangeLine } from "@/features/prescriptions/lines";
 import { rankProtocolTemplates } from "@/features/consultation/assist-ranking";
 import type { PrescriptionItem } from "@/lib/db/types";
@@ -29,30 +30,13 @@ export interface RxTemplatesSheetProps {
 }
 
 export function RxTemplatesSheet({ open, onOpenChange, items, onApply, specialty = null, diagnoses = [] }: RxTemplatesSheetProps) {
-  const [templates, setTemplates] = useState<DoctorProtocolTemplate[] | null>(null);
+  // The doctor's templates come with the consult (its query, 09E-05 R-8): opening this sheet reads nothing, and a saved template joins the list from the
+  // action's own result.
+  const consultQuery = useConsultQueryApi();
+  const templates: DoctorProtocolTemplate[] = consultQuery?.data.lists?.templates ?? [];
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // The doctor's templates are read when the sheet opens (their own rows only, RLS).
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    void (async () => {
-      try {
-        const res = await getDoctorProtocolTemplates();
-        if (!alive) return;
-        if (res.success) setTemplates(res.templates);
-        else setError(res.error);
-      } catch (err) {
-        reportClientError("prescriptions.templates_load.failed", err);
-        if (alive) setError("Could not load your templates. Try again.");
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [open]);
 
   const apply = async (template: DoctorProtocolTemplate) => {
     setBusy(template.id);
@@ -96,8 +80,7 @@ export function RxTemplatesSheet({ open, onOpenChange, items, onApply, specialty
         return;
       }
       setName("");
-      const again = await getDoctorProtocolTemplates();
-      if (again.success) setTemplates(again.templates);
+      consultQuery?.addTemplate(res.template);
     } catch (err) {
       reportClientError("prescriptions.template_save.failed", err);
       setError("Could not save the template. Check your connection and try again.");
@@ -112,13 +95,11 @@ export function RxTemplatesSheet({ open, onOpenChange, items, onApply, specialty
         <ResponsiveSheetHeader title="Templates" description="Your saved prescriptions" />
         <ResponsiveSheetBody>
           {error && <Alert tone="danger">{error}</Alert>}
-          {templates === null && !error ? (
-            <p className="text-body-sm text-fg-muted">Loading your templates…</p>
-          ) : templates && templates.length === 0 ? (
+          {templates.length === 0 ? (
             <p className="text-body-sm text-fg-muted">None yet. Save the prescription you have written as a template below.</p>
           ) : (
             <ul aria-label="Your templates" className="flex flex-col gap-1.5">
-              {rankProtocolTemplates({ templates: templates ?? [], specialty, diagnoses }).map((t) => (
+              {rankProtocolTemplates({ templates, specialty, diagnoses }).map((t) => (
                 <li key={t.id} className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-sm font-semibold text-fg">{t.template_name}</p>

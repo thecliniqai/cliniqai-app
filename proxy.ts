@@ -7,6 +7,8 @@ import { isApiPath, loginNextValue, pageNeedsSession } from "@/lib/auth/public-p
 import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
 import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 import { log } from "@/lib/log";
+import { routePatternOfPath } from "@/lib/observability/route-patterns";
+import { ROUTE_HEADER, START_HEADER } from "@/lib/observability/timing-headers";
 import {
   AUTH_STATE_HEADER,
   AUTH_STATE_UNAVAILABLE,
@@ -60,9 +62,16 @@ function forgetActiveClinic(request: NextRequest, response: NextResponse): NextR
  * `x-vercel-id` is left alone. V2-06 06-09d: the auth-state header is the proxy's alone: an inbound one is always
  * removed, and it is set only when this proxy found Supabase Auth unavailable (`authUnavailable`).
  */
+/** When `proxy()` first saw each request (read back when the request is forwarded, so the timing line counts the proxy's own work). */
+const proxyStartedAt = new WeakMap<NextRequest, number>();
+
 function continueWithRequestId(request: NextRequest, requestId: string, authUnavailable = false): NextResponse {
   const headers = new Headers(request.headers);
   headers.set(REQUEST_ID_HEADER, requestId);
+  // V2-09e 09E-02 (R-20): the route pattern and the proxy's start time for the `request.timing` line. Both are overwritten on
+  // every request (an inbound value is never trusted) and the reader checks them again.
+  headers.set(ROUTE_HEADER, routePatternOfPath(request.nextUrl.pathname));
+  headers.set(START_HEADER, String(proxyStartedAt.get(request) ?? Date.now()));
   headers.delete(AUTH_STATE_HEADER);
   if (authUnavailable) headers.set(AUTH_STATE_HEADER, AUTH_STATE_UNAVAILABLE);
   const response = NextResponse.next({ request: { headers } });
@@ -150,6 +159,7 @@ const SESSIONLESS_PATHS: ReadonlySet<string> = new Set(["/api/health", "/api/rea
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  proxyStartedAt.set(request, Date.now());
   // Every path gets an id, the early returns included.
   const requestId = newRequestId();
 

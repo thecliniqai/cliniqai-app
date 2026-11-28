@@ -16,13 +16,14 @@ import type {
   CreateScheduleBlockInput,
   CreateScheduleBlockResult,
   DeleteScheduleBlockResult,
-  RescheduleVisitInput,
   RescheduleVisitValue,
-  CancelVisitInput,
   CancelVisitValue,
   MarkNoShowValue,
   ConfirmAppointmentValue,
 } from "./scheduling-service";
+import type { CancelVisitRequest, RescheduleVisitRequest } from "./schema";
+import { markAction } from "@/lib/observability/db-timing";
+import { expectedVersionError } from "@/lib/errors/expected-version";
 
 export type {
   AvailableSlot,
@@ -56,6 +57,7 @@ function revalidate(...paths: string[]) {
  * Creates a schedule block (leave, vacation, break, or clinic-wide closure).
  */
 export async function createScheduleBlock(input: CreateScheduleBlockInput): Promise<CreateScheduleBlockResult> {
+  await markAction("visits_scheduling.create_schedule_block");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.createScheduleBlock(resolved.ctx, input);
@@ -67,6 +69,7 @@ export async function createScheduleBlock(input: CreateScheduleBlockInput): Prom
  * Deletes a schedule block.
  */
 export async function deleteScheduleBlock(blockId: string): Promise<DeleteScheduleBlockResult> {
+  await markAction("visits_scheduling.delete_schedule_block");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await schedulingService.deleteScheduleBlock(resolved.ctx, blockId);
@@ -78,6 +81,7 @@ export async function deleteScheduleBlock(blockId: string): Promise<DeleteSchedu
  * Fetches active schedule blocks for a given date. An unauthenticated or unauthorised caller gets an empty list.
  */
 export async function getScheduleBlocksForDate(dateStr: string, doctorId?: string): Promise<ScheduleBlock[]> {
+  await markAction("visits_scheduling.get_schedule_blocks_for_date");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return [];
   return schedulingService.getScheduleBlocksForDate(resolved.ctx, dateStr, doctorId);
@@ -93,6 +97,7 @@ export async function getAvailableSlots(
   date: string,
   excludeVisitId?: string
 ): Promise<CommandResult<AvailableSlot[]>> {
+  await markAction("visits_scheduling.get_available_slots");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   return schedulingService.getAvailableSlots(resolved.ctx, doctorId, date, excludeVisitId);
@@ -104,6 +109,7 @@ export async function getAvailableSlots(
  * the earliest free slot. Deterministic; no model, no outbound call. The clinic comes from the session.
  */
 export async function getSlotAssist(doctorId: string, patientId?: string | null): Promise<CommandResult<SlotAssist>> {
+  await markAction("visits_scheduling.get_slot_assist");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   // Fail closed: a lookup failure or a locked clinic reads as "not entitled".
@@ -114,6 +120,7 @@ export async function getSlotAssist(doctorId: string, patientId?: string | null)
 
 /** The appointment the reschedule sheet moves (`?reschedule=<visitId>`, V2-08 08-04b): patient name, doctor and the current slot. */
 export async function getRescheduleTarget(visitId: string): Promise<CommandResult<RescheduleTarget>> {
+  await markAction("visits_scheduling.get_reschedule_target");
   const resolved = await resolveServiceContext("appointments:view");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   return schedulingService.getRescheduleTarget(resolved.ctx, visitId);
@@ -129,10 +136,10 @@ export async function registerAndBook(
   input: RegisterAndBookInput,
   clientRequestId: string
 ): Promise<CommandResult<RegisterAndBookValue>> {
+  await markAction("visits_scheduling.register_and_book");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
   const result = await schedulingService.registerAndBook(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today", "/patients");
   return result;
 }
 
@@ -140,51 +147,62 @@ export async function registerAndBook(
  * Moves a booked, confirmed or missed appointment to a new time as one atomic command (V2-08 08-04a): the slot check, the
  * status back to booked, the audit row, the optional patient message and the webhook event commit together. A slot that is
  * taken, off duty or blocked answers CONFLICT (reasons SLOT_TAKEN, SLOT_OFF_DUTY, SLOT_BLOCKED) and writes nothing.
- * `client_request_id` is required (the same id replays the first result).
+ * `client_request_id` is required (the same id replays the first result). `input.expected_version` is the visit's `row_version` the screen shows
+ * (09E-07, R-19), required here: a visit that moved on is refused (`CONFLICT` / `ROW_CHANGED`) and nothing is written.
  */
 export async function rescheduleVisit(
-  input: RescheduleVisitInput,
+  input: RescheduleVisitRequest,
   clientRequestId: string
 ): Promise<CommandResult<RescheduleVisitValue>> {
+  await markAction("visits_scheduling.reschedule_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(input?.expected_version);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.rescheduleVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
 /**
  * Cancels a booked, confirmed or waiting appointment as one atomic command (V2-08 08-04a): the reason, the waitlist
- * promotion into the vacated slot, the optional patient message and the webhook event commit together.
+ * promotion into the vacated slot, the optional patient message and the webhook event commit together. `input.expected_version`: the visit's
+ * `row_version` the screen shows (09E-07, R-19), required.
  */
 export async function cancelVisit(
-  input: CancelVisitInput,
+  input: CancelVisitRequest,
   clientRequestId: string
 ): Promise<CommandResult<CancelVisitValue>> {
+  await markAction("visits_scheduling.cancel_visit");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  const invalid = expectedVersionError(input?.expected_version);
+  if (invalid) return { ok: false, error: invalid };
   const result = await schedulingService.cancelVisit(resolved.ctx, input, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
   return result;
 }
 
-/** Marks a booked or confirmed appointment whose time has passed as a no-show (V2-08 08-04a). */
-export async function markNoShow(visitId: string, clientRequestId: string): Promise<CommandResult<MarkNoShowValue>> {
+/** Marks a booked or confirmed appointment whose time has passed as a no-show (V2-08 08-04a). `expectedVersion`: the visit's `row_version` the screen shows (09E-07). */
+export async function markNoShow(visitId: string, clientRequestId: string, expectedVersion: number): Promise<CommandResult<MarkNoShowValue>> {
+  await markAction("visits_scheduling.mark_no_show");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
+  const result = await schedulingService.markNoShow(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }
 
-/** Confirms a booked appointment (V2-08 08-04a). */
+/** Confirms a booked appointment (V2-08 08-04a). `expectedVersion`: the visit's `row_version` the screen shows (09E-07). */
 export async function confirmAppointment(
   visitId: string,
-  clientRequestId: string
+  clientRequestId: string,
+  expectedVersion: number
 ): Promise<CommandResult<ConfirmAppointmentValue>> {
+  await markAction("visits_scheduling.confirm_appointment");
   const resolved = await resolveServiceContext("appointments:edit");
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
-  const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId);
-  if (result.ok) revalidate("/schedule", "/today");
+  const invalid = expectedVersionError(expectedVersion);
+  if (invalid) return { ok: false, error: invalid };
+  const result = await schedulingService.confirmAppointment(resolved.ctx, visitId, clientRequestId, expectedVersion);
   return result;
 }

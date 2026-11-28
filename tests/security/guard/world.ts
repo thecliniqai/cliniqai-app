@@ -20,7 +20,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { getAdminClient } from "../../helpers/supabase-admin";
-import { addMemberToTenant, createUnlinkedUser, seedTenantWithOwner, type SeededTenant } from "../../helpers/tenants";
+import { addMemberToTenant, createUnlinkedUser, seedAccessFixtureClinic, seedTenantWithOwner, signInSeededUser, type SeededTenant } from "../../helpers/tenants";
 import { insertReturningId, type TestDb } from "../../helpers/db";
 import type { TablesInsert } from "@/types/database";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
@@ -94,6 +94,8 @@ export interface GuardWorld {
   dual: Record<UserRole, SeededTenant>;
   noMember: { userId: string; client: TestDb };
   outsider: { userId: string; client: TestDb };
+  /** An owner of a locked clinic (09E-14a: the board answers 403 SUBSCRIPTION_LOCKED, the live state a level other than full). */
+  lockedOwner: { client: TestDb };
 }
 
 const insertRow = insertReturningId;
@@ -517,5 +519,6 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
     dual,
     noMember: await createUnlinkedUser(),
     outsider: await createUnlinkedUser(),
+    lockedOwner: { client: (await signInSeededUser((await seedAccessFixtureClinic("locked", "Guard Locked Clinic", ["owner"])).users[0].email)) as TestDb },
   };
 }

@@ -1172,6 +1172,19 @@ export const TARGETS: readonly Target[] = [
     rules: selectOnly(perm("clinic:view")),
     note: "the owner's AI opt-in (05-10c): SELECT clinic:view of the active clinic; written only by set_ai_opt_in (owner of the active, full clinic, R-33)",
   },
+  // V2-09e 09E-04 (R-18; migration 000123).
+  {
+    kind: "table",
+    schema: "public",
+    table: "clinic_versions",
+    key: ["tenant_id", "domain"],
+    fixture: { tenant_id: A, domain: "'queue'" },
+    inBase: true,
+    insert: { tenant_id: A, domain: "'schedule'" },
+    update: "version",
+    rules: selectOnly(member()),
+    note: "one version per clinic and domain (09E-04, R-18): SELECT for every active member of the clinic (no PHI); raised only by private.clinic_bump from statement triggers; no API role writes; rows created by the tenants trigger",
+  },
   {
     kind: "table",
     schema: "public",
@@ -1234,6 +1247,19 @@ export const TARGETS: readonly Target[] = [
     update: "name",
     rules: catalogueRules,
     note: "global reference data: SELECT for every signed-in user",
+  },
+  // V2-09e 09E-09 (R-5; migration 000128).
+  {
+    kind: "table",
+    schema: "public",
+    table: "reference_catalogues",
+    key: ["catalogue"],
+    fixture: { catalogue: "'cdci'" },
+    inBase: true,
+    insert: { catalogue: "'diagnoses'", version: "gen_random_uuid()", changed_at: "now()" },
+    update: "version",
+    rules: catalogueRules,
+    note: "the version of each global reference catalogue (09E-09, R-5): SELECT for every signed-in user (no PHI, no tenant); raised only by the statement triggers on the catalogue tables (private.reference_catalogue_bump); no API role writes",
   },
   {
     kind: "table",

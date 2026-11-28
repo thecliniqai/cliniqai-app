@@ -66,7 +66,7 @@ async function counts(tenantId: string) {
 
 describe("collect_payment: catalog", () => {
   it("is DEFINER with the pinned settings, EXECUTE for authenticated only, and a required p_client_request_id", () => {
-    expectCommandCatalog({ signature: "public.collect_payment(uuid, uuid, jsonb, numeric, text, text, text, uuid, numeric, numeric)", definer: true });
+    expectCommandCatalog({ signature: "public.collect_payment(uuid, uuid, jsonb, numeric, text, text, text, uuid, numeric, numeric, bigint)", definer: true });
   });
 });
 

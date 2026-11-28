@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { CONTROL_BASE, CONTROL_HEIGHT, CONTROL_STATE, TRANSITION } from "@/lib/ui/variants";
 import { PatientIdentityHeader, type PatientIdentity } from "./patient-identity-header";
 import { focusBoxInput } from "@/lib/ui/focus-box";
+import { rum } from "@/lib/observability/rum/collector";
 
 /**
  * PatientPicker (V2-06 06-03b; 06-UI-SPEC PatientPicker; DESIGN_SYSTEM §7.9 patient row): find a patient by name or
@@ -46,6 +47,11 @@ export interface PatientPickerProps {
   label?: string;
   placeholder?: string;
   className?: string;
+  /**
+   * V2-09e 09E-02 (R-20): set when `search` goes to the server; the time from the keystroke to the answer's first option on screen (a hit, or the register row) is then sent as
+   * the `search_server` real-user timing (never the query).
+   */
+  measureServerSearch?: boolean;
 }
 
 export function PatientPicker({
@@ -56,6 +62,7 @@ export function PatientPicker({
   label = "Patient",
   placeholder = "Search by name or mobile number",
   className,
+  measureServerSearch = false,
 }: PatientPickerProps) {
   const [query, setQuery] = useState("");
   // The answer and the query it answers (results are never shown for another query).
@@ -88,11 +95,13 @@ export function PatientPicker({
       return;
     }
     setLoading(true);
+    const stopTimer = measureServerSearch ? rum.timer("search_server") : null;
     timer.current = setTimeout(async () => {
       try {
         const found = await search(q);
         if (n !== seq.current) return;
         setAnswer({ query: q, patients: found, failed: false });
+        stopTimer?.();
       } catch {
         if (n !== seq.current) return;
         setAnswer({ query: q, patients: [], failed: true });

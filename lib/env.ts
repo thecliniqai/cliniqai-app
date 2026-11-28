@@ -230,6 +230,7 @@ const shapeSchema = z.object({
   PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
   PWNED_API_BASE_URL: text.url().optional(),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: text.optional(),
+  NEXT_PUBLIC_RUM_SAMPLE_RATE: text.optional(),
   TURNSTILE_SECRET_KEY: text.optional(),
   TURNSTILE_VERIFY_URL: text.url().optional(),
   VERCEL_REGION: text.optional(),
@@ -320,6 +321,8 @@ export interface Env {
   PWNED_API_BASE_URL: string;
   /** Unset = no widget (local default). Required, and not a test key, in production (03-12c). */
   NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
+  /** 09E-02 (R-20): the share of sessions that send real-user timings, a number from 0 to 1; unset = 1 (every session). */
+  NEXT_PUBLIC_RUM_SAMPLE_RATE?: string;
   /** 05-07b (R-46): server only. Required in production; optional in staging (unset: invite acceptance refuses). */
   TURNSTILE_SECRET_KEY?: string;
   /** Defaults to Cloudflare's siteverify; another value only in test/e2e, and only a loopback URL. */
@@ -674,6 +677,10 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
 
   // 03-12c (C43, R-17, R-22): production must show a real Turnstile widget; local and test tiers only Cloudflare's
   // test keys (the e2e lane fulfils the script with a local stub); staging may run without one until PO action E7.
+  const rumRate = raw.NEXT_PUBLIC_RUM_SAMPLE_RATE;
+  if (present(rumRate) && !(Number.isFinite(Number(rumRate)) && Number(rumRate) >= 0 && Number(rumRate) <= 1)) {
+    add("NEXT_PUBLIC_RUM_SAMPLE_RATE", "must be a number from 0 to 1");
+  }
   const turnstileKey = raw.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const isTestTurnstileKey = present(turnstileKey) && (TURNSTILE_TEST_SITE_KEYS as readonly string[]).includes(turnstileKey);
   if (present(turnstileKey) && !TURNSTILE_SITE_KEY_PATTERN.test(turnstileKey)) {
@@ -872,6 +879,12 @@ export const publicEnv = {
   get NEXT_PUBLIC_TURNSTILE_SITE_KEY(): string | undefined {
     const value = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     return present(value) ? value : undefined;
+  },
+  /** 09E-02 (R-20): the share of sessions that send real-user timings (0 to 1; unset or invalid = every session). */
+  get NEXT_PUBLIC_RUM_SAMPLE_RATE(): number {
+    const value = process.env.NEXT_PUBLIC_RUM_SAMPLE_RATE;
+    const rate = present(value) ? Number(value) : 1;
+    return Number.isFinite(rate) && rate >= 0 && rate <= 1 ? rate : 1;
   },
 };
 
@@ -1104,6 +1117,14 @@ export const ENV_DOCS: Record<
       "Refused in production; on staging true only during PO action E9.",
     ],
     example: "false",
+  },
+  NEXT_PUBLIC_RUM_SAMPLE_RATE: {
+    group: "Observability",
+    notes: [
+      "Share of browser sessions that send real-user timings to POST /api/rum (09E-02, R-20): a number from 0 to 1.",
+      "Unset = 1 (every session). One sampling decision per session; the timings hold no URL, id or text.",
+    ],
+    example: "1",
   },
   EMAIL_PROVIDER: {
     group: "Email",
