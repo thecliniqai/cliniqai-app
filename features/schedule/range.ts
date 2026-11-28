@@ -11,6 +11,7 @@ import { emptyVersions, type Versions } from "@/lib/live/domains";
 import { hasPerm, ROLE_PERMISSIONS } from "@/lib/permissions";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { rowActions } from "@/features/visits/state-machine";
+import { buildMonthDays, buildWeekGrid, rangeOfMonth, shiftMonth } from "./calendar";
 import { weekStart, type FreeSlot, type ScheduleAppointment, type ScheduleBlockView, type ScheduleData, type WaitlistView, type WeekDayCount } from "./schema";
 
 /** The longest range one read serves (the SQL refuses more). */
@@ -117,6 +118,35 @@ export function adjacentRanges(range: { from: string; to: string }): { from: str
   ];
 }
 
+/**
+ * The range a view reads and the ranges read ahead once it settles (V2-09f): a week (with slots) reads ahead the weeks around it and the month of the
+ * date (counts only); the month (six weeks, no slots) reads ahead the week of the date and the months around it.
+ */
+export interface RangeRequest {
+  from: string;
+  to: string;
+  withSlots: boolean;
+}
+
+export function rangesFor(date: string, month: boolean): { range: RangeRequest; ahead: RangeRequest[] } {
+  if (month) {
+    const range = { ...rangeOfMonth(date), withSlots: false };
+    return {
+      range,
+      ahead: [
+        { ...rangeOfDate(date), withSlots: true },
+        { ...rangeOfMonth(shiftMonth(date, -1)), withSlots: false },
+        { ...rangeOfMonth(shiftMonth(date, 1)), withSlots: false },
+      ],
+    };
+  }
+  const week = rangeOfDate(date);
+  return {
+    range: { ...week, withSlots: true },
+    ahead: [...adjacentRanges(week).map((r) => ({ ...r, withSlots: true })), { ...rangeOfMonth(date), withSlots: false }],
+  };
+}
+
 /** A well-formed range request: two clinic dates, in order, at most 42 days. */
 export function isRangeOk(from: string, to: string): boolean {
   return isYmd(from) && isYmd(to) && to >= from && to <= addDaysYmd(from, MAX_RANGE_DAYS - 1);
@@ -133,6 +163,8 @@ export interface BuildOptions {
   doctor: string;
   /** Build the week overview for the selected doctor. */
   week: boolean;
+  /** Build the month grid (V2-09f; the range holds the month's six weeks). */
+  month?: boolean;
   role: UserRole;
   userId: string;
   /** The device's clock now, corrected by its offset to the server (display only). */
@@ -157,22 +189,23 @@ export function freeSlotsOf(range: ScheduleRange, doctorId: string, date: string
   return out;
 }
 
-/** What the Schedule shows for one date of a range (the read model `getSchedule` used to build from eight or more calls). */
-export function buildScheduleData(range: ScheduleRange, options: BuildOptions): ScheduleData {
-  const timeZone = resolveTimeZone(range.zone);
-  const today = todayInTz(timeZone, options.now);
-  const date = options.date;
-  const doctors = clinicianNames(range);
-  const known = new Set(doctors.map((d) => d.id));
-  const doctorFilter = known.has(options.doctor) ? options.doctor : "all";
-  const nameOf = new Map(doctors.map((d) => [d.id, d.name]));
-  const shown = doctorFilter === "all" ? doctors : doctors.filter((d) => d.id === doctorFilter);
-  const permissions = ROLE_PERMISSIONS[options.role];
-  const canEdit = hasPerm(options.role, "appointments:edit");
-  const manages = hasPerm(options.role, "clinic:manage");
-  const ownsColumn = canEdit && known.has(options.userId);
-  const block = { allowed: manages || ownsColumn, doctorId: manages || !ownsColumn ? null : options.userId };
+interface DayContext {
+  timeZone: string;
+  nameOf: Map<string, string>;
+  permissions: (typeof ROLE_PERMISSIONS)[UserRole];
+  canEdit: boolean;
+  now: Date;
+}
 
+/** One clinic date of a range for a doctor filter: its appointments, its blocks (clipped to the day) and the shown doctors' free slots. */
+function dayParts(
+  range: ScheduleRange,
+  date: string,
+  doctorFilter: string,
+  shown: { id: string }[],
+  ctx: DayContext,
+): { appointments: ScheduleAppointment[]; blocks: ScheduleBlockView[]; free: FreeSlot[] } {
+  const { timeZone, nameOf, canEdit } = ctx;
   const appointments: ScheduleAppointment[] = range.visits
     .filter((v) => ymdOf(v.scheduled_at, timeZone) === date && (doctorFilter === "all" || v.doctor_id === doctorFilter))
     .map((v) => {
@@ -190,7 +223,7 @@ export function buildScheduleData(range: ScheduleRange, options: BuildOptions): 
         status: v.status,
         overbooked: v.is_overbooked,
         confirmed,
-        actions: rowActions(permissions, { status: v.status, scheduledAt: v.scheduled_at, signed: v.signed_at != null }, options.now, timeZone),
+        actions: rowActions(ctx.permissions, { status: v.status, scheduledAt: v.scheduled_at, signed: v.signed_at != null }, ctx.now, timeZone),
         canConfirm: canEdit && v.status === "booked" && !confirmed,
         rowVersion: v.row_version,
       };
@@ -210,7 +243,29 @@ export function buildScheduleData(range: ScheduleRange, options: BuildOptions): 
       reason: b.reason,
     }));
 
-  const free: FreeSlot[] = shown.flatMap((d) => freeSlotsOf(range, d.id, date, timeZone, options.now));
+  const free: FreeSlot[] = shown.flatMap((d) => freeSlotsOf(range, d.id, date, timeZone, ctx.now));
+
+  return { appointments, blocks, free };
+}
+
+/** What the Schedule shows for one date of a range (the read model `getSchedule` used to build from eight or more calls). */
+export function buildScheduleData(range: ScheduleRange, options: BuildOptions): ScheduleData {
+  const timeZone = resolveTimeZone(range.zone);
+  const today = todayInTz(timeZone, options.now);
+  const date = options.date;
+  const doctors = clinicianNames(range);
+  const known = new Set(doctors.map((d) => d.id));
+  const doctorFilter = known.has(options.doctor) ? options.doctor : "all";
+  const nameOf = new Map(doctors.map((d) => [d.id, d.name]));
+  const shown = doctorFilter === "all" ? doctors : doctors.filter((d) => d.id === doctorFilter);
+  const permissions = ROLE_PERMISSIONS[options.role];
+  const canEdit = hasPerm(options.role, "appointments:edit");
+  const manages = hasPerm(options.role, "clinic:manage");
+  const ownsColumn = canEdit && known.has(options.userId);
+  const block = { allowed: manages || ownsColumn, doctorId: manages || !ownsColumn ? null : options.userId };
+  const ctx: DayContext = { timeZone, nameOf, permissions, canEdit, now: options.now };
+
+  const { appointments, blocks, free } = dayParts(range, date, doctorFilter, shown, ctx);
 
   const waitlist: WaitlistView[] = range.waitlist
     .filter((w) => w.target_date === date && (doctorFilter === "all" || w.doctor_id === null || w.doctor_id === doctorFilter))
@@ -233,11 +288,21 @@ export function buildScheduleData(range: ScheduleRange, options: BuildOptions): 
         booked: range.visits.filter((v) => v.doctor_id === doctorId && v.status !== "no_show" && ymdOf(v.scheduled_at, timeZone) === day).length,
         free: freeSlotsOf(range, doctorId, day, timeZone, options.now).length,
       }));
-      week = { doctorId, days };
+      const clinician = range.clinicians.find((c) => c.id === doctorId);
+      const grid = range.slots
+        ? buildWeekGrid(
+            doctorId,
+            clinician?.slot_minutes ?? 15,
+            days.map((d) => ({ date: d.date, ...dayParts(range, d.date, doctorId, doctors.filter((x) => x.id === doctorId), ctx) })),
+          )
+        : null;
+      week = { doctorId, days, grid };
     }
   }
 
-  return { date, today, timeZone, doctors, doctorFilter, appointments, blocks, free, waitlist, week, canEdit, block };
+  const month = options.month ? buildMonthDays(range, date, doctorFilter, timeZone) : null;
+
+  return { date, today, timeZone, doctors, doctorFilter, appointments, blocks, free, waitlist, week, month, canEdit, block };
 }
 
 const offsets = new WeakMap<ScheduleRange, number>();

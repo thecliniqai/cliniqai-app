@@ -34,7 +34,7 @@ import { useClinicDoctors } from "./use-doctors";
  */
 const MOVABLE = ["booked", "confirmed", "no_show"];
 
-function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => void }) {
+function RescheduleBody({ visitId, onDone, defaults }: { visitId: string; onDone: () => void; defaults?: RescheduleDefaults }) {
   const { command, run } = useConfirmedCall();
   const afterSave = useAfterSave();
   const rowChanged = useRowChanged();
@@ -54,12 +54,16 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
         if (!live) return;
         if (!result.ok) return setFailed(result.error.message);
         setTarget(result.value);
-        setPlan({ doctorId: result.value.doctorId, date: result.value.date < today ? today : result.value.date, time: null, minutes: null });
+        // V2-09f: a slot picked on the week grid ("Move here") comes chosen; the sheet still lists the doctor's free slots and the command re-checks it.
+        if (defaults && defaults.date >= today) setPlan({ doctorId: result.value.doctorId, date: defaults.date, time: defaults.time, minutes: null });
+        else setPlan({ doctorId: result.value.doctorId, date: result.value.date < today ? today : result.value.date, time: null, minutes: null });
       })
       .catch(() => live && setFailed("Couldn't load the appointment."));
     return () => {
       live = false;
     };
+    // The defaults are read once, when the sheet opens for this visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visitId, today]);
 
   const lastSend = useRef<(() => Promise<unknown>) | null>(null);
@@ -153,18 +157,25 @@ function RescheduleBody({ visitId, onDone }: { visitId: string; onDone: () => vo
   );
 }
 
+/** A new date and time chosen before the sheet opened (the week grid's "Move here"; `?reschedule=<id>&date&time`). */
+export interface RescheduleDefaults {
+  date: string;
+  time: string;
+}
+
 export interface RescheduleSheetProps {
   /** The visit to move; null closes the sheet. */
   visitId: string | null;
   onOpenChange: (open: boolean) => void;
+  defaults?: RescheduleDefaults;
 }
 
-export function RescheduleSheet({ visitId, onOpenChange }: RescheduleSheetProps) {
+export function RescheduleSheet({ visitId, onOpenChange, defaults }: RescheduleSheetProps) {
   return (
     <ResponsiveSheet open={visitId !== null} onOpenChange={onOpenChange}>
       <ResponsiveSheetContent data-reschedule-sheet-root="" aria-describedby={undefined}>
         <ResponsiveSheetHeader title="Move appointment" />
-        <ResponsiveSheetBody>{visitId && <RescheduleBody key={visitId} visitId={visitId} onDone={() => onOpenChange(false)} />}</ResponsiveSheetBody>
+        <ResponsiveSheetBody>{visitId && <RescheduleBody key={visitId} visitId={visitId} defaults={defaults} onDone={() => onOpenChange(false)} />}</ResponsiveSheetBody>
       </ResponsiveSheetContent>
     </ResponsiveSheet>
   );

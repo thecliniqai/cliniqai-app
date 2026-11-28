@@ -7,7 +7,7 @@ import { isYmd } from "@/lib/datetime";
 import type { Versions } from "@/lib/live/domains";
 import type { ScheduleView as View } from "@/features/schedule/schema";
 import { isScheduleView } from "@/features/schedule/schema";
-import { buildScheduleData, rangeOfDate, serverNowOf } from "@/features/schedule/range";
+import { buildScheduleData, rangesFor, serverNowOf } from "@/features/schedule/range";
 import { ScheduleSkeleton } from "@/components/shell/skeletons/schedule-skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,8 +15,10 @@ import { Agenda } from "./agenda";
 import { BlockTimeDialog } from "./block-time-dialog";
 import { DayGrid } from "./day-grid";
 import { ScheduleHead } from "./schedule-head";
+import { MonthView } from "./month-view";
 import { useScheduleRange } from "./use-schedule-range";
 import { WaitlistSheet } from "./waitlist-sheet";
+import { WeekGrid } from "./week-grid";
 import { WeekOverview } from "./week-overview";
 
 /**
@@ -31,6 +33,9 @@ import { WeekOverview } from "./week-overview";
  * PR 2 review I-2: a week the device does not hold and could not read shows why and a way forward instead of the loading skeleton: "Try again" (a re-read)
  * after a failed read, and an offline message while the read waits for the network (it runs again by itself on reconnect). A held week whose re-read failed
  * keeps showing what it has.
+ * V2-09f (09F): the week view is a time grid from 768 px (the overview list below); the month view reads the six weeks of the month WITHOUT slots (one
+ * `schedule_range` of 42 days, the cap). A settled week prefetches the month of its date and a settled month the week of its date (and the months
+ * around it), so switching week and month is 0 calls.
  */
 const WIDE = "(min-width: 768px)";
 
@@ -66,13 +71,14 @@ export function ScheduleView({ tenantId, role, userId, initialDate, defaultDocto
   const askedDate = params.get("date");
   const date = isYmd(askedDate) ? askedDate : initialDate;
   const doctor = params.get("doctor") ?? defaultDoctor ?? "all";
-  const range = useMemo(() => rangeOfDate(date), [date]);
-  const { data: raw, isError, fetchStatus, refetch } = useScheduleRange(tenantId, range, versions);
+  const month = view === "month";
+  const { range, ahead } = useMemo(() => rangesFor(date, month), [date, month]);
+  const { data: raw, isError, fetchStatus, refetch } = useScheduleRange(tenantId, range, ahead, versions);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const data = useMemo(
-    () => (raw ? buildScheduleData(raw, { date, doctor, week: view === "week", role, userId, now: serverNowOf(raw) }) : null),
-    [raw, date, doctor, view, role, userId],
+    () => (raw ? buildScheduleData(raw, { date, doctor, week: view === "week", month, role, userId, now: serverNowOf(raw) }) : null),
+    [raw, date, doctor, view, month, role, userId],
   );
   if (!data) {
     if (fetchStatus === "paused") return <ScheduleUnavailable offline onRetry={() => void refetch()} />;
@@ -84,7 +90,8 @@ export function ScheduleView({ tenantId, role, userId, initialDate, defaultDocto
       <ScheduleHead data={data} view={view} onOpenWaitlist={() => setWaitlistOpen(true)} onOpenBlock={() => setBlockOpen(true)} />
       {view === "day" && <DayGrid data={data} />}
       {view === "agenda" && <Agenda data={data} />}
-      {view === "week" && <WeekOverview data={data} />}
+      {view === "week" && <div data-week-view="">{wide ? <WeekGrid data={data} /> : <WeekOverview data={data} />}</div>}
+      {view === "month" && <MonthView data={data} />}
       <WaitlistSheet open={waitlistOpen} onOpenChange={setWaitlistOpen} data={data} />
       <BlockTimeDialog
         open={blockOpen}

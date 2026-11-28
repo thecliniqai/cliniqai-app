@@ -5,10 +5,11 @@
  * to staff who may block time) and the waitlist's time window.
  */
 import type { RowAction } from "@/features/visits/state-machine";
+import type { MonthDay, WeekGrid } from "./calendar";
 import type { VisitStatus } from "@/lib/db/types";
 import { addDaysYmd, weekdayOfYmd } from "@/lib/datetime";
 
-export const SCHEDULE_VIEWS = ["day", "agenda", "week"] as const;
+export const SCHEDULE_VIEWS = ["day", "agenda", "week", "month"] as const;
 export type ScheduleView = (typeof SCHEDULE_VIEWS)[number];
 
 export function isScheduleView(value: unknown): value is ScheduleView {
@@ -90,8 +91,13 @@ export interface ScheduleData {
   /** Free slots of the shown doctors that day (the database's `available_slots`). */
   free: FreeSlot[];
   waitlist: WaitlistView[];
-  /** Week overview: the seven days from `weekStart` for the one selected doctor (empty unless the week view was asked for). */
-  week: { doctorId: string; days: WeekDayCount[] } | null;
+  /**
+   * Week overview: the seven days from `weekStart` for the one selected doctor (empty unless the week view was asked for). `grid` (V2-09f) is the same
+   * week as a time grid (the 768 px and up week view); absent when the range was read without slots.
+   */
+  week: { doctorId: string; days: WeekDayCount[]; grid: WeekGrid | null } | null;
+  /** The month grid (V2-09f; six weeks, counts for the doctor filter), only when the month view was asked for. */
+  month: MonthDay[] | null;
   canEdit: boolean;
   /**
    * Who may block time (the service's rule, `createScheduleBlock`): `clinic:manage` blocks any doctor or the whole clinic

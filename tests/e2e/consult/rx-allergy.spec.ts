@@ -113,6 +113,9 @@ test("an allergy recorded after a line was added flags it, and 'Prescribe anyway
   await expect(rx.getByRole("option", { name: new RegExp(AL_BRANDS.amoxBrand.brand) })).toBeVisible({ timeout: 10_000 });
   for (const key of ["Enter", "1", "5", "d", "Enter"]) await rxField(rx).press(key);
   await expect(rxList(page)).toHaveCount(1, { timeout: 10_000 });
+  // 09F (CI run 46113640625, attempt 1): the line shows at once and is saved in the background (`data-pending`); a reload before the save commits
+  // re-read a prescription without it ("No medicines yet"). Wait until the database holds the line, as the other database reads here do.
+  expect(await rxStored(page, visitId)).toHaveLength(1);
   // The allergy is recorded afterwards (here by the clinic's own tools): the page reads the context again after the next change.
   await admin.from("patients").update({ allergies: [AL_SUBSTANCES.amox.name] }).eq("id", patientId).throwOnError();
   await page.reload();

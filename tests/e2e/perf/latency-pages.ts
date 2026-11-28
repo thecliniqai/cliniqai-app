@@ -65,7 +65,8 @@ export const PAGE_ROWS: readonly PageRowDef[] = [
     from: () => "/schedule",
     to: () => "/schedule?view=week",
     click: (page) => page.getByRole("radio", { name: "Week" }),
-    data: () => ({ selector: "#main [data-week-overview]" }),
+    // V2-09f: the week view is the time grid from 768 px and the overview list below; both sit in `[data-week-view]`.
+    data: () => ({ selector: "#main [data-week-view]" }),
   },
   {
     id: "in-app.R.patients",

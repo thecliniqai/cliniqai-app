@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { scheduleHref, type ScheduleData, type ScheduleView } from "@/features/schedule/schema";
 import { addDaysYmd } from "@/lib/datetime";
-import { formatClinicDateWithWeekday } from "@/lib/datetime/format";
+import { formatClinicDateWithWeekday, formatMonthYear } from "@/lib/datetime/format";
+import { shiftMonth } from "@/features/schedule/calendar";
 import { LiveBadge } from "@/components/shell/live-badge";
 import { inPlace, useScheduleNavigate } from "./navigate";
 
@@ -20,6 +21,7 @@ import { inPlace, useScheduleNavigate } from "./navigate";
  * (`?date&view&doctor`) is a shareable link.
  * V2-09e 09E-12 (R-10): every change of date, view or doctor moves the address with `history.pushState` and reads the range query (no page render; a
  * held week shows with no call); the links stay real links (a new tab or a copied address opens the same view). The live badge shows (R-18).
+ * V2-09f: a Month view; in it previous and next move a month (to its 1st) and the date reads "November 2026"; "All doctors" is offered there too.
  */
 
 export interface ScheduleHeadProps {
@@ -33,6 +35,7 @@ const VIEW_OPTIONS = [
   { value: "day", label: "Day" },
   { value: "agenda", label: "Agenda" },
   { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
 ] as const;
 
 export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: ScheduleHeadProps) {
@@ -40,6 +43,10 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
   const pathname = usePathname();
   const params = useSearchParams();
   const step = view === "week" ? 7 : 1;
+  const month = view === "month";
+  const prevDate = month ? shiftMonth(data.date, -1) : addDaysYmd(data.date, -step);
+  const nextDate = month ? shiftMonth(data.date, 1) : addDaysYmd(data.date, step);
+  const unit = month ? "month" : view === "week" ? "week" : "day";
   const href = (over: { date?: string; view?: ScheduleView | null; doctor?: string | null }) =>
     scheduleHref({
       date: over.date ?? data.date,
@@ -61,18 +68,18 @@ export function ScheduleHead({ data, view, onOpenWaitlist, onOpenBlock }: Schedu
       <h1 className="sr-only">Schedule</h1>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
-          <Link href={href({ date: addDaysYmd(data.date, -step) })} prefetch={false} onClick={inPlace(navigate, href({ date: addDaysYmd(data.date, -step) }))} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Previous week" : "Previous day"}>
+          <Link href={href({ date: prevDate })} prefetch={false} onClick={inPlace(navigate, href({ date: prevDate }))} className={buttonClassName({ variant: "secondary" })} aria-label={`Previous ${unit}`}>
             <ChevronLeft aria-hidden="true" className="size-4" />
           </Link>
           <Link href={href({ date: data.today })} prefetch={false} onClick={inPlace(navigate, href({ date: data.today }))} className={buttonClassName({ variant: "secondary" })}>
             Today
           </Link>
-          <Link href={href({ date: addDaysYmd(data.date, step) })} prefetch={false} onClick={inPlace(navigate, href({ date: addDaysYmd(data.date, step) }))} className={buttonClassName({ variant: "secondary" })} aria-label={view === "week" ? "Next week" : "Next day"}>
+          <Link href={href({ date: nextDate })} prefetch={false} onClick={inPlace(navigate, href({ date: nextDate }))} className={buttonClassName({ variant: "secondary" })} aria-label={`Next ${unit}`}>
             <ChevronRight aria-hidden="true" className="size-4" />
           </Link>
         </div>
         <p className="text-body-md font-semibold text-fg" data-schedule-date="">
-          {formatClinicDateWithWeekday(data.date)}
+          {month ? formatMonthYear(data.date) : formatClinicDateWithWeekday(data.date)}
         </p>
         <LiveBadge />
         <div className="w-40">

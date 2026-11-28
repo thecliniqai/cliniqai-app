@@ -156,7 +156,8 @@ test("B-9: the next day and the next week show with no read of their range; B-10
   expect(reads, "the page's own week came with the page; only the two adjacent weeks were read").toEqual(
     expect.arrayContaining([`${addDays(week, -7)}..${addDays(week, -1)}`, `${nextWeek}..${addDays(nextWeek, 6)}`]),
   );
-  expect(reads.filter((r) => r.startsWith(`${week}..`)), "the visible week is not read again").toEqual([]);
+  // Exact ranges: since V2-09f a settled week also reads ahead its month (42 days, `slots=0`), which can start on the same Monday.
+  expect(reads.filter((r) => r === `${week}..${addDays(week, 6)}`), "the visible week is not read again").toEqual([]);
 
   // Next day (Saturday, same week), then the week view and Next week: all held.
   const before = reads.length;
@@ -166,7 +167,7 @@ test("B-9: the next day and the next week show with no read of their range; B-10
   await page.getByRole("link", { name: "Next day" }).click(); // Monday: the next week
   await expect(page.locator(SCHEDULE)).toHaveAttribute("data-schedule-range", `${nextWeek}..${addDays(nextWeek, 6)}`);
   await expect(page.locator("[data-appointment]").filter({ hasText: later.name })).toBeVisible();
-  expect(reads.slice(before).filter((r) => r.startsWith(`${nextWeek}..`)), "B-9: the next week was not read when shown").toEqual([]);
+  expect(reads.slice(before).filter((r) => r === `${nextWeek}..${addDays(nextWeek, 6)}`), "B-9: the next week was not read when shown").toEqual([]);
 
   // B-10: three weeks away is one read of its range and one schedule_range call.
   const far = addDays(date, 21);
@@ -175,7 +176,7 @@ test("B-9: the next day and the next week show with no read of their range; B-10
     await page.getByLabel("Go to date").fill(far);
     await expect(page.locator(SCHEDULE)).toHaveAttribute("data-schedule-range", `${farWeek}..${addDays(farWeek, 6)}`, { timeout: 15_000 });
   }, 0);
-  expect(reads.filter((r) => r.startsWith(`${farWeek}..`)), "B-10: one read of the far week").toHaveLength(1);
+  expect(reads.filter((r) => r === `${farWeek}..${addDays(farWeek, 6)}`), "B-10: one read of the far week").toHaveLength(1);
   const rangeCalls = Object.entries(window.serverByPath).filter(([k]) => k.includes("rpc/schedule_range")).reduce((n, [, c]) => n + c, 0);
   expect(rangeCalls, `B-10: the far week is one call (prefetches of its neighbours may follow it): ${JSON.stringify(window.serverByPath)}`).toBeGreaterThanOrEqual(1);
   expect(Object.keys(window.serverByPath).filter((k) => !k.includes("rpc/schedule_range")), "no other read").toEqual([]);

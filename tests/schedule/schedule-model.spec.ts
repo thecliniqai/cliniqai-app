@@ -68,7 +68,8 @@ describe("weekStart, views and addresses", () => {
 
   it("knows its views and builds short addresses", () => {
     expect(isScheduleView("week")).toBe(true);
-    expect(isScheduleView("month")).toBe(false);
+    expect(isScheduleView("month")).toBe(true);
+    expect(isScheduleView("year")).toBe(false);
     expect(scheduleHref({ date: "2026-11-23", today: "2026-11-23" })).toBe("/schedule");
     expect(scheduleHref({ date: "2026-11-24", view: "week", doctor: "abc", today: "2026-11-23" })).toBe("/schedule?date=2026-11-24&view=week&doctor=abc");
     expect(scheduleHref({ date: "2026-11-24", doctor: "all", today: "2026-11-23" })).toBe("/schedule?date=2026-11-24");
