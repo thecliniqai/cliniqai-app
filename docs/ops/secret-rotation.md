@@ -46,3 +46,37 @@ real data; leftover test clinics and `@example.com` users were deleted on PO ins
 deletion was not re-verified, see VERIFICATION_LOG PO-14 row). Production will be a new project that starts empty with the FT-02 encrypted
 backup job live from day one (roadmap §9.1). No migration will be run against the test project; it is
 paused or deleted before staging is created (V2-03).
+
+## Production rotation checklist (V2-15, CTO-2)
+
+Claude never sees values and cannot read `.env*`, so it cannot know which optional secrets exist. The PO runs, on their
+own machine, the names-only inventory and works through its output:
+
+```
+# names from the stores via their CLIs (values are never read or printed)
+node scripts/prod/secret-inventory.mjs --vercel --github-secrets --supabase-ref <production project ref>
+# names from a local env file: make a names-only file first, then pass it (the script refuses dotenv-style file names
+# and any line containing "=")
+grep -o '^[A-Za-z_][A-Za-z0-9_]*=' <your local env file> | tr -d '=' > /tmp/names.txt
+node scripts/prod/secret-inventory.mjs --names-file /tmp/names.txt && rm /tmp/names.txt
+```
+
+The output is a checklist with an action per name (revoke, rotate, review). It also lists known names that were **not**
+found, so you can confirm they are unset in every store. Pre-filled from `.env.example`, the env schema and the code:
+
+| Name | Action before UAT start | Production rule |
+|---|---|---|
+| `SUPABASE_ACCESS_TOKEN` | revoke (account-wide) | never in the app environment; CLI use only, in your shell |
+| `SUPABASE_SERVICE_ROLE_KEY`, publishable key | new production values only | the test project's keys are discarded (C49) |
+| `MSG91_AUTH_KEY`, `MSG91_WEBHOOK_SECRET` | rotate | webhook secret sent as a header |
+| `AI_API_KEY` and `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` | rotate or delete | no AI is sold at UAT start |
+| `GUPSHUP_API_KEY`, `TWILIO_AUTH_TOKEN` (and their SIDs, numbers) | revoke if present | unused in v2 |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | revoke the Cloudflare token | R2 removed from the app (C23) |
+| `CRON_SECRET`, `JOBS_RUNNER_SECRET` + Vault `jobs_runner_secret` | new random values | production values differ from each other and from staging |
+| `RESEND_API_KEY` | new production key | sending access, domain-restricted |
+| Razorpay live key secret and webhook secret | live values only | never `rzp_test_` in production |
+| Backup: age identity, S3 role, IAM | per `docs/ops/backup-restore.md` | primary in the password manager, break-glass sealed offline |
+
+After each row: one call with the **old** value is refused by the provider (e.g. Management API 401 for the revoked
+token) and the app works with the new value. Record the date and "yes" in the table above (names and dates only). Rows
+for the test project's own keys stay "N/A (C49)".

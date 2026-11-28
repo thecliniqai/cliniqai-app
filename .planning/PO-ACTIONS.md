@@ -94,3 +94,44 @@ access off, schema and grants match the snapshot (Drift `schema` job passed). `/
   - Vercel Pro;
   - production gets its own separately generated secrets;
   - AWS Mumbai backups.
+
+---
+
+## 6. V2-15: production readiness and UAT start (ordered; target 6 Dec for everything except go-live)
+
+Runbooks written by Claude; each has a "verify" block whose output you paste back (ids and counts only, never secrets
+or patient data). Steps 1 to 3 wait on the code part of V2-15 (production env guards, the migrate workflow, the
+bootstrap SQL); the others can start now.
+
+- [ ] **6.1 Names-only secret inventory (do first, 15 minutes).** On your machine:
+  `node scripts/prod/secret-inventory.mjs --vercel --github-secrets` (add `--supabase-ref <ref>` for the production
+  project). It prints names only. Then rotate or revoke each line and fill `docs/ops/secret-rotation.md`
+  (see its "Production rotation checklist"). Revoke `SUPABASE_ACCESS_TOKEN`.
+- [ ] **6.2 Supabase production.** New organisation and Free project in Mumbai, settings per
+  `docs/runbooks/production-setup.md` (code part, coming). Run the approval-gated migrate workflow, then the
+  bootstrap SQL.
+- [ ] **6.3 Vercel production.** Project in `bom1`, environment variables per the env schema, Skew Protection on, domain.
+- [ ] **6.4 Email.** `docs/runbooks/email-production.md`: Resend domain (SPF, DKIM, DMARC), production key, Send Email
+  hook, one signup code received. Paste the verify block.
+- [ ] **6.5 Platform admin.** `docs/runbooks/platform-admin-bootstrap.md`: dedicated identity, two TOTP factors,
+  break-glass drill once.
+- [ ] **6.6 Razorpay live.** `docs/runbooks/razorpay-live.md`: KYC, live keys and webhook, live plan (176882 paise),
+  Rs 5 UPI and card tests, cancel test, one `uat` redemption by your test clinic. Fill
+  `.planning/phases/15-production-readiness-uat-launch/15-LIVE-PAYMENTS-CHECKLIST.md`. If KYC is late, tell Claude
+  in writing that you choose the comp fallback.
+- [ ] **6.7 Backups and restore drill.** Deploy the AWS `ap-south-1` backup stack (code part, coming); two consecutive
+  dumps and a failure-alert test; then the G6 restore drill on the post-bootstrap dump (`docs/runbooks/restore-drill.md`,
+  decision CTO-1: synthetic data only, before any UAT clinic). Later monthly drills: `docs/runbooks/restore-drill-aws.md`.
+- [ ] **6.8 Monitoring.** `docs/runbooks/uptime.md` (two or three monitors) and the alert drill in production
+  (`docs/runbooks/alerts.md`).
+- [ ] **6.9 Security contact.** Replace the placeholders in `public/.well-known/security.txt` (contact, expiry, domain);
+  publish Terms, Privacy, Refund and Cancellation, Pricing and Contact pages; approve the retention schedule;
+  confirm the CERT-In channel in `docs/runbooks/incident.md` section 8.
+- [ ] **6.10 UAT.** Decide the UAT exit date (SUB-D11) and put the upgrade date and the T-10 slip check on your calendar
+  (`docs/runbooks/free-tier-upgrade.md`, `docs/runbooks/uat-slip.md`); recruit the clinics; run `uat-campaign.sql`
+  (coming); send invites with `docs/uat/invite-*.md`; MSG91 reminder templates approved.
+- [ ] **6.11 Devices.** Run `.planning/phases/15-production-readiness-uat-launch/15-DEVICE-RUN.md` (R1 to R15 on four
+  devices); give Claude the folder of notes and screenshots for scoring.
+- [ ] **6.12 Go or no-go.** Generate and read the checklist:
+  `node scripts/prod/g6-checklist.mjs --ci-run <id> --sha <commit> --verified <your-pasted-results.json> --out .planning/phases/15-production-readiness-uat-launch/G6-CHECKLIST.md`,
+  then decide UAT start.
