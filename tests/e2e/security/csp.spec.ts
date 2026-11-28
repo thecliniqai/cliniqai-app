@@ -67,17 +67,20 @@ test.describe("signed out", () => {
   test("an injected inline script and inline event handler are blocked and reported", async ({ page, cspViolations }) => {
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
-    // An inline <script> without the nonce: Playwright inserts it into the page, the policy refuses it (addScriptTag
-    // rejects under a CSP that blocks it; with `'unsafe-inline'` it would load and set the marker).
-    await page.addScriptTag({ content: "window.__e2eInlineRan = true;" }).catch(() => undefined);
-    // An inline event handler, as reflected markup would carry it.
+    // Markup as an injection would deliver it, parsed by the page itself (a script element made through the DevTools
+    // protocol is exempt from CSP in Chromium, so it would prove nothing): an inline <script> without the nonce in a
+    // srcdoc frame (which inherits the page's policy) and an inline event handler.
     await page.evaluate(() => {
+      const frame = document.createElement("iframe");
+      frame.srcdoc = "<script>parent.__e2eInlineRan = true;</" + "script>";
+      document.body.appendChild(frame);
       const holder = document.createElement("div");
       holder.innerHTML = '<button type="button" id="e2e-forged" onclick="window.__e2eHandlerRan = true">x</button>';
       document.body.appendChild(holder);
       document.getElementById("e2e-forged")?.click();
     });
     await expect.poll(() => cspViolations.some((v) => v.startsWith("script-src-attr"))).toBe(true);
+    await expect.poll(() => cspViolations.some((v) => v.startsWith("script-src-elem") || v.startsWith("script-src "))).toBe(true);
     // Reports arrive through a binding; let any late one land before the list is checked and cleared.
     await page.waitForTimeout(500);
     const ran = await page.evaluate(() => {
