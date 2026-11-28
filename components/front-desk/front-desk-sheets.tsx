@@ -14,7 +14,7 @@ import { WalkInSheet } from "./walk-in-sheet";
  * dashboard layout, so every entry point (Today, Schedule, Patients, the palette, "+ New", a patient profile) is a plain
  * link and a refresh keeps the sheet open. Hosted here: `?new=1` (register a patient; `phone` and `name` prefill it, see
  * `registerHref`), `?walkin=1` (the walk-in sheet), `?book=1` (booking; `patient`, `doctor`, `date` and `time` prefill it)
- * and `?reschedule=<visitId>` (move an appointment).
+ * and `?reschedule=<visitId>` (move an appointment; with `date` and `time`, V2-09f, that slot comes chosen).
  *
  * Closing a sheet removes its parameters from the URL (`replace`, so Back does not reopen it), except `date` and `doctor`:
  * the Schedule uses those two for its own view, and the booking sheet only reads them. The single-key shortcuts (W, B, N, ?;
@@ -84,6 +84,11 @@ function Sheets({ canRegister, canWalkIn, canBook }: { canRegister: boolean; can
     router.replace(remaining ? `${pathname}?${remaining}` : pathname);
   };
 
+  // V2-09f: the week grid's "Move here" opens the move with its slot chosen (`?reschedule=<id>&date&time`); both must be well formed.
+  const askedDate = params.get("date") ?? "";
+  const askedTime = params.get("time") ?? "";
+  const rescheduleDefaults =
+    rescheduleId && /^\d{4}-\d{2}-\d{2}$/.test(askedDate) && /^([01]\d|2[0-3]):[0-5]\d$/.test(askedTime) ? { date: askedDate, time: askedTime } : undefined;
   const phone = params.get("phone") ?? "";
   const name = params.get("name") ?? "";
   return (
@@ -117,6 +122,7 @@ function Sheets({ canRegister, canWalkIn, canBook }: { canRegister: boolean; can
       />
       <RescheduleSheet
         visitId={rescheduleId}
+        defaults={rescheduleDefaults}
         onOpenChange={(open) => {
           if (!open) close();
         }}

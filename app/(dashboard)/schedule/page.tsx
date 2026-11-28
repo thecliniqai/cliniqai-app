@@ -5,6 +5,7 @@ import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 import { DEFAULT_CLINIC_TZ, isYmd, resolveTimeZone, todayInTz } from "@/lib/datetime";
 import { getScheduleRange } from "@/features/schedule/queries";
 import { rangeOfDate, rangeVersions } from "@/features/schedule/range";
+import { rangeOfMonth } from "@/features/schedule/calendar";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { createRequestQueryClient, dehydrateRequest } from "@/lib/query/server";
 import { queryKeys } from "@/lib/query/keys";
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
  * With no `?date=` the date is the clinic's today. The zone is in the answer, so the page reads the week of today in the default zone (Asia/Kolkata) and
  * reads again only when the clinic's own today falls in another week (a clinic in another zone, around midnight between Sunday and Monday): one call
  * almost always, never a wrong week.
+ * V2-09f: `?view=month` reads the month's six weeks (42 days) WITHOUT slots instead of the week (the month shows counts); the client reads ahead the week.
  */
 async function SchedulePage(props: { searchParams: Promise<{ date?: string; view?: string; doctor?: string }> }) {
   const params = await props.searchParams;
@@ -33,21 +35,24 @@ async function SchedulePage(props: { searchParams: Promise<{ date?: string; view
   }
 
   const asked = isYmd(params.date) ? params.date : null;
+  const month = params.view === "month";
+  const rangeOf = month ? rangeOfMonth : rangeOfDate;
+  const withSlots = !month;
   let date = asked ?? todayInTz(DEFAULT_CLINIC_TZ);
-  let range = rangeOfDate(date);
-  let result = await getScheduleRange(ctx, { ...range, withSlots: true });
+  let range = rangeOf(date);
+  let result = await getScheduleRange(ctx, { ...range, withSlots });
   if (result.ok && !asked) {
     date = todayInTz(resolveTimeZone(result.range.zone));
-    const own = rangeOfDate(date);
+    const own = rangeOf(date);
     if (own.from !== range.from) {
       range = own;
-      result = await getScheduleRange(ctx, { ...range, withSlots: true });
+      result = await getScheduleRange(ctx, { ...range, withSlots });
     }
   }
   if (!result.ok) throw new Error("The schedule could not be loaded.");
 
   const queryClient = createRequestQueryClient();
-  queryClient.setQueryData(queryKeys.scheduleRange(ctx.tenantId, range.from, range.to, true), result.range);
+  queryClient.setQueryData(queryKeys.scheduleRange(ctx.tenantId, range.from, range.to, withSlots), result.range);
   return (
     <HydrationBoundary state={dehydrateRequest(queryClient)}>
       <ScheduleView

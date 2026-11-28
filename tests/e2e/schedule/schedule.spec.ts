@@ -226,10 +226,18 @@ test("day, agenda and week show the booked visit; the week counts it", async ({ 
   await page.getByRole("button", { name: "Close" }).click();
 
   await openSchedule(page, date, `view=week&doctor=${doctorId}`);
-  const day = page.locator(`[data-week-day="${date}"]`);
-  await expect(day).toContainText("1 booked");
-  await expect(day).toContainText("free");
-  await day.getByRole("link", { name: /^Open/ }).click();
+  if ((page.viewportSize()?.width ?? 0) >= 768) {
+    // V2-09f: from 768 px the week is the time grid: the visit is a block in its day's column, and the day's header opens the day.
+    const column = page.locator(`[data-week-grid-column="${date}"]`);
+    await expect(column.locator("[data-appointment]").filter({ hasText: name })).toBeVisible();
+    await expect(column.locator("[data-free-slot]").first()).toBeVisible();
+    await page.locator(`[data-week-grid-day="${date}"]`).click();
+  } else {
+    const day = page.locator(`[data-week-day="${date}"]`);
+    await expect(day).toContainText("1 booked");
+    await expect(day).toContainText("free");
+    await day.getByRole("link", { name: /^Open/ }).click();
+  }
   await expect(page.locator("[data-schedule]")).toHaveAttribute("data-schedule-view", "day");
 });
 

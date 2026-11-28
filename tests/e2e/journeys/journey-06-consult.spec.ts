@@ -46,15 +46,17 @@ const admin = getAdminClient();
 /**
  * 09F step 0 (CI run 45663357580, desktop-chrome, attempt 1 failed with `document-title: html` on "the amending record"): every `router.refresh()`
  * (Reopen for amendment, Sign) re-renders Next 16's streamed metadata, which REPLACES the `<title>` element (a MutationObserver sees it removed and added
- * again 1 to 2 ms apart, also under 8x CPU throttling). The scan must start on a page whose title is back, so it waits for a non-empty title first: a
- * page that never gets one still fails (the poll times out), and axe still checks it.
+ * again 1 to 2 ms apart, also under 8x CPU throttling), and a scan that reads the document in between finds no title. Waiting for a title first narrows
+ * the window but cannot close it (the old title satisfies the wait), so the scan leaves axe's `document-title` rule out and the title is asserted on its
+ * own, as an auto-retrying expectation, before and after the scan: a page without a title still fails.
  */
 async function expectAxeClean(page: Page, screen: string): Promise<void> {
-  await expect(page, `the page title before axe on ${screen}`).toHaveTitle(/\S/);
+  await expect(page, `the page title on ${screen}`).toHaveTitle(/\S/);
   await settleAnimations(page);
-  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+  const results = await new AxeBuilder({ page }).withTags(TAGS).disableRules(["document-title"]).analyze();
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(blocking.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`), `axe on ${screen}`).toEqual([]);
+  await expect(page, `the page title on ${screen}, after the scan`).toHaveTitle(/\S/);
 }
 
 /** The doctor's own signed history: three visits with the same complaint and diagnosis, so the diagnosis is a "Likely from the complaints" tile. */
