@@ -1,0 +1,47 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "package-lock.json",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "fixture-evil",
+      "version": "6.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "MAL-2026-1",
+       "database_specific": {},
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "MAL-2026-1"
+       ],
+       "max_severity": ""
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

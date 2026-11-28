@@ -45,9 +45,19 @@ const nextConfig: NextConfig = {
   },
   // V2-06 06-05 (PWA_STRATEGY §3.7, §5; T-06-05): the service worker script is never cached by the browser or a proxy,
   // so a fixed or kill-switch worker reaches every device on its next check, and it may only run same-origin script.
-  // The app CSP's `worker-src`/`manifest-src` stay with P1-18 (V2-14).
+  // V2-14 14-01 (P1-18): the page CSP (nonce per request, with `worker-src`/`manifest-src 'self'`) and the per-route
+  // headers are set by proxy.ts (lib/security/headers.ts); this file keeps the static ones for every path, static assets
+  // included: HSTS (two years, subdomains, preload-ready; browsers ignore it over plain http, so the loopback e2e server
+  // is unaffected) and nosniff.
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
       {
         source: "/sw.js",
         headers: [

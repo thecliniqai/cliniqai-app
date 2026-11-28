@@ -1,0 +1,30 @@
+# V2-14 14-02 (plan D-2): subscription state changes only from a verified provider event or the server's own reads,
+# never from values the browser sent. A billing_internal / apply_provider_state call fed by request input is refused.
+rules:
+  - id: billing-state-from-request
+    languages: [typescript]
+    severity: ERROR
+    mode: taint
+    message: "Billing state written from request input (`$SINK`). Derive it from the verified provider event or a server read."
+    pattern-sources:
+      - pattern: "($REQ: NextRequest).json()"
+      - pattern: "($REQ: Request).json()"
+      - pattern: "($REQ: NextRequest).nextUrl.searchParams.get(...)"
+      - pattern: "($FD: FormData).get(...)"
+      - pattern: "($FD: FormData).getAll(...)"
+      - patterns:
+          - pattern-inside: |
+              "use server";
+              ...
+          - pattern-inside: "export async function $F(..., $IN, ...) { ... }"
+          - pattern: $IN
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.rpc($NAME, $ARGS)
+              - pattern: $DB.schema("billing_internal").rpc($NAME, $ARGS)
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: ^["'`](apply_provider_state|billing_internal\..*|set_subscription_.*|activate_subscription.*)["'`]$
+          - focus-metavariable: $ARGS
+          - pattern: $SINK

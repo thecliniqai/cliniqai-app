@@ -1,0 +1,18 @@
+# V2-14 14-02 (plan D-2): a storage signed URL is a bearer link to a patient document. It never goes into a WhatsApp,
+# SMS, e-mail or in-app notice (those outlive the URL's purpose and are forwarded); notices carry share-token links.
+rules:
+  - id: signed-url-in-notice
+    languages: [typescript]
+    severity: ERROR
+    mode: taint
+    message: "A storage signed URL flows into a notice or message (`$F`). Send a share-token link instead."
+    pattern-sources:
+      - pattern: $S.createSignedUrl(...)
+      - pattern: $S.createSignedUrls(...)
+      - pattern: getSignedUrl(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: $F(...)
+          - metavariable-regex:
+              metavariable: $F
+              regex: (?i)^(notify\w*|send(Message|Template|WhatsApp|Sms|Email)\w*|enqueue(Message|Notification|Notice)\w*|insertNotice\w*)$

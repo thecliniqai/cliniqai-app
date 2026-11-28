@@ -241,6 +241,7 @@ export async function getScheduleBlocksForDate(
 
     if (filterByDoctor) {
       // Return blocks for this doctor OR clinic-wide (doctor_id is null)
+      // nosemgrep: postgrest-or-interpolation -- doctorId is isUuid-checked above
       query = query.or(`doctor_id.eq.${doctorId},doctor_id.is.null`);
     }
 
@@ -325,10 +326,10 @@ export async function checkSlotAvailability(
 
     // 2. Check Schedule Blocks (doctor-specific or clinic-wide)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: blocks, error: blocksErr } = await (supabase.from("schedule_blocks") as any)
+    const { data: blocks, error: blocksErr } = await (supabase.from("schedule_blocks") as any) // nosemgrep: postgrest-or-interpolation -- doctorId is isUuid-checked above
       .select("*")
       .eq("tenant_id", session.tenantId)
-      .or(`doctor_id.eq.${doctorId},doctor_id.is.null`)
+        .or(`doctor_id.eq.${doctorId},doctor_id.is.null`)
       .lte("start_time", targetEndISO)
       .gte("end_time", targetStartISO);
 

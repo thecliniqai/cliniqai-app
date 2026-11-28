@@ -11,6 +11,11 @@
  * request leaves the machine; the stub behaves as Cloudflare's documented test site keys do). Every other Cloudflare
  * URL is still aborted and fails the test. Contexts made outside this fixture use {@link routeLoopbackOnly}.
  *
+ * CSP violations (V2-14 14-01, P1-18): every page of the fixture's context reports each `securitypolicyviolation` event
+ * (directive, blocked URL, source line) to `cspViolations`, and after the test body the fixture FAILS the test if there was
+ * any, so the whole PR lane (every journey, every device) proves the nonce CSP blocks nothing the app needs. A spec that
+ * provokes a violation on purpose asserts it and clears the list (tests/e2e/security/csp.spec.ts).
+ *
  * `consoleErrors` collects `console.error` messages and uncaught page errors for specs that assert a clean console.
  *
  * `ux` (V2-02 plan 02-03b) counts a characterisation flow's user actions and keystrokes (support/ux-counter.ts); after
@@ -115,9 +120,31 @@ function hostOf(url: string): string {
   }
 }
 
+/** The page-side reporter of {@link recordCspViolations} (a context binding; no app code can see a result). */
+export const CSP_BINDING = "__e2eCspViolation";
+
+/** Reports every CSP violation of every page in `context` to `violations` (as `directive blocked-url source:line`). */
+export async function recordCspViolations(context: BrowserContext, violations: string[]): Promise<void> {
+  await context.exposeBinding(CSP_BINDING, (_source, text: unknown) => {
+    violations.push(String(text));
+  });
+  await context.addInitScript((binding) => {
+    document.addEventListener(
+      "securitypolicyviolation",
+      (e) => {
+        const report = (window as unknown as Record<string, ((text: string) => void) | undefined>)[binding];
+        report?.(`${e.effectiveDirective} ${e.blockedURI || "(inline)"} ${e.sourceFile || "?"}:${e.lineNumber}`);
+      },
+      true,
+    );
+  }, CSP_BINDING);
+}
+
 interface E2eFixtures {
   /** Hosts the network block refused during this test. */
   blockedHosts: string[];
+  /** CSP violations seen during this test (V2-14 14-01). */
+  cspViolations: string[];
   /** `console.error` messages and uncaught page errors seen during this test. */
   consoleErrors: string[];
   /** Counts the user actions of an M0 characterisation flow. */
@@ -130,8 +157,13 @@ export const test = base.extend<E2eFixtures>({
     await provide([]);
   },
 
-  context: async ({ context, blockedHosts }, provide) => {
+  cspViolations: async ({}, provide) => {
+    await provide([]);
+  },
+
+  context: async ({ context, blockedHosts, cspViolations }, provide) => {
     await routeLoopbackOnly(context, blockedHosts);
+    await recordCspViolations(context, cspViolations);
     await context.routeWebSocket(/.*/, (ws) => {
       if (isAllowedBrowserUrl(ws.url())) {
         ws.connectToServer();
@@ -145,6 +177,7 @@ export const test = base.extend<E2eFixtures>({
       [...new Set(blockedHosts)],
       "the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)",
     ).toEqual([]);
+    expect([...new Set(cspViolations)], "the Content-Security-Policy blocked something on a page (V2-14 14-01)").toEqual([]);
   },
 
   consoleErrors: async ({ page }, provide) => {

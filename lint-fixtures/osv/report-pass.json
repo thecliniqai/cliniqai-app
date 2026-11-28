@@ -1,0 +1,169 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "package-lock.json",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "fixture-waived",
+      "version": "2.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-aaaa-bbbb-cccc",
+       "database_specific": {
+        "severity": "HIGH"
+       },
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "9.9.9"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-aaaa-bbbb-cccc"
+       ],
+       "max_severity": "8.1"
+      }
+     ]
+    },
+    {
+     "package": {
+      "name": "fixture-dev",
+      "version": "3.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-dddd-eeee-ffff",
+       "database_specific": {
+        "severity": "CRITICAL"
+       },
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "9.9.9"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-dddd-eeee-ffff"
+       ],
+       "max_severity": "9.8"
+      }
+     ]
+    },
+    {
+     "package": {
+      "name": "fixture-nofix",
+      "version": "4.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-gggg-hhhh-jjjj",
+       "database_specific": {
+        "severity": "HIGH"
+       },
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-gggg-hhhh-jjjj"
+       ],
+       "max_severity": "7.5"
+      }
+     ]
+    },
+    {
+     "package": {
+      "name": "fixture-moderate",
+      "version": "5.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-kkkk-mmmm-nnnn",
+       "database_specific": {
+        "severity": "MODERATE"
+       },
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "9.9.9"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "GHSA-kkkk-mmmm-nnnn"
+       ],
+       "max_severity": "7.4"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

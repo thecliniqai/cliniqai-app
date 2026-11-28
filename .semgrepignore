@@ -1,0 +1,13 @@
+# Semgrep scan scope (V2-14 14-02). The rule fixtures are scanned only by `semgrep --test` (CI security job).
+:include .gitignore
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+lint-fixtures/
+docs/
+.planning/
+types/database.ts
+supabase/seed-data/
+*.min.js

@@ -1,0 +1,18 @@
+# V2-14 14-02 (SVP §2 rule 8; SEC-10): outbound webhook calls never follow a redirect (a 3xx to an internal address is
+# SSRF). lib/webhooks delivers through the pinned node:https transport; any fetch there must say redirect: "manual".
+rules:
+  - id: fetch-follow-redirect
+    languages: [typescript]
+    severity: ERROR
+    message: 'fetch in lib/webhooks without redirect: "manual" follows redirects (SEC-10, SSRF).'
+    paths:
+      include:
+        - "/lib/webhooks/**"
+        - "/features/webhooks/**"
+        - "/lint-fixtures/semgrep/fetch-follow-redirect.ts"
+    patterns:
+      - pattern-either:
+          - pattern: fetch($URL)
+          - pattern: fetch($URL, $OPTS)
+      - pattern-not: 'fetch($URL, {..., redirect: "manual", ...})'
+      - pattern-not: 'fetch($URL, {..., redirect: "error", ...})'

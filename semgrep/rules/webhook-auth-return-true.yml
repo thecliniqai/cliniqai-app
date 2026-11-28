@@ -1,0 +1,19 @@
+# V2-14 14-02 (SVP §2 rule 5; SEC-04): a signature check that ends in an unconditional `return true` accepts anything.
+rules:
+  - id: webhook-auth-return-true
+    languages: [typescript]
+    severity: ERROR
+    message: "`$F` returns true unconditionally: a signature check must return the comparison's result (SEC-04)."
+    patterns:
+      - pattern-either:
+          - pattern: |
+              function $F(...) { ... return true; }
+          - pattern: |
+              async function $F(...) { ... return true; }
+          - pattern: |
+              const $F = (...) => { ... return true; }
+          - pattern: |
+              const $F = async (...) => { ... return true; }
+      - metavariable-regex:
+          metavariable: $F
+          regex: (?i)^verify.*(signature|secret|webhook)

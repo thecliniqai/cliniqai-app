@@ -1,0 +1,22 @@
+# V2-14 14-02 (plan D-2): platform-admin code (cross-tenant by design) is reachable only from the platform route group
+# and its own feature module, so a tenant page or action cannot import it by accident.
+rules:
+  - id: platform-import-outside-group
+    languages: [typescript]
+    severity: ERROR
+    message: "Platform-admin module `$MOD` imported outside app/(platform) and features/platform."
+    paths:
+      exclude:
+        - "/app/(platform)/**"
+        - "/features/platform/**"
+        - "/lib/platform/**"
+        - "/tests/**"
+    patterns:
+      - pattern-either:
+          - pattern: import $X from "$MOD"
+          - pattern: import { ... } from "$MOD"
+          - pattern: import * as $X from "$MOD"
+          - pattern: import("$MOD")
+      - metavariable-regex:
+          metavariable: $MOD
+          regex: ^(@/|\.\.?/.*)(features|lib)/platform(/|$)|^@/(features|lib)/platform(/|$)|\(platform\)

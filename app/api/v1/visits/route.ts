@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError, API_DB_MESSAGES } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
@@ -11,6 +11,7 @@ import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { CLINICAL_ACCESS_DENIED, hasClinicalField, V1_VISIT_COLUMNS } from "@/lib/api/visit-dto";
+import { isIsoDateParam } from "@/lib/utils/filter-values";
 
 /**
  * GET /api/v1/visits
@@ -52,6 +53,10 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const startDate = searchParams.get("start_date");
   const endDate = searchParams.get("end_date");
+  // V2-14 14-02 (SEC-20): the dates go into a PostgREST `.or()` filter string, so only a date or ISO instant is accepted.
+  if ((startDate !== null && !isIsoDateParam(startDate)) || (endDate !== null && !isIsoDateParam(endDate))) {
+    return apiError("VALIDATION_ERROR", API_DB_MESSAGES.VALIDATION_FAILED!, 422, undefined, rateHeaders);
+  }
 
   try {
     let query = (admin.from("visits") as any)
@@ -68,14 +73,17 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", status);
     }
     if (startDate && endDate) {
+      // nosemgrep: postgrest-or-interpolation -- start/end dates are checked by isIsoDateParam above
       query = query.or(
         `and(scheduled_at.gte.${startDate},scheduled_at.lte.${endDate}),and(scheduled_at.is.null,created_at.gte.${startDate},created_at.lte.${endDate})`
       );
     } else if (startDate) {
+      // nosemgrep: postgrest-or-interpolation -- start/end dates are checked by isIsoDateParam above
       query = query.or(
         `scheduled_at.gte.${startDate},and(scheduled_at.is.null,created_at.gte.${startDate})`
       );
     } else if (endDate) {
+      // nosemgrep: postgrest-or-interpolation -- start/end dates are checked by isIsoDateParam above
       query = query.or(
         `scheduled_at.lte.${endDate},and(scheduled_at.is.null,created_at.lte.${endDate})`
       );

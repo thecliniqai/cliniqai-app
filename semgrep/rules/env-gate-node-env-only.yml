@@ -1,0 +1,28 @@
+# V2-14 14-02 (SVP §2 rule 6; SEC-14/15): security behaviour gated on NODE_ENV alone. NODE_ENV is "production" for
+# every `next build` (CI, e2e, staging), so it cannot tell a test deployment from production; use the APP_ENV tier
+# (lib/env.ts) instead. Scope: the security-sensitive modules.
+rules:
+  - id: env-gate-node-env-only
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Security-sensitive branch gated only on process.env.NODE_ENV (SEC-14/15). Use the APP_ENV tier from lib/env.ts,
+      or mark a non-security use `// nosemgrep: env-gate-node-env-only -- <reason>`.
+    paths:
+      include:
+        - "/lib/auth/**"
+        - "/lib/webhooks/**"
+        - "/lib/messaging/**"
+        - "/lib/api/**"
+        - "/lib/security/**"
+        - "/features/auth/**"
+        - "/app/api/**"
+        - "/proxy.ts"
+        - "/lint-fixtures/semgrep/env-gate-node-env-only.ts"
+    pattern-either:
+      - pattern: if (process.env.NODE_ENV === $V) { ... }
+      - pattern: if (process.env.NODE_ENV !== $V) { ... }
+      - pattern: if (process.env.NODE_ENV == $V) { ... }
+      - pattern: if (process.env.NODE_ENV != $V) { ... }
+      - pattern: "process.env.NODE_ENV === $V ? $A : $B"
+      - pattern: "process.env.NODE_ENV !== $V ? $A : $B"

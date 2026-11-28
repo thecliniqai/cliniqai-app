@@ -1,0 +1,15 @@
+# V2-14 14-02 (SVP §2 rule 4; SEC-20): a value interpolated into a PostgREST `.or()` filter string can add filter
+# clauses (`x,tenant_id.neq.…`). Validate it first (isUuid, a date or slug pattern) and mark the call
+# `// nosemgrep: postgrest-or-interpolation -- <what validated it>`, or use separate `.eq()`/`.in()` calls.
+rules:
+  - id: postgrest-or-interpolation
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Interpolated value in a PostgREST `.or()` filter (SEC-20). Validate the value and say so in a nosemgrep comment,
+      or build the filter from `.eq()`/`.in()` calls.
+    paths:
+      exclude:
+        - "/tests/**"
+        - "/scripts/**"
+    pattern: $Q.or(`...${$X}...`)

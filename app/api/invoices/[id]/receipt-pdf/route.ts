@@ -44,7 +44,7 @@ async function handleGet(
 
     // 3. Fetch invoice under strict tenant isolation (supports invoice ID or visit ID)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invoice, error: invoiceErr } = await (supabase.from("invoices") as any)
+    const { data: invoice, error: invoiceErr } = await (supabase.from("invoices") as any) // nosemgrep: postgrest-or-interpolation -- invoiceId is isUuid-checked above
       .select("*")
       .eq("tenant_id", membership.tenantId)
       .or(`id.eq.${invoiceId},visit_id.eq.${invoiceId}`)

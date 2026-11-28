@@ -1,0 +1,23 @@
+# V2-14 14-02 (SVP §2 rule 3; SEC-05): in the service-role modules (ADR-0005 allow-list) every read names the tenant.
+# Service-role reads bypass RLS, so a missing `.eq("tenant_id", …)` reads every clinic. A deliberate cross-tenant read
+# (a job claim, a platform count, a provider correlation id) carries `// nosemgrep: admin-query-without-tenant` with the reason.
+rules:
+  - id: admin-query-without-tenant
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Service-role read of `$T` without `.eq("tenant_id", …)` in the chain (SEC-05). Add the tenant filter, or mark a
+      deliberate cross-tenant read with `// nosemgrep: admin-query-without-tenant -- <reason>`.
+    paths:
+      include:
+        - "/lib/jobs/**"
+        - "/features/*/system.ts"
+        - "/app/api/jobs/**"
+        - "/app/api/webhooks/**"
+        - "/lint-fixtures/semgrep/admin-query-without-tenant.ts"
+    patterns:
+      - pattern: $DB.from($T).select(...)
+      - pattern-not-inside: $Q.eq("tenant_id", ...)
+      # A primary-key read of a row the job or event already names (its tenant is then read from the row).
+      - pattern-not-inside: $Q.eq("id", ...)
+      - pattern-not-inside: "$Q.match({..., tenant_id: $V, ...})"
