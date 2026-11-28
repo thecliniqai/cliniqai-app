@@ -27,6 +27,9 @@ export const PUBLIC_PAGE_PREFIXES = [
   "/manifest.webmanifest",
   "/sw.js",
   "/offline",
+  // RFC 9116 security contact (V2-15 15-03, D-9): `public/.well-known/security.txt`, PHI-free, fetched by researchers
+  // who have no session.
+  "/.well-known",
 ] as const;
 
 /**
