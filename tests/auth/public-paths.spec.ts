@@ -160,7 +160,13 @@ describe("03-12b public paths (enumerated from app/)", () => {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
       expect(pageNeedsSession(url), url).toBe(false);
     }
-    expect(ASSETS.filter((a) => a.pattern.split("/").length > 2).map((a) => a.file)).toEqual([]);
+    // The one allowed nested file is the RFC 9116 security contact, public by the `/.well-known` prefix.
+    expect(ASSETS.filter((a) => a.pattern.split("/").length > 2).map((a) => a.file)).toEqual([
+      "public/.well-known/security.txt",
+    ]);
+    expect(unstable_doesMiddlewareMatch({ config, url: "/.well-known/security.txt" })).toBe(true);
+    expect(pageNeedsSession("/.well-known/security.txt")).toBe(false);
+    expect(pageNeedsSession("/.well-known/../patients")).toBe(true);
     // 06-09a: the worker is the `app/sw.js/route.ts` handler; a `public/sw.js` next to it would not build (the kill
     // switch replaces the route with that file, docs/runbooks/pwa.md).
     expect(ROUTES.map((r) => r.file)).toContain("app/sw.js/route.ts");

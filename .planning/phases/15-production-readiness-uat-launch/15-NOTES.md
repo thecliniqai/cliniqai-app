@@ -17,7 +17,7 @@ CTO-2 (names-only secret inventory run by the PO), D-1 (Resend through UAT, SES 
 | 15-02 | `15-LIVE-PAYMENTS-CHECKLIST.md` | PO fills ids and dates |
 | 15-03 | `docs/runbooks/incident.md` | roles, severity, containment, CERT-In 6 h and DPDP templates |
 | 15-03 | `docs/runbooks/alerts.md` (alert drill), `docs/runbooks/uptime.md` | drill steps match the planned `alert-drill.mjs --print` |
-| 15-03 | `public/.well-known/security.txt` | placeholders (`REPLACE-ME`); the readiness check must fail while they remain |
+| 15-03 | `public/.well-known/security.txt`, `/.well-known` added to `PUBLIC_PAGE_PREFIXES` (`lib/auth/public-paths.ts`) with the public-paths test updated | placeholders (`REPLACE-ME`); the readiness check must fail while they remain |
 | 15-04 | `docs/runbooks/free-tier-upgrade.md`, `uat.md`, `uat-slip.md`, `restore-drill.md`, `restore-drill-aws.md` | |
 | 15-06 | `docs/release-notes/v2.0.md`, `docs/uat/{campaign-guide,tester-guide,invite-email,invite-whatsapp}.md` | draft; Known gaps filled from evidence later |
 | 15-06 | `15-DEVICE-RUN.md` | R1 to R15 with steps and expected results, plus four production extras |
@@ -35,7 +35,7 @@ CTO-2 (names-only secret inventory run by the PO), D-1 (Resend through UAT, SES 
   from the merged V2-13b names. Same for `platform.*` comp-grant and cancel RPC names used in `uat-slip.md`
   (it points at `subscriptions-sql.md`, which is the source).
 - **15-03 code**: `/api/ready` provider checks and rate limit, `scripts/prod/realtime-sizing.mjs`,
-  `scripts/ops/alert-drill.mjs`, tests. Confirm `/.well-known/security.txt` is served (middleware matcher, headers).
+  `scripts/ops/alert-drill.mjs`, tests. (`/.well-known/security.txt` is now public and tested; header/CSP check stays with 15-01.)
 - **15-04 code**: `ops/backup/production/*` (AWS template), merge `docs/ops/{backup-restore,backup-aws-golive}.md` into one
   runbook with a production section (the restore-drill runbooks point at it), `scripts/ops/restore-drill.mjs --local`,
   restore-drill test.
