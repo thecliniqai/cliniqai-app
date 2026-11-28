@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(109);
+select plan(106);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -75,15 +75,15 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, cr
    'c2c00000-0000-4000-8000-000000000103', 'walk_in', 'c2c00000-0000-4000-8000-000000000101'),
   ('c2c00000-0000-4000-8000-000000002002', 'c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002001',
    'c2c00000-0000-4000-8000-000000000202', 'walk_in', 'c2c00000-0000-4000-8000-000000000201');
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount, status) values
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount, status) values
   ('c2c00000-0000-4000-8000-000000001005', 'c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000001002',
-   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0001', 500, 'issued'),
+   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0001', 500, 500, 'issued'),
   ('c2c00000-0000-4000-8000-000000001006', 'c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000001003',
-   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0002', 500, 'issued'),
+   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0002', 500, 500, 'issued'),
   ('c2c00000-0000-4000-8000-000000001007', 'c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000001004',
-   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0003', 500, 'issued'),
+   'c2c00000-0000-4000-8000-000000001001', 'C2C-A-0003', 500, 500, 'issued'),
   ('c2c00000-0000-4000-8000-000000002005', 'c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002002',
-   'c2c00000-0000-4000-8000-000000002001', 'C2C-B-0001', 500, 'issued');
+   'c2c00000-0000-4000-8000-000000002001', 'C2C-B-0001', 500, 500, 'issued');
 
 -- Helpers ----------------------------------------------------------------------------------------------------------
 -- As a signed-in user (anon when p_user is null) with the x-clinicos-tenant header p_header (none when null): run
@@ -175,7 +175,6 @@ insert into c2c_definer values
   ('private.outbox_payment_recorded', 'bound', 'a session''s payment in the active clinic (000061)'),
   ('public.referral_source_clinics', 'bound', 'consultations:view in the active clinic (000061)'),
   ('public.issue_queue_token', 'bound', 'visit''s clinic = active clinic with appointments:edit (000068, 05-11a; replaced next_queue_token)'),
-  ('public.generate_tenant_invoice_number', 'bound', 'billing:collect or consultations:edit, active clinic (000056)'),
   ('public.log_audit', 'bound', 'p_tenant = active clinic (000060); action and metadata allow-lists (000074, 05-11b)'),
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.create_invoice', 'bound', 'p_tenant_id = active clinic; billing:collect, or consultations:edit on the visit''s own doctor; the visit is looked up in that clinic only (000096, 07-02, R-1)'),
@@ -334,7 +333,6 @@ select set_eq(
     'public.enqueue_webhook_event:authenticated', 'private.outbox_payment_recorded:authenticated,service_role',
     'public.referral_source_clinics:authenticated',
     'public.issue_queue_token:authenticated',
-    'public.generate_tenant_invoice_number:authenticated,service_role',
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
     'public.current_user_tenant_ids:authenticated,service_role',
     'public.my_tenant_access:authenticated', 'public.my_entitlements:authenticated',
@@ -463,10 +461,6 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000
   '0', 'search_medicines (INVOKER since 000117): acting in A, B''s clinic id reads nothing');
 select matches(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('c2c00000-0000-4000-8000-00000000000b', 'para', 1)$$),
   '^[0-9]+$', 'search_medicines: acting in B it answers');
-select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
-  'denied:%', 'generate_tenant_invoice_number: acting in A for B is refused');
-select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
-  '1', 'generate_tenant_invoice_number: acting in B it answers');
 select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$),
   'denied:ACTOR_INVALID', 'log_audit: acting in A for B is refused');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'patient.view', 'patient', null, null)$$),
@@ -556,7 +550,7 @@ create temp table c2c_access(fn text primary key, handling text not null) on com
 insert into c2c_access values
   ('public.change_member_role', 'refuses'), ('public.create_share_token', 'refuses'), ('public.revoke_share_token', 'refuses'),
   ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
-  ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
+  ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'),
   ('public.record_payment', 'refuses'), ('public.create_invoice', 'refuses'), ('public.collect_payment', 'refuses'),
   ('public.sign_consultation', 'refuses'), ('public.reopen_visit_for_amendment', 'refuses'),
   ('public.finalize_visit_amendment', 'refuses'), ('public.check_in_visit', 'refuses'),
@@ -649,8 +643,6 @@ select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-00
   'denied:forbidden', 'locked B: issue_queue_token is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('c2c00000-0000-4000-8000-00000000000b', 'para', 1)$$),
   '0', 'locked B: search_medicines reads nothing');
-select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
-  'denied:%', 'locked B: generate_tenant_invoice_number is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.record_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 1, 'cash', '', null)$$),
   'error:P0002:INVOICE_NOT_FOUND', 'locked B: record_payment is refused');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.create_invoice('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000009001', '[{"description":"x","unit_price":1}]'::jsonb, 'c2c00000-0000-4000-8000-0000000c0013')$$),

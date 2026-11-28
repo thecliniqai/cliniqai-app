@@ -1,5 +1,6 @@
 "use client";
 
+import { formatINR, toPaise } from "@/lib/money";
 import React, { useState, useTransition } from "react";
 import {
   IndianRupee,
@@ -230,7 +231,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            ₹{data.summary.totalCollection.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {formatINR(toPaise(data.summary.totalCollection))}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             {data.summary.paymentsCount} payments across {data.summary.invoicesCount} invoices
@@ -246,7 +247,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            ₹{data.summary.cashTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {formatINR(toPaise(data.summary.cashTotal))}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             {data.summary.totalCollection > 0
@@ -264,7 +265,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            ₹{data.summary.upiTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {formatINR(toPaise(data.summary.upiTotal))}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Direct bank settlements</p>
         </div>
@@ -278,7 +279,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            ₹{data.summary.cardTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {formatINR(toPaise(data.summary.cardTotal))}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">POS swipe / chip</p>
         </div>
@@ -290,7 +291,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
           <div>
             <span className="text-xs font-medium text-slate-500">Average Invoice Value</span>
             <p className="text-lg font-bold text-slate-900">
-              ₹{data.summary.averageInvoiceValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              {formatINR(toPaise(data.summary.averageInvoiceValue))}
             </p>
           </div>
           <span className="text-xs text-slate-500">Per patient consultation</span>
@@ -300,7 +301,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
           <div>
             <span className="text-xs font-medium text-amber-800">Outstanding Balance Due</span>
             <p className="text-lg font-bold text-amber-900">
-              ₹{data.summary.outstandingReceivables.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              {formatINR(toPaise(data.summary.outstandingReceivables))}
             </p>
           </div>
           <span className="text-xs text-amber-700">Pending front desk settlement</span>
@@ -406,7 +407,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
                       {p.reference_number || "—"}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                      ₹{p.amount.toFixed(2)}
+                      {formatINR(toPaise(p.amount))}
                     </td>
                     <td className="py-3 px-4 text-center print:hidden">
                       <Button

@@ -252,7 +252,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
     expect(res.signedUrl).toBeTruthy();
     expect(signedUrlLifetimeSeconds(res.signedUrl)).toBe(300);
-    expect(res.invoiceNumber).toMatch(/^INV-/);
+    expect(res.invoiceNumber).toMatch(/^INV\/\d{4}-\d{2}\/\d{5}$/);
   });
 
   it("3. Aggregates daily collection metrics with Cash, UPI, and Card breakdowns", async () => {

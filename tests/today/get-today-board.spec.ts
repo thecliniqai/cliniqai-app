@@ -51,6 +51,7 @@ async function invoice(t: SeededTenant, visitId: string, patientId: string, tota
     visit_id: visitId,
     patient_id: patientId,
     invoice_number: `TB-${Math.random().toString(36).slice(2, 9)}`,
+    subtotal: total,
     total_amount: total,
   });
   if (paid > 0) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatINR, toPaise } from "@/lib/money";
 import React, { useState } from "react";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import Link from "next/link";
@@ -473,7 +474,7 @@ export function PatientVisitHistory({
                               Invoice #{visit.invoice.invoice_number}
                             </span>
                             <span className="tabular-nums text-gray-700">
-                              ₹{visit.invoice.total_amount.toFixed(2)}
+                              {formatINR(toPaise(visit.invoice.total_amount))}
                             </span>
                             {visit.invoice.balance_due === 0 ? (
                               <Badge color="success" size="sm">
@@ -481,7 +482,7 @@ export function PatientVisitHistory({
                               </Badge>
                             ) : (
                               <Badge color="warning" size="sm">
-                                Balance: ₹{visit.invoice.balance_due.toFixed(2)}
+                                Balance: {formatINR(toPaise(visit.invoice.balance_due))}
                               </Badge>
                             )}
                           </div>

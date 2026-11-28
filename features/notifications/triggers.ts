@@ -3,6 +3,7 @@ import "server-only";
 import type { ServiceContext } from "@/lib/auth/context";
 import { NotificationCategory, NotificationRecipientRole } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
+import { formatINR, toPaise } from "@/lib/money";
 import { getRequestId } from "@/lib/log/request-id";
 
 /**
@@ -287,7 +288,7 @@ export async function notifyEndOfDayDigest(target: NotificationTarget, input: En
       category: "billing",
       eventType: "end_of_day_digest",
       title: "End-of-Day Operational Summary",
-      message: `Today's close: ${input.totalVisits} visits completed, ₹${input.totalRevenue} total revenue collected.`,
+      message: `Today's close: ${input.totalVisits} visits completed, ${formatINR(toPaise(input.totalRevenue))} total revenue collected.`,
       linkUrl: `/reports`,
       metadata: { visits: input.totalVisits, revenue: input.totalRevenue },
     }

@@ -191,11 +191,13 @@ select is(pg_temp.moved($$ update public.queue_tokens set called_at = now() wher
 select is(pg_temp.moved($$ update public.clinical_notes set vitals = '{"pulse": 80}'::jsonb where visit_id = 'c1230000-0000-4000-8000-000000002001' $$), 'queue', 'clinical_notes vitals -> queue');
 select is(pg_temp.moved($$ update public.clinical_notes set clinical_notes = 'synthetic note', advice = array['rest'] where visit_id = 'c1230000-0000-4000-8000-000000002001' $$), '-', 'clinical_notes: any other column -> nothing');
 
-select is(pg_temp.moved($$ insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount) values
-  ('c1230000-0000-4000-8000-000000003001', 'c1230000-0000-4000-8000-00000000000a', 'c1230000-0000-4000-8000-000000002001', 'c1230000-0000-4000-8000-000000001001', 'INV-C123-1', 100) $$), 'billing', 'invoices insert -> billing');
-select is(pg_temp.moved($$ update public.invoices set total_amount = 120 where id = 'c1230000-0000-4000-8000-000000003001' $$), 'billing', 'invoices total_amount -> billing');
+select is(pg_temp.moved($$ insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount) values
+  ('c1230000-0000-4000-8000-000000003001', 'c1230000-0000-4000-8000-00000000000a', 'c1230000-0000-4000-8000-000000002001', 'c1230000-0000-4000-8000-000000001001', 'INV-C123-1', 100, 100) $$), 'billing', 'invoices insert -> billing');
+select is(pg_temp.moved($$ update public.invoices set subtotal = 120, total_amount = 120 where id = 'c1230000-0000-4000-8000-000000003001' $$), 'billing', 'invoices total_amount -> billing');
 select is(pg_temp.moved($$ update public.invoices set status = 'cancelled' where id = 'c1230000-0000-4000-8000-000000003001' $$), 'billing', 'invoices status -> billing');
-select is(pg_temp.moved($$ update public.invoices set discount = 5, updated_at = now() where id = 'c1230000-0000-4000-8000-000000003001' $$), '-', 'invoices discount, updated_at (not listed for the signal) -> nothing');
+select is(pg_temp.moved($$ update public.invoices set discount = 5, subtotal = 125, updated_at = now() where id = 'c1230000-0000-4000-8000-000000003001' $$), '-', 'invoices discount, subtotal, updated_at (not listed for the signal; the total stays) -> nothing');
+-- 10-01 (000140): discount <= subtotal, so the discount goes before the items below take the subtotal to 0.
+update public.invoices set discount = 0, subtotal = 120 where id = 'c1230000-0000-4000-8000-000000003001';
 select is(pg_temp.moved($$ insert into public.invoice_items (id, tenant_id, invoice_id, item_type, description, unit_price, quantity, total_price) values
   ('c1230000-0000-4000-8000-000000005001', 'c1230000-0000-4000-8000-00000000000a', 'c1230000-0000-4000-8000-000000003001', 'consultation', 'Synthetic item', 50, 1, 50) $$), 'billing', 'invoice_items insert -> billing');
 select is(pg_temp.moved($$ update public.invoice_items set description = 'Synthetic item 2' where id = 'c1230000-0000-4000-8000-000000005001' $$), 'billing', 'invoice_items update -> billing');
@@ -274,12 +276,12 @@ create temp table c123_inv as select row_version as v from public.invoices where
 select cmp_ok((select v from c123_inv)::int, '>', 0, 'invoice: the total, status and totals-follow-items updates above raised it (listed columns)');
 update public.invoices set updated_at = now(), row_version = 400 where id = 'c1230000-0000-4000-8000-000000003001';
 select is((select row_version from public.invoices where id = 'c1230000-0000-4000-8000-000000003001'), (select v from c123_inv), 'invoice: updated_at does not move it and a written value is overridden');
-update public.invoices set tax = 3 where id = 'c1230000-0000-4000-8000-000000003001';
+update public.invoices set tax = 3, total_amount = total_amount + 3 where id = 'c1230000-0000-4000-8000-000000003001';
 select is((select row_version from public.invoices where id = 'c1230000-0000-4000-8000-000000003001'), (select v + 1 from c123_inv), 'invoice: tax raises it by 1');
-update public.invoices set discount = 7, subtotal = 90 where id = 'c1230000-0000-4000-8000-000000003001';
+update public.invoices set discount = 7, subtotal = 90, total_amount = 90 - 7 + tax where id = 'c1230000-0000-4000-8000-000000003001';
 select is((select row_version from public.invoices where id = 'c1230000-0000-4000-8000-000000003001'), (select v + 2 from c123_inv), 'invoice: discount and subtotal in one update raise it once');
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount, row_version) values
-  ('c1230000-0000-4000-8000-000000003002', 'c1230000-0000-4000-8000-00000000000a', 'c1230000-0000-4000-8000-000000002004', 'c1230000-0000-4000-8000-000000001001', 'INV-C123-2', 10, 70);
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount, row_version) values
+  ('c1230000-0000-4000-8000-000000003002', 'c1230000-0000-4000-8000-00000000000a', 'c1230000-0000-4000-8000-000000002004', 'c1230000-0000-4000-8000-000000001001', 'INV-C123-2', 10, 10, 70);
 select is((select row_version::text from public.invoices where id = 'c1230000-0000-4000-8000-000000003002'), '0', 'invoice: an insert that names a row_version still starts at 0');
 
 -- 6. clinic_live_state --------------------------------------------------------------------------------------------------------------------

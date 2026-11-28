@@ -93,7 +93,7 @@ test("@golden payment from a stale screen: an item added elsewhere refuses the c
   const admin = getAdminClient();
   const { data: invoice, error } = await admin
     .from("invoices")
-    .insert({ tenant_id: tenantId, visit_id: visitId, patient_id: patient.id, invoice_number: `E2E-${testTag()}`, total_amount: 700, status: "issued" })
+    .insert({ tenant_id: tenantId, visit_id: visitId, patient_id: patient.id, invoice_number: `E2E-${testTag()}`, subtotal: 700, total_amount: 700, status: "issued" })
     .select("id")
     .single();
   expect(error).toBeNull();

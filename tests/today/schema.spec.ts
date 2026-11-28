@@ -4,7 +4,6 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  formatRupees,
   groupIntoLanes,
   laneOf,
   matchesQuery,
@@ -134,10 +133,3 @@ describe("the wait", () => {
   });
 });
 
-describe("money", () => {
-  it("formats rupees the Indian way", () => {
-    expect(formatRupees(1250)).toBe("₹1,250");
-    expect(formatRupees(125000)).toBe("₹1,25,000");
-    expect(formatRupees(70.5)).toBe("₹70.5");
-  });
-});

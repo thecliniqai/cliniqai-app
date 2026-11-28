@@ -257,7 +257,7 @@ describe("public links of a clinic that is not full (SUB-D6)", () => {
     const rx = { id: seeded.prescriptionIds[0] };
     const { data: inv, error: invErr } = await admin
       .from("invoices")
-      .insert({ tenant_id: shareClinic.tenantId, visit_id: visitId, patient_id: patientId, invoice_number: `LCK-${letters(4)}`, total_amount: 100, status: "issued" })
+      .insert({ tenant_id: shareClinic.tenantId, visit_id: visitId, patient_id: patientId, invoice_number: `LCK-${letters(4)}`, subtotal: 100, total_amount: 100, status: "issued" })
       .select("id")
       .single();
     if (invErr || !inv) throw new Error(`invoice seed failed: ${invErr?.code}`);

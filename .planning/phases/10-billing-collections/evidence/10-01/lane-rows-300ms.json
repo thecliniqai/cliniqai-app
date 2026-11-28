@@ -1,0 +1,402 @@
+{
+  "latencyMs": 300,
+  "samples": 5,
+  "note": "Realtime socket upgrades are not delayed and are counted apart (realtime), not in calls",
+  "rows": [
+    {
+      "id": "in-app.O.billing-reports",
+      "kind": "page-in-app",
+      "budget": "B-1",
+      "label": "Owner: Billing reports (nav link; the receptionist has the permission but no link)",
+      "owner": "09E-06",
+      "main": "data",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "shortestMs": 310,
+          "marks": {
+            "skeleton": 33.8,
+            "data": 689
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "shortestMs": 310,
+          "marks": {
+            "skeleton": 45,
+            "data": 688.2
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "shortestMs": 308,
+          "marks": {
+            "skeleton": 64.1,
+            "data": 680.7
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "shortestMs": 306,
+          "marks": {
+            "skeleton": 36.1,
+            "data": 680.8
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 3,
+          "server": 3,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 2,
+          "recordedServer": 3,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "shortestMs": 309,
+          "marks": {
+            "skeleton": 47.1,
+            "data": 697.6
+          },
+          "rsc": 1,
+          "serverByPath": {
+            "GET /rest/v1/tenants": 1,
+            "GET /rest/v1/invoices": 1,
+            "GET /rest/v1/payments": 1
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 3,
+        "max": 3
+      },
+      "depth": {
+        "median": 2,
+        "max": 2
+      },
+      "ms": {
+        "median": 688.2,
+        "max": 697.6
+      },
+      "targetMs": 1000,
+      "verdict": "within target",
+      "ceiling": {
+        "maxCalls": 3,
+        "maxDepth": 3,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#in-app.O.billing-reports"
+      }
+    },
+    {
+      "id": "save.R.collect",
+      "kind": "save",
+      "budget": "B-7",
+      "label": "Receptionist: collect payment",
+      "owner": "09E-08",
+      "main": "confirmed",
+      "latencyMs": 300,
+      "samples": [
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "shown": 2030.6,
+            "response": 1311.8,
+            "confirmed": 2030.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 309,
+          "marks": {
+            "shown": 2053.3,
+            "response": 1348.4,
+            "confirmed": 2053.3
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 307,
+          "marks": {
+            "shown": 2068.9,
+            "response": 1337.3,
+            "confirmed": 2068.9
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 309,
+          "marks": {
+            "shown": 2076.2,
+            "response": 1340.5,
+            "confirmed": 2076.2
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        },
+        {
+          "calls": 9,
+          "server": 9,
+          "browser": 0,
+          "realtime": 0,
+          "background": {},
+          "depth": 7,
+          "recordedServer": 9,
+          "recordedBrowser": 0,
+          "recordedBackground": 0,
+          "recordedServerByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "shortestMs": 311,
+          "marks": {
+            "shown": 2048.6,
+            "response": 1339.8,
+            "confirmed": 2048.6
+          },
+          "rsc": 0,
+          "serverByPath": {
+            "GET /rest/v1/memberships": 1,
+            "POST /rest/v1/rpc/session_is_live": 1,
+            "POST /rest/v1/rpc/my_tenant_access": 1,
+            "GET /rest/v1/visits": 1,
+            "POST /rest/v1/rpc/collect_payment": 1,
+            "POST /rest/v1/rpc/complete_visit": 1,
+            "GET /rest/v1/invoices": 1,
+            "POST /rest/v1/rpc/today_board": 2
+          },
+          "browserByPath": {}
+        }
+      ],
+      "calls": {
+        "median": 9,
+        "max": 9
+      },
+      "depth": {
+        "median": 7,
+        "max": 7
+      },
+      "ms": {
+        "median": 2053.3,
+        "max": 2076.2
+      },
+      "targetMs": 500,
+      "verdict": "over target",
+      "ceiling": {
+        "maxCalls": 10,
+        "maxDepth": 9,
+        "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.R.collect"
+      }
+    }
+  ]
+}

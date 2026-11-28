@@ -125,6 +125,7 @@ beforeAll(async () => {
     visit_id: visitId,
     patient_id: patientId,
     invoice_number: `SP-${randomUUID().slice(0, 8)}`,
+    subtotal: 300,
     total_amount: 300,
     status: "issued",
   });

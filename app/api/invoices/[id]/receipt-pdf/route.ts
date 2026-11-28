@@ -4,6 +4,7 @@ import { getSessionClaims } from "@/lib/auth/tenant";
 import { isUuid } from "@/lib/utils/filter-values";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
+import { invoiceFileStem } from "@/features/billing/schema";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { timedRoute } from "@/lib/observability/server-timing";
@@ -176,7 +177,7 @@ async function handleGet(
     // 10. Generate PDF buffer
     const { buffer } = await generateAndArchiveReceiptPdf(ctx, payload);
 
-    const filename = `Receipt-${invoice.invoice_number}.pdf`;
+    const filename = `Receipt-${invoiceFileStem(invoice.invoice_number)}.pdf`;
     const disposition = isDownload
       ? `attachment; filename="${filename}"`
       : `inline; filename="${filename}"`;

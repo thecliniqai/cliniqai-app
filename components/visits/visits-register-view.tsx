@@ -1,5 +1,6 @@
 "use client";
 
+import { formatINR, toPaise } from "@/lib/money";
 import React, { useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -262,7 +263,7 @@ export function VisitsRegisterView({
             </span>
           </div>
           <p className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">
-            ₹{metrics.totalBilledRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            {formatINR(toPaise(metrics.totalBilledRevenue))}
           </p>
           <span className="text-[11px] text-fg-subtle mt-1 block">Consultations & fees</span>
         </div>
@@ -570,7 +571,7 @@ export function VisitsRegisterView({
                         {hasInvoice ? (
                           <div className="space-y-0.5">
                             <span className="font-semibold text-gray-900 block">
-                              ₹{visit.invoice?.total_amount.toFixed(2)}
+                              {formatINR(toPaise(visit.invoice?.total_amount ?? 0))}
                             </span>
                             {visit.invoice?.balance_due === 0 ? (
                               <Badge color="success" size="sm">
@@ -578,7 +579,7 @@ export function VisitsRegisterView({
                               </Badge>
                             ) : (
                               <Badge color="warning" size="sm">
-                                Due: ₹{visit.invoice?.balance_due.toFixed(2)}
+                                Due: {formatINR(toPaise(visit.invoice?.balance_due ?? 0))}
                               </Badge>
                             )}
                           </div>

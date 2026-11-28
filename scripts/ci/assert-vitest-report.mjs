@@ -132,6 +132,8 @@
  *   6455 — V2-09c 09C-06a, unchanged: REQUIRED_FILES + tests/prescriptions/rx-review-fixes-db (S-8 two sessions, S-2/R-AL and A-8 through the services, A-2). Cases were
  *          added to existing files (allergy-match, record-allergies-rpc, compress-image, rx-pdf-content, pdf-route-guards, tokenized-sharing, v1-crud); the floor is
  *          re-measured once at the phase close.
+ *   unchanged — V2-10 10-01: REQUIRED_FILES + tests/money/{money,fy}.spec.ts, tests/billing/fy-numbering-db.spec.ts and
+ *          tests/ci/ui-policy-money-format.spec.ts; tests/today/schema.spec.ts loses its formatRupees case (formatINR replaces it). The suite only grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -567,6 +569,11 @@ const REQUIRED_FILES = [
   // V2-09e 09E-09: the reference catalogues on the device (the substance twin against SQL; the sync's rules and the shared shapes).
   "tests/reference/substance-search-parity.spec.ts",
   "tests/reference/reference-sync.spec.ts",
+  // V2-10 10-01: lib/money and lib/fy (the FY case table against SQL), the FY counter under 50 parallel creates, the money-format guard.
+  "tests/money/money.spec.ts",
+  "tests/money/fy.spec.ts",
+  "tests/billing/fy-numbering-db.spec.ts",
+  "tests/ci/ui-policy-money-format.spec.ts",
 ];
 
 const file = process.argv[2];

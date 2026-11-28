@@ -150,3 +150,11 @@ export type RecordPaymentRequest = RecordPaymentInput & { expected_invoice_versi
 export type CompleteAndBillInput = z.infer<typeof completeAndBillSchema>;
 export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;
 
+
+/**
+ * A file-name-safe form of an invoice number (V2-10 10-01): `INV/2026-27/00001` → `INV-2026-27-00001`. The slashes of the
+ * FY numbering (migration 000140) are path separators in a download name and in `Content-Disposition`.
+ */
+export function invoiceFileStem(invoiceNumber: string): string {
+  return invoiceNumber.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "invoice";
+}

@@ -72,10 +72,10 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, st
 insert into public.queue_tokens (tenant_id, visit_id, date, token_number, priority) values
   ('c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-000000002002', (now() at time zone 'Asia/Kolkata')::date, 11, 'urgent');
 update public.clinical_notes set vitals = '{"systolic": 150, "diastolic": 95, "pulse": 88}'::jsonb, clinical_notes = 'Synthetic confidential note' where visit_id = 'c1250000-0000-4000-8000-000000002003';
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount) values
-  ('c1250000-0000-4000-8000-0000000b2004', 'c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-000000002004', 'c1250000-0000-4000-8000-000000001001', 'C125-1', 1000);
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount, status) values
-  ('c1250000-0000-4000-8000-0000000b2006', 'c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-000000002006', 'c1250000-0000-4000-8000-000000001002', 'C125-2', 300, 'cancelled');
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount) values
+  ('c1250000-0000-4000-8000-0000000b2004', 'c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-000000002004', 'c1250000-0000-4000-8000-000000001001', 'C125-1', 1000, 1000);
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount, status) values
+  ('c1250000-0000-4000-8000-0000000b2006', 'c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-000000002006', 'c1250000-0000-4000-8000-000000001002', 'C125-2', 300, 300, 'cancelled');
 insert into public.payments (tenant_id, invoice_id, amount, payment_method, recorded_by) values
   ('c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-0000000b2004', 250, 'cash', 'c1250000-0000-4000-8000-000000000101'),
   ('c1250000-0000-4000-8000-00000000000a', 'c1250000-0000-4000-8000-0000000b2004', 150, 'cash', 'c1250000-0000-4000-8000-000000000101');

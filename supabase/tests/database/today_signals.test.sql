@@ -143,9 +143,9 @@ update public.visits set status = 'waiting' where id = 'c1020000-0000-4000-8000-
 insert into public.queue_tokens (tenant_id, visit_id, token_number, date, priority) values
   ('c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000002001', 1, current_date, 'normal');
 update public.clinical_notes set vitals = '{"pulse": 72}'::jsonb where visit_id = 'c1020000-0000-4000-8000-000000002001';
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount) values
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount) values
   ('c1020000-0000-4000-8000-000000003001', 'c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000002001',
-   'c1020000-0000-4000-8000-000000001001', 'INV-C102-1', 100);
+   'c1020000-0000-4000-8000-000000001001', 'INV-C102-1', 100, 100);
 insert into public.payments (tenant_id, invoice_id, amount, payment_method, recorded_by) values
   ('c1020000-0000-4000-8000-00000000000a', 'c1020000-0000-4000-8000-000000003001', 100, 'cash', 'c1020000-0000-4000-8000-000000000101');
 

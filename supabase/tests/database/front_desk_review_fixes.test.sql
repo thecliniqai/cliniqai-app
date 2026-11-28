@@ -340,7 +340,7 @@ select is((select (payload - 'id' - 'domain' - 'version') from realtime.messages
   '{}'::jsonb, 'A-5: and the payload carries nothing else (no PHI, no amount, no number)');
 update public.clinic_versions set last_xact = null;
 delete from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a';
-update public.invoices set total_amount = 250, updated_at = now() where id = 'c1060000-0000-4000-8000-000000003001';
+update public.invoices set subtotal = 250, total_amount = 250, updated_at = now() where id = 'c1060000-0000-4000-8000-000000003001';
 select is((select count(*)::int from realtime.messages where topic = 'today:c1060000-0000-4000-8000-00000000000a' and payload ->> 'domain' = 'billing'), 1,
   'A-5: a change of the total signals');
 update public.clinic_versions set last_xact = null;

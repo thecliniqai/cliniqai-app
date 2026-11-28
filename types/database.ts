@@ -3639,10 +3639,6 @@ export type Database = {
           strength: string;
         }[];
       };
-      generate_tenant_invoice_number: {
-        Args: { p_tenant_id: string };
-        Returns: string;
-      };
       get_reschedule_context: {
         Args: { p_from: string; p_to: string; p_token: string };
         Returns: Json;

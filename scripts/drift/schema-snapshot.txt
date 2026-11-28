@@ -147,6 +147,10 @@ column private.command_results.request_hash text not_null=t default=- identity=-
 column private.command_results.result jsonb not_null=f default=- identity=- generated=-
 column private.command_results.system_actor text not_null=f default=- identity=- generated=-
 column private.command_results.tenant_id uuid not_null=t default=- identity=- generated=-
+column private.invoice_counters.fy text not_null=t default=- identity=- generated=-
+column private.invoice_counters.last_value integer not_null=t default=- identity=- generated=-
+column private.invoice_counters.tenant_id uuid not_null=t default=- identity=- generated=-
+column private.invoice_counters.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.ai_quota_reservations.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.ai_quota_reservations.created_by uuid not_null=f default=- identity=- generated=-
 column public.ai_quota_reservations.expires_at timestamp with time zone not_null=t default=- identity=- generated=-
@@ -914,6 +918,10 @@ constraint private.command_results.command_results_one_actor CHECK (((actor_id I
 constraint private.command_results.command_results_pkey PRIMARY KEY (tenant_id, client_request_id)
 constraint private.command_results.command_results_request_hash_check CHECK (((char_length(request_hash) >= 1) AND (char_length(request_hash) <= 200)))
 constraint private.command_results.command_results_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint private.invoice_counters.invoice_counters_fy_check CHECK ((fy ~ '^[0-9]{4}-[0-9]{2}$'::text))
+constraint private.invoice_counters.invoice_counters_last_value_check CHECK ((last_value >= 0))
+constraint private.invoice_counters.invoice_counters_pkey PRIMARY KEY (tenant_id, fy)
+constraint private.invoice_counters.invoice_counters_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.ai_quota_reservations.ai_quota_reservations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint public.ai_quota_reservations.ai_quota_reservations_expiry CHECK ((expires_at > created_at))
 constraint public.ai_quota_reservations.ai_quota_reservations_feature_check CHECK ((feature ~ '^ai\.[a-z0-9_.]{1,60}$'::text))
@@ -1044,13 +1052,20 @@ constraint public.invoice_items.invoice_items_tenant_id_fkey FOREIGN KEY (tenant
 constraint public.invoice_items.invoice_items_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 constraint public.invoice_items.invoice_items_total_matches CHECK ((total_price = round((unit_price * (quantity)::numeric), 2)))
 constraint public.invoice_items.invoice_items_unit_price_nonnegative CHECK ((unit_price >= (0)::numeric))
+constraint public.invoices.invoices_discount_nonnegative CHECK ((discount >= (0)::numeric))
+constraint public.invoices.invoices_discount_within_subtotal CHECK ((discount <= subtotal))
 constraint public.invoices.invoices_pkey PRIMARY KEY (id)
-constraint public.invoices.invoices_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'issued'::text, 'paid'::text, 'cancelled'::text])))
+constraint public.invoices.invoices_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'issued'::text, 'paid'::text, 'cancelled'::text, 'void'::text])))
+constraint public.invoices.invoices_subtotal_nonnegative CHECK ((subtotal >= (0)::numeric))
+constraint public.invoices.invoices_tax_nonnegative CHECK ((tax >= (0)::numeric))
 constraint public.invoices.invoices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.invoices.invoices_tenant_id_id_key UNIQUE (tenant_id, id)
 constraint public.invoices.invoices_tenant_location_fkey FOREIGN KEY (tenant_id, location_id) REFERENCES clinic_locations(tenant_id, id) ON DELETE RESTRICT
 constraint public.invoices.invoices_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.invoices.invoices_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
+constraint public.invoices.invoices_total_cap CHECK ((total_amount <= (100000000)::numeric))
+constraint public.invoices.invoices_total_identity CHECK ((total_amount = ((subtotal - discount) + tax)))
+constraint public.invoices.invoices_total_nonnegative CHECK ((total_amount >= (0)::numeric))
 constraint public.invoices.unique_tenant_invoice_number UNIQUE (tenant_id, invoice_number)
 constraint public.memberships.memberships_availability_schedule_shape CHECK (is_valid_weekly_schedule(availability_schedule))
 constraint public.memberships.memberships_pkey PRIMARY KEY (id)
@@ -1441,6 +1456,7 @@ function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.fill_default_location() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=89bcaefee5c73b6c7b8abec9b6d7f6a3
 function private.follow_ups_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=06f69fc72b682a4c65d0eb87e3d15f48
+function private.indian_fy(p_date date) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=40aacdea563099b794e14523907a264d
 function private.indian_mobile_national(p_phone text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=2a5aa7a4e8b1d1466066904166db237e
 function private.invitation_audit(p_tenant uuid, p_actor uuid, p_actor_role text, p_action text, p_invitation_id uuid, p_metadata jsonb) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=cade1974fa3b2ae4eb08a5b93ec219b1
 function private.invitation_consume(p_user uuid, p_token_hash text, p_require_confirmed boolean, p_idempotent boolean) returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=94f85a8c1adb0a794c95aa212538b852
@@ -1459,6 +1475,7 @@ function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action t
 function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integer) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=e10f676cdbfd121d4e73600b2347b949
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
 function private.name_normalize(p_name text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=de785a8b62ae4a72dcdc064d4fd01614
+function private.next_invoice_number(p_tenant_id uuid, p_at timestamp with time zone) returns text lang=plpgsql security_definer=f volatility=v config=lock_timeout=5s,search_path="" body_md5=f0817f5c86baefd808a1db70a740ba4b
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=29638eca9aa442b931281faa2bc30a63
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
 function private.patient_documents_no_delete() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e7659226b86a62edfd37d67161086001
@@ -1487,7 +1504,7 @@ function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql 
 function private.share_invoice_allowed(p_tenant uuid, p_invoice uuid) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=0d7decea17a88bcad93da79e0b7cea6b
 function private.slot_conflicts(p_tenant_id uuid, p_doctor_id uuid, p_start timestamp with time zone, p_duration_minutes integer, p_timezone text, p_exclude_visit_id uuid) returns text[] lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=8cf5a282838c28bc57c79c1e93c5ed9e
 function private.step_check_in(p_tenant_id uuid, p_visit_id uuid, p_priority text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6dfe0fdc8491f2970c9e3d15c3b277c2
-function private.step_create_invoice(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f19c83ede00ca9bc6389a3a66bbf18c3
+function private.step_create_invoice(p_tenant_id uuid, p_visit_id uuid, p_items jsonb, p_discount numeric, p_tax numeric) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e1db98e7c27f7ea4705a722d1dd60f1
 function private.step_create_patient(p_tenant_id uuid, p_patient jsonb) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=cd3be732a2bcba6765935e1e1f8f406f
 function private.step_create_visit(p_tenant_id uuid, p_patient_id uuid, p_doctor_id uuid, p_origin text, p_scheduled_at timestamp with time zone, p_duration_minutes integer, p_reason text, p_overbooked boolean) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=daeed12b12eda6f80ae12c7baff4b430
 function private.step_enqueue_booking_message(p_tenant_id uuid, p_visit_id uuid, p_patient_id uuid, p_doctor_id uuid, p_scheduled_at timestamp with time zone, p_timezone text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=258249a9509dddf25269247f45cb7f52
@@ -1556,7 +1573,6 @@ function public.enqueue_webhook_event_system(p_system_actor text, p_event_type t
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
 function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=790c33d3c622e3f51cecbda70280c0c9
 function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) returns TABLE(id uuid, full_name text, sex text, age integer, date_of_birth date, phone_last4 text, last_visit_at timestamp with time zone, reasons text[], strength text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=baf9b6d697032e8e360c4ad6d780f075
-function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ea535332cb3bf025dba7d6d92c04eebb
 function public.get_reschedule_slots(p_token text, p_date date) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=1b21dadb51d048cefb7cd0a52bdd23b6
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=ef59d2e5f5d66d16af6acd6bd1d2d539
@@ -1772,8 +1788,6 @@ grant function public.enqueue_webhook_event_system(p_system_actor text, p_event_
 grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
 grant function public.finalize_visit_amendment(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.find_patient_duplicates(p_phone text, p_name text, p_dob date, p_age integer) EXECUTE to authenticated
-grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to authenticated
-grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to service_role
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to anon
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to authenticated
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to service_role
@@ -2450,6 +2464,7 @@ index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING 
 index private.command_hash_key_pkey CREATE UNIQUE INDEX command_hash_key_pkey ON private.command_hash_key USING btree (id)
 index private.command_results_created_at_idx CREATE INDEX command_results_created_at_idx ON private.command_results USING btree (created_at)
 index private.command_results_pkey CREATE UNIQUE INDEX command_results_pkey ON private.command_results USING btree (tenant_id, client_request_id)
+index private.invoice_counters_pkey CREATE UNIQUE INDEX invoice_counters_pkey ON private.invoice_counters USING btree (tenant_id, fy)
 index public.ai_quota_reservations_pkey CREATE UNIQUE INDEX ai_quota_reservations_pkey ON public.ai_quota_reservations USING btree (id)
 index public.ai_usage_monthly_pkey CREATE UNIQUE INDEX ai_usage_monthly_pkey ON public.ai_usage_monthly USING btree (tenant_id, period, feature)
 index public.api_key_usage_daily_pkey CREATE UNIQUE INDEX api_key_usage_daily_pkey ON public.api_key_usage_daily USING btree (api_key_id, date)
@@ -2636,7 +2651,7 @@ index public.invitations_one_pending_per_address CREATE UNIQUE INDEX invitations
 index public.invitations_pkey CREATE UNIQUE INDEX invitations_pkey ON public.invitations USING btree (id)
 index public.invitations_token_hash_key CREATE UNIQUE INDEX invitations_token_hash_key ON public.invitations USING btree (token_hash)
 index public.invoice_items_pkey CREATE UNIQUE INDEX invoice_items_pkey ON public.invoice_items USING btree (id)
-index public.invoices_one_live_per_visit CREATE UNIQUE INDEX invoices_one_live_per_visit ON public.invoices USING btree (tenant_id, visit_id) WHERE (status <> 'cancelled'::text)
+index public.invoices_one_live_per_visit CREATE UNIQUE INDEX invoices_one_live_per_visit ON public.invoices USING btree (tenant_id, visit_id) WHERE (status <> ALL (ARRAY['cancelled'::text, 'void'::text]))
 index public.invoices_pkey CREATE UNIQUE INDEX invoices_pkey ON public.invoices USING btree (id)
 index public.invoices_tenant_id_id_key CREATE UNIQUE INDEX invoices_tenant_id_id_key ON public.invoices USING btree (tenant_id, id)
 index public.invoices_tenant_location_idx CREATE INDEX invoices_tenant_location_idx ON public.invoices USING btree (tenant_id, location_id)
@@ -2842,6 +2857,7 @@ relation ops.rum_user_daily kind=r rls=t force_rls=f
 relation ops.settings kind=r rls=t force_rls=f
 relation private.command_hash_key kind=r rls=t force_rls=f
 relation private.command_results kind=r rls=t force_rls=f
+relation private.invoice_counters kind=r rls=t force_rls=f
 relation public.ai_quota_reservations kind=r rls=t force_rls=f
 relation public.ai_usage_monthly kind=r rls=t force_rls=f
 relation public.api_key_usage_daily kind=r rls=t force_rls=f

@@ -346,10 +346,13 @@ describe("P0-02 membership guard (000019)", () => {
   });
 
   describe("SEC-09: SECURITY DEFINER functions check the tenant", () => {
-    it("a tenant-A owner cannot call the generator for tenant B, and reads nothing from B's drug search", async () => {
-      const gen = await rpc(owner.client, "generate_tenant_invoice_number", { p_tenant_id: ownerB.tenantId });
-      expect(gen.error?.code).toBe("42501");
-      expect(gen.data).toBeNull();
+    it("no invoice-number generator is callable at all (V2-10 10-01, D-15), and a tenant-A owner reads nothing from B's drug search", async () => {
+      // The count-based generate_tenant_invoice_number is dropped (000140); numbers come only from the invoice commands.
+      for (const tenantId of [ownerB.tenantId, owner.tenantId]) {
+        const gen = await rpc(owner.client, "generate_tenant_invoice_number", { p_tenant_id: tenantId });
+        expect(gen.error?.code).toBe("PGRST202");
+        expect(gen.data).toBeNull();
+      }
       // V2-09c 000117: search_medicines is an INVOKER read keyed on the session (the doctor is auth.uid(), no longer a parameter): another clinic's id reads nothing.
       const search = await rpc(owner.client, "search_medicines", { p_query: "Dolo", p_tenant_id: ownerB.tenantId, p_limit: 5 });
       expect(search.error).toBeNull();
@@ -369,10 +372,6 @@ describe("P0-02 membership guard (000019)", () => {
     });
 
     it("the caller's own tenant still works", async () => {
-      const inv = await rpc(owner.client, "generate_tenant_invoice_number", { p_tenant_id: owner.tenantId });
-      expect(inv.error).toBeNull();
-      expect(inv.data).toMatch(/^INV-\d{4}-\d{5}$/);
-
       const s = await rpc(owner.client, "search_medicines", {
         p_query: "Dolo",
         p_tenant_id: owner.tenantId,
@@ -387,7 +386,6 @@ describe("P0-02 membership guard (000019)", () => {
         auth: { autoRefreshToken: false, persistSession: false },
       });
       const calls: Array<[string, Record<string, unknown>]> = [
-        ["generate_tenant_invoice_number", { p_tenant_id: owner.tenantId }],
         // issue_queue_token replaced generate_daily_queue_token (05-11a); 05-b0 dropped the old generator and the
         // legacy current_user_has_role / current_user_is_admin_or_owner helpers (contract_05a.test.sql).
         ["issue_queue_token", { p_visit_id: randomUUID(), p_priority: "normal" }],

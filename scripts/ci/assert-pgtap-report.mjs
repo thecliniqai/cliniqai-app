@@ -168,6 +168,9 @@
  *   9881 — V2-09e PR 2 review fixes N4, N-7 (000133): 9877 + reference_catalogues 4 (84 -> 88: statements that change no row move nothing) = 9881
  *          (80 files). session_bootstrap keeps its 30 (three assertions now expect the has_permission gate).
  *   9892 — V2-09e PR 2, PO option A (000134 command_versions): 9881 + command_versions 11 (new file, every one required) = 9892 (81 files).
+ *   9920 — V2-10 10-01 (000140 billing_invariants_fy): 9892 + billing_invariants 37 (new file, every one required) − domain_policies 6 (42 → 36: the ten
+ *          generate_tenant_invoice_number cases become four: dropped, and receptionist / doctor / anon refused on private.next_invoice_number)
+ *          − definer_functions 3 (109 → 106: the dropped function's two dual-member legs and its locked-clinic leg) = 9920 (82 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -179,7 +182,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 9892;
+export const FLOOR = 9920;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -320,6 +323,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/doctor_directory_versions.test.sql",
   // V2-09e PR 2, PO option A (000134)
   "supabase/tests/database/command_versions.test.sql",
+  // V2-10 10-01 (000140)
+  "supabase/tests/database/billing_invariants.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

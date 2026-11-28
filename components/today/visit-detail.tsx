@@ -7,7 +7,8 @@ import { TokenChip } from "@/components/clinical/token-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
 import { displayVisitStatus } from "@/lib/visit-status";
-import { chipBalance, formatRupees, type TodayRow } from "@/features/today/schema";
+import { chipBalance, type TodayRow } from "@/features/today/schema";
+import { formatINR, toPaise } from "@/lib/money";
 import { AllergyFlag, originText } from "./today-row";
 
 /**
@@ -111,7 +112,7 @@ export function VisitDetail({ row, headingLevel = 2 }: { row: TodayRow; headingL
       {row.balanceDue != null && (
         <Section title="Bill">
           <p className="text-body-sm text-fg tabular-nums">
-            {row.billed === false ? "Not billed" : row.balanceDue > 0 ? `${formatRupees(row.balanceDue)} due` : "Nothing due"}
+            {row.billed === false ? "Not billed" : row.balanceDue > 0 ? `${formatINR(toPaise(row.balanceDue))} due` : "Nothing due"}
           </p>
         </Section>
       )}

@@ -136,7 +136,7 @@ select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000
 select is(pg_temp.as_definer('b11b0000-0000-4000-8000-000000000203', 'b11b0000-0000-4000-8000-00000000020a',
   $$insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, discount, tax, total_amount, status)
     values ('b11b0000-0000-4000-8000-000000002007', 'b11b0000-0000-4000-8000-00000000020a',
-            'b11b0000-0000-4000-8000-000000002003', 'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, 20, 5, 1,
+            'b11b0000-0000-4000-8000-000000002003', 'b11b0000-0000-4000-8000-000000002001', 'B11B-0002', 300, 20, 5, 285,
             'issued')$$, true),
   '1', 'the definer step''s role (private.step_create_invoice) still inserts the header of the doctor''s Sign & Bill');
 -- (000099: the insert guard's status and formula rules apply to the API roles' own INSERT, which no longer exists; the definer

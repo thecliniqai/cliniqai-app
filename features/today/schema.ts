@@ -378,9 +378,3 @@ export function waitNow(row: Pick<TodayRow, "waitMinutes">, receivedAtMs: number
   return row.waitMinutes + Math.max(0, Math.floor((nowMs - receivedAtMs) / 60_000));
 }
 
-const RUPEES = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
-
-/** `₹1,250` (paise only when non-zero, DESIGN_SYSTEM §5). */
-export function formatRupees(amount: number): string {
-  return `₹${RUPEES.format(amount)}`;
-}

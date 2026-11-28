@@ -98,7 +98,8 @@ select count(*) bad_invoice_totals from invoices where total_amount <> greatest(
 \echo '@@ D7d rows'
 select i.id from invoices i join payments p on p.invoice_id=i.id group by i.id, i.total_amount having sum(p.amount) > i.total_amount;
 \echo '@@ D7e count'
-select count(*) non_standard_numbers from invoices where invoice_number !~ '^INV-\d{4}-\d{5}$';
+-- 10-01 (000140): new invoices are numbered INV/<fy>/NNNNN; older rows keep INV-YYYY-NNNNN (D-7).
+select count(*) non_standard_numbers from invoices where invoice_number !~ '^INV-\d{4}-\d{5}$' and invoice_number !~ '^INV/\d{4}-\d{2}/\d{5,}$';
 
 \echo '@@ D8a count'
 -- D8. Status coherence (DB-15..17)

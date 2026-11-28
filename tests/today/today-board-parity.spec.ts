@@ -43,6 +43,7 @@ async function invoice(visitId: string, patientId: string, total: number, paid: 
     visit_id: visitId,
     patient_id: patientId,
     invoice_number: `PR-${Math.random().toString(36).slice(2, 9)}`,
+    subtotal: total,
     total_amount: total,
   });
   for (const amount of paid > 0 ? [paid / 2, paid / 2] : []) {

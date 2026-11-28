@@ -112,7 +112,7 @@ export function commandResultRows(tenantId: string, clientRequestId: string): st
  * (an amendment reason, notes, a reference, a name could carry PHI and the table is kept for the retention window). It also checks
  * that the request hash is a keyed 64-hex digest (G-8).
  * Reads the stored `command_results.result` (superuser) and fails when a string value is anything but a token: a uuid, a
- * timestamp, a number such as an invoice number, or a status word, i.e. no whitespace and at most 64 characters. Returns the
+ * timestamp, a number such as an invoice number (`INV/2026-27/00001` since 10-01), or a status word, i.e. no whitespace and at most 64 characters. Returns the
  * parsed result so a spec can go on to compare it. A list is allowed when every element is such a token (V2-09c: `added_item_ids`).
  */
 export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: string): Record<string, unknown> {
@@ -126,7 +126,7 @@ export function expectDataOnlyStoredResult(tenantId: string, clientRequestId: st
   const result = JSON.parse(raw) as Record<string, unknown>;
   const token = (key: string, value: unknown) => {
     if (typeof value === "string") {
-      if (!/^[A-Za-z0-9_.:+\-]{1,64}$/.test(value)) throw new Error(`stored result key ${key} holds free text (${value.length} characters)`);
+      if (!/^[A-Za-z0-9_.:+\-/]{1,64}$/.test(value)) throw new Error(`stored result key ${key} holds free text (${value.length} characters)`);
     } else if (value !== null && typeof value !== "number" && typeof value !== "boolean") {
       throw new Error(`stored result key ${key} holds a ${typeof value}, not a scalar`);
     }

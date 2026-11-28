@@ -1,5 +1,6 @@
 "use client";
 
+import { formatINR, toPaise } from "@/lib/money";
 import React from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -257,17 +258,17 @@ export function ReadOnlyEncounterModal({
                 Invoice #{visit.invoice.invoice_number}
               </span>
               <span className="tabular-nums text-gray-700 font-medium">
-                ₹{visit.invoice.total_amount.toFixed(2)}
+                {formatINR(toPaise(visit.invoice.total_amount))}
               </span>
             </div>
             <div>
               {visit.invoice.balance_due === 0 ? (
                 <Badge color="success" size="sm">
-                  Paid Full (₹{visit.invoice.total_paid.toFixed(2)})
+                  Paid Full ({formatINR(toPaise(visit.invoice.total_paid))})
                 </Badge>
               ) : (
                 <Badge color="warning" size="sm">
-                  Balance Due: ₹{visit.invoice.balance_due.toFixed(2)}
+                  Balance Due: {formatINR(toPaise(visit.invoice.balance_due))}
                 </Badge>
               )}
             </div>

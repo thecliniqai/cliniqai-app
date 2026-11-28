@@ -215,11 +215,12 @@ describe("today signals: delivery to the clinic's own members", () => {
         visit_id: visitId,
         patient_id: patientId,
         invoice_number: `RT-${randomUUID().slice(0, 8)}`,
+        subtotal: 500,
         total_amount: 500,
       });
     });
     await expectNext("billing", async () => {
-      await admin.from("invoices").update({ total_amount: 650 }).eq("id", invoice);
+      await admin.from("invoices").update({ subtotal: 650, total_amount: 650 }).eq("id", invoice);
     });
     await expectNext("billing", async () => {
       const paid = await admin.from("payments").insert({

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Printer, Download, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getInvoiceReceiptPdfSignedUrl } from "@/features/billing/actions";
+import { invoiceFileStem } from "@/features/billing/schema";
 
 export interface ReceiptModalProps {
   isOpen: boolean;
@@ -94,7 +95,7 @@ export function ReceiptModal({ isOpen, onClose, invoiceId }: ReceiptModalProps) 
   const handleDownload = () => {
     const downloadLink = document.createElement("a");
     downloadLink.href = `/api/invoices/${invoiceId}/receipt-pdf?download=true`;
-    downloadLink.download = `Receipt-${invoiceNumber || invoiceId.slice(0, 8)}.pdf`;
+    downloadLink.download = `Receipt-${invoiceNumber ? invoiceFileStem(invoiceNumber) : invoiceId.slice(0, 8)}.pdf`;
     downloadLink.target = "_blank";
     document.body.appendChild(downloadLink);
     downloadLink.click();

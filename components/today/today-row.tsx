@@ -7,7 +7,8 @@ import { QueueRow } from "@/components/clinical/queue-row";
 import { StatusChip } from "@/components/clinical/status-chip";
 import { VitalsSummary } from "@/components/clinical/vitals-summary";
 import { formatClinicTime } from "@/lib/datetime/format";
-import { chipBalance, formatRupees, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
+import { chipBalance, rowButtons, waitNow, type RowButton, type TodayMode, type TodayRow } from "@/features/today/schema";
+import { formatINR, toPaise } from "@/lib/money";
 import { RowMenu, rowMenuItems } from "@/components/front-desk/row-menu";
 import { startLabel, useCheckIn, useStart, type CheckInHooks } from "./use-row-commands";
 
@@ -165,10 +166,10 @@ export function RowButtons({
                 variant={due ? "primary" : "secondary"}
                 startIcon={<HandCoins aria-hidden="true" />}
                 onClick={() => onCollect(row)}
-                aria-label={due ? `Collect ${formatRupees(row.balanceDue!)} from ${row.name}` : `Open bill of ${row.name}`}
+                aria-label={due ? `Collect ${formatINR(toPaise(row.balanceDue!))} from ${row.name}` : `Open bill of ${row.name}`}
                 data-row-action="collect"
               >
-                {due ? `Collect ${formatRupees(row.balanceDue!)}` : "Bill"}
+                {due ? `Collect ${formatINR(toPaise(row.balanceDue!))}` : "Bill"}
               </Button>
             );
           }
@@ -192,7 +193,7 @@ export function TodayRowView(props: TodayRowViewProps) {
       {inQueue && (row.vitals || row.vitalsPending) && <VitalsSummary vitals={row.vitals} />}
       {row.hasAllergy && <AllergyFlag />}
       {row.balanceDue != null && row.balanceDue > 0 && (
-        <span className="font-semibold text-fg tabular-nums">{formatRupees(row.balanceDue)} due</span>
+        <span className="font-semibold text-fg tabular-nums">{formatINR(toPaise(row.balanceDue))} due</span>
       )}
       {row.billed === false && <span className="font-semibold text-fg">Not billed</span>}
     </>

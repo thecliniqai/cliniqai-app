@@ -79,7 +79,7 @@ describe("create_invoice: one transaction", () => {
     expect(error).toBeNull();
     const result = data as { invoice_id: string; invoice_number: string; status: string; total_amount: number; existing: boolean; replayed: boolean };
     expect(result).toMatchObject({ status: "issued", total_amount: 650, existing: false, replayed: false });
-    expect(result.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
+    expect(result.invoice_number).toMatch(/^INV\/\d{4}-\d{2}\/\d{5}$/);
 
     const invoices = await invoicesOfVisit(visitId);
     expect(invoices).toEqual([
@@ -186,16 +186,19 @@ describe("create_invoice: one transaction", () => {
   });
 
   it("R-6: a failing number draw fails the command; no guessed number is used", async () => {
-    // The sequence counts the year's numbers, so deleting an older invoice makes the next draw collide with a live one
-    // (a clinic of its own: the collision outlives the test).
+    // V2-10 10-01: the clinic's FY counter is the only source. A row that already holds the next number (written outside the
+    // command, a clinic of its own) makes the draw collide: the command fails whole, and the rollback takes the counter back.
     const solo = await seedTenantWithOwner("CI Billing Numbering Clinic");
     const [v1, v2, v3] = await Promise.all([seedVisit(solo), seedVisit(solo), seedVisit(solo)]);
     const first = await callCreateInvoice(solo.client, createInvoiceArgs(solo, v1.visitId));
-    const second = await callCreateInvoice(solo.client, createInvoiceArgs(solo, v2.visitId));
     expect(first.error).toBeNull();
-    expect(second.error).toBeNull();
-    const del = await getAdminClient().from("invoices").delete().eq("id", (first.data as { invoice_id: string }).invoice_id);
-    expect(del.error).toBeNull();
+    const nextNumber = (first.data as { invoice_number: string }).invoice_number.replace(/\d{5}$/, "00002");
+    const blocker = await getAdminClient()
+      .from("invoices")
+      .insert({ tenant_id: solo.tenantId, visit_id: v2.visitId, patient_id: v2.patientId, invoice_number: nextNumber, status: "issued" })
+      .select("id")
+      .single();
+    expect(blocker.error).toBeNull();
 
     const args = createInvoiceArgs(solo, v3.visitId);
     const { data, error } = await callCreateInvoice(solo.client, args);
@@ -204,6 +207,12 @@ describe("create_invoice: one transaction", () => {
     expect(mapDbError(error).code).toBe("CONFLICT");
     expect(await invoicesOfVisit(v3.visitId)).toEqual([]);
     expect(commandResultRows(solo.tenantId, args.p_client_request_id)).toEqual([]);
+
+    // No number was burnt: with the blocking row gone, the next create takes the number the failed one drew.
+    expect((await getAdminClient().from("invoices").delete().eq("id", blocker.data!.id)).error).toBeNull();
+    const retry = await callCreateInvoice(solo.client, createInvoiceArgs(solo, v3.visitId));
+    expect(retry.error).toBeNull();
+    expect((retry.data as { invoice_number: string }).invoice_number).toBe(nextNumber);
   });
 });
 

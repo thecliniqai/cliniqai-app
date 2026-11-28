@@ -80,7 +80,7 @@ describe("collect_payment: one transaction", () => {
     expect(r).toMatchObject({
       invoice_created: true, invoice_status: "paid", paid_total: 650, total_amount: 650, balance_due: 0, replayed: false,
     });
-    expect(r.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
+    expect(r.invoice_number).toMatch(/^INV\/\d{4}-\d{2}\/\d{5}$/);
 
     const [invoice] = await invoicesOfVisit(visitId);
     expect(invoice).toMatchObject({ id: r.invoice_id, status: "paid", subtotal: 700, discount: 50, total_amount: 650, patient_id: patientId });

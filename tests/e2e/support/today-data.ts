@@ -160,6 +160,7 @@ export async function seedFullDay(): Promise<{ booked: string; waiting: string; 
           visit_id: visit!.id,
           patient_id: patient.id,
           invoice_number: `E2E-${Math.random().toString(36).slice(2, 9)}`,
+          subtotal: fee,
           total_amount: fee,
         })
         .select("id")

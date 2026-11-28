@@ -1,0 +1,23 @@
+{
+  "$comment": "V2-10 10-01 (D-6): the one FY case table. lib/fy (tests/money/fy.spec.ts) and private.indian_fy / private.next_invoice_number (supabase/tests/database/billing_invariants.test.sql, which embeds this JSON verbatim between its fy-cases markers) must both pass it. Synthetic values only.",
+  "dates": [
+    { "date": "2026-04-01", "fy": "2026-27" },
+    { "date": "2026-11-28", "fy": "2026-27" },
+    { "date": "2026-12-31", "fy": "2026-27" },
+    { "date": "2027-01-01", "fy": "2026-27" },
+    { "date": "2027-03-31", "fy": "2026-27" },
+    { "date": "2027-04-01", "fy": "2027-28" },
+    { "date": "2026-03-31", "fy": "2025-26" },
+    { "date": "2028-02-29", "fy": "2027-28" },
+    { "date": "1999-04-01", "fy": "1999-00" },
+    { "date": "2000-03-31", "fy": "1999-00" },
+    { "date": "2099-04-01", "fy": "2099-00" }
+  ],
+  "instants": [
+    { "at": "2027-03-31T18:29:59Z", "tz": "Asia/Kolkata", "fy": "2026-27", "label": "31 Mar 2027 23:59:59 IST" },
+    { "at": "2027-03-31T18:30:00Z", "tz": "Asia/Kolkata", "fy": "2027-28", "label": "1 Apr 2027 00:00 IST" },
+    { "at": "2027-04-01T03:59:59Z", "tz": "America/New_York", "fy": "2026-27", "label": "31 Mar 2027 23:59:59 EDT" },
+    { "at": "2027-04-01T04:00:00Z", "tz": "America/New_York", "fy": "2027-28", "label": "1 Apr 2027 00:00 EDT" },
+    { "at": "2027-03-31T20:00:00Z", "tz": "America/New_York", "fy": "2026-27", "label": "already 1 Apr in IST, still 31 Mar in New York" }
+  ]
+}

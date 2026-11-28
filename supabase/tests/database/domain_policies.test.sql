@@ -6,8 +6,8 @@
 --    (000054-000056), every one is TO authenticated, and none references a legacy helper (any membership).
 -- 2. patients_clinical_fields_guard (R-8): without consultations:view in the row's (active) clinic, allergies and
 --    chronic_conditions cannot change (42501); demographics can; INSERT may record them; system paths are not limited.
--- 3. generate_tenant_invoice_number (R-7): billing:collect or consultations:edit in the ACTIVE clinic (nurse, another
---    clinic's owner, a dual member acting elsewhere, anon: refused).
+-- 3. Invoice numbers (R-7; 10-01 D-15): generate_tenant_invoice_number is dropped (000140); no member or anon may call
+--    private.next_invoice_number (the FY counter): numbers come only from the invoice commands.
 -- 4. referrals_target_update_guard: the target clinic may only acknowledge; a member of BOTH clinics acting as the target
 --    can no longer rewrite the referral (the guard's originating-clinic exemption is bound to the active clinic).
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
@@ -16,7 +16,7 @@ begin;
 -- cases build fixtures and prove the patient insert rules (R-8) through the API role, so the grant is widened for this transaction only; the revoke is
 -- proven in front_desk_review_fixes.test.sql.
 grant insert on table public.patients to authenticated;
-select plan(42);
+select plan(36);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
 insert into auth.users (id, email) values
@@ -237,39 +237,19 @@ select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000302', 'd0000000-0000
   'denied:new row violates row-level security policy for table "patients"',
   '... and acting in B cannot register a patient into A (42501)');
 
--- 3. generate_tenant_invoice_number (R-7) -----------------------------------------------------------------------------
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000106', null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  '1', 'receptionist (billing:collect) gets an invoice number');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000102', null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  '1', 'admin (billing:collect) gets an invoice number');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000103', null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  '1', 'doctor (consultations:edit, Sign & Bill) gets an invoice number');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000105', null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  'denied:forbidden', 'nurse (neither key) → 42501');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000201', null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  'denied:forbidden', 'clinic B''s owner for clinic A → 42501');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000302', 'd0000000-0000-4000-8000-00000000000b',
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  'denied:forbidden', 'a receptionist of both clinics acting in B, for A → 42501 (before: any membership admitted it)');
-select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000302', 'd0000000-0000-4000-8000-00000000000a',
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
-  '1', '... acting in A → a number (control)');
+-- 3. Invoice numbers (R-7; V2-10 10-01, D-15): the count-based generate_tenant_invoice_number is gone and no member
+--    (collector, doctor) or anon may call the FY counter directly; numbers come only from the creating command.
+select hasnt_function('public', 'generate_tenant_invoice_number', array['uuid'],
+  'generate_tenant_invoice_number is dropped (000140, D-15)');
+select matches(pg_temp.as_user('d0000000-0000-4000-8000-000000000106', null,
+  $$select private.next_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
+  '^denied:', 'receptionist (billing:collect) cannot take an invoice number directly → 42501');
+select matches(pg_temp.as_user('d0000000-0000-4000-8000-000000000103', null,
+  $$select private.next_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
+  '^denied:', 'doctor (consultations:edit, Sign & Bill) cannot take an invoice number directly → 42501');
 select matches(pg_temp.as_user(null, null,
-  $$select public.generate_tenant_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
+  $$select private.next_invoice_number('d0000000-0000-4000-8000-00000000000a')$$),
   '^denied:', 'anon → 42501');
-select is(
-  (select p.prosecdef from pg_proc p where p.oid = 'public.generate_tenant_invoice_number(uuid)'::regprocedure),
-  true, 'generate_tenant_invoice_number stays SECURITY DEFINER (it counts the clinic''s invoices)'
-);
-select is(
-  (select p.proconfig from pg_proc p where p.oid = 'public.generate_tenant_invoice_number(uuid)'::regprocedure),
-  array['search_path=""']::text[], 'generate_tenant_invoice_number pins search_path to empty'
-);
 
 -- 4. referrals_target_update_guard: the target clinic only acknowledges ---------------------------------------------
 select is(pg_temp.as_user('d0000000-0000-4000-8000-000000000201', null,
@@ -303,11 +283,11 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, cr
    'd0000000-0000-4000-8000-000000000103', 'walk_in', 'd0000000-0000-4000-8000-000000000101'),
   ('d0000000-0000-4000-8000-000000001012', 'd0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000001001',
    'd0000000-0000-4000-8000-000000000104', 'walk_in', 'd0000000-0000-4000-8000-000000000101');
-insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, total_amount) values
+insert into public.invoices (id, tenant_id, visit_id, patient_id, invoice_number, subtotal, total_amount) values
   ('d0000000-0000-4000-8000-000000001021', 'd0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000001011',
-   'd0000000-0000-4000-8000-000000001001', 'DP-0001', 100),
+   'd0000000-0000-4000-8000-000000001001', 'DP-0001', 100, 100),
   ('d0000000-0000-4000-8000-000000001022', 'd0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000001012',
-   'd0000000-0000-4000-8000-000000001001', 'DP-0002', 100);
+   'd0000000-0000-4000-8000-000000001001', 'DP-0002', 100, 100);
 insert into public.payments (tenant_id, invoice_id, amount, payment_method, recorded_by) values
   ('d0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000001021', 100, 'cash', 'd0000000-0000-4000-8000-000000000106'),
   ('d0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-000000001022', 100, 'cash', 'd0000000-0000-4000-8000-000000000106');

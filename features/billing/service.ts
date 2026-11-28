@@ -36,6 +36,7 @@ import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/
 import { appError, type AppErrorCode, type Result } from "@/lib/errors/app-error";
 import { ROW_CHANGED_MESSAGE, versionArg } from "@/lib/errors/row-changed";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { roundRupees } from "@/lib/money";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
@@ -116,6 +117,8 @@ const INVOICE_ITEM_REASON_MESSAGES = {
   ITEM_PRICE_INVALID: "Each item price must be between ₹0 and ₹10,00,000.",
   ITEM_QUANTITY_INVALID: "Each item quantity must be a whole number from 1 to 99.",
   INVOICE_TOTAL_INVALID: "The bill total is too large.",
+  // V2-10 10-01 (D-8, migration 000140): a new bill for a cancelled or no-show visit.
+  VISIT_NOT_BILLABLE: "This visit was cancelled or marked no-show, so it cannot be billed.",
 } as const;
 
 /** Fixed, data-free texts by reason or code for `create_invoice` and `collect_payment` (V2-07 07-02). The driver message never reaches the caller. */
@@ -174,7 +177,7 @@ export interface CreateInvoiceValue {
 
 /**
  * Creates the visit's invoice as one atomic command (V2-07 07-02): `public.create_invoice` locks the visit, takes the
- * number from `generate_tenant_invoice_number` (no fallback: a failure fails the command), inserts the invoice and its
+ * number from the clinic's FY counter (`INV/2026-27/00001`, migration 000140; a failure fails the command), inserts the invoice and its
  * items and writes the `invoice.create` audit row in one transaction. A visit that already has a live invoice gets it
  * back (`existing: true`, nothing written, AR3-N2).
  *
@@ -215,8 +218,8 @@ export async function createInvoice(ctx: ServiceContext, input: CreateInvoiceInp
       {
         p_visit_id: data.visit_id,
         p_items: invoiceItemsPayload(data.items),
-        p_discount: toPaise(data.discount),
-        p_tax: toPaise(data.tax),
+        p_discount: toRupeeParam(data.discount),
+        p_tax: toRupeeParam(data.tax),
         p_client_request_id: data.client_request_id,
       },
       createInvoiceRpcResultSchema,
@@ -284,7 +287,7 @@ function invoiceItemsPayload(items: CreateInvoiceInput["items"]) {
   return items.map((item) => ({
     item_type: item.item_type,
     description: item.description,
-    unit_price: toPaise(item.unit_price),
+    unit_price: toRupeeParam(item.unit_price),
     quantity: Number(item.quantity) || 1,
   }));
 }
@@ -331,12 +334,12 @@ export async function collectPayment(
     {
       p_visit_id: data.visit_id,
       p_items: invoiceItemsPayload(data.items),
-      p_amount: toPaise(data.amount),
+      p_amount: toRupeeParam(data.amount),
       p_method: data.payment_method,
       p_reference: data.reference_number ?? "",
       p_notes: data.notes ?? "",
-      p_discount: toPaise(data.discount),
-      p_tax: toPaise(data.tax),
+      p_discount: toRupeeParam(data.discount),
+      p_tax: toRupeeParam(data.tax),
       p_client_request_id: data.client_request_id,
       ...versionArg("p_expected_invoice_version", data.expected_invoice_version),
     },
@@ -469,9 +472,12 @@ export async function callRecordPayment(
   return { ok: true, value: parsed.data };
 }
 
-/** Rounds to paise without float drift (the RPC refuses more than 2 decimals). */
-function toPaise(amount: number): number {
-  return Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+/**
+ * A rupee amount rounded to the paisa for a `numeric(10,2)` command parameter (the RPCs refuse more than 2 decimals):
+ * `lib/money` converts through integer paise, exact for every 2-decimal value (V2-10 10-01, D-1).
+ */
+function toRupeeParam(amount: number): number {
+  return roundRupees(amount);
 }
 
 /**
@@ -504,7 +510,7 @@ export async function recordPayment(
       {
         tenantId: ctx.tenantId,
         invoiceId: data.invoice_id,
-        amount: toPaise(data.amount),
+        amount: toRupeeParam(data.amount),
         method: data.payment_method,
         reference: data.reference_number,
         notes: data.notes,
@@ -923,7 +929,7 @@ export async function completeAndBillConsultation(
       {
         p_visit_id: data.visit_id,
         p_items: invoiceItemsPayload(items),
-        p_discount: toPaise(data.discount),
+        p_discount: toRupeeParam(data.discount),
         p_tax: 0,
         p_payment: data.payment_collected
           ? { method: data.payment_method, reference: data.reference_number ?? null }

@@ -1,6 +1,7 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { formatINRAscii, formatINRPlain, toPaise } from "@/lib/money";
 
 export interface ReceiptPdfPayload {
   tenant_id: string;
@@ -402,9 +403,9 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
           <View style={styles.tableHeader}>
             <Text style={[styles.colSl, styles.tableHeaderText]}>#</Text>
             <Text style={[styles.colDesc, styles.tableHeaderText]}>Description</Text>
-            <Text style={[styles.colPrice, styles.tableHeaderText]}>Rate (₹)</Text>
+            <Text style={[styles.colPrice, styles.tableHeaderText]}>Rate (Rs.)</Text>
             <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
-            <Text style={[styles.colTotal, styles.tableHeaderText]}>Total (₹)</Text>
+            <Text style={[styles.colTotal, styles.tableHeaderText]}>Total (Rs.)</Text>
           </View>
 
           {payload.items.map((item, index) => (
@@ -417,11 +418,11 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
                 </Text>
               </Text>
               <Text style={[styles.colPrice, styles.tableRowText]}>
-                {Number(item.unit_price).toFixed(2)}
+                {formatINRPlain(toPaise(item.unit_price))}
               </Text>
               <Text style={[styles.colQty, styles.tableRowText]}>{item.quantity}</Text>
               <Text style={[styles.colTotal, styles.tableRowText]}>
-                {Number(item.total_price).toFixed(2)}
+                {formatINRPlain(toPaise(item.total_price))}
               </Text>
             </View>
           ))}
@@ -432,30 +433,30 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal:</Text>
-              <Text style={styles.totalValue}>₹{Number(payload.subtotal).toFixed(2)}</Text>
+              <Text style={styles.totalValue}>{formatINRAscii(toPaise(payload.subtotal))}</Text>
             </View>
             {payload.discount > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Discount:</Text>
                 <Text style={[styles.totalValue, { color: "#E11D48" }]}>
-                  -₹{Number(payload.discount).toFixed(2)}
+                  {formatINRAscii(-toPaise(payload.discount))}
                 </Text>
               </View>
             )}
             {payload.tax > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Tax / GST:</Text>
-                <Text style={styles.totalValue}>+₹{Number(payload.tax).toFixed(2)}</Text>
+                <Text style={styles.totalValue}>+{formatINRAscii(toPaise(payload.tax))}</Text>
               </View>
             )}
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>Total Amount:</Text>
-              <Text style={styles.grandTotalValue}>₹{Number(payload.total_amount).toFixed(2)}</Text>
+              <Text style={styles.grandTotalValue}>{formatINRAscii(toPaise(payload.total_amount))}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Paid:</Text>
               <Text style={[styles.totalValue, { color: "#059669" }]}>
-                ₹{Number(payload.total_paid).toFixed(2)}
+                {formatINRAscii(toPaise(payload.total_paid))}
               </Text>
             </View>
             {payload.balance_due > 0 && (
@@ -464,7 +465,7 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
                   Balance Due:
                 </Text>
                 <Text style={[styles.totalValue, { color: "#D97706" }]}>
-                  ₹{Number(payload.balance_due).toFixed(2)}
+                  {formatINRAscii(toPaise(payload.balance_due))}
                 </Text>
               </View>
             )}
@@ -488,7 +489,7 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
                       minute: "2-digit",
                     })}
                   </Text>
-                  <Text style={styles.paymentAmount}>₹{Number(p.amount).toFixed(2)}</Text>
+                  <Text style={styles.paymentAmount}>{formatINRAscii(toPaise(p.amount))}</Text>
                 </View>
               ))}
             </View>

@@ -133,6 +133,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   SLOT_OFF_DUTY: "CONFLICT",
   SLOT_BLOCKED: "CONFLICT",
   ALREADY_BILLED: "CONFLICT",
+  // V2-10 10-01 (migration 000140, D-8): private.step_create_invoice refuses a new bill for a cancelled or no-show visit.
+  VISIT_NOT_BILLABLE: "CONFLICT",
   // V2-07 07-04a (migration 000099): a visit that is not waiting or in consultation cannot be signed (F-6); one reason per
   // invoice-item cause (F-8) instead of the generic INPUT_INVALID.
   VISIT_NOT_SIGNABLE: "CONFLICT",
