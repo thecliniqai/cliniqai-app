@@ -75,7 +75,7 @@ export function newNonce(): string {
   return btoa(binary);
 }
 
-/** `https://x.supabase.co` → itself and `wss://x.supabase.co`; loopback `http` → `ws`. Invalid → none (fail closed). */
+/** An https project origin → itself and its `wss:` twin; the loopback `http` stack → `ws`. Invalid → none (fail closed). */
 function supabaseSources(supabaseUrl: string): { http: string[]; ws: string[] } {
   try {
     const url = new URL(supabaseUrl);
