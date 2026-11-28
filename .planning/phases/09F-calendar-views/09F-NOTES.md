@@ -104,4 +104,8 @@ re-reads the same way, B-11 covers the day view).
 - **F-2** The e2e server guard's one `connect` to an empty host during the Rx PDF upload (refused, request fine): find the caller (storage client keep-alive
   or happy-eyeballs path) in V2-14.
 - **F-4** Re-baseline or remove the extra `clinic_live_state` call on the full-load rows (09E PR 2 PO question 1, still open).
+- **F-5** CI run 46113640625 (this PR): `consult/rx-allergy` "an allergy recorded after a line was added" failed attempt 1 on desktop-chrome. Root cause: the
+  spec reloaded while the new Rx line was still pending (optimistic, saved in the background); the reloaded page had "No medicines yet". Fixed in the
+  spec (waits for the stored line, `rxStored`). Product question for V2-14: a reload or tab close during a pending Rx save loses the line silently;
+  consider a `beforeunload` prompt while lines are pending.
 - **F-3** Free-slot counts in the month need a set-based slot core (09E-12 PO question 2).
