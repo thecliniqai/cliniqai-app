@@ -1,0 +1,33 @@
+{
+  "name": "osv-fixture",
+  "lockfileVersion": 3,
+  "packages": {
+    "": {
+      "name": "osv-fixture"
+    },
+    "node_modules/fixture-prod": {
+      "version": "1.0.0"
+    },
+    "node_modules/fixture-waived": {
+      "version": "2.0.0"
+    },
+    "node_modules/fixture-dev": {
+      "version": "3.0.0",
+      "dev": true
+    },
+    "node_modules/fixture-nofix": {
+      "version": "4.0.0"
+    },
+    "node_modules/fixture-moderate": {
+      "version": "5.0.0"
+    },
+    "node_modules/fixture-evil": {
+      "version": "6.0.0",
+      "dev": true
+    },
+    "node_modules/fixture-devoptional": {
+      "version": "7.0.0",
+      "devOptional": true
+    }
+  }
+}

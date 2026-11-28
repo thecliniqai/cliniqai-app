@@ -2,13 +2,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
-import { publicEnv } from "@/lib/env";
+import { isNextDev, publicEnv } from "@/lib/env";
 import { isApiPath, loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
 import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
 import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 import { log } from "@/lib/log";
 import { routePatternOfPath } from "@/lib/observability/route-patterns";
 import { ROUTE_HEADER, START_HEADER } from "@/lib/observability/timing-headers";
+import { CSP_HEADER, isPagePath, NONCE_HEADER, newNonce, pageSecurityHeaders } from "@/lib/security/headers";
 import {
   AUTH_STATE_HEADER,
   AUTH_STATE_UNAVAILABLE,
@@ -65,6 +66,37 @@ function forgetActiveClinic(request: NextRequest, response: NextResponse): NextR
 /** When `proxy()` first saw each request (read back when the request is forwarded, so the timing line counts the proxy's own work). */
 const proxyStartedAt = new WeakMap<NextRequest, number>();
 
+/**
+ * V2-14 14-01 (P1-18): each page request's security headers (`lib/security/headers.ts`), built once with a fresh nonce
+ * when the proxy first sees the request. The CSP also goes on the forwarded request, where Next.js reads the nonce
+ * and puts it on its scripts; an inbound `Content-Security-Policy` or nonce request header is always dropped, so a
+ * caller can never choose the nonce.
+ */
+const pageHeaders = new WeakMap<NextRequest, Record<string, string>>();
+
+function securityHeadersFor(request: NextRequest): Record<string, string> | null {
+  const pathname = request.nextUrl.pathname;
+  if (!isPagePath(pathname)) return null;
+  let headers = pageHeaders.get(request);
+  if (!headers) {
+    headers = pageSecurityHeaders({
+      nonce: newNonce(),
+      pathname,
+      supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      // `next dev` only (React's dev tooling evaluates code).
+      dev: isNextDev(),
+    });
+    pageHeaders.set(request, headers);
+  }
+  return headers;
+}
+
+function applySecurityHeaders(request: NextRequest, response: NextResponse): NextResponse {
+  const headers = securityHeadersFor(request);
+  if (headers) for (const [key, value] of Object.entries(headers)) response.headers.set(key, value);
+  return response;
+}
+
 function continueWithRequestId(request: NextRequest, requestId: string, authUnavailable = false): NextResponse {
   const headers = new Headers(request.headers);
   headers.set(REQUEST_ID_HEADER, requestId);
@@ -74,9 +106,17 @@ function continueWithRequestId(request: NextRequest, requestId: string, authUnav
   headers.set(START_HEADER, String(proxyStartedAt.get(request) ?? Date.now()));
   headers.delete(AUTH_STATE_HEADER);
   if (authUnavailable) headers.set(AUTH_STATE_HEADER, AUTH_STATE_UNAVAILABLE);
+  headers.delete(CSP_HEADER);
+  headers.delete("content-security-policy-report-only");
+  headers.delete(NONCE_HEADER);
+  const security = securityHeadersFor(request);
+  if (security) {
+    headers.set(CSP_HEADER, security[CSP_HEADER]);
+    headers.set(NONCE_HEADER, /'nonce-([^']+)'/.exec(security[CSP_HEADER])?.[1] ?? "");
+  }
   const response = NextResponse.next({ request: { headers } });
   response.headers.set(REQUEST_ID_HEADER, requestId);
-  return response;
+  return applySecurityHeaders(request, response);
 }
 
 /** Headers @supabase/ssr hands to `setAll` with refreshed or cleared cookies (never cache such a response). */
@@ -91,7 +131,7 @@ function redirectToLogin(request: NextRequest, requestId: string, carry: NextRes
   const target = new URL("/login", request.nextUrl.origin);
   const next = loginNextValue(request.nextUrl);
   if (next !== null) target.searchParams.set("next", next);
-  const response = NextResponse.redirect(target, 307);
+  const response = applySecurityHeaders(request, NextResponse.redirect(target, 307));
   response.headers.set(REQUEST_ID_HEADER, requestId);
   carry.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
   for (const name of SESSION_CACHE_HEADERS) {
@@ -145,6 +185,19 @@ export function bodyMayExceedProxyLimit(request: NextRequest): boolean {
   return !/^\d+$/.test(trimmed) || Number(trimmed) > PROXY_MAX_BODY_BYTES;
 }
 
+/**
+ * V2-14 14-02 (P2-06, plan D-8): the most an upload page's action may receive: the 4 MB file (features/labs/utils.ts
+ * `LAB_MAX_FILE_BYTES`) plus the multipart and action framing, at Vercel's own 4.5 MB request cap. A declared length
+ * above it is refused before any session work, signed in or not, so nothing is ever buffered towards Next's 4 MB
+ * action limit for a request that cannot succeed.
+ */
+export const PROXY_MAX_UPLOAD_BODY_BYTES = 4.5 * 1024 * 1024;
+
+export function declaredBodyExceedsUploadLimit(request: NextRequest): boolean {
+  const length = request.headers.get("content-length")?.trim();
+  return length !== undefined && /^\d+$/.test(length) && Number(length) > PROXY_MAX_UPLOAD_BODY_BYTES;
+}
+
 /** The pages whose server action takes a report upload (09B-06a, R-U): the consult and the patient record. */
 export function isUploadPagePath(pathname: string): boolean {
   return pathname.startsWith("/consultation/") || pathname.startsWith("/patients/");
@@ -165,7 +218,7 @@ export async function proxy(request: NextRequest) {
 
   // R-U: a large or unsized body is refused before any session work unless it is bound for an upload page (decided below, once the session is known).
   const largeBody = bodyMayExceedProxyLimit(request);
-  if (largeBody && !isUploadPagePath(pathname)) return payloadTooLarge(requestId);
+  if (largeBody && (!isUploadPagePath(pathname) || declaredBodyExceedsUploadLimit(request))) return payloadTooLarge(requestId);
 
   // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on. AR2-H2: the check
   // runs on the decoded, normalised path (Next decodes `/api/v%31/...` before matching the route), and any `/api` path

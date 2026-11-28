@@ -170,6 +170,7 @@ async function applyDeliveryReport(
 async function resolveAppointmentByReply(supabase: any, replyMsgId: string | undefined, from: string) {
   if (!replyMsgId) return null;
 
+  // nosemgrep: admin-query-without-tenant -- provider correlation id; the tenant is read from the matched row
   const { data: queueItem } = await supabase
     .from("communication_queue")
     .select("id, tenant_id, appointment_id, recipient_phone")

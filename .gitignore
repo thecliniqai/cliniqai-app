@@ -91,3 +91,10 @@ ops/restore-drill/supabase/.temp/
 
 # P0-13 CI canary copy (scripts/ci/guard-canary.mjs deletes it; never commit it)
 /features/__guard_canary__/
+# V2-14 14-02: scanner outputs (CI artefacts, never committed)
+/zap-out
+/semgrep.sarif
+/semgrep.json
+/semgrep-findings.txt
+/osv.json
+/sbom.cdx.json

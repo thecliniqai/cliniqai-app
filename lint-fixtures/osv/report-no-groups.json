@@ -1,0 +1,44 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "package-lock.json",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "fixture-prod",
+      "version": "1.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "GHSA-sss-ttt-uuu",
+       "database_specific": {
+        "severity": "HIGH"
+       },
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "7.0.1"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

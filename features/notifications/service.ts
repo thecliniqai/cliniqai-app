@@ -41,15 +41,18 @@ export async function getInAppNotifications(
     // 3. OR both recipient_user_id and recipient_role are NULL (clinic-wide broadcast)
     // Clinic Owners and Admins can also see system & billing role notices
     if (session.role === "doctor") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.doctor),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else if (session.role === "receptionist" || session.role === "nurse") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.${session.role}),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else {
       // Owner / Admin can see admin, owner, and unassigned notices
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.in.(admin,owner,receptionist)),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
@@ -98,14 +101,17 @@ export async function getUnreadNotificationCount(ctx: ServiceContext): Promise<U
       .eq("is_read", false);
 
     if (session.role === "doctor") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.doctor),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else if (session.role === "receptionist" || session.role === "nurse") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.${session.role}),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.in.(admin,owner,receptionist)),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
@@ -189,14 +195,17 @@ export async function markAllNotificationsRead(
     }
 
     if (session.role === "doctor") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.doctor),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else if (session.role === "receptionist" || session.role === "nurse") {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.eq.${session.role}),and(recipient_user_id.is.null,recipient_role.is.null)`
       );
     } else {
+      // nosemgrep: postgrest-or-interpolation -- session values only (userId, role), never caller input
       query = query.or(
         `recipient_user_id.eq.${session.userId},and(recipient_user_id.is.null,recipient_role.in.(admin,owner,receptionist)),and(recipient_user_id.is.null,recipient_role.is.null)`
       );

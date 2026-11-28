@@ -359,6 +359,7 @@ export async function getDoctorProtocolTemplates(
       .eq("doctor_id", ctx.userId);
 
     if (specialty) {
+      // nosemgrep: postgrest-or-interpolation -- specialty matches SPECIALTY_SLUG above
       query = query.or(`specialty.eq.${specialty},specialty.is.null`);
     }
 

@@ -10,6 +10,7 @@ import { uploadFile, downloadFile, getSignedUrl, getStorageProviderForDb, VIEW_L
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { isUuid } from "@/lib/utils/filter-values";
 
 export interface GenerateReceiptPdfResult {
   signedUrl: string;
@@ -141,8 +142,12 @@ async function compileReceiptPayload(
   supabase: any,
   tenantId: string
 ): Promise<ReceiptPdfPayload | null> {
+  // V2-14 14-02 (SEC-20): the id goes into a PostgREST `.or()` filter string; the public share path passes a token's
+  // object id and the archive path a route id, so it is checked here once for both.
+  if (!isUuid(invoiceIdOrVisitId)) return null;
+
   // 1. Fetch invoice
-  const { data: invoice } = await supabase
+  const { data: invoice } = await supabase // nosemgrep: postgrest-or-interpolation -- invoiceIdOrVisitId is isUuid-checked above
     .from("invoices")
     .select("*")
     .eq("tenant_id", tenantId)

@@ -1,0 +1,17 @@
+# V2-14 14-02 (SVP §2 rule 9): no raw HTML injection into React trees (the nonce CSP is the second line, not the first).
+rules:
+  - id: dangerously-set-inner-html
+    languages: [typescript]
+    severity: ERROR
+    message: "dangerouslySetInnerHTML injects raw HTML (XSS). Render text, or sanitise and justify in a reviewed nosemgrep."
+    paths:
+      exclude:
+        # The CSP spec injects markup on purpose to prove the policy blocks it.
+        - "/tests/**"
+    pattern-either:
+      - pattern: <$EL dangerouslySetInnerHTML={$X} />
+      - pattern: <$EL dangerouslySetInnerHTML={$X}>...</$EL>
+      - pattern: "{dangerouslySetInnerHTML: $X}"
+      - pattern: $E.innerHTML = $X
+      - pattern: $E.outerHTML = $X
+      - pattern: $E.insertAdjacentHTML(...)

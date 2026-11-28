@@ -32,7 +32,7 @@ export async function GET() {
       data-url="/api/v1/openapi.json"
       data-configuration='{"darkMode":false,"theme":"default","showSidebar":true}'
     ></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.101"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.101" integrity="sha384-F+Cvf5YHu8AbPVvhzQ20gb8dQh8rx7Spae96Ym7ckoxzGSRV2r0LA4X7TioQHCb3" crossorigin="anonymous"></script>
   </body>
 </html>`;
 
@@ -41,6 +41,11 @@ export async function GET() {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
+      // V2-14 14-01 (review M2): an HTML page under /api gets no page policy from the proxy, so it carries its own: the
+      // one pinned viewer script (SRI above), no framing, API calls to this origin only.
+      "Content-Security-Policy":
+        "default-src 'none'; script-src https://cdn.jsdelivr.net; style-src 'unsafe-inline' https:; font-src https: data:; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      "X-Frame-Options": "DENY",
     },
   });
 }

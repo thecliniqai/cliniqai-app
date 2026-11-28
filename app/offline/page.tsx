@@ -6,7 +6,7 @@ import { BUTTON_BASE, BUTTON_INTERACTIVE, BUTTON_SIZE, BUTTON_VARIANT, FOCUS_RIN
 
 /**
  * `/offline` (PWA_STRATEGY §3.6; V2-06 06-05 step 5, branded by 06-01b step 4). The page the service worker serves when
- * a navigation fails for lack of network. Static (built once, no request data), outside every route group, public
+ * a navigation fails for lack of network. No request data, outside every route group, public
  * (`PUBLIC_PAGE_PREFIXES`), and precached with `credentials: "omit"` by the service worker that `/sw.js` serves
  * (`app/sw.js/route.ts` → `lib/pwa/service-worker-source.ts`, 06-09a). It names no user, clinic or session, and holds
  * no patient data (PWA §4).
@@ -17,7 +17,8 @@ import { BUTTON_BASE, BUTTON_INTERACTIVE, BUTTON_SIZE, BUTTON_VARIANT, FOCUS_RIN
  * template). "Retry" is a plain link (a full navigation that works without JavaScript): online it loads the app,
  * offline the service worker answers with this page again.
  */
-export const dynamic = "force-static";
+// V2-14 14-01: rendered per request like every page (the nonce CSP; app/layout.tsx). The service worker still stores one
+// copy at install, with its scripts removed (lib/pwa/service-worker-source.ts), so the offline document needs no nonce.
 
 export const metadata: Metadata = {
   title: "Offline",

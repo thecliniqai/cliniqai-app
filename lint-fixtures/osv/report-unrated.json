@@ -1,0 +1,50 @@
+{
+ "results": [
+  {
+   "source": {
+    "path": "package-lock.json",
+    "type": "lockfile"
+   },
+   "packages": [
+    {
+     "package": {
+      "name": "fixture-prod",
+      "version": "1.0.0",
+      "ecosystem": "npm"
+     },
+     "vulnerabilities": [
+      {
+       "id": "OSV-2026-1",
+       "database_specific": {},
+       "affected": [
+        {
+         "ranges": [
+          {
+           "type": "SEMVER",
+           "events": [
+            {
+             "introduced": "0"
+            },
+            {
+             "fixed": "9.9.9"
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "groups": [
+      {
+       "ids": [
+        "OSV-2026-1"
+       ],
+       "max_severity": ""
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

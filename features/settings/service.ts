@@ -696,6 +696,7 @@ export async function getDoctorScheduleBlocks(ctx: ServiceContext, doctorId?: st
       .order("start_time", { ascending: true });
 
     if (filterByDoctor) {
+      // nosemgrep: postgrest-or-interpolation -- doctorId is isUuid-checked above
       query = query.or(`doctor_id.eq.${doctorId},doctor_id.is.null`);
     }
 

@@ -75,7 +75,7 @@ export async function getVisitsForDate(
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const query = (supabase.from("visits") as any)
+    const query = (supabase.from("visits") as any) // nosemgrep: postgrest-or-interpolation -- ISO instants computed by dayWindowUtc from a checked date
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
       .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lt.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lt.${endOfDay})`);

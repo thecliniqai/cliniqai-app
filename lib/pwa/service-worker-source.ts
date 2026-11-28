@@ -84,7 +84,13 @@ async function precache() {
   for (const href of stylesheetsOf(html)) entries.push([href, await fetchPublic(href)]);
   entries[0][1] = new Response(withoutScripts(html), {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    // V2-14 (review L5): the stored copy has no script at all, and says so.
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff",
+    },
   });
   const cache = await caches.open(SHELL_CACHE);
   for (const [url, response] of entries) await cache.put(url, response);

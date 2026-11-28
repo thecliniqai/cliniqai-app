@@ -115,6 +115,64 @@ jobs:
           path: gitleaks.sarif
           if-no-files-found: warn
           retention-days: 14
+      # V2-14 14-02 (SVP §2, plan D-2; T-14-01): Semgrep OSS from the digest-pinned image, metrics off, no login, so no
+      # repository content leaves the runner (the community packs are downloaded from the registry). First the custom
+      # rules' own tests (lint-fixtures/semgrep: every `ruleid:` line must match, every `ok:` line must not), then the scan:
+      # custom rules + p/typescript, p/react, p/nextjs, p/secrets, p/owasp-top-ten; any ERROR finding blocks, the rest
+      # is in the SARIF/JSON artefact. A reviewed exception is a `nosemgrep: <rule> -- <reason>` comment at the line.
+      - name: Semgrep custom rules (rule tests against lint-fixtures/semgrep)
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 -- docker pull -q "$SEMGREP_IMAGE" &&
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" -w /src "$SEMGREP_IMAGE"
+          semgrep --test --metrics=off --disable-version-check --config semgrep/rules lint-fixtures/semgrep
+        env:
+          SEMGREP_IMAGE: semgrep/semgrep:1.184.0@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed
+      - name: Semgrep scan (custom + community rules; ERROR blocks)
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/src" -w /src "$SEMGREP_IMAGE" \
+            semgrep scan --metrics=off --disable-version-check --config semgrep/rules \
+            --config p/typescript --config p/react --config p/nextjs --config p/secrets --config p/owasp-top-ten \
+            --sarif-output=semgrep.sarif --json-output=semgrep.json --quiet
+          jq -r '.results[] | "\(.extra.severity) \(.check_id) \(.path):\(.start.line)"' semgrep.json | sort | tee semgrep-findings.txt
+          echo "scanned files: $(jq '.paths.scanned | length' semgrep.json); scan errors: $(jq '.errors | length' semgrep.json)"
+          jq -r '.errors[] | "scan error (\(.level // "?")): \(.type | tostring | .[0:80]) \(.path // "")"' semgrep.json
+          # Review M5: fail closed when (almost) nothing was scanned; block on ERROR and the newer CRITICAL/HIGH levels.
+          if [ "$(jq '.paths.scanned | length' semgrep.json)" -lt 500 ]; then echo "Semgrep scanned too few files" >&2; exit 1; fi
+          if jq -e '[.results[] | select(.extra.severity | IN("ERROR", "CRITICAL", "HIGH"))] | length > 0' semgrep.json > /dev/null; then
+            echo "Semgrep: ERROR/CRITICAL/HIGH findings above block (fix, or a reviewed nosemgrep with the reason)" >&2
+            exit 1
+          fi
+        env:
+          SEMGREP_IMAGE: semgrep/semgrep:1.184.0@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed
+      # SVP §3: OSV-Scanner (pinned, checksum-verified release) on package-lock.json; production high/critical with a
+      # fix blocks unless waived in .github/audit-allowlist.json (the npm audit gate's allowlist); malicious packages
+      # always block; dev-only and unfixed findings are reported (scripts/ci/osv-gate.mjs).
+      - name: Install pinned OSV-Scanner (checksum-verified)
+        run: scripts/ci/install-osv.sh "$RUNNER_TEMP/osv-bin"
+      - name: OSV-Scanner (package-lock.json; production high/critical with a fix blocks)
+        run: |
+          set +e
+          "$RUNNER_TEMP/osv-bin/osv-scanner" scan source --lockfile package-lock.json --format json --output-file osv.json
+          code=$?
+          set -e
+          # 0 = nothing found, 1 = findings (the gate decides); anything else is a scanner error.
+          if [ "$code" -gt 1 ]; then echo "osv-scanner failed (exit $code)" >&2; exit 2; fi
+          node scripts/ci/osv-gate.mjs --report osv.json --summary "$GITHUB_STEP_SUMMARY"
+      # SVP §3: SBOM of the production dependencies (CycloneDX); licences are read from it in the 14-TRIAGE review.
+      - name: SBOM (CycloneDX, production dependencies)
+        run: npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: security-scans
+          path: |
+            semgrep.sarif
+            semgrep.json
+            semgrep-findings.txt
+            osv.json
+            sbom.cdx.json
+          if-no-files-found: warn
+          retention-days: 90
 
   test:
     name: test
@@ -148,6 +206,13 @@ jobs:
       # service_role/PUBLIC). A migration ships its regenerated snapshot, so every grant/policy change is reviewed.
       - name: Schema and privileges match the committed snapshot
         run: node scripts/drift/schema-snapshot.mjs --local --check
+      # V2-14 14-02 (SVP §2): the migrated stack's own lints. `db lint` (plpgsql_check: function bodies that reference a
+      # missing column, a type mismatch) and the security advisors (splinter: RLS off on an exposed table, a definer view,
+      # an exposed auth.users, ...). Errors block; advisor warnings are printed for 14-TRIAGE.md.
+      - name: supabase db lint (errors block)
+        run: npx supabase db lint --local --level error --fail-on error
+      - name: supabase db advisors, security (errors block; warnings reported)
+        run: npx supabase db advisors --local --type security --level warn --fail-on error
       # V2-04 04-05a: tests/ops/backup-roundtrip-db.spec.ts runs ops/backup/backup.sh with the pinned age release and
       # the digest-pinned postgres/aws-cli images (ops/bin/pins.env); install and pull them before the lane.
       - name: Backup tools (pinned age release, pinned images)
@@ -252,6 +317,46 @@ jobs:
           path: route-js/
           if-no-files-found: error
           retention-days: 14
+
+  # V2-14 14-02 (SVP §7, plan D-1, CTO-1): OWASP ZAP baseline (passive scan + a two-minute spider, signed out) against
+  # the LOCAL e2e server only: the guarded `e2e:build` output served on 127.0.0.1:3100 with the loopback stack. Never
+  # staging or any hosted service. A High alert fails the job (scripts/security/zap-gate.mjs); the rest is reported in the
+  # step summary and the artefact. Not one of the five required checks: it runs beside them.
+  zap:
+    name: zap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Pull the pinned ZAP image
+        run: node scripts/ci/retry.mjs --attempts 3 --delay 30 -- docker pull -q "zaproxy/zap-stable:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af"
+      - name: Start the local Supabase stack (same services as npm run test:db)
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: e2e build (guarded env, output marker scan, build stamp)
+        run: npm run e2e:build
+      - name: ZAP baseline against the local e2e server
+        run: node scripts/security/zap-local.mjs --out zap-out --minutes 2
+      - name: ZAP gate (High blocks)
+        run: node scripts/security/zap-gate.mjs zap-out/zap-report.json --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: zap-baseline
+          path: zap-out/
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup
 
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
   # specs), iphone-15 (@golden), pwa-ipados (V2-06 06-06 spec 10 only). The checkout has no .env by construction; the

@@ -864,6 +864,15 @@ function requirePublic(name: string, value: string | undefined, url: boolean): s
 }
 
 /**
+ * V2-14 14-01: true only under `next dev` (Next sets NODE_ENV=development there; every `next build`, the e2e and CI
+ * servers included, runs with NODE_ENV=production). Used for developer tooling only (the CSP's `'unsafe-eval'` for
+ * React's dev overlay), never to tell a test deployment from production: that is the APP_ENV tier.
+ */
+export function isNextDev(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+/**
  * The public values, for browser and server code alike. Each getter is an explicit `process.env.NEXT_PUBLIC_*` read
  * (never `process.env` as a whole) so Next inlines it into client bundles; it validates on access, so importing this
  * module never throws. The tier rules for these keys run at boot ({@link assertDeployEnv}).

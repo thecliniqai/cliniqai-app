@@ -8,7 +8,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import type { Session } from "@supabase/supabase-js";
-import { proxy, PROXY_MAX_BODY_BYTES } from "@/proxy";
+import { proxy, PROXY_MAX_BODY_BYTES, PROXY_MAX_UPLOAD_BODY_BYTES } from "@/proxy";
 import { publicEnv } from "@/lib/env";
 import { createUnlinkedUser } from "../helpers/tenants";
 
@@ -77,6 +77,17 @@ describe("R-U: the proxy refuses large or unsized bodies before any action reads
   it("a signed-in POST of 4 MB to the consult page or the patient record passes to the action", async () => {
     expect(passedOn(await proxy(request(`/consultation/${VISIT}`, { length: String(4 * MB), signedIn: true })))).toBe(true);
     expect(passedOn(await proxy(request("/patients/abc", { length: String(4 * MB), signedIn: true })))).toBe(true);
+  });
+
+  it("V2-14 D-8: a signed-in POST declaring more than 4.5 MB to an upload page is 413 before any session work (before: passed to the action)", async () => {
+    expect(PROXY_MAX_UPLOAD_BODY_BYTES).toBe(4.5 * MB);
+    for (const path of [`/consultation/${VISIT}`, "/patients/abc"]) {
+      const res = await proxy(request(path, { length: String(26 * MB), signedIn: true }));
+      expect(res.status, path).toBe(413);
+      expect(res.headers.get("set-cookie"), path).toBeNull();
+      expect((await proxy(request(path, { length: String(PROXY_MAX_UPLOAD_BODY_BYTES + 1), signedIn: true }))).status, path).toBe(413);
+      expect(passedOn(await proxy(request(path, { length: String(PROXY_MAX_UPLOAD_BODY_BYTES), signedIn: true }))), path).toBe(true);
+    }
   });
 
   it("small bodies, bodiless POSTs and deletes, and GETs pass whoever sends them", async () => {

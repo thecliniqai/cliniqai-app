@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import { fontClassNames } from "@/app/fonts/fonts";
 import { PRODUCT_NAME } from "@/lib/design/brand";
 import { themeColor } from "@/lib/design/tokens";
@@ -26,11 +27,18 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default function RootLayout({
+/**
+ * V2-14 14-01 (P1-18): every page renders per request, because the nonce CSP (proxy.ts) gives each response its own
+ * nonce and Next.js can only put it on the scripts of a page it renders for that request; a prerendered page's scripts
+ * would carry no nonce and be blocked. The four pages this changes (`/login`, `/forgot-password`, `/offline`, the 404)
+ * read no data.
+ */
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   return (
     <html lang="en-IN" className={fontClassNames} suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>

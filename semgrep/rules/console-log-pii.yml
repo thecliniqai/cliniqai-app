@@ -1,0 +1,26 @@
+# V2-14 14-02 (SVP §2 rule 7; SEC-15): console output of values that hold personal data. App code logs through
+# lib/log (scrubbed, ids and codes only).
+rules:
+  - id: console-log-pii
+    languages: [typescript]
+    severity: ERROR
+    message: "console.$M of `$X` can print personal data (SEC-15). Log through lib/log with ids and codes only."
+    paths:
+      exclude:
+        - "/tests/**"
+        - "/scripts/**"
+    patterns:
+      - pattern-either:
+          - pattern: console.$M(..., $X, ...)
+          - pattern: console.$M(..., $Y.$X, ...)
+          - pattern: console.$M(..., $X.$Z, ...)
+          - pattern: console.$M(..., `...${$X}...`, ...)
+          - pattern: console.$M(..., `...${$X.$Z}...`, ...)
+          - pattern: console.$M(..., `...${$Y.$X}...`, ...)
+          - pattern: console.$M(..., {..., $X, ...}, ...)
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(log|info|debug|warn|error)$
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i)^\w*(phone|mobile|recipient|params|patient|email|aadhaar|abha)\w*$

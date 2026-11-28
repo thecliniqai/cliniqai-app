@@ -1,0 +1,30 @@
+# V2-14 14-02 (SVP §2 rule 1; SEC-01/02): a "use server" export must derive the actor and the tenant from the session,
+# never take them (or a database client) from the caller.
+rules:
+  - id: server-action-override-param
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      A "use server" export takes `$P`, an override, session or database-client parameter. Server actions derive the
+      actor, the tenant and the client from the session (CLAUDE.md non-negotiables; SEC-01/02).
+    patterns:
+      - pattern-inside: |
+          "use server";
+          ...
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: "export async function $F(..., $P: $T, ...) { ... }"
+                  - pattern: "export function $F(..., $P: $T, ...) { ... }"
+                  - pattern: "export const $F = async (..., $P: $T, ...) => { ... }"
+              - metavariable-regex:
+                  metavariable: $P
+                  regex: ^(.*Override|actorSession|.*[sS]upabase[cC]lient|db)$
+          - patterns:
+              - pattern-either:
+                  - pattern: "export async function $F(..., $P: $T, ...) { ... }"
+                  - pattern: "export function $F(..., $P: $T, ...) { ... }"
+                  - pattern: "export const $F = async (..., $P: $T, ...) => { ... }"
+              - metavariable-regex:
+                  metavariable: $T
+                  regex: ^SupabaseClient\b
