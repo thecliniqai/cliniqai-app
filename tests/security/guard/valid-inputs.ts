@@ -51,6 +51,13 @@ const week = () => {
   return { monday: d, tuesday: d, wednesday: d, thursday: d, friday: d, saturday: d, sunday: { enabled: false, shifts: [] } };
 };
 
+/** The visit's row_version right now (superuser read of the local stack; 0 when the id is not a visit, e.g. a forged variant's B id). */
+function visitVersion(visitId: string): number {
+  if (!/^[0-9a-f-]{36}$/.test(visitId)) throw new Error("not a uuid");
+  const [row] = psql(`select row_version from public.visits where id = '${visitId}'`);
+  return row === undefined ? 0 : Number(row);
+}
+
 /** The patient's stored allergy list right now (superuser read of the local stack; the id is a uuid the world created). */
 function storedAllergies(patientId: string): string[] | null {
   if (!/^[0-9a-f-]{36}$/.test(patientId)) throw new Error("not a uuid");
@@ -102,6 +109,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       payment_method: "cash",
       reference_number: null,
       client_request_id: randomUUID(),
+      // V2-10 10-02: the action requires the visit version the screen shows (the waiting visit's current one: the control signs it).
+      expected_version: visitVersion(a.waitingVisit),
       ...acting(a),
     }],
   },

@@ -486,6 +486,8 @@ async function main(): Promise<void> {
       if (error) throw new Error(`consult_screen list seed (${table}) failed: ${error.message}`);
     }
     await measure("read: consult_screen", "read", async () => () => owner.client.rpc("consult_screen", { p_tenant_id: t.tenantId, p_visit_id: screenVisit.visitId }));
+    // V2-10 10-02 (D-10): Sign & Bill's one read on open (the clinic's fees, methods, the visit's version, the live invoice), on the same visit.
+    await measure("read: sign_and_bill_context", "read", async () => () => owner.client.rpc("sign_and_bill_context", { p_tenant_id: t.tenantId, p_visit_id: screenVisit.visitId }));
     // V2-09e 09E-06 (R-9, R-12): Today's board in one read, on a busy day: every visit this run made today (walk-ins in every state, signed visits, invoices and payments,
     // follow-ups), the owner's role (every part: allergy flag, vitals, invoice, follow-up).
     await measure("read: today_board", "read", async () => () => owner.client.rpc("today_board", { p_tenant_id: t.tenantId, p_mode: "front" }));

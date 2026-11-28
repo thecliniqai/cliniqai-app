@@ -1639,6 +1639,7 @@ function public.share_token_hash(p_token text) returns text lang=sql security_de
 function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=68f72ec2192951050739baf2afd79933
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
+function public.sign_and_bill_context(p_tenant_id uuid, p_visit_id uuid) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=0dc30baf6d67dad229b045668172b32d
 function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=36dd0dd595ba73ddddeb5a78b1e1c06f
 function public.slot_suggestion_context(p_doctor_id uuid, p_patient_id uuid) returns TABLE(avg_consult_minutes integer, consult_samples integer, preferred_band text) lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=bf958ef39132b22474750d87dbce88a2
 function public.start_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid, p_expected_version bigint) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fe5086dea21ab9184bc88c2a8bb4979c
@@ -1874,6 +1875,7 @@ grant function public.share_token_hash(p_token text) EXECUTE to service_role
 grant function public.share_token_object(p_token text, p_kinds text[]) EXECUTE to service_role
 grant function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) EXECUTE to service_role
 grant function public.share_type_roles(p_type text) EXECUTE to service_role
+grant function public.sign_and_bill_context(p_tenant_id uuid, p_visit_id uuid) EXECUTE to authenticated
 grant function public.sign_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid) EXECUTE to authenticated
 grant function public.slot_suggestion_context(p_doctor_id uuid, p_patient_id uuid) EXECUTE to authenticated
 grant function public.start_consultation(p_tenant_id uuid, p_visit_id uuid, p_client_request_id uuid, p_expected_version bigint) EXECUTE to authenticated

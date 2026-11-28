@@ -32,6 +32,8 @@ export const queryKeys = {
   scheduleAll: (tenantId: string) => [tenantId, "schedule"] as const,
   /** The session bootstrap of the clinic (09E-13, R-13): `[tenantId, "bootstrap"]`. One per clinic, never shared between clinics. */
   bootstrap: (tenantId: string) => [tenantId, "bootstrap"] as const,
+  /** Sign & Bill's context of one visit (V2-10 10-02, D-10): read each time the sheet opens, never held after it closes. Ids only. */
+  signAndBill: (tenantId: string, visitId: string) => [tenantId, "sign-and-bill", visitId] as const,
 } satisfies Record<string, (...args: never[]) => QueryKey>;
 
 declare module "@tanstack/react-query" {

@@ -89,9 +89,10 @@ test.describe("nurse", () => {
     await characteriseVisibility(page, testInfo, "Finish visit for a nurse", /Finish visit/);
     await sign.click();
     const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
-    await dialog.getByRole("button", { name: /Sign & (Collect|Route)/ }).click();
-
+    // V2-10 10-02: the sheet's context read (the fee and the visit version) is refused by the server for the role, so Sign cannot be sent at all (the
+    // sign-off action refuses the role too: tests/security/guard-actions.spec.ts).
     await expect(dialog.getByText(DENIED)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /Sign & (Collect|Route)/ })).toBeDisabled();
     const visit = await visitById(visitId);
     expect(visit).toMatchObject({ status: "in_consultation", signed_at: null });
   });

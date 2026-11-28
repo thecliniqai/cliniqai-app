@@ -147,6 +147,11 @@
       "maxDepth": 2,
       "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#live.today.refresh"
     },
+    "open.D.sign-and-bill": {
+      "maxCalls": 2,
+      "maxDepth": 2,
+      "source": ".planning/phases/10-billing-collections/evidence/10-02/lane-rows-300ms.json#open.D.sign-and-bill"
+    },
     "save.D.add-diagnosis": {
       "maxCalls": 4,
       "maxDepth": 4,
@@ -171,6 +176,11 @@
       "maxCalls": 1,
       "maxDepth": 1,
       "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.edit-rx-line"
+    },
+    "save.D.sign-and-bill": {
+      "maxCalls": 57,
+      "maxDepth": 33,
+      "source": ".planning/phases/10-billing-collections/evidence/10-02/lane-rows-300ms.json#save.D.sign-and-bill"
     },
     "save.D.sign-finish": {
       "maxCalls": 58,

@@ -21,12 +21,19 @@ from tool output; evidence lives in `evidence/` and the CI run.
 | E-12 | Lane ceilings were not lowered (measured `save.R.collect` 9/7, `in-app.O.billing-reports` 3/2 against ceilings 10/9 and 3/3). | Not required by the plan; lowering from one run is left to the phase close's evidence run. |
 | E-13 | The FY case table is `tests/fixtures/fy-cases.json`, embedded verbatim between `-- fy-cases:begin/end` in `billing_invariants.test.sql`; `tests/money/fy.spec.ts` checks the embedded copy equals the file and runs `private.indian_fy` on every case through the local superuser. | pgTAP cannot read a file; equality of the two copies plus both twins on one table is the parity. |
 | E-14 | Existing fixtures that insert invoice headers directly now give `subtotal` = `total_amount`; the clinic_versions "not listed" probe changes discount and subtotal with the total unchanged; `create-invoice-rpc` R-6 now collides on a pre-written next number instead of deleting an older invoice. | Required by the new identity CHECK and the counter (the count-based collision no longer exists). |
+| E-15 | `sign_and_bill_context` answers for `billing:collect` (any visit of the clinic) or `consultations:edit` on the visit's own doctor; the action's static guard is `consultations:edit` (the screen is the doctor's). pgTAP's "receptionist without billing:collect" case is the nurse (a receptionist holds billing:collect and answers). | The plan's gate; the receptionist role always holds billing:collect (PO-3). |
+| E-16 | The context is held in a TanStack query keyed `[tenant, "sign-and-bill", visit]`, read when the sheet opens, removed when it closes (no focus/reconnect re-read); the fee is seeded once per open, so the re-read after `ROW_CHANGED` refreshes only the version and keeps what the doctor typed. Sign is disabled until the context answered. | D-10 "one read on open"; the refusal needs a fresh version, the doctor's input must survive. |
+| E-17 | `completeAndBillConsultation` (action) requires `expected_version` at type level (`CompleteAndBillRequest`) and at run time (`expectedVersionError`, as 09E-14a (E) did for the other actions); the service keeps it optional for system/test callers. `completeAndBillSchema.consultation_fee` lost its `.default(500)` (a call without a fee is VALIDATION_FAILED "Enter the consultation fee."). | Closes 09E-07 PO question 1 and the last ₹500 literal. |
+| E-18 | Fee chips (modal and drawer) are a `ChipGroup type="single"` of the clinic's consultation and follow-up fee (deduplicated, a fee not set is not offered); "the current amount" is the selected state, not a third chip. The modal also shows only the clinic's accepted methods and a note when the desk billed first. | D-11; one V2-06 part for both screens. |
+| E-19 | The drawer was converted to `lib/money` for every amount it shows (`inr()` = `formatINR(toPaise(x))`) and its consultation fee to `MoneyInput`; its other number inputs (discount, amount to collect, custom charge) stay for 10-03. Both files left the `money-format` exemption list (now empty; the fixture of the drawer is a finding again). | F-3; the remaining inputs belong to 10-03's line-command rewrite. |
+| E-20 | Lane: `open.D.sign-and-bill` is a new kind `open` (a sheet's own read; RSC enforced as a save, `latency-run.ts`); `save.D.sign-and-bill` is the same press as `save.D.sign-finish` on the new path. Their ceilings were merged into `latency-ceilings.json` from this plan's lane summary with a script reading the JSON (the ceilings tool rewrites every row from one summary, which would have dropped the others). `save.D.sign-finish` now waits for the context before its click. | Rows at the measured value (lane rule); no other ceiling touched. |
 
 ## Forward-fix items
 
 - F-1 (10-01, fixed): the receipt PDF has drawn `₹` as `¹` since v1 (Helvetica/WinAnsi has no U+20B9); now `Rs.` via `formatINRAscii`. 10-05: embed a font with `₹` and switch the PDF to `formatINR`.
 - F-2 (10-03): deleting or lowering invoice items below the discount now fails with 23514 `invoices_discount_within_subtotal` (direct item writes until 10-03); the item commands should raise a named P0001 reason first.
 - F-3 (10-02/10-03): `checkout-drawer.tsx` and `sign-and-bill-modal.tsx` still build `₹` text by hand; remove them from the `money-format` exempt list when rewritten.
+- F-5 (10-04): `sign_and_bill_context.invoice.paid` is the sum of payments; once `invoice_refunds` exists it must be net of refunds (`private.invoice_balance`).
 - F-4 (10-04, when `void` is first written): live-invoice predicates that still read `status <> 'cancelled'` (000126 `complete_and_bill`/`collect_payment` ALREADY_BILLED and lookup at :780, :897; 000124 consult_screen, 000125 today_board) and the zod enums `z.enum(["draft","issued","paid","cancelled"])` in `features/billing/service.ts` (:144, :386) and `receipt-document.tsx` (:63) must admit/exclude `void`.
 
 ## 10-01 Money, FY numbering and header invariants (tracer)
@@ -122,3 +129,92 @@ Probe for E-6/F-1 (a throwaway spec, deleted): Helvetica text `"A ₹1,25,000 B 
 `supabase/migrations/000140_billing_invariants_fy.sql`, `supabase/tests/database/billing_invariants.test.sql`,
 `features/billing/service.ts`, `features/billing/schema.ts`, `features/billing/pdf/receipt-document.tsx`,
 `app/api/invoices/[id]/receipt-pdf/route.ts` (file name only), `lib/db/errors.ts`, `supabase/tests/database/{domain_policies,definer_functions}.test.sql`.
+
+## 10-02 Sign & Bill from the clinic fee, with the visit version
+
+Migration `supabase/migrations/000141_sign_and_bill_context.sql` (security-sensitive). Executor: Claude (Opus), one run on the local stack (recycled
+before the run by the orchestrator; not recycled during it). Closes the two items 09E deferred (09E-NOTES N-3 / PO question 2: Sign & Bill pre-filled ₹500;
+09E-07 PO question 1: Sign & Bill sent no visit version).
+
+### Changes
+- **Migration 000141**: `public.sign_and_bill_context(p_tenant_id, p_visit_id)` STABLE INVOKER, `search_path ''`, EXECUTE for `authenticated` only
+  (REVOKE PUBLIC, anon, service_role) → `{fee: {consultation, followup}, methods, visit: {id, row_version, status}, invoice: {id, row_version, total, paid} | null}`;
+  NULL without a session, for a NULL argument, a tenant that is not the active full clinic (`has_permission`), a role with neither `billing:collect` nor
+  `consultations:edit`, another doctor's visit without `billing:collect`, a visit not in the tenant. Live invoice = status not cancelled/void; paid = Σ payments.
+  `consult_screen` unchanged. No table, policy, trigger or grant change beyond EXECUTE.
+- **Service/action/schema**: `getSignAndBillContext` (service: permission check, uuid check, RPC, NULL → NOT_FOUND, shape parse, rupees → paise; action:
+  `consultations:edit`). `completeAndBillConsultation` action takes `CompleteAndBillRequest` (requires `expected_version`, also checked at run time with
+  `expectedVersionError`). `completeAndBillSchema.consultation_fee` has no default (was `.default(500)`). `getVisitBillingDetails` also returns
+  `clinicFollowupFee`. `SignAndBillContext` / `signAndBillContextRowSchema` in `schema.ts`; `queryKeys.signAndBill`.
+- **Sign & Bill modal**: the context query on open (E-16), fee and discount as `MoneyInput` (paise), fee seeded once from the clinic fee, null fee → empty
+  required field with "Enter the consultation fee." on Sign (no default), discount > fee refused on the client, fee chips from the clinic fees (E-18), only
+  the clinic's accepted methods, a note when the desk billed first, Sign disabled until the context answered (a failed read shows the fixed text and Try
+  again), `expected_version` from the context, on `ROW_CHANGED` the fixed message stays, the context is re-read and the input kept, `SaveStatus` in the
+  footer (no Retry for ROW_CHANGED), every amount via `formatINR`. Caller `consult-workspace.tsx` passes `tenantId`.
+- **Checkout drawer**: dead `defaultFee = 500` prop removed (fallback was ₹500; now an empty fee and Collect disabled until a fee is entered), fee chips
+  from the clinic's consultation/follow-up fee (no `[300,500,800,1000]`), consultation fee as `MoneyInput`, every amount via `formatINR` (E-19),
+  `SaveStatus` beside Collect (Retry = same request id; none for ROW_CHANGED).
+- **PWA-06b**: both saves go through `useConfirmedCall` → `useCommand` (15 s timeout, one retry with the same request id, pre-existing) and now show
+  `SaveStatus`; e2e proves the retry with the same id on the modal.
+- **money-format** exemption list emptied (F-3 done for 10-02's part); its fixture of the drawer is a finding again; spec updated.
+- **Registries**: `expected-migration.ts` 000140 → 000141; `npm run db:types` (+4 lines); schema snapshot written, `--check` PASS (3024 lines);
+  `assert-pgtap-report.mjs` FLOOR 9920 → 9950 (+ sign_and_bill_context 30, 83 files) and REQUIRED_FILES; `assert-vitest-report.mjs` REQUIRED_FILES +
+  `tests/billing/sign-and-bill-context.spec.ts`; guard manifest + `getSignAndBillContext: consultations:edit`; `valid-inputs.ts` sends the waiting visit's
+  current version with the completeAndBill control; `command-latency.ts` `read: sign_and_bill_context`. No new command (catalog unchanged), no new P0001
+  reason (`lib/db/errors.ts` unchanged; ROW_CHANGED already mapped).
+- **Lane**: new kind `open`; rows `open.D.sign-and-bill` (`@budget`) and `save.D.sign-and-bill`; `save.D.sign-finish` waits for the context (E-20).
+
+### Deviations
+- `open.D.sign-and-bill` measured **2 calls / depth 2**, not the plan's 1 / 1: the extra call is the pre-existing `GET /rest/v1/prescriptions` of
+  `rx.reconcile()` in the workspace's Finish handler (09C), before the sheet opens; the context itself is 1 call. Starting the context read in parallel would
+  not help (server actions run one at a time in the Next client). Ceiling set at the measured 2 / 2.
+- `save.D.sign-and-bill` measured **57 / 33** (plan B-8 ≤ 2 / ≤ 2 not met), the same as `save.D.sign-finish` (57 / 33, ceiling 58 / 34, not raised): the
+  post-commit PDF/receipt work and the sealed-record refresh documented in 09E-NOTES "Sign and finish: measured and reported". Unchanged by this plan.
+- pgTAP "receptionist without billing:collect" is the nurse case (E-15). journey-08 "nurse signing from the direct URL": the refusal now comes from the
+  context read when the sheet opens (DENIED shown, Sign disabled); the sign-off action's own refusal of the role is in guard-actions.
+- The fails-without e2e shows the stale sign refused as ALREADY_SIGNED (the desk completion also trips the sign step) rather than signed; the Vitest
+  fails-without (below) shows the actual lost update (the stale sign signs and bills).
+
+### Grep hits
+- Affected-test discovery (`grep -rln "defaultFee\|sign-and-bill\|checkout-drawer\|completeAndBill\|complete_and_bill\|consultation_fee\|queryKeys\|clinicFee\|sign_and_bill\|money-format\|EXPECTED_MIGRATION\|guard-manifest" tests scripts`, non-e2e): 37 files; the Vitest run below covers them. e2e: `grep -rn "Sign & \|Consultation Fee\|Collect ₹" tests/e2e` → the specs in the e2e run below.
+- `grep -rn "500" components/queue components/consultation` → 59 lines: Tailwind colour classes (`*-500`), `maxLength={500}`, the amendment reason
+  bound (`AMENDMENT_REASON_MAX = 500`), and one comment ("the old ₹500 default"). **No fee literal.**
+
+### Commands run (counts copied from tool output)
+- `npx supabase db reset --local`: `Finished supabase db reset on branch v2/phase-10-billing.`
+- `npx supabase test db supabase/tests/database/sign_and_bill_context.test.sql`: `Files=1, Tests=30` `Result: PASS`.
+- Full pgTAP `npm run test:pgtap` + gate: `pgtap-report-gate: files=83 tests=9950 passed=9950 failed=0 skipped/todo=0 floor=9950 required=83` / `PASS`.
+- Vitest `tests/billing/sign-and-bill-context.spec.ts`: `Tests 8 passed (8)`. Affected run (api probes, sensitive-actions, table-matrix, tests/billing,
+  tests/ci, consultation-service-guards, tests/query, schedule-range, guard-actions/canary/routes, review2/3 fixes, session bootstrap, settings,
+  stale-write-services, tests/commands): `Test Files 69 passed (69)` `Tests 1718 passed (1718)`; re-run of guard-actions, tests/billing, money-format,
+  sensitive-actions after the last edits: `Test Files 16 passed (16)` `Tests 965 passed (965)`.
+- `npm run typecheck`: clean. `npx eslint .`: `✖ 391 problems (0 errors, 391 warnings)` (no new warning in the touched files). `npm run inventory`:
+  `0 flagged, 7 noted`. `npm run ci:ui-policy`: `money-format [enforce] 0 finding(s)` `ui-policy: PASS`.
+- `npm run e2e:build`: exit 0 (`output scan clean (1872 files)`). `npx playwright test tests/e2e/consult/sign-and-bill.spec.ts
+  tests/e2e/a11y/sign-and-bill-screens.spec.ts tests/e2e/m0/checkout-collect.spec.ts tests/e2e/shell/bootstrap.spec.ts tests/e2e/live/stale-write.spec.ts
+  tests/e2e/consult/finish-review.spec.ts tests/e2e/m0/consult-rx-finish.spec.ts tests/e2e/journeys/journey-06-consult.spec.ts
+  tests/e2e/journeys/journey-08-role-restrictions.spec.ts tests/e2e/shell/confirm-saves.spec.ts --project=desktop-chrome --project=pixel-7
+  --project=iphone-15 --retries=0`: `2 failed` `16 skipped` `89 passed (10.1m)` (the 2: journey-08 nurse, desktop-chrome and pixel-7, Sign now disabled
+  for the role: spec updated); `journey-08-role-restrictions.spec.ts` on the three projects after the fix: `20 passed (47.9s)`.
+  The axe spec (`a11y/sign-and-bill-screens`, 360/820/1280, doctor and owner, with the context answered, chips and MoneyInput on screen) passed in that run.
+
+### Lane rows (`npm run perf:latency -- --grep "open.D.sign-and-bill|save.D.sign-and-bill|save.D.sign-finish"`, 300 ms, 5 samples: `11 passed (4.8m)`; copy in `evidence/10-02/lane-rows-300ms.json`)
+```
+{"id": "open.D.sign-and-bill", "calls": {"median": 2, "max": 2}, "depth": {"median": 2, "max": 2}, "ms": {"median": 800.6, "max": 823.8}, "targetMs": 1000, "verdict": "within target", "ceiling": null}
+{"id": "save.D.sign-and-bill", "calls": {"median": 57, "max": 57}, "depth": {"median": 33, "max": 33}, "ms": {"median": 7490.9, "max": 7535}, "targetMs": 1000, "verdict": "over target", "ceiling": null}
+{"id": "save.D.sign-finish", "calls": {"median": 57, "max": 57}, "depth": {"median": 33, "max": 33}, "ms": {"median": 7594.7, "max": 7691.3}, "targetMs": 1000, "verdict": "over target", "ceiling": {"maxCalls": 58, "maxDepth": 34, "source": ".planning/phases/09E-caching-speed/evidence/09E-12/schedule-rows-300ms.json#save.D.sign-finish"}}
+```
+RSC per sample: open 0,0,0,0,0; sign-and-bill 1,1,1,1,1 (maxRsc 1). `open.D.sign-and-bill` calls by path: `GET /rest/v1/prescriptions` 1,
+`POST /rest/v1/rpc/sign_and_bill_context` 1. Ceilings for the two new rows merged from that summary (E-20): open 2 / 2, save 57 / 33.
+
+### Fails-without (High: lost update on Sign & Bill, T-10-05)
+1. Vitest (local-only edit of the spec, restored): the stale case sent without the version →
+   `× … a visit that moved after the context was read is refused with ROW_CHANGED: nothing signed, no invoice` /
+   `→ expected { success: true, …(10) } to deeply equal { success: false, …(3) }` (the stale sign-off signed and billed `INV/2026-27/00001`). Restored; `Tests 8 passed (8)`.
+2. e2e (local-only edit: the modal sent no `expected_version` and the action's check skipped; rebuilt, run, restored, rebuilt):
+   `Error: expect(locator).toBeVisible() failed … getByText('This changed on another device. The latest is shown.') … element(s) not found` (the sheet
+   said "This consultation is already signed." instead). Restored; the stale case passes on the three projects in the run above.
+
+### Security-sensitive files
+`supabase/migrations/000141_sign_and_bill_context.sql`, `supabase/tests/database/sign_and_bill_context.test.sql`, `features/billing/{service,actions,schema}.ts`,
+`tests/security/guard-manifest.ts`, `tests/security/guard/valid-inputs.ts`.

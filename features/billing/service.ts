@@ -19,6 +19,9 @@ import {
   CompleteAndBillInput,
   addInvoiceItemSchema,
   AddInvoiceItemInput,
+  signAndBillContextRowSchema,
+  type PaymentMethod,
+  type SignAndBillContext,
 } from "./schema";
 import { archiveSealedPrescriptionPdf } from "@/features/consultation/service";
 import { createShareToken } from "@/features/sharing/tokens";
@@ -36,7 +39,7 @@ import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/
 import { appError, type AppErrorCode, type Result } from "@/lib/errors/app-error";
 import { ROW_CHANGED_MESSAGE, versionArg } from "@/lib/errors/row-changed";
 import { clientErrorMessage } from "@/lib/errors/client-message";
-import { roundRupees } from "@/lib/money";
+import { roundRupees, toPaise } from "@/lib/money";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
@@ -555,6 +558,8 @@ export type GetVisitBillingResult =
        * that has no invoice yet (the new bill's starting fee); null when the visit has an invoice or the clinic has none set.
        */
       clinicFee?: number | null;
+      /** V2-10 10-02 (D-11): the clinic's follow-up fee, read with the consultation fee (the drawer's second fee chip); null as `clinicFee`. */
+      clinicFollowupFee?: number | null;
     }
   | { success: false; error: string };
 
@@ -590,7 +595,7 @@ export async function getVisitBillingDetails(
       // V2-09e 09E-13 (R-13): the fee a new bill starts from is read here, with the bill, every time (never from the session bootstrap or another copy).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: tenant, error: feeErr } = await (supabase.from("tenants") as any)
-        .select("default_consultation_fee")
+        .select("default_consultation_fee, default_followup_fee")
         .eq("id", session.tenantId)
         .maybeSingle();
       if (feeErr) {
@@ -598,7 +603,7 @@ export async function getVisitBillingDetails(
         log.error({ event: "billing.clinic_fee_load.failed", code: errorTag(feeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
         return { success: false, error: CLINIC_FEE_UNAVAILABLE };
       }
-      const fee = tenant?.default_consultation_fee;
+      const feeOf = (fee: unknown): number | null => (fee === null || fee === undefined || !Number.isFinite(Number(fee)) ? null : Number(fee));
       return {
         success: true,
         invoice: null,
@@ -606,7 +611,8 @@ export async function getVisitBillingDetails(
         payments: [],
         totalPaid: 0,
         balanceDue: 0,
-        clinicFee: fee === null || fee === undefined || !Number.isFinite(Number(fee)) ? null : Number(fee),
+        clinicFee: feeOf(tenant?.default_consultation_fee),
+        clinicFollowupFee: feeOf(tenant?.default_followup_fee),
       };
     }
 
@@ -655,6 +661,59 @@ export async function getVisitBillingDetails(
       error: clientErrorMessage(err, "Failed to load billing.", "billing.load.failed"),
     };
   }
+}
+
+/** Fixed, data-free texts of the Sign & Bill context read (V2-10 10-02). */
+export const SIGN_AND_BILL_CONTEXT_MESSAGES = {
+  NOT_FOUND: "Visit not found or access denied.",
+  FORBIDDEN: "You do not have permission to sign and bill this consultation.",
+  FAILED: "The bill details could not be loaded. Nothing was signed. Try again.",
+} as const;
+
+const METHOD_ORDER: readonly PaymentMethod[] = ["cash", "upi", "card"];
+
+/**
+ * What Sign & Bill reads when it opens (V2-10 10-02, D-10): one STABLE INVOKER read, `public.sign_and_bill_context` (migration 000141), on the user's own JWT
+ * client: the clinic's consultation and follow-up fee now (never held, 09E R-13), the accepted methods, the visit's `row_version` (sent back as the sign-off's
+ * `expected_version`) and status, and the live invoice if the desk billed first. The tenant comes from `ctx` (ADR-0005 D1); the database answers NULL for
+ * another clinic, another doctor's visit (without billing:collect) or a role with neither permission. Money is converted to integer paise here (D-1).
+ */
+export async function getSignAndBillContext(ctx: ServiceContext, visitId: string): Promise<Result<SignAndBillContext>> {
+  if (!hasPerm(ctx.role, "consultations:edit") && !hasPerm(ctx.role, "billing:collect")) {
+    return { ok: false, error: appError("FORBIDDEN", { message: SIGN_AND_BILL_CONTEXT_MESSAGES.FORBIDDEN }) };
+  }
+  if (!z.string().uuid().safeParse(visitId).success) {
+    return { ok: false, error: appError("VALIDATION_FAILED", { message: SIGN_AND_BILL_CONTEXT_MESSAGES.NOT_FOUND }) };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db as any).rpc("sign_and_bill_context", { p_tenant_id: ctx.tenantId, p_visit_id: visitId });
+  if (error) {
+    log.error({ event: "billing.sign_and_bill_context.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, error: appError("INTERNAL", { message: SIGN_AND_BILL_CONTEXT_MESSAGES.FAILED }) };
+  }
+  if (data === null) {
+    // The database's refusal (another clinic or doctor, the role, the active clinic): an answer, not an outage.
+    log.info({ event: "billing.sign_and_bill_context.refused", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, error: appError("NOT_FOUND", { message: SIGN_AND_BILL_CONTEXT_MESSAGES.NOT_FOUND }) };
+  }
+  const parsed = signAndBillContextRowSchema.safeParse(data);
+  if (!parsed.success) {
+    log.error({ event: "billing.sign_and_bill_context.failed", code: "shape", requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { ok: false, error: appError("INTERNAL", { message: SIGN_AND_BILL_CONTEXT_MESSAGES.FAILED }) };
+  }
+  const row = parsed.data;
+  const paise = (rupees: number | null) => (rupees === null ? null : toPaise(rupees));
+  return {
+    ok: true,
+    value: {
+      fee: { consultation: paise(row.fee.consultation), followup: paise(row.fee.followup) },
+      methods: METHOD_ORDER.filter((m) => row.methods.includes(m)),
+      visit: { id: row.visit.id, rowVersion: row.visit.row_version, status: row.visit.status },
+      invoice: row.invoice
+        ? { id: row.invoice.id, rowVersion: row.invoice.row_version, totalPaise: toPaise(row.invoice.total), paidPaise: toPaise(row.invoice.paid) }
+        : null,
+    },
+  };
 }
 
 export async function addInvoiceItem(

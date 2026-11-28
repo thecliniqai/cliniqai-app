@@ -563,6 +563,8 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
       await page.getByRole("button", { name: /Finish visit/ }).first().click();
       const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
       await expect(dialog).toBeVisible();
+      // V2-10 10-02: the sheet's context read (the clinic's fee and the visit's version) has answered before the measured click.
+      await expect(dialog.locator("[data-sign-bill-ready]")).toBeVisible({ timeout: 20_000 });
       return { dialog, visitId };
     },
     act: async (page, state) => {
@@ -572,7 +574,48 @@ export const SAVE_ROWS: readonly SaveRowDef[] = [
       });
     },
   },
+  {
+    // V2-10 10-02 (D-10): the click on Finish visit to the clinic's fee on screen: the sheet's one context read (`sign_and_bill_context`).
+    id: "open.D.sign-and-bill",
+    role: "doctor",
+    prepare: async (page) => {
+      const { visitId } = await seedSignable("PerfSignOpen");
+      await openConsult(page, visitId);
+      return null;
+    },
+    act: async (page) =>
+      clickSave(page, page.getByRole("button", { name: /Finish visit/ }).first(), { confirmed: { selector: "[data-sign-bill-ready]" } }),
+  },
+  {
+    // V2-10 10-02: Sign & Bill at the clinic's fee with the visit version the context answered (the same press as save.D.sign-finish, on the new path).
+    id: "save.D.sign-and-bill",
+    role: "doctor",
+    prepare: async (page) => {
+      const { visitId } = await seedSignable("PerfSignBill");
+      await openConsult(page, visitId);
+      await page.getByRole("button", { name: /Finish visit/ }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
+      await expect(dialog.locator("[data-sign-bill-ready]")).toBeVisible({ timeout: 20_000 });
+      return { dialog };
+    },
+    act: async (page, state) => {
+      const { dialog } = state as { dialog: Locator };
+      return clickSave(page, dialog.getByRole("button", { name: /Sign & Route to Reception/ }), {
+        confirmed: { selector: 'h1, h2, h3, h4, [role="heading"]', text: "Consultation Finalized & Signed" },
+      });
+    },
+  },
 ];
+
+/** A visit the doctor can sign (a note and one prescription), as save.D.sign-finish seeds it. */
+async function seedSignable(label: string): Promise<{ visitId: string }> {
+  const { tenantA } = run();
+  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic ${label} ${testTag()}`);
+  const visitId = await seedVisit({ tenantId: tenantA.id, patientId: patient.id, doctorId: doctorId(), createdBy: tenantA.users.receptionist.id, status: "waiting" });
+  await getAdminClient().from("clinical_notes").update({ clinical_notes: "E2E synthetic note" }).eq("visit_id", visitId).throwOnError();
+  await seedPrescription({ tenantId: tenantA.id, visitId, patientId: patient.id, doctorId: doctorId(), medicineName: `${label}${testTag()}` });
+  return { visitId };
+}
 
 // --- the typeahead rows -------------------------------------------------------------------------------------------------------------
 

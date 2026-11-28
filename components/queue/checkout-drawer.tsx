@@ -37,6 +37,15 @@ import { isOutcomeUnknownCode, useCommand } from "@/lib/commands/use-command";
 import { useConfirmedCall } from "@/lib/query/mutations";
 import { invoiceItemFieldErrors } from "@/features/billing/schema";
 import { useRowChanged } from "@/lib/live/use-row-changed";
+import { isRowChanged } from "@/lib/errors/row-changed";
+import { saveStatusProps } from "@/lib/commands/save-state";
+import { formatINR, fromPaise, toPaise } from "@/lib/money";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ChipGroup } from "@/components/ui/chip-group";
+import { SaveStatus } from "@/components/clinical/save-status";
+
+/** A rupee amount as the drawer shows it (lib/money, V2-10 10-02): `₹1,25,000`, `₹499.50`. */
+const inr = (rupees: number): string => formatINR(toPaise(rupees));
 
 /**
  * What the drawer needs of a visit (V2-08 08-03b: the v1 queue card's `QueueItem` left with that screen). Today's To-bill row
@@ -55,7 +64,6 @@ interface CheckoutDrawerProps {
   onClose: () => void;
   onSuccess: () => void;
   queueItem: CheckoutTarget | null;
-  defaultFee?: number;
 }
 
 const QUICK_SERVICES = [
@@ -71,7 +79,6 @@ export function CheckoutDrawer({
   onClose,
   onSuccess,
   queueItem,
-  defaultFee = 500,
 }: CheckoutDrawerProps) {
   const [isPending, startTransition] = useTransition();
   const [billingData, setBillingData] = useState<GetVisitBillingResult | null>(null);
@@ -83,8 +90,9 @@ export function CheckoutDrawer({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // New Invoice Form state (if no invoice exists in DB yet)
-  const [consultationFee, setConsultationFee] = useState<number>(defaultFee);
+  // New Invoice Form state (if no invoice exists in DB yet). V2-10 10-02 (D-11): rupees, starting from the clinic's fee read with the bill; null (the clinic set
+  // none) is an empty field the desk fills, never a made-up amount.
+  const [consultationFee, setConsultationFee] = useState<number | null>(null);
   const [additionalItems, setAdditionalItems] = useState<
     { description: string; unit_price: number; quantity: number }[]
   >([]);
@@ -96,7 +104,7 @@ export function CheckoutDrawer({
   const [isAddingItem, setIsAddingItem] = useState(false);
 
   // Payment Recording state
-  const [amountToPay, setAmountToPay] = useState<number>(defaultFee);
+  const [amountToPay, setAmountToPay] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
@@ -109,6 +117,16 @@ export function CheckoutDrawer({
   const confirmedPayment = useConfirmedCall();
   const { run: runCommand } = confirmedPayment;
   const { reset: resetCommand, settle: settleCommand, startOver: startOverCommand } = confirmedPayment.command;
+  const paymentFormRef = React.useRef<HTMLFormElement>(null);
+  // PWA-06b: the payment's state (Saving…, Couldn't save · Retry, Offline); Retry sends the same checkout again (the same request id). A stale-invoice refusal
+  // offers no Retry: the drawer shows the latest bill first.
+  const paymentStatus = {
+    ...saveStatusProps(confirmedPayment.command),
+    onRetry:
+      confirmedPayment.command.saveState === "error" && !isRowChanged(confirmedPayment.command.error)
+        ? () => paymentFormRef.current?.requestSubmit()
+        : undefined,
+  };
   // Desk completion of the visit (its own id per submit: a different command from the invoice and payment above).
   const completeCommand = useCommand();
   const rowChanged = useRowChanged();
@@ -148,10 +166,11 @@ export function CheckoutDrawer({
               setIsCompleted(true);
             }
           } else {
-            // V2-09e 09E-13 (R-13): a new bill starts from the clinic's fee as the database has it now (read with the bill, never held).
-            const fee = typeof res.clinicFee === "number" ? res.clinicFee : defaultFee;
+            // V2-09e 09E-13 (R-13): a new bill starts from the clinic's fee as the database has it now (read with the bill, never held). V2-10 10-02: none set
+            // is an empty fee field (no default amount).
+            const fee = typeof res.clinicFee === "number" ? res.clinicFee : null;
             setConsultationFee(fee);
-            setAmountToPay(fee);
+            setAmountToPay(fee ?? 0);
           }
         })
         .catch((err) => {
@@ -163,7 +182,7 @@ export function CheckoutDrawer({
           setLoadingBilling(false);
         });
     }
-  }, [isOpen, visit?.id, defaultFee, startOverCommand, reloads]);
+  }, [isOpen, visit?.id, startOverCommand, reloads]);
 
   // A changed bill or payment after an error is a new request, not a retry of the failed one.
   useEffect(() => {
@@ -175,10 +194,20 @@ export function CheckoutDrawer({
   const payments = billingData?.success ? billingData.payments : [];
   const totalPaid = billingData?.success ? billingData.totalPaid : 0;
   const serverBalanceDue = billingData?.success ? billingData.balanceDue : 0;
+  // D-11: the fee chips are the clinic's consultation and follow-up fee (read with the bill), never hard-coded amounts.
+  const feeChips = billingData?.success
+    ? [
+        { label: "Consultation", fee: billingData.clinicFee ?? null },
+        { label: "Follow-up", fee: billingData.clinicFollowupFee ?? null },
+      ]
+        .filter((c): c is { label: string; fee: number } => c.fee !== null)
+        .filter((c, i, all) => all.findIndex((o) => o.fee === c.fee) === i)
+        .map((c) => ({ value: String(c.fee), label: c.label, meta: inr(c.fee) }))
+    : [];
 
   // Calculate totals for new invoice draft
   const draftSubtotal =
-    consultationFee +
+    (consultationFee ?? 0) +
     additionalItems.reduce((acc, curr) => acc + curr.unit_price * curr.quantity, 0);
   const draftNetPayable = Math.max(0, draftSubtotal - discount);
 
@@ -328,7 +357,7 @@ export function CheckoutDrawer({
               {
                 item_type: "consultation" as const,
                 description: "OPD Consultation Fee",
-                unit_price: consultationFee,
+                unit_price: consultationFee ?? 0,
                 quantity: 1,
               },
               ...additionalItems.map((item) => ({
@@ -394,13 +423,13 @@ export function CheckoutDrawer({
           // 09E-14a (L5): the payment is recorded but the visit was not marked completed (for one, because the visit changed on another device). Never show the
           // success text: say what is true, keep the drawer open and refresh the board.
           reportClientError("queue.checkout_transition.failed", null);
-          setError(`Payment of ₹${amountToPay} was recorded, but the visit was not marked completed: ${queueRes.error.message} Check the visit, then mark it completed.`);
+          setError(`Payment of ${inr(amountToPay)} was recorded, but the visit was not marked completed: ${queueRes.error.message} Check the visit, then mark it completed.`);
           onSuccess();
           return;
         }
         setIsCompleted(true);
         setSuccessNotice(
-          `Payment of ₹${amountToPay} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`
+          `Payment of ${inr(amountToPay)} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`
         );
         onSuccess();
       } catch (err: unknown) {
@@ -585,10 +614,10 @@ export function CheckoutDrawer({
                       <div>
                         <span className="font-semibold text-gray-800 block">{item.description}</span>
                         <span className="text-[11px] text-fg-subtle capitalize">
-                          {item.item_type} · Qty {item.quantity} × ₹{item.unit_price}
+                          {item.item_type} · Qty {item.quantity} × {inr(item.unit_price)}
                         </span>
                       </div>
-                      <span className="font-bold text-gray-900">₹{item.total_price}</span>
+                      <span className="font-bold text-gray-900">{inr(item.total_price)}</span>
                     </div>
                   ))}
                 </div>
@@ -597,15 +626,15 @@ export function CheckoutDrawer({
                 <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs">
                   <div className="flex justify-between text-gray-500">
                     <span>Total Billed:</span>
-                    <span className="font-semibold text-gray-900">₹{currentTotalAmount}</span>
+                    <span className="font-semibold text-gray-900">{inr(currentTotalAmount)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500">
                     <span>Amount Collected:</span>
-                    <span className="font-semibold text-emerald-700">₹{totalPaid}</span>
+                    <span className="font-semibold text-emerald-700">{inr(totalPaid)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-100">
                     <span>Balance Due:</span>
-                    <span className="text-emerald-700">₹0</span>
+                    <span className="text-emerald-700">{inr(0)}</span>
                   </div>
                 </div>
 
@@ -640,7 +669,7 @@ export function CheckoutDrawer({
                               )}
                             </div>
                           </div>
-                          <span className="font-bold text-emerald-700">₹{p.amount}</span>
+                          <span className="font-bold text-emerald-700">{inr(Number(p.amount))}</span>
                         </div>
                       ))}
                     </div>
@@ -723,39 +752,28 @@ export function CheckoutDrawer({
                 {/* Consultation Fee (Only editable when creating new invoice) */}
                 {!invoice && (
                   <div className="space-y-2">
-                    <Field label="OPD Consultation Fee (₹)" htmlFor="consultationFee" required>
-                      <div className="relative">
-                        <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">₹</span>
-                        <Input
-                          id="consultationFee"
-                          type="number"
-                          min="0"
-                          step="50"
-                          value={consultationFee}
-                          onChange={(e) => setConsultationFee(Math.max(0, Number(e.target.value)))}
-                          className="ps-7 font-bold text-gray-900 rounded-xl"
-                        />
-                      </div>
+                    <Field label="OPD Consultation Fee" htmlFor="consultationFee" required>
+                      <MoneyInput
+                        id="consultationFee"
+                        value={consultationFee === null ? null : toPaise(consultationFee)}
+                        placeholder="Enter the fee"
+                        onValueChange={(paise) => setConsultationFee(paise === null ? null : fromPaise(paise))}
+                        className="font-bold text-gray-900 rounded-xl"
+                      />
                     </Field>
 
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <span className="text-[11px] text-fg-subtle font-medium">Quick fee:</span>
-                      {[300, 500, 800, 1000].map((fee) => (
-                        <button
-                          key={fee}
-                          type="button"
-                          onClick={() => setConsultationFee(fee)}
-                          className={cn(
-                            "px-2 py-0.5 text-[11px] font-semibold rounded-md border transition-colors cursor-pointer",
-                            consultationFee === fee
-                              ? "bg-accent-subtle text-accent border-accent"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          )}
-                        >
-                          ₹{fee}
-                        </button>
-                      ))}
-                    </div>
+                    {feeChips.length > 0 && (
+                      <ChipGroup
+                        type="single"
+                        aria-label="Clinic fees"
+                        className="pt-1"
+                        items={feeChips}
+                        value={consultationFee === null ? "" : String(consultationFee)}
+                        onValueChange={(value) => {
+                          if (value) setConsultationFee(Number(value));
+                        }}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -775,11 +793,11 @@ export function CheckoutDrawer({
                             <div>
                               <span className="font-semibold text-gray-900 block">{item.description}</span>
                               <span className="text-[11px] text-fg-subtle capitalize">
-                                {item.item_type} · Qty {item.quantity} × ₹{item.unit_price}
+                                {item.item_type} · Qty {item.quantity} × {inr(item.unit_price)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2.5">
-                              <span className="font-bold text-gray-900">₹{item.total_price}</span>
+                              <span className="font-bold text-gray-900">{inr(item.total_price)}</span>
                               {invoice.status !== "paid" && (
                                 <button
                                   type="button"
@@ -810,7 +828,7 @@ export function CheckoutDrawer({
                           >
                             <span className="font-medium text-gray-800">{item.description}</span>
                             <div className="flex items-center gap-2.5">
-                              <span className="font-bold text-gray-900">₹{item.unit_price}</span>
+                              <span className="font-bold text-gray-900">{inr(item.unit_price)}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(idx)}
@@ -848,7 +866,7 @@ export function CheckoutDrawer({
                       >
                         <Plus className="w-3 h-3 text-accent" />
                         <span>{qs.description}</span>
-                        <span className="text-fg-subtle font-semibold">(₹{qs.fee})</span>
+                        <span className="text-fg-subtle font-semibold">({inr(qs.fee)})</span>
                       </button>
                     ))}
                   </div>
@@ -938,7 +956,7 @@ export function CheckoutDrawer({
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotal:</span>
                     <span className="font-semibold text-gray-900">
-                      ₹{invoice ? invoice.subtotal : draftSubtotal}
+                      {inr(invoice ? invoice.subtotal : draftSubtotal)}
                     </span>
                   </div>
 
@@ -946,27 +964,27 @@ export function CheckoutDrawer({
                     <div className="flex justify-between text-emerald-700">
                       <span>Discount:</span>
                       <span className="font-semibold">
-                        -₹{invoice ? invoice.discount : discount}
+                        {formatINR(-toPaise(invoice ? invoice.discount : discount))}
                       </span>
                     </div>
                   )}
 
                   <div className="flex justify-between text-gray-900 font-semibold pt-1 border-t border-gray-200">
                     <span>Total Billed:</span>
-                    <span>₹{currentTotalAmount}</span>
+                    <span>{inr(currentTotalAmount)}</span>
                   </div>
 
                   {totalPaid > 0 && (
                     <div className="flex justify-between text-emerald-700 font-medium">
                       <span>Amount Already Paid:</span>
-                      <span>₹{totalPaid}</span>
+                      <span>{inr(totalPaid)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-200">
                     <span className="text-gray-900">Balance Due:</span>
                     <span className={balanceDue > 0 ? "text-rose-600" : "text-emerald-700"}>
-                      ₹{balanceDue}
+                      {inr(balanceDue)}
                     </span>
                   </div>
                 </div>
@@ -974,7 +992,7 @@ export function CheckoutDrawer({
 
               {/* Payment Collection Form (When Balance Remains) */}
               {balanceDue > 0 ? (
-                <form onSubmit={handleCheckoutAndPay} className="space-y-4 pt-1">
+                <form ref={paymentFormRef} onSubmit={handleCheckoutAndPay} className="space-y-4 pt-1">
                   <div className="p-5 rounded-2xl border border-gray-200 bg-white space-y-4 shadow-2xs">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                       <div>
@@ -986,7 +1004,7 @@ export function CheckoutDrawer({
                         </p>
                       </div>
                       <span className="px-2.5 py-0.5 text-xs font-bold rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                        ₹{balanceDue} Pending
+                        {inr(balanceDue)} Pending
                       </span>
                     </div>
 
@@ -1015,7 +1033,7 @@ export function CheckoutDrawer({
                           onClick={() => setAmountToPay(balanceDue)}
                           className="font-bold underline cursor-pointer hover:text-amber-900"
                         >
-                          Reset to Full (₹{balanceDue})
+                          Reset to Full ({inr(balanceDue)})
                         </button>
                       </div>
                     )}
@@ -1101,7 +1119,8 @@ export function CheckoutDrawer({
                   </div>
 
                   {/* Primary Action Buttons */}
-                  <div className="pt-2 flex items-center justify-end gap-3">
+                  <div className="pt-2 flex flex-wrap items-center justify-end gap-3">
+                    <SaveStatus {...paymentStatus} className="me-auto" />
                     <Button
                       type="button"
                       variant="outline"
@@ -1114,7 +1133,7 @@ export function CheckoutDrawer({
 
                     <Button
                       type="submit"
-                      disabled={isPending || amountToPay <= 0}
+                      disabled={isPending || amountToPay <= 0 || (!invoice && consultationFee === null)}
                       className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
                     >
                       {isPending ? (
@@ -1125,7 +1144,7 @@ export function CheckoutDrawer({
                       ) : (
                         <>
                           <IndianRupee className="w-4 h-4" />
-                          <span>Collect ₹{amountToPay} & Checkout</span>
+                          <span>Collect {inr(amountToPay)} & Checkout</span>
                         </>
                       )}
                     </Button>

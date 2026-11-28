@@ -11,17 +11,13 @@
  *   - JSX text ending in "₹" right before an expression (`₹{amount}`, `(₹{fee})`).
  * A "₹" on its own (a column heading, an input adornment, a fixed message such as "₹10,00,000") is not a finding.
  *
- * Exempt by explicit file name only (legacy screens that later plans rewrite; each entry names the plan that removes it):
- *   - components/queue/checkout-drawer.tsx (10-02 fee chips, 10-03 line commands);
- *   - components/consultation/sign-and-bill-modal.tsx (10-02 Sign & Bill context, MoneyInput).
+ * Exempt by explicit file name only (legacy screens that later plans rewrite; each entry names the plan that removes it). Empty since V2-10 10-02 (the
+ * checkout drawer and the Sign & Bill modal format through lib/money; the drawer's remaining number inputs are 10-03's).
  */
 import { lineAt, ts } from "../source.mjs";
 
 const RUPEE = "₹";
-const ALLOWED = new Map([
-  ["components/queue/checkout-drawer.tsx", "10-02 / 10-03 rewrite"],
-  ["components/consultation/sign-and-bill-modal.tsx", "10-02 rewrite"],
-]);
+const ALLOWED = new Map();
 const DATE_KEYS = new Set([
   "timeZone", "dateStyle", "timeStyle", "weekday", "era", "year", "month", "day", "hour", "minute", "second", "hour12",
   "hourCycle", "timeZoneName", "dayPeriod", "fractionalSecondDigits",

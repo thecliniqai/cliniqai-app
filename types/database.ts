@@ -4030,6 +4030,10 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      sign_and_bill_context: {
+        Args: { p_tenant_id: string; p_visit_id: string };
+        Returns: Json;
+      };
       sign_consultation: {
         Args: {
           p_client_request_id: string;

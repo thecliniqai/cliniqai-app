@@ -17,6 +17,7 @@ export type BudgetKind =
   | "page-full" // page.goto, first data element (B-3)
   | "typeahead" // last keystroke, first option (B-4, B-5)
   | "save" // click or Enter, pending, confirmed (B-6, B-7, B-8)
+  | "open" // a sheet's own read when it opens: click, the read's data on screen (V2-10 10-02; no RSC page request, as a save)
   | "live" // a change in another browser, visible here (B-11)
   | "background" // a request the shell makes on its own
   | "request-budget" // the PR lane's per-path ceilings (V2-09d)
@@ -120,6 +121,9 @@ export const BUDGET_ROWS: readonly BudgetRow[] = [
   { id: "save.D.edit-rx-line", kind: "save", budget: "B-6", label: "Doctor: edit an Rx line", ...SAVE_REVERSIBLE, owner: "09E-08" },
   { id: "save.D.allergies", kind: "save", budget: "B-7", label: "Doctor: record allergies", ...SAVE_CONFIRMED, owner: "09E-08" },
   { id: "save.D.sign-finish", kind: "save", maxRsc: 1, budget: "B-8", label: "Doctor: sign and finish", targetMs: 1_000, maxMs: 1_400, owner: "09E-08" },
+  // V2-10 10-02 (D-10): Sign & Bill opens with one context read (the clinic's fee, the visit's version), and signs at the clinic's fee with that version.
+  { id: "open.D.sign-and-bill", kind: "open", budget: "B-1", label: "Doctor: open Sign & Bill (its one context read, the clinic's fee on screen)", ...ONE_SECOND, owner: "10-02", pr: true },
+  { id: "save.D.sign-and-bill", kind: "save", maxRsc: 1, budget: "B-8", label: "Doctor: Sign & Bill at the clinic's fee, with the visit version", targetMs: 1_000, maxMs: 1_400, owner: "10-02" },
 
   // B-11: a change made in another browser
   { id: "live.R.check-in-elsewhere", kind: "live", budget: "B-11", label: "Receptionist: a check-in made in a second browser moves the row", targetMs: 2_000, maxMs: 3_000, owner: "09E-04" },

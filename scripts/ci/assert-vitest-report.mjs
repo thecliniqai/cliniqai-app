@@ -134,6 +134,7 @@
  *          re-measured once at the phase close.
  *   unchanged — V2-10 10-01: REQUIRED_FILES + tests/money/{money,fy}.spec.ts, tests/billing/fy-numbering-db.spec.ts and
  *          tests/ci/ui-policy-money-format.spec.ts; tests/today/schema.spec.ts loses its formatRupees case (formatINR replaces it). The suite only grew.
+ *   unchanged — V2-10 10-02: REQUIRED_FILES + tests/billing/sign-and-bill-context.spec.ts (8). The suite only grew.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -574,6 +575,8 @@ const REQUIRED_FILES = [
   "tests/money/fy.spec.ts",
   "tests/billing/fy-numbering-db.spec.ts",
   "tests/ci/ui-policy-money-format.spec.ts",
+  // V2-10 10-02: Sign & Bill's context read and the version it sends (ROW_CHANGED, no default fee).
+  "tests/billing/sign-and-bill-context.spec.ts",
 ];
 
 const file = process.argv[2];

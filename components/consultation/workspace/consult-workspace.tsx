@@ -1190,6 +1190,7 @@ export function ConsultWorkspace({
       <SignAndBillModal
         isOpen={isSignModalOpen}
         onClose={() => setIsSignModalOpen(false)}
+        tenantId={tenantId}
         visitId={visit.id}
         patientId={patient.id}
         patientName={patient.full_name}

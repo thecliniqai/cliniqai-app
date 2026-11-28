@@ -108,11 +108,11 @@ export const recordPaymentSchema = z.object({
 export const completeAndBillSchema = z.object({
   visit_id: z.string().uuid("Invalid visit ID"),
   patient_id: z.string().uuid("Invalid patient ID"),
+  // V2-10 10-02 (D-11): no default amount. The modal starts from the clinic's fee (`sign_and_bill_context`); a caller that sends none is refused.
   consultation_fee: z.coerce
-    .number()
+    .number({ required_error: "Enter the consultation fee.", invalid_type_error: "Enter the consultation fee." })
     .min(0, "Consultation fee cannot be negative")
-    .max(INVOICE_ITEM_LIMITS.priceMax, "Consultation fee cannot be more than ₹10,00,000")
-    .default(500),
+    .max(INVOICE_ITEM_LIMITS.priceMax, "Consultation fee cannot be more than ₹10,00,000"),
   additional_items: z.array(invoiceItemSchema).optional().default([]),
   discount: z.coerce.number().min(0).optional().default(0),
   payment_collected: z.boolean().default(true),
@@ -124,8 +124,9 @@ export const completeAndBillSchema = z.object({
    */
   send_whatsapp: z.boolean().optional(),
   /**
-   * The visit's `row_version` the screen shows (09E-07, R-19). The consult screen's read (000124) does not carry one yet, so the Sign & Bill modal sends none
-   * and nothing is compared; the command supports it (09E-NOTES, deviations).
+   * The visit's `row_version` the screen shows (09E-07, R-19). V2-10 10-02: the Sign & Bill modal sends the version `sign_and_bill_context` answered when it
+   * opened (or re-read after a refusal); the server action requires it (`CompleteAndBillRequest`). Left out (the services' system and test callers), nothing is
+   * compared.
    */
   expected_version: z.number().int().nonnegative().nullable().optional(),
   /** One id per logical submit (V2-07 07-03, PWA-06a): the same id replays the first result and writes nothing new. */
@@ -148,6 +149,8 @@ export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
 export type CollectPaymentRequest = CollectPaymentInput & { expected_invoice_version: number | null };
 export type RecordPaymentRequest = RecordPaymentInput & { expected_invoice_version: number };
 export type CompleteAndBillInput = z.infer<typeof completeAndBillSchema>;
+/** What the Sign & Bill screen sends (V2-10 10-02): the input with the visit version it shows (from `sign_and_bill_context`). */
+export type CompleteAndBillRequest = CompleteAndBillInput & { expected_version: number };
 export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;
 
 
@@ -157,4 +160,31 @@ export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;
  */
 export function invoiceFileStem(invoiceNumber: string): string {
   return invoiceNumber.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "invoice";
+}
+
+/**
+ * What Sign & Bill reads when it opens (V2-10 10-02, D-10; `public.sign_and_bill_context`, migration 000141), as the database answers it: rupees as numbers.
+ * The service converts it to {@link SignAndBillContext} (integer paise, D-1). Unknown keys are dropped; a shape outside this is a defect.
+ */
+export const signAndBillContextRowSchema = z.object({
+  fee: z.object({ consultation: z.number().nonnegative().nullable(), followup: z.number().nonnegative().nullable() }),
+  methods: z.array(z.string()),
+  visit: z.object({ id: z.string().uuid(), row_version: z.number().int().nonnegative(), status: z.string() }),
+  invoice: z
+    .object({ id: z.string().uuid(), row_version: z.number().int().nonnegative(), total: z.number().nonnegative(), paid: z.number().nonnegative() })
+    .nullable(),
+});
+
+export type PaymentMethod = "cash" | "upi" | "card";
+
+/** Sign & Bill's context on the device (V2-10 10-02): money in integer paise, ids, the visit's version. No PHI. */
+export interface SignAndBillContext {
+  /** The clinic's default fees now (paise), null when the clinic set none (the field then starts empty: never a made-up amount). */
+  fee: { consultation: number | null; followup: number | null };
+  /** The clinic's accepted payment methods, in the order cash, UPI, card. */
+  methods: PaymentMethod[];
+  /** `rowVersion` is what the sign-off sends as `expected_version`. */
+  visit: { id: string; rowVersion: number; status: string };
+  /** The visit's live invoice (made at the desk before the sign-off), or null. */
+  invoice: { id: string; rowVersion: number; totalPaise: number; paidPaise: number } | null;
 }

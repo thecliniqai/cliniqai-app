@@ -299,7 +299,7 @@ function summarise(row: BudgetRow, main: string, samples: Sample[]): RowResult {
 function enforce(result: RowResult): void {
   // 09E-08 (R-11, B-7): a save causes no RSC page request (blocking, any delay): `maxRsc` of the row, 0 by default.
   const row = budgetRow(result.id);
-  if (row.kind === "save") {
+  if (row.kind === "save" || row.kind === "open") {
     result.samples.forEach((s, i) => expect(s.rsc, `${result.id} sample ${i + 1}: RSC page requests the save caused (max ${row.maxRsc ?? 0})`).toBeLessThanOrEqual(row.maxRsc ?? 0));
   }
   if (!result.ceiling || LATENCY_MS === 0) return;

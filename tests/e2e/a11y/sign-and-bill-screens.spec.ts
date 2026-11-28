@@ -9,6 +9,7 @@
  *   - owner: the toggle (on by default), the collect submit label, and switching it off routes to reception;
  *   - no serious/critical axe rule that the M0 baseline (02-03b) did not already have on /consultation/[id]: BLOCKING on
  *     new rule ids; the counts and a screenshot go to test-results/sign-and-bill/ for the 05-02b evidence.
+ * V2-10 10-02: the same at the three widths with the context read answered (the MoneyInput fee and discount, the clinic's fee chips, SaveStatus).
  * Runs on desktop-chrome only (a11y specs own their viewport). Synthetic data only.
  */
 import fs from "node:fs";
@@ -60,6 +61,9 @@ async function openModal(page: Page, doctorId: string, tag: string): Promise<Loc
   await page.getByRole("button", { name: /Finish visit/ }).first().click();
   const dialog = page.getByRole("dialog", { name: "Complete & Sign Consultation" });
   await expect(dialog).toBeVisible();
+  // V2-10 10-02: the context read has answered: the fee field (MoneyInput) and the clinic's fee chips are on screen for axe.
+  await expect(dialog.locator("[data-sign-bill-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(dialog.getByRole("radiogroup", { name: "Clinic fees" })).toBeVisible();
   return dialog;
 }
 
@@ -87,7 +91,7 @@ async function check(page: Page, testInfo: TestInfo, name: string): Promise<void
   const newRules = [...blocking, ...inDialog].map((v) => v.id).filter((id) => !baseline.has(id));
   expect(newRules, `serious/critical axe rules not in the M0 baseline on ${name}`).toEqual([]);
   // The 05-02b additions (the reception note, the labelled toggle) add no serious/critical node of their own.
-  const touched = inDialog.flatMap((v) => v.nodes.map((n) => n.html)).filter((html) => /role="note"|Payment at reception|sent to the front desk|aria-label="Collect fee/.test(html));
+  const touched = inDialog.flatMap((v) => v.nodes.map((n) => n.html)).filter((html) => /role="note"|Payment at reception|sent to the front desk|aria-label="Collect fee|consultation_fee|id="discount"|Clinic fees|data-sign-bill|data-save-status/.test(html));
   expect(touched, `serious/critical axe nodes in the 05-02b additions on ${name}`).toEqual([]);
 }
 

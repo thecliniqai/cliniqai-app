@@ -1,7 +1,7 @@
 "use server";
 
 import { resolveServiceContext } from "@/lib/auth/context";
-import type { CreateInvoiceInput, CollectPaymentRequest, RecordPaymentRequest, CompleteAndBillInput, AddInvoiceItemInput } from "./schema";
+import type { CreateInvoiceInput, CollectPaymentRequest, RecordPaymentRequest, CompleteAndBillRequest, AddInvoiceItemInput, SignAndBillContext } from "./schema";
 import { contextFailureToAppError } from "@/lib/commands/context-error";
 import { toCommandResult } from "@/lib/commands/command-result";
 import type { Result as CommandResult } from "@/lib/errors/app-error";
@@ -95,17 +95,31 @@ export async function deleteInvoiceItem(itemId: string): Promise<Result<typeof b
  * billing:collect, refused before anything is signed); the receipt PDF and WhatsApp follow after the commit.
  */
 export async function completeAndBillConsultation(
-  input: CompleteAndBillInput
+  input: CompleteAndBillRequest
 ): Promise<CommandResult<billingService.CompleteAndBillValue>> {
   await markAction("billing.complete_and_bill_consultation");
   const resolved = await resolveServiceContext("consultations:edit", "full", { sensitive: "billing.complete_and_bill" });
   if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  // V2-10 10-02 (09E deferred item): the screen sends the visit version it read when it opened; a call without one is refused, never "nothing compared".
+  const invalid = expectedVersionError(input?.expected_version);
+  if (invalid) return { ok: false, error: invalid };
   const result = await billingService.completeAndBillConsultation(resolved.ctx, input);
   return toCommandResult(result, (ok) => {
     const { success, ...value } = ok;
     void success;
     return value;
   });
+}
+
+/**
+ * Sign & Bill's one read when it opens (V2-10 10-02, D-10): the clinic's fees now, the accepted methods, the visit's version (sent back with the sign-off)
+ * and the live invoice if any. `consultations:edit` (the doctor; the database also requires the visit's own doctor unless the caller holds billing:collect).
+ */
+export async function getSignAndBillContext(visitId: string): Promise<CommandResult<SignAndBillContext>> {
+  await markAction("billing.get_sign_and_bill_context");
+  const resolved = await resolveServiceContext("consultations:edit");
+  if (!resolved.ok) return { ok: false, error: contextFailureToAppError(resolved) };
+  return billingService.getSignAndBillContext(resolved.ctx, visitId);
 }
 
 export async function getInvoiceReceiptPdfSignedUrl(invoiceId: string): Promise<GetReceiptPdfResult> {

@@ -1,13 +1,22 @@
 "use client";
 
-import React, { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { completeAndBillConsultation, getSignAndBillContext, shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
+import type { PaymentMethod } from "@/features/billing/schema";
 import { useConfirmedCall } from "@/lib/query/mutations";
+import { queryKeys } from "@/lib/query/keys";
+import { saveStatusProps } from "@/lib/commands/save-state";
+import { isRowChanged } from "@/lib/errors/row-changed";
+import { formatINR, fromPaise } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
+import { ChipGroup } from "@/components/ui/chip-group";
+import { SaveStatus } from "@/components/clinical/save-status";
 import { SharePdfButton } from "@/components/clinical/share-pdf-button";
 import { FinishReview, type UnresolvedAllergy } from "./workspace/finish-review";
 import type { SummaryContent } from "./workspace/summary-pane";
@@ -32,6 +41,8 @@ import { cn } from "@/lib/utils";
 interface SignAndBillModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** The clinic of the consult (the context query's key, V2-10 10-02). */
+  tenantId: string;
   visitId: string;
   patientId: string;
   patientName: string;
@@ -51,7 +62,6 @@ interface SignAndBillModalProps {
   onPrint?: () => void;
   /** The sign-off has committed: the page reads the sealed record (so the print view exists). */
   onSigned?: () => void;
-  defaultFee?: number;
   /**
    * PO-3 (V2-05 05-02b): the signed-in user holds `billing:collect` (the owner of a solo clinic). Without it the
    * "collect at the desk" option is not offered and the bill is routed to reception; the server refuses a collection
@@ -64,6 +74,7 @@ interface SignAndBillModalProps {
 export function SignAndBillModal({
   isOpen,
   onClose,
+  tenantId,
   visitId,
   patientId,
   patientName,
@@ -74,7 +85,6 @@ export function SignAndBillModal({
   printState: printStateProp = "pdf",
   onPrint,
   onSigned,
-  defaultFee = 500,
   canCollect = false,
   onSaveDraftBeforeSign,
 }: SignAndBillModalProps) {
@@ -85,12 +95,45 @@ export function SignAndBillModal({
   // 09E-08 (R-11, confirm class): sign and finish shows a pending state only; the success screen comes after the database answered (`finish_confirmed`).
   const { run: runCommand, command: signCommand } = useConfirmedCall({ metric: "finish_confirmed" });
   const resetCommand = signCommand.reset;
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const [consultationFee, setConsultationFee] = useState<number>(defaultFee);
-  const [discount, setDiscount] = useState<number>(0);
+  // V2-10 10-02 (D-10): one read when the sheet opens: the clinic's fees now, the accepted methods, the visit's version (sent back with the sign-off) and the
+  // live invoice. Never held: it is dropped when the sheet closes, so the next open reads again; no focus or reconnect re-read (the doctor's form stays put).
+  const queryClient = useQueryClient();
+  const contextKey = queryKeys.signAndBill(tenantId, visitId);
+  const contextQuery = useQuery({
+    queryKey: contextKey,
+    queryFn: () => getSignAndBillContext(visitId),
+    enabled: isOpen,
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const contextResult = contextQuery.data;
+  const context = contextResult?.ok ? contextResult.value : null;
+  const contextError = contextResult && !contextResult.ok ? contextResult.error.message : contextQuery.isError ? "The bill details could not be loaded. Nothing was signed. Try again." : null;
+  useEffect(() => {
+    if (!isOpen) queryClient.removeQueries({ queryKey: contextKey, exact: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, queryClient, tenantId, visitId]);
+
+  // Money in integer paise (D-1). The fee starts from the clinic's fee once per open (a null fee: an empty required field, never a made-up amount); a
+  // re-read after a refusal keeps what the doctor typed.
+  const [consultationFee, setConsultationFee] = useState<number | null>(null);
+  const [feeSeeded, setFeeSeeded] = useState(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
+  if (isOpen && context && !feeSeeded) {
+    setFeeSeeded(true);
+    setConsultationFee(context.fee.consultation);
+  }
+  const [discount, setDiscount] = useState<number | null>(0);
   const [paymentCollected, setPaymentCollected] = useState<boolean>(canCollect);
   const collecting = canCollect && paymentCollected;
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const methods: readonly PaymentMethod[] = context?.methods.length ? context.methods : ["cash", "upi", "card"];
+  const method: PaymentMethod = methods.includes(paymentMethod) ? paymentMethod : methods[0];
   const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   // The doctor's choice, never ticked for them (CTO ruling Q-8).
@@ -122,6 +165,10 @@ export function SignAndBillModal({
   if (resetFor === null || resetFor.isOpen !== isOpen || resetFor.canCollect !== canCollect) {
     setResetFor({ isOpen, canCollect });
     if (isOpen) {
+      setFeeSeeded(false);
+      setConsultationFee(null);
+      setDiscount(0);
+      setFeeError(null);
       setPaymentCollected(canCollect);
       setSendWhatsapp(false);
       setPrintGaveUp(false);
@@ -147,6 +194,12 @@ export function SignAndBillModal({
   useEffect(() => {
     resetCommand();
   }, [resetCommand, consultationFee, discount, paymentCollected, paymentMethod, referenceNumber]);
+
+  // PWA-06b: the save's state (Saving…, Couldn't save · Retry, Offline). A stale-visit refusal offers no Retry of the same thing: the doctor reviews the latest first.
+  const saveStatus = {
+    ...saveStatusProps(signCommand),
+    onRetry: signCommand.saveState === "error" && !isRowChanged(signCommand.error) ? () => formRef.current?.requestSubmit() : undefined,
+  };
 
   const handleSendPrescriptionWhatsApp = async () => {
     if (!completedResult?.visitId || isSendingRxWa) return;
@@ -188,12 +241,23 @@ export function SignAndBillModal({
     }
   };
 
-  const totalPayable = Math.max(0, consultationFee - discount);
+  const feePaise = consultationFee ?? 0;
+  const discountPaise = discount ?? 0;
+  const discountTooLarge = discountPaise > feePaise;
+  const totalPayable = Math.max(0, feePaise - discountPaise);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (blocked) return;
+    // The version the sheet read when it opened (or re-read after a refusal): without it nothing is sent (the action would refuse it).
+    if (!context) return;
+    if (consultationFee === null) {
+      setFeeError("Enter the consultation fee.");
+      return;
+    }
+    if (discountTooLarge) return;
+    const expectedVersion = context.visit.rowVersion;
 
     startTransition(async () => {
       try {
@@ -209,19 +273,23 @@ export function SignAndBillModal({
           completeAndBillConsultation({
             visit_id: visitId,
             patient_id: patientId,
-            consultation_fee: consultationFee,
+            consultation_fee: fromPaise(consultationFee),
             additional_items: [],
-            discount: discount,
+            discount: fromPaise(discountPaise),
             payment_collected: collecting,
-            payment_method: paymentMethod,
+            payment_method: method,
             reference_number: referenceNumber.trim() || undefined,
             send_whatsapp: whatsapp.available && sendWhatsapp,
             client_request_id: clientRequestId,
+            expected_version: expectedVersion,
           })
         );
 
         if (!result.ok) {
           setError(result.error.message || "Failed to finalize consultation and billing.");
+          // ROW_CHANGED (09E R-19): the visit moved on another device; nothing was signed. The fixed message stays, the context is read again (the new
+          // version), and the doctor's fee, discount and choices are kept.
+          if (isRowChanged(result.error)) await contextQuery.refetch();
           return;
         }
         const res = result.value;
@@ -414,7 +482,7 @@ export function SignAndBillModal({
                         {receiptState?.kind === "already_billed"
                           ? receiptState.message
                           : receiptState?.kind === "paid"
-                            ? `Official clinic receipt for ₹${totalPayable} (${paymentMethod.toUpperCase()}).`
+                            ? `Official clinic receipt for ${formatINR(totalPayable)} (${method.toUpperCase()}).`
                             : "Receipt bill routed to reception for payment collection."}
                       </p>
                       {invWaError && (
@@ -496,7 +564,7 @@ export function SignAndBillModal({
             <SheetHeader title="Complete & Sign Consultation" description="Finalize clinical prescription and record visit checkout" />
 
             {/* Form Body */}
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <form ref={formRef} noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
               <SheetBody>
               {error && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
@@ -524,47 +592,72 @@ export function SignAndBillModal({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Consultation Fee (₹)" htmlFor="consultation_fee" required>
-                    <div className="relative">
-                      <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        id="consultation_fee"
-                        type="number"
-                        min="0"
-                        step="10"
-                        required
-                        value={consultationFee}
-                        onChange={(e) => setConsultationFee(Number(e.target.value))}
-                        className="ps-7 font-semibold"
-                      />
+                {contextError ? (
+                  <div role="alert" data-sign-bill-context="failed" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="flex-1 space-y-2">
+                      <p>{contextError}</p>
+                      <Button type="button" size="sm" variant="secondary" loading={contextQuery.isFetching} onClick={() => void contextQuery.refetch()}>
+                        Try again
+                      </Button>
                     </div>
+                  </div>
+                ) : null}
+
+                {context?.invoice ? (
+                  <div role="note" data-sign-bill-invoice="" className="p-3 rounded-xl bg-accent-subtle border border-accent-border flex items-center gap-2.5 text-xs text-gray-900">
+                    <Receipt className="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+                    <p>
+                      This visit was billed at the desk ({formatINR(context.invoice.totalPaise)}, {formatINR(context.invoice.paidPaise)} collected). Signing will not bill it again.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-sign-bill-ready={context ? "" : undefined}>
+                  <Field label="Consultation Fee" htmlFor="consultation_fee" required error={feeError ?? undefined}>
+                    <MoneyInput
+                      id="consultation_fee"
+                      value={consultationFee}
+                      disabled={!context}
+                      placeholder={context ? "Enter the fee" : "Loading…"}
+                      onValueChange={(paise) => {
+                        setConsultationFee(paise);
+                        if (paise !== null) setFeeError(null);
+                      }}
+                      className="font-semibold"
+                    />
                   </Field>
 
-                  <Field label="Discount (₹)" htmlFor="discount">
-                    <div className="relative">
-                      <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">
-                        ₹
-                      </span>
-                      <Input
-                        id="discount"
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={discount}
-                        onChange={(e) => setDiscount(Number(e.target.value))}
-                        className="ps-7 font-semibold"
-                      />
-                    </div>
+                  <Field label="Discount" htmlFor="discount" error={discountTooLarge ? "The discount cannot be more than the fee." : undefined}>
+                    <MoneyInput
+                      id="discount"
+                      value={discount}
+                      disabled={!context}
+                      onValueChange={setDiscount}
+                      className="font-semibold"
+                    />
                   </Field>
                 </div>
+
+                {/* D-11: the chips are the clinic's own fees (no hard-coded amounts). */}
+                {feeChips(context?.fee).length > 0 ? (
+                  <ChipGroup
+                    type="single"
+                    aria-label="Clinic fees"
+                    items={feeChips(context?.fee)}
+                    value={consultationFee === null ? "" : String(consultationFee)}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setConsultationFee(Number(value));
+                      setFeeError(null);
+                    }}
+                  />
+                ) : null}
 
                 {/* Total Payable Banner */}
                 <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-600">Net Amount Payable:</span>
-                  <span className="text-lg font-bold text-gray-900">₹{totalPayable}</span>
+                  <span className="text-lg font-bold text-gray-900" data-sign-bill-total="">{formatINR(totalPayable)}</span>
                 </div>
 
                 {/* Payment Collection Toggle (collectors only, PO-3); everyone else routes the bill to reception */}
@@ -610,12 +703,14 @@ export function SignAndBillModal({
                   {paymentCollected && (
                     <div className="pt-2 border-t border-gray-100 space-y-3">
                       <div className="grid grid-cols-3 gap-2">
+                        {methods.includes("cash") && (
                         <button
                           type="button"
+                          aria-pressed={method === "cash"}
                           onClick={() => setPaymentMethod("cash")}
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
-                            paymentMethod === "cash"
+                            method === "cash"
                               ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
@@ -623,13 +718,16 @@ export function SignAndBillModal({
                           <Banknote className="w-4 h-4" />
                           <span>Cash</span>
                         </button>
+                        )}
 
+                        {methods.includes("upi") && (
                         <button
                           type="button"
+                          aria-pressed={method === "upi"}
                           onClick={() => setPaymentMethod("upi")}
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
-                            paymentMethod === "upi"
+                            method === "upi"
                               ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
@@ -637,13 +735,16 @@ export function SignAndBillModal({
                           <QrCode className="w-4 h-4" />
                           <span>UPI QR</span>
                         </button>
+                        )}
 
+                        {methods.includes("card") && (
                         <button
                           type="button"
+                          aria-pressed={method === "card"}
                           onClick={() => setPaymentMethod("card")}
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
-                            paymentMethod === "card"
+                            method === "card"
                               ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
@@ -651,9 +752,10 @@ export function SignAndBillModal({
                           <CreditCard className="w-4 h-4" />
                           <span>Card / POS</span>
                         </button>
+                        )}
                       </div>
 
-                      {paymentMethod !== "cash" && (
+                      {method !== "cash" && (
                         <Field label="Transaction Ref / UTR #" htmlFor="ref_num">
                           <Input
                             id="ref_num"
@@ -675,12 +777,13 @@ export function SignAndBillModal({
 
               {/* Action Footer */}
               <SheetFooter>
+                <SaveStatus {...saveStatus} className="me-auto" />
                 <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>
                   Back to Editing
                 </Button>
 
-                <Button type="submit" disabled={isPending || blocked} aria-describedby={blocked ? "finish-sign-blocked" : undefined} startIcon={<ShieldCheck />} endIcon={<ArrowRight />}>
-                  {isPending ? "Finalizing..." : collecting ? `Sign & Collect ₹${totalPayable}` : "Sign & Route to Reception"}
+                <Button type="submit" disabled={isPending || blocked || !context} aria-describedby={blocked ? "finish-sign-blocked" : undefined} startIcon={<ShieldCheck />} endIcon={<ArrowRight />}>
+                  {isPending ? "Finalizing..." : collecting ? `Sign & Collect ${formatINR(totalPayable)}` : "Sign & Route to Reception"}
                 </Button>
                 {blocked && (
                   <span id="finish-sign-blocked" className="sr-only">
@@ -713,4 +816,13 @@ function WhatsAppUnavailable({ reason }: { reason?: string }) {
       <span>{text}</span>
     </span>
   );
+}
+
+/** The fee chips (D-11): the clinic's consultation and follow-up fee as they are now; a fee the clinic did not set is not offered. */
+function feeChips(fee: { consultation: number | null; followup: number | null } | undefined): { value: string; label: string; meta: string }[] {
+  if (!fee) return [];
+  const chips: { value: string; label: string; meta: string }[] = [];
+  if (fee.consultation !== null) chips.push({ value: String(fee.consultation), label: "Consultation", meta: formatINR(fee.consultation) });
+  if (fee.followup !== null && fee.followup !== fee.consultation) chips.push({ value: String(fee.followup), label: "Follow-up", meta: formatINR(fee.followup) });
+  return chips;
 }

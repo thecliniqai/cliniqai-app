@@ -184,6 +184,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/billing/actions.ts#createInvoice": "billing:collect",
   "features/billing/actions.ts#deleteInvoiceItem": "billing:collect",
   "features/billing/actions.ts#getInvoiceReceiptPdfSignedUrl": "appointments:view",
+  // V2-10 10-02 (D-10): Sign & Bill's one read on open (public.sign_and_bill_context, INVOKER; the database also requires the visit's own doctor).
+  "features/billing/actions.ts#getSignAndBillContext": "consultations:edit",
   "features/billing/actions.ts#getVisitBillingDetails": "appointments:view",
   "features/billing/actions.ts#recordPayment": "billing:collect",
   "features/billing/actions.ts#sendConsolidatedConsultationWhatsApp": "prescriptions:view",
