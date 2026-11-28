@@ -14,7 +14,6 @@ Severity is the finding's in this application, not the scanner's label. Lane 14a
 | SEC-14-007 | Semgrep community `react-insecure-request` | `scripts/security/zap-local.mjs` polls `http://127.0.0.1:3100` | Info | Verified | Loopback e2e server by design; `nosemgrep` at the line | lane 14a |
 | SEC-14-008 | Plan D-8 | An upload page accepted any declared body size from a signed-in caller up to Next's 4 MB action limit | Low | Fixed | `declaredBodyExceedsUploadLimit` (413 above 4.5 MB before session work); tests/api/proxy-body-limit.spec.ts | lane 14a |
 | SEC-14-009 | P1-18 | No CSP, Referrer-Policy, Permissions-Policy, COOP or HSTS on app pages | Medium | Fixed | Nonce CSP + headers (lib/security/headers.ts, proxy.ts, next.config.ts); tests/security/csp-headers.spec.ts; tests/e2e/security/csp.spec.ts (injected inline script blocked); zero-violation check on the whole PR lane (tests/e2e/fixtures.ts) | lane 14a |
-
 | SEC-14-010 | ZAP baseline (CI 46113053742) | 10055 CSP `style-src 'unsafe-inline'` | Low | Risk-accepted | D-14a-2 (React style attributes) | — |
 | SEC-14-011 | ZAP baseline | 10202 Absence of anti-CSRF tokens on /login, /forgot-password | Info | Verified | Forms submit by Server Action (Next's Origin check) or script; no cookie-authenticated form POST | — |
 | SEC-14-012 | ZAP baseline | 10037 `X-Powered-By: Next.js` | Low | Fixed | `poweredByHeader: false` | lane 14a |
